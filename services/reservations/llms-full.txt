@@ -1268,47 +1268,20 @@
     };
   </file>
   <file path="src/routes/health.ts">
-    type HealthRouteHandler = RouteHandlerMethod<
-      RawServerDefault,
-      IncomingMessage,
-      ServerResponse,
-      { Reply: HealthResponse }
-    >;
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      // /api/health — used by DO App Platform internal health checks (direct container access)
-      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
-      fastify.get(
-        "/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealth" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    
-      // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
-      // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApi" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    
-      // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
-      // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/v1/reservations/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApiReservations" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
+      await fastify.register(registerHealthRoutes, {
+        prisma,
+        getSlowQueryStats,
+        getServiceStatus,
+        getPoolMetrics,
+        latencyTracker,
+        checkAuth0,
+        routes: [
+          { path: "/health", operationId: "getHealth" },
+          { path: "/api/health", operationId: "getHealthApi" },
+          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+        ],
+      });
     };
   </file>
   <file path="src/routes/holds.ts">
@@ -1607,32 +1580,32 @@
               .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
-          const result = await holdService.convertToReservation(
-            request.params.id,
+          const result = await confirmHold({
+            holdId: request.params.id,
             sessionId,
-            request.body
-          );
+            guestDetails: request.body,
+          });
     
           if (!result.success) {
-            const error = result.error ?? "Failed to confirm hold";
-            let statusCode: number;
-            let title: string;
+            const statusMap: Record<string, number> = {
+              NOT_FOUND: 404,
+              EXPIRED: 410,
+              SESSION_MISMATCH: 403,
+              CONFLICT: 409,
+            };
+            const titleMap: Record<string, string> = {
+              NOT_FOUND: "Not Found",
+              EXPIRED: "Hold Expired",
+              SESSION_MISMATCH: "Forbidden",
+              CONFLICT: "Conflict",
+            };
+            const statusCode = statusMap[result.errorCode] ?? 409;
+            const title = titleMap[result.errorCode] ?? "Conflict";
     
-            if (error.includes("not found") || error.includes("expired")) {
-              statusCode = 404;
-              title = "Not Found";
-            } else if (error.includes("Session ID")) {
-              statusCode = 403;
-              title = "Forbidden";
-            } else {
-              statusCode = 409;
-              title = "Conflict";
-            }
-    
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
           }
     
-          return reply.code(201).send({ data: result.reservation! });
+          return reply.code(201).send({ data: result.reservation });
         }
       );
     };
@@ -3934,6 +3907,15 @@
       return largestRule.durationMinutes + extraTime;
     }
   </file>
+  <file path="src/services/confirm-hold.ts">
+    type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+    export interface ConfirmHoldInput {
+      holdId: string;
+      sessionId?: string;
+      guestDetails: ConfirmHoldRequest;
+      userId?: string;
+    }
+  </file>
   <file path="src/services/database.ts">
     export const prisma = db.prisma as unknown as PrismaClient;
     export const getSlowQueryStats = db.getSlowQueryStats;
@@ -4011,28 +3993,6 @@
         tags: guest.tags as string[] | null,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
-      };
-    }
-  </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
       };
     }
   </file>
@@ -4181,25 +4141,48 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    function validateCorsOrigins(origins: string[]): string[] {
-      const validPatterns = [
-        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
-      ];
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+      const fastify = await createServiceApp(
+        {
+          swagger: {
+            title: "MBE Reservations API",
+            description: "API for managing table reservations and availability",
+            serverUrl: "http://localhost:3004",
+          },
+          registerSchemas,
+        },
+        options
+      );
     
-      const validated: string[] = [];
-      for (const origin of origins) {
-        const trimmed = origin.trim();
-        if (validPatterns.some((p) => p.test(trimmed))) {
-          validated.push(trimmed);
-        } else {
-          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
-        }
-      }
-      return validated;
-    }
-    export interface AppOptions {
-      logger?: boolean | object;
+      // Register routes
+      await fastify.register(healthRoutes);
+      await fastify.register(readinessRoutes);
+      await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
+      await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+      await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+      await fastify.register(availabilityRoutes, {
+        prefix: "/api/v1/availability",
+      });
+      await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
+      await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
+      await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+    
+      // Public routes (no auth required)
+      await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicAvailabilityRoutes, {
+        prefix: "/public/v1/venues",
+      });
+      await fastify.register(publicHoldRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicReservationRoutes, {
+        prefix: "/public/v1/venues",
+      });
+      await fastify.register(confirmAttendanceRoutes);
+      await fastify.register(manageReservationRoutes);
+      await fastify.register(cancelReservationRoutes);
+      await fastify.register(modifyReservationRoutes);
+    
+      return fastify;
     }
   </file>
   <file path="src/index.ts">

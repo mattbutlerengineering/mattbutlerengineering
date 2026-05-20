@@ -63,11 +63,6 @@
   </file>
   <file path="src/routes/health.ts">
     <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
-    <item priority="high">
       export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
@@ -181,6 +176,19 @@
       export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
     </item>
   </file>
+  <file path="src/services/confirm-hold.ts">
+    <item priority="high">
+      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+    </item>
+    <item priority="low">
+      interface ConfirmHoldInput {
+        holdId: string;
+        sessionId?: string;
+        guestDetails: ConfirmHoldRequest;
+        userId?: string;
+      }
+    </item>
+  </file>
   <file path="src/services/database.ts">
     <item priority="high">
       export const prisma: unknown;
@@ -233,17 +241,6 @@
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/health-checks.ts">
-    <item priority="high">
-      export function recordDbLatency(ms: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkLatencyAnomaly(currentMs: number): {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      } { /* ... */ }
     </item>
   </file>
   <file path="src/services/hold.ts">
@@ -327,13 +324,8 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    <item priority="medium">
-      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface AppOptions {
-        logger?: boolean | object;
-      }
+    <item priority="high">
+      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
   <file path="src/index.ts">
