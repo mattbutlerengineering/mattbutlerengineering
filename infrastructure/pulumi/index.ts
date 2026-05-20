@@ -305,17 +305,25 @@ const _genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
 // ── Worker Routes ───────────────────────────────────────────────────
 // Worker intercepts all traffic to mattbutlerengineering.com and www.
 // Rollback: delete these routes in CF dashboard (instant).
-const _workerRoute = new cloudflare.WorkersRoute("edge-router-route", {
-  zoneId: cloudflareZoneId,
-  pattern: `${domain}/*`,
-  script: workerScript.scriptName,
-});
+const _workerRoute = new cloudflare.WorkersRoute(
+  "edge-router-route",
+  {
+    zoneId: cloudflareZoneId,
+    pattern: `${domain}/*`,
+    script: workerScript.scriptName,
+  },
+  { import: "dfed09378e547f95a3bd645c55ef777d/9ec4971bf1844e1da9c1b2a6fd6f5f94" }
+);
 
-const _wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
-  zoneId: cloudflareZoneId,
-  pattern: `www.${domain}/*`,
-  script: workerScript.scriptName,
-});
+const _wwwWorkerRoute = new cloudflare.WorkersRoute(
+  "edge-router-www-route",
+  {
+    zoneId: cloudflareZoneId,
+    pattern: `www.${domain}/*`,
+    script: workerScript.scriptName,
+  },
+  { import: "dfed09378e547f95a3bd645c55ef777d/37cfa4e4200048148c4e8f1e7b29f8cb" }
+);
 
 // ── DNS Records ─────────────────────────────────────────────────────
 // Root domain uses AAAA 100:: (Cloudflare proxy placeholder) so the
