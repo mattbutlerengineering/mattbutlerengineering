@@ -94,7 +94,6 @@ beforeAll(async () => {
         infra.appUrl,
         infra.apiUrl,
         infra.healthKvNamespaceId,
-        infra.branchProtectionId,
       ])
       .apply(() => {
         resolve();
@@ -246,14 +245,6 @@ describe("Naming Conventions", () => {
       expect(client).toBeDefined();
       expect(client!.name).toContain(PREFIX);
       expect(client!.inputs.name).toBe(`${PREFIX}-hospitality`);
-    });
-  });
-
-  describe("GitHub Resources", () => {
-    it("branch protection has descriptive logical name", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      expect(bp).toBeDefined();
-      expect(bp!.name).toBe("main-branch-protection");
     });
   });
 });
@@ -646,60 +637,6 @@ describe("Configuration Validation", () => {
       expect(scopes).toContain("email");
     });
   });
-
-  describe("GitHub Configuration", () => {
-    it("branch protection targets the main branch", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      expect(bp!.inputs.pattern).toBe("main");
-    });
-
-    it("branch protection requires PR reviews with stale dismissal", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const reviews = bp!.inputs.requiredPullRequestReviews as any[];
-      expect(reviews).toHaveLength(1);
-      expect(reviews[0].requiredApprovingReviewCount).toBe(1);
-      expect(reviews[0].dismissStaleReviews).toBe(true);
-    });
-
-    it("branch protection requires strict status checks", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const checks = bp!.inputs.requiredStatusChecks as any[];
-      expect(checks).toHaveLength(1);
-      expect(checks[0].strict).toBe(true);
-      expect(checks[0].contexts.length).toBeGreaterThan(5);
-    });
-
-    it("branch protection enforces linear history", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      expect(bp!.inputs.requiredLinearHistory).toBe(true);
-    });
-
-    it("branch protection prevents force pushes and deletions", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      expect(bp!.inputs.allowsForcePushes).toBe(false);
-      expect(bp!.inputs.allowsDeletions).toBe(false);
-    });
-
-    it("branch protection enforces admin rules", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      expect(bp!.inputs.enforceAdmins).toBe(true);
-    });
-
-    it("required status checks include critical CI jobs", () => {
-      const bp = findResource("github:index/branchProtection:BranchProtection");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const checks = bp!.inputs.requiredStatusChecks as any[];
-      const contexts = checks[0].contexts as string[];
-
-      expect(contexts).toContain("Lint");
-      expect(contexts).toContain("Typecheck");
-      expect(contexts).toContain("Build");
-      expect(contexts).toContain("Validate Migrations");
-      expect(contexts).toContain("Container Security Scan");
-    });
-  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -741,12 +678,6 @@ describe("Exported Outputs", () => {
     expect(healthId).toBeDefined();
   });
 
-  it("exports branchProtectionId", async () => {
-    const bpId = await resolveOutput(infra.branchProtectionId as pulumi.Output<string>);
-    expect(bpId).toBeDefined();
-    expect(bpId).toContain("main-branch-protection");
-  });
-
   it("exports auth0 identifiers", () => {
     expect(infra.auth0ApiIdentifier).toBeDefined();
     expect(infra.auth0ClientId).toBeDefined();
@@ -771,10 +702,5 @@ describe("Resource Inventory", () => {
   it("creates Auth0 resources (API + client + grant)", () => {
     const auth0Resources = createdResources.filter((r) => r.type.startsWith("auth0:"));
     expect(auth0Resources.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it("creates branch protection rule", () => {
-    const bp = findResources("github:index/branchProtection:BranchProtection");
-    expect(bp).toHaveLength(1);
   });
 });
