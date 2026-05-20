@@ -103,3 +103,10 @@ e2e/screenshots/
 
 *storybook.log
 storybook-static
+
+# Playwright MCP browser session artifacts
+.playwright-mcp/
+
+# AI-generated plan/spec docs (superpowers artifacts)
+docs/superpowers/plans/
+docs/superpowers/specs/
