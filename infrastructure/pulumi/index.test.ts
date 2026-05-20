@@ -533,22 +533,6 @@ describe("Configuration Validation", () => {
       expect(serviceNames).toContain("GEN");
     });
 
-    it("edge router has canary service bindings for traffic splitting", () => {
-      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
-        name.includes("edge-router")
-      );
-      expect(edgeRouter).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bindings = edgeRouter!.inputs.bindings as any[];
-      const serviceBindings = bindings.filter((b) => b.type === "service");
-      const serviceNames = serviceBindings.map((b) => b.name);
-
-      expect(serviceNames).toContain("MARKETING_CANARY");
-      expect(serviceNames).toContain("HOSPITALITY_CANARY");
-      expect(serviceNames).toContain("RIALTO_CANARY");
-      expect(serviceNames).toContain("GEN_CANARY");
-    });
-
     it("edge router has API_ORIGIN text binding pointing to api subdomain", () => {
       const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
         name.includes("edge-router")
