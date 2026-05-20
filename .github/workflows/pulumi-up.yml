@@ -66,11 +66,24 @@ jobs:
             --format=esm \
             --outfile=infrastructure/worker/dist/edge-router.js
 
-      - name: Pulumi Cancel (Clear stale locks)
+      - name: Pulumi Cancel + Clear Pending Operations
         run: |
           cd infrastructure/pulumi
           pulumi login "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
           pulumi cancel --stack organization/mbe-infrastructure/prod --yes || true
+          # Remove stale pending operations from cancelled runs.
+          # Without this, pulumi up tries to reconcile all pending ops first.
+          pulumi stack export --stack organization/mbe-infrastructure/prod \
+            | python3 -c "
+          import sys, json
+          state = json.load(sys.stdin)
+          deployment = state.get('deployment', {})
+          pending = deployment.get('pending_operations', [])
+          if pending:
+              print(f'Clearing {len(pending)} pending operations', file=sys.stderr)
+              deployment['pending_operations'] = []
+          json.dump(state, sys.stdout)
+          " | pulumi stack import --stack organization/mbe-infrastructure/prod
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
