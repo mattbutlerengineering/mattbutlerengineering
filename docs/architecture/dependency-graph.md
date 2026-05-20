@@ -96,7 +96,12 @@ flowchart TD
   api_versioning --> config
   auth --> types
   auth --> config
+  database --> api_versioning
+  database --> auth
+  database --> observability
+  database --> sentry
   database --> config
+  database --> types
   feature_flags --> config
   mcp_server --> config
   notifications --> config
