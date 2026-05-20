@@ -168,6 +168,26 @@
     }
   </file>
   </section>
+  <section priority="medium" role="prisma.config.ts">
+  <file path="prisma.config.ts">
+    function loadEnvFile(): void {
+      try {
+        const content = readFileSync(".env", "utf-8");
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx === -1) continue;
+          const key = trimmed.slice(0, eqIdx);
+          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
+          if (!process.env[key]) process.env[key] = val;
+        }
+      } catch {
+        // .env not present (CI, Docker) — rely on environment
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="routes">
   <file path="src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
@@ -487,174 +507,19 @@
     };
   </file>
   <file path="src/routes/health.ts">
-    export const healthRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-      const healthSchema = {
-        summary: "Service health check",
-        description: "Check agent service health and database connectivity.",
-        tags: ["Health"],
-        response: {
-          200: {
-            description: "Service health status",
-            type: "object",
-            properties: {
-              status: { type: "string", enum: ["ok", "degraded", "error"] },
-              version: { type: "string" },
-              timestamp: { type: "string", format: "date-time" },
-              checks: {
-                type: "object",
-                additionalProperties: {
-                  type: "object",
-                  additionalProperties: true,
-                  properties: {
-                    status: { type: "string", enum: ["ok", "error", "degraded"] },
-                    message: { type: "string" },
-                    latency: { type: "number" },
-                  },
-                },
-              },
-              error_rates: {
-                type: "object",
-                properties: {
-                  degraded: { type: "boolean" },
-                  endpoints: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        endpoint: { type: "string" },
-                        total: { type: "number" },
-                        errors: { type: "number" },
-                        rate: { type: "number" },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      };
-    
-      const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
-        const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
-        const { apiVersion, successorVersion, sunsetDate } = request.server as unknown as {
-          apiVersion: string;
-          successorVersion?: string;
-          sunsetDate: string;
-        };
-    
-        const dbStart = Date.now();
-        try {
-          await prisma.$queryRaw`SELECT 1`;
-          const dbLatency = Date.now() - dbStart;
-          const anomaly = checkLatencyAnomaly(dbLatency);
-          recordDbLatency(dbLatency);
-          checks.database = {
-            status: anomaly.isAnomaly ? "error" : "ok",
-            latency: dbLatency,
-            ...(anomaly.isAnomaly && {
-              message: `Latency anomaly: ${dbLatency}ms vs rolling avg ${anomaly.rollingAvg}ms`,
-            }),
-          };
-        } catch (error) {
-          checks.database = {
-            status: "error",
-            message: error instanceof Error ? error.message : "Database connection failed",
-            latency: Date.now() - dbStart,
-          };
-        }
-    
-        const slowQueries = getSlowQueryStats();
-        const dbStatus = checks.database?.status ?? "ok";
-        const slowQueryStatus = getServiceStatus();
-    
-        checks.slow_queries = {
-          status: slowQueryStatus,
-          message: `${slowQueries.count5min} slow queries in last 5min (slowest: ${slowQueries.slowestMs}ms)`,
-          latency: slowQueries.slowestMs,
-        };
-    
-        const auth0Result = await checkAuth0();
-        checks.auth0 = {
-          status: auth0Result.status,
-          latency: auth0Result.latency,
-          ...(auth0Result.message && { message: auth0Result.message }),
-        };
-    
-        const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
-          .rateLimitMonitor;
-        const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
-        checks.rate_limits = {
-          status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
-          ...rateLimitSnapshot.stats,
-          ...(rateLimitSnapshot.isDegraded && {
-            message: `High rate limit activity: ${rateLimitSnapshot.stats.hits_last_hour} hits from ${rateLimitSnapshot.stats.blocked_ips} IPs`,
-          }),
-        };
-    
-        const poolMetrics = getPoolMetrics();
-        checks.pool = {
-          status: poolMetrics.isDegraded ? "degraded" : "ok",
-          ...(poolMetrics.isDegraded && {
-            message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy}/${poolMetrics.size} busy)`,
-          }),
-          ...{
-            active: poolMetrics.active,
-            idle: poolMetrics.idle,
-            busy: poolMetrics.busy,
-            size: poolMetrics.size,
-            utilization: poolMetrics.utilization,
-          },
-        };
-    
-        const errorRates = fastify.getErrorRates();
-        const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
-    
-        const hasErrors =
-          dbStatus === "error" ||
-          slowQueryStatus === "degraded" ||
-          auth0Result.status === "degraded" ||
-          rateLimitSnapshot.isDegraded ||
-          poolMetrics.isDegraded ||
-          errorRates.degraded;
-    
-        return {
-          status: hasErrors ? "degraded" : "ok",
-          version: "1.0.0",
-          apiVersion,
-          successorVersion,
-          sunsetDate,
-          timestamp: new Date().toISOString(),
-          checks,
-          error_rates: errorRates,
-          ...(errorRates.degraded && {
-            message: `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`,
-          }),
-        };
-      };
-    
-      // /health — used by DO App Platform internal health checks (direct container access)
-      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
-      fastify.get<{ Reply: HealthResponse }>(
-        "/health",
-        {
-          schema: { ...healthSchema, operationId: "getAgentHealth" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
-    
-      // /api/gen/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/gen")
-      // Required for synthetic monitoring hitting api.mattbutlerengineering.com/api/gen/health
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get<{ Reply: HealthResponse }>(
-        "/api/gen/health",
-        {
-          schema: { ...healthSchema, operationId: "getAgentHealthApiGen" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler
-      );
+    export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+      await fastify.register(registerHealthRoutes, {
+        prisma,
+        getSlowQueryStats,
+        getServiceStatus,
+        getPoolMetrics,
+        latencyTracker,
+        checkAuth0,
+        routes: [
+          { path: "/health", operationId: "getAgentHealth" },
+          { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
+        ],
+      });
     };
   </file>
   <file path="src/routes/orchestrate.ts">
@@ -1080,28 +945,6 @@
     export const prisma = db.prisma as unknown as PrismaClient;
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
   <file path="src/services/liveness-monitor.ts">
     async function checkStaleSessions(): Promise<void> {
       try {
@@ -1230,25 +1073,32 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    function validateCorsOrigins(origins: string[]): string[] {
-      const validPatterns = [
-        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
-      ];
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+      const fastify = await createServiceApp(
+        {
+          swagger: {
+            title: "MBE Agent API",
+            description: "API for AI agent sessions and orchestration",
+            serverUrl: "http://localhost:3003",
+          },
+          registerSchemas,
+        },
+        options
+      );
     
-      const validated: string[] = [];
-      for (const origin of origins) {
-        const trimmed = origin.trim();
-        if (validPatterns.some((p) => p.test(trimmed))) {
-          validated.push(trimmed);
-        } else {
-          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
-        }
-      }
-      return validated;
-    }
-    export interface AppOptions {
-      logger?: boolean | object;
+      // Register routes
+      await fastify.register(healthRoutes);
+      await fastify.register(readinessRoutes);
+      await fastify.register(sessionRoutes, { prefix: "/v1/sessions" });
+      await fastify.register(sessionEventsRoutes, { prefix: "/v1/sessions" });
+      await fastify.register(orchestrateRoutes, { prefix: "/v1/orchestrate" });
+      await fastify.register(webhookRoutes, { prefix: "/v1/webhooks" });
+      await fastify.register(remediationRoutes, { prefix: "/v1/webhooks" });
+      await fastify.register(genChatRoutes);
+      await fastify.register(genSpecsRoutes);
+      await fastify.register(genAgentRoutes);
+    
+      return fastify;
     }
   </file>
   <file path="src/index.ts">
