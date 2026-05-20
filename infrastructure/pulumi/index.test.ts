@@ -69,7 +69,6 @@ const configEntries: Record<string, string> = {
   otelHeaders: "Authorization=Basic abc123",
   aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
-  e2eUserPassword: "test-password-123",
 };
 
 for (const [key, value] of Object.entries(configEntries)) {
@@ -95,7 +94,6 @@ beforeAll(async () => {
         infra.appUrl,
         infra.apiUrl,
         infra.healthKvNamespaceId,
-        infra.pulumiStateBucketId,
         infra.branchProtectionId,
       ])
       .apply(() => {
@@ -150,13 +148,6 @@ describe("Naming Conventions", () => {
   const PREFIX = "mattbutlerengineering";
 
   describe("Cloudflare Resources", () => {
-    it("R2 bucket uses project prefix", () => {
-      const bucket = findResource("cloudflare:index/r2Bucket:R2Bucket");
-      expect(bucket).toBeDefined();
-      expect(bucket!.name).toContain(PREFIX);
-      expect(bucket!.inputs.name).toBe(`${PREFIX}-pulumi-state`);
-    });
-
     it("KV namespaces use project prefix with descriptive suffix", () => {
       const kvNamespaces = findResources("cloudflare:index/workersKvNamespace:WorkersKvNamespace");
       expect(kvNamespaces.length).toBeGreaterThanOrEqual(3);
@@ -493,12 +484,6 @@ describe("Configuration Validation", () => {
   });
 
   describe("Cloudflare Configuration", () => {
-    it("R2 bucket is in enam region", () => {
-      const bucket = findResource("cloudflare:index/r2Bucket:R2Bucket");
-      expect(bucket).toBeDefined();
-      expect(bucket!.inputs.location).toBe("enam");
-    });
-
     it("all Cloudflare resources use the correct account ID", () => {
       const cfResources = createdResources.filter((r) => r.type.startsWith("cloudflare:"));
       const resourcesWithAccount = cfResources.filter((r) => "accountId" in r.inputs);
@@ -766,11 +751,6 @@ describe("Exported Outputs", () => {
     expect(infra.auth0ApiIdentifier).toBeDefined();
     expect(infra.auth0ClientId).toBeDefined();
   });
-
-  it("exports pulumiStateBucketId", async () => {
-    const id = await resolveOutput(infra.pulumiStateBucketId as pulumi.Output<string>);
-    expect(id).toContain("mattbutlerengineering-pulumi-state");
-  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -779,8 +759,8 @@ describe("Exported Outputs", () => {
 describe("Resource Inventory", () => {
   it("creates expected number of Cloudflare resources", () => {
     const cfResources = createdResources.filter((r) => r.type.startsWith("cloudflare:"));
-    // R2 bucket + 3 KV namespaces + 2 Workers + 2 routes + 3 DNS records = 11
-    expect(cfResources.length).toBeGreaterThanOrEqual(10);
+    // 3 KV namespaces + 2 Workers + 2 routes + 3 DNS records = 10
+    expect(cfResources.length).toBeGreaterThanOrEqual(9);
   });
 
   it("creates exactly one DigitalOcean App", () => {
