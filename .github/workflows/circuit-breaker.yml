@@ -34,6 +34,7 @@ jobs:
           sparse-checkout: |
             .github/circuit-breaker-state
           sparse-checkout-cone-mode: false
+          ref: circuit-breaker-state
           token: ${{ github.token }}
 
       - name: Configure GitHub CLI
@@ -114,7 +115,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$STATE_FILE"
           git commit -m "ci(circuit-breaker): persist state [skip ci]"
-          git push
+          git push origin HEAD:circuit-breaker-state
 
       - name: Create issue on circuit trip
         if: steps.check.outputs.blocked == 'true' || steps.analyze.outputs.blocked == 'true'
