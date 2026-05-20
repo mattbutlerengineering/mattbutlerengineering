@@ -22,7 +22,10 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 vi.mock("../services/hold.js", () => ({
-  holdService: { create: vi.fn(), release: vi.fn(), confirm: vi.fn(), getById: vi.fn() },
+  holdService: { create: vi.fn(), release: vi.fn(), getById: vi.fn(), maybeCleanup: vi.fn() },
+}));
+vi.mock("../services/confirm-hold.js", () => ({
+  confirmHold: vi.fn(),
 }));
 vi.mock("../services/availability.js", () => ({
   availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
@@ -85,7 +88,7 @@ vi.mock("jose", () => ({
 }));
 
 import { venueService } from "../services/venue.js";
-import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 
 const mockVenue = {
   id: "venue_1",
@@ -137,7 +140,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("creates reservation from hold and returns 201 with manage token", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({
+    vi.mocked(confirmHold).mockResolvedValueOnce({
       success: true,
       reservation: mockReservation,
     });
@@ -157,7 +160,11 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("returns 410 when hold is expired", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({ success: false, error: "Hold expired" });
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "Hold expired",
+      errorCode: "EXPIRED",
+    });
 
     const response = await app.inject({
       method: "POST",
@@ -170,9 +177,10 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
   it("returns 409 when hold confirmation fails for other reasons", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-    vi.mocked(holdService.confirm).mockResolvedValueOnce({
+    vi.mocked(confirmHold).mockResolvedValueOnce({
       success: false,
       error: "Table conflict",
+      errorCode: "CONFLICT",
     });
 
     const response = await app.inject({

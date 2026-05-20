@@ -10,6 +10,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 
 // Session ID header name
 const SESSION_ID_HEADER = "x-session-id";
@@ -356,32 +357,32 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
-      const result = await holdService.convertToReservation(
-        request.params.id,
+      const result = await confirmHold({
+        holdId: request.params.id,
         sessionId,
-        request.body
-      );
+        guestDetails: request.body,
+      });
 
       if (!result.success) {
-        const error = result.error ?? "Failed to confirm hold";
-        let statusCode: number;
-        let title: string;
+        const statusMap: Record<string, number> = {
+          NOT_FOUND: 404,
+          EXPIRED: 410,
+          SESSION_MISMATCH: 403,
+          CONFLICT: 409,
+        };
+        const titleMap: Record<string, string> = {
+          NOT_FOUND: "Not Found",
+          EXPIRED: "Hold Expired",
+          SESSION_MISMATCH: "Forbidden",
+          CONFLICT: "Conflict",
+        };
+        const statusCode = statusMap[result.errorCode] ?? 409;
+        const title = titleMap[result.errorCode] ?? "Conflict";
 
-        if (error.includes("not found") || error.includes("expired")) {
-          statusCode = 404;
-          title = "Not Found";
-        } else if (error.includes("Session ID")) {
-          statusCode = 403;
-          title = "Forbidden";
-        } else {
-          statusCode = 409;
-          title = "Conflict";
-        }
-
-        return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
       }
 
-      return reply.code(201).send({ data: result.reservation! });
+      return reply.code(201).send({ data: result.reservation });
     }
   );
 };

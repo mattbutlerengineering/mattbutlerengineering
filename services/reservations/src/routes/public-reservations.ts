@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
 import { createHmac } from "crypto";
 import { venueService } from "../services/venue.js";
-import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 
@@ -82,19 +82,30 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         } as never);
       }
 
-      const result = await holdService.confirm(
+      const result = await confirmHold({
         holdId,
-        { guestName, guestEmail, guestPhone, notes: specialRequests },
-        "public"
-      );
+        guestDetails: { guestName, guestEmail, guestPhone, notes: specialRequests },
+      });
 
-      if (!result.success || !result.reservation) {
-        const status = result.error?.includes("expired") ? 410 : 409;
-        return reply.status(status).send({
-          type: `https://httpproblems.com/http-status/${status}`,
-          title: status === 410 ? "Hold Expired" : "Booking Failed",
-          status,
-          detail: result.error ?? "Could not complete booking.",
+      if (!result.success) {
+        const statusMap: Record<string, number> = {
+          NOT_FOUND: 404,
+          EXPIRED: 410,
+          SESSION_MISMATCH: 403,
+          CONFLICT: 409,
+        };
+        const httpStatus = statusMap[result.errorCode] ?? 409;
+        const titleMap: Record<string, string> = {
+          NOT_FOUND: "Not Found",
+          EXPIRED: "Hold Expired",
+          SESSION_MISMATCH: "Forbidden",
+          CONFLICT: "Booking Failed",
+        };
+        return reply.status(httpStatus).send({
+          type: `https://httpproblems.com/http-status/${httpStatus}`,
+          title: titleMap[result.errorCode] ?? "Booking Failed",
+          status: httpStatus,
+          detail: result.error,
         } as never);
       }
 
