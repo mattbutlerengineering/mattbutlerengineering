@@ -21,36 +21,30 @@ const REQUIRED_STATUS_CHECKS = [
   "Validate Migrations",
 ] as const;
 
-const mainBranchProtection = new github.BranchProtection("main-branch-protection", {
-  repositoryId: REPO,
-  pattern: "main",
-
-  // Require pull request reviews before merging
-  requiredPullRequestReviews: [
-    {
-      requiredApprovingReviewCount: 1,
-      dismissStaleReviews: true,
-    },
-  ],
-
-  // Require status checks to pass before merging
-  requiredStatusChecks: [
-    {
-      strict: true,
-      contexts: [...REQUIRED_STATUS_CHECKS],
-    },
-  ],
-
-  // Enforce rules for administrators too
-  enforceAdmins: true,
-
-  // Enforce linear history (no merge commits)
-  requiredLinearHistory: true,
-
-  // Prevent force pushes and branch deletion
-  allowsForcePushes: false,
-  allowsDeletions: false,
-});
+const mainBranchProtection = new github.BranchProtection(
+  "main-branch-protection",
+  {
+    repositoryId: REPO,
+    pattern: "main",
+    requiredPullRequestReviews: [
+      {
+        requiredApprovingReviewCount: 1,
+        dismissStaleReviews: true,
+      },
+    ],
+    requiredStatusChecks: [
+      {
+        strict: true,
+        contexts: [...REQUIRED_STATUS_CHECKS],
+      },
+    ],
+    enforceAdmins: true,
+    requiredLinearHistory: true,
+    allowsForcePushes: false,
+    allowsDeletions: false,
+  },
+  { import: "mattbutlerengineering:main" }
+);
 
 // ── Exports ─────────────────────────────────────────────────────────
 export const branchProtectionId = mainBranchProtection.id;
