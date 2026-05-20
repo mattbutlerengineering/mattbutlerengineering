@@ -289,16 +289,7 @@ const SERVICE_ENDPOINTS = {
   agent: "/api/gen/health",
 };
 
-const STATIC_SITE_BINDINGS = [
-  "MARKETING",
-  "HOSPITALITY",
-  "RIALTO",
-  "GEN",
-  "MARKETING_CANARY",
-  "HOSPITALITY_CANARY",
-  "RIALTO_CANARY",
-  "GEN_CANARY",
-];
+const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
 
 const KV_KEYS = {
   ci: "ci/latest",
