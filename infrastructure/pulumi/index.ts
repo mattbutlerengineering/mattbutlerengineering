@@ -236,7 +236,13 @@ const apiApp = new digitalocean.App(
       ],
     },
   },
-  { customTimeouts: { create: "15m", update: "15m" } }
+  {
+    customTimeouts: { create: "15m", update: "15m" },
+    // DO adds default fields (features, scope, instance_count on jobs) that
+    // aren't in our spec, causing a diff on every run. Each diff triggers a
+    // full deployment (~30min). Ignore changes until we reconcile the spec.
+    ignoreChanges: ["spec"],
+  }
 );
 
 // API subdomain DNS — proxied: false so DO can verify domain and provision TLS
