@@ -76,6 +76,10 @@
   background: var(--rialto-border);
 }
 
+.walkInButton {
+  margin-inline-start: var(--rialto-space-xs);
+}
+
 /* Stats row */
 .statsRow {
   display: flex;

@@ -10,6 +10,19 @@
   --color-foreground: var(--rialto-text-primary);
 }
 
+/* Constrain viewport so the app shell (not body/html) scrolls */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 body {
   font-family: var(
     --rialto-font-sans,
