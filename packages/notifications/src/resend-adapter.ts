@@ -1,5 +1,5 @@
 import type { NotificationPort, BookingNotificationInput } from "./port.js";
-import { generateBookingIcal } from "./ical.js";
+import { buildBookingEmailContent } from "./booking-email-content.js";
 
 interface ResendClient {
   emails: {
@@ -26,33 +26,17 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-
-    const ical = generateBookingIcal(
-      {
-        reservationId: input.reservationId,
-        date: input.date,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        partySize: input.partySize,
-        guestName: input.guestName,
-        guestEmail: input.guestEmail,
-        venueName: input.venueName,
-        venueTimezone: input.venueTimezone,
-        sequence: input.sequence ?? 0,
-      },
-      "REQUEST"
-    );
-
+    const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
     await this.resend.emails.send({
       from: this.fromAddress,
       to: input.guestEmail,
-      subject: `Reservation Confirmed — ${input.venueName}`,
-      html: this.buildConfirmationHtml(input),
+      subject: content.subject,
+      html: content.html,
       attachments: [
         {
           filename: "reservation.ics",
-          content: ical,
-          contentType: "text/calendar; method=REQUEST",
+          content: content.ical,
+          contentType: `text/calendar; method=${content.icalMethod}`,
         },
       ],
     });
@@ -60,44 +44,28 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-
+    const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
     await this.resend.emails.send({
       from: this.fromAddress,
       to: input.guestEmail,
-      subject: `Reminder: Reservation at ${input.venueName}`,
-      html: this.buildReminderHtml(input),
+      subject: content.subject,
+      html: content.html,
     });
   }
 
   async sendBookingModified(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-
-    const ical = generateBookingIcal(
-      {
-        reservationId: input.reservationId,
-        date: input.date,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        partySize: input.partySize,
-        guestName: input.guestName,
-        guestEmail: input.guestEmail,
-        venueName: input.venueName,
-        venueTimezone: input.venueTimezone,
-        sequence: input.sequence ?? 1,
-      },
-      "REQUEST"
-    );
-
+    const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
     await this.resend.emails.send({
       from: this.fromAddress,
       to: input.guestEmail,
-      subject: `Updated: Reservation at ${input.venueName}`,
-      html: this.buildModifiedHtml(input),
+      subject: content.subject,
+      html: content.html,
       attachments: [
         {
           filename: "reservation.ics",
-          content: ical,
-          contentType: "text/calendar; method=REQUEST",
+          content: content.ical,
+          contentType: `text/calendar; method=${content.icalMethod}`,
         },
       ],
     });
@@ -105,77 +73,19 @@ export class ResendNotificationAdapter implements NotificationPort {
 
   async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
     if (!this.resend) return;
-
-    const ical = generateBookingIcal(
-      {
-        reservationId: input.reservationId,
-        date: input.date,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        partySize: input.partySize,
-        guestName: input.guestName,
-        guestEmail: input.guestEmail,
-        venueName: input.venueName,
-        venueTimezone: input.venueTimezone,
-        sequence: input.sequence ?? 0,
-      },
-      "CANCEL"
-    );
-
+    const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
     await this.resend.emails.send({
       from: this.fromAddress,
       to: input.guestEmail,
-      subject: `Cancelled: Reservation at ${input.venueName}`,
-      html: this.buildCancelledHtml(input),
+      subject: content.subject,
+      html: content.html,
       attachments: [
         {
           filename: "reservation.ics",
-          content: ical,
-          contentType: "text/calendar; method=CANCEL",
+          content: content.ical,
+          contentType: `text/calendar; method=${content.icalMethod}`,
         },
       ],
     });
-  }
-
-  private manageUrl(token: string): string {
-    return `${this.manageBaseUrl}?token=${token}`;
-  }
-
-  private buildConfirmationHtml(input: BookingNotificationInput): string {
-    return [
-      `<h1>Your reservation is confirmed</h1>`,
-      `<p><strong>${input.venueName}</strong></p>`,
-      `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-      input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
-      `<p><a href="${this.manageUrl(input.manageToken)}">Modify or Cancel</a></p>`,
-    ].join("\n");
-  }
-
-  private buildReminderHtml(input: BookingNotificationInput): string {
-    return [
-      `<h1>Your reservation is tomorrow</h1>`,
-      `<p><strong>${input.venueName}</strong></p>`,
-      `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-      input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
-      `<p><a href="${this.manageUrl(input.manageToken)}">Modify or Cancel</a></p>`,
-    ].join("\n");
-  }
-
-  private buildModifiedHtml(input: BookingNotificationInput): string {
-    return [
-      `<h1>Your reservation has been updated</h1>`,
-      `<p><strong>${input.venueName}</strong></p>`,
-      `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-      input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
-      `<p><a href="${this.manageUrl(input.manageToken)}">Modify or Cancel</a></p>`,
-    ].join("\n");
-  }
-
-  private buildCancelledHtml(input: BookingNotificationInput): string {
-    return [
-      `<h1>Your reservation has been cancelled</h1>`,
-      `<p><strong>${input.venueName}</strong></p>`,
-      `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    ].join("\n");
   }
 }
