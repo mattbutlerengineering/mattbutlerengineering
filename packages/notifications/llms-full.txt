@@ -1,5 +1,14 @@
 <codebase path="packages/notifications">
   <section priority="medium" role="src">
+  <file path="src/booking-email-content.ts">
+    export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+    export interface BookingEmailContent {
+      subject: string;
+      html: string;
+      ical?: string;
+      icalMethod?: "REQUEST" | "CANCEL";
+    }
+  </file>
   <file path="src/ical.ts">
     export interface IcalEventInput {
       reservationId: string;
