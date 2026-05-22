@@ -282,12 +282,7 @@ const SERVICE_ENDPOINTS = {
   agent: "/api/gen/health",
 };
 
-const STATIC_SITE_BINDINGS = [
-  "MARKETING",
-  "HOSPITALITY",
-  "RIALTO",
-  "GEN",
-];
+const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
 
 const KV_KEYS = {
   ci: "ci/latest",
@@ -951,8 +946,20 @@ async function handleFeatureFlags(request, env, url) {
   });
 }
 
+function writeAnalytics(env, request, route, statusCode, startTime) {
+  if (!env.ANALYTICS) return;
+  const country = request.headers.get("CF-IPCountry") || "unknown";
+  const elapsed = Date.now() - startTime;
+  env.ANALYTICS.writeDataPoint({
+    blobs: [route, request.method, country, new URL(request.url).pathname],
+    doubles: [statusCode, elapsed],
+    indexes: [route],
+  });
+}
+
 export default {
   async fetch(request, env) {
+    const startTime = Date.now();
     const url = new URL(request.url);
 
     // Generate or preserve request ID
@@ -1081,6 +1088,7 @@ export default {
       }
 
       // Pass through the response (including 4xx which should show app error pages)
+      writeAnalytics(env, request, "api", apiResponse.status, startTime);
       return apiResponse;
     }
 
@@ -1107,18 +1115,23 @@ export default {
     let prefix = "";
     let bindingOrigin = "";
 
+    let routeName = "marketing";
+
     if (url.pathname.startsWith("/hospitality")) {
       binding = env.HOSPITALITY;
       prefix = "/hospitality";
       bindingOrigin = "https://mattbutlerengineering-hospitality.workers.dev";
+      routeName = "hospitality";
     } else if (url.pathname.startsWith("/rialto")) {
       binding = env.RIALTO;
       prefix = "/rialto";
       bindingOrigin = "https://mattbutlerengineering-rialto-web.workers.dev";
+      routeName = "rialto";
     } else if (url.pathname.startsWith("/gen")) {
       binding = env.GEN;
       prefix = "/gen";
       bindingOrigin = "https://mattbutlerengineering-gen.workers.dev";
+      routeName = "gen";
     } else {
       binding = env.MARKETING;
       bindingOrigin = "https://mattbutlerengineering-marketing.workers.dev";
@@ -1174,6 +1187,7 @@ export default {
       }
     }
 
+    writeAnalytics(env, request, routeName, response.status, startTime);
     return addHeaders(response, url.pathname, nonce);
   },
 };

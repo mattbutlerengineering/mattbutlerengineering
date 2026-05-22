@@ -94,6 +94,12 @@ function createMockKv() {
   };
 }
 
+function createMockAnalytics() {
+  return {
+    writeDataPoint: vi.fn(),
+  };
+}
+
 function createEnv() {
   return {
     API_ORIGIN: "https://api.mattbutlerengineering.com",
@@ -102,6 +108,7 @@ function createEnv() {
     RIALTO: createMockBinding("RIALTO"),
     GEN: createMockBinding("GEN"),
     HEALTH_STATE: createMockKv(),
+    ANALYTICS: createMockAnalytics(),
   };
 }
 
@@ -630,6 +637,32 @@ describe("Edge Router", () => {
       );
       expect(response.status).toBe(200);
       expect(env.MARKETING.fetch).toHaveBeenCalled();
+    });
+  });
+
+  describe("Analytics Engine", () => {
+    it("writes analytics data point on static site request", async () => {
+      await edgeRouter.fetch(makeRequest("/"), env);
+
+      expect(env.ANALYTICS.writeDataPoint).toHaveBeenCalledTimes(1);
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      expect(call.blobs).toContain("marketing");
+      expect(call.doubles[0]).toBe(200);
+    });
+
+    it("records correct route target for each binding", async () => {
+      await edgeRouter.fetch(makeRequest("/hospitality/dashboard"), env);
+
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      expect(call.blobs).toContain("hospitality");
+    });
+
+    it("does not fail when ANALYTICS binding is absent", async () => {
+      const envWithoutAnalytics = { ...env };
+      delete envWithoutAnalytics.ANALYTICS;
+
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithoutAnalytics);
+      expect(response.status).toBe(200);
     });
   });
 });
