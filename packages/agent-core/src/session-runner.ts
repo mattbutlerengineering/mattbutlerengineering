@@ -16,8 +16,9 @@ import {
   removeWorktree,
 } from "./worktree-manager.js";
 import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "./pr-creator.js";
-import { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
+import { mergeDirectly } from "./dep-bump-merger.js";
 import { getGitDiff } from "./success-evaluator.js";
+import type { EvaluationResult } from "./success-evaluator.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import type { TurnMetricsEvent } from "./event-mapper.js";
 import { sanitizeStreamChunk } from "./sanitize-output.js";
@@ -45,9 +46,7 @@ import {
 
 // New modularized sub-phases
 import { emitEvent, sanitizeForCommitMessage } from "./utils.js";
-import { orchestrateVerification } from "./verification-orchestrator.js";
-import { runQualityGates } from "./quality-gates.js";
-import type { QualityGatesResult } from "./quality-gates.js";
+import { runPostCommitGateway } from "./post-commit-gateway.js";
 
 // QA tuning — adaptive thresholds from .github/auto-qa-tuning.json
 import { loadQaTuning, applyTuningDefaults } from "./qa-tuning-loader.js";
@@ -542,7 +541,7 @@ export async function runSession(
               let prUrl: string | null = null;
               const changed = worktree ? await hasChanges(worktree.path) : false;
 
-              let qualityResult: QualityGatesResult | undefined;
+              let gatewayEvaluation: EvaluationResult | undefined;
 
               if (changed && worktree) {
                 // Capture narrowed worktree for use in closures (TS loses narrowing in callbacks)
@@ -551,145 +550,123 @@ export async function runSession(
                 const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
                 await commitChanges(wt.path, commitMsg);
 
-                // 6a. Run lint + typecheck + test verification before pushing
-                let verificationPassed = true;
-                if (isSuccess) {
-                  const verification = await orchestrateVerification(wt.path, onEvent);
-                  verificationPassed = verification.passed;
-                  if (verification.error) errors.push(verification.error);
-                }
-
                 // Push with retry for transient network failures
                 await withRetry(() => pushBranch(wt.path, wt.branchName), { maxRetries: 3 });
 
-                // 6b, 6c, 6d. Run Quality Gates (LLM Success Eval, Static Analysis, Security Review)
-                if (isSuccess && verificationPassed) {
+                // 6a–6d. Run post-commit gateway (verification + quality gates)
+                let verdict;
+                if (isSuccess) {
                   const diff = await getCachedDiff(wt.path);
-                  qualityResult = await runQualityGates(
-                    config.taskDescription,
-                    diff,
-                    commitMsg,
+                  verdict = await runPostCommitGateway(
                     {
-                      evaluateSuccess: config.evaluateSuccess,
-                      runSecurityReview: true,
-                      runStaticAnalysis: true,
+                      worktreePath: wt.path,
+                      diff,
+                      commitMsg,
+                      taskDescription: config.taskDescription,
+                      config: {
+                        evaluateSuccess: config.evaluateSuccess,
+                        runSecurityReview: true,
+                        runStaticAnalysis: true,
+                      },
                     },
                     onEvent
                   );
-                  errors.push(...qualityResult.errors);
+                  errors.push(...verdict.errors);
+                  gatewayEvaluation = verdict.evaluation;
                 }
 
-                const allGatesPass =
-                  verificationPassed &&
-                  (!qualityResult ||
-                    (qualityResult.evaluation?.passed !== false &&
-                      qualityResult.staticAnalysisClean &&
-                      qualityResult.securityReview?.approved !== false));
-
                 if (config.createPr) {
-                  // Fast-path: trivial dependency bumps that passed tests are merged
-                  // directly without waiting for PR review.
-                  if (allGatesPass) {
-                    const depBumpCheck = isTrivialDepBump(await getCachedDiff(wt.path));
-                    if (depBumpCheck.isTrivial) {
-                      const commitTitle = buildPrTitle(config.taskDescription);
-                      prUrl = await mergeDirectly({
-                        branchName: wt.branchName,
-                        baseBranch: config.baseBranch,
-                        repoPath: wt.path,
-                        commitTitle,
-                      });
-                      emitEvent(onEvent, "session:result", {
-                        message: `Trivial dep bump — direct-merged: ${prUrl}`,
-                      });
-                    } else {
-                      const title = buildPrTitle(config.taskDescription);
-                      const body = resultMessage
-                        ? buildPrBody(
-                            config.taskDescription,
-                            resultMessage.session_id,
-                            resultMessage.total_cost_usd,
-                            resultMessage.num_turns
-                          )
-                        : buildFailurePrBody(config.taskDescription, errors, stuckReason?.type);
+                  if (verdict?.outcome === "merge-direct") {
+                    // Fast-path: trivial dep bump — direct-merge
+                    const commitTitle = buildPrTitle(config.taskDescription);
+                    prUrl = await mergeDirectly({
+                      branchName: wt.branchName,
+                      baseBranch: config.baseBranch,
+                      repoPath: wt.path,
+                      commitTitle,
+                    });
+                    emitEvent(onEvent, "session:result", {
+                      message: `Trivial dep bump — direct-merged: ${prUrl}`,
+                    });
+                  } else if (!verdict || verdict.outcome === "create-pr") {
+                    // All gates passed — create normal PR
+                    const title = buildPrTitle(config.taskDescription);
+                    const body = resultMessage
+                      ? buildPrBody(
+                          config.taskDescription,
+                          resultMessage.session_id,
+                          resultMessage.total_cost_usd,
+                          resultMessage.num_turns
+                        )
+                      : buildFailurePrBody(config.taskDescription, errors, stuckReason?.type);
 
-                      const prSpan = tracer.startSpan("agent_core.create_pr");
-                      let pr;
+                    const prSpan = tracer.startSpan("agent_core.create_pr");
+                    let pr;
+                    try {
+                      // Retry PR creation for transient GitHub API failures
+                      const { value: prResult } = await withRetry(
+                        () =>
+                          createPullRequest({
+                            title,
+                            body,
+                            baseBranch: config.baseBranch,
+                            branchName: wt.branchName,
+                            repoPath: wt.path,
+                            draft: false,
+                          }),
+                        { maxRetries: 3 }
+                      );
+                      pr = prResult;
+                      prSpan.setAttribute("pr.url", pr.url);
+                      prSpan.setAttribute("pr.number", pr.number);
+                      prSpan.setAttribute("pr.draft", false);
+                    } finally {
+                      prSpan.end();
+                    }
+
+                    prUrl = pr.url;
+                    emitEvent(onEvent, "session:result", {
+                      message: `PR created: ${pr.url}`,
+                    });
+
+                    // Run feedback loop if enabled (poll for review comments / CI failures)
+                    if (config.feedbackLoop?.enabled) {
+                      // Use remaining budget instead of fixed 50% ratio
+                      const sessionCost = resultMessage?.total_cost_usd ?? 0;
+                      const remainingBudget = Math.max(
+                        0,
+                        effectiveConfig.maxBudgetUsd - sessionCost
+                      );
+
+                      const fbSpan = tracer.startSpan("agent_core.feedback_loop");
+                      let feedbackResult;
                       try {
-                        // Retry PR creation for transient GitHub API failures
-                        const { value: prResult } = await withRetry(
-                          () =>
-                            createPullRequest({
-                              title,
-                              body,
-                              baseBranch: config.baseBranch,
-                              branchName: wt.branchName,
-                              repoPath: wt.path,
-                              draft: false,
-                            }),
-                          { maxRetries: 3 }
+                        feedbackResult = await runFeedbackLoop(
+                          {
+                            prNumber: pr.number,
+                            branchName: wt.branchName,
+                            repoPath: wt.path,
+                            model: getFeedbackLoopModel(config.model),
+                            maxRetries: config.feedbackLoop.maxRetries ?? 2,
+                            pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
+                            pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
+                            maxBudgetUsd: remainingBudget,
+                            allowedTools: config.allowedTools,
+                          },
+                          onEvent
                         );
-                        pr = prResult;
-                        prSpan.setAttribute("pr.url", pr.url);
-                        prSpan.setAttribute("pr.number", pr.number);
-                        prSpan.setAttribute("pr.draft", false);
+                        fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
+                        fbSpan.setAttribute("feedback.resolved", feedbackResult.resolved);
                       } finally {
-                        prSpan.end();
+                        fbSpan.end();
                       }
 
-                      prUrl = pr.url;
                       emitEvent(onEvent, "session:result", {
-                        message: `PR created: ${pr.url}`,
+                        message: `Feedback loop: ${feedbackResult.resolved ? "resolved" : "escalated"} after ${feedbackResult.retriesUsed} retries`,
                       });
-
-                      // Run feedback loop if enabled (poll for review comments / CI failures)
-                      if (config.feedbackLoop?.enabled) {
-                        // Use remaining budget instead of fixed 50% ratio
-                        const sessionCost = resultMessage?.total_cost_usd ?? 0;
-                        const remainingBudget = Math.max(
-                          0,
-                          effectiveConfig.maxBudgetUsd - sessionCost
-                        );
-
-                        const fbSpan = tracer.startSpan("agent_core.feedback_loop");
-                        let feedbackResult;
-                        try {
-                          feedbackResult = await runFeedbackLoop(
-                            {
-                              prNumber: pr.number,
-                              branchName: wt.branchName,
-                              repoPath: wt.path,
-                              model: getFeedbackLoopModel(config.model),
-                              maxRetries: config.feedbackLoop.maxRetries ?? 2,
-                              pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
-                              pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
-                              maxBudgetUsd: remainingBudget,
-                              allowedTools: config.allowedTools,
-                            },
-                            onEvent
-                          );
-                          fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
-                          fbSpan.setAttribute("feedback.resolved", feedbackResult.resolved);
-                        } finally {
-                          fbSpan.end();
-                        }
-
-                        emitEvent(onEvent, "session:result", {
-                          message: `Feedback loop: ${feedbackResult.resolved ? "resolved" : "escalated"} after ${feedbackResult.retriesUsed} retries`,
-                        });
-                      }
                     }
                   } else {
-                    // Quality gates failed — create draft PR so humans can review
-                    const gateFailures: string[] = [];
-                    if (!verificationPassed) gateFailures.push("verification");
-                    if (qualityResult && !qualityResult.staticAnalysisClean)
-                      gateFailures.push("static-analysis");
-                    if (qualityResult && qualityResult.evaluation?.passed === false)
-                      gateFailures.push("evaluation");
-                    if (qualityResult && qualityResult.securityReview?.approved === false)
-                      gateFailures.push("security-review");
-
+                    // verdict.outcome === "create-draft-pr" — quality gates failed
                     const title = `wip: ${config.taskDescription.slice(0, 57)}`;
                     const body = buildFailurePrBody(
                       config.taskDescription,
@@ -713,7 +690,7 @@ export async function runSession(
 
                     prUrl = pr.url;
                     emitEvent(onEvent, "session:result", {
-                      message: `Draft PR created (failed gates: ${gateFailures.join(", ")}): ${pr.url}`,
+                      message: `Draft PR created (failed gates: ${verdict.gateFailures.join(", ")}): ${pr.url}`,
                     });
                   }
                 }
@@ -724,11 +701,11 @@ export async function runSession(
               }
 
               // 7. Build final result
-              const evalSummary = qualityResult?.evaluation
+              const evalSummary = gatewayEvaluation
                 ? {
-                    passed: qualityResult.evaluation.passed,
-                    confidence: qualityResult.evaluation.confidence,
-                    reasoning: qualityResult.evaluation.reasoning,
+                    passed: gatewayEvaluation.passed,
+                    confidence: gatewayEvaluation.confidence,
+                    reasoning: gatewayEvaluation.reasoning,
                   }
                 : undefined;
 
