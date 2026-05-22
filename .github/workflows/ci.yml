@@ -341,6 +341,9 @@ jobs:
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs
 
+      - name: Check doc freshness
+        run: node scripts/check-doc-freshness.mjs
+
       - name: Check component registry integrity
         run: |
           pnpm --filter @mattbutlerengineering/rialto build:registry

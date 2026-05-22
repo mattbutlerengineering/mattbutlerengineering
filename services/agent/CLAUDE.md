@@ -365,6 +365,6 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Related Documentation
 
-- [Agent Core Package](../packages/agent-core/README.md)
-- [CLI Usage](../tools/cli/README.md)
-- [Cross-Service Flows](../docs/CROSS-SERVICE-FLOWS.md)
+- [Agent Core Package](../../packages/agent-core/README.md)
+- [CLI Usage](../../tools/cli/README.md)
+- [Cross-Service Flows](../../docs/CROSS-SERVICE-FLOWS.md)
