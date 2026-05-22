@@ -227,7 +227,10 @@ jobs:
           TIMELINE: ${{ steps.timeline.outputs.timeline }}
         run: |
           # Build a concise summary of what's wrong
-          # Health endpoint may return flat {status,timestamp} or full {subsystems:{...}} response
+          # Unauthenticated /health/system returns {status, timestamp, requestId,
+          # subsystems:{services,static_sites,ci,deploys}} where each subsystem
+          # has only a {status} field (no sensitive details). Authenticated callers
+          # also get per-check breakdowns, latencies, commit SHAs, etc.
           FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
             [(.subsystems // {}).services // {} | (.checks // {}) | to_entries[] | select(.value.status != "ok") | .key] | join(", ")' 2>/dev/null || echo "")
           FAILED_SITES=$(echo "$HEALTH_RESPONSE" | jq -r '
