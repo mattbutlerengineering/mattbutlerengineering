@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { Suspense } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav, Footer, AuthMascot } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import styles from "./App.module.css";
@@ -29,7 +29,7 @@ function UnauthenticatedShell({
         {children}
       </main>
       <Footer variant="minimal" className={styles.footer}>
-        <Text>&copy; {new Date().getFullYear()} Matt Butler Engineering</Text>
+        <Text>&copy; {new Date().getFullYear()} Matt Butler</Text>
       </Footer>
     </div>
   );
@@ -74,13 +74,15 @@ export function App() {
   if (error) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <Stack gap="md" align="center">
-          <Text as="h1" variant="display" color="primary">
-            Authentication Error
-          </Text>
-          <Text variant="body" color="secondary">
-            {error.message}
-          </Text>
+        <Stack gap="lg" align="center">
+          <Stack gap="sm" align="center">
+            <Text as="h1" variant="display" color="primary">
+              Authentication Error
+            </Text>
+            <Text variant="body" color="secondary">
+              {error.message}
+            </Text>
+          </Stack>
           <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
             Try Again
           </Button>
@@ -119,17 +121,21 @@ function LoginPrompt() {
   const { signIn } = useAuth();
 
   return (
-    <Stack gap="md" align="center">
-      <AuthMascot state="neutral" />
-      <Text as="h1" variant="display" color="primary">
-        Hospitality
-      </Text>
-      <Text variant="body" color="secondary">
-        Please sign in to continue
-      </Text>
-      <Button variant="primary" onClick={() => signIn()}>
+    <Stack gap="lg" align="center">
+      <Stack gap="sm" align="center">
+        <Text as="h1" variant="display" color="primary">
+          Hospitality
+        </Text>
+        <Text variant="body" color="secondary">
+          Restaurant management, simplified.
+        </Text>
+      </Stack>
+      <Button variant="primary" size="lg" onClick={() => signIn()}>
         Sign In
       </Button>
+      <Text variant="caption" color="tertiary">
+        Manage reservations, guests, and floor plans
+      </Text>
     </Stack>
   );
 }
