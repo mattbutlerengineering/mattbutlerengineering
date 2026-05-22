@@ -112,7 +112,7 @@ function collectMbeDeps(depsObj, depType) {
 
 /**
  * Build the full dependency graph.
- * Returns { nodes: [...], edges: [...], generatedAt: ISO string }.
+ * Returns { nodes: [...], edges: [...] }.
  */
 function buildGraph() {
   const globs = discoverWorkspaceGlobs();
@@ -159,7 +159,6 @@ function buildGraph() {
   return {
     nodes,
     edges,
-    generatedAt: new Date().toISOString(),
   };
 }
 

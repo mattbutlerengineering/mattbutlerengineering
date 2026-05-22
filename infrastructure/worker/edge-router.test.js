@@ -494,7 +494,6 @@ describe("Edge Router", () => {
       const body = await response.json();
       expect(body).toHaveProperty("nodes");
       expect(body).toHaveProperty("edges");
-      expect(body).toHaveProperty("generatedAt");
       expect(Array.isArray(body.nodes)).toBe(true);
       expect(Array.isArray(body.edges)).toBe(true);
     });
