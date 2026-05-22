@@ -91,7 +91,7 @@ Measured against the [AI Codebase Maturity Model](docs/acmm.md) ([arXiv:2604.093
 | Agent PR revert rate | 0%                    |
 | CI flake rate        | 0%                    |
 
-See [`.claude/acmm/report.md`](.claude/acmm/report.md) for the full scorecard.
+See [`docs/acmm.md`](docs/acmm.md) for the full scorecard.
 
 ## Commands
 
