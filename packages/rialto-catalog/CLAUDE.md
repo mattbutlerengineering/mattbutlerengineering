@@ -6,11 +6,13 @@ Component catalog generator for the Rialto design system.
 
 ```
 src/
-├── catalog.ts     # Metadata extraction logic
-├── index.ts       # Public exports
-└── types.ts       # Catalog schema definitions
+├── catalog.ts            # Metadata extraction logic
+├── catalog-config.ts     # Catalog configuration and schema definitions
+├── generated-schemas.ts  # Auto-generated component prop schemas
+├── index.ts              # Public exports
+└── registry.tsx          # Component registry
 scripts/
-└── generate.ts    # CLI script to regenerate catalog from Rialto source
+└── generate-catalog.ts   # CLI script to regenerate catalog from Rialto source
 ```
 
 ## Catalog Generation
