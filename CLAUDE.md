@@ -167,3 +167,28 @@ The Langfuse MCP server (`.mcp.json`) gives Claude Code access to:
 ## Security Scanning (Semgrep)
 
 See [AGENTS.md](./AGENTS.md#security-scanning-semgrep) for Semgrep configuration, rules, and usage. Claude Code additionally has the Semgrep MCP server (`.mcp.json`) for invoking scans via `@semgrep/mcp`.
+
+## Cross-Session Memory (claude-mem)
+
+[claude-mem](https://github.com/thedotmack/claude-mem) provides persistent cross-session memory — observations about code patterns, architecture decisions, and domain context survive between conversations.
+
+### Install
+
+```bash
+npx claude-mem install
+```
+
+### Available skills
+
+| Skill              | Purpose                                |
+| ------------------ | -------------------------------------- |
+| `/mem-search`      | Search past observations and decisions |
+| `/smart-explore`   | Token-efficient AST-based code search  |
+| `/make-plan`       | Create phased implementation plans     |
+| `/do`              | Execute plans with subagents           |
+| `/timeline-report` | Project development history analysis   |
+| `/babysit`         | Watch PR until merge-ready             |
+
+### Auto-observation
+
+claude-mem automatically records observations during sessions — code patterns discovered, architecture decisions made, debugging outcomes. These are searchable in future sessions via `/mem-search`.

@@ -22,7 +22,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: ({ children }: { children: React.ReactNode }) => <footer>{children}</footer>,
-  AuthMascot: () => <div data-testid="mascot" />,
   resolveTheme: vi.fn((t) => t),
 }));
 
@@ -59,15 +58,15 @@ describe("App", () => {
     expect(screen.getByText("Auth Failed")).toBeDefined();
   });
 
-  it("renders login mascot when not authenticated", () => {
+  it("renders login prompt when not authenticated", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       isAuthenticated: false,
-      loginWithRedirect: vi.fn(),
+      signIn: vi.fn(),
     } as any);
     renderApp();
-    expect(screen.getByTestId("mascot")).toBeDefined();
     expect(screen.getByText("Sign In")).toBeDefined();
+    expect(screen.getByText("Hospitality")).toBeDefined();
   });
 
   it("renders Outlet when authenticated", () => {

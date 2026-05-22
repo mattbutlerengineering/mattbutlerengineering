@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Dynamic imports via `await import("./index.js")` hit a cold module load
+// on every test (vi.resetModules() runs in beforeEach). Under parallel turbo
+// load (13+ packages in CI / pre-push), the default 5s is too tight.
+vi.setConfig({ testTimeout: 15_000 });
+
 const mockPoolInstance = {
   totalCount: 5,
   activeCount: 2,
