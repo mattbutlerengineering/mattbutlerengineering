@@ -36,3 +36,9 @@ service = "mattbutlerengineering-gen"
 [[kv_namespaces]]
 binding = "HEALTH_STATE"
 id = "dda61075cc654b0a849046ae563d8d45"
+
+# Analytics Engine — custom request metrics (free tier, non-blocking writes)
+# Query via SQL API: https://developers.cloudflare.com/analytics/analytics-engine/sql-api/
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "edge_requests"
