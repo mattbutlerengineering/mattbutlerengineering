@@ -12,7 +12,6 @@ vi.mock("../worktree-manager.js", () => ({
   pushBranch: vi.fn(),
   hasChanges: vi.fn(),
   removeWorktree: vi.fn(),
-  runVerification: vi.fn(),
 }));
 
 vi.mock("../pr-creator.js", () => ({
@@ -23,17 +22,11 @@ vi.mock("../pr-creator.js", () => ({
 }));
 
 vi.mock("../success-evaluator.js", () => ({
-  evaluateSuccess: vi.fn(),
   getGitDiff: vi.fn(),
-  shouldEvaluate: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("../diff-reviewer.js", () => ({
-  reviewDiff: vi.fn(),
-}));
-
-vi.mock("../diff-static-analyzer.js", () => ({
-  analyzeDiff: vi.fn(),
+vi.mock("../post-commit-gateway.js", () => ({
+  runPostCommitGateway: vi.fn(),
 }));
 
 vi.mock("../feedback-loop.js", () => ({
@@ -103,12 +96,10 @@ import {
   pushBranch,
   hasChanges,
   removeWorktree,
-  runVerification,
 } from "../worktree-manager.js";
 import { createPullRequest, buildPrTitle, buildPrBody } from "../pr-creator.js";
-import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
-import { reviewDiff } from "../diff-reviewer.js";
-import { analyzeDiff } from "../diff-static-analyzer.js";
+import { getGitDiff } from "../success-evaluator.js";
+import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
@@ -188,24 +179,16 @@ describe("runSession", () => {
     vi.mocked(queryPastFailures).mockReturnValue([]);
     vi.mocked(buildFailureContext).mockReturnValue("");
 
-    vi.mocked(runVerification).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
       passed: true,
-      lintOk: true,
-      typecheckOk: true,
-      testsOk: true,
+      gateFailures: [],
+      errors: [],
     });
 
-    vi.mocked(reviewDiff).mockResolvedValue({ approved: true, issues: [] });
-    vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [], durationMs: 1 });
     vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: false, retriesUsed: 0 });
 
     vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
-    vi.mocked(evaluateSuccess).mockResolvedValue({
-      passed: true,
-      confidence: 0.95,
-      reasoning: "Changes address the task",
-      issues: [],
-    });
   });
 
   it("runs a successful session with PR creation", async () => {
@@ -428,11 +411,11 @@ describe("runSession", () => {
     vi.mocked(hasChanges).mockResolvedValue(true);
     vi.mocked(commitChanges).mockResolvedValue("abc123");
     vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(runVerification).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-draft-pr",
       passed: false,
-      lintOk: true,
-      typecheckOk: false,
-      testsOk: true,
+      gateFailures: ["verification"],
+      errors: ["Verification failed: typecheck errors"],
     });
     vi.mocked(buildPrTitle).mockReturnValue("wip: Fix the login bug");
     vi.mocked(buildPrBody).mockReturnValue("body");
