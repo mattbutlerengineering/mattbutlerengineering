@@ -1,7 +1,17 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Breadcrumb, CommandPalette, ErrorBoundary, GenCopilot, Kbd, Button, Stack, Text, Heading } from "@mattbutlerengineering/rialto";
+import {
+  Breadcrumb,
+  CommandPalette,
+  ErrorBoundary,
+  ChatPanel,
+  Kbd,
+  Button,
+  Stack,
+  Text,
+  Heading,
+} from "@mattbutlerengineering/rialto";
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
@@ -19,18 +29,18 @@ import styles from "./DashboardLayout.module.css";
 
 const ROUTE_LABELS: Record<string, string> = {
   "": "Timeline",
-  "timeline": "Timeline",
-  "reservations": "Reservations",
-  "guests": "Guests",
+  timeline: "Timeline",
+  reservations: "Reservations",
+  guests: "Guests",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
-  "onboarding": "New Venue",
-  "profile": "Profile",
-  "settings": "Settings",
-  "admin": "Admin",
-  "dashboard": "Dashboard",
-  "setup": "Setup",
-  "hours": "Operating Hours",
+  onboarding: "New Venue",
+  profile: "Profile",
+  settings: "Settings",
+  admin: "Admin",
+  dashboard: "Dashboard",
+  setup: "Setup",
+  hours: "Operating Hours",
 };
 
 /** Operational pages that should redirect to /setup when not yet ready */
@@ -47,7 +57,8 @@ function DashboardLayoutInner() {
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
 
-  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Readiness-based redirect guard
@@ -62,7 +73,9 @@ function DashboardLayoutInner() {
     }
 
     if (readiness.status === "setup") {
-      const isOperationalPage = OPERATIONAL_ONLY_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+      const isOperationalPage = OPERATIONAL_ONLY_PATHS.some(
+        (p) => path === p || path.startsWith(p + "/")
+      );
       if (isOperationalPage) {
         navigate("/setup", { replace: true });
       }
@@ -86,7 +99,7 @@ function DashboardLayoutInner() {
     setTheme(resolved === "light" ? "dark" : "light");
   }, [theme, setTheme]);
 
-  // Stable token getter — passes latest token to GenCopilot without recreating on every render
+  // Stable token getter — passes latest token without recreating on every render
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
 
   const handleMobileClose = useCallback(() => {
@@ -100,9 +113,7 @@ function DashboardLayoutInner() {
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
     const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [
-      { id: "signout", label: "Sign Out", path: "/__signout__" },
-    ]);
+    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
     return map;
   }, []);
 
@@ -118,17 +129,16 @@ function DashboardLayoutInner() {
     [navigate, signOut]
   );
 
-  // Build dynamic nav sections from readiness state + copilot tool
-  const sectionsWithCopilot = useMemo(
+  const sections = useMemo(
     () => [
       ...buildNavSections(readiness),
       {
         label: "Tools" as const,
         items: [
           {
-            id: "copilot",
-            label: "Copilot",
-            path: "/__copilot__",
+            id: "chat",
+            label: "Chat",
+            path: "/__chat__",
           },
         ],
       },
@@ -142,13 +152,13 @@ function DashboardLayoutInner() {
     setOpen: setPaletteOpen,
     items: paletteItems,
     groups: paletteGroups,
-  } = useCommandPalette({ sections: sectionsWithCopilot, navigate, toggleTheme, signOut });
+  } = useCommandPalette({ sections, navigate, toggleTheme, signOut });
 
-  // Custom navigate that handles copilot toggle
-  const handleNavigateWithCopilot = useCallback(
+  const handleNavigateWithChat = useCallback(
     (path: string) => {
-      if (path === "/__copilot__") {
-        setCopilotOpen((prev) => !prev);
+      if (path === "/__chat__") {
+        setChatMounted(true);
+        setChatOpen((prev) => !prev);
         return;
       }
       handleNavigate(path);
@@ -171,9 +181,7 @@ function DashboardLayoutInner() {
     }
 
     // Always start with a clickable Timeline (new home)
-    const items: BreadcrumbItem[] = [
-      { label: "Timeline", onClick: () => navigate("/timeline") },
-    ];
+    const items: BreadcrumbItem[] = [{ label: "Timeline", onClick: () => navigate("/timeline") }];
 
     // Build intermediate + final crumbs
     let accumulated = "";
@@ -209,7 +217,7 @@ function DashboardLayoutInner() {
       />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <button
+      <Button
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
         aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
@@ -231,22 +239,20 @@ function DashboardLayoutInner() {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-      </button>
+      </Button>
 
       <div className={styles.body}>
         <div className={styles.sidebarColumn}>
           <DashboardSidebar
-            sections={sectionsWithCopilot}
+            sections={sections}
             activePath={activePath}
-            onNavigate={handleNavigateWithCopilot}
+            onNavigate={handleNavigateWithChat}
             extraItems={extraItems}
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
-            headerSlot={
-              <VenueSwitcher onNavigate={handleNavigate} />
-            }
+            headerSlot={<VenueSwitcher onNavigate={handleNavigate} />}
           />
-          <button
+          <Button
             type="button"
             className={styles.commandHint}
             onClick={() => setPaletteOpen(true)}
@@ -254,11 +260,16 @@ function DashboardLayoutInner() {
           >
             <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl"}</Kbd>
             <Kbd>K</Kbd>
-            <span className={styles.commandHintLabel}>Search</span>
-          </button>
+            <Text className={styles.commandHintLabel}>Search</Text>
+          </Button>
         </div>
 
-        <main id="main-content" tabIndex={-1} className={styles.content} style={{ outline: "none" }}>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={styles.content}
+          style={{ outline: "none" }}
+        >
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />
@@ -269,12 +280,14 @@ function DashboardLayoutInner() {
                 align="center"
                 justify="center"
                 gap="md"
-                style={{ padding: "var(--rialto-space-xl)", textAlign: "center", minHeight: "400px" }}
+                style={{
+                  padding: "var(--rialto-space-xl)",
+                  textAlign: "center",
+                  minHeight: "400px",
+                }}
               >
                 <Heading level={2}>Something went wrong</Heading>
-                <Text color="secondary">
-                  An unexpected error occurred in this page.
-                </Text>
+                <Text color="secondary">An unexpected error occurred in this page.</Text>
                 <Button variant="secondary" onClick={() => window.location.reload()}>
                   Reload
                 </Button>
@@ -286,15 +299,16 @@ function DashboardLayoutInner() {
         </main>
       </div>
 
-      {/* Conditionally mount GenCopilot — destroying it on close resets all streaming state */}
-      {copilotOpen && (
-        <GenCopilot
-          onClose={() => setCopilotOpen(false)}
-          api="/api/gen/ui"
-          domainContext={HOSPITALITY_DOMAIN_CONTEXT}
-          getAccessToken={getAccessToken}
-          registry={registry}
-        />
+      {chatMounted && (
+        <div data-chat-wrapper="" style={{ display: chatOpen ? undefined : "none" }}>
+          <ChatPanel
+            onClose={() => setChatOpen(false)}
+            api="/api/gen/agent"
+            domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+            getAccessToken={getAccessToken}
+            registry={registry}
+          />
+        </div>
       )}
     </div>
   );

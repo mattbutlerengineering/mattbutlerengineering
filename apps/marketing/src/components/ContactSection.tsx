@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Stack, useScrollReveal, staggerReveal, boop, useToast, Heading } from "@mattbutlerengineering/rialto";
+import {
+  Stack,
+  useScrollReveal,
+  staggerReveal,
+  boop,
+  useToast,
+  Heading,
+} from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 
@@ -21,7 +28,11 @@ export function ContactSection() {
       await navigator.clipboard.writeText(EMAIL);
       toast({ title: "Email copied!", variant: "success", duration: 2000 });
     } catch {
-      toast({ title: "Could not copy — try selecting the address manually", variant: "error", duration: 3000 });
+      toast({
+        title: "Could not copy — try selecting the address manually",
+        variant: "error",
+        duration: 3000,
+      });
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -57,10 +68,7 @@ export function ContactSection() {
                 </motion.a>
               ))}
 
-              <motion.span
-                className={styles.contactEmailGroup}
-                variants={staggerReveal.item}
-              >
+              <motion.span className={styles.contactEmailGroup} variants={staggerReveal.item}>
                 <motion.a
                   href={`mailto:${EMAIL}`}
                   aria-label="Send an email to Matt Butler Engineering"

@@ -52,9 +52,7 @@ describe("buildBugFixFixture", () => {
 
   it("allows customizing tool calls", () => {
     const events = buildBugFixFixture({
-      toolCalls: [
-        { toolName: "Bash", input: { command: "ls" }, output: "file.ts" },
-      ],
+      toolCalls: [{ toolName: "Bash", input: { command: "ls" }, output: "file.ts" }],
     });
     const toolUseEvents = events.filter((e) => e.type === "session:tool_use");
     expect(toolUseEvents).toHaveLength(1);

@@ -10,6 +10,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 
 // Session ID header name
 const SESSION_ID_HEADER = "x-session-id";
@@ -104,8 +105,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             [SESSION_ID_HEADER]: {
               type: "string",
-              description:
-                "Session identifier. If not provided, one will be generated.",
+              description: "Session identifier. If not provided, one will be generated.",
             },
           },
         },
@@ -124,16 +124,23 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
               format: "date-time",
               description: "Start time in ISO 8601 format",
             },
-            partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
+            partySize: {
+              type: "integer",
+              minimum: 1,
+              maximum: 20,
+              description: "Number of guests",
+            },
             tableId: {
               type: "string",
-              description: "Optional specific table to hold. If not provided, best available table is assigned.",
+              description:
+                "Optional specific table to hold. If not provided, best available table is assigned.",
             },
             holdDurationMinutes: {
               type: "integer",
               minimum: 1,
               maximum: 60,
-              description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+              description:
+                "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
             },
           },
         },
@@ -156,7 +163,9 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       if (!result.success) {
         const statusCode = result.error?.includes("not found") ? 404 : 409;
         const title = statusCode === 404 ? "Not Found" : "Conflict";
-        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
+        return reply
+          .code(statusCode)
+          .send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
       }
 
       // Set the session ID header in response
@@ -199,7 +208,9 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const hold = await holdService.getById(request.params.id);
 
       if (!hold) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
       }
 
       return { data: hold };
@@ -252,13 +263,19 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = request.headers[SESSION_ID_HEADER];
 
       if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
       const released = await holdService.release(request.params.id, sessionId);
 
       if (!released) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
+        return reply
+          .code(404)
+          .send(
+            createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
+          );
       }
 
       return { success: true };
@@ -335,35 +352,37 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       const sessionId = request.headers[SESSION_ID_HEADER];
 
       if (typeof sessionId !== "string" || sessionId.length === 0) {
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
       }
 
-      const result = await holdService.convertToReservation(
-        request.params.id,
+      const result = await confirmHold({
+        holdId: request.params.id,
         sessionId,
-        request.body
-      );
+        guestDetails: request.body,
+      });
 
       if (!result.success) {
-        const error = result.error ?? "Failed to confirm hold";
-        let statusCode: number;
-        let title: string;
+        const statusMap: Record<string, number> = {
+          NOT_FOUND: 404,
+          EXPIRED: 410,
+          SESSION_MISMATCH: 403,
+          CONFLICT: 409,
+        };
+        const titleMap: Record<string, string> = {
+          NOT_FOUND: "Not Found",
+          EXPIRED: "Hold Expired",
+          SESSION_MISMATCH: "Forbidden",
+          CONFLICT: "Conflict",
+        };
+        const statusCode = statusMap[result.errorCode] ?? 409;
+        const title = titleMap[result.errorCode] ?? "Conflict";
 
-        if (error.includes("not found") || error.includes("expired")) {
-          statusCode = 404;
-          title = "Not Found";
-        } else if (error.includes("Session ID")) {
-          statusCode = 403;
-          title = "Forbidden";
-        } else {
-          statusCode = 409;
-          title = "Conflict";
-        }
-
-        return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
+        return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
       }
 
-      return reply.code(201).send({ data: result.reservation! });
+      return reply.code(201).send({ data: result.reservation });
     }
   );
 };

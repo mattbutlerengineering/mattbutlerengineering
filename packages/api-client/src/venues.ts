@@ -1,5 +1,4 @@
 import type {
-  ApiResponse,
   PaginatedResponse,
   Venue,
   VenueGroup,
@@ -16,48 +15,44 @@ export class VenuesClient {
   /**
    * List venues with optional filters
    */
-  async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
+  async list(
+    params: { page?: number; limit?: number; venueGroupId?: string } = {}
+  ): Promise<PaginatedResponse<Venue>> {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
     if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
 
     const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Venue>>(
-      `/api/v1/venues${query ? `?${query}` : ""}`
-    );
+    return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
   }
 
   /**
    * Get a venue by ID
    */
   async get(id: string): Promise<Venue> {
-    const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/${id}`);
-    return response.data;
+    return this.client.getOne<Venue>(`/api/v1/venues/${id}`);
   }
 
   /**
    * Get a venue by slug
    */
   async getBySlug(slug: string): Promise<Venue> {
-    const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/by-slug/${slug}`);
-    return response.data;
+    return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`);
   }
 
   /**
    * Create a new venue
    */
   async create(data: CreateVenueRequest): Promise<Venue> {
-    const response = await this.client.post<ApiResponse<Venue>>("/api/v1/venues", data);
-    return response.data;
+    return this.client.postOne<Venue>("/api/v1/venues", data);
   }
 
   /**
    * Update a venue
    */
   async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
-    const response = await this.client.patch<ApiResponse<Venue>>(`/api/v1/venues/${id}`, data);
-    return response.data;
+    return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data);
   }
 
   /**
@@ -84,32 +79,28 @@ export class VenueGroupsClient {
    * Get a venue group by ID
    */
   async get(id: string): Promise<VenueGroup> {
-    const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`);
-    return response.data;
+    return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/${id}`);
   }
 
   /**
    * Get a venue group by slug
    */
   async getBySlug(slug: string): Promise<VenueGroup> {
-    const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
-    return response.data;
+    return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/by-slug/${slug}`);
   }
 
   /**
    * Create a new venue group
    */
   async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
-    const response = await this.client.post<ApiResponse<VenueGroup>>("/api/v1/venues/groups", data);
-    return response.data;
+    return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data);
   }
 
   /**
    * Update a venue group
    */
   async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-    const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
-    return response.data;
+    return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data);
   }
 
   /**

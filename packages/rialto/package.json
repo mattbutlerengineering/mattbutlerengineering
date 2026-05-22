@@ -74,6 +74,10 @@
       "types": "./dist/lib/components/Chalkboard/index.d.ts",
       "import": "./dist/lib/components/Chalkboard/index.js"
     },
+    "./ChatPanel": {
+      "types": "./dist/lib/components/ChatPanel/index.d.ts",
+      "import": "./dist/lib/components/ChatPanel/index.js"
+    },
     "./Checkbox": {
       "types": "./dist/lib/components/Checkbox/index.d.ts",
       "import": "./dist/lib/components/Checkbox/index.js"
@@ -137,10 +141,6 @@
     "./Footer": {
       "types": "./dist/lib/components/Footer/index.d.ts",
       "import": "./dist/lib/components/Footer/index.js"
-    },
-    "./GenCopilot": {
-      "types": "./dist/lib/components/GenCopilot/index.d.ts",
-      "import": "./dist/lib/components/GenCopilot/index.js"
     },
     "./GlobalNav": {
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
@@ -361,14 +361,14 @@
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/browser-playwright": "^4.1.6",
     "@vitest/coverage-v8": "^4.1.6",
     "axe-core": "^4.11.4",
-    "eslint-plugin-storybook": "^10.3.6",
+    "eslint-plugin-storybook": "^10.4.0",
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -16,7 +16,7 @@ vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
-      <p>{description}</p>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -53,7 +53,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Dialog: ({ children, open, title, footer }: any) =>
     open ? (
       <div data-testid="dialog">
-        <h2>{title}</h2>
+        <h1>{title}</h1>
         {children}
         {footer}
       </div>

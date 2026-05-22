@@ -27,7 +27,7 @@ else
 fi
 
 # Check if any packages are affected by changes since the compare ref
-affected=$(pnpm turbo test --filter="...[$compare_ref]" --dry-run=json 2>/dev/null | grep -c '"taskId"')
+affected=$(pnpm turbo test --filter="...[$compare_ref]" --dry-run=json 2>/dev/null | grep -c '"taskId"' || true)
 
 if [ "$affected" -gt 0 ] 2>/dev/null; then
   echo ""
@@ -38,6 +38,19 @@ if [ "$affected" -gt 0 ] 2>/dev/null; then
   pnpm turbo test --filter="...[$compare_ref]" --dry-run=text 2>/dev/null | grep '^ ' | head -20
 
   echo ""
+
+  # Typecheck first — catches type errors that vitest ignores
+  echo "pre-push: typechecking affected packages..."
+  pnpm turbo typecheck --filter="...[$compare_ref]"
+  tc_result=$?
+
+  if [ $tc_result -ne 0 ]; then
+    echo ""
+    echo "ERROR: typecheck failed for affected packages."
+    echo "Fix type errors before pushing."
+    echo ""
+    exit 1
+  fi
 
   # Run the tests
   pnpm turbo test --filter="...[$compare_ref]"

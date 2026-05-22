@@ -79,7 +79,9 @@ export function MetricsPage() {
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (error) {
@@ -131,7 +133,9 @@ export function MetricsPage() {
           <div className={styles.coverageBar}>
             <div className={styles.coverageLabel}>
               <Text>Detection Coverage</Text>
-              <Text>{metrics.summary.detected}/{metrics.summary.total} criteria</Text>
+              <Text>
+                {metrics.summary.detected}/{metrics.summary.total} criteria
+              </Text>
             </div>
             <div className={styles.progressTrack}>
               <div
@@ -155,10 +159,11 @@ export function MetricsPage() {
                 </Badge>
               </div>
               <Text className={styles.gateValue}>
-                L{gate.level}: {typeof gate.value === "number" && gate.value <= 1
+                L{gate.level}:{" "}
+                {typeof gate.value === "number" && gate.value <= 1
                   ? formatPercent(gate.value)
-                  : gate.value}
-                {" "}(threshold: {gate.threshold <= 1 ? formatPercent(gate.threshold) : gate.threshold})
+                  : gate.value}{" "}
+                (threshold: {gate.threshold <= 1 ? formatPercent(gate.threshold) : gate.threshold})
               </Text>
             </Card>
           ))}

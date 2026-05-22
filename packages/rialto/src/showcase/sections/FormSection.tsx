@@ -24,12 +24,22 @@ function Inputs() {
     <div className={css.gridWide}>
       <div className={css.inputColumn}>
         <Input label="Email" placeholder="you@example.com" startIcon={<Mail size={16} />} />
-        <Input label="Password" type="password" placeholder="Enter password" startIcon={<Lock size={16} />} />
+        <Input
+          label="Password"
+          type="password"
+          placeholder="Enter password"
+          startIcon={<Lock size={16} />}
+        />
         <Input label="Search" placeholder="Search..." startIcon={<Search size={16} />} />
         <Input label="With hint" hint="This is helper text" placeholder="Enter value" />
         <Input label="Error state" error hint="This field is required" placeholder="Required" />
         <Input label="Disabled" disabled placeholder="Cannot edit" />
-        <Input label="Disabled with reason" disabled disabledReason="Contact admin to edit" placeholder="Locked" />
+        <Input
+          label="Disabled with reason"
+          disabled
+          disabledReason="Contact admin to edit"
+          placeholder="Locked"
+        />
         <Input label="Optional" showOptional placeholder="Not required" />
       </div>
       <div className={css.inputColumn}>
@@ -69,7 +79,13 @@ function Selects() {
       <div className={css.inputColumn}>
         <Select label="Country" placeholder="Choose a country" options={SAMPLE_OPTIONS} />
         <Select label="Disabled" placeholder="Cannot change" options={SAMPLE_OPTIONS} disabled />
-        <Select label="With error" placeholder="Required" options={SAMPLE_OPTIONS} error hint="Please select a country" />
+        <Select
+          label="With error"
+          placeholder="Required"
+          options={SAMPLE_OPTIONS}
+          error
+          hint="Please select a country"
+        />
       </div>
       <div className={css.inputColumn}>
         <Autocomplete
@@ -103,9 +119,13 @@ function Sliders() {
 
 export function FormSection({ which }: { which: "inputs" | "toggles" | "selects" | "sliders" }) {
   switch (which) {
-    case "inputs": return <Inputs />;
-    case "toggles": return <Toggles />;
-    case "selects": return <Selects />;
-    case "sliders": return <Sliders />;
+    case "inputs":
+      return <Inputs />;
+    case "toggles":
+      return <Toggles />;
+    case "selects":
+      return <Selects />;
+    case "sliders":
+      return <Sliders />;
   }
 }

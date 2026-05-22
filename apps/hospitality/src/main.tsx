@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
-import { initSentry, handleErrorBoundary } from "@mbe/observability/sentry/react";  
+import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
@@ -24,9 +24,7 @@ const DashboardLayout = lazy(() =>
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
-const HomePage = lazy(() =>
-  import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
-);
+const HomePage = lazy(() => import("./pages/HomePage.js").then((m) => ({ default: m.HomePage })));
 const ReservationsPage = lazy(() =>
   import("./pages/ReservationsPage.js").then((m) => ({ default: m.ReservationsPage }))
 );
@@ -60,6 +58,13 @@ const SetupPage = lazy(() =>
 const SetupHoursPage = lazy(() =>
   import("./pages/SetupHoursPage.js").then((m) => ({ default: m.SetupHoursPage }))
 );
+const PublicBookingPage = lazy(() =>
+  import("./pages/PublicBookingPage.js").then((m) => ({ default: m.PublicBookingPage }))
+);
+const ManageReservationPage = lazy(() =>
+  import("./pages/ManageReservationPage.js").then((m) => ({ default: m.ManageReservationPage }))
+);
+const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage })));
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -83,10 +88,35 @@ const authConfigResult = validateAuthConfig();
  */
 const router = createBrowserRouter(
   [
+    // Public booking page — no auth, accessible without login
+    {
+      path: "book/:venueSlug",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <PublicBookingPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "reservations/manage",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <ManageReservationPage />
+        </Suspense>
+      ),
+    },
     {
       element: <App />,
       children: [
         { path: "callback", element: <CallbackRedirect /> },
+        {
+          path: "chat",
+          element: (
+            <Suspense fallback={<LoadingPage />}>
+              <ChatPage />
+            </Suspense>
+          ),
+        },
         {
           element: (
             <Suspense fallback={<LoadingPage />}>

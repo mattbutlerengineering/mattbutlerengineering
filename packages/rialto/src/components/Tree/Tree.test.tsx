@@ -26,12 +26,8 @@ describe("Tree", () => {
 
     it("renders top-level nodes", () => {
       render(<Tree data={treeData} />);
-      expect(
-        screen.getByRole("treeitem", { name: /powertrain/i })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("treeitem", { name: /chassis/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("treeitem", { name: /powertrain/i })).toBeInTheDocument();
+      expect(screen.getByRole("treeitem", { name: /chassis/i })).toBeInTheDocument();
     });
 
     it("does not render child nodes when parent is collapsed", () => {
@@ -47,23 +43,26 @@ describe("Tree", () => {
 
     it("marks parent with aria-expanded=false by default", () => {
       render(<Tree data={treeData} />);
-      expect(
-        screen.getByRole("treeitem", { name: /powertrain/i })
-      ).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("treeitem", { name: /powertrain/i })).toHaveAttribute(
+        "aria-expanded",
+        "false"
+      );
     });
 
     it("marks parent with aria-expanded=true when expanded", () => {
       render(<Tree data={treeData} defaultExpanded={["powertrain"]} />);
-      expect(
-        screen.getByRole("treeitem", { name: /powertrain/i })
-      ).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("treeitem", { name: /powertrain/i })).toHaveAttribute(
+        "aria-expanded",
+        "true"
+      );
     });
 
     it("marks disabled nodes with aria-disabled", () => {
       render(<Tree data={treeData} />);
-      expect(
-        screen.getByRole("treeitem", { name: /aerodynamics/i })
-      ).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("treeitem", { name: /aerodynamics/i })).toHaveAttribute(
+        "aria-disabled",
+        "true"
+      );
     });
   });
 
@@ -79,9 +78,7 @@ describe("Tree", () => {
 
     it("collapses expanded node when chevron is clicked again", async () => {
       const user = userEvent.setup();
-      const { container } = render(
-        <Tree data={treeData} defaultExpanded={["powertrain"]} />
-      );
+      const { container } = render(<Tree data={treeData} defaultExpanded={["powertrain"]} />);
       expect(screen.getByRole("treeitem", { name: /ice/i })).toBeInTheDocument();
       const chevrons = container.querySelectorAll("[class*='toggleVisible']");
       await user.click(chevrons[0]!);
@@ -93,9 +90,7 @@ describe("Tree", () => {
       const onSelect = vi.fn();
       render(<Tree data={treeData} onSelect={onSelect} />);
       await user.click(screen.getByRole("treeitem", { name: /chassis/i }));
-      expect(onSelect).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "chassis" })
-      );
+      expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "chassis" }));
     });
 
     it("does not call onSelect for disabled nodes", async () => {
@@ -110,9 +105,10 @@ describe("Tree", () => {
       const user = userEvent.setup();
       render(<Tree data={treeData} />);
       await user.click(screen.getByRole("treeitem", { name: /chassis/i }));
-      expect(
-        screen.getByRole("treeitem", { name: /chassis/i })
-      ).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("treeitem", { name: /chassis/i })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      );
     });
   });
 
@@ -121,7 +117,9 @@ describe("Tree", () => {
       render(<Tree data={treeData} />);
       const tree = screen.getByRole("tree");
       const firstItem = screen.getByRole("treeitem", { name: /powertrain/i });
-      act(() => { firstItem.focus(); });
+      act(() => {
+        firstItem.focus();
+      });
       fireEvent.keyDown(tree, { key: "ArrowDown" });
       expect(document.activeElement).toHaveAttribute("data-tree-id", "chassis");
     });
@@ -130,7 +128,9 @@ describe("Tree", () => {
       render(<Tree data={treeData} />);
       const tree = screen.getByRole("tree");
       const parentItem = screen.getByRole("treeitem", { name: /powertrain/i });
-      act(() => { parentItem.focus(); });
+      act(() => {
+        parentItem.focus();
+      });
       fireEvent.keyDown(tree, { key: "ArrowRight" });
       expect(screen.getByRole("treeitem", { name: /ice/i })).toBeInTheDocument();
     });
@@ -140,18 +140,20 @@ describe("Tree", () => {
       render(<Tree data={treeData} onSelect={onSelect} />);
       const tree = screen.getByRole("tree");
       const chassisItem = screen.getByRole("treeitem", { name: /chassis/i });
-      act(() => { chassisItem.focus(); });
+      act(() => {
+        chassisItem.focus();
+      });
       fireEvent.keyDown(tree, { key: "Enter" });
-      expect(onSelect).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "chassis" })
-      );
+      expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "chassis" }));
     });
 
     it("Home jumps to first node", () => {
       render(<Tree data={treeData} />);
       const tree = screen.getByRole("tree");
       const lastItem = screen.getByRole("treeitem", { name: /aerodynamics/i });
-      act(() => { lastItem.focus(); });
+      act(() => {
+        lastItem.focus();
+      });
       fireEvent.keyDown(tree, { key: "Home" });
       expect(document.activeElement).toHaveAttribute("data-tree-id", "powertrain");
     });
@@ -160,7 +162,9 @@ describe("Tree", () => {
       render(<Tree data={treeData} />);
       const tree = screen.getByRole("tree");
       const firstItem = screen.getByRole("treeitem", { name: /powertrain/i });
-      act(() => { firstItem.focus(); });
+      act(() => {
+        firstItem.focus();
+      });
       fireEvent.keyDown(tree, { key: "End" });
       expect(document.activeElement).toHaveAttribute("data-tree-id", "aero");
     });
@@ -173,13 +177,7 @@ describe("Tree", () => {
       );
       expect(screen.queryByRole("treeitem", { name: /ice/i })).not.toBeInTheDocument();
 
-      rerender(
-        <Tree
-          data={treeData}
-          expanded={["powertrain"]}
-          onExpandedChange={() => {}}
-        />
-      );
+      rerender(<Tree data={treeData} expanded={["powertrain"]} onExpandedChange={() => {}} />);
       expect(screen.getByRole("treeitem", { name: /ice/i })).toBeInTheDocument();
     });
 
@@ -187,11 +185,7 @@ describe("Tree", () => {
       const user = userEvent.setup();
       const onExpandedChange = vi.fn();
       const { container } = render(
-        <Tree
-          data={treeData}
-          expanded={[]}
-          onExpandedChange={onExpandedChange}
-        />
+        <Tree data={treeData} expanded={[]} onExpandedChange={onExpandedChange} />
       );
       const chevrons = container.querySelectorAll("[class*='toggleVisible']");
       await user.click(chevrons[0]!);
@@ -201,9 +195,7 @@ describe("Tree", () => {
 
   describe("accessibility", () => {
     it("passes axe", async () => {
-      const { container } = render(
-        <Tree data={treeData} defaultExpanded={["powertrain"]} />
-      );
+      const { container } = render(<Tree data={treeData} defaultExpanded={["powertrain"]} />);
       const results = await axe(container, {
         rules: { "color-contrast": { enabled: false } },
       });

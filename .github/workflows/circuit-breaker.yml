@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force deploy (reset circuit breaker)'
+        description: "Force deploy (reset circuit breaker)"
         required: false
-        default: 'false'
+        default: "false"
         type: boolean
 
 permissions: {}
@@ -34,6 +34,7 @@ jobs:
           sparse-checkout: |
             .github/circuit-breaker-state
           sparse-checkout-cone-mode: false
+          ref: circuit-breaker-state
           token: ${{ github.token }}
 
       - name: Configure GitHub CLI
@@ -114,10 +115,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$STATE_FILE"
           git commit -m "ci(circuit-breaker): persist state [skip ci]"
-          git push
+          git push origin HEAD:circuit-breaker-state
 
       - name: Create issue on circuit trip
-        if: steps.check.outputs.blocked == 'true' || steps.analyze.outputs.blocked == 'true'
+        if: steps.analyze.outputs.blocked == 'true'
         run: |
           {
             echo "The deploy circuit breaker has tripped after 2+ consecutive failures."

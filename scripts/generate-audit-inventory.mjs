@@ -39,36 +39,86 @@ const SURFACE_REGISTRY = [
   ]),
 
   // Hospitality
-  surface("hospitality:home", "hospitality", "page", "/hospitality", [
-    "apps/hospitality/src/pages/HomePage.tsx",
-  ], "auth0"),
-  surface("hospitality:reservations", "hospitality", "page", "/hospitality/reservations", [
-    "apps/hospitality/src/pages/ReservationsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:timeline", "hospitality", "page", "/hospitality/timeline", [
-    "apps/hospitality/src/pages/TimelinePage.tsx",
-  ], "auth0"),
-  surface("hospitality:guests", "hospitality", "page", "/hospitality/guests", [
-    "apps/hospitality/src/pages/GuestsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:floor-plans", "hospitality", "page", "/hospitality/floor-plans", [
-    "apps/hospitality/src/pages/FloorPlansPage.tsx",
-  ], "auth0"),
-  surface("hospitality:booking-widget", "hospitality", "page", "/hospitality/booking-widget", [
-    "apps/hospitality/src/pages/BookingWidgetDemoPage.tsx",
-  ], "auth0"),
-  surface("hospitality:onboarding", "hospitality", "page", "/hospitality/onboarding", [
-    "apps/hospitality/src/pages/VenueOnboardingPage.tsx",
-  ], "auth0"),
-  surface("hospitality:profile", "hospitality", "page", "/hospitality/profile", [
-    "apps/hospitality/src/pages/ProfilePage.tsx",
-  ], "auth0"),
-  surface("hospitality:settings", "hospitality", "page", "/hospitality/settings", [
-    "apps/hospitality/src/pages/SettingsPage.tsx",
-  ], "auth0"),
-  surface("hospitality:admin", "hospitality", "page", "/hospitality/admin", [
-    "apps/hospitality/src/pages/AdminPage.tsx",
-  ], "auth0"),
+  surface(
+    "hospitality:home",
+    "hospitality",
+    "page",
+    "/hospitality",
+    ["apps/hospitality/src/pages/HomePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:reservations",
+    "hospitality",
+    "page",
+    "/hospitality/reservations",
+    ["apps/hospitality/src/pages/ReservationsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:timeline",
+    "hospitality",
+    "page",
+    "/hospitality/timeline",
+    ["apps/hospitality/src/pages/TimelinePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:guests",
+    "hospitality",
+    "page",
+    "/hospitality/guests",
+    ["apps/hospitality/src/pages/GuestsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:floor-plans",
+    "hospitality",
+    "page",
+    "/hospitality/floor-plans",
+    ["apps/hospitality/src/pages/FloorPlansPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:booking-widget",
+    "hospitality",
+    "page",
+    "/hospitality/booking-widget",
+    ["apps/hospitality/src/pages/BookingWidgetDemoPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:onboarding",
+    "hospitality",
+    "page",
+    "/hospitality/onboarding",
+    ["apps/hospitality/src/pages/VenueOnboardingPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:profile",
+    "hospitality",
+    "page",
+    "/hospitality/profile",
+    ["apps/hospitality/src/pages/ProfilePage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:settings",
+    "hospitality",
+    "page",
+    "/hospitality/settings",
+    ["apps/hospitality/src/pages/SettingsPage.tsx"],
+    "auth0"
+  ),
+  surface(
+    "hospitality:admin",
+    "hospitality",
+    "page",
+    "/hospitality/admin",
+    ["apps/hospitality/src/pages/AdminPage.tsx"],
+    "auth0"
+  ),
 
   // Rialto Web — Overview
   surface("rialto:overview", "rialto", "page", "/rialto", [
@@ -376,9 +426,14 @@ const SURFACE_REGISTRY = [
   ]),
 
   // Gen
-  surface("gen:playground", "gen", "page", "/gen", [
-    "apps/gen/src/pages/PlaygroundPage.tsx",
-  ], "auth0"),
+  surface(
+    "gen:playground",
+    "gen",
+    "page",
+    "/gen",
+    ["apps/gen/src/pages/PlaygroundPage.tsx"],
+    "auth0"
+  ),
 
   // API Health Endpoints
   surface("api:users:health", "api:users", "api_endpoint", "/api/v1/users/health", [

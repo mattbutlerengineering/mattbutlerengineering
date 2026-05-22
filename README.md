@@ -1,9 +1,9 @@
 # Matt Butler Engineering
 
+[![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
-[![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
-
-<!-- acmm:begin -->![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-7a5a36?style=flat-square)<!-- acmm:end -->
+[![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg?token=ANNEPED1FV)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
+[![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-7a5a36?style=flat-square)](docs/acmm.md)
 
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
@@ -34,13 +34,13 @@ This starts PostgreSQL in Docker, syncs all database schemas, and launches all d
 
 ### Access Points
 
-| App | URL |
-|-----|-----|
-| Marketing site | http://localhost:3000 |
-| Hospitality app | http://localhost:3002/hospitality |
-| Users API (+ docs) | http://localhost:3001/docs |
-| Agent API (+ docs) | http://localhost:3003/docs |
-| Reservations API (+ docs) | http://localhost:3004/docs |
+| App                       | URL                               |
+| ------------------------- | --------------------------------- |
+| Marketing site            | http://localhost:3000             |
+| Hospitality app           | http://localhost:3002/hospitality |
+| Users API (+ docs)        | http://localhost:3001/docs        |
+| Agent API (+ docs)        | http://localhost:3003/docs        |
+| Reservations API (+ docs) | http://localhost:3004/docs        |
 
 ## Project Structure
 
@@ -57,44 +57,41 @@ mattbutlerengineering/
 │   └── users/                # User management API
 ├── packages/                 # Shared libraries
 │   ├── agent-core/           # Agent session runner and worktree management
+│   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
+│   ├── api-versioning/       # API version negotiation middleware
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
+│   ├── feature-flags/        # Feature flag evaluation library
+│   ├── mcp-server/           # Infrastructure MCP server for Claude Code
+│   ├── notifications/        # Email/SMS notification adapters
+│   ├── observability/        # OpenTelemetry SDK wrapper
 │   ├── rialto/               # Rialto design system (component library)
 │   ├── rialto-catalog/       # Component catalog generator for Rialto
 │   ├── rialto-plugin/        # Claude Code plugin for Rialto
+│   ├── sentry/               # Sentry error tracking integration
 │   └── types/                # Shared TypeScript type definitions
 ├── tools/
-│   └── cli/                  # `mbe` CLI for agent management
-└── infrastructure/           # IaC (Pulumi) and edge routing
-    └── pulumi/               # Pulumi TypeScript project
+│   └── cli/                  # `mbe` CLI for dev, agents, and infrastructure
+└── infrastructure/           # IaC, Docker, edge routing, DB migrations
+    ├── docker/               # Docker Compose for local dev
+    ├── migrate/              # Prisma migration runner (production)
+    ├── pulumi/               # Pulumi TypeScript IaC
+    └── worker/               # Cloudflare Worker edge router
 ```
 
 ## AI Maturity (ACMM)
 
-This repository is measured against the [AI Codebase Maturity Model (ACMM)](docs/acmm.md) to track how well each project is set up for autonomous agent workflows.
+Measured against the [AI Codebase Maturity Model](docs/acmm.md) ([arXiv:2604.09388](https://arxiv.org/abs/2604.09388)). Current scorecard: 104/108 criteria detected across 6 levels.
 
-| Project | Level | Role | Next Gap |
-|---|---|---|---|
-| **Repository Root** | **L3** | **Analyst** | Activity Audit, Rollback drills |
-| [apps/gen](apps/gen/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/hospitality](apps/hospitality/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/marketing](apps/marketing/) | L2 | Rule-writer | PR acceptance tracking |
-| [apps/rialto-web](apps/rialto-web/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/agent-core](packages/agent-core/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-client](packages/api-client/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/api-versioning](packages/api-versioning/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/auth](packages/auth/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/config](packages/config/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/observability](packages/observability/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto](packages/rialto/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto-catalog](packages/rialto-catalog/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/rialto-plugin](packages/rialto-plugin/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/types](packages/types/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/feature-flags](packages/feature-flags/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/agent-test-utils](packages/agent-test-utils/) | L2 | Rule-writer | PR acceptance tracking |
-| [packages/mcp-server](packages/mcp-server/) | L2 | Rule-writer | PR acceptance tracking |
-| [infrastructure](infrastructure/) | L2 | Rule-writer | PR acceptance tracking |
+| Metric               | Value                 |
+| -------------------- | --------------------- |
+| Level                | L3 (Fully Autonomous) |
+| Agent PR acceptance  | 97%                   |
+| Agent PR revert rate | 0%                    |
+| CI flake rate        | 0%                    |
+
+See [`.claude/acmm/report.md`](.claude/acmm/report.md) for the full scorecard.
 
 ## Commands
 

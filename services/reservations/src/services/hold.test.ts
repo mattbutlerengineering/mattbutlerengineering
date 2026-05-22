@@ -550,9 +550,7 @@ describe("holdService", () => {
 
   describe("getById", () => {
     it("returns hold when found and not expired", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(makePrismaHold() as never);
 
       const result = await holdService.getById("hold-1");
 
@@ -585,9 +583,7 @@ describe("holdService", () => {
 
   describe("getBySessionId", () => {
     it("returns active hold for session and venue", async () => {
-      vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
+      vi.mocked(prisma.reservationHold.findFirst).mockResolvedValueOnce(makePrismaHold() as never);
 
       const result = await holdService.getBySessionId("session-abc", "venue-1");
 
@@ -636,169 +632,6 @@ describe("holdService", () => {
       );
 
       expect(await holdService.release("hold-1", "session-abc")).toBe(false);
-    });
-  });
-
-  describe("convertToReservation", () => {
-    it("converts hold to confirmed reservation", async () => {
-      const hold = makePrismaHold();
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
-
-      const table = makePrismaTable();
-      const reservation = {
-        id: "res-1",
-        date: hold.date,
-        startTime: hold.startTime,
-        endTime: hold.endTime,
-        partySize: hold.partySize,
-        status: "CONFIRMED",
-        notes: null,
-        cancellationReason: null,
-        cancellationNote: null,
-        guestName: "Jane Doe",
-        guestEmail: "jane@example.com",
-        guestPhone: null,
-        guestId: null,
-        userId: "user-1",
-        tableId: hold.tableId,
-        table,
-        venueId: hold.venueId,
-        createdAt: NOW,
-        updatedAt: NOW,
-      };
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              create: vi.fn().mockResolvedValue(reservation),
-            },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
-          return fn(tx);
-        }
-      );
-
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        { guestName: "Jane Doe", guestEmail: "jane@example.com" },
-        "user-1"
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.reservation!.status).toBe("CONFIRMED");
-      expect(result.reservation!.guestName).toBe("Jane Doe");
-    });
-
-    it("returns error when hold not found", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(null as never);
-
-      const result = await holdService.convertToReservation(
-        "missing",
-        "session-abc",
-        {}
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Hold not found");
-    });
-
-    it("returns error when hold has expired", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold({ expiresAt: FIVE_MIN_AGO }) as never
-      );
-      vi.mocked(prisma.reservationHold.delete).mockResolvedValueOnce(undefined as never);
-
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Hold has expired");
-    });
-
-    it("returns error when session ID does not match", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
-
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "wrong-session",
-        {}
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Session ID does not match the hold");
-    });
-
-    it("returns error when conflicting reservation found in transaction", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            reservation: {
-              findFirst: vi.fn().mockResolvedValue({ id: "conflict-res" }),
-              create: vi.fn(),
-            },
-            reservationHold: {
-              findFirst: vi.fn(),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
-          return fn(tx);
-        }
-      );
-
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Time slot is no longer available");
-    });
-
-    it("returns error when conflicting hold found in transaction", async () => {
-      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
-        makePrismaHold() as never
-      );
-
-      vi.mocked(prisma.$transaction).mockImplementationOnce(
-        async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              create: vi.fn(),
-            },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue({ id: "conflict-hold" }),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
-          return fn(tx);
-        }
-      );
-
-      const result = await holdService.convertToReservation(
-        "hold-1",
-        "session-abc",
-        {}
-      );
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Time slot is no longer available");
     });
   });
 

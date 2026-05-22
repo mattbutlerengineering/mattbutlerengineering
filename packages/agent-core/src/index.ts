@@ -36,37 +36,27 @@ export {
   hasChanges,
   runVerification,
 } from "./worktree-manager.js";
-export type { CreateWorktreeOptions, VerificationResult as PrePushVerification } from "./worktree-manager.js";
+export type {
+  CreateWorktreeOptions,
+  VerificationResult as PrePushVerification,
+} from "./worktree-manager.js";
 
 // PR creation
-export {
-  createPullRequest,
-  buildPrTitle,
-  buildPrBody,
-  buildFailurePrBody,
-} from "./pr-creator.js";
+export { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "./pr-creator.js";
 
 // Dependency bump direct-merge
 export { isTrivialDepBump, mergeDirectly } from "./dep-bump-merger.js";
 export type { TrivialDepBumpResult } from "./dep-bump-merger.js";
 
 // Prompt building
-export {
-  buildSystemPrompt,
-  loadProjectContext,
-  loadSourceFiles,
-} from "./prompt-builder.js";
+export { buildSystemPrompt, loadProjectContext, loadSourceFiles } from "./prompt-builder.js";
 export type { SourceFileEntry } from "./prompt-builder.js";
 
 // Tool permissions
 export { createToolPermissionHandler, normalizeBashCommand } from "./tool-permissions.js";
 
 // Cost tracking
-export {
-  extractTokenUsage,
-  extractCost,
-  buildSessionResult,
-} from "./cost-tracker.js";
+export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-tracker.js";
 
 // Stuck detection
 export { createStuckDetector, DEFAULT_STUCK_CONFIG } from "./stuck-detector.js";
@@ -102,10 +92,7 @@ export {
   buildFailureContext,
   loadMemory as loadFailureMemory,
 } from "./failure-memory.js";
-export type {
-  FailureRecord,
-  FailureMemory,
-} from "./failure-memory.js";
+export type { FailureRecord, FailureMemory } from "./failure-memory.js";
 
 // Deploy verification
 export {
@@ -123,11 +110,7 @@ export type {
 } from "./deploy-verifier.js";
 
 // PR feedback loop
-export {
-  pollForFeedback,
-  fetchUnresolvedComments,
-  fetchCIFailures,
-} from "./pr-feedback-poller.js";
+export { pollForFeedback, fetchUnresolvedComments, fetchCIFailures } from "./pr-feedback-poller.js";
 export type {
   ReviewComment,
   CIFailure,
@@ -193,14 +176,9 @@ export {
 export { runOrchestrator } from "./orchestrator.js";
 
 // Task decomposer (orchestrator config + prompt)
-export {
-  buildOrchestratorPrompt,
-} from "./task-decomposer.js";
+export { buildOrchestratorPrompt } from "./task-decomposer.js";
 
-export type {
-  OrchestratorConfig,
-  OrchestratorResult,
-} from "./task-decomposer.js";
+export type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.js";
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 
@@ -218,19 +196,24 @@ export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
 export type { IssueIntent } from "./intent-extractor.js";
 
 // Model routing
-export { routeModel, routeModelWithReason, resolveModelId, getFeedbackLoopModel } from "./model-router.js";
+export {
+  routeModel,
+  routeModelWithReason,
+  resolveModelId,
+  getFeedbackLoopModel,
+} from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
 // PR risk classification
 export { isLowRiskPR } from "./pr-risk-classifier.js";
 
 // Change-type classification (ship-loop phase gating)
-export { classifyChanges, shouldSkipPhase, formatClassification } from "./change-type-classifier.js";
-export type {
-  ChangeType,
-  ChangeClassification,
-  SkippablePhase,
+export {
+  classifyChanges,
+  shouldSkipPhase,
+  formatClassification,
 } from "./change-type-classifier.js";
+export type { ChangeType, ChangeClassification, SkippablePhase } from "./change-type-classifier.js";
 
 // Static diff analysis (fast pre-check)
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
@@ -253,38 +236,12 @@ export {
 export type { RetryConfig, RetryResult } from "./retry.js";
 
 // QA tuning — adaptive thresholds from .github/auto-qa-tuning.json
-export {
-  loadQaTuning,
-  parseThresholds,
-  applyTuningDefaults,
-} from "./qa-tuning-loader.js";
-export type {
-  QaTuningThresholds,
-  QaTuningConfig,
-} from "./qa-tuning-loader.js";
+export { loadQaTuning, parseThresholds, applyTuningDefaults } from "./qa-tuning-loader.js";
+export type { QaTuningThresholds, QaTuningConfig } from "./qa-tuning-loader.js";
 
 // Output sanitization (XSS prevention for AI-generated content)
 export { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
 
-// CLI adapter interface (multi-backend dispatch)
-export type {
-  AdapterConfig,
-  AdapterResult,
-  AdapterState,
-  AgentAdapter,
-} from "./cli-adapter.js";
-
-// CLI adapters (multi-backend dispatch)
-export { ClaudeAdapter } from "./adapters/claude-adapter.js";
-export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
-export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
-
-// Rate-limit detection and cooldown management
-export { RateLimitDetector, scanForRateLimitPatterns } from "./rate-limit-detector.js";
-
-// Failover router (priority-cascade multi-CLI dispatch)
-export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
-export type { RoutedAdapterResult } from "./failover-router.js";
 // Bundle size tracking
 export {
   measureAppBundleSize,

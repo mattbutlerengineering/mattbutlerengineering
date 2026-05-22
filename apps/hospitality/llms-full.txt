@@ -40,6 +40,18 @@
   </file>
   </section>
   <section priority="medium" role="e2e">
+  <file path="e2e/api-mocks.ts">
+    function loadFixture(name: string): string {
+      return readFileSync(join(FIXTURES_DIR, `${name}.json`), "utf-8");
+    }
+    function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> {
+      return route.fulfill({
+        status,
+        contentType: "application/json",
+        body: loadFixture(fixtureName),
+      });
+    }
+  </file>
   <file path="e2e/auth-helpers.ts">
     interface Auth0Config {
       domain: string;
@@ -71,8 +83,13 @@
     }
   </file>
   <file path="e2e/fixtures.ts">
-    export const test = base.extend<{ authPage: Page }>({
+    export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
       authPage: async ({ page }, use) => {
+        await injectAuth0Session(page);
+        await use(page);
+      },
+      mockedPage: async ({ page }, use) => {
+        await mockApi(page);
         await injectAuth0Session(page);
         await use(page);
       },
@@ -150,7 +167,7 @@
             getAccessToken: () => accessToken,
             onError: reportToSentry,
           }),
-        [accessToken],
+        [accessToken]
       );
     }
   </file>

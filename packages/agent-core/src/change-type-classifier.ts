@@ -53,8 +53,7 @@ const isDependencyFile = (f: string): boolean =>
   f === "package-lock.json" ||
   f === "yarn.lock";
 
-const isInfrastructureFile = (f: string): boolean =>
-  f.startsWith("infrastructure/");
+const isInfrastructureFile = (f: string): boolean => f.startsWith("infrastructure/");
 
 const isFrontendFile = (f: string): boolean =>
   (f.startsWith("apps/") || f.startsWith("packages/rialto/")) &&
@@ -63,10 +62,7 @@ const isFrontendFile = (f: string): boolean =>
   !isConfigFile(f);
 
 const isBackendFile = (f: string): boolean =>
-  f.startsWith("services/") &&
-  !isTestFile(f) &&
-  !isDocFile(f) &&
-  !isConfigFile(f);
+  f.startsWith("services/") && !isTestFile(f) && !isDocFile(f) && !isConfigFile(f);
 
 // ── Rules (priority order) ──────────────────────────────────────────
 

@@ -181,7 +181,9 @@
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .stepDotActive {

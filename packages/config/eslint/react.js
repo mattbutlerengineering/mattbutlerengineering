@@ -13,6 +13,7 @@ export default [
   ...baseConfig,
   eslintReact.configs.recommended,
   {
+    settings: { react: { version: "19" } },
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
@@ -29,10 +30,7 @@ export default [
       "react-hooks/component-hook-factories": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       // Warn on console.log in production source files
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
       // Module boundary enforcement — block backend-only packages and entrypoints in frontend apps
@@ -66,6 +64,7 @@ export default [
         },
       ],
       "mbe-local/prefer-rialto-components": "warn",
+      "react/jsx-no-undef": "off",
       // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
         "warn",
@@ -82,6 +81,12 @@ export default [
             "Avoid hardcoded hex colors in JSX expressions. Use Rialto CSS tokens (var(--rialto-*)) instead.",
         },
       ],
+    },
+  },
+  {
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    rules: {
+      "mbe-local/prefer-rialto-components": "off",
     },
   },
 ];

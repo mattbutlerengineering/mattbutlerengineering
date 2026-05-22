@@ -1,41 +1,4 @@
 <codebase path="packages/observability">
-  <section priority="medium" role="sentry">
-  <file path="src/sentry/config.ts">
-    <item priority="low">
-      interface SentryConfig {
-        dsn: string;
-        environment: string;
-        release: string | undefined;
-        enabled: boolean;
-      }
-    </item>
-    <item priority="high">
-      export function resolveConfig(dsn: string | undefined): SentryConfig { /* ... */ }
-    </item>
-  </file>
-  <file path="src/sentry/node.ts">
-    <item priority="high">
-      interface SentryUser {
-        id: string;
-        email?: string;
-      }
-    </item>
-    <item priority="medium">
-      function isSentryUser(value: unknown): value is SentryUser { /* ... */ }
-    </item>
-  </file>
-  <file path="src/sentry/react.ts">
-    <item priority="low">
-      interface InitOptions {
-        appName: string;
-        dsn: string;
-      }
-    </item>
-    <item priority="high">
-      export function initSentry(options: InitOptions): void { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/baggage.ts">
     <item priority="high">

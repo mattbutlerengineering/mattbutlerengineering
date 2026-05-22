@@ -9,10 +9,14 @@ vi.mock("../services/hold.js", () => ({
     getById: vi.fn(),
     getBySessionId: vi.fn(),
     release: vi.fn(),
-    convertToReservation: vi.fn(),
     cleanupExpired: vi.fn(),
     maybeCleanup: vi.fn(),
   },
+}));
+
+// Mock the confirm-hold orchestrator
+vi.mock("../services/confirm-hold.js", () => ({
+  confirmHold: vi.fn(),
 }));
 
 // Mock the availability service
@@ -107,6 +111,16 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
+  }),
 }));
 
 // Mock jose library
@@ -116,6 +130,7 @@ vi.mock("jose", () => ({
 }));
 
 import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 
 const mockHold = {
   id: "hold-123",
@@ -347,7 +362,7 @@ describe("Hold Routes", () => {
 
   describe("POST /v1/holds/:id/confirm", () => {
     it("should confirm hold and create reservation", async () => {
-      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+      vi.mocked(confirmHold).mockResolvedValue({
         success: true,
         reservation: mockReservation,
       });
@@ -369,14 +384,14 @@ describe("Hold Routes", () => {
       expect(body.data.id).toEqual(mockReservation.id);
       expect(body.data.status).toEqual("CONFIRMED");
       expect(body.data.guestName).toEqual("John Doe");
-      expect(holdService.convertToReservation).toHaveBeenCalledWith(
-        "hold-123",
-        "session-abc",
-        {
+      expect(confirmHold).toHaveBeenCalledWith({
+        holdId: "hold-123",
+        sessionId: "session-abc",
+        guestDetails: {
           guestName: "John Doe",
           guestEmail: "john@example.com",
-        }
-      );
+        },
+      });
     });
 
     it("should return 400 without session ID", async () => {
@@ -392,10 +407,35 @@ describe("Hold Routes", () => {
       expect(response.statusCode).toBe(400);
     });
 
-    it("should return 404 for expired hold", async () => {
-      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+    it("should return 410 for expired hold", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
         success: false,
         error: "Hold has expired",
+        errorCode: "EXPIRED",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/holds/hold-123/confirm",
+        headers: {
+          "x-session-id": "session-abc",
+        },
+        payload: {
+          guestName: "John Doe",
+        },
+      });
+
+      expect(response.statusCode).toBe(410);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Hold Expired");
+      expect(body.message).toBe("Hold has expired");
+    });
+
+    it("should return 404 for nonexistent hold", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: false,
+        error: "Hold not found",
+        errorCode: "NOT_FOUND",
       });
 
       const response = await app.inject({
@@ -412,35 +452,14 @@ describe("Hold Routes", () => {
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Not Found");
-      expect(body.message).toBe("Hold has expired");
-    });
-
-    it("should return 404 for nonexistent hold", async () => {
-      vi.mocked(holdService.convertToReservation).mockResolvedValue({
-        success: false,
-        error: "Hold not found",
-      });
-
-      const response = await app.inject({
-        method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
-        headers: {
-          "x-session-id": "session-abc",
-        },
-        payload: {
-          guestName: "John Doe",
-        },
-      });
-
-      expect(response.statusCode).toBe(404);
-      const body = JSON.parse(response.body);
       expect(body.message).toBe("Hold not found");
     });
 
     it("should return 403 for session ID mismatch", async () => {
-      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+      vi.mocked(confirmHold).mockResolvedValue({
         success: false,
         error: "Session ID does not match the hold",
+        errorCode: "SESSION_MISMATCH",
       });
 
       const response = await app.inject({
@@ -460,9 +479,10 @@ describe("Hold Routes", () => {
     });
 
     it("should return 409 when slot no longer available", async () => {
-      vi.mocked(holdService.convertToReservation).mockResolvedValue({
+      vi.mocked(confirmHold).mockResolvedValue({
         success: false,
         error: "Time slot is no longer available",
+        errorCode: "CONFLICT",
       });
 
       const response = await app.inject({

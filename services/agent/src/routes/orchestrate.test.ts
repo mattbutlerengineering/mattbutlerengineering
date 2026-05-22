@@ -25,6 +25,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 vi.mock("@mbe/agent-core", () => ({
@@ -94,10 +99,13 @@ describe("Orchestrate Routes", () => {
         createdAt: "2026-02-27T00:00:00.000Z",
       });
 
-      const expectedCost = calculateCost({
-        inputTokens: 300000,
-        outputTokens: 50000,
-      }, "claude-sonnet-4-6").totalCostUsd;
+      const expectedCost = calculateCost(
+        {
+          inputTokens: 300000,
+          outputTokens: 50000,
+        },
+        "claude-sonnet-4-6"
+      ).totalCostUsd;
 
       vi.mocked(runOrchestrator).mockResolvedValueOnce({
         status: "succeeded",

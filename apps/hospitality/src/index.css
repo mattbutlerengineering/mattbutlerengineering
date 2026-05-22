@@ -10,9 +10,31 @@
   --color-foreground: var(--rialto-text-primary);
 }
 
+/* Constrain viewport so the app shell (not body/html) scrolls */
+html,
 body {
-  font-family: var(--rialto-font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif);
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  font-family: var(
+    --rialto-font-sans,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
   background-color: var(--color-background);
   color: var(--color-foreground);
 }

@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { extractTokenUsage, extractCost, buildSessionResult } from "../cost-tracker.js";
 
-function createMockResult(
-  overrides: Partial<SDKResultMessage> = {}
-): SDKResultMessage {
+function createMockResult(overrides: Partial<SDKResultMessage> = {}): SDKResultMessage {
   return {
     type: "result",
     subtype: "success",
@@ -87,7 +85,11 @@ describe("extractCost", () => {
 describe("buildSessionResult", () => {
   it("builds a successful session result", () => {
     const result = createMockResult();
-    const sessionResult = buildSessionResult(result, "agent/fix-bug-abc123", "https://github.com/pr/1");
+    const sessionResult = buildSessionResult(
+      result,
+      "agent/fix-bug-abc123",
+      "https://github.com/pr/1"
+    );
 
     expect(sessionResult).toEqual({
       sessionId: "session-123",

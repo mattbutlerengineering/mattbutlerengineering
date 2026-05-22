@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /new-adr — create an Architecture Decision Record
 
-Scaffolds a new ADR in `docs/adr/` following the format enforced by `scripts/check-adr.js` (run by the pre-commit hook).
+Scaffolds a new ADR in `docs/adr/` following the format enforced by `pnpm --filter @mbe/cli start check-adr` (run by the pre-commit hook).
 
 ## Steps
 
@@ -67,12 +67,14 @@ one paragraph each. Skip obviously-bad options.>
 ## When to use
 
 Create an ADR when:
+
 - Choosing between multiple credible architectural options (database, framework, protocol)
 - Establishing a new coding convention that affects multiple packages
 - Deprecating or superseding a prior decision
 - A decision would otherwise be buried in a commit message where nobody will find it
 
 Do NOT use for:
+
 - Routine implementation choices inside a single file
 - Tactical bug fixes
 - Feature additions that follow existing patterns

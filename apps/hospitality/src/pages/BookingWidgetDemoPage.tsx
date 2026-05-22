@@ -139,10 +139,7 @@ export function BookingWidgetDemoPage() {
     fetchVenues();
   }, [api]);
 
-  const venueOptions = useMemo(
-    () => venues.map((v) => ({ value: v.id, label: v.name })),
-    [venues]
-  );
+  const venueOptions = useMemo(() => venues.map((v) => ({ value: v.id, label: v.name })), [venues]);
 
   const selectedVenue = useMemo(
     () => venues.find((v) => v.id === selectedVenueId) ?? null,
@@ -152,9 +149,9 @@ export function BookingWidgetDemoPage() {
   const embedCode = useMemo(() => {
     const venueIdValue = selectedVenueId ?? "YOUR_VENUE_ID";
     const maxParty = selectedVenue?.settings?.maxPartySize ?? 8;
-    return `<!-- Add to your website -->
+    return `<!-- embeddable widget — coming soon -->
+<!-- When available, add it to your website like this: -->
 <div id="booking-widget"></div>
-<script src="https://mattbutlerengineering.com/widget.js"></script>
 <script>
   BookingWidget.init({
     container: '#booking-widget',
@@ -260,25 +257,31 @@ export function BookingWidgetDemoPage() {
             Embed Code
           </Text>
 
-          <Card variant="flat" className={styles.codeCard}>
-            <div className={styles.codeHeader}>
-              <Text variant="caption" color="tertiary">
-                HTML
-              </Text>
-              <Button variant="ghost" size="sm" onClick={handleCopy}>
-                {copied ? "Copied!" : "Copy"}
-              </Button>
-            </div>
-            <div className={styles.codeBlock}>
-              <pre className={styles.codeBlockPre}>
-                <code>{highlightEmbedCode(embedCode)}</code>
-              </pre>
-            </div>
+          <Card variant="flat" className={styles.codeCard} data-testid="embed-coming-soon">
+            <Stack gap="md">
+              <Alert variant="info">
+                The embeddable widget is currently in development. Embed code will be available here
+                once the widget is released.
+              </Alert>
+              <div className={styles.codeHeader}>
+                <Text variant="caption" color="tertiary">
+                  Preview (Coming Soon)
+                </Text>
+                <Button variant="ghost" size="sm" onClick={handleCopy}>
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+              <div className={styles.codeBlock}>
+                <pre className={styles.codeBlockPre}>
+                  <code>{highlightEmbedCode(embedCode)}</code>
+                </pre>
+              </div>
+            </Stack>
           </Card>
 
           <Text variant="caption" color="secondary">
-            The widget can be embedded on any website. Styles are self-contained and will not
-            conflict with your existing CSS.
+            The embeddable widget will allow guests to book directly from your website. Styles will
+            be self-contained and will not conflict with your existing CSS.
           </Text>
         </Stack>
       </section>

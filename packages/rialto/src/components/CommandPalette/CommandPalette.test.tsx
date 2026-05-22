@@ -21,9 +21,7 @@ describe("CommandPalette", () => {
 
   describe("rendering", () => {
     it("renders nothing when open=false", () => {
-      render(
-        <CommandPalette open={false} onOpenChange={() => {}} items={items} />
-      );
+      render(<CommandPalette open={false} onOpenChange={() => {}} items={items} />);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
@@ -47,12 +45,7 @@ describe("CommandPalette", () => {
 
     it("renders group labels", () => {
       render(
-        <CommandPalette
-          open
-          onOpenChange={() => {}}
-          items={items}
-          groups={["File", "Edit"]}
-        />
+        <CommandPalette open onOpenChange={() => {}} items={items} groups={["File", "Edit"]} />
       );
       expect(screen.getByText("File")).toBeInTheDocument();
       expect(screen.getByText("Edit")).toBeInTheDocument();
@@ -60,12 +53,7 @@ describe("CommandPalette", () => {
 
     it("renders custom placeholder", () => {
       render(
-        <CommandPalette
-          open
-          onOpenChange={() => {}}
-          items={items}
-          placeholder="Type a command"
-        />
+        <CommandPalette open onOpenChange={() => {}} items={items} placeholder="Type a command" />
       );
       expect(screen.getByPlaceholderText("Type a command")).toBeInTheDocument();
     });
@@ -92,9 +80,7 @@ describe("CommandPalette", () => {
     it("calls onSelect and closes when item is clicked", async () => {
       const user = userEvent.setup();
       const onOpenChange = vi.fn();
-      render(
-        <CommandPalette open onOpenChange={onOpenChange} items={items} />
-      );
+      render(<CommandPalette open onOpenChange={onOpenChange} items={items} />);
       await user.click(screen.getByText("Copy"));
       expect(items[3]!.onSelect).toHaveBeenCalledOnce();
       expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -102,9 +88,7 @@ describe("CommandPalette", () => {
 
     it("closes on Escape key", async () => {
       const onOpenChange = vi.fn();
-      render(
-        <CommandPalette open onOpenChange={onOpenChange} items={items} />
-      );
+      render(<CommandPalette open onOpenChange={onOpenChange} items={items} />);
       // Fire Escape directly on the combobox — it bubbles to the overlay's onKeyDown
       const combobox = screen.getByRole("combobox");
       fireEvent.keyDown(combobox, { key: "Escape" });
@@ -141,9 +125,7 @@ describe("CommandPalette", () => {
       const onOpenChange = vi.fn();
       const onSelect = vi.fn();
       const testItems = [{ id: "copy", label: "Copy", onSelect }];
-      render(
-        <CommandPalette open onOpenChange={onOpenChange} items={testItems} />
-      );
+      render(<CommandPalette open onOpenChange={onOpenChange} items={testItems} />);
       // Click the option directly
       await user.click(screen.getByRole("option", { name: "Copy" }));
       expect(onSelect).toHaveBeenCalledOnce();
@@ -176,26 +158,18 @@ describe("CommandPalette", () => {
   describe("ARIA attributes", () => {
     it("dialog has aria-label", () => {
       render(<CommandPalette open onOpenChange={() => {}} items={items} />);
-      expect(screen.getByRole("dialog")).toHaveAttribute(
-        "aria-label",
-        "Command palette"
-      );
+      expect(screen.getByRole("dialog")).toHaveAttribute("aria-label", "Command palette");
     });
 
     it("listbox has aria-label", () => {
       render(<CommandPalette open onOpenChange={() => {}} items={items} />);
-      expect(screen.getByRole("listbox")).toHaveAttribute(
-        "aria-label",
-        "Command results"
-      );
+      expect(screen.getByRole("listbox")).toHaveAttribute("aria-label", "Command results");
     });
   });
 
   describe("accessibility", () => {
     it("passes axe when open", async () => {
-      const { container } = render(
-        <CommandPalette open onOpenChange={() => {}} items={items} />
-      );
+      const { container } = render(<CommandPalette open onOpenChange={() => {}} items={items} />);
       const results = await axe(container, {
         rules: { "color-contrast": { enabled: false } },
       });

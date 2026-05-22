@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "./ActivityFeed.js";
@@ -8,7 +8,7 @@ import React from "react";
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children, title }: { children: React.ReactNode; title?: string }) => (
     <div data-testid="card">
-      {title && <h3>{title}</h3>}
+      {title && <h1>{title}</h1>}
       {children}
     </div>
   ),
@@ -62,9 +62,7 @@ describe("ActivityFeed", () => {
   });
 
   it("formats timestamps as 'just now' for recent events", () => {
-    const events: ReservationEvent[] = [
-      makeEvent({ timestamp: new Date().toISOString() }),
-    ];
+    const events: ReservationEvent[] = [makeEvent({ timestamp: new Date().toISOString() })];
 
     render(<ActivityFeed events={events} isConnected={true} />);
     expect(screen.getByText("just now")).toBeDefined();

@@ -1,56 +1,65 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-4: Reservation edit flow", () => {
-  test("opens reservation detail sidebar", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("opens reservation detail sidebar", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await expect(reservationBlock).toBeVisible();
     await reservationBlock.click();
 
     // Detail sidebar opens
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await expect(sidebar).toBeVisible();
 
     // Shows reservation info
     await expect(sidebar.getByText(/guest|party/i)).toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-sidebar.png",
+      fullPage: true,
+    });
   });
 
-  test("opens edit drawer and shows current values", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("opens edit drawer and shows current values", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await expect(sidebar).toBeVisible();
 
     // Click "Edit"
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
     // EditReservationDrawer opens
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Party size field is editable
     const partySizeInput = drawer.getByLabel(/party size/i);
     await expect(partySizeInput).toBeVisible();
     await expect(partySizeInput).not.toBeDisabled();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-drawer.png",
+      fullPage: true,
+    });
   });
 
-  test("saves edited party size and verifies update", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("saves edited party size and verifies update", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click a reservation block
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Change party size to a different value
@@ -69,16 +78,16 @@ test.describe("CF-4: Reservation edit flow", () => {
     await expect(sidebar.getByText(newValue)).toBeVisible();
   });
 
-  test("cancels edit without saving", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("cancels edit without saving", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
-    const reservationBlock = authPage.getByTestId(/^reservation-block-/).first();
+    const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
 
-    const sidebar = authPage.getByTestId("reservation-detail-sidebar");
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await sidebar.getByRole("button", { name: /edit/i }).click();
 
-    const drawer = authPage.getByTestId("edit-reservation-drawer");
+    const drawer = mockedPage.getByTestId("edit-reservation-drawer");
     await expect(drawer).toBeVisible();
 
     // Click cancel
@@ -86,5 +95,9 @@ test.describe("CF-4: Reservation edit flow", () => {
 
     // Drawer closes without saving
     await expect(drawer).not.toBeVisible();
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/create-reservation-cancelled.png",
+      fullPage: true,
+    });
   });
 });

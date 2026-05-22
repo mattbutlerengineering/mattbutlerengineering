@@ -25,9 +25,7 @@ describe("compound command", () => {
     vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
     // findMonorepoRoot: return true for pnpm-workspace.yaml check
-    mockExistsSync.mockImplementation((p: unknown) =>
-      String(p).endsWith("pnpm-workspace.yaml")
-    );
+    mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
   });
 
   async function runCompound(): Promise<void> {
@@ -55,9 +53,7 @@ describe("compound command", () => {
   });
 
   it("detects new package change in diff", async () => {
-    mockExecSync.mockReturnValue(
-      '+  "name": "@mbe/new-pkg"\npackage.json\n' as never
-    );
+    mockExecSync.mockReturnValue('+  "name": "@mbe/new-pkg"\npackage.json\n' as never);
 
     await runCompound();
 
@@ -114,5 +110,64 @@ describe("compound command", () => {
 
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("A task is not done until the knowledge gained has been codified");
+  });
+});
+
+describe("compound – findMonorepoRoot fallback", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+    vi.spyOn(process, "cwd").mockReturnValue("/repo");
+    mockExecSync.mockReturnValue("" as never);
+  });
+
+  it("falls back to cwd when pnpm-workspace.yaml is never found", async () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const { compoundCommand } = await import("../commands/compound.js");
+    await compoundCommand.parseAsync(["lint"], { from: "user" });
+
+    // Should still run without crashing
+    expect(mockExecSync).toHaveBeenCalled();
+  });
+});
+
+describe("compound – uncovered branches", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+    vi.spyOn(process, "cwd").mockReturnValue("/repo");
+    mockExistsSync.mockImplementation((p: unknown) => String(p).endsWith("pnpm-workspace.yaml"));
+  });
+
+  it("handles package.json in diff but without matching name patterns (false branch of OR)", async () => {
+    // diff includes "package.json" but not '+  "name":' or '+    "@mbe/'
+    // This hits the false branch of the inner OR expression on line 46
+    mockExecSync.mockReturnValue('package.json\n-  "version": "1.0.0"\n' as never);
+
+    const { compoundCommand } = await import("../commands/compound.js");
+    await compoundCommand.parseAsync([], { from: "user" });
+
+    const output = vi.mocked(console.log).mock.calls.flat().join("\n");
+    expect(output).toContain("No obvious compounding tasks found");
+  });
+
+  it("handles non-Error exception thrown by execSync (String branch)", async () => {
+    // Throw a non-Error value to exercise the String(error) branch in the catch
+    mockExecSync.mockImplementation(() => {
+      throw "plain string error from execSync";
+    });
+
+    const { compoundCommand } = await import("../commands/compound.js");
+    await compoundCommand.parseAsync([], { from: "user" });
+
+    const errOutput = vi.mocked(console.error).mock.calls.flat().join("\n");
+    expect(errOutput).toContain("plain string error from execSync");
   });
 });

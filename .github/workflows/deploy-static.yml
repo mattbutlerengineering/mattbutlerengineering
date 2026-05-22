@@ -41,7 +41,7 @@ jobs:
           else
             STATE="closed"
           fi
-          
+
           echo "Circuit state: $STATE"
           if [ "$STATE" = "open" ]; then
             echo "blocked=true" >> "$GITHUB_OUTPUT"
@@ -148,6 +148,10 @@ jobs:
           VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
           VITE_API_URL: https://mattbutlerengineering.com
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/hospitality/wrangler.toml
@@ -267,7 +271,8 @@ jobs:
 
   report-health:
     name: Report Deploy Health
-    needs: [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web, verify, rollback]
+    needs:
+      [detect-changes, deploy-marketing, deploy-hospitality, deploy-rialto-web, verify, rollback]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -304,4 +309,3 @@ jobs:
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
-

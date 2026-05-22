@@ -36,9 +36,7 @@ export async function storeVerificationLog(
 ): Promise<string> {
   const logDir = join(worktreePath, ".agent-work");
   const logPath = join(logDir, "verification.log");
-  const content = sections
-    .map((s) => `=== ${s.label} ===\n${s.output}\n`)
-    .join("\n");
+  const content = sections.map((s) => `=== ${s.label} ===\n${s.output}\n`).join("\n");
 
   try {
     await mkdir(logDir, { recursive: true });

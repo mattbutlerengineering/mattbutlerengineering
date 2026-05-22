@@ -1,11 +1,5 @@
-import {
-  forwardRef,
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  type HTMLAttributes,
-} from "react";
+import type { HTMLAttributes } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring, reduced } from "../../tokens/motion";
 import { useFlipDotSound } from "./use-flip-dot-sound";
@@ -13,11 +7,7 @@ import styles from "./FlipDot.module.css";
 
 // ── Types ─────────────────────────────────────
 
-export type StaggerDirection =
-  | "left-to-right"
-  | "top-to-bottom"
-  | "center-out"
-  | "random";
+export type StaggerDirection = "left-to-right" | "top-to-bottom" | "center-out" | "random";
 
 export interface FlipDotProps extends Omit<HTMLAttributes<HTMLDivElement>, "aria-label"> {
   /** 2D boolean grid — `true` = on (bright), `false` = off (dark). Outer array = rows. */
@@ -53,7 +43,7 @@ function computeDelay(
   totalCols: number,
   direction: StaggerDirection,
   baseDelay: number,
-  jitter: number,
+  jitter: number
 ): number {
   let positional: number;
 
@@ -84,13 +74,11 @@ function computeDelay(
 function normaliseMatrix(
   matrix: readonly (readonly boolean[])[],
   rows: number,
-  cols: number,
+  cols: number
 ): readonly (readonly boolean[])[] {
   return Array.from({ length: rows }, (_, r) => {
     const srcRow = matrix[r];
-    return Array.from({ length: cols }, (__, c) =>
-      srcRow ? (srcRow[c] ?? false) : false,
-    );
+    return Array.from({ length: cols }, (__, c) => (srcRow ? (srcRow[c] ?? false) : false));
   });
 }
 
@@ -103,12 +91,7 @@ interface FlipDotDotProps {
   onFlip?: () => void;
 }
 
-const FlipDotDot = memo(function FlipDotDot({
-  on,
-  delay,
-  reduceMotion,
-  onFlip,
-}: FlipDotDotProps) {
+const FlipDotDot = memo(function FlipDotDot({ on, delay, reduceMotion, onFlip }: FlipDotDotProps) {
   const prevOn = useRef(on);
 
   useEffect(() => {
@@ -123,11 +106,7 @@ const FlipDotDot = memo(function FlipDotDot({
       <motion.div
         className={styles.dotInner}
         animate={{ rotateX: on ? 180 : 0 }}
-        transition={
-          reduceMotion
-            ? reduced
-            : { ...spring, delay }
-        }
+        transition={reduceMotion ? reduced : { ...spring, delay }}
       >
         <div className={styles.dotOff} />
         <div className={styles.dotOn} />
@@ -155,7 +134,7 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
       style,
       ...rest
     },
-    ref,
+    ref
   ) => {
     const shouldReduceMotion = useReducedMotion() ?? false;
     const { playBatchClick } = useFlipDotSound({
@@ -165,7 +144,7 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
 
     // Resolve final dimensions
     const effectiveRows = rows ?? matrix.length;
-    const effectiveCols = cols ?? (matrix[0]?.length ?? 0);
+    const effectiveCols = cols ?? matrix[0]?.length ?? 0;
     const grid = normaliseMatrix(matrix, effectiveRows, effectiveCols);
 
     // Batch sound: collect flips within a single rAF
@@ -196,12 +175,14 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
         ref={ref}
         role="img"
         className={[styles.panel, className].filter(Boolean).join(" ")}
-        style={{
-          gridTemplateColumns: `repeat(${effectiveCols}, var(--fd-dot-size))`,
-          "--fd-dot-size": `${dotSize}px`,
-          "--fd-dot-gap": `${dotGap}px`,
-          ...style,
-        } as React.CSSProperties}
+        style={
+          {
+            gridTemplateColumns: `repeat(${effectiveCols}, var(--fd-dot-size))`,
+            "--fd-dot-size": `${dotSize}px`,
+            "--fd-dot-gap": `${dotGap}px`,
+            ...style,
+          } as React.CSSProperties
+        }
         {...rest}
       >
         {grid.map((row, r) =>
@@ -216,16 +197,16 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
                 effectiveCols,
                 staggerDirection,
                 staggerDelay,
-                staggerJitter,
+                staggerJitter
               )}
               reduceMotion={shouldReduceMotion}
               onFlip={enableSound ? handleFlip : undefined}
             />
-          )),
+          ))
         )}
       </div>
     );
-  },
+  }
 );
 
 FlipDot.displayName = "FlipDot";

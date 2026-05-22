@@ -23,7 +23,8 @@
 .root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--rialto-surface);
   color: var(--rialto-text-primary);
@@ -48,7 +49,9 @@
   inset-inline-start: var(--rialto-space-lg);
   z-index: 90;
   box-shadow: var(--rialto-shadow-md);
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .mobileSidebarToggle:hover {
@@ -128,8 +131,10 @@
 .content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--rialto-space-lg);
+  padding-block-start: var(--rialto-space-xl);
   outline: none;
 }
 

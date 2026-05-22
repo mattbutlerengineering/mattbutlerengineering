@@ -1,0 +1,37 @@
+.page {
+  min-block-size: 100dvh;
+  background: var(--rialto-background);
+  padding-block: var(--rialto-space-2xl);
+  padding-inline: var(--rialto-space-md);
+}
+
+.loadingCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 60vh;
+}
+
+.errorCard {
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  margin-block-start: var(--rialto-space-2xl);
+  padding: var(--rialto-space-xl);
+  text-align: center;
+}
+
+.header {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  margin-block-end: var(--rialto-space-xl);
+}
+
+.widgetWrapper {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+}
+
+.footer {
+  margin-block-start: var(--rialto-space-2xl);
+  padding-block-end: var(--rialto-space-md);
+}

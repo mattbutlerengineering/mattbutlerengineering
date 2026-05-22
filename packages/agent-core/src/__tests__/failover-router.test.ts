@@ -27,13 +27,15 @@ function makeResult(overrides: Partial<AdapterResult> = {}): AdapterResult {
 
 function makeMockAdapter(
   name: string,
-  options: { available?: boolean; result?: Partial<AdapterResult> } = {},
+  options: { available?: boolean; result?: Partial<AdapterResult> } = {}
 ): AgentAdapter {
   const { available = true, result = {} } = options;
   return {
     name,
     isAvailable: vi.fn<() => Promise<boolean>>().mockResolvedValue(available),
-    run: vi.fn<(config: AdapterConfig) => Promise<AdapterResult>>().mockResolvedValue(makeResult(result)),
+    run: vi
+      .fn<(config: AdapterConfig) => Promise<AdapterResult>>()
+      .mockResolvedValue(makeResult(result)),
   };
 }
 
@@ -124,7 +126,7 @@ describe("FailoverRouter", () => {
 
     const router = new FailoverRouter(
       [primaryAdapter, secondaryAdapter, tertiaryAdapter],
-      detector,
+      detector
     );
 
     await expect(router.route(config)).rejects.toThrow(AllAdaptersUnavailableError);
@@ -238,7 +240,7 @@ describe("FailoverRouter", () => {
 
     const router = new FailoverRouter(
       [primaryAdapter, secondaryAdapter, tertiaryAdapter],
-      detector,
+      detector
     );
 
     const available = router.getAvailableAdapters();
@@ -275,7 +277,7 @@ describe("FailoverRouter", () => {
 
     const router = new FailoverRouter(
       [primaryAdapter, unavailableGemini, tertiaryAdapter],
-      detector,
+      detector
     );
 
     try {

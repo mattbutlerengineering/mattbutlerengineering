@@ -1,5 +1,5 @@
 .container {
-  padding: var(--rialto-space-lg);
+  /* Padding provided by DashboardLayout .content — no extra wrapper padding needed */
 }
 
 .header {
@@ -138,7 +138,8 @@
   text-align: start;
   font: inherit;
   color: inherit;
-  transition: background-color 150ms var(--rialto-ease-precision),
+  transition:
+    background-color 150ms var(--rialto-ease-precision),
     box-shadow 150ms var(--rialto-ease-precision);
 }
 
@@ -205,10 +206,6 @@
 }
 
 @media (max-width: 480px) {
-  .container {
-    padding: var(--rialto-space-md);
-  }
-
   .segmentsGrid {
     grid-template-columns: repeat(2, 1fr);
   }

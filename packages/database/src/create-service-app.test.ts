@@ -1,0 +1,312 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { FastifyInstance } from "fastify";
+import { createServiceApp, type ServiceAppConfig } from "./create-service-app.js";
+
+// Mock all plugin dependencies so tests don't require real servers/auth
+vi.mock("@fastify/cors", () => ({
+  default: vi.fn().mockImplementation(async () => {}),
+}));
+vi.mock("@fastify/rate-limit", () => ({
+  default: vi.fn().mockImplementation(async () => {}),
+}));
+vi.mock("@fastify/swagger", () => ({
+  default: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+    fastify.decorate("swagger", () => ({}));
+  }),
+}));
+vi.mock("@fastify/swagger-ui", () => ({
+  default: vi.fn().mockImplementation(async () => {}),
+}));
+vi.mock("@scalar/fastify-api-reference", () => ({
+  default: vi.fn().mockImplementation(async () => {}),
+}));
+vi.mock("@mbe/auth/fastify", () => ({
+  authPlugin: vi.fn().mockImplementation(async () => {}),
+  getAuthPluginOptionsFromEnv: vi.fn().mockReturnValue({}),
+}));
+vi.mock("@mbe/observability", () => ({
+  createRequestIdMiddleware: vi.fn().mockReturnValue(vi.fn().mockImplementation(async () => {})),
+  errorRatePlugin_: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+    fastify.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
+  }),
+  createRateLimitMonitor: vi.fn().mockReturnValue({
+    recordHit: vi.fn(),
+    getSnapshot: vi.fn().mockReturnValue({
+      stats: { hits_last_hour: 0, blocked_ips: 0 },
+      isDegraded: false,
+    }),
+    reset: vi.fn(),
+  }),
+}));
+vi.mock("@mbe/sentry/node", () => ({
+  sentryFastifyPlugin: vi.fn().mockImplementation(async () => {}),
+}));
+vi.mock("@mbe/api-versioning/fastify", () => ({
+  apiVersioningPlugin: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+    fastify.decorate("apiVersion", "v1");
+    fastify.decorate("sunsetDate", "2027-01-01");
+  }),
+}));
+
+/**
+ * Helper to extract the options (second arg) from a mocked Fastify plugin call.
+ * Fastify calls plugins with (fastify, opts, done), so opts is at index 1.
+ */
+function getPluginOpts(mockFn: ReturnType<typeof vi.fn>): unknown {
+  return mockFn.mock.calls[0]?.[1];
+}
+
+function createTestConfig(overrides?: Partial<ServiceAppConfig>): ServiceAppConfig {
+  return {
+    swagger: {
+      title: "Test API",
+      description: "Test API description",
+      serverUrl: "http://localhost:9999",
+    },
+    ...overrides,
+  };
+}
+
+describe("createServiceApp", () => {
+  let app: FastifyInstance;
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    // Reset env for each test
+    delete process.env.AUTH_AUTHORITY;
+    delete process.env.AUTH_AUDIENCE;
+    delete process.env.CORS_ORIGINS;
+    delete process.env.NODE_ENV;
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+    process.env = { ...originalEnv };
+    vi.clearAllMocks();
+  });
+
+  it("returns a Fastify instance", async () => {
+    app = await createServiceApp(createTestConfig());
+    expect(app).toBeDefined();
+    expect(typeof app.inject).toBe("function");
+  });
+
+  it("disables request logging by default", async () => {
+    app = await createServiceApp(createTestConfig());
+    expect(app.initialConfig.disableRequestLogging).toBe(true);
+  });
+
+  it("uses strict false for AJV", async () => {
+    app = await createServiceApp(createTestConfig());
+    await app.ready();
+    expect(app).toBeDefined();
+  });
+
+  it("registers CORS plugin", async () => {
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    expect(cors.default).toHaveBeenCalled();
+  });
+
+  it("registers request-ID middleware", async () => {
+    const obs = await import("@mbe/observability");
+    app = await createServiceApp(createTestConfig());
+    expect(obs.createRequestIdMiddleware).toHaveBeenCalled();
+  });
+
+  it("registers error rate plugin", async () => {
+    const obs = await import("@mbe/observability");
+    app = await createServiceApp(createTestConfig());
+    expect(obs.errorRatePlugin_).toHaveBeenCalled();
+  });
+
+  it("decorates with rateLimitMonitor", async () => {
+    app = await createServiceApp(createTestConfig());
+    await app.ready();
+    expect(app.hasDecorator("rateLimitMonitor")).toBe(true);
+  });
+
+  it("registers rate limit plugin", async () => {
+    const rateLimit = await import("@fastify/rate-limit");
+    app = await createServiceApp(createTestConfig());
+    expect(rateLimit.default).toHaveBeenCalled();
+  });
+
+  it("registers swagger with config from ServiceAppConfig", async () => {
+    const swagger = await import("@fastify/swagger");
+    const config = createTestConfig({
+      swagger: {
+        title: "My Custom API",
+        description: "Custom description",
+        serverUrl: "http://localhost:4000",
+      },
+    });
+    app = await createServiceApp(config);
+    const opts = getPluginOpts(vi.mocked(swagger.default)) as Record<string, unknown>;
+    const openapi = (
+      opts as {
+        openapi: { info: { title: string; description: string }; servers: { url: string }[] };
+      }
+    ).openapi;
+    expect(openapi.info.title).toBe("My Custom API");
+    expect(openapi.info.description).toBe("Custom description");
+    expect(openapi.servers).toEqual([{ url: "http://localhost:4000" }]);
+  });
+
+  it("registers swagger-ui at /docs", async () => {
+    const swaggerUi = await import("@fastify/swagger-ui");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(swaggerUi.default)) as { routePrefix: string };
+    expect(opts.routePrefix).toBe("/docs");
+  });
+
+  it("registers Scalar API reference at /reference", async () => {
+    const scalar = await import("@scalar/fastify-api-reference");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(scalar.default)) as { routePrefix: string };
+    expect(opts.routePrefix).toBe("/reference");
+  });
+
+  it("registers auth plugin when AUTH_AUTHORITY and AUTH_AUDIENCE are set", async () => {
+    process.env.AUTH_AUTHORITY = "https://auth.example.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    const auth = await import("@mbe/auth/fastify");
+    app = await createServiceApp(createTestConfig());
+    expect(auth.authPlugin).toHaveBeenCalled();
+    expect(auth.getAuthPluginOptionsFromEnv).toHaveBeenCalled();
+  });
+
+  it("skips auth plugin when AUTH_AUTHORITY is not set in non-production", async () => {
+    process.env.NODE_ENV = "development";
+    const auth = await import("@mbe/auth/fastify");
+    app = await createServiceApp(createTestConfig());
+    expect(auth.authPlugin).not.toHaveBeenCalled();
+  });
+
+  it("throws in production when AUTH_AUTHORITY is not set", async () => {
+    process.env.NODE_ENV = "production";
+    await expect(createServiceApp(createTestConfig())).rejects.toThrow(
+      "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production"
+    );
+  });
+
+  it("registers Sentry plugin", async () => {
+    const sentry = await import("@mbe/sentry/node");
+    app = await createServiceApp(createTestConfig());
+    expect(sentry.sentryFastifyPlugin).toHaveBeenCalled();
+  });
+
+  it("registers API versioning plugin with defaults", async () => {
+    const versioning = await import("@mbe/api-versioning/fastify");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(versioning.apiVersioningPlugin)) as {
+      currentVersion: string;
+      successorVersion: string;
+      sunsetMonthsFromNow: number;
+    };
+    expect(opts.currentVersion).toBe("v1");
+    expect(opts.successorVersion).toBe("v2");
+    expect(opts.sunsetMonthsFromNow).toBe(6);
+  });
+
+  it("accepts custom logger option", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    expect(app).toBeDefined();
+  });
+
+  it("accepts custom API versioning config", async () => {
+    const versioning = await import("@mbe/api-versioning/fastify");
+    app = await createServiceApp(
+      createTestConfig({
+        apiVersioning: {
+          currentVersion: "v2",
+          successorVersion: "v3",
+          sunsetMonthsFromNow: 12,
+        },
+      })
+    );
+    const opts = getPluginOpts(vi.mocked(versioning.apiVersioningPlugin)) as {
+      currentVersion: string;
+      successorVersion: string;
+      sunsetMonthsFromNow: number;
+    };
+    expect(opts.currentVersion).toBe("v2");
+    expect(opts.successorVersion).toBe("v3");
+    expect(opts.sunsetMonthsFromNow).toBe(12);
+  });
+
+  it("validates CORS origins from CORS_ORIGINS env var", async () => {
+    process.env.CORS_ORIGINS = "https://mattbutlerengineering.com,https://evil.com";
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { origin: string[] };
+    expect(opts.origin).toEqual(["https://mattbutlerengineering.com"]);
+  });
+
+  it("falls back to default origins when all env origins are rejected", async () => {
+    process.env.CORS_ORIGINS = "https://evil.com";
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { origin: string[] };
+    expect(opts.origin).toContain("https://mattbutlerengineering.com");
+  });
+
+  it("includes dev origins in development mode", async () => {
+    process.env.NODE_ENV = "development";
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { origin: string[] };
+    expect(opts.origin).toContain("http://localhost:3000");
+    expect(opts.origin).toContain("http://localhost:5173");
+  });
+
+  it("does not include dev origins in production mode", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_AUTHORITY = "https://auth.example.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { origin: string[] };
+    expect(opts.origin).not.toContain("http://localhost:3000");
+  });
+
+  it("calls registerSchemas hook when provided", async () => {
+    const registerSchemas = vi.fn();
+    app = await createServiceApp(createTestConfig({ registerSchemas }));
+    expect(registerSchemas).toHaveBeenCalledTimes(1);
+    // The function receives a Fastify instance (may be encapsulated)
+    const calledWith = registerSchemas.mock.calls[0]?.[0];
+    expect(calledWith).toBeDefined();
+    expect(typeof calledWith.addSchema).toBe("function");
+  });
+
+  it("does not fail when registerSchemas is not provided", async () => {
+    app = await createServiceApp(createTestConfig());
+    expect(app).toBeDefined();
+  });
+
+  it("rate limit onExceeded logs and records hit", async () => {
+    const rateLimit = await import("@fastify/rate-limit");
+    const obs = await import("@mbe/observability");
+    app = await createServiceApp(createTestConfig());
+
+    // Extract the onExceeded callback from the rate limit registration call
+    const rateLimitOpts = getPluginOpts(vi.mocked(rateLimit.default)) as {
+      onExceeded: (req: {
+        ip: string;
+        url: string;
+        log: { warn: (...args: unknown[]) => void };
+      }) => void;
+    };
+    const mockReq = {
+      ip: "127.0.0.1",
+      url: "/test",
+      log: { warn: vi.fn() },
+    };
+    rateLimitOpts.onExceeded(mockReq);
+
+    const monitor = vi.mocked(obs.createRateLimitMonitor).mock.results[0]?.value;
+    expect(monitor.recordHit).toHaveBeenCalledWith("127.0.0.1", "/test");
+    expect(mockReq.log.warn).toHaveBeenCalled();
+  });
+});

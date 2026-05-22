@@ -1,4 +1,42 @@
 <codebase path="packages/rialto">
+  <section priority="medium" role="ChatPanel">
+  <file path="src/components/ChatPanel/sanitize.ts">
+    <item priority="high">
+      export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/ChatPanel/types.ts">
+    <item priority="low">
+      interface DomainContextSchema {
+        name: string;
+        description: string;
+        fields: string;
+      }
+    </item>
+    <item priority="low">
+      interface DomainContext {
+        schemas: DomainContextSchema[];
+      }
+    </item>
+  </file>
+  <file path="src/components/ChatPanel/useChatStream.ts">
+    <item priority="low">
+      interface ChatMessageElement {
+        id: string;
+        type: string;
+        props?: Record<string, unknown>;
+        children?: string[];
+      }
+    </item>
+    <item priority="low">
+      interface ChatMessage {
+        role: "user" | "assistant";
+        content: string;
+        elements?: ChatMessageElement[];
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="FlipDot">
   <file path="src/components/FlipDot/pixel-font.ts">
     <item priority="medium">
@@ -37,23 +75,16 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="GenCopilot">
-  <file path="src/components/GenCopilot/useGenCopilotStream.ts">
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useBoop.ts">
     <item priority="high">
-      type FlatElement = Parameters<typeof flatToTree>[0][number];
-    </item>
-    <item priority="low">
-      interface UseGenCopilotStreamOptions {
-        api: string;
-        domainContext: DomainContext;
-        getAccessToken: () => string | null | Promise<string | null>;
-        onComplete?: (spec: Spec) => void;
-        onError?: (error: Error) => void;
-      }
+      export function useBoop(): {
+        style: MotionStyle;
+        onMouseEnter: () => void;
+        onMouseLeave: () => void;
+      } { /* ... */ }
     </item>
   </file>
-  </section>
-  <section priority="medium" role="hooks">
   <file path="src/hooks/useDirection.ts">
     <item priority="high">
       type Direction = "ltr" | "rtl";
@@ -254,7 +285,7 @@
       type ResolvedStrings = Required<
         Omit<
           TapeChartStrings,
-          "reservationA...;
+          | "reservatio...;
     </item>
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
@@ -279,7 +310,11 @@
       }
     </item>
     <item priority="high">
-      export function useTapeChartI18n(locale?: string, timeZone?: string, defaultCurrency?: string): TapeChartFormatters { /* ... */ }
+      export function useTapeChartI18n(
+        locale?: string,
+        timeZone?: string,
+        defaultCurrency?: string
+      ): TapeChartFormatters { /* ... */ }
     </item>
   </file>
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
@@ -291,7 +326,7 @@
         reservations: TapeChartReservation[],
         rooms: TapeChartRoom[],
         startDate: string,
-        endDate: string,
+        endDate: string
       ): TapeChartLayout { /* ... */ }
     </item>
   </file>

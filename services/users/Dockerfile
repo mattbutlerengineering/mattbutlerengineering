@@ -14,6 +14,8 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY services/users/package.json ./services/users/
 
 # Install all dependencies
@@ -25,6 +27,8 @@ COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/api-versioning/tsconfig.json ./packages/api-versioning/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/observability/tsconfig.json ./packages/observability/
+COPY packages/sentry/tsconfig.json ./packages/sentry/
+COPY packages/database/tsconfig.json ./packages/database/
 COPY services/users/tsconfig.json ./services/users/
 
 # Copy Prisma schema (needed for db:generate)
@@ -35,6 +39,8 @@ COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-versioning/src ./packages/api-versioning/src
 COPY packages/observability/src ./packages/observability/src
+COPY packages/sentry/src ./packages/sentry/src
+COPY packages/database/src ./packages/database/src
 COPY services/users/src ./services/users/src
 
 # Build workspace packages and service in a single layer
@@ -42,6 +48,8 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
     pnpm --filter @mbe/api-versioning build && \
     pnpm --filter @mbe/observability build && \
+    pnpm --filter @mbe/sentry build && \
+    pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/users-service db:generate && \
     pnpm --filter @mbe/users-service build
 
@@ -65,6 +73,8 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/api-versioning/package.json ./packages/api-versioning/
 COPY packages/config/package.json ./packages/config/
 COPY packages/observability/package.json ./packages/observability/
+COPY packages/sentry/package.json ./packages/sentry/
+COPY packages/database/package.json ./packages/database/
 COPY services/users/package.json ./services/users/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -76,6 +86,8 @@ COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /app/packages/api-versioning/dist ./packages/api-versioning/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
+COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 
 # Copy built users service
 COPY --from=builder /app/services/users/dist ./services/users/dist

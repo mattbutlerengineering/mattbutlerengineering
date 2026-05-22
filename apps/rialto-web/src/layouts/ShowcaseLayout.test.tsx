@@ -16,7 +16,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 vi.mock("../components/ShowcaseSidebar.js", () => ({
-  ShowcaseSidebar: () => <aside data-testid="sidebar" />
+  ShowcaseSidebar: () => <aside data-testid="sidebar" />,
 }));
 
 describe("ShowcaseLayout", () => {
@@ -45,8 +45,8 @@ describe("ShowcaseLayout", () => {
     const toggleButton = screen.getByLabelText("Open sidebar");
     expect(toggleButton).toBeInTheDocument();
     fireEvent.click(toggleButton);
-    
-    // State change isn't easily visible since we mocked the whole layout structure, 
+
+    // State change isn't easily visible since we mocked the whole layout structure,
     // but clicking it shouldn't crash.
   });
 });

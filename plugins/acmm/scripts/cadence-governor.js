@@ -78,7 +78,7 @@ export function getReadyCount() {
         "--jq",
         "length",
       ],
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] },
+      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
     );
     return parseInt(result.trim(), 10) || 0;
   } catch {
@@ -114,6 +114,32 @@ export function loadState(statePath = DEFAULT_STATE_PATH) {
 export function saveState(state, statePath = DEFAULT_STATE_PATH) {
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n");
+}
+
+/**
+ * Build fallback state when gh CLI is unavailable.
+ * Persists a history entry so state accumulates even without metrics.
+ * @param {object} previousState
+ * @param {number} [now] - current time in ms (for testing)
+ * @returns {object} fallback state
+ */
+export function buildFallbackState(previousState, now = Date.now()) {
+  const timestamp = new Date(now).toISOString();
+  return {
+    ...previousState,
+    lastCheck: timestamp,
+    shouldExecute: true,
+    history: [
+      ...previousState.history.slice(-(MAX_HISTORY - 1)),
+      {
+        date: timestamp,
+        mode: previousState.mode ?? "UNKNOWN",
+        readyCount: null,
+        executed: true,
+        reason: "gh-unavailable",
+      },
+    ],
+  };
 }
 
 /**
@@ -160,6 +186,9 @@ function main() {
   const readyCount = getReadyCount();
   if (readyCount === null) {
     console.log("Governor: gh CLI unavailable, defaulting to execute");
+    const previousState = loadState(statePath);
+    const fallbackState = buildFallbackState(previousState);
+    saveState(fallbackState, statePath);
     process.exit(0);
   }
 
@@ -173,20 +202,17 @@ function main() {
   if (args.has("--status")) {
     console.log(`Mode: ${newState.mode} (${readyCount} ready issues)`);
     console.log(`Should execute: ${newState.shouldExecute}`);
-    if (modeChanged)
-      console.log(`Mode transition: ${priorMode} → ${newState.mode}`);
+    if (modeChanged) console.log(`Mode transition: ${priorMode} → ${newState.mode}`);
     console.log(`Last execution: ${previousState.lastExecution || "never"}`);
     process.exit(0);
   }
 
   // Default: print decision for consumption by calling skill
   if (modeChanged) {
-    console.log(
-      `Governor: mode transition ${priorMode} → ${newState.mode} (${readyCount} ready)`,
-    );
+    console.log(`Governor: mode transition ${priorMode} → ${newState.mode} (${readyCount} ready)`);
   }
   console.log(
-    `Governor: ${newState.mode} mode, ${readyCount} ready → ${newState.shouldExecute ? "EXECUTE" : "SKIP"}`,
+    `Governor: ${newState.mode} mode, ${readyCount} ready → ${newState.shouldExecute ? "EXECUTE" : "SKIP"}`
   );
 
   // Exit code: 0 = execute, 1 = skip

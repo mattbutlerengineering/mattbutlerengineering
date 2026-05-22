@@ -17,14 +17,14 @@ A single **Cloudflare Worker** (`edge-router`) acts as the front door for all tr
 
 ### Routing Table
 
-| Pattern | Target | Mechanism |
-|---------|--------|-----------|
-| `/api/*` | DigitalOcean App Platform | HTTP proxy to `API_ORIGIN` |
-| `/hospitality/*` | Hospitality Worker | Service Binding (`env.HOSPITALITY`) |
-| `/rialto/*` | Rialto Worker | Service Binding (`env.RIALTO`) |
-| `/gen/*` | Gen Worker | Service Binding (`env.GEN`) |
-| `/*` | Marketing Worker | Service Binding (`env.MARKETING`) |
-| `/health/system` | Edge router itself | Aggregated health (see ADR-004) |
+| Pattern          | Target                    | Mechanism                           |
+| ---------------- | ------------------------- | ----------------------------------- |
+| `/api/*`         | DigitalOcean App Platform | HTTP proxy to `API_ORIGIN`          |
+| `/hospitality/*` | Hospitality Worker        | Service Binding (`env.HOSPITALITY`) |
+| `/rialto/*`      | Rialto Worker             | Service Binding (`env.RIALTO`)      |
+| `/gen/*`         | Gen Worker                | Service Binding (`env.GEN`)         |
+| `/*`             | Marketing Worker          | Service Binding (`env.MARKETING`)   |
+| `/health/system` | Edge router itself        | Aggregated health (see ADR-004)     |
 
 ### Service Bindings for Static Sites
 

@@ -47,6 +47,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 vi.mock("../services/orchestrator.js", () => ({
@@ -255,9 +260,7 @@ describe("Gen Specs Routes", () => {
     });
 
     it("returns 404 for wrong user (ownership check)", async () => {
-      vi.mocked(storedSpecService.toggleFavorite).mockRejectedValueOnce(
-        new Error("Not found")
-      );
+      vi.mocked(storedSpecService.toggleFavorite).mockRejectedValueOnce(new Error("Not found"));
 
       const response = await app.inject({
         method: "PATCH",
@@ -281,9 +284,7 @@ describe("Gen Specs Routes", () => {
     });
 
     it("returns 404 for wrong user (ownership check)", async () => {
-      vi.mocked(storedSpecService.delete).mockRejectedValueOnce(
-        new Error("Not found")
-      );
+      vi.mocked(storedSpecService.delete).mockRejectedValueOnce(new Error("Not found"));
 
       const response = await app.inject({
         method: "DELETE",

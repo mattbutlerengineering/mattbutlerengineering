@@ -1,65 +1,4 @@
 <codebase path="packages/observability">
-  <section priority="medium" role="sentry">
-  <file path="src/sentry/config.ts">
-    export interface SentryConfig {
-      readonly dsn: string;
-      readonly environment: string;
-      readonly release: string | undefined;
-      readonly enabled: boolean;
-    }
-    export function resolveConfig(dsn: string | undefined): SentryConfig {
-      const resolvedDsn = dsn ?? "";
-      return {
-        dsn: resolvedDsn,
-        environment:
-          (typeof process !== "undefined" ? process.env.SENTRY_ENVIRONMENT : undefined) ??
-          (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ??
-          "development",
-        release:
-          (typeof process !== "undefined" ? process.env.SENTRY_RELEASE : undefined) ??
-          (typeof process !== "undefined" ? process.env.npm_package_version : undefined),
-        enabled: resolvedDsn.length > 0,
-      };
-    }
-  </file>
-  <file path="src/sentry/node.ts">
-    interface SentryUser {
-      readonly id: string;
-      readonly email?: string;
-    }
-    function isSentryUser(value: unknown): value is SentryUser {
-      return (
-        value != null &&
-        typeof value === "object" &&
-        "id" in value &&
-        typeof (value as SentryUser).id === "string"
-      );
-    }
-  </file>
-  <file path="src/sentry/react.ts">
-    export interface InitOptions {
-      readonly appName: string;
-      readonly dsn: string;
-    }
-    export function initSentry(options: InitOptions): void {
-      const config = resolveConfig(options.dsn);
-      if (!config.enabled) {
-        return;
-      }
-    
-      Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 0,
-        integrations: [],
-      });
-    
-      Sentry.setTag("app", options.appName);
-    }
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="src/baggage.ts">
     export const BAGGAGE_KEYS = {
@@ -129,7 +68,7 @@
             }
           });
         },
-        { name: "request-id-middleware" },
+        { name: "request-id-middleware" }
       );
     }
   </file>
@@ -140,9 +79,7 @@
     }
     export function shouldIgnoreRequest(req: IncomingMessage): boolean {
       const url = req.url ?? "";
-      return IGNORED_PATH_PREFIXES.some(
-        (prefix) => url === prefix || url.startsWith(`${prefix}/`),
-      );
+      return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
     }
   </file>
   </section>

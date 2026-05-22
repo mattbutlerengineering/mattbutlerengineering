@@ -70,13 +70,16 @@ export function useGenStream({
 
   // Use stable refs for callbacks to avoid re-creating send on every render.
   // Sync via useEffect — writing ref.current in render body violates
-  // react-hooks/refs and React's render-purity rules. Mirrors the canonical
-  // fix in packages/rialto/src/components/GenCopilot/useGenCopilotStream.ts.
+  // react-hooks/refs and React's render-purity rules.
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
 
-  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
-  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const send = useCallback(
     async (prompt: string, context?: Record<string, unknown>): Promise<void> => {

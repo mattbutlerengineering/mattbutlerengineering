@@ -2,6 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
 import type { JWTPayload, AuthUser } from "../types/index.js";
+import { createProblemDetails } from "@mbe/types";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -18,18 +19,6 @@ export interface AuthPluginOptions {
   excludePaths?: string[];
 }
 
-function createProblemDetails(status: number, title: string, detail: string) {
-  return {
-    type: `https://httpstatuses.com/${status}`,
-    title,
-    status,
-    detail,
-    error: title,
-    message: detail,
-    statusCode: status,
-  };
-}
-
 /**
  * Fastify plugin for JWT validation using OIDC provider's JWKS.
  *
@@ -38,10 +27,7 @@ function createProblemDetails(status: number, title: string, detail: string) {
  * registering this plugin. An `onReady` hook will log a warning if the
  * `rateLimit` decorator is missing at startup.
  */
-async function authPluginImpl(
-  fastify: FastifyInstance,
-  options: AuthPluginOptions
-) {
+async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
   const { authority, audience, excludePaths = [] } = options;
 
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
@@ -63,7 +49,10 @@ async function authPluginImpl(
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
-    if (process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true") {
+    if (
+      process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+      request.headers["x-auth-bypass"] === "true"
+    ) {
       request.user = {
         id: "auth0|user-123",
         email: "test@example.com",
@@ -103,7 +92,11 @@ async function authPluginImpl(
         });
       } catch (error: any) {
         if (error.statusCode === 429) {
-          return reply.code(429).send(createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded"));
+          return reply
+            .code(429)
+            .send(
+              createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded")
+            );
         }
         // Fall through on other errors — don't block auth due to rate limit failures
       }
@@ -117,7 +110,9 @@ async function authPluginImpl(
 
       if (!result || !result.payload || typeof result.payload.sub !== "string") {
         request.log.warn("JWT missing required 'sub' claim");
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
       }
 
       const { payload } = result;
@@ -155,10 +150,19 @@ export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginIm
   fastify: "5.x",
 });
 
+export function hasPermission(user: AuthUser | undefined, permission: string): boolean {
+  const permissions = user?.raw?.permissions;
+  if (!Array.isArray(permissions)) return false;
+  return permissions.includes(permission);
+}
+
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  const isBypassed = process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
+  const isBypassed =
+    process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
-    return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
+    return reply
+      .code(401)
+      .send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
   }
 }
 

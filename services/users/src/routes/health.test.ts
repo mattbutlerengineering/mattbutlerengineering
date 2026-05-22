@@ -19,12 +19,18 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
-// Mock health checks
-vi.mock("../services/health-checks.js", () => ({
-  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
-  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
-  recordDbLatency: vi.fn(),
-}));
+// Mock @mbe/database health exports (createLatencyTracker, checkAuth0, registerHealthRoutes)
+vi.mock("@mbe/database", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createLatencyTracker: vi.fn().mockReturnValue({
+      record: vi.fn(),
+      checkAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
+    }),
+    checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
+  };
+});
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
@@ -41,19 +47,21 @@ interface MockRateLimitMonitor {
   reset: any;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted((): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
-  const mockGetSnapshot = vi.fn().mockReturnValue({
-    stats: { hits_last_hour: 0, blocked_ips: 0 },
-    isDegraded: false,
-  });
-  const mockRateLimitMonitor = {
-    recordHit: vi.fn(),
-    getSnapshot: mockGetSnapshot,
-    reset: vi.fn(),
-  };
-  return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
-});
+const { _mockGetSnapshot, mockRateLimitMonitor } = vi.hoisted(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (): { _mockGetSnapshot: any; mockRateLimitMonitor: MockRateLimitMonitor } => {
+    const mockGetSnapshot = vi.fn().mockReturnValue({
+      stats: { hits_last_hour: 0, blocked_ips: 0 },
+      isDegraded: false,
+    });
+    const mockRateLimitMonitor = {
+      recordHit: vi.fn(),
+      getSnapshot: mockGetSnapshot,
+      reset: vi.fn(),
+    };
+    return { _mockGetSnapshot: mockGetSnapshot, mockRateLimitMonitor };
+  }
+);
 
 // Use the mock to satisfy noUnusedLocals
 void _mockGetSnapshot;

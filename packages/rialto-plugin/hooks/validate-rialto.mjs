@@ -69,7 +69,12 @@ const warnings = lines.flatMap((line, i) => {
 
   // Rule 1: Hardcoded hex colors (exclude token references and URLs)
   const hexMatch = line.match(/#[0-9a-fA-F]{3,8}\b/);
-  if (hexMatch && !line.includes("var(--rialto-") && !line.includes("url(") && !line.includes("$id")) {
+  if (
+    hexMatch &&
+    !line.includes("var(--rialto-") &&
+    !line.includes("url(") &&
+    !line.includes("$id")
+  ) {
     results.push(`L${lineNum}: Hardcoded color "${hexMatch[0]}" — use a --rialto-* token instead`);
   }
 

@@ -1,5 +1,4 @@
 import type {
-  ApiResponse,
   TimeSlot,
   DateAvailability,
   ReservationHold,
@@ -35,10 +34,9 @@ export class AvailabilityClient {
     searchParams.set("partySize", String(params.partySize));
     if (params.duration) searchParams.set("duration", String(params.duration));
 
-    const response = await this.client.get<ApiResponse<TimeSlot[]>>(
+    return this.client.getOne<TimeSlot[]>(
       `/api/v1/availability/${params.venueId}?${searchParams.toString()}`
     );
-    return response.data;
   }
 
   /**
@@ -50,10 +48,9 @@ export class AvailabilityClient {
     searchParams.set("endDate", params.endDate);
     searchParams.set("partySize", String(params.partySize));
 
-    const response = await this.client.get<ApiResponse<DateAvailability[]>>(
+    return this.client.getOne<DateAvailability[]>(
       `/api/v1/availability/${params.venueId}/dates?${searchParams.toString()}`
     );
-    return response.data;
   }
 }
 
@@ -85,16 +82,13 @@ export class HoldsClient {
       this.sessionId = crypto.randomUUID();
     }
 
-    const response = await this.client.request<ApiResponse<ReservationHold>>(
-      "/api/v1/holds",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: {
-          "x-session-id": this.sessionId,
-        },
-      }
-    );
+    const response = await this.client.request<{ data: ReservationHold }>("/api/v1/holds", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: {
+        "x-session-id": this.sessionId,
+      },
+    });
 
     return { hold: response.data, sessionId: this.sessionId };
   }
@@ -103,8 +97,7 @@ export class HoldsClient {
    * Get a hold by ID
    */
   async get(id: string): Promise<ReservationHold> {
-    const response = await this.client.get<ApiResponse<ReservationHold>>(`/api/v1/holds/${id}`);
-    return response.data;
+    return this.client.getOne<ReservationHold>(`/api/v1/holds/${id}`);
   }
 
   /**
@@ -131,7 +124,7 @@ export class HoldsClient {
       throw new Error("Session ID required to confirm hold");
     }
 
-    const response = await this.client.request<ApiResponse<Reservation>>(
+    const response = await this.client.request<{ data: Reservation }>(
       `/api/v1/holds/${id}/confirm`,
       {
         method: "POST",

@@ -20,6 +20,15 @@ vi.mock("@mbe/agent-core", () => ({
     modelId: "claude-sonnet-4-6",
     reason: "Default model selection",
   })),
+  AllAdaptersUnavailableError: class AllAdaptersUnavailableError extends Error {
+    cooldowns = new Map();
+    constructor(msg?: string) {
+      super(msg || "All adapters unavailable");
+      this.name = "AllAdaptersUnavailableError";
+    }
+  },
+  createWorktree: vi.fn(),
+  removeWorktree: vi.fn(),
 }));
 
 describe("agent command", () => {
@@ -555,5 +564,390 @@ describe("agent command", () => {
       const allOutput = logSpy.mock.calls.flat().join("\n");
       expect(allOutput).toContain("No sessions found");
     });
+
+    it("shows 'No per-turn metrics' when session has no turnMetrics", async () => {
+      const session = {
+        id: "sess-noturn",
+        status: "succeeded",
+        taskDescription: "No metrics task",
+        model: "claude-sonnet-4-6",
+        maxBudgetUsd: 1.0,
+        maxTurns: 50,
+        branchName: null,
+        prUrl: null,
+        costUsd: 0.1,
+        numTurns: 2,
+        durationMs: 5000,
+        inputTokens: null,
+        outputTokens: null,
+        errors: [],
+        resultText: null,
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        turnMetrics: [],
+        toolCallMetrics: [],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: session }),
+      });
+
+      const { agentCommand } = await import("../commands/agent.js");
+      await agentCommand.parseAsync(["cost", "sess-noturn"], { from: "user" });
+
+      const allOutput = logSpy.mock.calls.flat().join("\n");
+      expect(allOutput).toContain("No per-turn metrics");
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows failureCategory in cost breakdown when present", async () => {
+      const session = {
+        id: "sess-failed",
+        status: "failed",
+        taskDescription: "Failed task",
+        model: "claude-sonnet-4-6",
+        maxBudgetUsd: 1.0,
+        maxTurns: 50,
+        branchName: null,
+        prUrl: null,
+        costUsd: 0.05,
+        numTurns: 1,
+        durationMs: 2000,
+        inputTokens: 1000,
+        outputTokens: 200,
+        errors: ["tool error"],
+        resultText: null,
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        failureCategory: "tool_error",
+        turnMetrics: [],
+        toolCallMetrics: [],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: session }),
+      });
+
+      const { agentCommand } = await import("../commands/agent.js");
+      await agentCommand.parseAsync(["cost", "sess-failed"], { from: "user" });
+
+      const allOutput = logSpy.mock.calls.flat().join("\n");
+      expect(allOutput).toContain("tool_error");
+    });
+
+    it("shows '--summary' flag triggers summary mode", async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            data: [
+              {
+                id: "sess-s1",
+                status: "succeeded",
+                taskDescription: "Task",
+                costUsd: null,
+                numTurns: null,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+            pagination: { page: 1, totalPages: 1, total: 1 },
+          }),
+      });
+
+      const { agentCommand } = await import("../commands/agent.js");
+      await agentCommand.parseAsync(["cost", "sess-s1", "--summary"], { from: "user" });
+
+      const allOutput = logSpy.mock.calls.flat().join("\n");
+      expect(allOutput).toContain("Cost Summary");
+    });
+  });
+});
+
+describe("agent orchestrate subcommand", () => {
+  const originalFetch = globalThis.fetch;
+
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("prints orchestration result when succeeded (no child sessions)", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          data: {
+            parentSessionId: "parent-001",
+            status: "succeeded",
+            childSessionIds: [],
+            summary: "",
+            totalCostUsd: 0.5,
+            durationMs: 30000,
+          },
+        }),
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.parseAsync(["orchestrate", "Build a feature"], { from: "user" });
+
+    const allOutput = logSpy.mock.calls.flat().join("\n");
+    expect(allOutput).toContain("Orchestration");
+    expect(allOutput).toContain("parent-001");
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+
+  it("exits with 1 when orchestration status is failed", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          data: {
+            parentSessionId: "parent-002",
+            status: "failed",
+            childSessionIds: [],
+            summary: "Something went wrong",
+            totalCostUsd: 0.1,
+            durationMs: 5000,
+          },
+        }),
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.parseAsync(["orchestrate", "Build a feature"], { from: "user" });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const allOutput = logSpy.mock.calls.flat().join("\n");
+    expect(allOutput).toContain("Something went wrong");
+  });
+
+  it("fetches child session details when childSessionIds is non-empty", async () => {
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              data: {
+                parentSessionId: "parent-003",
+                status: "succeeded",
+                childSessionIds: ["child-001"],
+                summary: "Done",
+                totalCostUsd: 0.8,
+                durationMs: 60000,
+              },
+            }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            data: {
+              id: "child-001",
+              status: "succeeded",
+              taskDescription: "Child task",
+              model: "claude-sonnet-4-6",
+              maxBudgetUsd: 1.0,
+              maxTurns: 50,
+              branchName: "fix/child-001",
+              prUrl: "https://github.com/org/repo/pull/99",
+              costUsd: 0.4,
+              numTurns: 5,
+              durationMs: 30000,
+              inputTokens: 5000,
+              outputTokens: 2000,
+              errors: [],
+              resultText: null,
+              createdAt: new Date().toISOString(),
+              startedAt: new Date().toISOString(),
+              completedAt: new Date().toISOString(),
+            },
+          }),
+      });
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.parseAsync(["orchestrate", "Big task"], { from: "user" });
+
+    const allOutput = logSpy.mock.calls.flat().join("\n");
+    expect(allOutput).toContain("child-001");
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+
+  it("handles child session fetch error gracefully (prints ? fallback)", async () => {
+    let callCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              data: {
+                parentSessionId: "parent-004",
+                status: "succeeded",
+                childSessionIds: ["child-bad"],
+                summary: "",
+                totalCostUsd: 0.2,
+                durationMs: 10000,
+              },
+            }),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+        json: () => Promise.resolve({ message: "child not found" }),
+      });
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.parseAsync(["orchestrate", "Big task"], { from: "user" });
+
+    const allOutput = logSpy.mock.calls.flat().join("\n");
+    expect(allOutput).toContain("child-bad");
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+
+  it("exits with 1 when orchestrate API request fails", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: () => Promise.resolve({ message: "Service unavailable" }),
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.parseAsync(["orchestrate", "Build a feature"], { from: "user" });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const errOutput = errorSpy.mock.calls.flat().join("\n");
+    expect(errOutput).toContain("Service unavailable");
+  });
+});
+
+describe("agent run – invalid adapter and non-default option branches", () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.resetAllMocks();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+    vi.spyOn(process, "cwd").mockReturnValue("/repo");
+  });
+
+  it("exits with error when adapter is invalid", async () => {
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.commands[0].parseAsync(["fix the bug", "--adapter", "invalid-adapter"], {
+      from: "user",
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const errOutput = errorSpy.mock.calls.flat().join("\n");
+    expect(errOutput).toContain("Invalid adapter");
+  });
+
+  it("uses non-default model when --model is explicitly provided", async () => {
+    const { runSession } = await import("@mbe/agent-core");
+    vi.mocked(runSession).mockResolvedValue({
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
+      costUsd: 0.1,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
+      numTurns: 2,
+      resultText: "",
+      errors: [],
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.commands[0].parseAsync(["fix the bug", "--model", "claude-opus-4-6"], {
+      from: "user",
+    });
+
+    expect(runSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(callArgs[0]).toMatchObject({ model: "claude-opus-4-6" });
+  });
+
+  it("uses non-default budget when --max-budget is explicitly provided", async () => {
+    const { runSession } = await import("@mbe/agent-core");
+    vi.mocked(runSession).mockResolvedValue({
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
+      costUsd: 0.5,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
+      numTurns: 3,
+      resultText: "",
+      errors: [],
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.commands[0].parseAsync(["fix the bug", "--max-budget", "5"], {
+      from: "user",
+    });
+
+    expect(runSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(callArgs[0]).toMatchObject({ maxBudgetUsd: 5 });
+  });
+
+  it("uses non-default maxTurns when --max-turns is explicitly provided", async () => {
+    const { runSession } = await import("@mbe/agent-core");
+    vi.mocked(runSession).mockResolvedValue({
+      sessionId: "test",
+      status: "succeeded",
+      branchName: "test-branch",
+      prUrl: null,
+      costUsd: 0.1,
+      tokenUsage: { inputTokens: 100, outputTokens: 50 },
+      durationMs: 1000,
+      numTurns: 1,
+      resultText: "",
+      errors: [],
+    });
+
+    const { agentCommand } = await import("../commands/agent.js");
+    await agentCommand.commands[0].parseAsync(["fix the bug", "--max-turns", "25"], {
+      from: "user",
+    });
+
+    expect(runSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(callArgs[0]).toMatchObject({ maxTurns: 25 });
   });
 });

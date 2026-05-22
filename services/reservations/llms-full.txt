@@ -1,4 +1,15 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="middleware">
+  <file path="src/middleware/public-rate-limit.ts">
+    interface RateLimitEntry {
+      count: number;
+      resetAt: number;
+    }
+    function getKey(ip: string, venueSlug: string): string {
+      return `${ip}:${venueSlug}`;
+    }
+  </file>
+  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     function todayAt(hours: number, minutes: number): Date {
@@ -10,6 +21,26 @@
       const d = new Date();
       d.setHours(0, 0, 0, 0);
       return d;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="prisma.config.ts">
+  <file path="prisma.config.ts">
+    function loadEnvFile(): void {
+      try {
+        const content = readFileSync(".env", "utf-8");
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx === -1) continue;
+          const key = trimmed.slice(0, eqIdx);
+          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
+          if (!process.env[key]) process.env[key] = val;
+        }
+      } catch {
+        // .env not present (CI, Docker) — rely on environment
+      }
     }
   </file>
   </section>
@@ -90,17 +121,35 @@
           // Validate date format
           const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
           if (!dateRegex.test(date)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
           }
     
           const partySizeNum = parseInt(partySize, 10);
           if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  "Invalid party size. Must be a positive integer."
+                )
+              );
           }
     
           const durationNum = duration ? parseInt(duration, 10) : undefined;
           if (duration && (isNaN(durationNum!) || durationNum! < 15)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid duration. Must be at least 15 minutes."));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  "Invalid duration. Must be at least 15 minutes."
+                )
+              );
           }
     
           const slots = await availabilityService.generateTimeSlots(
@@ -185,19 +234,37 @@
           // Validate date formats
           const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
           if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
           }
     
           // Validate date range
           const start = new Date(startDate);
           const end = new Date(endDate);
           if (start > end) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "startDate must be before or equal to endDate."));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  "startDate must be before or equal to endDate."
+                )
+              );
           }
     
           const partySizeNum = parseInt(partySize, 10);
           if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Invalid party size. Must be a positive integer."));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  "Invalid party size. Must be a positive integer."
+                )
+              );
           }
     
           const dates = await availabilityService.getAvailableDates(
@@ -208,6 +275,150 @@
           );
     
           return { data: dates };
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/cancel-reservation.ts">
+    export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.delete<{ Querystring: { token?: string } }>(
+        "/public/v1/reservations/manage",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+        },
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Missing Token",
+              status: 400,
+              detail: "Token query parameter is required",
+            });
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).send({
+              type: "about:blank",
+              title: "Token Expired",
+              status: 410,
+              detail: "This manage link has expired",
+            });
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).send({
+              type: "about:blank",
+              title: "Invalid Token",
+              status: 401,
+              detail: "Invalid or malformed token",
+            });
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(404).send({
+              type: "about:blank",
+              title: "Reservation Not Found",
+              status: 404,
+              detail: "Reservation not found",
+            });
+          }
+    
+          if (reservation.status === "CANCELLED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Already Cancelled",
+              status: 409,
+              detail: "This reservation is already cancelled",
+            });
+          }
+    
+          if (reservation.status === "COMPLETED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Cannot Cancel",
+              status: 409,
+              detail: "Cannot cancel a completed reservation",
+            });
+          }
+    
+          const updated = await reservationService.update(reservation.id, {
+            status: "CANCELLED",
+          });
+    
+          if (!updated) {
+            return reply.status(500).send({
+              type: "about:blank",
+              title: "Update Failed",
+              status: 500,
+              detail: "Failed to cancel reservation",
+            });
+          }
+    
+          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
+    
+          if (reservation.guestEmail && venue) {
+            await notificationAdapter.sendBookingCancelled({
+              reservationId: reservation.id,
+              date: reservation.date,
+              startTime: reservation.startTime,
+              endTime: reservation.endTime,
+              partySize: reservation.partySize,
+              guestName: reservation.guestName,
+              guestEmail: reservation.guestEmail,
+              guestPhone: reservation.guestPhone ?? null,
+              specialRequests: reservation.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken: token,
+            });
+          }
+    
+          return reply.status(200).send({
+            data: { status: updated.status },
+          });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/confirm-attendance.ts">
+    export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.patch<{ Querystring: { token?: string } }>(
+        "/public/v1/reservations/confirm",
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).type("text/html").send(expiredHtml);
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(401).type("text/html").send(invalidHtml);
+          }
+    
+          if (reservation.status === "PENDING") {
+            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
+          }
+    
+          return reply.status(200).type("text/html").send(successHtml);
         }
       );
     };
@@ -297,7 +508,9 @@
         async (request, reply) => {
           const floorPlan = await floorPlanService.getActiveByVenueId(request.params.venueId);
           if (!floorPlan) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "No active floor plan found for venue"));
           }
           return { data: floorPlan };
         }
@@ -373,7 +586,11 @@
         }
       );
     
-      fastify.patch<{ Params: { id: string }; Body: UpdateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.patch<{
+        Params: { id: string };
+        Body: UpdateFloorPlanRequest;
+        Reply: ApiResponse<FloorPlan> | ApiError;
+      }>(
         "/:id",
         {
           preHandler: requireAuth,
@@ -569,7 +786,8 @@
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
-            description: "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
+            description:
+              "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             querystring: {
@@ -614,7 +832,9 @@
         async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
           const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
@@ -685,7 +905,9 @@
         async (request, reply) => {
           const { venueId, query, tags, hasNotVisitedInDays } = request.query;
           if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           return guestService.search({
             venueId,
@@ -741,7 +963,9 @@
         async (request, reply) => {
           const { venueId } = request.query;
           if (!venueId) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "venueId is required"));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
           const segments = await guestService.getSegments(venueId);
           return { data: segments };
@@ -866,11 +1090,16 @@
             const guest = await guestService.create(request.body);
             return reply.code(201).send({ data: guest });
           } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A guest with this email or phone already exists at this venue"));
+            if (error instanceof Error && error.message.includes("Unique constraint")) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "A guest with this email or phone already exists at this venue"
+                  )
+                );
             }
             throw error;
           }
@@ -888,7 +1117,8 @@
           schema: {
             summary: "Find or create guest",
             operationId: "findOrCreateGuest",
-            description: "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
+            description:
+              "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
             body: {
@@ -936,7 +1166,9 @@
         async (request, reply) => {
           const { venueId, email, phone, name } = request.body;
           if (!email && !phone) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
           const guest = await guestService.findOrCreate(venueId, { email, phone, name });
           return { data: guest };
@@ -1056,47 +1288,20 @@
     };
   </file>
   <file path="src/routes/health.ts">
-    type HealthRouteHandler = RouteHandlerMethod<
-      RawServerDefault,
-      IncomingMessage,
-      ServerResponse,
-      { Reply: HealthResponse }
-    >;
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
-      // /api/health — used by DO App Platform internal health checks (direct container access)
-      // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
-      fastify.get(
-        "/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealth" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler,
-      );
-    
-      // /api/health — public path via DO ingress (preservePathPrefix: true, prefix "/api")
-      // Required for post-deploy verification workflow hitting api.mattbutlerengineering.com/api/health
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApi" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler,
-      );
-    
-      // /api/v1/reservations/health — public path via DO ingress (preservePathPrefix: true, prefix "/api/v1/reservations")
-      // Must be registered here (not in reservationRoutes) to avoid falling through to /:id param route
-      // github[js/missing-rate-limiting] — restrictive limit for public health check
-      fastify.get(
-        "/api/v1/reservations/health",
-        {
-          schema: { ...healthSchema, operationId: "getHealthApiReservations" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        healthHandler,
-      );
+      await fastify.register(registerHealthRoutes, {
+        prisma,
+        getSlowQueryStats,
+        getServiceStatus,
+        getPoolMetrics,
+        latencyTracker,
+        checkAuth0,
+        routes: [
+          { path: "/health", operationId: "getHealth" },
+          { path: "/api/health", operationId: "getHealthApi" },
+          { path: "/api/v1/reservations/health", operationId: "getHealthApiReservations" },
+        ],
+      });
     };
   </file>
   <file path="src/routes/holds.ts">
@@ -1143,8 +1348,7 @@
               properties: {
                 [SESSION_ID_HEADER]: {
                   type: "string",
-                  description:
-                    "Session identifier. If not provided, one will be generated.",
+                  description: "Session identifier. If not provided, one will be generated.",
                 },
               },
             },
@@ -1163,16 +1367,23 @@
                   format: "date-time",
                   description: "Start time in ISO 8601 format",
                 },
-                partySize: { type: "integer", minimum: 1, maximum: 20, description: "Number of guests" },
+                partySize: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: 20,
+                  description: "Number of guests",
+                },
                 tableId: {
                   type: "string",
-                  description: "Optional specific table to hold. If not provided, best available table is assigned.",
+                  description:
+                    "Optional specific table to hold. If not provided, best available table is assigned.",
                 },
                 holdDurationMinutes: {
                   type: "integer",
                   minimum: 1,
                   maximum: 60,
-                  description: "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
+                  description:
+                    "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
                 },
               },
             },
@@ -1195,7 +1406,9 @@
           if (!result.success) {
             const statusCode = result.error?.includes("not found") ? 404 : 409;
             const title = statusCode === 404 ? "Not Found" : "Conflict";
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
+            return reply
+              .code(statusCode)
+              .send(createProblemDetails(statusCode, title, result.error ?? "Failed to create hold"));
           }
     
           // Set the session ID header in response
@@ -1238,7 +1451,9 @@
           const hold = await holdService.getById(request.params.id);
     
           if (!hold) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Hold not found or expired"));
           }
     
           return { data: hold };
@@ -1291,13 +1506,19 @@
           const sessionId = request.headers[SESSION_ID_HEADER];
     
           if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
           const released = await holdService.release(request.params.id, sessionId);
     
           if (!released) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Hold not found or not owned by this session"));
+            return reply
+              .code(404)
+              .send(
+                createProblemDetails(404, "Not Found", "Hold not found or not owned by this session")
+              );
           }
     
           return { success: true };
@@ -1374,35 +1595,514 @@
           const sessionId = request.headers[SESSION_ID_HEADER];
     
           if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
           }
     
-          const result = await holdService.convertToReservation(
-            request.params.id,
+          const result = await confirmHold({
+            holdId: request.params.id,
             sessionId,
-            request.body
+            guestDetails: request.body,
+          });
+    
+          if (!result.success) {
+            const statusMap: Record<string, number> = {
+              NOT_FOUND: 404,
+              EXPIRED: 410,
+              SESSION_MISMATCH: 403,
+              CONFLICT: 409,
+            };
+            const titleMap: Record<string, string> = {
+              NOT_FOUND: "Not Found",
+              EXPIRED: "Hold Expired",
+              SESSION_MISMATCH: "Forbidden",
+              CONFLICT: "Conflict",
+            };
+            const statusCode = statusMap[result.errorCode] ?? 409;
+            const title = titleMap[result.errorCode] ?? "Conflict";
+    
+            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error));
+          }
+    
+          return reply.code(201).send({ data: result.reservation });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/manage-reservation.ts">
+    export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Querystring: { token?: string } }>(
+        "/public/v1/reservations/manage",
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Missing Token",
+              status: 400,
+              detail: "Token query parameter is required",
+            });
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).send({
+              type: "about:blank",
+              title: "Token Expired",
+              status: 410,
+              detail: "This manage link has expired",
+            });
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).send({
+              type: "about:blank",
+              title: "Invalid Token",
+              status: 401,
+              detail: "Invalid or malformed token",
+            });
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(404).send({
+              type: "about:blank",
+              title: "Reservation Not Found",
+              status: 404,
+              detail: "Reservation not found",
+            });
+          }
+    
+          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
+    
+          return reply.status(200).send({
+            data: {
+              reservation: {
+                id: reservation.id,
+                date: reservation.date,
+                startTime: reservation.startTime,
+                endTime: reservation.endTime,
+                partySize: reservation.partySize,
+                guestName: reservation.guestName,
+                guestEmail: reservation.guestEmail,
+                guestPhone: reservation.guestPhone,
+                status: reservation.status,
+                notes: reservation.notes,
+              },
+              venue: venue
+                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+                : null,
+            },
+          });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/modify-reservation.ts">
+    interface ModifyBody {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
+    }
+    export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.patch<{ Querystring: { token?: string }; Body: ModifyBody }>(
+        "/public/v1/reservations/manage",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+        },
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Missing Token",
+              status: 400,
+              detail: "Token query parameter is required",
+            });
+          }
+    
+          const result = verifyManageToken(token);
+    
+          if (!result.valid && result.expired) {
+            return reply.status(410).send({
+              type: "about:blank",
+              title: "Token Expired",
+              status: 410,
+              detail: "This manage link has expired",
+            });
+          }
+    
+          if (!result.valid) {
+            return reply.status(401).send({
+              type: "about:blank",
+              title: "Invalid Token",
+              status: 401,
+              detail: "Invalid or malformed token",
+            });
+          }
+    
+          const reservation = await reservationService.getById(result.reservationId!);
+          if (!reservation) {
+            return reply.status(404).send({
+              type: "about:blank",
+              title: "Reservation Not Found",
+              status: 404,
+              detail: "Reservation not found",
+            });
+          }
+    
+          if (reservation.status === "CANCELLED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Cannot Modify",
+              status: 409,
+              detail: "Cannot modify a cancelled reservation",
+            });
+          }
+    
+          if (reservation.status === "COMPLETED") {
+            return reply.status(409).send({
+              type: "about:blank",
+              title: "Cannot Modify",
+              status: 409,
+              detail: "Cannot modify a completed reservation",
+            });
+          }
+    
+          const body = request.body ?? {};
+          const { date, startTime, endTime, partySize, specialRequests } = body;
+    
+          const hasChanges =
+            date !== undefined ||
+            startTime !== undefined ||
+            endTime !== undefined ||
+            partySize !== undefined ||
+            specialRequests !== undefined;
+    
+          if (!hasChanges) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "No Changes",
+              status: 400,
+              detail: "At least one field must be provided to modify",
+            });
+          }
+    
+          const updateData = {
+            ...(date !== undefined && { date }),
+            ...(startTime !== undefined && { startTime }),
+            ...(endTime !== undefined && { endTime }),
+            ...(partySize !== undefined && { partySize }),
+            ...(specialRequests !== undefined && { notes: specialRequests }),
+          };
+    
+          const updateResult = await reservationService.updateWithConflictCheck(
+            reservation.id,
+            updateData
+          );
+    
+          if (!updateResult.success) {
+            if (updateResult.conflict) {
+              return reply.status(409).send({
+                type: "about:blank",
+                title: "Slot Unavailable",
+                status: 409,
+                detail: updateResult.error,
+              });
+            }
+            return reply.status(500).send({
+              type: "about:blank",
+              title: "Update Failed",
+              status: 500,
+              detail: updateResult.error ?? "Failed to modify reservation",
+            });
+          }
+    
+          const updated = updateResult.reservation!;
+          const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
+    
+          if (updated.guestEmail && venue) {
+            await notificationAdapter.sendBookingModified({
+              reservationId: updated.id,
+              date: updated.date,
+              startTime: updated.startTime,
+              endTime: updated.endTime,
+              partySize: updated.partySize,
+              guestName: updated.guestName,
+              guestEmail: updated.guestEmail,
+              guestPhone: updated.guestPhone ?? null,
+              specialRequests: updated.notes ?? null,
+              venueName: venue.name,
+              venueTimezone: venue.ianaTimezone,
+              venueAddress: null,
+              manageToken: token,
+              sequence: 2,
+            });
+          }
+    
+          return reply.status(200).send({
+            data: {
+              reservation: {
+                id: updated.id,
+                date: updated.date,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                partySize: updated.partySize,
+                guestName: updated.guestName,
+                guestEmail: updated.guestEmail,
+                status: updated.status,
+                notes: updated.notes,
+              },
+            },
+          });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-availability.ts">
+    export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { date: string; partySize: string };
+        Reply: ApiResponse<TimeSlot[]>;
+      }>(
+        "/:slug/availability",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Get available time slots (public)",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+                partySize: { type: "string" },
+              },
+              required: ["date", "partySize"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { date, partySize } = request.query;
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
+            return reply.status(404).send({
+              type: "https://httpproblems.com/http-status/404",
+              title: "Venue Not Found",
+              status: 404,
+              detail: `No venue found with slug '${slug}'.`,
+            } as never);
+          }
+    
+          const parsedPartySize = parseInt(partySize, 10);
+          if (isNaN(parsedPartySize) || parsedPartySize < 1) {
+            return reply.status(400).send({
+              type: "https://httpproblems.com/http-status/400",
+              title: "Invalid Party Size",
+              status: 400,
+              detail: "partySize must be a positive integer.",
+            } as never);
+          }
+    
+          const slots = await availabilityService.generateTimeSlots(venue.id, date, parsedPartySize);
+          const availableOnly = slots.filter((s: TimeSlot) => s.available);
+    
+          return reply.send({ data: availableOnly });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-holds.ts">
+    export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post<{
+        Params: { slug: string };
+        Body: { date: string; startTime: string; endTime: string; partySize: number };
+        Reply: ApiResponse<ReservationHold>;
+      }>(
+        "/:slug/holds",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Create a reservation hold (public)",
+            tags: ["Public"],
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { date, startTime, partySize } = request.body;
+          const ip = request.ip;
+    
+          if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
+            return reply.status(429).send({
+              type: "https://httpproblems.com/http-status/429",
+              title: "Too Many Holds",
+              status: 429,
+              detail: `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`,
+            } as never);
+          }
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
+            return reply.status(404).send({
+              type: "https://httpproblems.com/http-status/404",
+              title: "Venue Not Found",
+              status: 404,
+              detail: `No venue found with slug '${slug}'.`,
+            } as never);
+          }
+    
+          const sessionId = randomUUID();
+          const result = await holdService.create(
+            { venueId: venue.id, date, time: startTime, partySize },
+            sessionId
           );
     
           if (!result.success) {
-            const error = result.error ?? "Failed to confirm hold";
-            let statusCode: number;
-            let title: string;
-    
-            if (error.includes("not found") || error.includes("expired")) {
-              statusCode = 404;
-              title = "Not Found";
-            } else if (error.includes("Session ID")) {
-              statusCode = 403;
-              title = "Forbidden";
-            } else {
-              statusCode = 409;
-              title = "Conflict";
-            }
-    
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, error));
+            return reply.status(409).send({
+              type: "https://httpproblems.com/http-status/409",
+              title: "Slot Unavailable",
+              status: 409,
+              detail: result.error ?? "The requested time slot is no longer available.",
+            } as never);
           }
     
-          return reply.code(201).send({ data: result.reservation! });
+          incrementHoldCount(ip);
+          return reply.status(201).send({ data: result.hold! });
+        }
+      );
+    
+      fastify.delete<{
+        Params: { slug: string; holdId: string };
+      }>(
+        "/:slug/holds/:holdId",
+        {
+          schema: {
+            summary: "Release a reservation hold (public)",
+            tags: ["Public"],
+          },
+        },
+        async (request, reply) => {
+          const { holdId } = request.params;
+          const ip = request.ip;
+    
+          const released = await holdService.release(holdId, "public");
+          if (released) {
+            decrementHoldCount(ip);
+          }
+    
+          return reply.status(204).send();
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-reservations.ts">
+    export function generateManageToken(reservationId: string, guestEmail: string): string {
+      const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      const payload = `${reservationId}:${guestEmail}:${expiry}`;
+      const signature = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
+      return Buffer.from(`${payload}:${signature}`).toString("base64url");
+    }
+    export function verifyManageToken(token: string): {
+      valid: boolean;
+      expired?: boolean;
+      reservationId?: string;
+      guestEmail?: string;
+    } {
+      try {
+        const decoded = Buffer.from(token, "base64url").toString();
+        const parts = decoded.split(":");
+        if (parts.length < 4) return { valid: false };
+    
+        const signature = parts.pop()!;
+        const payload = parts.join(":");
+        const [reservationId, guestEmail, expiryStr] = parts;
+    
+        const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
+        if (signature !== expected) return { valid: false };
+    
+        const expiry = parseInt(expiryStr, 10);
+        if (Date.now() > expiry) return { valid: false, expired: true };
+    
+        return { valid: true, reservationId, guestEmail };
+      } catch {
+        return { valid: false };
+      }
+    }
+  </file>
+  <file path="src/routes/public-venues.ts">
+    interface PublicVenueResponse {
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: unknown;
+      settings: {
+        defaultReservationDuration?: number;
+        maxPartySize?: number;
+        maxAdvanceBooking?: number;
+        slotIntervalMinutes?: number;
+      };
+    }
+    export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Reply: ApiResponse<PublicVenueResponse>;
+      }>(
+        "/:slug",
+        {
+          schema: {
+            summary: "Get public venue info by slug",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: {
+                slug: { type: "string" },
+              },
+              required: ["slug"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const venue = await venueService.getBySlug(slug);
+    
+          if (!venue) {
+            return reply.status(404).send({
+              success: false,
+              error: "Venue not found",
+            } as never);
+          }
+    
+          const publicVenue: PublicVenueResponse = {
+            name: venue.name,
+            slug: venue.slug,
+            ianaTimezone: venue.ianaTimezone,
+            currencyCode: venue.currencyCode,
+            operatingHours: venue.operatingHours,
+            settings: {
+              defaultReservationDuration: venue.settings?.defaultReservationDuration,
+              maxPartySize: venue.settings?.maxPartySize,
+              maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
+              slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+            },
+          };
+    
+          return reply.send({ data: publicVenue });
         }
       );
     };
@@ -1427,15 +2127,11 @@
             })),
           };
           return reply.status(snapshot.ready ? 200 : 503).send(response);
-        },
+        }
       );
     };
   </file>
   <file path="src/routes/reservations.ts">
-    function isAdmin(user: AuthUser | undefined): boolean {
-      const permissions = user?.raw?.permissions;
-      return Array.isArray(permissions) && permissions.includes("admin");
-    }
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // List reservations
       fastify.get<{
@@ -1511,11 +2207,17 @@
           },
         },
         async (request, reply) => {
-          const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
-          
+          const adminAccess = hasPermission(request.user, "admin");
+    
           if (!adminAccess) {
-            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all reservations") as never);
+            reply.code(403);
+            return reply.send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "Admin access required to list all reservations"
+              ) as never
+            );
           }
     
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -1542,8 +2244,7 @@
           schema: {
             summary: "Get current user's reservations",
             operationId: "getMyReservations",
-            description:
-              "Retrieve reservations for the currently authenticated user.",
+            description: "Retrieve reservations for the currently authenticated user.",
             tags: ["Reservations"],
             security: [{ bearerAuth: [] }],
             querystring: {
@@ -1587,7 +2288,9 @@
         async (request, reply) => {
           const authUser = request.user;
           if (!authUser) {
-            return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
           const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
@@ -1667,7 +2370,9 @@
           const userId = request.user?.id;
           const result = await reservationService.createWalkIn(request.body, userId);
           if (!result.success || !result.reservation) {
-            return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
           const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
           emitReservationCreated(result.reservation);
@@ -1723,17 +2428,22 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
-          
+    
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = reservation.guestEmail === authUser?.email;
-          
+    
           if (!adminAccess && !isOwner) {
-            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never);
+            reply.code(403);
+            return reply.send(
+              createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never
+            );
           }
-          
+    
           return { data: reservation };
         }
       );
@@ -1836,23 +2546,33 @@
         async (request, reply) => {
           const userId = request.user?.id;
     
-          // Check feature flag for enhanced validation
-          const flags = parseFeatureFlags(request.headers["x-feature-flags"] as string | undefined);
-          const useEnhancedValidation = isEnabled(flags, "enhanced-validation");
+          const features = createFeatureContext(
+            request.headers["x-feature-flags"] as string | undefined
+          );
+          const useEnhancedValidation = features.check("enhanced-validation");
     
           if (useEnhancedValidation && request.body.partySize > 20) {
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", "Party size exceeds limit for enhanced validation"));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  "Party size exceeds limit for enhanced validation"
+                )
+              );
           }
     
-          const result = await reservationService.createWithConflictCheck(
-            request.body,
-            userId
-          );
+          const result = await reservationService.createWithConflictCheck(request.body, userId);
     
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
             const title = statusCode === 409 ? "Conflict" : "Bad Request";
-            return reply.code(statusCode).send(createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation"));
+            return reply
+              .code(statusCode)
+              .send(
+                createProblemDetails(statusCode, title, result.error ?? "Failed to create reservation")
+              );
           }
     
           return reply.code(201).send({ data: result.reservation! });
@@ -1871,8 +2591,7 @@
           schema: {
             summary: "Update a reservation",
             operationId: "updateReservation",
-            description:
-              "Update an existing reservation. Only provided fields will be updated.",
+            description: "Update an existing reservation. Only provided fields will be updated.",
             tags: ["Reservations"],
             params: {
               type: "object",
@@ -1961,15 +2680,24 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {
-            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only update your own reservations") as never);
+            reply.code(403);
+            return reply.send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "You can only update your own reservations"
+              ) as never
+            );
           }
     
           if (request.body.status === "CANCELLED") {
@@ -1980,7 +2708,9 @@
             );
     
             if (!reservation) {
-              return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
             }
     
             emitReservationCancelled(reservation);
@@ -1994,14 +2724,24 @@
     
           if (!result.success) {
             if (result.error === "Reservation not found") {
-              return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              return reply
+                .code(404)
+                .send(createProblemDetails(404, "Not Found", "Reservation not found"));
             }
     
             if (result.conflict?.hasConflict) {
-              return reply.code(409).send(createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict"));
+              return reply
+                .code(409)
+                .send(
+                  createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+                );
             }
     
-            return reply.code(400).send(createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation"));
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
+              );
           }
     
           return { data: result.reservation! };
@@ -2054,20 +2794,31 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.params.id);
           if (!reservation) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
           const authUser = request.user;
-          const adminAccess = isAdmin(authUser);
+          const adminAccess = hasPermission(authUser, "admin");
           const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
     
           if (!adminAccess && !isOwner) {
-            reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "You can only cancel your own reservations") as never);
+            reply.code(403);
+            return reply.send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "You can only cancel your own reservations"
+              ) as never
+            );
           }
     
           const cancelled = await reservationService.cancel(request.params.id);
           if (!cancelled) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
           return { data: cancelled };
         }
@@ -2253,11 +3004,12 @@
             const table = await tableService.create(request.body);
             return reply.code(201).send({ data: table });
           } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A table with this name already exists"));
+            if (error instanceof Error && error.message.includes("Unique constraint")) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(400, "Bad Request", "A table with this name already exists")
+                );
             }
             throw error;
           }
@@ -2575,7 +3327,9 @@
         async (request, reply) => {
           const group = await venueGroupService.getById(request.params.id);
           if (!group) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return { data: group };
         }
@@ -2638,11 +3392,16 @@
             const group = await venueGroupService.create(request.body);
             return reply.code(201).send({ data: group });
           } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue group with this slug already exists"));
+            if (error instanceof Error && error.message.includes("Unique constraint")) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    "A venue group with this slug already exists"
+                  )
+                );
             }
             throw error;
           }
@@ -2706,7 +3465,9 @@
         async (request, reply) => {
           const group = await venueGroupService.update(request.params.id, request.body);
           if (!group) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return { data: group };
         }
@@ -2759,7 +3520,9 @@
         async (request, reply) => {
           const deleted = await venueGroupService.delete(request.params.id);
           if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue group not found"));
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Venue group not found"));
           }
           return reply.code(204).send();
         }
@@ -2777,8 +3540,7 @@
           schema: {
             summary: "List all venues",
             operationId: "listVenues",
-            description:
-              "Retrieve a paginated list of all venues. Optionally filter by venue group.",
+            description: "Retrieve a paginated list of all venues. Optionally filter by venue group.",
             tags: ["Venues"],
             querystring: {
               type: "object",
@@ -2881,7 +3643,8 @@
           schema: {
             summary: "Get venue by slug",
             operationId: "getVenueBySlug",
-            description: "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+            description:
+              "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
             tags: ["Venues"],
             params: {
               type: "object",
@@ -2991,11 +3754,12 @@
             const venue = await venueService.create(request.body);
             return reply.code(201).send({ data: venue });
           } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message.includes("Unique constraint")
-            ) {
-              return reply.code(400).send(createProblemDetails(400, "Bad Request", "A venue with this slug already exists"));
+            if (error instanceof Error && error.message.includes("Unique constraint")) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(400, "Bad Request", "A venue with this slug already exists")
+                );
             }
             throw error;
           }
@@ -3140,17 +3904,12 @@
       settings: VenueSettings | null;
       operatingHours: OperatingHours | null;
     }
-    export function estimateDuration(
-      partySize: number,
-      venueSettings?: VenueSettings | null
-    ): number {
+    export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
       // Use venue-specific rules if available
       const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
     
       // Find the matching rule
-      const rule = rules.find(
-        (r) => partySize >= r.minPartySize && partySize <= r.maxPartySize
-      );
+      const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
     
       if (rule) {
         return rule.durationMinutes;
@@ -3162,33 +3921,24 @@
       }
     
       // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) =>
-        r.maxPartySize > max.maxPartySize ? r : max
-      );
+      const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
       const extraGuests = partySize - largestRule.maxPartySize;
       const extraTime = Math.ceil(extraGuests / 2) * 15;
       return largestRule.durationMinutes + extraTime;
     }
   </file>
+  <file path="src/services/confirm-hold.ts">
+    type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+    export interface ConfirmHoldInput {
+      holdId: string;
+      sessionId?: string;
+      guestDetails: ConfirmHoldRequest;
+      userId?: string;
+    }
+  </file>
   <file path="src/services/database.ts">
-    interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
-      queries: { model: string; operation: string; duration: number; timestamp: number }[];
-    }
-    export function getSlowQueryStats(): { count5min: number; slowestMs: number } {
-      const now = Date.now();
-      const windowStart = now - SLOW_QUERY_WINDOW_MS;
-      
-      slowQueryStats.queries = slowQueryStats.queries.filter((q) => q.timestamp > windowStart);
-      slowQueryStats.count5min = slowQueryStats.queries.length;
-      slowQueryStats.slowestMs = slowQueryStats.queries.reduce((max, q) => Math.max(max, q.duration), 0);
-      
-      return {
-        count5min: slowQueryStats.count5min,
-        slowestMs: slowQueryStats.slowestMs,
-      };
-    }
+    export const prisma = db.prisma as unknown as PrismaClient;
+    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="src/services/events.ts">
     export type ReservationEventType =
@@ -3266,28 +4016,6 @@
       };
     }
   </file>
-  <file path="src/services/health-checks.ts">
-    export function recordDbLatency(ms: number): void {
-      dbLatencyHistory.push(ms);
-      if (dbLatencyHistory.length > LATENCY_WINDOW) {
-        dbLatencyHistory.shift();
-      }
-    }
-    export function checkLatencyAnomaly(currentMs: number): {
-      isAnomaly: boolean;
-      rollingAvg: number;
-    } {
-      if (dbLatencyHistory.length < 5) {
-        return { isAnomaly: false, rollingAvg: 0 };
-      }
-      const sum = dbLatencyHistory.reduce((a, b) => a + b, 0);
-      const rollingAvg = sum / dbLatencyHistory.length;
-      return {
-        isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
-        rollingAvg: Math.round(rollingAvg),
-      };
-    }
-  </file>
   <file path="src/services/hold.ts">
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
       return {
@@ -3307,6 +4035,26 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+    }
+  </file>
+  <file path="src/services/reminder.ts">
+    export async function findReservationsNeedingReminder() {
+      const now = new Date();
+      const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+      const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    
+      return prisma.reservation.findMany({
+        where: {
+          startTime: {
+            gte: windowStart,
+            lte: windowEnd,
+          },
+          status: { in: ["PENDING", "CONFIRMED"] },
+          reminderSentAt: null,
+          guestEmail: { not: null },
+        },
+        include: { venue: true },
+      });
     }
   </file>
   <file path="src/services/reservation.ts">
@@ -3413,27 +4161,48 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    function validateCorsOrigins(origins: string[]): string[] {
-      const validPatterns = [
-        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
-        ...(process.env.NODE_ENV === "development"
-          ? [/^http:\/\/localhost:\d+$/]
-          : []),
-      ];
+    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+      const fastify = await createServiceApp(
+        {
+          swagger: {
+            title: "MBE Reservations API",
+            description: "API for managing table reservations and availability",
+            serverUrl: "http://localhost:3004",
+          },
+          registerSchemas,
+        },
+        options
+      );
     
-      const validated: string[] = [];
-      for (const origin of origins) {
-        const trimmed = origin.trim();
-        if (validPatterns.some((p) => p.test(trimmed))) {
-          validated.push(trimmed);
-        } else {
-          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
-        }
-      }
-      return validated;
-    }
-    export interface AppOptions {
-      logger?: boolean | object;
+      // Register routes
+      await fastify.register(healthRoutes);
+      await fastify.register(readinessRoutes);
+      await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
+      await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
+      await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
+      await fastify.register(availabilityRoutes, {
+        prefix: "/api/v1/availability",
+      });
+      await fastify.register(holdRoutes, { prefix: "/api/v1/holds" });
+      await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
+      await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
+      await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+    
+      // Public routes (no auth required)
+      await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicAvailabilityRoutes, {
+        prefix: "/public/v1/venues",
+      });
+      await fastify.register(publicHoldRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(publicReservationRoutes, {
+        prefix: "/public/v1/venues",
+      });
+      await fastify.register(confirmAttendanceRoutes);
+      await fastify.register(manageReservationRoutes);
+      await fastify.register(cancelReservationRoutes);
+      await fastify.register(modifyReservationRoutes);
+    
+      return fastify;
     }
   </file>
   <file path="src/index.ts">

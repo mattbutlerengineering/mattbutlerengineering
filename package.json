@@ -11,7 +11,7 @@
     "dev": "turbo run dev",
     "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && turbo run dev",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
-    "db:push": "pnpm --filter './services/*' exec prisma db push --skip-generate",
+    "db:push": "pnpm --filter './services/*' exec prisma db push",
     "repo-audit": "node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && pnpm audit --audit-level=high",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
@@ -56,22 +56,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "size-limit": "^12.1.0",
-    "turbo": "^2.9.12",
+    "turbo": "^2.9.14",
     "vitest": "catalog:"
-  },
-  "lint-staged": {
-    "apps/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "packages/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "services/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ],
-    "tools/**/*.{ts,tsx}": [
-      "eslint --fix"
-    ]
   },
   "pnpm": {
     "overrides": {
@@ -94,7 +80,7 @@
       "minimatch@>=10.0.0 <10.2.3": "10.2.3",
       "lodash": ">=4.18.0",
       "lodash-es": ">=4.18.0",
-      "protobufjs@<7.5.5": "^7.5.5",
+      "protobufjs@<7.5.8": "^7.5.8",
       "protobufjs@>=8.0.0 <8.0.2": "^8.0.2",
       "@babel/plugin-transform-modules-systemjs": ">=7.29.4",
       "@babel/preset-env": ">=7.29.5",

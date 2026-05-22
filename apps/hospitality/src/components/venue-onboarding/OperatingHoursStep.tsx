@@ -60,7 +60,7 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
       const { [day]: _, ...rest } = data;
       onChange(rest);
     },
-    [data, onChange],
+    [data, onChange]
   );
 
   const handleToggle = useCallback(
@@ -83,7 +83,7 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
         onChange({ ...data, [day]: { ...restored } });
       }
     },
-    [data, onChange, disableDay],
+    [data, onChange, disableDay]
   );
 
   const handleTimeChange = (day: DayOfWeek, field: "open" | "close", value: string) => {
@@ -101,7 +101,9 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
       </Text>
 
       {errors?.global && (
-        <span className={styles.errorText} role="alert">{errors.global}</span>
+        <span className={styles.errorText} role="alert">
+          {errors.global}
+        </span>
       )}
 
       <div>
@@ -146,7 +148,9 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
                     </span>
                   )}
                   {dayError && !hasTimeError && (
-                    <span className={styles.errorText} role="alert">{dayError}</span>
+                    <span className={styles.errorText} role="alert">
+                      {dayError}
+                    </span>
                   )}
                 </div>
               ) : (
@@ -177,7 +181,9 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
 }
 
 /** Validate operating hours data. Returns errors or null if valid. */
-export function validateOperatingHours(data: OperatingHours): OperatingHoursValidationErrors | null {
+export function validateOperatingHours(
+  data: OperatingHours
+): OperatingHoursValidationErrors | null {
   const dayErrors: Partial<Record<DayOfWeek, string>> = {};
   let hasError = false;
 

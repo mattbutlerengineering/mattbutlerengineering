@@ -19,10 +19,10 @@ All API errors **must** conform to **RFC 7807 Problem Details for HTTP APIs** (`
 
 ```typescript
 interface ProblemDetails {
-  type: string;     // URI identifying the error type (default: "about:blank")
-  title: string;    // Short human-readable summary
-  status: number;   // HTTP status code
-  detail: string;   // Human-readable explanation specific to this occurrence
+  type: string; // URI identifying the error type (default: "about:blank")
+  title: string; // Short human-readable summary
+  status: number; // HTTP status code
+  detail: string; // Human-readable explanation specific to this occurrence
   instance?: string; // URI identifying this specific occurrence
 }
 ```

@@ -1,14 +1,15 @@
 import { test, expect } from "./fixtures.js";
+// Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-3: Walk-in creation", () => {
-  test("opens walk-in dialog and lists available tables", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("opens walk-in dialog and lists available tables", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click "Walk-In" button
-    await authPage.getByRole("button", { name: /Walk.?In/i }).click();
+    await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
     // Dialog opens
-    const dialog = authPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
     await expect(dialog).toBeVisible();
 
     // Party size input
@@ -19,15 +20,16 @@ test.describe("CF-3: Walk-in creation", () => {
     // Available tables are listed
     const tableList = dialog.getByTestId(/^table-list-/);
     await expect(tableList.first()).toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/walkin-dialog.png", fullPage: true });
   });
 
-  test("creates walk-in and verifies timeline update", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("creates walk-in and verifies timeline update", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
     // Click "Walk-In" button
-    await authPage.getByRole("button", { name: /Walk.?In/i }).click();
+    await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
-    const dialog = authPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
     await expect(dialog).toBeVisible();
 
     // Fill form
@@ -50,19 +52,19 @@ test.describe("CF-3: Walk-in creation", () => {
     await expect(dialog).not.toBeVisible();
 
     // New reservation appears on timeline
-    const reservationBlocks = authPage.getByTestId(/^reservation-block-/);
+    const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
     await expect(reservationBlocks).toHaveCount(await reservationBlocks.count());
 
     // Table status changes to OCCUPIED (check via testid)
     // Note: exact verification depends on table testid patterns
   });
 
-  test("cancels walk-in dialog", async ({ authPage }) => {
-    await authPage.goto("/timeline");
+  test("cancels walk-in dialog", async ({ mockedPage }) => {
+    await mockedPage.goto("/timeline");
 
-    await authPage.getByRole("button", { name: /Walk.?In/i }).click();
+    await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
-    const dialog = authPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
     await expect(dialog).toBeVisible();
 
     // Click cancel
@@ -70,5 +72,6 @@ test.describe("CF-3: Walk-in creation", () => {
 
     // Dialog closes, no reservation created
     await expect(dialog).not.toBeVisible();
+    await mockedPage.screenshot({ path: "e2e/screenshots/walkin-cancelled.png", fullPage: true });
   });
 });

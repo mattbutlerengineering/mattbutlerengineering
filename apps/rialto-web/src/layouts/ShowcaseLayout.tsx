@@ -106,7 +106,10 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
                 {
                   title: "Platform",
                   links: [
-                    { label: "mattbutlerengineering.com", href: "https://mattbutlerengineering.com" },
+                    {
+                      label: "mattbutlerengineering.com",
+                      href: "https://mattbutlerengineering.com",
+                    },
                     { label: "Hospitality", href: "https://mattbutlerengineering.com/hospitality" },
                   ],
                 },

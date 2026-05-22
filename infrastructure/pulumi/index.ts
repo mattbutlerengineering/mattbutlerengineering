@@ -3,7 +3,6 @@ import * as digitalocean from "@pulumi/digitalocean";
 import * as cloudflare from "@pulumi/cloudflare";
 import { readFileSync } from "node:fs";
 import { auth0Outputs } from "./auth0";
-import { branchProtectionId } from "./github";
 
 // ── Configuration ───────────────────────────────────────────────────
 const config = new pulumi.Config();
@@ -22,9 +21,7 @@ const otelHeaders = config.getSecret("otelHeaders");
 const remediationWebhookSecret = config.getSecret("remediationWebhookSecret");
 
 const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
-  ...(otelEndpoint
-    ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }]
-    : []),
+  ...(otelEndpoint ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }] : []),
   ...(otelHeaders
     ? [{ key: "OTEL_EXPORTER_OTLP_HEADERS", value: otelHeaders, type: "SECRET" as const }]
     : []),
@@ -33,16 +30,6 @@ const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
 // ── Auth0 Exports ───────────────────────────────────────────────────
 export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
 export const auth0ClientId = auth0Outputs.hospitalityClientId;
-
-// ── Cloudflare R2 State Bucket ───────────────────────────────────────
-// Bucket for storing Pulumi state backend (S3-compatible).
-// Note: Pulumi is pre-configured to use this bucket via AWS_ACCESS_KEY_ID
-// and AWS_SECRET_ACCESS_KEY env vars pointing to R2's S3 API.
-const pulumiStateBucket = new cloudflare.R2Bucket("mattbutlerengineering-pulumi-state", {
-  accountId: cloudflareAccountId,
-  name: "mattbutlerengineering-pulumi-state",
-  location: "enam",
-});
 
 // ── Cloudflare KV Namespaces ──────────────────────────────────────────
 // Additional KV namespaces beyond the health-state namespace.
@@ -57,7 +44,6 @@ const cacheKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-cache",
 });
 
 // ── Exports ─────────────────────────────────────────────────────────
-export const pulumiStateBucketId = pulumiStateBucket.id;
 export const sessionsKvNamespaceId = sessionsKv.id;
 export const cacheKvNamespaceId = cacheKv.id;
 
@@ -66,183 +52,197 @@ export const cacheKvNamespaceId = cacheKv.id;
 // migrations does not block unrelated services from deploying.
 const MIGRATED_SERVICES = ["users", "reservations", "agent"] as const;
 
-const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map(
-  (service) => ({
-    name: `db-migrate-${service}`,
-    kind: "PRE_DEPLOY" as const,
-    github: {
-      repo: "mattbutlerengineering/mattbutlerengineering",
-      branch: "main",
-      deployOnPush: false, // CI triggers deploys via doctl
-    },
-    sourceDir: "/",
-    dockerfilePath: "infrastructure/migrate/Dockerfile",
-    envs: [
-      { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
-      { key: "SERVICE_NAME", value: service },
-    ],
-    runCommand: "/migrate.sh",
-  })
-);
+const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.map((service) => ({
+  name: `db-migrate-${service}`,
+  kind: "PRE_DEPLOY" as const,
+  github: {
+    repo: "mattbutlerengineering/mattbutlerengineering",
+    branch: "main",
+    deployOnPush: false, // CI triggers deploys via doctl
+  },
+  sourceDir: "/",
+  dockerfilePath: "infrastructure/migrate/Dockerfile",
+  envs: [
+    { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
+    { key: "SERVICE_NAME", value: service },
+  ],
+  runCommand: "/migrate.sh",
+}));
 
 // ── DO App Platform (API services only) ─────────────────────────────
 // Services + migration jobs. Static sites are on CF Pages.
-const apiApp = new digitalocean.App("mattbutlerengineering-api-app", {
-  spec: {
-    name: "mattbutlerengineering-api",
-    region: "nyc",
-    domainNames: [
-      {
-        name: `api.${domain}`,
-        type: "PRIMARY",
-        zone: domain,
-      },
-    ],
+const apiApp = new digitalocean.App(
+  "mattbutlerengineering-api-app",
+  {
+    spec: {
+      name: "mattbutlerengineering-api",
+      region: "nyc",
+      domainNames: [
+        {
+          name: `api.${domain}`,
+          type: "PRIMARY",
+          zone: domain,
+        },
+      ],
 
-    ingress: {
-      rules: [
+      ingress: {
+        rules: [
+          {
+            match: { path: { prefix: "/api/v1/users" } },
+            component: { name: "users-api", preservePathPrefix: true },
+          },
+          // Agent-api routes — must come before /api catch-all
+          {
+            match: { path: { prefix: "/api/gen" } },
+            component: { name: "agent-api", preservePathPrefix: true },
+          },
+          {
+            match: { path: { prefix: "/v1/sessions" } },
+            component: { name: "agent-api", preservePathPrefix: true },
+          },
+          {
+            match: { path: { prefix: "/v1/orchestrate" } },
+            component: { name: "agent-api", preservePathPrefix: true },
+          },
+          {
+            match: { path: { prefix: "/v1/webhooks" } },
+            component: { name: "agent-api", preservePathPrefix: true },
+          },
+          {
+            match: { path: { prefix: "/api" } },
+            component: { name: "reservations-api", preservePathPrefix: true },
+          },
+          // Catch-all (required by DO) — routes stray requests to users-api
+          {
+            match: { path: { prefix: "/" } },
+            component: { name: "users-api", preservePathPrefix: true },
+          },
+        ],
+      },
+
+      // Per-service pre-deploy migration jobs — each service's deployment
+      // depends only on its own migration succeeding (failure isolation).
+      // Parameterized via SERVICE_NAME Docker build arg.
+      jobs: migrationJobs,
+
+      services: [
         {
-          match: { path: { prefix: "/api/v1/users" } },
-          component: { name: "users-api", preservePathPrefix: true },
+          name: "users-api",
+          github: {
+            repo: "mattbutlerengineering/mattbutlerengineering",
+            branch: "main",
+            deployOnPush: false,
+          },
+          sourceDir: "/",
+          dockerfilePath: "services/users/Dockerfile",
+          instanceCount: 1,
+          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+          httpPort: 3001,
+          envs: [
+            { key: "NODE_ENV", value: "production" },
+            { key: "PORT", value: "3001" },
+            { key: "CORS_ORIGIN", value: `https://${domain}` },
+            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
+            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
+            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
+            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+            ...otelEnvs,
+          ],
+          healthCheck: {
+            httpPath: "/ready",
+            initialDelaySeconds: 10,
+            periodSeconds: 10,
+            timeoutSeconds: 5,
+            successThreshold: 1,
+            failureThreshold: 3,
+          },
         },
-        // Agent-api routes — must come before /api catch-all
         {
-          match: { path: { prefix: "/api/gen" } },
-          component: { name: "agent-api", preservePathPrefix: true },
+          name: "reservations-api",
+          github: {
+            repo: "mattbutlerengineering/mattbutlerengineering",
+            branch: "main",
+            deployOnPush: false,
+          },
+          sourceDir: "/",
+          dockerfilePath: "services/reservations/Dockerfile",
+          instanceCount: 1,
+          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+          httpPort: 3004,
+          envs: [
+            { key: "NODE_ENV", value: "production" },
+            { key: "PORT", value: "3004" },
+            { key: "CORS_ORIGIN", value: `https://${domain}` },
+            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
+            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
+            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
+            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+            ...otelEnvs,
+          ],
+          healthCheck: {
+            httpPath: "/ready",
+            initialDelaySeconds: 10,
+            periodSeconds: 10,
+            timeoutSeconds: 5,
+            successThreshold: 1,
+            failureThreshold: 3,
+          },
         },
         {
-          match: { path: { prefix: "/v1/sessions" } },
-          component: { name: "agent-api", preservePathPrefix: true },
-        },
-        {
-          match: { path: { prefix: "/v1/orchestrate" } },
-          component: { name: "agent-api", preservePathPrefix: true },
-        },
-        {
-          match: { path: { prefix: "/v1/webhooks" } },
-          component: { name: "agent-api", preservePathPrefix: true },
-        },
-        {
-          match: { path: { prefix: "/api" } },
-          component: { name: "reservations-api", preservePathPrefix: true },
-        },
-        // Catch-all (required by DO) — routes stray requests to users-api
-        {
-          match: { path: { prefix: "/" } },
-          component: { name: "users-api", preservePathPrefix: true },
+          name: "agent-api",
+          github: {
+            repo: "mattbutlerengineering/mattbutlerengineering",
+            branch: "main",
+            deployOnPush: false,
+          },
+          sourceDir: "/",
+          dockerfilePath: "services/agent/Dockerfile",
+          instanceCount: 1,
+          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+          httpPort: 3003,
+          envs: [
+            { key: "NODE_ENV", value: "production" },
+            { key: "PORT", value: "3003" },
+            { key: "CORS_ORIGIN", value: `https://${domain}` },
+            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
+            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
+            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
+            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+            ...(aiGatewayApiKey
+              ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
+              : []),
+            { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+            ...(remediationWebhookSecret
+              ? [
+                  {
+                    key: "REMEDIATION_WEBHOOK_SECRET",
+                    value: remediationWebhookSecret,
+                    type: "SECRET" as const,
+                  },
+                ]
+              : []),
+            ...otelEnvs,
+          ],
+          healthCheck: {
+            httpPath: "/ready",
+            initialDelaySeconds: 10,
+            periodSeconds: 10,
+            timeoutSeconds: 5,
+            successThreshold: 1,
+            failureThreshold: 3,
+          },
         },
       ],
     },
-
-    // Per-service pre-deploy migration jobs — each service's deployment
-    // depends only on its own migration succeeding (failure isolation).
-    // Parameterized via SERVICE_NAME Docker build arg.
-    jobs: migrationJobs,
-
-    services: [
-      {
-        name: "users-api",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/users/Dockerfile",
-        instanceCount: 1,
-        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3001,
-        envs: [
-          { key: "NODE_ENV", value: "production" },
-          { key: "PORT", value: "3001" },
-          { key: "CORS_ORIGIN", value: `https://${domain}` },
-          { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-          { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-          { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-          ...otelEnvs,
-        ],
-        healthCheck: {
-          httpPath: "/ready",
-          initialDelaySeconds: 10,
-          periodSeconds: 10,
-          timeoutSeconds: 5,
-          successThreshold: 1,
-          failureThreshold: 3,
-        },
-      },
-      {
-        name: "reservations-api",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/reservations/Dockerfile",
-        instanceCount: 1,
-        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3004,
-        envs: [
-          { key: "NODE_ENV", value: "production" },
-          { key: "PORT", value: "3004" },
-          { key: "CORS_ORIGIN", value: `https://${domain}` },
-          { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-          { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-          { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-          ...otelEnvs,
-        ],
-        healthCheck: {
-          httpPath: "/ready",
-          initialDelaySeconds: 10,
-          periodSeconds: 10,
-          timeoutSeconds: 5,
-          successThreshold: 1,
-          failureThreshold: 3,
-        },
-      },
-      {
-        name: "agent-api",
-        github: {
-          repo: "mattbutlerengineering/mattbutlerengineering",
-          branch: "main",
-          deployOnPush: false,
-        },
-        sourceDir: "/",
-        dockerfilePath: "services/agent/Dockerfile",
-        instanceCount: 1,
-        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-        httpPort: 3003,
-        envs: [
-          { key: "NODE_ENV", value: "production" },
-          { key: "PORT", value: "3003" },
-          { key: "CORS_ORIGIN", value: `https://${domain}` },
-          { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-          { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-          { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-          { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-          ...(aiGatewayApiKey
-            ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
-            : []),
-          { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
-          ...(remediationWebhookSecret
-            ? [{ key: "REMEDIATION_WEBHOOK_SECRET", value: remediationWebhookSecret, type: "SECRET" as const }]
-            : []),
-          ...otelEnvs,
-        ],
-        healthCheck: {
-          httpPath: "/ready",
-          initialDelaySeconds: 10,
-          periodSeconds: 10,
-          timeoutSeconds: 5,
-          successThreshold: 1,
-          failureThreshold: 3,
-        },
-      },
-    ],
   },
-});
+  {
+    customTimeouts: { create: "15m", update: "15m" },
+    // DO adds default fields (features, scope, instance_count on jobs) that
+    // aren't in our spec, causing a diff on every run. Each diff triggers a
+    // full deployment (~30min). Ignore changes until we reconcile the spec.
+    ignoreChanges: ["spec"],
+  }
+);
 
 // API subdomain DNS — proxied: false so DO can verify domain and provision TLS
 const _apiDns = new cloudflare.DnsRecord("mattbutlerengineering-api-dns", {
@@ -287,10 +287,6 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "HOSPITALITY", service: "mattbutlerengineering-hospitality", type: "service" },
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
-    { name: "MARKETING_CANARY", service: "mattbutlerengineering-marketing-canary", type: "service" },
-    { name: "HOSPITALITY_CANARY", service: "mattbutlerengineering-hospitality-canary", type: "service" },
-    { name: "RIALTO_CANARY", service: "mattbutlerengineering-rialto-web-canary", type: "service" },
-    { name: "GEN_CANARY", service: "mattbutlerengineering-gen-canary", type: "service" },
     { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },
   ],
 });
@@ -314,17 +310,25 @@ const _genWorker = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
 // ── Worker Routes ───────────────────────────────────────────────────
 // Worker intercepts all traffic to mattbutlerengineering.com and www.
 // Rollback: delete these routes in CF dashboard (instant).
-const _workerRoute = new cloudflare.WorkersRoute("edge-router-route", {
-  zoneId: cloudflareZoneId,
-  pattern: `${domain}/*`,
-  script: workerScript.scriptName,
-});
+const _workerRoute = new cloudflare.WorkersRoute(
+  "edge-router-route",
+  {
+    zoneId: cloudflareZoneId,
+    pattern: `${domain}/*`,
+    script: workerScript.scriptName,
+  },
+  { import: "dfed09378e547f95a3bd645c55ef777d/9ec4971bf1844e1da9c1b2a6fd6f5f94" }
+);
 
-const _wwwWorkerRoute = new cloudflare.WorkersRoute("edge-router-www-route", {
-  zoneId: cloudflareZoneId,
-  pattern: `www.${domain}/*`,
-  script: workerScript.scriptName,
-});
+const _wwwWorkerRoute = new cloudflare.WorkersRoute(
+  "edge-router-www-route",
+  {
+    zoneId: cloudflareZoneId,
+    pattern: `www.${domain}/*`,
+    script: workerScript.scriptName,
+  },
+  { import: "dfed09378e547f95a3bd645c55ef777d/37cfa4e4200048148c4e8f1e7b29f8cb" }
+);
 
 // ── DNS Records ─────────────────────────────────────────────────────
 // Root domain uses AAAA 100:: (Cloudflare proxy placeholder) so the
@@ -357,4 +361,3 @@ export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
 export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
 export const genUrl = pulumi.interpolate`https://${domain}/gen`;
 export const healthKvNamespaceId = healthKv.id;
-export { branchProtectionId };

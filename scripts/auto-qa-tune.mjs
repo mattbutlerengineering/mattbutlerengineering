@@ -12,15 +12,15 @@
  *   node scripts/auto-qa-tune.mjs --dry-run
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const cwd = process.cwd();
-const METRICS_PATH = join(cwd, 'docs/metrics/pr-acceptance.json');
-const TUNING_PATH = join(cwd, '.github/auto-qa-tuning.json');
+const METRICS_PATH = join(cwd, "docs/metrics/pr-acceptance.json");
+const TUNING_PATH = join(cwd, ".github/auto-qa-tuning.json");
 
 const args = process.argv.slice(2);
-const DRY_RUN = args.includes('--dry-run');
+const DRY_RUN = args.includes("--dry-run");
 
 // ---------------------------------------------------------------------------
 // I/O helpers
@@ -28,12 +28,12 @@ const DRY_RUN = args.includes('--dry-run');
 
 /** @returns {unknown} */
 function readJson(filePath) {
-  return JSON.parse(readFileSync(filePath, 'utf-8'));
+  return JSON.parse(readFileSync(filePath, "utf-8"));
 }
 
 /** @param {string} filePath @param {unknown} data */
 function writeJson(filePath, data) {
-  writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
 // ---------------------------------------------------------------------------
@@ -48,17 +48,17 @@ function writeJson(filePath, data) {
  * @returns {{ overall: number, byCategory: Record<string, number> }}
  */
 export function computeAcceptanceRates(entry) {
-  const overall = typeof entry.acceptance_rate === 'number' ? entry.acceptance_rate : 1;
+  const overall = typeof entry.acceptance_rate === "number" ? entry.acceptance_rate : 1;
 
   const byCategory = {};
 
-  if (entry.by_category && typeof entry.by_category === 'object') {
+  if (entry.by_category && typeof entry.by_category === "object") {
     for (const [category, stats] of Object.entries(entry.by_category)) {
       if (
         stats &&
-        typeof stats === 'object' &&
-        typeof stats.merged === 'number' &&
-        typeof stats.total === 'number' &&
+        typeof stats === "object" &&
+        typeof stats.merged === "number" &&
+        typeof stats.total === "number" &&
         stats.total > 0
       ) {
         byCategory[category] = stats.merged / stats.total;
@@ -100,8 +100,8 @@ export function adjustThresholds(tuning, belowTiers, today) {
   if (belowTiers.length === 0) {
     const historyEntry = {
       date: today,
-      trigger: 'auto-tune',
-      note: 'All categories at or above acceptance floor. No threshold changes needed.',
+      trigger: "auto-tune",
+      note: "All categories at or above acceptance floor. No threshold changes needed.",
     };
     return {
       ...tuning,
@@ -115,15 +115,14 @@ export function adjustThresholds(tuning, belowTiers, today) {
 
   for (const tier of belowTiers) {
     const existing = updatedRules[tier] ?? {};
-    const key = 'maxBudgetUSDOverride';
-    const prev = typeof existing[key] === 'number' ? existing[key] : tuning.thresholds.maxBudgetUSD;
+    const key = "maxBudgetUSDOverride";
+    const prev = typeof existing[key] === "number" ? existing[key] : tuning.thresholds.maxBudgetUSD;
     const next = +(prev / 2).toFixed(2);
 
     updatedRules[tier] = {
       ...existing,
       [key]: next,
-      [`${key}.$comment`]:
-        `Auto-tuned on ${today}: acceptance rate fell below floor — halved from ${prev} to ${next}.`,
+      [`${key}.$comment`]: `Auto-tuned on ${today}: acceptance rate fell below floor — halved from ${prev} to ${next}.`,
     };
 
     changes.push(`${tier}: maxBudgetUSDOverride ${prev} → ${next}`);
@@ -131,8 +130,8 @@ export function adjustThresholds(tuning, belowTiers, today) {
 
   const historyEntry = {
     date: today,
-    trigger: 'auto-tune',
-    note: `Tightened budgets for under-performing tiers. ${changes.join('; ')}.`,
+    trigger: "auto-tune",
+    note: `Tightened budgets for under-performing tiers. ${changes.join("; ")}.`,
   };
 
   return {
@@ -166,14 +165,14 @@ export async function run() {
   const effectiveByCategory =
     Object.keys(byCategory).length > 0
       ? byCategory
-      : Object.fromEntries(Object.keys(tuning.rules).map(tier => [tier, overall]));
+      : Object.fromEntries(Object.keys(tuning.rules).map((tier) => [tier, overall]));
 
   const below = tiersBelowFloor(effectiveByCategory, floor);
 
   const updated = adjustThresholds(tuning, below, today);
 
   if (DRY_RUN) {
-    process.stdout.write(JSON.stringify(updated, null, 2) + '\n');
+    process.stdout.write(JSON.stringify(updated, null, 2) + "\n");
     return updated;
   }
 
@@ -187,7 +186,7 @@ export async function run() {
 
 // Run when invoked directly (not imported by tests)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  run().catch(err => {
+  run().catch((err) => {
     process.stderr.write(`[auto-qa-tune] Error: ${err.message}\n`);
     process.exit(1);
   });

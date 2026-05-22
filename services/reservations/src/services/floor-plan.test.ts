@@ -192,19 +192,25 @@ describe("floorPlanService", () => {
 
       vi.mocked(prisma.floorPlan.findMany).mockResolvedValueOnce([] as never);
 
-      const cloned = makePrismaFloorPlan({ id: "fp-2", name: "Copy of Main Floor", isActive: false });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
-        const tx = {
-          floorPlan: {
-            create: vi.fn().mockResolvedValue({ id: "fp-2" }),
-            findUnique: vi.fn().mockResolvedValue(cloned),
-          },
-          table: {
-            createMany: vi.fn().mockResolvedValue({ count: 1 }),
-          },
-        };
-        return fn(tx);
+      const cloned = makePrismaFloorPlan({
+        id: "fp-2",
+        name: "Copy of Main Floor",
+        isActive: false,
       });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            floorPlan: {
+              create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              findUnique: vi.fn().mockResolvedValue(cloned),
+            },
+            table: {
+              createMany: vi.fn().mockResolvedValue({ count: 1 }),
+            },
+          };
+          return fn(tx);
+        }
+      );
 
       const result = await floorPlanService.clone("fp-1");
 
@@ -226,18 +232,20 @@ describe("floorPlanService", () => {
         name: "Main Floor (Copy 2)",
         isActive: false,
       });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
-        const tx = {
-          floorPlan: {
-            create: vi.fn().mockResolvedValue({ id: "fp-3" }),
-            findUnique: vi.fn().mockResolvedValue(cloned),
-          },
-          table: {
-            createMany: vi.fn().mockResolvedValue({ count: 1 }),
-          },
-        };
-        return fn(tx);
-      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            floorPlan: {
+              create: vi.fn().mockResolvedValue({ id: "fp-3" }),
+              findUnique: vi.fn().mockResolvedValue(cloned),
+            },
+            table: {
+              createMany: vi.fn().mockResolvedValue({ count: 1 }),
+            },
+          };
+          return fn(tx);
+        }
+      );
 
       const result = await floorPlanService.clone("fp-1");
 
@@ -293,15 +301,17 @@ describe("floorPlanService", () => {
   describe("setActive", () => {
     it("deactivates all then activates the target", async () => {
       const activated = makePrismaFloorPlan({ isActive: true });
-      vi.mocked(prisma.$transaction).mockImplementationOnce(async (fn: (tx: any) => Promise<unknown>) => {
-        const tx = {
-          floorPlan: {
-            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-            update: vi.fn().mockResolvedValue(activated),
-          },
-        };
-        return fn(tx);
-      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            floorPlan: {
+              updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+              update: vi.fn().mockResolvedValue(activated),
+            },
+          };
+          return fn(tx);
+        }
+      );
 
       const result = await floorPlanService.setActive("fp-1", "venue-1");
 
@@ -337,15 +347,18 @@ describe("floorPlanService", () => {
 
   describe("bulkUpdateTablePositions", () => {
     it("updates multiple tables in a transaction", async () => {
-      const tables = [
-        makePrismaTable({ id: "t1" }),
-        makePrismaTable({ id: "t2" }),
-      ];
+      const tables = [makePrismaTable({ id: "t1" }), makePrismaTable({ id: "t2" })];
       vi.mocked(prisma.$transaction).mockResolvedValueOnce(tables as never);
 
       const positions = [
-        { tableId: "t1", shapeMetadata: { x: 10, y: 20, width: 80, height: 80, shape: "rectangle" as const } },
-        { tableId: "t2", shapeMetadata: { x: 30, y: 40, width: 80, height: 80, shape: "circle" as const } },
+        {
+          tableId: "t1",
+          shapeMetadata: { x: 10, y: 20, width: 80, height: 80, shape: "rectangle" as const },
+        },
+        {
+          tableId: "t2",
+          shapeMetadata: { x: 30, y: 40, width: 80, height: 80, shape: "circle" as const },
+        },
       ];
 
       const result = await floorPlanService.bulkUpdateTablePositions("fp-1", positions);

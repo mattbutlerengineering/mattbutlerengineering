@@ -17,10 +17,7 @@
     "AUTH_AUDIENCE",
     "ANTHROPIC_API_KEY"
   ],
-  "globalEnv": [
-    "TURBO_TOKEN",
-    "TURBO_TEAM"
-  ],
+  "globalEnv": ["TURBO_TOKEN", "TURBO_TEAM"],
   "tasks": {
     "build-storybook": {
       "dependsOn": ["^build"],
@@ -49,7 +46,13 @@
     },
     "lint": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "eslint.config.js", "../../eslint.config.js", "tsconfig*.json"],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "eslint.config.js",
+        "../../eslint.config.js",
+        "tsconfig*.json"
+      ],
       "outputs": []
     },
     "typecheck": {
@@ -58,15 +61,20 @@
       "outputs": []
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json", "vitest.config.ts"]
     },
     "test:contract": {
-      "dependsOn": ["build"],
-      "inputs": ["src/**", "package.json", "vitest.config.ts", "../../packages/types/src/schemas/**"]
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "vitest.config.ts",
+        "../../packages/types/src/schemas/**"
+      ]
     },
     "test:coverage": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "passThroughEnv": ["DATABASE_URL"]
     },

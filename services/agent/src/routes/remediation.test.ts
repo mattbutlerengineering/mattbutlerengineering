@@ -50,7 +50,7 @@ describe("Remediation Webhook Routes", () => {
 
   it("returns 401 if REMEDIATION_WEBHOOK_SECRET is not configured", async () => {
     delete process.env.REMEDIATION_WEBHOOK_SECRET;
-    
+
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
@@ -67,9 +67,9 @@ describe("Remediation Webhook Routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": "wrong",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: validPayload,
     });
@@ -87,9 +87,9 @@ describe("Remediation Webhook Routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": signature,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: payloadStr,
     });
@@ -107,9 +107,9 @@ describe("Remediation Webhook Routes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": signature,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: payloadStr,
     });
@@ -120,20 +120,20 @@ describe("Remediation Webhook Routes", () => {
   });
 
   it("returns 503 if circuit breaker is open", async () => {
-    vi.mocked(checkCircuitBreaker).mockReturnValueOnce({ 
-      allowed: false, 
-      reason: "Too many recent failures" 
+    vi.mocked(checkCircuitBreaker).mockReturnValueOnce({
+      allowed: false,
+      reason: "Too many recent failures",
     });
-    
+
     const payloadStr = JSON.stringify(validPayload);
     const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
 
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": signature,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: payloadStr,
     });
@@ -146,51 +146,53 @@ describe("Remediation Webhook Routes", () => {
   it("creates and executes a session for critical/warning alerts", async () => {
     const mockSession = { id: "remed-session-123" };
     vi.mocked(sessionService.create).mockResolvedValueOnce(mockSession as unknown as never);
-    
+
     const payloadStr = JSON.stringify(validPayload);
     const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
 
     const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": signature,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: payloadStr,
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json().sessionId).toBe("remed-session-123");
-    
-    expect(sessionService.create).toHaveBeenCalledWith(expect.objectContaining({
-      baseBranch: "main"
-    }));
+
+    expect(sessionService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseBranch: "main",
+      })
+    );
     expect(executeSession).toHaveBeenCalled();
   });
 
   it("handles execution success and failure in fire-and-forget", async () => {
     const mockSession = { id: "remed-session-456" };
     vi.mocked(sessionService.create).mockResolvedValueOnce(mockSession as unknown as never);
-    
+
     // Test success path
     vi.mocked(executeSession).mockResolvedValueOnce(undefined);
-    
+
     const payloadStr = JSON.stringify(validPayload);
     const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
     await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
-      headers: { 
+      headers: {
         "x-remediation-signature": signature,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       payload: payloadStr,
     });
 
     // We need to wait a bit because it's fire-and-forget
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     expect(executeSession).toHaveBeenCalled();
   });
 });

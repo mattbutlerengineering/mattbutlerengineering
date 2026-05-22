@@ -91,7 +91,14 @@ vi.mock("../components/floor-plan/index.js", () => ({
     venueId: _venueId,
     floorPlanId: _fpId,
   }: {
-    onSubmit: (data: { name: string; capacity: number; minCovers: number; venueId: string; floorPlanId: string; shapeMetadata: object }) => Promise<void>;
+    onSubmit: (data: {
+      name: string;
+      capacity: number;
+      minCovers: number;
+      venueId: string;
+      floorPlanId: string;
+      shapeMetadata: object;
+    }) => Promise<void>;
     onClose: () => void;
     venueId: string;
     floorPlanId: string;
@@ -136,9 +143,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Heading: ({ children, className: _className }: { children: React.ReactNode; className?: string }) => (
-    <h1>{children}</h1>
-  ),
+  Heading: ({
+    children,
+    className: _className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <h1>{children}</h1>,
   Text: ({
     children,
     className: _className,
@@ -176,13 +187,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 /* ── Mock ErrorRetryBanner ────────────────────────────────────── */
 
 vi.mock("../components/ErrorRetryBanner.js", () => ({
-  ErrorRetryBanner: ({
-    error,
-    onRetry,
-  }: {
-    error: string;
-    onRetry: () => void;
-  }) => (
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
     <div data-testid="error-retry-banner">
       <span>{error}</span>
       <button onClick={onRetry}>Retry</button>

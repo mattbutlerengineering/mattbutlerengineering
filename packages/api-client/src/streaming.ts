@@ -3,7 +3,7 @@
  *
  * Handles raw fetch with ReadableStream, newline-delimited JSON parsing with
  * buffer for incomplete chunks, and proper error propagation. Used by both
- * useGenStream (apps/gen) and useGenCopilotStream (packages/rialto).
+ * useGenStream (apps/gen) and useChatStream (packages/rialto).
  */
 
 export interface StreamConfig {
@@ -47,9 +47,10 @@ export async function* streamNDJSON<T>(config: StreamConfig): AsyncGenerator<T> 
     let detail = response.statusText || `HTTP ${response.status}`;
     try {
       const body = await response.json();
-      detail = (body as Record<string, unknown>).detail as string
-        ?? (body as Record<string, unknown>).message as string
-        ?? detail;
+      detail =
+        ((body as Record<string, unknown>).detail as string) ??
+        ((body as Record<string, unknown>).message as string) ??
+        detail;
     } catch {
       // Response body is not JSON — use status text
     }

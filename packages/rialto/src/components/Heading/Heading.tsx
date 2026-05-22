@@ -1,9 +1,5 @@
-import {
-  forwardRef,
-  type ElementType,
-  type HTMLAttributes,
-  type ReactNode,
-} from "react";
+import type { ElementType, HTMLAttributes, ReactNode } from "react";
+import { forwardRef } from "react";
 import styles from "./Heading.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -92,21 +88,8 @@ const alignClass: Record<HeadingAlign, string> = {
 /* ── Component ──────────────────────────────── */
 
 export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
-  (
-    {
-      level = 2,
-      size,
-      color,
-      align,
-      as,
-      truncate = false,
-      className,
-      children,
-      ...props
-    },
-    ref,
-  ) => {
-    const Tag = (as ?? (`h${level}` as ElementType));
+  ({ level = 2, size, color, align, as, truncate = false, className, children, ...props }, ref) => {
+    const Tag = as ?? (`h${level}` as ElementType);
     const resolvedSize = size ?? level;
 
     const classes = [
@@ -125,7 +108,7 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
         {children}
       </Tag>
     );
-  },
+  }
 );
 
 Heading.displayName = "Heading";

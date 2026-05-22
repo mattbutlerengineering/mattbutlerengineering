@@ -116,6 +116,22 @@ describe("Auth Plugin", () => {
       expect(mockJwtVerify).not.toHaveBeenCalled();
     });
 
+    it("returns RFC 9457 problem details with about:blank type on 401", async () => {
+      mockJwtVerify.mockRejectedValueOnce(new Error("Invalid token"));
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/protected",
+        headers: {
+          authorization: "Bearer invalid-token",
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.type).toBe("about:blank");
+    });
+
     it("returns 401 for invalid/malformed token", async () => {
       mockJwtVerify.mockRejectedValueOnce(new Error("Invalid token"));
 
@@ -176,14 +192,10 @@ describe("Auth Plugin", () => {
         },
       });
 
-      expect(mockJwtVerify).toHaveBeenCalledWith(
-        "valid-token",
-        "mock-jwks",
-        {
-          issuer: "https://test.auth0.com/",
-          audience: "https://api.example.com",
-        }
-      );
+      expect(mockJwtVerify).toHaveBeenCalledWith("valid-token", "mock-jwks", {
+        issuer: "https://test.auth0.com/",
+        audience: "https://api.example.com",
+      });
     });
   });
 
@@ -328,6 +340,46 @@ describe("Auth Plugin", () => {
       expect(() => getAuthPluginOptionsFromEnv()).toThrow(
         "Missing required auth environment variables: AUTH_AUTHORITY, AUTH_AUDIENCE"
       );
+    });
+  });
+
+  describe("hasPermission", () => {
+    it("returns false when user is undefined", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      expect(hasPermission(undefined, "admin")).toBe(false);
+    });
+
+    it("returns false when user has no permissions array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = { id: "u1", raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0 } };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns false when permissions is not an array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: "admin" },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns false when permission not in array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: ["read"] },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(false);
+    });
+
+    it("returns true when permission is in array", async () => {
+      const { hasPermission } = await import("./plugin.js");
+      const user = {
+        id: "u1",
+        raw: { sub: "u1", iss: "", aud: "", exp: 0, iat: 0, permissions: ["admin", "read"] },
+      };
+      expect(hasPermission(user as any, "admin")).toBe(true);
     });
   });
 

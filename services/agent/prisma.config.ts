@@ -1,13 +1,27 @@
+import { readFileSync } from "fs";
 import { defineConfig } from "prisma/config";
 
-// Lazy DATABASE_URL: prisma/config's env() helper throws at load time when
-// the var is unset, breaking `prisma generate` in CI where no database is
-// configured. The placeholder lets load succeed; verbs that actually open a
-// connection (db push, migrate dev/deploy) will fail with a proper connection
-// error if DATABASE_URL was never set.
+function loadEnvFile(): void {
+  try {
+    const content = readFileSync(".env", "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx);
+      const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
+      if (!process.env[key]) process.env[key] = val;
+    }
+  } catch {
+    // .env not present (CI, Docker) — rely on environment
+  }
+}
+
+loadEnvFile();
+
 const url =
-  process.env.DATABASE_URL ??
-  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+  process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost:5432/placeholder";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

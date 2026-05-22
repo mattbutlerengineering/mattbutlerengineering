@@ -12360,6 +12360,55 @@
       "slots": []
     },
     {
+      "name": "ChatMessage",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "ChatMessageElement",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "ChatPanel",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "onClose",
+          "type": "() => void",
+          "required": true
+        },
+        {
+          "name": "api",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "domainContext",
+          "type": "DomainContext",
+          "required": true
+        },
+        {
+          "name": "getAccessToken",
+          "type": "() => string | Promise<string | null> | null",
+          "required": true
+        },
+        {
+          "name": "standalone",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "registry",
+          "type": "ComponentRegistry | undefined",
+          "required": false
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "Checkbox",
       "description": "Checkbox with animated check/indeterminate mark, label, and optional description.\nSupports a three-state visual (unchecked, checked, indeterminate) with spring animation.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -12523,6 +12572,12 @@
           "description": "Ordered list of group names — ungrouped items appear first"
         }
       ],
+      "slots": []
+    },
+    {
+      "name": "ComponentRegistry",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
       "slots": []
     },
     {
@@ -14236,7 +14291,6 @@
     },
     {
       "name": "DomainContextSchema",
-      "description": "A single data schema describing an entity available to the AI generator.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
@@ -20305,44 +20359,6 @@
       "name": "FooterLink",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
-      "slots": []
-    },
-    {
-      "name": "GenCopilot",
-      "description": "Props for GenCopilot.\n\nNOTE: There is no `open` prop. GenCopilot is designed for conditional\nmounting — the consumer renders `{copilotOpen && <GenCopilot ... />}` to\ncontrol visibility. This guarantees fresh state on every open (no persisted\nstreaming state, spec, or errors from a previous session).\nThe Drawer is always rendered with `open={true}` internally.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "onClose",
-          "type": "() => void",
-          "required": true,
-          "description": "Called when the user closes the panel — consumer should unmount GenCopilot"
-        },
-        {
-          "name": "api",
-          "type": "string",
-          "required": true,
-          "description": "API endpoint for the generation stream (e.g. \"/api/gen/ui\")"
-        },
-        {
-          "name": "domainContext",
-          "type": "DomainContext",
-          "required": true,
-          "description": "Domain context schemas serialized into the AI prompt preamble"
-        },
-        {
-          "name": "getAccessToken",
-          "type": "() => string | Promise<string | null> | null",
-          "required": true,
-          "description": "Callback that returns the current auth token (or null if unauthenticated).\nAccepts a sync or async getter so it works with any auth provider."
-        },
-        {
-          "name": "registry",
-          "type": "ComponentRegistry",
-          "required": true,
-          "description": "Component registry for rendering AI-generated specs (from"
-        }
-      ],
       "slots": []
     },
     {
@@ -32799,6 +32815,12 @@
           "reason": "Screen reader label; concise context"
         }
       ]
+    },
+    {
+      "name": "PendingAction",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
     },
     {
       "name": "PinInput",
@@ -53284,6 +53306,12 @@
     },
     {
       "name": "UIEnvironment",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "UseChatStreamReturn",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []

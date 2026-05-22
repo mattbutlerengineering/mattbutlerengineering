@@ -23,6 +23,14 @@
   </file>
   </section>
   <section priority="medium" role="e2e">
+  <file path="e2e/api-mocks.ts">
+    <item priority="medium">
+      function loadFixture(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="e2e/auth-helpers.ts">
     <item priority="high">
       interface Auth0Config {

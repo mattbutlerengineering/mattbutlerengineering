@@ -84,14 +84,15 @@ mbe up                                           # Start dev servers
 
 Managed at https://claude.ai/code/scheduled
 
-| Trigger                | Schedule (PT)                                                     |
-| ---------------------- | ----------------------------------------------------------------- |
-| `mbe-deep-audit`       | Mon 8:23am                                                        |
-| `mbe-light-audit`      | Tue-Sun 9:41am                                                    |
-| `mbe-issue-worker`     | Every 2h (includes CI monitoring)                                 |
-| `mbe-progress-tracker` | Daily 5:11pm                                                      |
-| `mbe-acmm-audit`       | Daily 10:00am (runs `/acmm-audit --apply --badge`)                |
-| `mbe-learning-loop`    | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+| Trigger             | Schedule (PT)                                                     |
+| ------------------- | ----------------------------------------------------------------- |
+| `mbe-deep-audit`    | Mon 8:23am (weekly full site audit)                               |
+| `mbe-morning`       | Daily 9:03am (light audit + ACMM audit + issue-worker)            |
+| `mbe-midday`        | Daily 1:07pm (issue-worker + CI monitor)                          |
+| `mbe-evening`       | Daily 5:11pm (issue-worker + progress-tracker)                    |
+| `mbe-learning-loop` | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+
+> **Max 5x plan**: 5 scheduled runs/day. The above fits exactly. `mbe-deep-audit` only fires Mon so Tue-Sun has 4 daily runs + headroom.
 
 ---
 
@@ -99,7 +100,13 @@ Managed at https://claude.ai/code/scheduled
 
 When spawning subagents with `isolation: "worktree"`, always include `pnpm install --frozen-lockfile` as the first step in the agent prompt. Worktrees are bare checkouts without `node_modules` — without this, every `vitest`/`pnpm test`/`pnpm build` call fails with `command not found`. The retry cost of a failed agent (wasted tokens + time) far exceeds the 15s install step.
 
+**Agents must run `pnpm typecheck` on affected packages before declaring done.** Vitest does not typecheck — tests can pass with completely wrong mock shapes (wrong property names, missing required fields). This has broken CI on main repeatedly. Always include typecheck verification in agent prompts.
+
 ---
+
+## Feature Implementation
+
+Always use TDD (test-driven development) for feature work. Write tests FIRST, verify they fail, then implement. Never write implementation code before having a failing test. Use `/tdd` skill for the workflow.
 
 ## Before Committing
 

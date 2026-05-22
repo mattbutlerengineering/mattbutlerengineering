@@ -12,4 +12,6 @@ config:
   mbe-infrastructure:databaseUrl:
     secure: v1:0RzZY3eW9IeiS01y:Kd6Wfxp4JgeBYwuwaJAzdzybDdtEB/Oe7malwhpy4bjn3fj0rMrAFgH0PzpI2cEblybnAu7+B1K3VOVZBuwq8MhN1iiLEXEuOXaAeX0ydf56Yia5NJopxo03MOhWbXijn9iaveUsiPro5GgTfW03ABMEfZ/UONRJ9JKwAw==
   mbe-infrastructure:cloudflareAccountId: 59d5bec2d6e979d474efe54ec76c3658
+  mbe-infrastructure:e2eUserPassword:
+    secure: v1:6dai5wgE3si6VA/T:zYXnCD6Te4RMma3ZusIdJuCABib9oTXeXhFVxvk8/9uSwL/N7NzGRvqZfNGSw9Y9
 encryptionsalt: v1:mJxX5QhUvT4=:v1:Uhf1OKllU+a17pOh:FyVoS0r/JdFmAbbr0f4zfEvad/KpMg==

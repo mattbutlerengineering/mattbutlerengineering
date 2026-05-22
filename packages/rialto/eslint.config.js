@@ -3,6 +3,10 @@ import storybook from "eslint-plugin-storybook";
 
 import reactConfig from "@mbe/config/eslint/react";
 
-export default [...reactConfig, {
-  ignores: ["dist/**", "scripts/**", "storybook-static/**"],
-}, ...storybook.configs["flat/recommended"]];
+export default [
+  ...reactConfig,
+  {
+    ignores: ["dist/**", "scripts/**", "storybook-static/**"],
+  },
+  ...storybook.configs["flat/recommended"],
+];

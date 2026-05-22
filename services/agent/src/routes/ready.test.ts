@@ -10,6 +10,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 const { prisma } = await import("../services/database.js");
@@ -58,11 +63,13 @@ describe("Readiness Probe Route", () => {
     expect(response.statusCode).toBe(503);
     const body = JSON.parse(response.body);
     expect(body.ready).toBe(false);
-    expect(body.checks).toContainEqual(expect.objectContaining({ 
-      name: "database", 
-      status: "error",
-      message: "DB Down" 
-    }));
+    expect(body.checks).toContainEqual(
+      expect.objectContaining({
+        name: "database",
+        status: "error",
+        message: "DB Down",
+      })
+    );
   });
 
   it("returns 503 when JWKS check fails", async () => {
@@ -76,10 +83,12 @@ describe("Readiness Probe Route", () => {
 
     expect(response.statusCode).toBe(503);
     const body = JSON.parse(response.body);
-    expect(body.checks).toContainEqual(expect.objectContaining({ 
-      name: "auth", 
-      status: "error",
-      message: "JWKS returned 500"
-    }));
+    expect(body.checks).toContainEqual(
+      expect.objectContaining({
+        name: "auth",
+        status: "error",
+        message: "JWKS returned 500",
+      })
+    );
   });
 });

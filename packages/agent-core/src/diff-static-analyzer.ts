@@ -205,7 +205,8 @@ export function formatViolations(violations: readonly Violation[]): string {
   if (violations.length === 0) return "No violations found.";
 
   const lines = violations.map(
-    (v) => `  ${v.severity === "error" ? "ERROR" : "WARN"}  ${v.file}:${v.line}  [${v.rule}] ${v.message}`
+    (v) =>
+      `  ${v.severity === "error" ? "ERROR" : "WARN"}  ${v.file}:${v.line}  [${v.rule}] ${v.message}`
   );
 
   const errorCount = violations.filter((v) => v.severity === "error").length;

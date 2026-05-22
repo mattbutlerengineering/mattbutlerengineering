@@ -33,10 +33,10 @@ model User {
 
 ## Health Endpoints
 
-| Path | Purpose | Checks |
-|------|---------|--------|
-| `/health` | Liveness (DO App Platform) | None — always returns ok |
-| `/api/v1/users/health` | Readiness + DB | Touches Postgres, returns `degraded` when dead |
+| Path                   | Purpose                    | Checks                                         |
+| ---------------------- | -------------------------- | ---------------------------------------------- |
+| `/health`              | Liveness (DO App Platform) | None — always returns ok                       |
+| `/api/v1/users/health` | Readiness + DB             | Touches Postgres, returns `degraded` when dead |
 
 ## Critical Rules
 
@@ -67,9 +67,9 @@ DigitalOcean App Platform — component name: `users-service`
 
 ## API Routes
 
-| Method | Path | Auth |
-|--------|------|------|
-| GET | `/api/v1/users/me` | Required |
-| PUT | `/api/v1/users/me` | Required |
-| PUT | `/api/v1/users/me/preferences` | Required |
-| POST | `/api/v1/users/me/preferences` | Required |
+| Method | Path                           | Auth     |
+| ------ | ------------------------------ | -------- |
+| GET    | `/api/v1/users/me`             | Required |
+| PUT    | `/api/v1/users/me`             | Required |
+| PUT    | `/api/v1/users/me/preferences` | Required |
+| POST   | `/api/v1/users/me/preferences` | Required |

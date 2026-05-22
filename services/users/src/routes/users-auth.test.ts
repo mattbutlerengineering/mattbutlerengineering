@@ -24,11 +24,16 @@ vi.mock("../services/user.js", () => ({
 
 vi.mock("../services/database.js", () => ({
   prisma: { $queryRaw: vi.fn() },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 const nonAdminPayload = {
   ...MOCK_JWT_PAYLOAD,
-  permissions: [],  // no admin
+  permissions: [], // no admin
 };
 
 vi.mock("jose", () => ({
@@ -148,7 +153,11 @@ describe("User routes — authorization branches", () => {
   describe("PATCH /api/v1/users/:id — non-admin", () => {
     it("allows non-admin to update their own profile", async () => {
       const ownUser = makeUser({ id: "own-user-id", email: "test@example.com" });
-      const updatedUser = makeUser({ id: "own-user-id", email: "test@example.com", name: "New Name" });
+      const updatedUser = makeUser({
+        id: "own-user-id",
+        email: "test@example.com",
+        name: "New Name",
+      });
       vi.mocked(userService.getByEmail).mockResolvedValueOnce(ownUser);
       vi.mocked(userService.update).mockResolvedValueOnce(updatedUser);
 
@@ -309,7 +318,10 @@ describe("User routes — authorization branches", () => {
   describe("PATCH /api/v1/users/me/preferences", () => {
     it("updates preferences for authenticated user", async () => {
       const existingUser = makeUser({ email: "test@example.com" });
-      const updatedUser = makeUser({ email: "test@example.com", preferences: { theme: "dark", emailNotifications: true, marketingEmails: false } });
+      const updatedUser = makeUser({
+        email: "test@example.com",
+        preferences: { theme: "dark", emailNotifications: true, marketingEmails: false },
+      });
       vi.mocked(userService.getByEmail).mockResolvedValueOnce(existingUser);
       vi.mocked(userService.updatePreferences).mockResolvedValueOnce(updatedUser);
 

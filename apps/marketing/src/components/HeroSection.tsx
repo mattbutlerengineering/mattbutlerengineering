@@ -14,8 +14,7 @@ export function HeroSection() {
       eyebrow="Engineering Leader"
       title={
         <>
-          One-person team.{" "}
-          <Text className="accent">Full ownership.</Text>
+          One-person team. <Text className="accent">Full ownership.</Text>
         </>
       }
       subtitle="Designing, building, shipping, and operating production systems — from component library to cloud infrastructure."

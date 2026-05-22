@@ -2,5 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  /* Flex-fill the parent container height rather than forcing viewport height,
+     which would break the content-only scroll arch (body/html are overflow:hidden) */
+  flex: 1;
+  min-height: 200px;
 }

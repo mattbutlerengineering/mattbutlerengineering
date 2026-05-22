@@ -9,10 +9,7 @@ import {
 } from "react";
 import { useToast } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, ReservationHold } from "@mbe/types";
-import {
-  useReservationEvents,
-  type ReservationEvent,
-} from "../hooks/useReservationEvents.js";
+import { useReservationEvents, type ReservationEvent } from "../hooks/useReservationEvents.js";
 import { useVenue } from "./VenueContext.js";
 
 /* ── Toast rate limiter ────────────────────────── */
@@ -59,8 +56,7 @@ interface ReservationDataContextValue {
   readonly subscribeToEvents: (handler: EventHandler) => () => void;
 }
 
-const ReservationDataContext =
-  createContext<ReservationDataContextValue | null>(null);
+const ReservationDataContext = createContext<ReservationDataContextValue | null>(null);
 
 /* ── Provider ──────────────────────────────────── */
 
@@ -68,9 +64,7 @@ interface ReservationDataProviderProps {
   readonly children: ReactNode;
 }
 
-export function ReservationDataProvider({
-  children,
-}: ReservationDataProviderProps) {
+export function ReservationDataProvider({ children }: ReservationDataProviderProps) {
   const { selectedVenueId } = useVenue();
   const { toast } = useToast();
   const [reservations, setReservationsState] = useState<Reservation[]>([]);
@@ -100,9 +94,7 @@ export function ReservationDataProvider({
   }, []);
 
   const updateReservation = useCallback((reservation: Reservation) => {
-    setReservationsState((prev) =>
-      prev.map((r) => (r.id === reservation.id ? reservation : r))
-    );
+    setReservationsState((prev) => prev.map((r) => (r.id === reservation.id ? reservation : r)));
   }, []);
 
   const removeReservation = useCallback((id: string) => {
@@ -204,9 +196,7 @@ export function ReservationDataProvider({
 
   const handleTableUpdated = useCallback(
     (table: Table) => {
-      setTablesState((prev) =>
-        prev.map((t) => (t.id === table.id ? table : t))
-      );
+      setTablesState((prev) => prev.map((t) => (t.id === table.id ? table : t)));
       notifySubscribers("table:updated", table);
     },
     [notifySubscribers]
@@ -252,9 +242,7 @@ export function ReservationDataProvider({
   );
 
   return (
-    <ReservationDataContext.Provider value={value}>
-      {children}
-    </ReservationDataContext.Provider>
+    <ReservationDataContext.Provider value={value}>{children}</ReservationDataContext.Provider>
   );
 }
 
@@ -263,9 +251,7 @@ export function ReservationDataProvider({
 export function useReservationData(): ReservationDataContextValue {
   const context = useContext(ReservationDataContext);
   if (!context) {
-    throw new Error(
-      "useReservationData must be used within a ReservationDataProvider"
-    );
+    throw new Error("useReservationData must be used within a ReservationDataProvider");
   }
   return context;
 }

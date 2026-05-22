@@ -25,14 +25,8 @@ describe("Sidebar", () => {
 
   it("renders items as links when href is provided", () => {
     render(<Sidebar items={flatItems} />);
-    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
-      "href",
-      "/dashboard"
-    );
-    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute(
-      "href",
-      "/settings"
-    );
+    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute("href", "/settings");
   });
 
   it("marks active item with aria-current=page", () => {
@@ -49,25 +43,13 @@ describe("Sidebar", () => {
 
   it("renders button items when no href", () => {
     const onClick = vi.fn();
-    render(
-      <Sidebar
-        items={[
-          { id: "logout", label: "Logout", onClick },
-        ]}
-      />
-    );
+    render(<Sidebar items={[{ id: "logout", label: "Logout", onClick }]} />);
     expect(screen.getByRole("button", { name: /logout/i })).toBeInTheDocument();
   });
 
   it("calls onClick when button item is clicked", async () => {
     const onClick = vi.fn();
-    render(
-      <Sidebar
-        items={[
-          { id: "logout", label: "Logout", onClick },
-        ]}
-      />
-    );
+    render(<Sidebar items={[{ id: "logout", label: "Logout", onClick }]} />);
     await user.click(screen.getByRole("button", { name: /logout/i }));
     expect(onClick).toHaveBeenCalledOnce();
   });
@@ -123,15 +105,11 @@ describe("Sidebar", () => {
         items={[
           {
             label: "Main",
-            items: [
-              { id: "home", label: "Home", href: "/" },
-            ],
+            items: [{ id: "home", label: "Home", href: "/" }],
           },
           {
             label: "Admin",
-            items: [
-              { id: "users", label: "Users", href: "/users" },
-            ],
+            items: [{ id: "users", label: "Users", href: "/users" }],
           },
         ]}
       />
@@ -158,13 +136,7 @@ describe("Sidebar", () => {
   });
 
   it("marks disabled items", () => {
-    render(
-      <Sidebar
-        items={[
-          { id: "disabled", label: "Disabled Item", disabled: true },
-        ]}
-      />
-    );
+    render(<Sidebar items={[{ id: "disabled", label: "Disabled Item", disabled: true }]} />);
     expect(screen.getByRole("button", { name: /disabled item/i })).toBeDisabled();
   });
 });

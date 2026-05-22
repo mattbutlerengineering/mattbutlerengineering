@@ -35,7 +35,28 @@ jobs:
           PR_NUMBER=$(gh pr list --search "$SHA" --state merged --json number -q '.[0].number')
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
+      - name: Check for baseline failure
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+        run: |
+          PARENT_SHA=$(git rev-parse "${SHA}^")
+          echo "parent_sha=$PARENT_SHA" >> "$GITHUB_OUTPUT"
+
+          PARENT_CONCLUSION=$(gh run list --commit "$PARENT_SHA" --workflow "CI" --json conclusion -q '.[0].conclusion' 2>/dev/null || echo "unknown")
+          echo "parent_conclusion=$PARENT_CONCLUSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$PARENT_CONCLUSION" = "failure" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Parent commit $PARENT_SHA also failed CI — pre-existing baseline failure, skipping issue/revert."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Parent CI was '$PARENT_CONCLUSION' — this commit may have introduced the failure."
+          fi
+
       - name: Open Broken Main Issue
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
@@ -51,7 +72,7 @@ jobs:
           gh issue create --title "$TITLE" --body "$BODY" --label "priority:critical"
 
       - name: Propose Revert PR
-        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
@@ -73,7 +94,7 @@ jobs:
             --head "$BRANCH"
 
       - name: Trigger RCA
-        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.culprit.outputs.pr_number }}

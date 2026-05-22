@@ -27,16 +27,19 @@ You are fixing a specific GitHub issue in an isolated git worktree. Your job is 
    - kebab-case files, camelCase functions, PascalCase types, UPPER_SNAKE constants
 
 4. **Run checks** — Execute all three in sequence:
+
    ```bash
    pnpm lint
    pnpm typecheck
    pnpm test
    ```
+
    Fix any failures before proceeding. Do not skip or disable tests.
 
 5. **Simplify** — Review your changes. Remove any unnecessary complexity. If you added more than 20 lines, look for opportunities to simplify.
 
 6. **Commit** — Stage only your changed files (never `git add -A`):
+
    ```bash
    git add <specific files>
    git commit -m "fix: <description>

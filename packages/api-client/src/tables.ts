@@ -1,10 +1,4 @@
-import type {
-  ApiResponse,
-  PaginatedResponse,
-  Table,
-  CreateTableRequest,
-  UpdateTableRequest,
-} from "@mbe/types";
+import type { PaginatedResponse, Table, CreateTableRequest, UpdateTableRequest } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 export interface ListTablesParams {
@@ -28,33 +22,28 @@ export class TablesClient {
     if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
 
     const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Table>>(
-      `/api/v1/tables${query ? `?${query}` : ""}`
-    );
+    return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
   }
 
   /**
    * Get a table by ID
    */
   async get(id: string): Promise<Table> {
-    const response = await this.client.get<ApiResponse<Table>>(`/api/v1/tables/${id}`);
-    return response.data;
+    return this.client.getOne<Table>(`/api/v1/tables/${id}`);
   }
 
   /**
    * Create a new table
    */
   async create(data: CreateTableRequest): Promise<Table> {
-    const response = await this.client.post<ApiResponse<Table>>("/api/v1/tables", data);
-    return response.data;
+    return this.client.postOne<Table>("/api/v1/tables", data);
   }
 
   /**
    * Update a table
    */
   async update(id: string, data: UpdateTableRequest): Promise<Table> {
-    const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}`, data);
-    return response.data;
+    return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data);
   }
 
   /**
@@ -67,11 +56,9 @@ export class TablesClient {
   /**
    * Update the status of a table
    */
-  async updateStatus(id: string, status: string): Promise<Table> {
-    const response = await this.client.patch<ApiResponse<Table>>(
-      `/api/v1/tables/${id}/status`,
-      { status }
-    );
-    return response.data;
+  async updateStatus(id: string, tableStatus: string): Promise<Table> {
+    return this.client.patchOne<Table>(`/api/v1/tables/${id}/status`, {
+      status: tableStatus,
+    });
   }
 }

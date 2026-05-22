@@ -9,12 +9,8 @@ import {
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, type AuthUser } from "@mbe/auth/fastify";
+import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { userService } from "../services/user.js";
-
-function isAdmin(user: AuthUser | undefined): boolean {
-  const permissions = user?.raw?.permissions; return Array.isArray(permissions) && permissions.includes("admin");
-}
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // List users
@@ -66,8 +62,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      if (!isAdmin(request.user)) {
-        reply.code(403); return reply.send(createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never);
+      if (!hasPermission(request.user, "admin")) {
+        reply.code(403);
+        return reply.send(
+          createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
+        );
       }
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
@@ -121,13 +120,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
-          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
         }
         const requestingUser = await userService.getByEmail(authUser.email);
         if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
+          return reply
+            .code(403)
+            .send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
         }
       }
 
@@ -156,8 +159,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Create a new user",
         operationId: "createUser",
-        description:
-          "Create a new user account. Email must be unique across the system.",
+        description: "Create a new user account. Email must be unique across the system.",
         tags: ["Users"],
         body: {
           type: "object",
@@ -268,13 +270,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
-          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
         }
         const requestingUser = await userService.getByEmail(authUser.email);
         if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
+          return reply
+            .code(403)
+            .send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
         }
       }
 
@@ -296,8 +302,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Delete a user",
         operationId: "deleteUser",
-        description:
-          "Permanently delete a user account. This action cannot be undone.",
+        description: "Permanently delete a user account. This action cannot be undone.",
         tags: ["Users"],
         params: {
           type: "object",
@@ -329,13 +334,17 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = request.user;
       const requestedId = request.params.id;
 
-      if (!isAdmin(authUser)) {
+      if (!hasPermission(authUser, "admin")) {
         if (!authUser?.email) {
-          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
         }
         const requestingUser = await userService.getByEmail(authUser.email);
         if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply.code(403).send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
+          return reply
+            .code(403)
+            .send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
         }
       }
 
@@ -383,7 +392,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser || !authUser.email) {
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       // Use findOrCreate (upsert) to prevent race conditions when two
@@ -457,7 +468,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const authUser = request.user;
       if (!authUser || !authUser.email) {
-        return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
       const existingUser = await userService.getByEmail(authUser.email);
@@ -465,12 +478,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
 
-      const user = await userService.updatePreferences(
-        existingUser.id,
-        request.body
-      );
+      const user = await userService.updatePreferences(existingUser.id, request.body);
       if (!user) {
-        return reply.code(500).send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
+        return reply
+          .code(500)
+          .send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
       }
       return { data: user };
     }

@@ -11,16 +11,16 @@ Represents an agent task execution.
 ```typescript
 interface AgentSession {
   id: string;
-  task: string;                // Task description
-  branchName: string | null;   // Git branch for changes
-  model: string;              // e.g., "claude-sonnet-4-6"
+  task: string; // Task description
+  branchName: string | null; // Git branch for changes
+  model: string; // e.g., "claude-sonnet-4-6"
   status: SessionStatus;
-  maxTurns: number;            // Conversation turn limit
-  maxBudgetUsd: number;        // Budget cap
-  totalCostUsd: number;        // Actual cost incurred
-  totalTurns: number;          // Turns used
-  prUrl: string | null;        // Created PR URL
-  prNumber: number | null;     // Created PR number
+  maxTurns: number; // Conversation turn limit
+  maxBudgetUsd: number; // Budget cap
+  totalCostUsd: number; // Actual cost incurred
+  totalTurns: number; // Turns used
+  prUrl: string | null; // Created PR URL
+  prNumber: number | null; // Created PR number
   worktreePath: string | null; // Local worktree location
   errorMessage: string | null; // Error if failed
   createdAt: Date;
@@ -28,11 +28,11 @@ interface AgentSession {
   completedAt: Date | null;
 }
 
-type SessionStatus = 
-  | "PENDING"    // Queued, not started
-  | "RUNNING"   // Currently executing
+type SessionStatus =
+  | "PENDING" // Queued, not started
+  | "RUNNING" // Currently executing
   | "SUCCEEDED" // Completed successfully
-  | "FAILED"    // Completed with error
+  | "FAILED" // Completed with error
   | "CANCELLED"; // Manually cancelled
 ```
 
@@ -77,7 +77,6 @@ src/
 │   ├── orchestrate.ts  # Multi-session orchestration
 │   ├── webhooks.ts    # GitHub webhook handlers
 │   ├── remediation.ts # Auto-remediation endpoints
-│   ├── gen-ui.ts      # Gen UI streaming endpoint
 │   ├── gen-chat.ts    # Gen chat streaming endpoint
 │   └── gen-specs.ts   # Gen specs streaming endpoint
 ├── schemas/            # JSON Schema definitions
@@ -91,34 +90,33 @@ src/
 
 ### Sessions
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/v1/sessions` | Create new agent session |
-| GET | `/v1/sessions` | List sessions |
-| GET | `/v1/sessions/:id` | Get session details |
-| DELETE | `/v1/sessions/:id` | Cancel session |
-| GET | `/v1/sessions/:id/events` | Stream session events (SSE) |
+| Method | Path                      | Description                 |
+| ------ | ------------------------- | --------------------------- |
+| POST   | `/v1/sessions`            | Create new agent session    |
+| GET    | `/v1/sessions`            | List sessions               |
+| GET    | `/v1/sessions/:id`        | Get session details         |
+| DELETE | `/v1/sessions/:id`        | Cancel session              |
+| GET    | `/v1/sessions/:id/events` | Stream session events (SSE) |
 
 ### Orchestration
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/v1/orchestrate` | Create orchestration session |
-| GET | `/v1/orchestrate/:id` | Get orchestration status |
+| Method | Path                  | Description                  |
+| ------ | --------------------- | ---------------------------- |
+| POST   | `/v1/orchestrate`     | Create orchestration session |
+| GET    | `/v1/orchestrate/:id` | Get orchestration status     |
 
 ### Gen AI (Streaming)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/gen/ui` | Stream UI generation (JSONL) |
-| POST | `/api/gen/chat` | Stream chat responses (SSE) |
-| POST | `/api/gen/specs` | Stream spec generation (SSE) |
+| Method | Path             | Description                  |
+| ------ | ---------------- | ---------------------------- |
+| POST   | `/api/gen/chat`  | Stream chat responses (SSE)  |
+| POST   | `/api/gen/specs` | Stream spec generation (SSE) |
 
 ### Webhooks
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/v1/webhooks/github` | GitHub webhook receiver |
+| Method | Path                  | Description             |
+| ------ | --------------------- | ----------------------- |
+| POST   | `/v1/webhooks/github` | GitHub webhook receiver |
 
 ## Session Lifecycle
 
@@ -138,6 +136,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -176,12 +175,10 @@ The actual agent execution happens in `@mbe/agent-core` package.
 
 ```typescript
 // From @mbe/agent-core
-import { 
-  createSessionRunner,
-  createWorktreeManager,
-  createPromptBuilder,
-  createSuccessEvaluator,
-} from "@mbe/agent-core";
+import { runSession } from "@mbe/agent-core";
+import { createWorktree, removeWorktree } from "@mbe/agent-core";
+import { buildSystemPrompt } from "@mbe/agent-core";
+import { evaluateSuccess } from "@mbe/agent-core";
 ```
 
 ### Session Runner
@@ -189,24 +186,19 @@ import {
 Manages the conversation loop with Claude API.
 
 ```typescript
-const runner = createSessionRunner({
-  model: session.model,
-  maxTurns: session.maxTurns,
-  maxBudget: session.maxBudgetUsd,
-  onEvent: (event) => {
+const result = await runSession(
+  {
+    taskDescription: session.task,
+    repoPath: session.worktreePath,
+    model: session.model,
+    maxTurns: session.maxTurns,
+    maxBudgetUsd: session.maxBudgetUsd,
+  },
+  (event) => {
     // Emit SSE event to client
     emitter.emit(event.type, event);
-  },
-});
-
-await runner.run({
-  task: session.task,
-  worktree: session.worktreePath,
-  context: {
-    repoUrl: "https://github.com/mattbutlerengineering/mattbutlerengineering",
-    baseBranch: "main",
-  },
-});
+  }
+);
 ```
 
 ### Worktree Manager
@@ -214,16 +206,15 @@ await runner.run({
 Creates isolated Git worktrees for each session.
 
 ```typescript
-const worktreeManager = createWorktreeManager({
-  basePath: "/tmp/agent-worktrees",
-});
-
-const worktree = await worktreeManager.create({
+const worktree = await createWorktree({
+  repoPath: "/path/to/repo",
   sessionId: session.id,
   baseBranch: "main",
 });
 
-// Returns: { path: "/tmp/agent-worktrees/session-abc123", branch: "agent/session-abc123" }
+// Returns: { path: "/path/to/repo/.worktrees/session-abc123", branch: "agent/session-abc123" }
+
+await removeWorktree(worktree.path);
 ```
 
 ## Integration Points
@@ -248,14 +239,14 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
 
 ### Error Codes
 
-| Code | HTTP | Description |
-|------|------|-------------|
-| `SESSION_NOT_FOUND` | 404 | Session doesn't exist |
-| `SESSION_RUNNING` | 409 | Cannot modify running session |
-| `BUDGET_EXCEEDED` | 402 | Cost exceeded maxBudgetUsd |
-| `MAX_TURNS_EXCEEDED` | 400 | Conversation turn limit reached |
-| `WORKTREE_CONFLICT` | 409 | Worktree creation failed |
-| `GITHUB_AUTH_FAILED` | 401 | GitHub token invalid |
+| Code                 | HTTP | Description                     |
+| -------------------- | ---- | ------------------------------- |
+| `SESSION_NOT_FOUND`  | 404  | Session doesn't exist           |
+| `SESSION_RUNNING`    | 409  | Cannot modify running session   |
+| `BUDGET_EXCEEDED`    | 402  | Cost exceeded maxBudgetUsd      |
+| `MAX_TURNS_EXCEEDED` | 400  | Conversation turn limit reached |
+| `WORKTREE_CONFLICT`  | 409  | Worktree creation failed        |
+| `GITHUB_AUTH_FAILED` | 401  | GitHub token invalid            |
 
 ### Error Response
 
@@ -266,7 +257,7 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
   "statusCode": 402,
   "details": {
     "totalCostUsd": 1.05,
-    "maxBudgetUsd": 1.00
+    "maxBudgetUsd": 1.0
   }
 }
 ```
@@ -292,7 +283,7 @@ it("creates session and returns id", async () => {
     url: "/v1/sessions",
     payload: {
       task: "Test task",
-      maxBudgetUsd: 0.50,
+      maxBudgetUsd: 0.5,
     },
   });
 
@@ -311,7 +302,7 @@ it("creates session and returns id", async () => {
 ```typescript
 it("streams events as they occur", async () => {
   const events: string[] = [];
-  
+
   const response = await app.inject({
     method: "GET",
     url: "/v1/sessions/test-id/events",
@@ -324,7 +315,7 @@ it("streams events as they occur", async () => {
   // Wait for events
   await delay(100);
 
-  expect(events.some(e => e.includes("turn:start"))).toBe(true);
+  expect(events.some((e) => e.includes("turn:start"))).toBe(true);
 });
 ```
 
@@ -346,21 +337,31 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | No | Service port (default: 3003) |
-| `LOG_LEVEL` | No | Logging level (default: info) |
-| `DATABASE_URL` | Yes | Postgres connection |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key |
-| `DEFAULT_MODEL` | No | Default model (default: claude-sonnet-4-6) |
-| `MAX_CONCURRENT_SESSIONS` | No | Max parallel sessions (default: 5) |
-| `GITHUB_WEBHOOK_SECRET` | No | HMAC secret for webhooks |
-| `AGENT_API_URL` | No | Public API URL (default: http://localhost:3003) |
+| Variable                     | Required   | Description                                     |
+| ---------------------------- | ---------- | ----------------------------------------------- |
+| `PORT`                       | No         | Service port (default: 3003)                    |
+| `LOG_LEVEL`                  | No         | Logging level (default: info)                   |
+| `CORS_ORIGINS`               | No         | Comma-separated allowed origins                 |
+| `DATABASE_URL`               | Yes        | Postgres connection                             |
+| `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                  |
+| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-4-6)      |
+| `DEFAULT_MAX_TURNS`          | No         | Default max turns per session (default: 50)     |
+| `DEFAULT_MAX_BUDGET_USD`     | No         | Default budget cap per session (default: 1.00)  |
+| `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)              |
+| `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                      |
+| `GITHUB_WEBHOOK_SECRET`      | No         | HMAC secret for GitHub webhooks                 |
+| `REMEDIATION_WEBHOOK_SECRET` | No         | HMAC secret for remediation webhooks            |
+| `REPO_PATH`                  | No         | Repo URL for agent context                      |
+| `AGENT_API_URL`              | No         | Public API URL (default: http://localhost:3003) |
+| `API_BASE_URL`               | No         | Base URL for the platform (default: localhost)  |
+| `SENTRY_DSN`                 | No         | Sentry DSN for error tracking                   |
+| `AUTH_AUTHORITY`             | Yes (prod) | Auth0 domain URL                                |
+| `AUTH_AUDIENCE`              | Yes (prod) | Auth0 API identifier                            |
 
 ## Dockerfile gotchas
 
 - `pnpm --filter <pkg> build` does NOT cascade to workspace deps. When adding a new workspace dep that needs compiling, add its build step to the RUN chain in dep order, and COPY lines for its `src/`, `tsconfig*.json`, plus any build config (for rialto: `vite.config.lib.ts` + `scripts/`).
-- `packages/api-client` has no build script — exports `./src/index.ts` directly. Runner stage must copy `src/` not `dist/`.
+- `packages/api-client` uses conditional exports — `production` resolves to `dist/`, `default` to `src/`. Runner stage copies `dist/`.
 
 ## Related Documentation
 

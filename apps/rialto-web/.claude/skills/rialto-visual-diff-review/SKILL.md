@@ -22,11 +22,11 @@ pnpm test:visual
 
 ### Step 2: Classify the Change
 
-| Pattern | Action |
-|---------|--------|
-| Intentional design change | Update screenshot, update spec if needed |
-| Regression (broken layout) | File issue or fix immediately |
-| Stale screenshot | Update screenshot |
+| Pattern                    | Action                                   |
+| -------------------------- | ---------------------------------------- |
+| Intentional design change  | Update screenshot, update spec if needed |
+| Regression (broken layout) | File issue or fix immediately            |
+| Stale screenshot           | Update screenshot                        |
 
 ### Step 3: Update Screenshots (if intentional)
 

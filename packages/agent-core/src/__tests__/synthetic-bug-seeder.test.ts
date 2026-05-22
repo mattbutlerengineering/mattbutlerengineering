@@ -46,7 +46,9 @@ describe("synthetic-bug-seeder", () => {
 
     it("includes markdown link to non-existent page", () => {
       const config = createDeadLinkBug(mockRepoPath);
-      expect(config.fileContent).toMatch(/\[.*\]\(https:\/\/mattbutlerengineering\.com\/chaos\/nonexistent-page-\d+\)/);
+      expect(config.fileContent).toMatch(
+        /\[.*\]\(https:\/\/mattbutlerengineering\.com\/chaos\/nonexistent-page-\d+\)/
+      );
     });
   });
 

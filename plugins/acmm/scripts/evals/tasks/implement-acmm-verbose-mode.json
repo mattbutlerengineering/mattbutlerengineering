@@ -2,7 +2,7 @@
   "id": "implement-acmm-verbose-mode",
   "prompt": "Modify plugins/acmm/scripts/audit.js to support a --verbose flag. When enabled, it should print the detailed detection rationale for each criterion that was successfully detected. Currently, it only shows the summary.",
   "model": "claude-sonnet-4-6",
-  "maxBudgetUsd": 1.50,
+  "maxBudgetUsd": 1.5,
   "maxTurns": 30,
   "rubric": {
     "mustPass": ["lint"],

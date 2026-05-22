@@ -1,0 +1,45 @@
+{
+  "name": "@mbe/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "production": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
+    "@mbe/api-versioning": "workspace:*",
+    "@mbe/auth": "workspace:*",
+    "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:*",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@scalar/fastify-api-reference": "^1.55.3",
+    "fastify": "catalog:",
+    "fastify-plugin": "^5.0.0",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*",
+    "@mbe/types": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "license": "MIT"
+}

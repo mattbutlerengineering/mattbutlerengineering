@@ -38,12 +38,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     variant?: string;
     size?: string;
   }) => (
-    <button
-      data-testid="retry-button"
-      data-variant={variant}
-      data-size={size}
-      onClick={onClick}
-    >
+    <button data-testid="retry-button" data-variant={variant} data-size={size} onClick={onClick}>
       {children}
     </button>
   ),
@@ -51,17 +46,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 
 describe("ErrorRetryBanner", () => {
   it("should render the error message", () => {
-    render(
-      <ErrorRetryBanner error="Something went wrong" onRetry={() => {}} />
-    );
+    render(<ErrorRetryBanner error="Something went wrong" onRetry={() => {}} />);
 
     expect(screen.getByText("Something went wrong")).toBeDefined();
   });
 
   it("should render with error variant", () => {
-    render(
-      <ErrorRetryBanner error="Network error" onRetry={() => {}} />
-    );
+    render(<ErrorRetryBanner error="Network error" onRetry={() => {}} />);
 
     const alert = screen.getByTestId("alert");
     expect(alert.getAttribute("data-variant")).toBe("error");
@@ -70,18 +61,14 @@ describe("ErrorRetryBanner", () => {
   it("should call onRetry when retry button is clicked", () => {
     const onRetry = vi.fn();
 
-    render(
-      <ErrorRetryBanner error="Failed to load" onRetry={onRetry} />
-    );
+    render(<ErrorRetryBanner error="Failed to load" onRetry={onRetry} />);
 
     fireEvent.click(screen.getByTestId("retry-button"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it("should render retry button with secondary variant and sm size", () => {
-    render(
-      <ErrorRetryBanner error="Error" onRetry={() => {}} />
-    );
+    render(<ErrorRetryBanner error="Error" onRetry={() => {}} />);
 
     const retryButton = screen.getByTestId("retry-button");
     expect(retryButton.getAttribute("data-variant")).toBe("secondary");
@@ -91,13 +78,7 @@ describe("ErrorRetryBanner", () => {
   it("should show dismiss button when onDismiss is provided", () => {
     const onDismiss = vi.fn();
 
-    render(
-      <ErrorRetryBanner
-        error="Error"
-        onRetry={() => {}}
-        onDismiss={onDismiss}
-      />
-    );
+    render(<ErrorRetryBanner error="Error" onRetry={() => {}} onDismiss={onDismiss} />);
 
     const dismissButton = screen.getByTestId("dismiss-button");
     fireEvent.click(dismissButton);
@@ -105,9 +86,7 @@ describe("ErrorRetryBanner", () => {
   });
 
   it("should not show dismiss button when onDismiss is not provided", () => {
-    render(
-      <ErrorRetryBanner error="Error" onRetry={() => {}} />
-    );
+    render(<ErrorRetryBanner error="Error" onRetry={() => {}} />);
 
     expect(screen.queryByTestId("dismiss-button")).toBeNull();
   });

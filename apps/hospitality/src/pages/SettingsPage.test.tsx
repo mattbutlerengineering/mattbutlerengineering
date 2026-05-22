@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/jsx-no-undef, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
@@ -26,7 +26,7 @@ vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: any) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
-      <p>{description}</p>
+      <span>{description}</span>
     </div>
   ),
 }));
@@ -49,7 +49,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Card: ({ children, title }: any) => (
     <div data-testid="card">
-      <h3>{title}</h3>
+      <h1>{title}</h1>
       {children}
     </div>
   ),

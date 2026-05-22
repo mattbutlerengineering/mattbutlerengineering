@@ -64,3 +64,23 @@ flags:
     paths:
       - infrastructure/pulumi/
     carryforward: true
+  api-client:
+    paths:
+      - packages/api-client/
+    carryforward: true
+  feature-flags:
+    paths:
+      - packages/feature-flags/
+    carryforward: true
+  observability:
+    paths:
+      - packages/observability/
+    carryforward: true
+  mcp-server:
+    paths:
+      - packages/mcp-server/
+    carryforward: true
+  cli:
+    paths:
+      - tools/cli/
+    carryforward: true

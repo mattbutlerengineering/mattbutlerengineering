@@ -1,9 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { pulumiStackOutputs } from "./tools/pulumi.js";
 import { serviceHealthCheck } from "./tools/health.js";
 import { ciRunStatus } from "./tools/ci.js";
@@ -58,12 +55,15 @@ const TOOLS = [
   {
     name: "check_logs",
     description: "Read recent logs from backend services",
-    inputSchema: { 
-      type: "object", 
+    inputSchema: {
+      type: "object",
       properties: {
-        service: { type: "string", description: "Optional service name (users, reservations, agent)" }
-      }
-    }
+        service: {
+          type: "string",
+          description: "Optional service name (users, reservations, agent)",
+        },
+      },
+    },
   },
   {
     name: "db_migration_status",
@@ -123,7 +123,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Tool not found: ${name}`);
   } catch (error) {
     return {
-      content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        { type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` },
+      ],
       isError: true,
     };
   }

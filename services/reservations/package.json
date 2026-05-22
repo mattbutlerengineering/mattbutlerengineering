@@ -28,8 +28,11 @@
     "@fastify/swagger-ui": "^5.2.6",
     "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:*",
+    "@mbe/database": "workspace:*",
     "@mbe/feature-flags": "workspace:*",
+    "@mbe/notifications": "workspace:^",
     "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -38,6 +41,7 @@
     "fastify": "catalog:",
     "jose": "^6.2.3",
     "pg": "^8.20.0",
+    "resend": "^6.12.3",
     "zod": "catalog:"
   },
   "prisma": {

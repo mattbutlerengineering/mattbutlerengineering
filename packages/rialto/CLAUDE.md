@@ -120,8 +120,9 @@ src/components/ComponentName/
 ```
 
 **Also wire up:**
+
 - Add `export * from "./ComponentName";` to `src/components/index.ts` (the root barrel — components invisible to consumers otherwise)
-- Add an axe-core entry in `src/components/accessibility.test.tsx` to guarantee WCAG compliance
+- Add an axe-core entry in the relevant `src/test/accessibility/*.accessibility.test.tsx` file to guarantee WCAG compliance
 - For the showcase app, three touch points: `apps/rialto-web/src/pages/<category>/ComponentNamePage.tsx`, a `lazy()` import + route in `apps/rialto-web/src/routes.tsx`, and a nav entry in `apps/rialto-web/src/data/nav-sections.ts`
 - Rebuild the package (`pnpm build`) before typechecking `apps/rialto-web` — consumer sees new exports only via regenerated `.d.ts` files
 

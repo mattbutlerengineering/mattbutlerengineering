@@ -1,0 +1,62 @@
+{
+  "data": [
+    {
+      "id": "fp_e2e_001",
+      "venueId": "ven_e2e_001",
+      "name": "Main Floor",
+      "isActive": true,
+      "layoutJson": {
+        "width": 800,
+        "height": 600,
+        "gridSize": 20,
+        "showGrid": true
+      },
+      "tables": [
+        {
+          "id": "tbl_e2e_001",
+          "name": "Table 1",
+          "tableNumber": "1",
+          "capacity": 4,
+          "minCovers": 1,
+          "maxCovers": 4,
+          "location": "Main Floor",
+          "isActive": true,
+          "priority": 1,
+          "status": "AVAILABLE",
+          "venueId": "ven_e2e_001",
+          "floorPlanId": "fp_e2e_001",
+          "shapeMetadata": { "x": 100, "y": 100, "width": 80, "height": 80, "shape": "square" },
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "tbl_e2e_002",
+          "name": "Table 2",
+          "tableNumber": "2",
+          "capacity": 6,
+          "minCovers": 2,
+          "maxCovers": 6,
+          "location": "Main Floor",
+          "isActive": true,
+          "priority": 2,
+          "status": "OCCUPIED",
+          "venueId": "ven_e2e_001",
+          "floorPlanId": "fp_e2e_001",
+          "shapeMetadata": { "x": 250, "y": 100, "width": 120, "height": 80, "shape": "rectangle" },
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "total": 1,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false
+  }
+}

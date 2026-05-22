@@ -5,7 +5,10 @@
       enabled: boolean;
       percentage: number;
     }
-    export type FeatureFlagMap = Record<string, FeatureFlag>;
+    export interface FeatureContext {
+      check(flagName: string): boolean;
+      checkForUser(flagName: string, userId: string): boolean;
+    }
   </file>
   </section>
 </codebase>

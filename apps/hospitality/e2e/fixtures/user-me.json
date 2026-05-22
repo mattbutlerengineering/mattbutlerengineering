@@ -1,0 +1,16 @@
+{
+  "data": {
+    "id": "usr_e2e_001",
+    "email": "e2e-test@mattbutlerengineering.com",
+    "name": "E2E Test User",
+    "picture": null,
+    "emailVerified": true,
+    "preferences": {
+      "theme": "light",
+      "emailNotifications": true,
+      "marketingEmails": false
+    },
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  }
+}

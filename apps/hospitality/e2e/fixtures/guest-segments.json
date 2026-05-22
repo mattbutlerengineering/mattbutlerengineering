@@ -1,0 +1,8 @@
+{
+  "data": [
+    { "name": "VIP", "description": "High-value repeat guests", "count": 2 },
+    { "name": "Regular", "description": "Guests with 3+ visits", "count": 3 },
+    { "name": "New", "description": "First-time visitors", "count": 1 },
+    { "name": "Corporate", "description": "Business account guests", "count": 1 }
+  ]
+}

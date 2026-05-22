@@ -1,5 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { resolveModelId } from "./model-router.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export interface ReviewConfig {
 }
 
 export const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
-  model: "claude-haiku-4-5-20250929",
+  model: resolveModelId("haiku"),
   maxBudgetUsd: 0.05,
 };
 
@@ -48,7 +49,9 @@ const REVIEW_SCHEMA = {
 
 function buildReviewPrompt(diff: string): string {
   const truncatedDiff =
-    diff.length > MAX_DIFF_LENGTH ? diff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)" : diff;
+    diff.length > MAX_DIFF_LENGTH
+      ? diff.slice(0, MAX_DIFF_LENGTH) + "\n\n... (diff truncated)"
+      : diff;
 
   return [
     "You are a senior code reviewer performing a quick safety check before an auto-merge.",

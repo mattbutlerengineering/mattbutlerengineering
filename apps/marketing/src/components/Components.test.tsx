@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -12,12 +13,15 @@ import { NotFoundPage } from "../pages/NotFoundPage.js";
 
 vi.mock("framer-motion", () => {
   return {
-    motion: new Proxy({}, {
-      get: () => {
-        const MotionComponent = ({ children }: any) => <div>{children}</div>;
-        return MotionComponent;
+    motion: new Proxy(
+      {},
+      {
+        get: () => {
+          const MotionComponent = ({ children }: any) => <div>{children}</div>;
+          return MotionComponent;
+        },
       }
-    }),
+    ),
     useReducedMotion: () => false,
   };
 });
@@ -29,15 +33,25 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children }: any) => <div>{children}</div>,
   Badge: ({ children }: any) => <span>{children}</span>,
   Icon: () => <div />,
-  useScrollReveal: () => ({ 
-    ref: vi.fn(), 
-    controls: { start: vi.fn(), subscribe: vi.fn(), stop: vi.fn(), mount: vi.fn() } 
+  useScrollReveal: () => ({
+    ref: vi.fn(),
+    controls: { start: vi.fn(), subscribe: vi.fn(), stop: vi.fn(), mount: vi.fn() },
   }),
   useReducedMotion: () => false,
   useToast: () => ({ toast: vi.fn() }),
-  Hero: ({ title, eyebrow }: any) => <div data-testid="hero">{title}{eyebrow}</div>,
+  Hero: ({ title, eyebrow }: any) => (
+    <div data-testid="hero">
+      {title}
+      {eyebrow}
+    </div>
+  ),
   Stack: ({ children }: any) => <div>{children}</div>,
-  AppBar: ({ logo, actions }: any) => <header data-testid="appbar">{logo}{actions}</header>,
+  AppBar: ({ logo, actions }: any) => (
+    <header data-testid="appbar">
+      {logo}
+      {actions}
+    </header>
+  ),
   ThemeToggle: () => <div data-testid="theme-toggle" />,
   Divider: () => <hr data-testid="divider" />,
   Tag: ({ children }: any) => <span>{children}</span>,
@@ -72,12 +86,12 @@ describe("Components and Pages", () => {
 
   it("renders ProjectCard", () => {
     render(
-      <ProjectCard 
+      <ProjectCard
         project={{
           title: "Test Project",
           description: "Desc",
           tags: ["React"],
-        }} 
+        }}
       />
     );
     expect(screen.getByText("Test Project")).toBeInTheDocument();

@@ -2,7 +2,7 @@
 // Node's HTTP stack during registration. Dynamic import() ensures buildApp
 // and all its transitive deps load after the SDK is active.
 import { initTelemetry } from "@mbe/observability";
-import { initSentry } from "@mbe/observability/sentry/node";
+import { initSentry } from "@mbe/sentry/node";
 
 const sdk = initTelemetry({ serviceName: "reservations-api" });
 sdk.start();

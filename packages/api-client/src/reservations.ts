@@ -1,5 +1,4 @@
 import type {
-  ApiResponse,
   PaginatedResponse,
   Reservation,
   ReservationStatus,
@@ -53,39 +52,31 @@ export class ReservationsClient {
    * Get a reservation by ID
    */
   async get(id: string): Promise<Reservation> {
-    const response = await this.client.get<ApiResponse<Reservation>>(
-      `/api/v1/reservations/${id}`
-    );
-    return response.data;
+    return this.client.getOne<Reservation>(`/api/v1/reservations/${id}`);
   }
 
   /**
    * Create a new reservation
    */
   async create(data: CreateReservationRequest): Promise<Reservation> {
-    const response = await this.client.post<ApiResponse<Reservation>>(
-      "/api/v1/reservations",
-      data
-    );
-    return response.data;
+    return this.client.postOne<Reservation>("/api/v1/reservations", data);
   }
 
   /**
    * Update a reservation
    */
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-    const response = await this.client.patch<ApiResponse<Reservation>>(
-      `/api/v1/reservations/${id}`,
-      data
-    );
-    return response.data;
+    return this.client.patchOne<Reservation>(`/api/v1/reservations/${id}`, data);
   }
 
   /**
    * Cancel a reservation
    */
   async cancel(id: string): Promise<Reservation> {
-    const response = await this.client.request<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`, { method: "DELETE" });
+    const response = await this.client.request<{ data: Reservation }>(
+      `/api/v1/reservations/${id}`,
+      { method: "DELETE" }
+    );
     return response.data;
   }
 
@@ -112,10 +103,6 @@ export class ReservationsClient {
     guestName?: string;
     durationMinutes?: number;
   }): Promise<Reservation> {
-    const response = await this.client.post<ApiResponse<Reservation>>(
-      "/api/v1/reservations/walk-in",
-      data
-    );
-    return response.data;
+    return this.client.postOne<Reservation>("/api/v1/reservations/walk-in", data);
   }
 }

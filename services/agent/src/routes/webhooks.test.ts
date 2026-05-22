@@ -25,6 +25,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 vi.stubGlobal("fetch", vi.fn());
@@ -471,7 +476,14 @@ describe("Webhook Routes", () => {
       it("creates a retry session for failed CI on agent branch", async () => {
         vi.mocked(sessionService.list).mockResolvedValueOnce({
           data: [],
-          pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+          pagination: {
+            page: 1,
+            limit: 100,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
         });
 
         const payloadStr = JSON.stringify(checkRunPayload);
@@ -505,7 +517,14 @@ describe("Webhook Routes", () => {
 
         vi.mocked(sessionService.list).mockResolvedValueOnce({
           data: retries,
-          pagination: { page: 1, limit: 100, total: 3, totalPages: 1, hasNext: false, hasPrev: false },
+          pagination: {
+            page: 1,
+            limit: 100,
+            total: 3,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
         });
 
         const payloadStr = JSON.stringify(checkRunPayload);

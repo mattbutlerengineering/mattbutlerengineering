@@ -8,6 +8,7 @@ allowed-tools:
   - Write
   - AskUserQuestion
 ---
+
 <context>
 **Flags:**
 - `--name` (required) — Workspace name
@@ -22,10 +23,12 @@ allowed-tools:
 Create a physical workspace directory containing copies of specified git repos (as worktrees or clones) with an independent `.planning/` directory for isolated GSD sessions.
 
 **Use cases:**
+
 - Multi-repo orchestration: work on a subset of repos in parallel with isolated GSD state
 - Feature branch isolation: create a worktree of the current repo with its own `.planning/`
 
 **Creates:**
+
 - `<path>/WORKSPACE.md` — workspace manifest
 - `<path>/.planning/` — independent planning directory
 - `<path>/<repo>/` — git worktree or clone for each specified repo

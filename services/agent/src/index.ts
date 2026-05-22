@@ -2,7 +2,7 @@
 // Node's HTTP stack during registration. Dynamic import() ensures buildApp
 // and all its transitive deps load after the SDK is active.
 import { initTelemetry } from "@mbe/observability";
-import { initSentry } from "@mbe/observability/sentry/node";
+import { initSentry } from "@mbe/sentry/node";
 
 const sdk = initTelemetry({ serviceName: "agent-api" });
 sdk.start();
@@ -10,9 +10,8 @@ sdk.start();
 initSentry({ serviceName: "agent-api" });
 
 const { buildApp } = await import("./app.js");
-const { startLivenessMonitor, stopLivenessMonitor } = await import(
-  "./services/liveness-monitor.js"
-);
+const { startLivenessMonitor, stopLivenessMonitor } =
+  await import("./services/liveness-monitor.js");
 
 const PORT = parseInt(process.env.PORT ?? "3003", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";

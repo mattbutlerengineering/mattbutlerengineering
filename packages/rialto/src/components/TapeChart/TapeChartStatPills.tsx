@@ -14,9 +14,7 @@ export interface TapeChartStatPillsProps {
   strings: ResolvedStrings;
 }
 
-export const TapeChartStatPills = memo(function TapeChartStatPills(
-  props: TapeChartStatPillsProps,
-) {
+export const TapeChartStatPills = memo(function TapeChartStatPills(props: TapeChartStatPillsProps) {
   const { layout, todayISO, startDate, roomCount, formatters, strings } = props;
   const todayOffset = daysBetween(startDate, todayISO);
   const withinView = todayOffset >= 0 && todayOffset < layout.dayCount;

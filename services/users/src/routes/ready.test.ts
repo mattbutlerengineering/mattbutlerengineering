@@ -23,19 +23,13 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
-vi.mock("../services/health-checks.js", () => ({
-  checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 10 }),
-  checkLatencyAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 5 }),
-  recordDbLatency: vi.fn(),
-}));
-
 vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: () => ({}),
   requireAuth: vi.fn().mockImplementation(async () => {}),
 }));
 
-vi.mock("@mbe/observability/sentry/node", () => ({
+vi.mock("@mbe/sentry/node", () => ({
   sentryFastifyPlugin: vi.fn().mockImplementation(async () => {}),
 }));
 
@@ -88,7 +82,7 @@ describe("GET /ready", () => {
       expect.arrayContaining([
         expect.objectContaining({ name: "database", status: "ok" }),
         expect.objectContaining({ name: "auth", status: "ok" }),
-      ]),
+      ])
     );
   });
 
@@ -111,7 +105,7 @@ describe("GET /ready", () => {
           status: "error",
           message: "Connection refused",
         }),
-      ]),
+      ])
     );
   });
 
@@ -133,7 +127,7 @@ describe("GET /ready", () => {
           status: "error",
           message: expect.stringContaining("JWKS returned 500"),
         }),
-      ]),
+      ])
     );
   });
 

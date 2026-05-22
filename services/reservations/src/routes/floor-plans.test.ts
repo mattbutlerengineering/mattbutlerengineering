@@ -82,6 +82,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 // Mock jose library for JWT verification
@@ -386,10 +391,7 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(floorPlanService.setActive).toHaveBeenCalledWith(
-        "floor-plan-123",
-        "venue-123"
-      );
+      expect(floorPlanService.setActive).toHaveBeenCalledWith("floor-plan-123", "venue-123");
     });
 
     it("returns 404 when activating nonexistent floor plan", async () => {
@@ -459,9 +461,7 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([
-        mockTable,
-      ]);
+      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([mockTable]);
 
       const response = await app.inject({
         method: "POST",
@@ -511,9 +511,7 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.assignTableToFloorPlan).mockResolvedValueOnce(
-        mockTable
-      );
+      vi.mocked(floorPlanService.assignTableToFloorPlan).mockResolvedValueOnce(mockTable);
 
       const response = await app.inject({
         method: "POST",
@@ -567,9 +565,7 @@ describe("Floor Plan Routes", () => {
         protectedHeader: { alg: "RS256" },
       } as never);
       const removedTable = { ...mockTable, floorPlanId: null, shapeMetadata: null };
-      vi.mocked(floorPlanService.removeTableFromFloorPlan).mockResolvedValueOnce(
-        removedTable
-      );
+      vi.mocked(floorPlanService.removeTableFromFloorPlan).mockResolvedValueOnce(removedTable);
 
       const response = await app.inject({
         method: "POST",

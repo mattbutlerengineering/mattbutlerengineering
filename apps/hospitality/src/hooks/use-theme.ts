@@ -31,8 +31,11 @@ export function useTheme(): ThemeContextValue {
 export function useThemeState(): ThemeContextValue {
   const { preference, setTheme } = useSharedThemeState();
 
-  return useMemo(() => ({
-    theme: preference,
-    setTheme
-  }), [preference, setTheme]);
+  return useMemo(
+    () => ({
+      theme: preference,
+      setTheme,
+    }),
+    [preference, setTheme]
+  );
 }

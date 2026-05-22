@@ -118,16 +118,12 @@ describe("sessionService", () => {
     });
 
     it("calculates pagination correctly for multi-page results", async () => {
-      vi.mocked(prisma.session.findMany).mockResolvedValueOnce([
-        makePrismaSession(),
-      ]);
+      vi.mocked(prisma.session.findMany).mockResolvedValueOnce([makePrismaSession()]);
       vi.mocked(prisma.session.count).mockResolvedValueOnce(25);
 
       const result = await sessionService.list({ page: 2, limit: 10 });
 
-      expect(prisma.session.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 10 })
-      );
+      expect(prisma.session.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 10 }));
       expect(result.pagination).toEqual({
         page: 2,
         limit: 10,
@@ -139,9 +135,7 @@ describe("sessionService", () => {
     });
 
     it("maps dates to ISO strings in response", async () => {
-      vi.mocked(prisma.session.findMany).mockResolvedValueOnce([
-        makePrismaSession(),
-      ]);
+      vi.mocked(prisma.session.findMany).mockResolvedValueOnce([makePrismaSession()]);
       vi.mocked(prisma.session.count).mockResolvedValueOnce(1);
 
       const result = await sessionService.list({ page: 1, limit: 10 });
@@ -173,9 +167,7 @@ describe("sessionService", () => {
 
   describe("getById", () => {
     it("returns mapped session when found", async () => {
-      vi.mocked(prisma.session.findUnique).mockResolvedValueOnce(
-        makePrismaSession()
-      );
+      vi.mocked(prisma.session.findUnique).mockResolvedValueOnce(makePrismaSession());
 
       const result = await sessionService.getById("sess-1");
 
@@ -197,9 +189,7 @@ describe("sessionService", () => {
 
   describe("create", () => {
     it("creates session with required fields", async () => {
-      vi.mocked(prisma.session.create).mockResolvedValueOnce(
-        makePrismaSession()
-      );
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
 
       const result = await sessionService.create({
         taskDescription: "Fix the auth flow",
@@ -240,9 +230,7 @@ describe("sessionService", () => {
     });
 
     it("omits undefined optional fields from create data", async () => {
-      vi.mocked(prisma.session.create).mockResolvedValueOnce(
-        makePrismaSession()
-      );
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
 
       await sessionService.create({
         taskDescription: "Simple task",
@@ -347,13 +335,11 @@ describe("sessionService", () => {
     });
 
     it("rethrows non-P2025 errors", async () => {
-      vi.mocked(prisma.session.update).mockRejectedValueOnce(
-        new Error("Connection lost")
-      );
+      vi.mocked(prisma.session.update).mockRejectedValueOnce(new Error("Connection lost"));
 
-      await expect(
-        sessionService.updateStatus("sess-1", "FAILED")
-      ).rejects.toThrow("Connection lost");
+      await expect(sessionService.updateStatus("sess-1", "FAILED")).rejects.toThrow(
+        "Connection lost"
+      );
     });
 
     it("does not set startedAt for PENDING status", async () => {
@@ -371,9 +357,7 @@ describe("sessionService", () => {
 
   describe("delete", () => {
     it("returns true when session is deleted", async () => {
-      vi.mocked(prisma.session.delete).mockResolvedValueOnce(
-        makePrismaSession()
-      );
+      vi.mocked(prisma.session.delete).mockResolvedValueOnce(makePrismaSession());
 
       const result = await sessionService.delete("sess-1");
       expect(result).toBe(true);
@@ -389,9 +373,7 @@ describe("sessionService", () => {
     });
 
     it("rethrows non-P2025 errors", async () => {
-      vi.mocked(prisma.session.delete).mockRejectedValueOnce(
-        new Error("DB error")
-      );
+      vi.mocked(prisma.session.delete).mockRejectedValueOnce(new Error("DB error"));
 
       await expect(sessionService.delete("sess-1")).rejects.toThrow("DB error");
     });
@@ -416,9 +398,7 @@ describe("sessionService", () => {
 
   describe("getLastEvent", () => {
     it("returns the most recent event for a session", async () => {
-      vi.mocked(prisma.sessionEvent.findFirst).mockResolvedValueOnce(
-        makePrismaEvent()
-      );
+      vi.mocked(prisma.sessionEvent.findFirst).mockResolvedValueOnce(makePrismaEvent());
 
       const result = await sessionService.getLastEvent("sess-1");
 
@@ -449,9 +429,7 @@ describe("sessionService", () => {
 
   describe("addEvent", () => {
     it("creates an event with the given type and data", async () => {
-      vi.mocked(prisma.sessionEvent.create).mockResolvedValueOnce(
-        makePrismaEvent()
-      );
+      vi.mocked(prisma.sessionEvent.create).mockResolvedValueOnce(makePrismaEvent());
 
       const result = await sessionService.addEvent("sess-1", "session:start", {
         message: "Started",
@@ -468,9 +446,7 @@ describe("sessionService", () => {
     });
 
     it("defaults data to empty object when not provided", async () => {
-      vi.mocked(prisma.sessionEvent.create).mockResolvedValueOnce(
-        makePrismaEvent({ data: {} })
-      );
+      vi.mocked(prisma.sessionEvent.create).mockResolvedValueOnce(makePrismaEvent({ data: {} }));
 
       await sessionService.addEvent("sess-1", "session:start");
 
@@ -486,9 +462,7 @@ describe("sessionService", () => {
 
   describe("listEvents", () => {
     it("returns events for a session ordered by createdAt asc", async () => {
-      vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce([
-        makePrismaEvent(),
-      ]);
+      vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce([makePrismaEvent()]);
 
       const result = await sessionService.listEvents("sess-1");
 
@@ -534,9 +508,7 @@ describe("sessionService", () => {
     });
 
     it("maps event dates to ISO strings", async () => {
-      vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce([
-        makePrismaEvent(),
-      ]);
+      vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce([makePrismaEvent()]);
 
       const result = await sessionService.listEvents("sess-1");
       expect(result[0].createdAt).toBe("2026-03-01T12:00:00.000Z");

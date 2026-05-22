@@ -34,24 +34,21 @@ const TEMPLATES: readonly Template[] = [
     title: "Analytics Dashboard",
     description: "KPI cards, line chart, bar chart, and recent activity table",
     category: "Dashboards",
-    prompt:
-      "Dashboard with KPI cards, line chart, bar chart, and recent activity table",
+    prompt: "Dashboard with KPI cards, line chart, bar chart, and recent activity table",
   },
   {
     id: "admin-dashboard",
     title: "Admin Dashboard",
     description: "User stats, system health indicators, and quick actions",
     category: "Dashboards",
-    prompt:
-      "Admin panel with user stats, system health indicators, and quick actions",
+    prompt: "Admin panel with user stats, system health indicators, and quick actions",
   },
   {
     id: "sales-dashboard",
     title: "Sales Dashboard",
     description: "Revenue chart, top products, and conversion funnel",
     category: "Dashboards",
-    prompt:
-      "Sales overview with revenue chart, top products, and conversion funnel",
+    prompt: "Sales overview with revenue chart, top products, and conversion funnel",
   },
 
   // Forms
@@ -60,24 +57,21 @@ const TEMPLATES: readonly Template[] = [
     title: "Registration Form",
     description: "Multi-step registration with personal info, preferences, and confirmation",
     category: "Forms",
-    prompt:
-      "Multi-step registration with personal info, preferences, and confirmation",
+    prompt: "Multi-step registration with personal info, preferences, and confirmation",
   },
   {
     id: "checkout-form",
     title: "Checkout Form",
     description: "E-commerce checkout with shipping, payment, and order summary",
     category: "Forms",
-    prompt:
-      "E-commerce checkout with shipping, payment, and order summary",
+    prompt: "E-commerce checkout with shipping, payment, and order summary",
   },
   {
     id: "survey-form",
     title: "Survey Form",
     description: "Customer feedback survey with rating scales, text areas, and progress bar",
     category: "Forms",
-    prompt:
-      "Customer feedback survey with rating scales, text areas, and progress bar",
+    prompt: "Customer feedback survey with rating scales, text areas, and progress bar",
   },
 
   // Data Display
@@ -86,24 +80,21 @@ const TEMPLATES: readonly Template[] = [
     title: "Data Table",
     description: "Sortable, filterable data table with pagination, search, and bulk actions",
     category: "Data Display",
-    prompt:
-      "Sortable, filterable data table with pagination, search, and bulk actions",
+    prompt: "Sortable, filterable data table with pagination, search, and bulk actions",
   },
   {
     id: "kanban-board",
     title: "Kanban Board",
     description: "Project management board with draggable columns and task cards",
     category: "Data Display",
-    prompt:
-      "Project management board with draggable columns and task cards",
+    prompt: "Project management board with draggable columns and task cards",
   },
   {
     id: "timeline",
     title: "Timeline",
     description: "Activity timeline with icons, timestamps, and expandable details",
     category: "Data Display",
-    prompt:
-      "Activity timeline with icons, timestamps, and expandable details",
+    prompt: "Activity timeline with icons, timestamps, and expandable details",
   },
 
   // Marketing
@@ -112,24 +103,21 @@ const TEMPLATES: readonly Template[] = [
     title: "Landing Page",
     description: "SaaS landing page with hero, features grid, testimonials, and CTA",
     category: "Marketing",
-    prompt:
-      "SaaS landing page with hero, features grid, testimonials, and CTA",
+    prompt: "SaaS landing page with hero, features grid, testimonials, and CTA",
   },
   {
     id: "pricing-page",
     title: "Pricing Page",
     description: "Pricing comparison table with three tiers and feature checklist",
     category: "Marketing",
-    prompt:
-      "Pricing comparison table with three tiers and feature checklist",
+    prompt: "Pricing comparison table with three tiers and feature checklist",
   },
   {
     id: "blog-layout",
     title: "Blog Layout",
     description: "Blog post layout with featured image, content, author bio, and related posts",
     category: "Marketing",
-    prompt:
-      "Blog post layout with featured image, content, author bio, and related posts",
+    prompt: "Blog post layout with featured image, content, author bio, and related posts",
   },
 ] as const;
 
@@ -352,9 +340,7 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
                   <span className={styles.emptyIcon} aria-hidden="true">
                     &#128269;
                   </span>
-                  <span className={styles.emptyText}>
-                    No templates match your search
-                  </span>
+                  <span className={styles.emptyText}>No templates match your search</span>
                 </div>
               ) : (
                 filteredTemplates.map((template, index) => (

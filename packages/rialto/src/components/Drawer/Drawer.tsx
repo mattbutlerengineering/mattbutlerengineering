@@ -174,7 +174,11 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                         {title}
                       </Heading>
                     )}
-                    {description && <p id={descriptionId} className={styles.description}>{description}</p>}
+                    {description && (
+                      <p id={descriptionId} className={styles.description}>
+                        {description}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"

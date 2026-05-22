@@ -31,22 +31,12 @@ describe("PageHeader", () => {
     });
 
     it("renders actions when provided", () => {
-      render(
-        <PageHeader
-          title="Settings"
-          actions={<button>Save</button>}
-        />
-      );
+      render(<PageHeader title="Settings" actions={<button>Save</button>} />);
       expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     });
 
     it("renders meta content", () => {
-      render(
-        <PageHeader
-          title="Settings"
-          meta={<span>v1.2.3</span>}
-        />
-      );
+      render(<PageHeader title="Settings" meta={<span>v1.2.3</span>} />);
       expect(screen.getByText("v1.2.3")).toBeInTheDocument();
     });
 
@@ -60,9 +50,7 @@ describe("PageHeader", () => {
     });
 
     it("applies custom className", () => {
-      const { container } = render(
-        <PageHeader title="Settings" className="custom-header" />
-      );
+      const { container } = render(<PageHeader title="Settings" className="custom-header" />);
       expect(container.querySelector(".custom-header")).toBeInTheDocument();
     });
   });

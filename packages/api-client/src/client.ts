@@ -30,8 +30,8 @@ export class ApiClient {
   }
 
   async request<T>(
-    path: string, 
-    options: RequestOptions = {}, 
+    path: string,
+    options: RequestOptions = {},
     schema?: z.ZodSchema<T>
   ): Promise<T> {
     const { baseUrl, getAccessToken } = this.config;
@@ -97,21 +97,92 @@ export class ApiClient {
   }
 
   post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
-    return this.request<T>(path, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }, schema);
+    return this.request<T>(
+      path,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+      schema
+    );
   }
 
   patch<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
-    return this.request<T>(path, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    }, schema);
+    return this.request<T>(
+      path,
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      },
+      schema
+    );
   }
 
   delete(path: string): Promise<void> {
     return this.request<void>(path, { method: "DELETE" });
+  }
+
+  /**
+   * GET + unwrap `.data` from ApiResponse envelope.
+   * Use for single-resource endpoints that return `{ data: T }`.
+   */
+  async getOne<T>(path: string): Promise<T> {
+    const response = await this.get<{ data: T }>(path);
+    return response.data;
+  }
+
+  /**
+   * POST + unwrap `.data` from ApiResponse envelope.
+   * Use for create endpoints that return `{ data: T }`.
+   */
+  async postOne<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.post<{ data: T }>(path, body);
+    return response.data;
+  }
+
+  /**
+   * PATCH + unwrap `.data` from ApiResponse envelope.
+   * Use for update endpoints that return `{ data: T }`.
+   */
+  async patchOne<T>(path: string, body: unknown): Promise<T> {
+    const response = await this.patch<{ data: T }>(path, body);
+    return response.data;
+  }
+}
+
+/**
+ * Error categories callers can switch on instead of raw status codes.
+ */
+export type ErrorCategory =
+  | "badRequest"
+  | "unauthorized"
+  | "forbidden"
+  | "notFound"
+  | "conflict"
+  | "validationError"
+  | "rateLimited"
+  | "serverError"
+  | "unknown";
+
+function categorizeStatus(code: number): ErrorCategory {
+  switch (code) {
+    case 400:
+      return "badRequest";
+    case 401:
+      return "unauthorized";
+    case 403:
+      return "forbidden";
+    case 404:
+      return "notFound";
+    case 409:
+      return "conflict";
+    case 422:
+      return "validationError";
+    case 429:
+      return "rateLimited";
+    default:
+      if (code >= 500) return "serverError";
+      return "unknown";
   }
 }
 
@@ -131,6 +202,14 @@ export class ApiClientError extends Error {
   get statusCode(): number {
     return this.response.status ?? this.response.statusCode;
   }
+
+  /**
+   * Semantic error category derived from HTTP status code.
+   * Callers can switch on this instead of raw status codes.
+   */
+  get category(): ErrorCategory {
+    return categorizeStatus(this.statusCode);
+  }
 }
 
 export class ApiValidationError extends Error {
@@ -149,10 +228,7 @@ export class ApiValidationError extends Error {
  * Creates an AbortSignal that fires when either the timeout expires
  * or the caller-provided signal aborts (whichever comes first).
  */
-function createCombinedSignal(
-  timeoutMs: number,
-  callerSignal?: AbortSignal | null
-): AbortSignal {
+function createCombinedSignal(timeoutMs: number, callerSignal?: AbortSignal | null): AbortSignal {
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
 
   if (!callerSignal) {

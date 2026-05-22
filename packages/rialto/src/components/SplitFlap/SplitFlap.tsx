@@ -20,8 +20,7 @@ import styles from "./SplitFlap.module.css";
  * <SplitFlap value="ARRIVED" aria-label="Flight status: arrived" />
  * <SplitFlap value="GATE 12" charset="full" size="lg" />
  */
-export interface SplitFlapProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "aria-label"> {
+export interface SplitFlapProps extends Omit<HTMLAttributes<HTMLDivElement>, "aria-label"> {
   /** The text to display. Characters not in the charset render as spaces. */
   value: string;
   /** Accessible name — required because the component renders as role="img". */
@@ -59,18 +58,10 @@ export const SplitFlap = forwardRef<HTMLDivElement, SplitFlapProps>(
     // Compute the sequence of target chars — padded/truncated to `length`.
     const targetChars = normalizeValue(value, length, charsetStr);
 
-    const wrapperClass = [styles.board, styles[size], className]
-      .filter(Boolean)
-      .join(" ");
+    const wrapperClass = [styles.board, styles[size], className].filter(Boolean).join(" ");
 
     return (
-      <div
-        ref={ref}
-        role="img"
-        aria-label={ariaLabel}
-        className={wrapperClass}
-        {...rest}
-      >
+      <div ref={ref} role="img" aria-label={ariaLabel} className={wrapperClass} {...rest}>
         {targetChars.map((target, i) => (
           <SplitFlapCell
             key={i}

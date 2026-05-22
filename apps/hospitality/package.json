@@ -36,6 +36,7 @@
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
+    "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "konva": "^10.3.0",
     "react": "catalog:",
@@ -58,7 +59,8 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-pwa": "^1.3.0",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "^4.4.3"
   },
   "license": "MIT",
   "acmm": {

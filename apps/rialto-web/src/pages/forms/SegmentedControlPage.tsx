@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Card, Checkbox, DataList, SegmentedControl, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Card,
+  Checkbox,
+  DataList,
+  SegmentedControl,
+  Select,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -123,7 +131,10 @@ export function SegmentedControlPage() {
       <Section title="Usage Example">
         <Card variant="elevated" style={{ padding: "var(--rialto-space-lg)" }}>
           <Stack gap="md">
-            <div className={styles.row} style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+            <div
+              className={styles.row}
+              style={{ justifyContent: "space-between", flexWrap: "wrap" }}
+            >
               <Text variant="label" color="primary">
                 Lap Analysis
               </Text>

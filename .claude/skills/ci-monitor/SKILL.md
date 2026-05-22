@@ -17,6 +17,7 @@ gh run list --branch main --limit 5 --json status,conclusion,databaseId,headBran
 ```
 
 Examine the results:
+
 - If all 5 runs have `conclusion: "success"` → **main is healthy**, proceed to Step 3
 - If any run has `conclusion: "failure"` → proceed to Step 2
 
@@ -39,12 +40,14 @@ If an open `ci-fix` issue already exists for this failure, **skip it** — it is
 #### 2b: Classify the Failure
 
 **Simple failures** (auto-fixable):
+
 - Lint errors (`eslint`, `prettier`)
 - Type errors (`tsc`, missing imports, wrong types)
 - Missing Prisma client generation (`prisma generate`)
 - Test failures with obvious fixes (snapshot updates, assertion mismatches from recent changes)
 
 **Complex failures** (escalate to issue):
+
 - Flaky tests (passes on retry)
 - Infrastructure failures (Docker, database connectivity)
 - Multi-file refactoring needed
@@ -125,15 +128,20 @@ If everything is green, exit with: "CI is healthy. All recent runs passing, no P
 
 The CI pipeline (`.github/workflows/ci.yml`) has these jobs:
 
-| Job | What It Checks |
-|-----|---------------|
-| `lint-typecheck` | ESLint, TypeScript compilation, Prisma client generation |
-| `build` | Full monorepo build, registry.json validation, catalog drift |
-| `test` | Vitest test suite with coverage |
-| `migrations` | Prisma migrations against test PostgreSQL database |
+| Job                  | What It Checks                                               |
+| -------------------- | ------------------------------------------------------------ |
+| `lint`               | ESLint across all packages                                   |
+| `typecheck`          | TypeScript compilation, Prisma client generation             |
+| `architecture-audit` | ADR compliance and dependency checks via `@mbe/cli`          |
+| `build`              | Full monorepo build, registry.json validation, catalog drift |
+| `test`               | Vitest test suite with coverage                              |
+| `migrations`         | Prisma migrations against test PostgreSQL database           |
 
 Common failure patterns:
-- **lint-typecheck**: Usually a missing `import type`, unused variable, or formatting issue
+
+- **lint**: Usually a missing `import type`, unused variable, or formatting issue
+- **typecheck**: Type errors, missing imports, wrong types
+- **architecture-audit**: ADR violations or forbidden dependency patterns
 - **build**: Often a missing export, broken dependency chain, or stale generated file
 - **test**: Snapshot mismatches, assertion failures from behavior changes, mock drift
 - **migrations**: Schema drift, migration ordering issues, SQL syntax errors

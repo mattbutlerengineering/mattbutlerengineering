@@ -1,0 +1,64 @@
+<codebase path="packages/notifications">
+  <section priority="medium" role="src">
+  <file path="src/booking-email-content.ts">
+    export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+    export interface BookingEmailContent {
+      subject: string;
+      html: string;
+      ical?: string;
+      icalMethod?: "REQUEST" | "CANCEL";
+    }
+  </file>
+  <file path="src/ical.ts">
+    export interface IcalEventInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string | null;
+      venueName: string;
+      venueTimezone: string;
+      sequence?: number;
+    }
+    export type IcalMethod = "REQUEST" | "CANCEL";
+  </file>
+  <file path="src/port.ts">
+    export interface BookingNotificationInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string;
+      guestPhone: string | null;
+      specialRequests: string | null;
+      venueName: string;
+      venueTimezone: string;
+      venueAddress: string | null;
+      manageToken: string;
+      sequence?: number;
+    }
+    export interface NotificationPort {
+      sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
+      sendBookingReminder(input: BookingNotificationInput): Promise<void>;
+      sendBookingModified(input: BookingNotificationInput): Promise<void>;
+      sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
+    }
+  </file>
+  <file path="src/resend-adapter.ts">
+    interface ResendClient {
+      emails: {
+        send(payload: Record<string, unknown>): Promise<{ id: string }>;
+      };
+    }
+    export interface ResendAdapterConfig {
+      resend: ResendClient | null;
+      fromAddress: string;
+      manageBaseUrl: string;
+    }
+  </file>
+  </section>
+</codebase>

@@ -26,16 +26,9 @@ Top-level organization (e.g., restaurant chain).
 interface VenueGroup {
   id: string;
   name: string;
-  slug: string;         // URL-friendly identifier
-  settings: VenueGroupSettings;
+  slug: string; // URL-friendly identifier
+  settings: Record<string, unknown> | null; // JSON — structure not enforced at DB level
   createdAt: Date;
-  updatedAt: Date;
-}
-
-interface VenueGroupSettings {
-  timezone: string;
-  weekStartsOn: 0 | 1; // 0 = Sunday, 1 = Monday
-  bookingWindowDays: number; // How far ahead guests can book
 }
 ```
 
@@ -46,22 +39,15 @@ Individual restaurant location.
 ```typescript
 interface Venue {
   id: string;
-  venueGroupId: string;
+  venueGroupId: string | null;
   name: string;
   slug: string;
-  address: Address;
-  operatingHours: OperatingHours[];
-  settings: VenueSettings;
-  isActive: boolean;
+  ianaTimezone: string;
+  currencyCode: string; // default: "USD"
+  operatingHours: Record<string, unknown> | null; // JSON — structure at app level
+  settings: Record<string, unknown> | null; // JSON
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface OperatingHours {
-  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-  openTime: string;  // "09:00"
-  closeTime: string; // "22:00"
-  isClosed: boolean;
 }
 ```
 
@@ -72,14 +58,18 @@ Physical table with status lifecycle.
 ```typescript
 interface Table {
   id: string;
-  venueId: string;
-  name: string;           // "Table 1", "Booth A"
-  capacity: number;        // Max covers
-  minPartySize: number;
-  maxPartySize: number;
+  venueId: string | null;
+  name: string; // "Table 1", "Booth A"
+  tableNumber: string | null;
+  capacity: number; // Max covers
+  minCovers: number;
+  maxCovers: number | null;
+  location: string | null;
+  isActive: boolean;
   status: TableStatus;
-  position: { x: number; y: number };
+  priority: number;
   floorPlanId: string | null;
+  shapeMetadata: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +78,7 @@ type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 ```
 
 **Status Transitions:**
+
 ```
 AVAILABLE ──(seat)──> OCCUPIED
 OCCUPIED ──(complete)──> DIRTY
@@ -102,29 +93,31 @@ Booking with status lifecycle.
 ```typescript
 interface Reservation {
   id: string;
-  venueId: string;
-  tableId: string | null;
+  venueId: string | null;
+  tableId: string;
   guestId: string | null;
-  guestName: string;
+  guestName: string | null;
   guestPhone: string | null;
   guestEmail: string | null;
+  userId: string | null;
+  date: Date; // Date-only (no time component)
   startTime: Date;
-  duration: number;         // Minutes
+  endTime: Date;
   partySize: number;
   status: ReservationStatus;
   notes: string | null;
-  confirmationCode: string;
-  source: "walk-in" | "online" | "phone";
+  cancellationReason: string | null;
+  cancellationNote: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-type ReservationStatus = 
-  | "PENDING"      // Initial state after hold confirmed
-  | "CONFIRMED"    // Guest arrived, seated
-  | "COMPLETED"    // Dining finished
-  | "CANCELLED"    // Cancelled by guest or staff
-  | "NO_SHOW";     // Guest didn't arrive
+type ReservationStatus =
+  | "PENDING" // Initial state — hold confirmed, not yet seated
+  | "CONFIRMED" // Reservation confirmed (arriving)
+  | "COMPLETED" // Dining finished
+  | "CANCELLED" // Cancelled by guest or staff
+  | "NO_SHOW"; // Guest didn't arrive
 ```
 
 ### Guest
@@ -134,22 +127,17 @@ Guest CRM entity.
 ```typescript
 interface Guest {
   id: string;
-  venueGroupId: string;
+  venueId: string;
   email: string | null;
   phone: string | null;
   name: string;
   notes: string | null;
   visitCount: number;
+  lifetimeSpend: number | null;
   lastVisit: Date | null;
-  preferences: GuestPreferences;
+  tags: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface GuestPreferences {
-  dietaryRestrictions: string[];
-  specialOccasions: string[];
-  preferredTableIds: string[];
 }
 ```
 
@@ -157,48 +145,62 @@ interface GuestPreferences {
 
 ### Venues
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/venues` | List all venues for user's groups |
-| GET | `/api/v1/venues/:id` | Get venue details |
-| POST | `/api/v1/venues` | Create venue (admin) |
-| PUT | `/api/v1/venues/:id` | Update venue |
+| Method | Path                 | Description                       |
+| ------ | -------------------- | --------------------------------- |
+| GET    | `/api/v1/venues`     | List all venues for user's groups |
+| GET    | `/api/v1/venues/:id` | Get venue details                 |
+| POST   | `/api/v1/venues`     | Create venue (admin)              |
+| PUT    | `/api/v1/venues/:id` | Update venue                      |
 
 ### Tables
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/tables` | List tables for venue |
-| POST | `/api/v1/tables` | Create table |
-| PUT | `/api/v1/tables/:id` | Update table (position, status) |
-| PUT | `/api/v1/tables/:id/status` | Update table status |
-| DELETE | `/api/v1/tables/:id` | Delete table |
+| Method | Path                        | Description                     |
+| ------ | --------------------------- | ------------------------------- |
+| GET    | `/api/v1/tables`            | List tables for venue           |
+| POST   | `/api/v1/tables`            | Create table                    |
+| PUT    | `/api/v1/tables/:id`        | Update table (position, status) |
+| PUT    | `/api/v1/tables/:id/status` | Update table status             |
+| DELETE | `/api/v1/tables/:id`        | Delete table                    |
 
 ### Reservations
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/reservations` | List reservations (filterable) |
-| GET | `/api/v1/reservations/:id` | Get reservation |
-| POST | `/api/v1/reservations` | Create walk-in |
-| PUT | `/api/v1/reservations/:id` | Update reservation |
-| PUT | `/api/v1/reservations/:id/cancel` | Cancel reservation |
-| PUT | `/api/v1/reservations/:id/seat` | Seat guest (transition to CONFIRMED) |
-| PUT | `/api/v1/reservations/:id/complete` | Complete dining |
+| Method | Path                                | Description                          |
+| ------ | ----------------------------------- | ------------------------------------ |
+| GET    | `/api/v1/reservations`              | List reservations (filterable)       |
+| GET    | `/api/v1/reservations/:id`          | Get reservation                      |
+| POST   | `/api/v1/reservations`              | Create walk-in                       |
+| PUT    | `/api/v1/reservations/:id`          | Update reservation                   |
+| PUT    | `/api/v1/reservations/:id/cancel`   | Cancel reservation                   |
+| PUT    | `/api/v1/reservations/:id/seat`     | Seat guest (transition to CONFIRMED) |
+| PUT    | `/api/v1/reservations/:id/complete` | Complete dining                      |
 
 ### Availability
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/availability` | Get available time slots |
-| POST | `/api/v1/holds` | Create reservation hold (5 min) |
-| PUT | `/api/v1/holds/:id/confirm` | Confirm hold → reservation |
+| Method | Path                        | Description                     |
+| ------ | --------------------------- | ------------------------------- |
+| GET    | `/api/v1/availability`      | Get available time slots        |
+| POST   | `/api/v1/holds`             | Create reservation hold (5 min) |
+| PUT    | `/api/v1/holds/:id/confirm` | Confirm hold → reservation      |
+
+### Public Booking Widget (no auth)
+
+| Method | Path                                    | Description                         |
+| ------ | --------------------------------------- | ----------------------------------- |
+| GET    | `/public/v1/venues/:slug`               | Get public venue info               |
+| GET    | `/public/v1/venues/:slug/availability`  | Get available slots (public)        |
+| POST   | `/public/v1/venues/:slug/holds`         | Create hold (public)                |
+| DELETE | `/public/v1/venues/:slug/holds/:holdId` | Release hold (public)               |
+| POST   | `/public/v1/venues/:slug/reservations`  | Confirm hold → reservation (public) |
+| GET    | `/public/v1/reservations/manage`        | Get reservation via manage token    |
+| PATCH  | `/public/v1/reservations/manage`        | Modify reservation via manage token |
+| DELETE | `/public/v1/reservations/manage`        | Cancel reservation via manage token |
+| GET    | `/public/v1/reservations/confirm`       | Confirm attendance via token        |
 
 ### Events (SSE)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/events/stream` | SSE stream for real-time updates |
+| Method | Path                    | Description                      |
+| ------ | ----------------------- | -------------------------------- |
+| GET    | `/api/v1/events/stream` | SSE stream for real-time updates |
 
 ## Real-time SSE Events
 
@@ -206,7 +208,7 @@ interface GuestPreferences {
 
 ```typescript
 type ReservationEvent = {
-  id: string;          // Sequence number
+  id: string; // Sequence number
   type: "reservation:created" | "reservation:updated" | "reservation:cancelled";
   timestamp: string;
   data: Reservation;
@@ -231,14 +233,11 @@ type HoldEvent = {
 
 ```typescript
 // Client connects with venue ID
-const eventSource = new EventSource(
-  `/api/v1/events/stream?venueId=${venueId}`,
-  {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  }
-);
+const eventSource = new EventSource(`/api/v1/events/stream?venueId=${venueId}`, {
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+  },
+});
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -256,15 +255,15 @@ eventSource.onmessage = (event) => {
 
 ### Error Codes
 
-| Code | HTTP | Description |
-|------|------|-------------|
-| `VENUE_NOT_FOUND` | 404 | Venue doesn't exist |
-| `TABLE_NOT_AVAILABLE` | 409 | Table already booked |
-| `TABLE_OCCUPIED` | 409 | Table status prevents action |
-| `RESERVATION_NOT_FOUND` | 404 | Reservation doesn't exist |
-| `HOLD_EXPIRED` | 410 | Hold exceeded 5-minute timeout |
-| `OUTSIDE_HOURS` | 422 | Requested time outside operating hours |
-| `PARTY_SIZE_EXCEEDS_TABLE` | 422 | Party larger than table capacity |
+| Code                       | HTTP | Description                            |
+| -------------------------- | ---- | -------------------------------------- |
+| `VENUE_NOT_FOUND`          | 404  | Venue doesn't exist                    |
+| `TABLE_NOT_AVAILABLE`      | 409  | Table already booked                   |
+| `TABLE_OCCUPIED`           | 409  | Table status prevents action           |
+| `RESERVATION_NOT_FOUND`    | 404  | Reservation doesn't exist              |
+| `HOLD_EXPIRED`             | 410  | Hold exceeded 5-minute timeout         |
+| `OUTSIDE_HOURS`            | 422  | Requested time outside operating hours |
+| `PARTY_SIZE_EXCEEDS_TABLE` | 422  | Party larger than table capacity       |
 
 ### Error Response Format
 
@@ -299,16 +298,22 @@ Booking Widget ──> GET /availability ──> Time slots
 
 ### Auth Flow
 
-All routes except `/health` and `/api/v1/availability` require JWT authentication.
+Authenticated routes (require JWT): all `/api/v1/*` routes except `/api/v1/availability`.
+
+Unauthenticated routes: `/health`, `/ready`, `/api/v1/availability`, and all `/public/v1/*` routes (public booking widget, manage/cancel/modify reservation by token, confirm attendance).
 
 ```typescript
 // Routes use @mbe/auth plugin
-fastify.get("/api/v1/reservations", {
-  preHandler: [fastify.requireAuth],
-}, async (request) => {
-  const { venueId, date } = request.query;
-  // Filter by user's accessible venues
-});
+fastify.get(
+  "/api/v1/reservations",
+  {
+    preHandler: [fastify.requireAuth],
+  },
+  async (request) => {
+    const { venueId, date } = request.query;
+    // Filter by user's accessible venues
+  }
+);
 ```
 
 ## Testing Patterns
@@ -373,14 +378,19 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | No | Service port (default: 3004) |
-| `LOG_LEVEL` | No | Logging level (default: info) |
-| `CORS_ORIGIN` | No | Allowed origins |
-| `AUTH_AUTHORITY` | Yes (prod) | Auth0 domain |
-| `AUTH_AUDIENCE` | Yes (prod) | Auth0 API identifier |
-| `DATABASE_URL` | Yes | Postgres connection |
+| Variable              | Required   | Description                                             |
+| --------------------- | ---------- | ------------------------------------------------------- |
+| `PORT`                | No         | Service port (default: 3004)                            |
+| `LOG_LEVEL`           | No         | Logging level (default: info)                           |
+| `CORS_ORIGINS`        | No         | Comma-separated allowed origins                         |
+| `AUTH_AUTHORITY`      | Yes (prod) | Auth0 domain                                            |
+| `AUTH_AUDIENCE`       | Yes (prod) | Auth0 API identifier                                    |
+| `DATABASE_URL`        | Yes        | Postgres connection                                     |
+| `MANAGE_TOKEN_SECRET` | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
+| `RESEND_API_KEY`      | No         | Resend API key — enables email notifications when set   |
+| `EMAIL_FROM`          | No         | From address for emails (default: reservations@m...com) |
+| `MANAGE_BASE_URL`     | No         | Base URL for manage/cancel links in emails              |
+| `SENTRY_DSN`          | No         | Sentry DSN for error tracking                           |
 
 ## Related Documentation
 

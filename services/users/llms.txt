@@ -6,13 +6,15 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="prisma.config.ts">
+  <file path="prisma.config.ts">
+    <item priority="medium">
+      function loadEnvFile(): void { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="routes">
   <file path="src/routes/health.ts">
-    <item priority="high">
-      type HealthRouteHandler = RouteHandlerMethod<
-        RawServerDefault,
-        IncomingMessage...;
-    </item>
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;
     </item>
@@ -23,9 +25,6 @@
     </item>
   </file>
   <file path="src/routes/users.ts">
-    <item priority="medium">
-      function isAdmin(user: AuthUser | undefined): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export const userRoutes: FastifyPluginAsync;
     </item>
@@ -44,25 +43,10 @@
   <section priority="medium" role="services">
   <file path="src/services/database.ts">
     <item priority="high">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
-        queries: { model: string; operation: string; duration: number; tim...;
-      }
+      export const prisma: unknown;
     </item>
     <item priority="high">
-      export function getSlowQueryStats(): { count5min: number; slowestMs: number } { /* ... */ }
-    </item>
-  </file>
-  <file path="src/services/health-checks.ts">
-    <item priority="high">
-      export function recordDbLatency(ms: number): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function checkLatencyAnomaly(currentMs: number): {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      } { /* ... */ }
+      export const getSlowQueryStats: unknown;
     </item>
   </file>
   <file path="src/services/user.ts">
@@ -85,13 +69,8 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    <item priority="medium">
-      function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
-    </item>
-    <item priority="low">
-      interface AppOptions {
-        logger?: boolean | object;
-      }
+    <item priority="high">
+      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
   <file path="src/index.ts">

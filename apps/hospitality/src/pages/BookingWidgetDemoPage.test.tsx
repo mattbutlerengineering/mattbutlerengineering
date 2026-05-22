@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-no-undef, @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { BookingWidgetDemoPage } from "./BookingWidgetDemoPage.js";
@@ -65,7 +65,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
+  Card: ({ children, "data-testid": dataTestId, ...rest }: any) => (
+    <div data-testid={dataTestId ?? "card"} {...rest}>
+      {children}
+    </div>
+  ),
   Divider: () => <hr data-testid="divider" />,
   SegmentedControl: ({ segments, value, onChange }: any) => (
     <div data-testid="segmented-control">
@@ -274,5 +278,37 @@ describe("BookingWidgetDemoPage", () => {
 
     const calledWith = writeText.mock.calls[0][0] as string;
     expect(calledWith).toContain("v-1");
+  });
+
+  it("embed code section shows a coming soon indicator", async () => {
+    render(<BookingWidgetDemoPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Copy")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
+  });
+
+  it("embed code section does not reference widget.js", async () => {
+    render(<BookingWidgetDemoPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Copy")).toBeDefined();
+    });
+
+    expect(document.body.innerHTML).not.toContain("widget.js");
+  });
+
+  it("page renders correctly with coming soon section visible", async () => {
+    render(<BookingWidgetDemoPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
+    });
+
+    expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
+    const comingSoonTexts = screen.getAllByText(/embeddable widget/i);
+    expect(comingSoonTexts.length).toBeGreaterThan(0);
   });
 });

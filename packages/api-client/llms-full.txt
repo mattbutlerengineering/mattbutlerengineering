@@ -30,11 +30,13 @@
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
     
-      async list(params: {
-        venueId?: string;
-        page?: number;
-        limit?: number;
-      } = {}): Promise<PaginatedResponse<FloorPlan>> {
+      async list(
+        params: {
+          venueId?: string;
+          page?: number;
+          limit?: number;
+        } = {}
+      ): Promise<PaginatedResponse<FloorPlan>> {
         const searchParams = new URLSearchParams();
         if (params.venueId) searchParams.set("venueId", params.venueId);
         if (params.page) searchParams.set("page", String(params.page));
@@ -47,8 +49,7 @@
       }
     
       async getById(id: string): Promise<FloorPlan> {
-        const response = await this.client.get<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`);
-        return response.data;
+        return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`);
       }
     
       /** Alias for getById */
@@ -57,13 +58,11 @@
       }
     
       async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>("/api/v1/floor-plans", data);
-        return response.data;
+        return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data);
       }
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-        const response = await this.client.patch<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}`, data);
-        return response.data;
+        return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data);
       }
     
       async delete(id: string): Promise<void> {
@@ -71,8 +70,7 @@
       }
     
       async setActive(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/active`, undefined);
-        return response.data;
+        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/active`, undefined);
       }
     
       /** Alias for setActive */
@@ -84,16 +82,14 @@
         floorPlanId: string,
         positions: UpdateTablePositionRequest[]
       ): Promise<Table[]> {
-        const response = await this.client.post<{ data: Table[] }>(
+        return this.client.postOne<Table[]>(
           `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
           positions
         );
-        return response.data;
       }
     
       async clone(id: string): Promise<FloorPlan> {
-        const response = await this.client.post<{ data: FloorPlan }>(`/api/v1/floor-plans/${id}/clone`, undefined);
-        return response.data;
+        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, undefined);
       }
     }
   </file>
@@ -108,6 +104,21 @@
       page?: number;
       limit?: number;
       venueId: string;
+    }
+  </file>
+  <file path="src/health.ts">
+    export interface ServiceHealth {
+      readonly status: string;
+      readonly version?: string;
+      readonly latency?: number;
+    }
+    export interface SystemHealth {
+      readonly status: string;
+      readonly timestamp: string;
+      readonly services?: Record<string, ServiceHealth>;
+      readonly staticSites?: Record<string, { status: string }>;
+      readonly ci?: { status: string };
+      readonly deploy?: { status: string };
     }
   </file>
   <file path="src/index.ts">
@@ -137,6 +148,7 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
+        health: new HealthClient(client),
       };
     }
   </file>
@@ -185,39 +197,31 @@
        * Get a reservation by ID
        */
       async get(id: string): Promise<Reservation> {
-        const response = await this.client.get<ApiResponse<Reservation>>(
-          `/api/v1/reservations/${id}`
-        );
-        return response.data;
+        return this.client.getOne<Reservation>(`/api/v1/reservations/${id}`);
       }
     
       /**
        * Create a new reservation
        */
       async create(data: CreateReservationRequest): Promise<Reservation> {
-        const response = await this.client.post<ApiResponse<Reservation>>(
-          "/api/v1/reservations",
-          data
-        );
-        return response.data;
+        return this.client.postOne<Reservation>("/api/v1/reservations", data);
       }
     
       /**
        * Update a reservation
        */
       async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-        const response = await this.client.patch<ApiResponse<Reservation>>(
-          `/api/v1/reservations/${id}`,
-          data
-        );
-        return response.data;
+        return this.client.patchOne<Reservation>(`/api/v1/reservations/${id}`, data);
       }
     
       /**
        * Cancel a reservation
        */
       async cancel(id: string): Promise<Reservation> {
-        const response = await this.client.request<ApiResponse<Reservation>>(`/api/v1/reservations/${id}`, { method: "DELETE" });
+        const response = await this.client.request<{ data: Reservation }>(
+          `/api/v1/reservations/${id}`,
+          { method: "DELETE" }
+        );
         return response.data;
       }
     
@@ -244,11 +248,7 @@
         guestName?: string;
         durationMinutes?: number;
       }): Promise<Reservation> {
-        const response = await this.client.post<ApiResponse<Reservation>>(
-          "/api/v1/reservations/walk-in",
-          data
-        );
-        return response.data;
+        return this.client.postOne<Reservation>("/api/v1/reservations/walk-in", data);
       }
     }
   </file>
@@ -278,9 +278,10 @@
         let detail = response.statusText || `HTTP ${response.status}`;
         try {
           const body = await response.json();
-          detail = (body as Record<string, unknown>).detail as string
-            ?? (body as Record<string, unknown>).message as string
-            ?? detail;
+          detail =
+            ((body as Record<string, unknown>).detail as string) ??
+            ((body as Record<string, unknown>).message as string) ??
+            detail;
         } catch {
           // Response body is not JSON — use status text
         }
@@ -358,33 +359,28 @@
         if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
     
         const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Table>>(
-          `/api/v1/tables${query ? `?${query}` : ""}`
-        );
+        return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
       }
     
       /**
        * Get a table by ID
        */
       async get(id: string): Promise<Table> {
-        const response = await this.client.get<ApiResponse<Table>>(`/api/v1/tables/${id}`);
-        return response.data;
+        return this.client.getOne<Table>(`/api/v1/tables/${id}`);
       }
     
       /**
        * Create a new table
        */
       async create(data: CreateTableRequest): Promise<Table> {
-        const response = await this.client.post<ApiResponse<Table>>("/api/v1/tables", data);
-        return response.data;
+        return this.client.postOne<Table>("/api/v1/tables", data);
       }
     
       /**
        * Update a table
        */
       async update(id: string, data: UpdateTableRequest): Promise<Table> {
-        const response = await this.client.patch<ApiResponse<Table>>(`/api/v1/tables/${id}`, data);
-        return response.data;
+        return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data);
       }
     
       /**
@@ -397,12 +393,10 @@
       /**
        * Update the status of a table
        */
-      async updateStatus(id: string, status: string): Promise<Table> {
-        const response = await this.client.patch<ApiResponse<Table>>(
-          `/api/v1/tables/${id}/status`,
-          { status }
-        );
-        return response.data;
+      async updateStatus(id: string, tableStatus: string): Promise<Table> {
+        return this.client.patchOne<Table>(`/api/v1/tables/${id}/status`, {
+          status: tableStatus,
+        });
       }
     }
   </file>
@@ -414,44 +408,35 @@
        * List all users with pagination
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-        return this.client.get<PaginatedResponse<User>>(
-          `/api/v1/users?page=${page}&limit=${limit}`
-        );
+        return this.client.get<PaginatedResponse<User>>(`/api/v1/users?page=${page}&limit=${limit}`);
       }
     
       /**
        * Get a user by ID
        */
       async get(id: string): Promise<User> {
-        const response = await this.client.get<ApiResponse<User>>(`/api/v1/users/${id}`);
-        return response.data;
+        return this.client.getOne<User>(`/api/v1/users/${id}`);
       }
     
       /**
        * Get the currently authenticated user
        */
       async me(): Promise<User> {
-        const response = await this.client.get<ApiResponse<User>>("/api/v1/users/me");
-        return response.data;
+        return this.client.getOne<User>("/api/v1/users/me");
       }
     
       /**
        * Create a new user
        */
       async create(data: CreateUserRequest): Promise<User> {
-        const response = await this.client.post<ApiResponse<User>>("/api/v1/users", data);
-        return response.data;
+        return this.client.postOne<User>("/api/v1/users", data);
       }
     
       /**
        * Update a user
        */
       async update(id: string, data: UpdateUserRequest): Promise<User> {
-        const response = await this.client.patch<ApiResponse<User>>(
-          `/api/v1/users/${id}`,
-          data
-        );
-        return response.data;
+        return this.client.patchOne<User>(`/api/v1/users/${id}`, data);
       }
     
       /**
@@ -465,11 +450,7 @@
        * Update current user's preferences
        */
       async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
-        const response = await this.client.patch<ApiResponse<User>>(
-          "/api/v1/users/me/preferences",
-          preferences
-        );
-        return response.data;
+        return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences);
       }
     }
   </file>
@@ -480,48 +461,44 @@
       /**
        * List venues with optional filters
        */
-      async list(params: { page?: number; limit?: number; venueGroupId?: string } = {}): Promise<PaginatedResponse<Venue>> {
+      async list(
+        params: { page?: number; limit?: number; venueGroupId?: string } = {}
+      ): Promise<PaginatedResponse<Venue>> {
         const searchParams = new URLSearchParams();
         if (params.page) searchParams.set("page", String(params.page));
         if (params.limit) searchParams.set("limit", String(params.limit));
         if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
     
         const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Venue>>(
-          `/api/v1/venues${query ? `?${query}` : ""}`
-        );
+        return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
       }
     
       /**
        * Get a venue by ID
        */
       async get(id: string): Promise<Venue> {
-        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/${id}`);
-        return response.data;
+        return this.client.getOne<Venue>(`/api/v1/venues/${id}`);
       }
     
       /**
        * Get a venue by slug
        */
       async getBySlug(slug: string): Promise<Venue> {
-        const response = await this.client.get<ApiResponse<Venue>>(`/api/v1/venues/by-slug/${slug}`);
-        return response.data;
+        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`);
       }
     
       /**
        * Create a new venue
        */
       async create(data: CreateVenueRequest): Promise<Venue> {
-        const response = await this.client.post<ApiResponse<Venue>>("/api/v1/venues", data);
-        return response.data;
+        return this.client.postOne<Venue>("/api/v1/venues", data);
       }
     
       /**
        * Update a venue
        */
       async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
-        const response = await this.client.patch<ApiResponse<Venue>>(`/api/v1/venues/${id}`, data);
-        return response.data;
+        return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data);
       }
     
       /**
@@ -547,32 +524,28 @@
        * Get a venue group by ID
        */
       async get(id: string): Promise<VenueGroup> {
-        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`);
-        return response.data;
+        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/${id}`);
       }
     
       /**
        * Get a venue group by slug
        */
       async getBySlug(slug: string): Promise<VenueGroup> {
-        const response = await this.client.get<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/by-slug/${slug}`);
-        return response.data;
+        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/by-slug/${slug}`);
       }
     
       /**
        * Create a new venue group
        */
       async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
-        const response = await this.client.post<ApiResponse<VenueGroup>>("/api/v1/venues/groups", data);
-        return response.data;
+        return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data);
       }
     
       /**
        * Update a venue group
        */
       async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-        const response = await this.client.patch<ApiResponse<VenueGroup>>(`/api/v1/venues/groups/${id}`, data);
-        return response.data;
+        return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data);
       }
     
       /**

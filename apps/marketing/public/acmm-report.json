@@ -1,0 +1,4732 @@
+{
+  "schema": "acmm-report/v1",
+  "generatedAt": "2026-05-18T04:36:22.295Z",
+  "workspaces": [
+    {
+      "name": "marketing",
+      "path": "apps/marketing",
+      "type": "app",
+      "currentLevel": 6,
+      "levelName": "Fully Autonomous",
+      "role": "Strategist",
+      "lastRun": "2026-04-26T23:06:31.381Z",
+      "summary": {
+        "detected": 45,
+        "total": 85,
+        "coverage": 0.5294117647058824
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": true
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "agent",
+      "path": "services/agent",
+      "type": "service",
+      "currentLevel": 6,
+      "levelName": "Fully Autonomous",
+      "role": "Strategist",
+      "lastRun": "2026-04-27T22:00:31.419Z",
+      "summary": {
+        "detected": 45,
+        "total": 85,
+        "coverage": 0.5294117647058824
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "reservations",
+      "path": "services/reservations",
+      "type": "service",
+      "currentLevel": 6,
+      "levelName": "Fully Autonomous",
+      "role": "Strategist",
+      "lastRun": "2026-04-27T21:59:01.488Z",
+      "summary": {
+        "detected": 45,
+        "total": 85,
+        "coverage": 0.5294117647058824
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "users",
+      "path": "services/users",
+      "type": "service",
+      "currentLevel": 6,
+      "levelName": "Fully Autonomous",
+      "role": "Strategist",
+      "lastRun": "2026-04-27T21:57:34.147Z",
+      "summary": {
+        "detected": 45,
+        "total": 85,
+        "coverage": 0.5294117647058824
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "rialto",
+      "path": "packages/rialto",
+      "type": "package",
+      "currentLevel": 6,
+      "levelName": "Fully Autonomous",
+      "role": "Strategist",
+      "lastRun": "2026-04-26T23:17:26.358Z",
+      "summary": {
+        "detected": 45,
+        "total": 85,
+        "coverage": 0.5294117647058824
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "hospitality",
+      "path": "apps/hospitality",
+      "type": "app",
+      "currentLevel": 2,
+      "levelName": "Instructed",
+      "role": "Rule-writer",
+      "lastRun": "2026-04-26T23:05:07.994Z",
+      "summary": {
+        "detected": 11,
+        "total": 85,
+        "coverage": 0.12941176470588237
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": true
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "agent-core",
+      "path": "packages/agent-core",
+      "type": "package",
+      "currentLevel": 2,
+      "levelName": "Instructed",
+      "role": "Rule-writer",
+      "lastRun": "2026-04-26T23:09:10.506Z",
+      "summary": {
+        "detected": 10,
+        "total": 85,
+        "coverage": 0.11764705882352941
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "api-client",
+      "path": "packages/api-client",
+      "type": "package",
+      "currentLevel": 2,
+      "levelName": "Instructed",
+      "role": "Rule-writer",
+      "lastRun": "2026-04-26T23:10:31.857Z",
+      "summary": {
+        "detected": 9,
+        "total": 85,
+        "coverage": 0.10588235294117647
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "auth",
+      "path": "packages/auth",
+      "type": "package",
+      "currentLevel": 2,
+      "levelName": "Instructed",
+      "role": "Rule-writer",
+      "lastRun": "2026-04-26T23:13:18.520Z",
+      "summary": {
+        "detected": 10,
+        "total": 85,
+        "coverage": 0.11764705882352941
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "observability",
+      "path": "packages/observability",
+      "type": "package",
+      "currentLevel": 2,
+      "levelName": "Instructed",
+      "role": "Rule-writer",
+      "lastRun": "2026-04-26T23:16:04.716Z",
+      "summary": {
+        "detected": 9,
+        "total": 85,
+        "coverage": 0.10588235294117647
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": false
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": true
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": true
+        },
+        "acmm:model-tiering": {
+          "passed": true
+        },
+        "acmm:verify-before-reporting": {
+          "passed": true
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": true
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": true
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": true
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": true
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "gen",
+      "path": "apps/gen",
+      "type": "app",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:03:43.916Z",
+      "summary": {
+        "detected": 3,
+        "total": 85,
+        "coverage": 0.03529411764705882
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": true
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "rialto-web",
+      "path": "apps/rialto-web",
+      "type": "app",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-28T00:24:15.531Z",
+      "summary": {
+        "detected": 37,
+        "total": 85,
+        "coverage": 0.43529411764705883
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": true
+        },
+        "acmm:prereq-cicd": {
+          "passed": true
+        },
+        "acmm:prereq-pr-template": {
+          "passed": true
+        },
+        "acmm:prereq-issue-template": {
+          "passed": true
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": true
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": true
+        },
+        "acmm:pr-review-rubric": {
+          "passed": true
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": true
+        },
+        "acmm:layered-safety": {
+          "passed": true
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": true
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": true
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": true
+        },
+        "acmm:nightly-compliance": {
+          "passed": true
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": true
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": true
+        },
+        "acmm:tier-classifier": {
+          "passed": true
+        },
+        "acmm:security-ai-md": {
+          "passed": true
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": true
+        },
+        "acmm:cross-repo-skills": {
+          "passed": true
+        },
+        "acmm:github-coordination": {
+          "passed": true
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": true
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": true
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": true
+        },
+        "acmm:reflection-log": {
+          "passed": true
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": true
+        },
+        "acmm:auto-issue-gen": {
+          "passed": true
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": true
+        },
+        "acmm:merge-queue": {
+          "passed": true
+        },
+        "acmm:strategic-dashboard": {
+          "passed": true
+        },
+        "acmm:risk-assessment-config": {
+          "passed": true
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": true
+        },
+        "acmm:rollback-drill": {
+          "passed": true
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": true
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": true
+        },
+        "fullsend:risk-assessment": {
+          "passed": true
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": true
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "api-versioning",
+      "path": "packages/api-versioning",
+      "type": "package",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:11:54.153Z",
+      "summary": {
+        "detected": 0,
+        "total": 85,
+        "coverage": 0
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": false
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "config",
+      "path": "packages/config",
+      "type": "package",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:14:41.800Z",
+      "summary": {
+        "detected": 0,
+        "total": 85,
+        "coverage": 0
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": false
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "rialto-catalog",
+      "path": "packages/rialto-catalog",
+      "type": "package",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:18:47.290Z",
+      "summary": {
+        "detected": 1,
+        "total": 85,
+        "coverage": 0.011764705882352941
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": true
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": false
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "rialto-plugin",
+      "path": "packages/rialto-plugin",
+      "type": "package",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:20:08.673Z",
+      "summary": {
+        "detected": 1,
+        "total": 85,
+        "coverage": 0.011764705882352941
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": false
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": true
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    },
+    {
+      "name": "types",
+      "path": "packages/types",
+      "type": "package",
+      "currentLevel": 1,
+      "levelName": "Assisted / Ad Hoc",
+      "role": "Executor",
+      "lastRun": "2026-04-26T23:22:52.454Z",
+      "summary": {
+        "detected": 1,
+        "total": 85,
+        "coverage": 0.011764705882352941
+      },
+      "behavioral": {
+        "ciFlakeRate": 0,
+        "agentPrAcceptanceRate": 0.9629629629629629,
+        "agentPrRevertRate": 0,
+        "evalPassRate": 0
+      },
+      "checks": {
+        "acmm:prereq-test-suite": {
+          "passed": false
+        },
+        "acmm:prereq-e2e": {
+          "passed": false
+        },
+        "acmm:prereq-cicd": {
+          "passed": false
+        },
+        "acmm:prereq-pr-template": {
+          "passed": false
+        },
+        "acmm:prereq-issue-template": {
+          "passed": false
+        },
+        "acmm:prereq-contrib-guide": {
+          "passed": false
+        },
+        "acmm:prereq-code-style": {
+          "passed": true
+        },
+        "acmm:prereq-coverage-gate": {
+          "passed": false
+        },
+        "acmm:claude-md": {
+          "passed": false
+        },
+        "acmm:copilot-instructions": {
+          "passed": false
+        },
+        "acmm:agents-md": {
+          "passed": false
+        },
+        "acmm:cursor-rules": {
+          "passed": false
+        },
+        "acmm:prompts-catalog": {
+          "passed": false
+        },
+        "acmm:editor-config": {
+          "passed": false
+        },
+        "acmm:simple-skills": {
+          "passed": false
+        },
+        "acmm:correction-capture": {
+          "passed": false
+        },
+        "acmm:positive-reinforcement": {
+          "passed": false
+        },
+        "acmm:pr-acceptance-metric": {
+          "passed": false
+        },
+        "acmm:pr-review-rubric": {
+          "passed": false
+        },
+        "acmm:quality-dashboard": {
+          "passed": false
+        },
+        "acmm:ci-matrix": {
+          "passed": false
+        },
+        "acmm:layered-safety": {
+          "passed": false
+        },
+        "acmm:mechanical-enforcement": {
+          "passed": false
+        },
+        "acmm:context-budget": {
+          "passed": false
+        },
+        "acmm:model-tiering": {
+          "passed": false
+        },
+        "acmm:verify-before-reporting": {
+          "passed": false
+        },
+        "acmm:evidence-antipatterns": {
+          "passed": false
+        },
+        "acmm:session-summary": {
+          "passed": false
+        },
+        "acmm:structural-gates": {
+          "passed": false
+        },
+        "acmm:auto-qa-tuning": {
+          "passed": false
+        },
+        "acmm:nightly-compliance": {
+          "passed": false
+        },
+        "acmm:copilot-review-apply": {
+          "passed": false
+        },
+        "acmm:auto-label": {
+          "passed": false
+        },
+        "acmm:ai-fix-workflow": {
+          "passed": false
+        },
+        "acmm:tier-classifier": {
+          "passed": false
+        },
+        "acmm:security-ai-md": {
+          "passed": false
+        },
+        "acmm:structured-workflows": {
+          "passed": false
+        },
+        "acmm:router-skills": {
+          "passed": false
+        },
+        "acmm:tdd-workflows": {
+          "passed": false
+        },
+        "acmm:structured-rca": {
+          "passed": false
+        },
+        "acmm:multi-perspective-review": {
+          "passed": false
+        },
+        "acmm:idempotent-workflows": {
+          "passed": false
+        },
+        "acmm:session-continuity": {
+          "passed": false
+        },
+        "acmm:cross-session-knowledge": {
+          "passed": false
+        },
+        "acmm:cross-repo-skills": {
+          "passed": false
+        },
+        "acmm:github-coordination": {
+          "passed": false
+        },
+        "acmm:feedback-loops": {
+          "passed": false
+        },
+        "acmm:claude-md-auto-sync": {
+          "passed": false
+        },
+        "acmm:preference-index": {
+          "passed": false
+        },
+        "acmm:task-ledger": {
+          "passed": false
+        },
+        "acmm:github-actions-ai": {
+          "passed": false
+        },
+        "acmm:auto-qa-self-tuning": {
+          "passed": false
+        },
+        "acmm:public-metrics": {
+          "passed": false
+        },
+        "acmm:policy-as-code": {
+          "passed": false
+        },
+        "acmm:reflection-log": {
+          "passed": false
+        },
+        "acmm:periodic-reflection": {
+          "passed": false
+        },
+        "acmm:audit-trail": {
+          "passed": false
+        },
+        "acmm:auto-issue-gen": {
+          "passed": false
+        },
+        "acmm:multi-agent-orchestration": {
+          "passed": false
+        },
+        "acmm:merge-queue": {
+          "passed": false
+        },
+        "acmm:strategic-dashboard": {
+          "passed": false
+        },
+        "acmm:risk-assessment-config": {
+          "passed": false
+        },
+        "acmm:production-feedback": {
+          "passed": false
+        },
+        "acmm:observability-runbook": {
+          "passed": false
+        },
+        "acmm:rollback-drill": {
+          "passed": false
+        },
+        "fullsend:test-coverage": {
+          "passed": false
+        },
+        "fullsend:ci-cd-maturity": {
+          "passed": false
+        },
+        "fullsend:auto-merge-policy": {
+          "passed": false
+        },
+        "fullsend:branch-protection-doc": {
+          "passed": false
+        },
+        "fullsend:production-feedback": {
+          "passed": false
+        },
+        "fullsend:observability-runbook": {
+          "passed": false
+        },
+        "fullsend:risk-assessment": {
+          "passed": false
+        },
+        "fullsend:rollback-drill": {
+          "passed": false
+        },
+        "aef:task-traceability": {
+          "passed": false
+        },
+        "aef:structural-gates": {
+          "passed": false
+        },
+        "aef:session-continuity": {
+          "passed": false
+        },
+        "aef:audit-trail": {
+          "passed": false
+        },
+        "aef:cross-tool-config": {
+          "passed": false
+        },
+        "aef:change-classification": {
+          "passed": false
+        },
+        "claude-reflect:correction-capture": {
+          "passed": false
+        },
+        "claude-reflect:positive-reinforcement": {
+          "passed": false
+        },
+        "claude-reflect:claude-md-sync": {
+          "passed": false
+        },
+        "claude-reflect:preference-index": {
+          "passed": false
+        },
+        "claude-reflect:reflection-review": {
+          "passed": false
+        },
+        "claude-reflect:session-summary": {
+          "passed": false
+        }
+      },
+      "behavioralGates": []
+    }
+  ]
+}

@@ -7,6 +7,7 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
+
 <objective>
 Analyze freeform natural language input and dispatch to the most appropriate GSD command.
 

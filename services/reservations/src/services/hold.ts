@@ -2,11 +2,7 @@ import {
   toDateString,
   type ReservationHold,
   type CreateHoldRequest,
-  type ConfirmHoldRequest,
-  type Reservation,
-  type Table,
   type VenueSettings,
-  type TableShapeMetadata,
 } from "@mbe/types";
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
@@ -36,20 +32,11 @@ export interface CreateHoldResult {
   error?: string;
 }
 
-export interface ConfirmHoldResult {
-  success: boolean;
-  reservation?: Reservation;
-  error?: string;
-}
-
 export const holdService = {
   /**
    * Creates a hold on a time slot for a session.
    */
-  async create(
-    data: CreateHoldRequest,
-    sessionId: string
-  ): Promise<CreateHoldResult> {
+  async create(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult> {
     const { venueId, date, time, partySize, tableId, holdDurationMinutes } = data;
 
     // Get venue settings for hold duration
@@ -63,7 +50,8 @@ export const holdService = {
 
     const settings = venue.settings as VenueSettings | null;
     // Use request-provided duration, or fall back to venue setting, or default
-    const holdDuration = holdDurationMinutes ?? settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
+    const holdDuration =
+      holdDurationMinutes ?? settings?.holdDurationMinutes ?? DEFAULT_HOLD_DURATION;
 
     // Calculate times
     const startTime = new Date(time);
@@ -125,10 +113,7 @@ export const holdService = {
           tableId: selectedTableId,
           date: new Date(date),
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [
-            { startTime: { lt: endTime } },
-            { endTime: { gt: startTime } },
-          ],
+          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
         },
         select: { id: true },
       });
@@ -144,10 +129,7 @@ export const holdService = {
           date: new Date(date),
           expiresAt: { gt: new Date() },
           sessionId: { not: sessionId }, // Don't conflict with own session
-          AND: [
-            { startTime: { lt: endTime } },
-            { endTime: { gt: startTime } },
-          ],
+          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
         },
         select: { id: true },
       });
@@ -208,10 +190,7 @@ export const holdService = {
   /**
    * Gets a hold by session ID for a venue.
    */
-  async getBySessionId(
-    sessionId: string,
-    venueId: string
-  ): Promise<ReservationHold | null> {
+  async getBySessionId(sessionId: string, venueId: string): Promise<ReservationHold | null> {
     const hold = await prisma.reservationHold.findFirst({
       where: {
         sessionId,
@@ -235,153 +214,6 @@ export const holdService = {
     } catch {
       return false;
     }
-  },
-
-  /**
-   * Converts a hold to a reservation.
-   */
-  async convertToReservation(
-    holdId: string,
-    sessionId: string,
-    guestDetails: ConfirmHoldRequest,
-    userId?: string
-  ): Promise<ConfirmHoldResult> {
-    // Look up the hold by ID first, then diagnose failure separately
-    const hold = await prisma.reservationHold.findUnique({
-      where: { id: holdId },
-    });
-
-    if (!hold) {
-      return { success: false, error: "Hold not found" };
-    }
-
-    if (hold.expiresAt < new Date()) {
-      // Clean up the expired hold
-      await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
-      return { success: false, error: "Hold has expired" };
-    }
-
-    if (hold.sessionId !== sessionId) {
-      return { success: false, error: "Session ID does not match the hold" };
-    }
-
-    // Check conflict + create reservation + delete hold atomically in a transaction
-    // to prevent TOCTOU race conditions where two simultaneous conversions both
-    // pass the conflict check and create overlapping reservations.
-    const txResult = await prisma.$transaction(async (tx) => {
-      // Verify the table is still available (inside transaction for atomicity)
-      const conflictingReservation = await tx.reservation.findFirst({
-        where: {
-          tableId: hold.tableId,
-          date: hold.date,
-          status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [
-            { startTime: { lt: hold.endTime } },
-            { endTime: { gt: hold.startTime } },
-          ],
-        },
-        select: { id: true },
-      });
-
-      if (conflictingReservation) {
-        // Clean up the hold since it's no longer valid
-        await tx.reservationHold.delete({ where: { id: holdId } });
-        return { conflict: true as const };
-      }
-
-      const conflictingHold = await tx.reservationHold.findFirst({
-        where: {
-          tableId: hold.tableId,
-          date: hold.date,
-          expiresAt: { gt: new Date() },
-          id: { not: holdId },
-          AND: [
-            { startTime: { lt: hold.endTime } },
-            { endTime: { gt: hold.startTime } },
-          ],
-        },
-        select: { id: true },
-      });
-
-      if (conflictingHold) {
-        // Clean up the hold since it's no longer valid
-        await tx.reservationHold.delete({ where: { id: holdId } });
-        return { conflict: true as const };
-      }
-
-      // Create the reservation
-      const reservation = await tx.reservation.create({
-        data: {
-          date: hold.date,
-          startTime: hold.startTime,
-          endTime: hold.endTime,
-          partySize: hold.partySize,
-          tableId: hold.tableId,
-          venueId: hold.venueId,
-          guestName: guestDetails.guestName ?? null,
-          guestEmail: guestDetails.guestEmail ?? null,
-          guestPhone: guestDetails.guestPhone ?? null,
-          guestId: guestDetails.guestId ?? null,
-          notes: guestDetails.notes ?? null,
-          userId: userId ?? null,
-          status: "CONFIRMED",
-        },
-        include: { table: true },
-      });
-
-      // Delete the hold
-      await tx.reservationHold.delete({ where: { id: holdId } });
-
-      return { conflict: false as const, reservation };
-    });
-
-    if (txResult.conflict) {
-      return { success: false, error: "Time slot is no longer available" };
-    }
-
-    const result = txResult.reservation;
-    return {
-      success: true,
-      reservation: {
-        id: result.id,
-        date: toDateString(result.date),
-        startTime: result.startTime.toISOString(),
-        endTime: result.endTime.toISOString(),
-        partySize: result.partySize,
-        status: result.status,
-        notes: result.notes,
-        cancellationReason: result.cancellationReason,
-        cancellationNote: result.cancellationNote,
-        guestName: result.guestName,
-        guestEmail: result.guestEmail,
-        guestPhone: result.guestPhone,
-        guestId: result.guestId,
-        userId: result.userId,
-        tableId: result.tableId,
-        table: result.table
-          ? {
-              id: result.table.id,
-              name: result.table.name,
-              tableNumber: result.table.tableNumber,
-              capacity: result.table.capacity,
-              minCovers: result.table.minCovers,
-              maxCovers: result.table.maxCovers,
-              location: result.table.location,
-              isActive: result.table.isActive,
-              priority: result.table.priority,
-              status: result.table.status as Table["status"],
-              venueId: result.table.venueId,
-              floorPlanId: result.table.floorPlanId,
-              shapeMetadata: result.table.shapeMetadata as TableShapeMetadata | null,
-              createdAt: result.table.createdAt.toISOString(),
-              updatedAt: result.table.updatedAt.toISOString(),
-            }
-          : undefined,
-        venueId: result.venueId,
-        createdAt: result.createdAt.toISOString(),
-        updatedAt: result.updatedAt.toISOString(),
-      },
-    };
   },
 
   /**

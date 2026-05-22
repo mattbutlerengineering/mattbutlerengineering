@@ -62,7 +62,6 @@ http:
       rule: "PathPrefix(/api/gen)"
       service: agent-service
       middlewares:
-        
         - security-headers
       entryPoints:
         - web

@@ -1,16 +1,16 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
-import { within, expect } from '@storybook/test';
-import { Card } from './Card';
-import { Text } from '../Text/Text';
-import { Stack } from '../Stack/Stack';
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, expect } from "@storybook/test";
+import { Card } from "./Card";
+import { Text } from "../Text/Text";
+import { Stack } from "../Stack/Stack";
 
 const meta: Meta<typeof Card> = {
-  title: 'Foundation/Card',
+  title: "Foundation/Card",
   component: Card,
   parameters: {
-    layout: 'centered',
+    layout: "centered",
   },
-  tags: ['autodocs'],
+  tags: ["autodocs"],
 };
 
 export default meta;
@@ -18,30 +18,35 @@ type Story = StoryObj<typeof Card>;
 
 export const Default: Story = {
   render: (args: React.ComponentProps<typeof Card>) => (
-    <Card {...args} style={{ width: '300px' }}>
+    <Card {...args} style={{ width: "300px" }}>
       <Stack gap="md">
-        <Text variant="display" as="h3">Card Title</Text>
+        <Text variant="display" as="h3">
+          Card Title
+        </Text>
         <Text variant="body" color="secondary">
-          This is a sample card component with some placeholder text to demonstrate its layout and styling.
+          This is a sample card component with some placeholder text to demonstrate its layout and
+          styling.
         </Text>
       </Stack>
     </Card>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('Card Title')).toBeInTheDocument();
+    await expect(canvas.getByText("Card Title")).toBeInTheDocument();
     await expect(canvas.getByText(/sample card component/)).toBeInTheDocument();
   },
 };
 
 export const Elevated: Story = {
   args: {
-    variant: 'elevated',
+    variant: "elevated",
   },
   render: (args: React.ComponentProps<typeof Card>) => (
-    <Card {...args} style={{ width: '300px' }}>
+    <Card {...args} style={{ width: "300px" }}>
       <Stack gap="md">
-        <Text variant="display" as="h3">Elevated Card</Text>
+        <Text variant="display" as="h3">
+          Elevated Card
+        </Text>
         <Text variant="body" color="secondary">
           Elevated cards have a stronger shadow to stand out from the surface.
         </Text>
@@ -55,9 +60,11 @@ export const Tilt: Story = {
     tilt: true,
   },
   render: (args: React.ComponentProps<typeof Card>) => (
-    <Card {...args} style={{ width: '300px' }}>
+    <Card {...args} style={{ width: "300px" }}>
       <Stack gap="md">
-        <Text variant="display" as="h3">Interactive Tilt</Text>
+        <Text variant="display" as="h3">
+          Interactive Tilt
+        </Text>
         <Text variant="body" color="secondary">
           Hover over this card to see the 3D tilt effect.
         </Text>

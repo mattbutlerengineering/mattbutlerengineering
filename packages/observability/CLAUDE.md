@@ -17,6 +17,7 @@ Resource attributes: service name, version, deployment environment, `deploy.sha`
 ## Request ID Middleware
 
 `createRequestIdMiddleware(options?)` is a Fastify plugin that:
+
 - Reads `x-request-id` header from incoming requests (or generates a UUID)
 - Sets `request.id` for downstream logging and tracing
 
@@ -27,11 +28,17 @@ Helpers: `getRequestId(request)` extracts the ID; `logWithRequestId(logger, id, 
 Propagates agent metadata through the OTel W3C Baggage format across service boundaries.
 
 ```typescript
-import { createBaggageContext, extractAgentBaggage, BAGGAGE_KEYS } from "@mbe/observability/baggage";
+import {
+  createBaggageContext,
+  extractAgentBaggage,
+  BAGGAGE_KEYS,
+} from "@mbe/observability/baggage";
 
 // Attach baggage to outbound requests
 const ctx = createBaggageContext({ sessionId: "abc", prNumber: "42" });
-context.with(ctx, () => { /* HTTP calls carry baggage headers */ });
+context.with(ctx, () => {
+  /* HTTP calls carry baggage headers */
+});
 
 // Extract baggage in receiving service
 const bag = extractAgentBaggage(); // { sessionId, prNumber, issueNumber, deploySha }
@@ -41,15 +48,15 @@ Baggage keys: `agent.session_id`, `agent.pr_number`, `agent.issue_number`, `depl
 
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Grafana Cloud OTLP gateway URL |
-| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic <base64>` |
-| `OTEL_SDK_DISABLED` | Set `"true"` to disable (tests, local dev) |
-| `NODE_ENV` | Maps to `deployment.environment` resource attribute |
-| `DEPLOY_SHA` | Git SHA of current deploy |
-| `DEPLOY_PR_NUMBER` | PR number that triggered deploy |
-| `DEPLOY_AUTHOR` | Author of the deploy |
+| Variable                      | Purpose                                             |
+| ----------------------------- | --------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Grafana Cloud OTLP gateway URL                      |
+| `OTEL_EXPORTER_OTLP_HEADERS`  | `Authorization=Basic <base64>`                      |
+| `OTEL_SDK_DISABLED`           | Set `"true"` to disable (tests, local dev)          |
+| `NODE_ENV`                    | Maps to `deployment.environment` resource attribute |
+| `DEPLOY_SHA`                  | Git SHA of current deploy                           |
+| `DEPLOY_PR_NUMBER`            | PR number that triggered deploy                     |
+| `DEPLOY_AUTHOR`               | Author of the deploy                                |
 
 ## Package Exports
 

@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'CLAUDE.md'
-      - 'AGENTS.md'
-      - 'GEMINI.md'
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "GEMINI.md"
   pull_request:
     branches: [main]
     paths:
-      - 'CLAUDE.md'
-      - 'AGENTS.md'
-      - 'GEMINI.md'
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "GEMINI.md"
   workflow_dispatch: # Allow manual trigger
 
 permissions:
@@ -22,14 +22,14 @@ jobs:
   instruction-evals:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v3
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -11,6 +11,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+
 <objective>
 Conduct a retroactive 6-pillar visual audit. Produces UI-REVIEW.md with
 graded assessment (1-4 per pillar). Works on any project.

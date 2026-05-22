@@ -103,6 +103,11 @@ vi.mock("../services/database.js", () => ({
   prisma: {
     $queryRaw: vi.fn(),
   },
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+  }),
 }));
 
 // Mock jose library for JWT verification
@@ -479,7 +484,11 @@ describe("Reservation Routes", () => {
       it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
         vi.mocked(reservationService.cancel).mockResolvedValueOnce(
-          createMockReservation({ id: "res-123", status: "CANCELLED", cancellationReason: "Changed mind" })
+          createMockReservation({
+            id: "res-123",
+            status: "CANCELLED",
+            cancellationReason: "Changed mind",
+          })
         );
 
         const response = await app.inject({
@@ -522,11 +531,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(reservationService.cancel).toHaveBeenCalledWith(
-          "res-123",
-          undefined,
-          undefined
-        );
+        expect(reservationService.cancel).toHaveBeenCalledWith("res-123", undefined, undefined);
       });
 
       it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {

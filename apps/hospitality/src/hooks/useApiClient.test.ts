@@ -13,7 +13,7 @@ vi.mock("@mbe/api-client", () => ({
   createApiClient: vi.fn(() => ({ reservations: { list: vi.fn() } })),
 }));
 
-vi.mock("@mbe/observability/sentry/react", () => ({
+vi.mock("@mbe/sentry/react", () => ({
   captureException: vi.fn(),
   captureMessage: vi.fn(),
   addBreadcrumb: vi.fn(),
@@ -95,7 +95,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls captureException for server errors (5xx)", async () => {
-    const { captureException, addBreadcrumb } = await import("@mbe/observability/sentry/react");
+    const { captureException, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
@@ -118,8 +118,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls captureMessage for 401 auth errors", async () => {
-    const { captureMessage, captureException, addBreadcrumb } =
-      await import("@mbe/observability/sentry/react");
+    const { captureMessage, captureException, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
@@ -142,7 +141,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls captureMessage for 403 forbidden errors", async () => {
-    const { captureMessage, addBreadcrumb } = await import("@mbe/observability/sentry/react");
+    const { captureMessage, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
@@ -165,8 +164,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("calls addBreadcrumb but not captureException or captureMessage for 4xx client errors", async () => {
-    const { captureException, captureMessage, addBreadcrumb } =
-      await import("@mbe/observability/sentry/react");
+    const { captureException, captureMessage, addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
     const error = {
@@ -190,7 +188,7 @@ describe("reportToSentry via onError", () => {
   });
 
   it("uses error level in breadcrumb for 5xx and warning for others", async () => {
-    const { addBreadcrumb } = await import("@mbe/observability/sentry/react");
+    const { addBreadcrumb } = await import("@mbe/sentry/react");
 
     const onError = getOnError();
 

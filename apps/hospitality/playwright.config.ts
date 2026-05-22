@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: ["**/fixtures/*.test.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -34,7 +35,7 @@ export default defineConfig({
   webServer: {
     command: "pnpm --filter @mbe/hospitality dev -- --port 3002 --strictPort",
     url: "http://localhost:3002/hospitality/",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 60_000,
   },
 });

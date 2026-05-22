@@ -23,7 +23,6 @@ export default defineConfig({
         "src/test/**",
         "src/**/*.stories.{ts,tsx}",
         "src/showcase/**",
-        "src/components/GenCopilot/**",
       ],
       thresholds: {
         lines: 70,

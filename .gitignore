@@ -41,6 +41,7 @@ coverage/
 .worktrees/
 .agent-worktrees/
 .claude/worktrees/
+.claire/worktrees/
 
 # GSD planning artifacts (internal project-management state, not for consumers)
 .planning/
@@ -85,11 +86,12 @@ test.txt
 # Test artifacts
 playwright-report/
 test-results/
-metrics/
+/metrics/
 
 # Playwright
 e2e/.auth/
 e2e/test-results/
+e2e/screenshots/
 .playwright-cli/
 
 # Lighthouse CI
@@ -101,3 +103,10 @@ e2e/test-results/
 
 *storybook.log
 storybook-static
+
+# Playwright MCP browser session artifacts
+.playwright-mcp/
+
+# AI-generated plan/spec docs (superpowers artifacts)
+docs/superpowers/plans/
+docs/superpowers/specs/

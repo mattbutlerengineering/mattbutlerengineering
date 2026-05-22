@@ -18,7 +18,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "e2e/fixtures/**/*.test.ts"],
     css: {
       modules: {
         classNameStrategy: "non-scoped",

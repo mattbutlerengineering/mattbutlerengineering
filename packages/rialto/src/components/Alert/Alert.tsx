@@ -140,7 +140,12 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
             </div>
 
             {dismissible && (
-              <button type="button" className={styles.close} onClick={handleDismiss} aria-label="Dismiss">
+              <button
+                type="button"
+                className={styles.close}
+                onClick={handleDismiss}
+                aria-label="Dismiss"
+              >
                 <svg
                   width="10"
                   height="10"
