@@ -11,7 +11,7 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
-import { parseFeatureFlags, isEnabled } from "@mbe/feature-flags";
+import { createFeatureContext } from "@mbe/feature-flags";
 import { reservationService } from "../services/reservation.js";
 import {
   emitReservationCancelled,
@@ -94,7 +94,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, _reply) => {
+    async (request, reply) => {
+      const adminAccess = hasPermission(request.user, "admin");
+
+      if (!adminAccess) {
+        reply.code(403);
+        return reply.send(
+          createProblemDetails(
+            403,
+            "Forbidden",
+            "Admin access required to list all reservations"
+          ) as never
+        );
+      }
+
       const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
       const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
@@ -421,9 +434,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const userId = request.user?.id;
 
-      // Check feature flag for enhanced validation
-      const flags = parseFeatureFlags(request.headers["x-feature-flags"] as string | undefined);
-      const useEnhancedValidation = isEnabled(flags, "enhanced-validation");
+      const features = createFeatureContext(
+        request.headers["x-feature-flags"] as string | undefined
+      );
+      const useEnhancedValidation = features.check("enhanced-validation");
 
       if (useEnhancedValidation && request.body.partySize > 20) {
         return reply
