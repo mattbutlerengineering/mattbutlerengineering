@@ -282,12 +282,7 @@ const SERVICE_ENDPOINTS = {
   agent: "/api/gen/health",
 };
 
-const STATIC_SITE_BINDINGS = [
-  "MARKETING",
-  "HOSPITALITY",
-  "RIALTO",
-  "GEN",
-];
+const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
 
 const KV_KEYS = {
   ci: "ci/latest",
@@ -506,11 +501,24 @@ function isHealthAuthorized(request, env) {
 }
 
 /**
- * Return a coarse health response with no infrastructure details.
+ * Return a coarse health response with per-subsystem STATUS rollup but no
+ * sensitive infrastructure details (no commit SHAs, latencies, service names,
+ * pipeline identifiers, or KV data).  This lets unauthenticated callers — e.g.
+ * the synthetic monitoring workflow — determine WHY the system is degraded
+ * without exposing internal topology.
  */
-function coarseHealthResponse(status, timestamp, requestId, request) {
+function coarseHealthResponse(status, timestamp, requestId, request, subsystemStatuses) {
   const corsOrigin = corsOriginFor(request);
-  return new Response(JSON.stringify({ status, timestamp, requestId }), {
+  const body = { status, timestamp, requestId };
+  if (subsystemStatuses) {
+    body.subsystems = {
+      services: { status: subsystemStatuses.services },
+      static_sites: { status: subsystemStatuses.static_sites },
+      ci: { status: subsystemStatuses.ci },
+      deploys: { status: subsystemStatuses.deploys },
+    };
+  }
+  return new Response(JSON.stringify(body), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
@@ -579,9 +587,17 @@ async function handleHealthSystem(request, env, requestId) {
   const status = computeSystemStatus(services, staticSites, ci, deploys);
   const timestamp = new Date(now).toISOString();
 
-  // Gate detailed output behind token auth (safe by default)
+  // Gate detailed output behind token auth (safe by default).
+  // Unauthenticated callers get per-subsystem STATUS rollup only — enough
+  // for monitoring scripts to know WHY the system is degraded without
+  // exposing commit SHAs, latencies, pipeline names, or service topology.
   if (!isHealthAuthorized(request, env)) {
-    return coarseHealthResponse(status, timestamp, requestId, request);
+    return coarseHealthResponse(status, timestamp, requestId, request, {
+      services: services.status,
+      static_sites: staticSites.status,
+      ci: ci.status,
+      deploys: deploys.status,
+    });
   }
 
   const corsOrigin = corsOriginFor(request);
