@@ -8,7 +8,9 @@
       }
     </item>
     <item priority="low">
-      type FeatureFlagMap = Record<string, FeatureFlag>;
+      interface FeatureContext {
+        
+      }
     </item>
   </file>
   </section>
