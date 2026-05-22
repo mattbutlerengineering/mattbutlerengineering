@@ -332,6 +332,6 @@ Both return the same structure including database connectivity status.
 
 ## Related Documentation
 
-- [Auth Package](../packages/auth/CLAUDE.md)
-- [API Versioning](../docs/API-VERSIONING.md)
-- [Cross-Service Flows](../docs/CROSS-SERVICE-FLOWS.md)
+- [Auth Package](../../packages/auth/CLAUDE.md)
+- [API Versioning](../../docs/API-VERSIONING.md)
+- [Cross-Service Flows](../../docs/CROSS-SERVICE-FLOWS.md)
