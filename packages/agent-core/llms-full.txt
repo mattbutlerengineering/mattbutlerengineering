@@ -290,6 +290,19 @@
       readonly errors: readonly string[];
     }
   </file>
+  <file path="src/post-commit-gateway.ts">
+    export type GatewayOutcome = "merge-direct" | "create-pr" | "create-draft-pr";
+    export interface GatewayVerdict {
+      outcome: GatewayOutcome;
+      passed: boolean;
+      /** Names of gates that failed, e.g. ["verification", "static-analysis"] */
+      gateFailures: string[];
+      /** Human-readable failure messages collected from verification + quality gates */
+      errors: string[];
+      /** LLM evaluation result — undefined when evaluation was skipped or not run */
+      evaluation?: EvaluationResult;
+    }
+  </file>
   <file path="src/pr-creator.ts">
     export async function createPullRequest(options: PrOptions): Promise<PrResult> {
       const { title, body, baseBranch, branchName, repoPath, draft } = options;
