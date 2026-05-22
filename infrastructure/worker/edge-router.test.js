@@ -392,8 +392,17 @@ describe("Edge Router", () => {
       const body = await response.json();
       expect(body).toHaveProperty("status");
       expect(body).toHaveProperty("timestamp");
-      // Should NOT have detailed subsystem info without auth
-      expect(body).not.toHaveProperty("subsystems");
+      // Coarse response includes per-subsystem STATUS rollup so monitoring
+      // scripts can determine WHY the system is degraded — but no sensitive
+      // details (commit SHAs, latencies, pipeline names, service topology).
+      expect(body).toHaveProperty("subsystems.services.status");
+      expect(body).toHaveProperty("subsystems.static_sites.status");
+      expect(body).toHaveProperty("subsystems.ci.status");
+      expect(body).toHaveProperty("subsystems.deploys.status");
+      // Verify no sensitive fields leak through
+      expect(body.subsystems.ci).not.toHaveProperty("last_run");
+      expect(body.subsystems.deploys).not.toHaveProperty("pipelines");
+      expect(body.subsystems.services).not.toHaveProperty("checks");
     });
 
     it("omits CORS header when no Origin is sent", async () => {
