@@ -280,6 +280,20 @@
       }
     </item>
   </file>
+  <file path="src/post-commit-gateway.ts">
+    <item priority="low">
+      type GatewayOutcome = "merge-direct" | "create-pr" | "create-draft-pr";
+    </item>
+    <item priority="low">
+      interface GatewayVerdict {
+        outcome: GatewayOutcome;
+        passed: boolean;
+        gateFailures: string[];
+        errors: string[];
+        evaluation?: EvaluationResult;
+      }
+    </item>
+  </file>
   <file path="src/pr-creator.ts">
     <item priority="high">
       export async function createPullRequest(options: PrOptions): Promise<PrResult> { /* ... */ }
