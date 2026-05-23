@@ -1,6 +1,6 @@
 {
-  "lastRun": "2026-05-23T17:45:13.374Z",
-  "currentLevel": 3,
+  "lastRun": "2026-05-23T21:57:14.428Z",
+  "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
@@ -519,8 +519,10 @@
       "substanceEvidence": null
     },
     "acmm:auto-rollback": {
-      "passed": false,
-      "evidence": "file present but no recent successful run: .github/workflows/auto-rollback.yml"
+      "passed": true,
+      "evidence": "detected at one of: .github/workflows/auto-rollback.yml, docs/acmm/auto-rollback.md",
+      "substantive": null,
+      "substanceEvidence": null
     },
     "acmm:multi-repo-orchestration": {
       "passed": true,
@@ -649,20 +651,28 @@
       "substanceEvidence": null
     },
     "meta:threshold-tuning": {
-      "passed": false,
-      "evidence": "file not found: metrics/threshold-changes.jsonl"
+      "passed": true,
+      "evidence": "detected at one of: metrics/threshold-changes.jsonl",
+      "substantive": null,
+      "substanceEvidence": null
     },
     "meta:instruction-evolution": {
-      "passed": false,
-      "evidence": "file not found: metrics/instruction-changes.jsonl"
+      "passed": true,
+      "evidence": "detected at one of: metrics/instruction-changes.jsonl",
+      "substantive": null,
+      "substanceEvidence": null
     },
     "meta:process-metrics": {
-      "passed": false,
-      "evidence": "file not found: metrics/process-metrics.jsonl"
+      "passed": true,
+      "evidence": "detected at one of: metrics/process-metrics.jsonl",
+      "substantive": null,
+      "substanceEvidence": null
     },
     "meta:fp-rate-healthy": {
-      "passed": false,
-      "evidence": "file not found: metrics/process-metrics.jsonl"
+      "passed": true,
+      "evidence": "detected at one of: metrics/process-metrics.jsonl",
+      "substantive": null,
+      "substanceEvidence": null
     },
     "meta:product-improvements": {
       "passed": true,
@@ -746,8 +756,8 @@
     },
     {
       "date": "2026-05-23",
-      "level": 3,
-      "detected": 108,
+      "level": 6,
+      "detected": 113,
       "total": 113
     }
   ],
@@ -847,6 +857,7 @@
     "acmm:budget-policy",
     "acmm:token-tracking",
     "acmm:accessibility-ai-check",
+    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -868,10 +879,14 @@
     "claude-reflect:preference-index",
     "claude-reflect:reflection-review",
     "claude-reflect:session-summary",
+    "meta:threshold-tuning",
+    "meta:instruction-evolution",
+    "meta:process-metrics",
+    "meta:fp-rate-healthy",
     "meta:product-improvements"
   ],
   "computation": {
-    "level": 3,
+    "level": 6,
     "strict": true,
     "levelName": "Fully Autonomous",
     "role": "Strategist",
@@ -881,7 +896,7 @@
       "3": 6,
       "4": 16,
       "5": 16,
-      "6": 7
+      "6": 8
     },
     "requiredByLevel": {
       "2": 3,
@@ -924,7 +939,7 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9090909090909091,
+        "value": 0.9166666666666666,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
@@ -953,27 +968,26 @@
         "dataAvailable": true
       }
     ],
-    "capped": true,
-    "computedLevel": 6
+    "capped": false
   },
   "behavioral": {
     "flake": {
       "rate_30d": 0,
-      "sample_size": 99,
+      "sample_size": 100,
       "flaky_shas": [],
-      "measured_at": "2026-05-23T17:45:12.351Z"
+      "measured_at": "2026-05-23T21:57:13.603Z"
     },
     "agent_pr": {
-      "sample_size": 23,
-      "merged_count": 20,
+      "sample_size": 24,
+      "merged_count": 22,
       "closed_unmerged_count": 2,
-      "open_count": 1,
-      "acceptance_rate_30d": 0.9090909090909091,
+      "open_count": 0,
+      "acceptance_rate_30d": 0.9166666666666666,
       "revert_rate_30d": 0,
       "median_time_to_merge_hours": 1.2530555555555556,
       "human_touch_ratio": 1,
       "insufficient_data": false,
-      "measured_at": "2026-05-23T17:45:12.351Z"
+      "measured_at": "2026-05-23T21:57:13.603Z"
     },
     "evals": {
       "n": 37,
@@ -991,11 +1005,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-23T17:45:12.351Z"
+      "measured_at": "2026-05-23T21:57:13.603Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-23T17:45:12.351Z"
+      "measured_at": "2026-05-23T21:57:13.603Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
