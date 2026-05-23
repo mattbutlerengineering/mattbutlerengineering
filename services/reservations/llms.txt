@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/services/reservations">
+<codebase path="services/reservations">
   <section priority="medium" role="middleware">
   <file path="src/middleware/public-rate-limit.ts">
     <item priority="high">

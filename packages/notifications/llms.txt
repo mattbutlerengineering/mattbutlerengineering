@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/notifications">
+<codebase path="packages/notifications">
   <section priority="medium" role="src">
   <file path="src/booking-email-content.ts">
     <item priority="low">

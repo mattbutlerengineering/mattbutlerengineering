@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/sentry">
+<codebase path="packages/sentry">
   <section priority="medium" role="src">
   <file path="src/config.ts">
     export interface SentryConfig {

@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/agent-core">
+<codebase path="packages/agent-core">
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     <item priority="medium">

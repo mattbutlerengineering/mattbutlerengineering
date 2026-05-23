@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/auth">
+<codebase path="packages/auth">
   <section priority="medium" role="fastify">
   <file path="src/fastify/plugin.ts">
     <item priority="low">

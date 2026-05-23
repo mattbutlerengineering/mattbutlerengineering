@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/apps/hospitality">
+<codebase path="apps/hospitality">
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     <item priority="low">

@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/agent-test-utils">
+<codebase path="packages/agent-test-utils">
   <section priority="medium" role="src">
   <file path="src/cost-estimator.ts">
     <item priority="low">
