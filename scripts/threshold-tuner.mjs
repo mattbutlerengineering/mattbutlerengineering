@@ -120,11 +120,16 @@ export function computeWeeklyChange(changesLog, sensorLabel) {
   let total = 0;
 
   for (const c of changesLog) {
-    if (c.threshold !== sensorLabel) continue;
-    if (!c.date) continue;
-    if (new Date(c.date) < cutoff) continue;
-    if (c.oldValue === 0) continue; // guard against division by zero
-    total += Math.abs((c.newValue - c.oldValue) / c.oldValue);
+    // Accept both ACMM-canonical (criterion) and legacy (threshold) field names
+    const label = c.criterion ?? c.threshold;
+    if (label !== sensorLabel) continue;
+    const dateStr = c.timestamp ?? c.date;
+    if (!dateStr) continue;
+    if (new Date(dateStr) < cutoff) continue;
+    const oldVal = c.old_value ?? c.oldValue;
+    const newVal = c.new_value ?? c.newValue;
+    if (oldVal === 0) continue; // guard against division by zero
+    total += Math.abs((newVal - oldVal) / oldVal);
   }
 
   return total;
@@ -262,6 +267,25 @@ export function applyAdjustments(tuning, perSensorMetrics, changesLog, today) {
   return { tuning: updatedTuning, changes: appliedChanges };
 }
 
+/**
+ * Convert an internal change record to the ACMM-canonical JSONL format.
+ *
+ * Internal fields:  date, threshold, oldValue, newValue, trigger, evidence
+ * ACMM fields:      timestamp, criterion, old_value, new_value, trigger
+ *
+ * @param {{ date: string, threshold: string, oldValue: number, newValue: number, trigger: string, evidence?: string }} change
+ * @returns {{ timestamp: string, criterion: string, old_value: number, new_value: number, trigger: string }}
+ */
+export function buildJsonlEntry(change) {
+  return {
+    timestamp: new Date(change.date).toISOString(),
+    criterion: change.threshold,
+    old_value: change.oldValue,
+    new_value: change.newValue,
+    trigger: change.trigger,
+  };
+}
+
 // ── I/O helpers ───────────────────────────────────────
 
 function readJsonl(filePath) {
@@ -341,10 +365,11 @@ export async function run({ dryRun = false } = {}) {
   // Persist tuning config
   writeJson(TUNING_PATH, updatedTuning);
 
-  // Append each change to the audit log
+  // Append each change to the audit log in ACMM-canonical format
   mkdirSync(dirname(CHANGES_LOG_PATH), { recursive: true });
   for (const change of changes) {
-    appendFileSync(CHANGES_LOG_PATH, JSON.stringify(change) + "\n");
+    const entry = buildJsonlEntry(change);
+    appendFileSync(CHANGES_LOG_PATH, JSON.stringify(entry) + "\n");
   }
 
   console.log(`[threshold-tuner] Applied ${changes.length} threshold adjustment(s):`);

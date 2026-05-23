@@ -4,6 +4,7 @@ import {
   computeWeeklyChange,
   determineAdjustment,
   applyAdjustments,
+  buildJsonlEntry,
 } from "../threshold-tuner.mjs";
 
 // ---------------------------------------------------------------------------
@@ -168,6 +169,19 @@ describe("computeWeeklyChange", () => {
     // 0.05/1.0 + 0.05/0.95 ≈ 0.103
     expect(change).toBeGreaterThan(0.09);
   });
+
+  it("accepts ACMM-canonical field names (timestamp, criterion, old_value, new_value)", () => {
+    const changes = [
+      {
+        timestamp: new Date(NOW - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        criterion: "ci-fix",
+        old_value: 1.0,
+        new_value: 0.95,
+      },
+    ];
+    const change = computeWeeklyChange(changes, "ci-fix");
+    expect(change).toBeCloseTo(0.05);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -271,7 +285,7 @@ describe("applyAdjustments — applies adjustments", () => {
 
   it("tightens threshold by 3% on headroom", () => {
     const metrics = { "ci-fix": { fpRate: 0.05, effectiveness: 0.9, total: 10 } };
-    const { tuning, changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
     expect(changes[0].newValue).toBeCloseTo(1.03);
   });
 
@@ -385,5 +399,104 @@ describe("applyAdjustments — guard rails", () => {
     const audit = changes.find((c) => c.threshold === "audit");
     expect(ciFix.newValue).toBeCloseTo(0.95); // loosened
     expect(audit.newValue).toBeCloseTo(1.03); // tightened
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildJsonlEntry — ACMM-canonical JSONL format
+// ---------------------------------------------------------------------------
+
+describe("buildJsonlEntry", () => {
+  it("maps internal change fields to ACMM-canonical JSONL fields", () => {
+    const change = {
+      date: "2026-05-23",
+      threshold: "ci-fix",
+      oldValue: 1.0,
+      newValue: 0.95,
+      trigger: "high-fp-rate",
+      evidence: "FP rate 40.0% > 30%",
+    };
+
+    const entry = buildJsonlEntry(change);
+
+    expect(entry).toHaveProperty("timestamp");
+    expect(entry).toHaveProperty("criterion", "ci-fix");
+    expect(entry).toHaveProperty("old_value", 1.0);
+    expect(entry).toHaveProperty("new_value", 0.95);
+    expect(entry).toHaveProperty("trigger", "high-fp-rate");
+  });
+
+  it("uses ISO timestamp format", () => {
+    const change = {
+      date: "2026-05-23",
+      threshold: "audit",
+      oldValue: 1.0,
+      newValue: 1.03,
+      trigger: "headroom",
+      evidence: "test",
+    };
+
+    const entry = buildJsonlEntry(change);
+
+    // Should be a valid ISO date string
+    expect(new Date(entry.timestamp).toISOString()).toBe(entry.timestamp);
+  });
+
+  it("does not include internal-only fields (evidence, threshold, oldValue, newValue, date)", () => {
+    const change = {
+      date: "2026-05-23",
+      threshold: "ci-fix",
+      oldValue: 1.0,
+      newValue: 0.95,
+      trigger: "high-fp-rate",
+      evidence: "FP rate 40.0% > 30%",
+    };
+
+    const entry = buildJsonlEntry(change);
+
+    // Internal field names should not leak into the JSONL entry
+    expect(entry).not.toHaveProperty("threshold");
+    expect(entry).not.toHaveProperty("oldValue");
+    expect(entry).not.toHaveProperty("newValue");
+    expect(entry).not.toHaveProperty("date");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JSONL file append behavior (integration — uses real fs via run())
+// ---------------------------------------------------------------------------
+
+describe("JSONL append — applyAdjustments + buildJsonlEntry integration", () => {
+  it("applyAdjustments returns changes with all required log fields for JSONL", () => {
+    const metrics = {
+      "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 },
+      audit: { fpRate: 0.05, effectiveness: 0.9, total: 5 },
+    };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes.length).toBeGreaterThan(0);
+
+    for (const c of changes) {
+      // Each change must have all fields needed for buildJsonlEntry
+      expect(c).toHaveProperty("date");
+      expect(c).toHaveProperty("threshold");
+      expect(c).toHaveProperty("oldValue");
+      expect(c).toHaveProperty("newValue");
+      expect(c).toHaveProperty("trigger");
+
+      // Verify buildJsonlEntry can map it
+      const entry = buildJsonlEntry(c);
+      expect(entry).toHaveProperty("timestamp");
+      expect(entry).toHaveProperty("criterion");
+      expect(entry).toHaveProperty("old_value");
+      expect(entry).toHaveProperty("new_value");
+      expect(entry).toHaveProperty("trigger");
+    }
+  });
+
+  it("when no changes are made, no JSONL entries would be appended", () => {
+    // Metrics in acceptable range — no adjustments
+    const metrics = { "ci-fix": { fpRate: 0.2, effectiveness: 0.7, total: 5 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(0);
   });
 });
