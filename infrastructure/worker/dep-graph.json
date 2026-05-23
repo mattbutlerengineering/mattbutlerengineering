@@ -454,6 +454,11 @@
     },
     {
       "from": "@mbe/sentry",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/sentry",
       "to": "@mbe/types",
       "type": "dependency"
     },
