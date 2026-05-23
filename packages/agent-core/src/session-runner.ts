@@ -198,7 +198,7 @@ export async function runSession(
               const resolvedSourcePaths =
                 config.sourceFiles ??
                 (async () => {
-                  const { resolveSourceFiles } = await import("./task-intelligence.js");
+                  const { resolveSourceFiles } = await import("./source-resolver.js");
                   return resolveSourceFiles(config.taskDescription);
                 })();
 
@@ -210,7 +210,7 @@ export async function runSession(
 
               // Fetch recent successful PRs as examples (non-blocking)
               const { fetchRecentPrExamples, formatPrExamples } =
-                await import("./task-intelligence.js");
+                await import("./budget-calculator.js");
               const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
               const prExamplesSection = formatPrExamples(prExamples);
 
