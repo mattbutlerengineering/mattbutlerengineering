@@ -182,14 +182,16 @@ export type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.j
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 
-// Task intelligence (source files, budget, model, PR examples)
+// Source file resolution (parses task descriptions for file paths)
+export { resolveSourceFiles } from "./source-resolver.js";
+
+// Budget and model calculation (scales budget/model based on task complexity)
 export {
-  resolveSourceFiles,
   resolveBudget,
   resolveModel,
   fetchRecentPrExamples,
   formatPrExamples,
-} from "./task-intelligence.js";
+} from "./budget-calculator.js";
 
 // Intent extraction
 export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
