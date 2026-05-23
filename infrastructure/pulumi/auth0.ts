@@ -88,13 +88,17 @@ export const hospitalityApiGrant = new auth0.ClientGrant(
 // Dedicated E2E test user (ROPC auth, no MFA)
 const e2ePassword = config.requireSecret("e2eUserPassword");
 
-export const e2eUser = new auth0.User("e2e-test-user", {
-  connectionName: "Username-Password-Authentication",
-  email: "e2e-test@mattbutlerengineering.com",
-  password: e2ePassword,
-  emailVerified: true,
-  name: "E2E Test User",
-});
+export const e2eUser = new auth0.User(
+  "e2e-test-user",
+  {
+    connectionName: "Username-Password-Authentication",
+    email: "e2e-test@mattbutlerengineering.com",
+    password: e2ePassword,
+    emailVerified: true,
+    name: "E2E Test User",
+  },
+  { import: "auth0|69ba16db7d30828e10d61662" }
+);
 
 // Exports for use in other files and .env generation
 export const auth0Outputs = {
