@@ -64,5 +64,29 @@
       }
     </item>
   </file>
+  <file path="src/list-utils.ts">
+    <item priority="high">
+      export function parseListQuery(query: { page?: string; limit?: string }): {
+        page: number;
+        limit: number;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createListResponseSchema(entityRef: string) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/start-service-server.ts">
+    <item priority="low">
+      interface StartServiceServerOptions {
+        serviceName: string;
+        port: number;
+        buildApp: () => Promise<FastifyInstance>;
+        beforeShutdown?: () => void | Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
 </codebase>
