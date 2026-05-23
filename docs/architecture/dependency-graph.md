@@ -22,7 +22,6 @@ flowchart TD
     agent_core["agent-core"]
     agent_test_utils["agent-test-utils"]
     api_client["api-client"]
-    api_versioning["api-versioning"]
     auth["auth"]
     config["config"]
     database["database"]
@@ -61,7 +60,6 @@ flowchart TD
   rialto_web --> config
   agent_service --> agent_core
   agent_service --> api_client
-  agent_service --> api_versioning
   agent_service --> auth
   agent_service --> database
   agent_service --> observability
@@ -70,7 +68,6 @@ flowchart TD
   agent_service --> types
   agent_service --> agent_test_utils
   agent_service --> config
-  reservations_service --> api_versioning
   reservations_service --> auth
   reservations_service --> database
   reservations_service --> feature_flags
@@ -79,7 +76,6 @@ flowchart TD
   reservations_service --> sentry
   reservations_service --> types
   reservations_service --> config
-  users_service --> api_versioning
   users_service --> auth
   users_service --> observability
   users_service --> sentry
@@ -93,10 +89,8 @@ flowchart TD
   agent_test_utils --> config
   api_client --> types
   api_client --> config
-  api_versioning --> config
   auth --> types
   auth --> config
-  database --> api_versioning
   database --> auth
   database --> observability
   database --> sentry
@@ -132,7 +126,6 @@ flowchart TD
   class agent_core shared
   class agent_test_utils shared
   class api_client shared
-  class api_versioning shared
   class auth shared
   class config shared
   class database shared
@@ -150,9 +143,9 @@ flowchart TD
 
 ## Legend
 
-| Color  | Category                        |
-| ------ | ------------------------------- |
-| Blue   | Frontend Apps (`apps/*`)        |
-| Amber  | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`)  |
-| Green  | Developer Tools (`tools/*`)     |
+| Color | Category |
+|-------|----------|
+| Blue | Frontend Apps (`apps/*`) |
+| Amber | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`) |
+| Green | Developer Tools (`tools/*`) |
