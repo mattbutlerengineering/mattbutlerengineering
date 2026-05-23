@@ -26,6 +26,7 @@ import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
 import { measureEvals } from "./evals.js";
+import { runSubstanceChecks } from "./substance.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -233,6 +234,18 @@ for (const c of ALL_CRITERIA) {
   results[c.id] = { passed, evidence };
 }
 
+/* ── Tier 2: Substance checks (additive — only for detected criteria) ── */
+const substanceResults = runSubstanceChecks(detectedIds, ALL_CRITERIA, cwd);
+for (const [id, sub] of Object.entries(substanceResults)) {
+  if (results[id]) {
+    results[id] = {
+      ...results[id],
+      substantive: sub.substantive,
+      substanceEvidence: sub.substanceEvidence,
+    };
+  }
+}
+
 const nextState = recordHistory(
   {
     ...prior,
@@ -344,6 +357,22 @@ console.log(
 console.log(
   `Cross-cutting traceability: ${computation.crossCutting.traceability.met}/${computation.crossCutting.traceability.total}`
 );
+
+const substEntries = Object.values(substanceResults).filter((s) => s.substantive !== null);
+const substChecked = substEntries.length;
+const substPassed = substEntries.filter((s) => s.substantive === true).length;
+const substFailed = substEntries.filter((s) => s.substantive === false).length;
+if (substChecked > 0) {
+  console.log(
+    `Substance (Tier 2): ${substPassed}/${substChecked} substantive${substFailed > 0 ? ` (${substFailed} partially met)` : ""}`
+  );
+  for (const [id, sub] of Object.entries(substanceResults)) {
+    if (sub.substantive === false) {
+      console.log(`  ◐ ${id}: ${sub.substanceEvidence}`);
+    }
+  }
+  console.log("");
+}
 
 if (computation.behavioralGates.length > 0) {
   console.log("");
