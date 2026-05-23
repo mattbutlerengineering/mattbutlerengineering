@@ -19,53 +19,60 @@ auto-generated (see "Make this auto-update" at bottom).
 
 ## Recent autonomous activity
 
-Last refreshed on **2026-05-02 09:46 PT**. All times UTC unless noted.
+Last refreshed on **2026-05-23 08:56 PT**. All times UTC unless noted.
 
-### PRs merged (last 8)
+### Autonomous actions log
 
-| Merged           | #                                                                               | Title                                                                          |
-| ---------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 2026-05-02 16:27 | [#979](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/979) | fix(security): suppress false-positive CodeQL alerts in embed code highlighter |
-| 2026-05-02 16:17 | [#978](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/978) | fix(security): anchor regex in dep-bump-merger to prevent ReDoS                |
-| 2026-05-02 05:51 | [#976](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/976) | fix(security): ReDoS and bad HTML filter                                       |
-| 2026-05-02 05:49 | [#975](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/975) | fix(security): command injection in worktree-manager                           |
-| 2026-05-02 05:48 | [#974](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/974) | fix(security): suppress false-positive rate-limiting alerts                    |
-| 2026-05-02 05:47 | [#973](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/973) | fix(security): SSRF in webhook collaborator permission check                   |
-| 2026-05-02 05:50 | [#972](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/972) | fix(security): prevent command injection in worktree-manager                   |
-| 2026-05-02 05:44 | [#966](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/966) | fix(security): validate webhook inputs to prevent SSRF                         |
+| Date       | Action type         | Artifact                                                                            | Description                                                      | Outcome |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------- |
+| 2026-05-23 | PR merged (agent)   | [#1661](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1661)   | parseListQuery + createListResponseSchema utilities              | success |
+| 2026-05-23 | PR merged (agent)   | [#1659](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1659)   | Extract CliAdapterBase from CLI adapters                         | success |
+| 2026-05-23 | PR merged (agent)   | [#1658](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1658)   | Extract startServiceServer helper                                | success |
+| 2026-05-23 | PR merged (agent)   | [#1656](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1656)   | Inline api-versioning into createServiceApp                      | success |
+| 2026-05-23 | PR merged (agent)   | [#1653](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1653)   | Split task-intelligence into source-resolver + budget-calculator | success |
+| 2026-05-23 | PR merged (agent)   | [#1652](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1652)   | Product improvement discoverer                                   | success |
+| 2026-05-23 | PR merged           | [#1650](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1650)   | Threshold auto-tuner with guard rails                            | success |
+| 2026-05-23 | PR merged           | [#1640](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1640)   | Sensor correlator for cross-sensor root cause grouping           | success |
+| 2026-05-23 | PR merged           | [#1639](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1639)   | Substance checkers for Tier 2 artifact validation                | success |
+| 2026-05-23 | PR merged           | [#1638](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/1638)   | Process metrics collector                                        | success |
+| 2026-05-22 | Issue created       | [#1646](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1646) | Extract CliAdapterBase from gemini/opencode adapters             | closed  |
+| 2026-05-22 | Issue created       | [#1645](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1645) | Migrate feature-flag consumers to createFeatureContext()         | closed  |
+| 2026-05-22 | Issue created       | [#1644](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1644) | Add parseListQuery and createListResponseSchema utilities        | closed  |
+| 2026-05-22 | Issue created       | [#1643](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1643) | Extract startServiceServer helper                                | closed  |
+| 2026-05-22 | Issue filed (audit) | [#1618](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/1618) | Site unreachable from audit environment                          | closed  |
 
-### Most-recent workflow runs
+### Summary metrics
 
-| Time (UTC)       | Workflow                          | Outcome |
-| ---------------- | --------------------------------- | ------- |
-| 2026-05-02 16:30 | Deploy Storybook to GitHub Pages  | success |
-| 2026-05-02 16:29 | Post-Deploy Smoke Tests           | success |
-| 2026-05-02 16:29 | Post-Deploy Check                 | success |
-| 2026-05-02 16:29 | Auto-Rollback on Agent Regression | skipped |
-| 2026-05-02 16:27 | Auto-Rollback on Agent Regression | skipped |
-
-(See `gh run list` for the full feed.)
+| Metric                      | Value                            | Period       |
+| --------------------------- | -------------------------------- | ------------ |
+| PRs merged (agent-authored) | 10                               | Last 7 days  |
+| Issues created by sensors   | 6                                | Last 7 days  |
+| Human intervention rate     | 12.5% (2/16 PRs closed unmerged) | Last 30 days |
+| Agent PR acceptance rate    | 87.5%                            | Last 30 days |
+| Median time-to-merge        | 1.4 hours                        | Last 30 days |
+| Agent PR revert rate        | 0%                               | Last 30 days |
 
 ### ACMM-filed issues
 
-| Open | Total filed | Notes                                                                               |
-| ---- | ----------- | ----------------------------------------------------------------------------------- |
-| 0    | 20+         | All filed ACMM gap issues (#920–#949) have been closed. Zero open ACMM gaps remain. |
+| Open | Total filed | Notes                                                                                                 |
+| ---- | ----------- | ----------------------------------------------------------------------------------------------------- |
+| 9    | 30+         | 9 new ACMM gap issues (#1662–#1670) filed for L3→L6 uncap. Earlier gap issues (#920–#949) all closed. |
 
 ### ACMM trend
 
-| Date       | Level | Detected     | Headline                                                  |
-| ---------- | ----- | ------------ | --------------------------------------------------------- |
-| 2026-04-23 | L4    | (early seed) | Initial scoring, soft pass                                |
-| 2026-04-25 | L5    | 49/85        | Reflection log + observability runbook landed; L6 = 1/6   |
-| 2026-04-30 | L6    | 54/85        | First full L6 pass — all 6 L6 criteria detected           |
-| 2026-05-01 | L6    | 85/85        | Perfect score — all criteria across 4 frameworks detected |
+| Date       | Level | Detected | Headline                                           |
+| ---------- | ----- | -------- | -------------------------------------------------- |
+| 2026-04-23 | L4    | (seed)   | Initial scoring                                    |
+| 2026-04-30 | L6    | 54/85    | First full L6 pass                                 |
+| 2026-05-01 | L6    | 85/85    | Perfect score — all criteria detected              |
+| 2026-05-10 | L3    | 106/108  | Re-capped to L3 after honest audit                 |
+| 2026-05-22 | L3    | 107/113  | 5 meta-criteria added, substance fixes in progress |
 
 (See `node plugins/acmm/scripts/audit.js --trend` for the live history.)
 
 ## Open audit-derived work
 
-No open audit-derived issues remain. All previously tracked items (#36, #38, #39, #504) have been resolved.
+9 ACMM gap-closure issues open (#1662–#1670) for L3→L6 uncap. PRs in progress for #1662 (metrics collectors), #1663 (product-improvements check), #1664–#1667 (substance fixes), #1668 (auto-rollback drill). #1670 (remove levelCap) blocked by all others.
 
 ## How to read this doc
 
