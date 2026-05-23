@@ -59,7 +59,6 @@ mattbutlerengineering/
 │   ├── agent-core/           # Agent session runner and worktree management
 │   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
-│   ├── api-versioning/       # API version negotiation middleware
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
 │   ├── feature-flags/        # Feature flag evaluation library
