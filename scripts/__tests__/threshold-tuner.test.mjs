@@ -1,206 +1,389 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, it, expect } from "vitest";
 import {
-  computeAdjustments,
+  computePerSensorMetrics,
+  computeWeeklyChange,
+  determineAdjustment,
   applyAdjustments,
-  loadThresholdHistory,
-  isWithinWeeklyLimit,
-  HARD_FLOORS,
 } from "../threshold-tuner.mjs";
 
-function makeTmpDir() {
-  return mkdtempSync(join(tmpdir(), "tuner-test-"));
-}
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
-describe("computeAdjustments", () => {
+const NOW = new Date("2026-05-23T12:00:00Z");
+const TODAY = "2026-05-23";
+
+/** Recent verification entries (within 30d) */
+const makeVerification = (sensorLabel, verified, daysAgo = 1, confidence = undefined) => ({
+  timestamp: new Date(NOW - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
+  issue_number: 100,
+  issue_title: `Test issue (${sensorLabel})`,
+  sensor_label: sensorLabel,
+  verified,
+  reason: "test reason",
+  ...(confidence !== undefined ? { confidence } : {}),
+});
+
+const SEED_TUNING = {
+  version: 1,
+  lastTunedAt: "2026-05-01",
+  thresholds: {
+    acceptanceRateFloor: 0.85,
+    maxBudgetUSD: 1.5,
+    maxRetries: 2,
+    stuckTurnsThreshold: 9,
+  },
+  sensorSensitivity: {
+    "ci-fix": 1.0,
+    acmm: 1.0,
+    audit: 1.0,
+    sentry: 1.0,
+    bug: 1.0,
+  },
+  rules: {},
+  history: [{ date: "2026-05-01", trigger: "seed", note: "Initial values." }],
+};
+
+// ---------------------------------------------------------------------------
+// computePerSensorMetrics
+// ---------------------------------------------------------------------------
+
+describe("computePerSensorMetrics", () => {
+  it("returns empty object when no verifications", () => {
+    const result = computePerSensorMetrics([]);
+    expect(result).toEqual({});
+  });
+
+  it("computes FP rate and effectiveness per sensor", () => {
+    const verifications = [
+      makeVerification("ci-fix", true),
+      makeVerification("ci-fix", true),
+      makeVerification("ci-fix", false), // 1 FP out of 3
+      makeVerification("audit", false),
+      makeVerification("audit", false), // 2 FP out of 2
+    ];
+
+    const result = computePerSensorMetrics(verifications);
+
+    expect(result["ci-fix"]).toBeDefined();
+    expect(result["ci-fix"].total).toBe(3);
+    expect(result["ci-fix"].effectiveness).toBeCloseTo(2 / 3);
+    expect(result["ci-fix"].fpRate).toBeCloseTo(1 / 3);
+
+    expect(result["audit"]).toBeDefined();
+    expect(result["audit"].total).toBe(2);
+    expect(result["audit"].effectiveness).toBe(0);
+    expect(result["audit"].fpRate).toBe(1);
+  });
+
+  it("excludes verifications older than lookback window", () => {
+    const verifications = [
+      makeVerification("ci-fix", true, 1), // recent
+      makeVerification("ci-fix", false, 31), // too old
+    ];
+    const result = computePerSensorMetrics(verifications, 30);
+    expect(result["ci-fix"].total).toBe(1);
+    expect(result["ci-fix"].verified).toBe(1);
+  });
+
+  it("excludes skipped verifications (confidence=skip)", () => {
+    const verifications = [
+      makeVerification("sentry", false, 1, "skip"),
+      makeVerification("ci-fix", true, 1),
+    ];
+    const result = computePerSensorMetrics(verifications);
+    expect(result["sentry"]).toBeUndefined();
+    expect(result["ci-fix"]).toBeDefined();
+  });
+
+  it("ignores unknown sensor labels", () => {
+    const verifications = [makeVerification("unknown-sensor", true)];
+    const result = computePerSensorMetrics(verifications);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeWeeklyChange
+// ---------------------------------------------------------------------------
+
+describe("computeWeeklyChange", () => {
+  it("returns 0 when no changes in log", () => {
+    expect(computeWeeklyChange([], "ci-fix")).toBe(0);
+  });
+
+  it("sums absolute fractional changes for the sensor in last 7 days", () => {
+    const changes = [
+      {
+        date: new Date(NOW - 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        threshold: "ci-fix",
+        oldValue: 1.0,
+        newValue: 0.95, // -5% change
+      },
+    ];
+    const change = computeWeeklyChange(changes, "ci-fix");
+    expect(change).toBeCloseTo(0.05);
+  });
+
+  it("ignores changes older than 7 days", () => {
+    const changes = [
+      {
+        date: new Date(NOW - 8 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        threshold: "ci-fix",
+        oldValue: 1.0,
+        newValue: 0.95,
+      },
+    ];
+    expect(computeWeeklyChange(changes, "ci-fix")).toBe(0);
+  });
+
+  it("ignores changes for different sensor labels", () => {
+    const changes = [
+      {
+        date: new Date(NOW - 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        threshold: "audit",
+        oldValue: 1.0,
+        newValue: 0.9,
+      },
+    ];
+    expect(computeWeeklyChange(changes, "ci-fix")).toBe(0);
+  });
+
+  it("accumulates multiple changes in the week", () => {
+    const changes = [
+      {
+        date: new Date(NOW - 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        threshold: "ci-fix",
+        oldValue: 1.0,
+        newValue: 0.95,
+      },
+      {
+        date: new Date(NOW - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        threshold: "ci-fix",
+        oldValue: 0.95,
+        newValue: 0.9,
+      },
+    ];
+    const change = computeWeeklyChange(changes, "ci-fix");
+    // 0.05/1.0 + 0.05/0.95 ≈ 0.103
+    expect(change).toBeGreaterThan(0.09);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// determineAdjustment
+// ---------------------------------------------------------------------------
+
+describe("determineAdjustment", () => {
+  it("returns loosen (-5%) when FP rate > 30%", () => {
+    const adj = determineAdjustment({ fpRate: 0.4, effectiveness: 0.6 });
+    expect(adj).not.toBeNull();
+    expect(adj.delta).toBeCloseTo(-0.05);
+    expect(adj.trigger).toBe("high-fp-rate");
+  });
+
+  it("returns tighten (+5%) when effectiveness < 50%", () => {
+    const adj = determineAdjustment({ fpRate: 0.2, effectiveness: 0.4 });
+    expect(adj).not.toBeNull();
+    expect(adj.delta).toBeCloseTo(0.05);
+    expect(adj.trigger).toBe("low-effectiveness");
+  });
+
+  it("returns tighten (+3%) when FP rate < 10% AND effectiveness > 80%", () => {
+    const adj = determineAdjustment({ fpRate: 0.05, effectiveness: 0.9 });
+    expect(adj).not.toBeNull();
+    expect(adj.delta).toBeCloseTo(0.03);
+    expect(adj.trigger).toBe("headroom");
+  });
+
+  it("returns null when metrics are in acceptable range (no adjustment needed)", () => {
+    // FP rate between 10-30%, effectiveness between 50-80%
+    const adj = determineAdjustment({ fpRate: 0.2, effectiveness: 0.7 });
+    expect(adj).toBeNull();
+  });
+
+  it("prioritizes high-FP-rate rule (rule 1) over low-effectiveness rule (rule 2)", () => {
+    // Both rules could fire: FP > 30% AND effectiveness < 50%
+    const adj = determineAdjustment({ fpRate: 0.55, effectiveness: 0.45 });
+    expect(adj.trigger).toBe("high-fp-rate");
+  });
+
+  it("FP rate exactly at 30% boundary does NOT trigger loosen", () => {
+    // Strictly greater than 30%
+    const adj = determineAdjustment({ fpRate: 0.3, effectiveness: 0.7 });
+    expect(adj).toBeNull();
+  });
+
+  it("effectiveness exactly at 50% boundary does NOT trigger tighten", () => {
+    const adj = determineAdjustment({ fpRate: 0.2, effectiveness: 0.5 });
+    expect(adj).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyAdjustments
+// ---------------------------------------------------------------------------
+
+describe("applyAdjustments — no changes needed", () => {
+  it("returns original tuning unchanged when no metrics", () => {
+    const { tuning, changes } = applyAdjustments(SEED_TUNING, {}, [], TODAY);
+    expect(changes).toHaveLength(0);
+    expect(tuning).toBe(SEED_TUNING); // same reference — no copy needed
+  });
+
+  it("returns no changes when sensor has fewer than 3 data points", () => {
+    const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 2 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(0);
+  });
+
+  it("returns no changes when metrics are in acceptable range", () => {
+    const metrics = { "ci-fix": { fpRate: 0.2, effectiveness: 0.7, total: 5 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(0);
+  });
+});
+
+describe("applyAdjustments — applies adjustments", () => {
+  it("does not mutate the input tuning object", () => {
+    const original = JSON.parse(JSON.stringify(SEED_TUNING));
+    const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 5 } };
+    applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(SEED_TUNING).toEqual(original);
+  });
+
   it("loosens threshold by 5% when FP rate > 30%", () => {
-    const metrics = { fp_rate: 35, agent_success_rate: 70 };
-    const current = { acceptanceRateFloor: 0.85 };
-    const result = computeAdjustments(metrics, current, []);
-    const adj = result.find((a) => a.threshold === "acceptanceRateFloor");
-    expect(adj).toBeTruthy();
-    expect(adj.direction).toBe("loosen");
-    expect(adj.newValue).toBeLessThan(current.acceptanceRateFloor);
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { tuning, changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].threshold).toBe("ci-fix");
+    expect(changes[0].oldValue).toBe(1.0);
+    expect(changes[0].newValue).toBeCloseTo(0.95);
+    expect(tuning.sensorSensitivity["ci-fix"]).toBeCloseTo(0.95);
   });
 
   it("tightens threshold by 5% when effectiveness < 50%", () => {
-    const metrics = { fp_rate: 15, agent_success_rate: 40 };
-    const current = { acceptanceRateFloor: 0.85 };
-    const result = computeAdjustments(metrics, current, []);
-    const adj = result.find((a) => a.threshold === "acceptanceRateFloor");
-    expect(adj).toBeTruthy();
-    expect(adj.direction).toBe("tighten");
-    expect(adj.newValue).toBeGreaterThan(current.acceptanceRateFloor);
+    const metrics = { "ci-fix": { fpRate: 0.2, effectiveness: 0.4, total: 10 } };
+    const { tuning, changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes[0].newValue).toBeCloseTo(1.05);
+    expect(tuning.sensorSensitivity["ci-fix"]).toBeCloseTo(1.05);
   });
 
-  it("tightens by 3% when FP < 10% and effectiveness > 80%", () => {
-    const metrics = { fp_rate: 5, agent_success_rate: 90 };
-    const current = { acceptanceRateFloor: 0.85 };
-    const result = computeAdjustments(metrics, current, []);
-    const adj = result.find((a) => a.threshold === "acceptanceRateFloor");
-    expect(adj).toBeTruthy();
-    expect(adj.direction).toBe("tighten");
-    expect(adj.newValue - current.acceptanceRateFloor).toBeCloseTo(0.03, 2);
+  it("tightens threshold by 3% on headroom", () => {
+    const metrics = { "ci-fix": { fpRate: 0.05, effectiveness: 0.9, total: 10 } };
+    const { tuning, changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes[0].newValue).toBeCloseTo(1.03);
   });
 
-  it("returns empty when metrics in normal range", () => {
-    const metrics = { fp_rate: 20, agent_success_rate: 65 };
-    const current = { acceptanceRateFloor: 0.85 };
-    const result = computeAdjustments(metrics, current, []);
-    expect(result.length).toBe(0);
+  it("defaults sensorSensitivity to 1.0 when not present in tuning", () => {
+    const tuningNoSensors = { ...SEED_TUNING, sensorSensitivity: {} };
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { changes } = applyAdjustments(tuningNoSensors, metrics, [], TODAY);
+    expect(changes[0].oldValue).toBe(1.0);
+    expect(changes[0].newValue).toBeCloseTo(0.95);
   });
 
-  it("returns empty when metrics are null", () => {
-    const metrics = { fp_rate: null, agent_success_rate: null };
-    const current = { acceptanceRateFloor: 0.85 };
-    const result = computeAdjustments(metrics, current, []);
-    expect(result.length).toBe(0);
-  });
-});
-
-describe("guard rails", () => {
-  it("never drops below hard floor", () => {
-    const metrics = { fp_rate: 50, agent_success_rate: 70 };
-    const current = { acceptanceRateFloor: HARD_FLOORS.acceptanceRateFloor + 0.01 };
-    const result = computeAdjustments(metrics, current, []);
-    const adj = result.find((a) => a.threshold === "acceptanceRateFloor");
-    if (adj) {
-      expect(adj.newValue).toBeGreaterThanOrEqual(HARD_FLOORS.acceptanceRateFloor);
-    }
+  it("appends a history entry describing all adjustments", () => {
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { tuning } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    const last = tuning.history[tuning.history.length - 1];
+    expect(last.trigger).toBe("threshold-auto-tuner");
+    expect(last.date).toBe(TODAY);
+    expect(last.note).toMatch(/ci-fix/);
   });
 
-  it("never exceeds ceiling", () => {
-    const metrics = { fp_rate: 5, agent_success_rate: 95 };
-    const current = { acceptanceRateFloor: 0.98 };
-    const result = computeAdjustments(metrics, current, []);
-    const adj = result.find((a) => a.threshold === "acceptanceRateFloor");
-    if (adj) {
-      expect(adj.newValue).toBeLessThanOrEqual(1.0);
-    }
-  });
-
-  it("enforces max 10% weekly change", () => {
-    const recentChanges = [
-      {
-        date: new Date().toISOString().split("T")[0],
-        threshold: "acceptanceRateFloor",
-        oldValue: 0.85,
-        newValue: 0.77,
-      },
-    ];
-    const result = isWithinWeeklyLimit("acceptanceRateFloor", 0.77, 0.7, recentChanges);
-    expect(result).toBe(false);
-  });
-
-  it("allows change within 10% weekly limit", () => {
-    const result = isWithinWeeklyLimit("acceptanceRateFloor", 0.85, 0.8, []);
-    expect(result).toBe(true);
+  it("updates lastTunedAt", () => {
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { tuning } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(tuning.lastTunedAt).toBe(TODAY);
   });
 });
 
-describe("applyAdjustments", () => {
-  let dir;
-
-  beforeEach(() => {
-    dir = makeTmpDir();
-  });
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true });
-  });
-
-  it("writes adjusted threshold to tuning config", () => {
-    const configPath = join(dir, "auto-qa-tuning.json");
-    const changesPath = join(dir, "threshold-changes.jsonl");
-    const config = {
-      version: 1,
-      thresholds: { acceptanceRateFloor: 0.85 },
-      history: [],
+describe("applyAdjustments — guard rails", () => {
+  it("never drops sensitivity below the hard floor (0.1)", () => {
+    const tuningAtFloor = {
+      ...SEED_TUNING,
+      sensorSensitivity: { "ci-fix": 0.11 },
     };
-    writeFileSync(configPath, JSON.stringify(config));
+    const metrics = { "ci-fix": { fpRate: 0.99, effectiveness: 0.01, total: 10 } };
+    const { tuning, changes } = applyAdjustments(tuningAtFloor, metrics, [], TODAY);
+    // Would loosen by 5%, but floor is 0.1
+    expect(tuning.sensorSensitivity["ci-fix"]).toBeGreaterThanOrEqual(0.1);
+    // If clamped to floor, the change was partial or none
+    if (changes.length > 0) {
+      expect(changes[0].newValue).toBeGreaterThanOrEqual(0.1);
+    }
+  });
 
-    const adjustments = [
+  it("all thresholds at floor — no change when already at floor and rule fires", () => {
+    const tuningAtFloor = {
+      ...SEED_TUNING,
+      sensorSensitivity: { "ci-fix": 0.1 },
+    };
+    const metrics = { "ci-fix": { fpRate: 0.99, effectiveness: 0.01, total: 10 } };
+    const { changes } = applyAdjustments(tuningAtFloor, metrics, [], TODAY);
+    // Already at floor; loosening would have no effect
+    expect(changes).toHaveLength(0);
+  });
+
+  it("clamps weekly change to 10% max", () => {
+    // Already changed 8% this week; only 2% left
+    const changesLog = [
       {
-        threshold: "acceptanceRateFloor",
-        oldValue: 0.85,
-        newValue: 0.8,
-        direction: "loosen",
-        trigger: "fp_rate > 30%",
-        evidence: "FP rate: 35%",
+        date: TODAY,
+        threshold: "ci-fix",
+        oldValue: 1.0,
+        newValue: 0.92, // 8% change
       },
     ];
-
-    applyAdjustments(adjustments, configPath, changesPath);
-
-    const updated = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(updated.thresholds.acceptanceRateFloor).toBe(0.8);
-    expect(updated.history.length).toBe(1);
-    expect(updated.history[0].trigger).toBe("threshold-auto-tuner");
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, changesLog, TODAY);
+    // Rule fires (-5%) but only 2% budget left; clamped delta applies
+    if (changes.length > 0) {
+      const fractionalChange = Math.abs(
+        (changes[0].newValue - changes[0].oldValue) / changes[0].oldValue
+      );
+      expect(fractionalChange).toBeLessThanOrEqual(0.1);
+    }
   });
 
-  it("appends to threshold-changes.jsonl", () => {
-    const configPath = join(dir, "auto-qa-tuning.json");
-    const changesPath = join(dir, "threshold-changes.jsonl");
-    writeFileSync(
-      configPath,
-      JSON.stringify({ version: 1, thresholds: { acceptanceRateFloor: 0.85 }, history: [] })
-    );
-
-    const adjustments = [
+  it("skips sensor entirely when weekly cap already reached (>=10%)", () => {
+    const changesLog = [
       {
-        threshold: "acceptanceRateFloor",
-        oldValue: 0.85,
-        newValue: 0.8,
-        direction: "loosen",
-        trigger: "fp_rate > 30%",
-        evidence: "FP rate: 35%",
+        date: TODAY,
+        threshold: "ci-fix",
+        oldValue: 1.0,
+        newValue: 0.9, // exactly 10% change
       },
     ];
-
-    applyAdjustments(adjustments, configPath, changesPath);
-
-    const lines = readFileSync(changesPath, "utf-8").trim().split("\n");
-    expect(lines.length).toBe(1);
-    const entry = JSON.parse(lines[0]);
-    expect(entry.threshold).toBe("acceptanceRateFloor");
-    expect(entry.oldValue).toBe(0.85);
-    expect(entry.newValue).toBe(0.8);
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, changesLog, TODAY);
+    expect(changes).toHaveLength(0);
   });
 
-  it("does nothing when adjustments array is empty", () => {
-    const configPath = join(dir, "auto-qa-tuning.json");
-    const changesPath = join(dir, "threshold-changes.jsonl");
-    writeFileSync(
-      configPath,
-      JSON.stringify({ version: 1, thresholds: { acceptanceRateFloor: 0.85 }, history: [] })
-    );
-
-    applyAdjustments([], configPath, changesPath);
-
-    const updated = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(updated.thresholds.acceptanceRateFloor).toBe(0.85);
-    expect(updated.history.length).toBe(0);
-  });
-});
-
-describe("loadThresholdHistory", () => {
-  it("returns empty array when file doesn't exist", () => {
-    const result = loadThresholdHistory("/nonexistent/path.jsonl");
-    expect(result).toEqual([]);
+  it("changes include all required log fields", () => {
+    const metrics = { "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 } };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(1);
+    const c = changes[0];
+    expect(c).toHaveProperty("date");
+    expect(c).toHaveProperty("threshold");
+    expect(c).toHaveProperty("oldValue");
+    expect(c).toHaveProperty("newValue");
+    expect(c).toHaveProperty("trigger");
+    expect(c).toHaveProperty("evidence");
   });
 
-  it("parses JSONL entries", () => {
-    const dir = makeTmpDir();
-    const path = join(dir, "changes.jsonl");
-    writeFileSync(
-      path,
-      '{"date":"2026-05-22","threshold":"acceptanceRateFloor","oldValue":0.85,"newValue":0.80}\n'
-    );
-    const result = loadThresholdHistory(path);
-    expect(result.length).toBe(1);
-    expect(result[0].threshold).toBe("acceptanceRateFloor");
-    rmSync(dir, { recursive: true });
+  it("processes multiple sensors independently", () => {
+    const metrics = {
+      "ci-fix": { fpRate: 0.4, effectiveness: 0.6, total: 10 }, // loosen
+      audit: { fpRate: 0.05, effectiveness: 0.9, total: 5 }, // tighten (headroom)
+    };
+    const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
+    expect(changes).toHaveLength(2);
+    const ciFix = changes.find((c) => c.threshold === "ci-fix");
+    const audit = changes.find((c) => c.threshold === "audit");
+    expect(ciFix.newValue).toBeCloseTo(0.95); // loosened
+    expect(audit.newValue).toBeCloseTo(1.03); // tightened
   });
 });
