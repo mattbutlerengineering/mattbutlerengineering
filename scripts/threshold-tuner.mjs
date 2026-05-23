@@ -1,248 +1,365 @@
+#!/usr/bin/env node
+
 /**
  * Threshold auto-tuner for the improvement flywheel.
  *
- * Reads process metrics (FP rate, effectiveness) and adjusts
- * .github/auto-qa-tuning.json thresholds with guard rails.
+ * Reads per-sensor verification results from .claude/improvement-loop/verifications.jsonl
+ * and adjusts sensor sensitivity thresholds in .github/auto-qa-tuning.json.
  *
- * Called by verify-fixes.mjs after computing verification results.
+ * Decision rules:
+ *   FP rate > 30%               → loosen sensitivity by 5%
+ *   effectiveness < 50%         → tighten sensitivity by 5%
+ *   FP rate < 10% AND eff > 80% → tighten sensitivity by 3%
+ *
+ * Guard rails:
+ *   - Max 10% change per threshold per week (from metrics/threshold-changes.jsonl history)
+ *   - Sensitivity never drops below SENSOR_FLOORS (prevents disabling a sensor)
+ *   - Sensitivity capped at 2.0 (prevents runaway tightening)
+ *   - Minimum 3 data points required before tuning a sensor
  *
  * Usage:
- *   node scripts/threshold-tuner.mjs              # tune from latest metrics
- *   node scripts/threshold-tuner.mjs --dry-run    # show adjustments without writing
+ *   node scripts/threshold-tuner.mjs           # tune and persist
+ *   node scripts/threshold-tuner.mjs --dry-run # print only
  */
 
-import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const TUNING_PATH = resolve(ROOT, ".github", "auto-qa-tuning.json");
+const CHANGES_LOG_PATH = resolve(ROOT, "metrics", "threshold-changes.jsonl");
+const VERIFICATIONS_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
 const METRICS_PATH = resolve(ROOT, "metrics", "process-metrics.jsonl");
-const CHANGES_PATH = resolve(ROOT, "metrics", "threshold-changes.jsonl");
 
-const args = process.argv.slice(2);
-const DRY_RUN = args.includes("--dry-run");
+/** Sensor labels the tuner knows about */
+const SENSOR_LABELS = ["ci-fix", "audit", "acmm", "sentry", "bug"];
 
-export const HARD_FLOORS = {
-  acceptanceRateFloor: 0.5,
-  maxBudgetUSD: 0.25,
-  maxRetries: 1,
-  stuckTurnsThreshold: 3,
-  meanCloseHoursTarget: 4,
+/**
+ * Hard minimum sensitivity per sensor.
+ * Prevents a sensor from being fully disabled by auto-tuning.
+ */
+const SENSOR_FLOORS = {
+  "ci-fix": 0.1,
+  acmm: 0.1,
+  audit: 0.1,
+  sentry: 0.1,
+  bug: 0.1,
 };
 
-const HARD_CEILINGS = {
-  acceptanceRateFloor: 1.0,
-  maxBudgetUSD: 10.0,
-  maxRetries: 5,
-  stuckTurnsThreshold: 20,
-  meanCloseHoursTarget: 168,
-};
+// ── Pure helpers ──────────────────────────────────────
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function loadThresholdHistory(changesPath) {
-  if (!existsSync(changesPath)) return [];
+function safe(fn, fallback = null) {
   try {
-    return readFileSync(changesPath, "utf-8")
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+    return fn();
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function getLatestMetrics(metricsPath) {
-  if (!existsSync(metricsPath)) return null;
-  try {
-    const lines = readFileSync(metricsPath, "utf-8")
-      .split("\n")
-      .filter((l) => l.trim());
-    if (lines.length === 0) return null;
-    return JSON.parse(lines[lines.length - 1]);
-  } catch {
-    return null;
-  }
-}
+// ── Pure functions (exported for testing) ─────────────
 
-export function isWithinWeeklyLimit(thresholdName, currentValue, proposedValue, recentChanges) {
-  const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS);
-  const weekChanges = recentChanges.filter(
-    (c) => c.threshold === thresholdName && new Date(c.date) >= sevenDaysAgo
-  );
+/**
+ * Compute per-sensor FP rate and effectiveness from verification log entries.
+ *
+ * FP rate     = unverified / total  (higher → too many false positives)
+ * effectiveness = verified / total  (higher → sensor is finding real issues)
+ *
+ * Entries with `confidence: "skip"` are excluded (not enough info to classify).
+ * Only entries within `lookbackDays` are included.
+ *
+ * @param {object[]} verifications  — entries from verifications.jsonl
+ * @param {number}   lookbackDays   — default 30
+ * @returns {Record<string, { fpRate: number, effectiveness: number, total: number, verified: number }>}
+ */
+export function computePerSensorMetrics(verifications, lookbackDays = 30) {
+  const cutoff = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-  let totalChange = Math.abs(proposedValue - currentValue);
-  for (const c of weekChanges) {
-    totalChange += Math.abs(c.newValue - c.oldValue);
-  }
+  const bySensor = {};
 
-  const maxChange = Math.abs(currentValue) * 0.1;
-  return totalChange <= maxChange;
-}
+  for (const v of verifications) {
+    if (!v.timestamp) continue;
+    if (v.confidence === "skip") continue;
+    if (new Date(v.timestamp) < cutoff) continue;
 
-function clamp(value, thresholdName) {
-  const floor = HARD_FLOORS[thresholdName] ?? 0;
-  const ceiling = HARD_CEILINGS[thresholdName] ?? Infinity;
-  return Math.max(floor, Math.min(ceiling, value));
-}
+    const label = v.sensor_label;
+    if (!label || !SENSOR_LABELS.includes(label)) continue;
 
-function round(value, decimals = 4) {
-  return Math.round(value * 10 ** decimals) / 10 ** decimals;
-}
-
-export function computeAdjustments(metrics, currentThresholds, recentChanges) {
-  if (!metrics || metrics.fp_rate === null || metrics.agent_success_rate === null) {
-    return [];
+    if (!bySensor[label]) bySensor[label] = { total: 0, verified: 0 };
+    bySensor[label].total++;
+    if (v.verified) bySensor[label].verified++;
   }
 
-  const adjustments = [];
-  const fpRate = metrics.fp_rate;
-  const effectiveness = metrics.agent_success_rate;
-
-  if (fpRate > 30) {
-    const oldValue = currentThresholds.acceptanceRateFloor;
-    let newValue = round(oldValue * 0.95);
-    newValue = clamp(newValue, "acceptanceRateFloor");
-    if (
-      newValue !== oldValue &&
-      isWithinWeeklyLimit("acceptanceRateFloor", oldValue, newValue, recentChanges)
-    ) {
-      adjustments.push({
-        threshold: "acceptanceRateFloor",
-        oldValue,
-        newValue,
-        direction: "loosen",
-        trigger: "fp_rate > 30%",
-        evidence: `FP rate: ${fpRate}%`,
-      });
-    }
-  } else if (effectiveness < 50) {
-    const oldValue = currentThresholds.acceptanceRateFloor;
-    let newValue = round(oldValue * 1.05);
-    newValue = clamp(newValue, "acceptanceRateFloor");
-    if (
-      newValue !== oldValue &&
-      isWithinWeeklyLimit("acceptanceRateFloor", oldValue, newValue, recentChanges)
-    ) {
-      adjustments.push({
-        threshold: "acceptanceRateFloor",
-        oldValue,
-        newValue,
-        direction: "tighten",
-        trigger: "effectiveness < 50%",
-        evidence: `Agent success rate: ${effectiveness}%`,
-      });
-    }
-  } else if (fpRate < 10 && effectiveness > 80) {
-    const oldValue = currentThresholds.acceptanceRateFloor;
-    let newValue = round(oldValue + 0.03);
-    newValue = clamp(newValue, "acceptanceRateFloor");
-    if (
-      newValue !== oldValue &&
-      isWithinWeeklyLimit("acceptanceRateFloor", oldValue, newValue, recentChanges)
-    ) {
-      adjustments.push({
-        threshold: "acceptanceRateFloor",
-        oldValue,
-        newValue,
-        direction: "tighten",
-        trigger: "headroom (fp < 10% && effectiveness > 80%)",
-        evidence: `FP rate: ${fpRate}%, effectiveness: ${effectiveness}%`,
-      });
-    }
+  /** @type {Record<string, { fpRate: number, effectiveness: number, total: number, verified: number }>} */
+  const metrics = {};
+  for (const [label, counts] of Object.entries(bySensor)) {
+    if (counts.total === 0) continue;
+    const effectiveness = counts.verified / counts.total;
+    metrics[label] = {
+      effectiveness,
+      fpRate: 1 - effectiveness,
+      total: counts.total,
+      verified: counts.verified,
+    };
   }
 
-  return adjustments;
+  return metrics;
 }
 
-export function applyAdjustments(adjustments, configPath, changesPath) {
-  if (adjustments.length === 0) return;
+/**
+ * Compute the total fractional change applied to a sensor in the last 7 days.
+ * Used to enforce the 10%/week guard rail.
+ *
+ * @param {object[]} changesLog  — entries from metrics/threshold-changes.jsonl
+ * @param {string}   sensorLabel
+ * @returns {number}  sum of |Δ / oldValue| for recent entries
+ */
+export function computeWeeklyChange(changesLog, sensorLabel) {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  let total = 0;
 
-  const config = JSON.parse(readFileSync(configPath, "utf-8"));
-  const today = new Date().toISOString().split("T")[0];
-
-  for (const adj of adjustments) {
-    config.thresholds[adj.threshold] = adj.newValue;
-
-    mkdirSync(dirname(changesPath), { recursive: true });
-    appendFileSync(
-      changesPath,
-      JSON.stringify({
-        date: today,
-        threshold: adj.threshold,
-        oldValue: adj.oldValue,
-        newValue: adj.newValue,
-        trigger: adj.trigger,
-        evidence: adj.evidence,
-      }) + "\n"
-    );
+  for (const c of changesLog) {
+    if (c.threshold !== sensorLabel) continue;
+    if (!c.date) continue;
+    if (new Date(c.date) < cutoff) continue;
+    if (c.oldValue === 0) continue; // guard against division by zero
+    total += Math.abs((c.newValue - c.oldValue) / c.oldValue);
   }
 
-  config.lastTunedAt = today;
-  config.history = config.history ?? [];
-  config.history.push({
+  return total;
+}
+
+/**
+ * Apply the three decision rules to determine whether and how to adjust a
+ * sensor's sensitivity threshold.
+ *
+ * Rules are evaluated in priority order (first match wins):
+ *   1. FP rate > 30%               → loosen by 5%  (delta = -0.05)
+ *   2. Effectiveness < 50%         → tighten by 5% (delta = +0.05)
+ *   3. FP rate < 10% AND eff > 80% → tighten by 3% (delta = +0.03)
+ *   4. (none match)                → no change
+ *
+ * @param {{ fpRate: number, effectiveness: number }} metrics
+ * @returns {{ delta: number, trigger: string, evidence: string } | null}
+ */
+export function determineAdjustment(metrics) {
+  const { fpRate, effectiveness } = metrics;
+
+  // Rule 1 — too many false positives: loosen
+  if (fpRate > 0.3) {
+    return {
+      delta: -0.05,
+      trigger: "high-fp-rate",
+      evidence: `FP rate ${(fpRate * 100).toFixed(1)}% > 30% — loosen threshold by 5%`,
+    };
+  }
+
+  // Rule 2 — missing real issues: tighten
+  if (effectiveness < 0.5) {
+    return {
+      delta: 0.05,
+      trigger: "low-effectiveness",
+      evidence: `Effectiveness ${(effectiveness * 100).toFixed(1)}% < 50% — tighten threshold by 5%`,
+    };
+  }
+
+  // Rule 3 — headroom available: tighten gently
+  if (fpRate < 0.1 && effectiveness > 0.8) {
+    return {
+      delta: 0.03,
+      trigger: "headroom",
+      evidence: `FP rate ${(fpRate * 100).toFixed(1)}% < 10% AND effectiveness ${(effectiveness * 100).toFixed(1)}% > 80% — tighten by 3%`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Apply per-sensor threshold adjustments to the tuning config.
+ *
+ * Guard rails enforced here:
+ *   - Minimum 3 data points per sensor before any adjustment
+ *   - Max 10% fractional change per sensor per week
+ *   - Sensitivity never drops below SENSOR_FLOORS[label] (default 0.1)
+ *   - Sensitivity never exceeds 2.0
+ *
+ * @param {object}   tuning           — current auto-qa-tuning.json contents
+ * @param {Record<string, { fpRate: number, effectiveness: number, total: number }>} perSensorMetrics
+ * @param {object[]} changesLog       — entries from threshold-changes.jsonl
+ * @param {string}   today            — ISO date (YYYY-MM-DD)
+ * @returns {{ tuning: object, changes: object[] }}
+ */
+export function applyAdjustments(tuning, perSensorMetrics, changesLog, today) {
+  if (Object.keys(perSensorMetrics).length === 0) {
+    return { tuning, changes: [] };
+  }
+
+  const sensorSensitivity = { ...(tuning.sensorSensitivity ?? {}) };
+  /** @type {object[]} */
+  const appliedChanges = [];
+
+  for (const [sensorLabel, metrics] of Object.entries(perSensorMetrics)) {
+    // Require at least 3 data points to avoid tuning on noise
+    if (metrics.total < 3) continue;
+
+    const adjustment = determineAdjustment(metrics);
+    if (!adjustment) continue;
+
+    const oldValue =
+      typeof sensorSensitivity[sensorLabel] === "number" ? sensorSensitivity[sensorLabel] : 1.0;
+
+    const floor = SENSOR_FLOORS[sensorLabel] ?? 0.1;
+
+    // Guard rail: weekly cap at 10%
+    const weeklyChange = computeWeeklyChange(changesLog, sensorLabel);
+    if (weeklyChange >= 0.1) continue; // budget exhausted
+
+    const remainingBudget = 0.1 - weeklyChange;
+    const clampedDelta =
+      Math.sign(adjustment.delta) * Math.min(Math.abs(adjustment.delta), remainingBudget);
+
+    // Apply delta, then clamp to [floor, 2.0]
+    let newValue = Math.max(floor, Math.min(2.0, oldValue + clampedDelta));
+
+    // Round to 3 decimal places to avoid floating-point noise
+    newValue = Math.round(newValue * 1000) / 1000;
+
+    if (newValue === oldValue) continue; // guard rail absorbed full delta (at floor)
+
+    sensorSensitivity[sensorLabel] = newValue;
+    appliedChanges.push({
+      date: today,
+      threshold: sensorLabel,
+      oldValue,
+      newValue,
+      trigger: adjustment.trigger,
+      evidence: adjustment.evidence,
+    });
+  }
+
+  if (appliedChanges.length === 0) {
+    return { tuning, changes: [] };
+  }
+
+  const historyEntry = {
     date: today,
     trigger: "threshold-auto-tuner",
-    adjustments: adjustments.map(
-      (a) => `${a.threshold}: ${a.oldValue} → ${a.newValue} (${a.direction}, ${a.trigger})`
+    adjustments: appliedChanges.map(
+      (c) => `${c.threshold}: ${c.oldValue} → ${c.newValue} (${c.trigger})`
     ),
-    note: `Auto-tuned ${adjustments.length} threshold(s) from process metrics.`,
-  });
+    note: `Auto-tuned ${appliedChanges.length} sensor threshold(s) from verification results: ${appliedChanges.map((c) => c.threshold).join(", ")}.`,
+  };
 
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+  const updatedTuning = {
+    ...tuning,
+    lastTunedAt: today,
+    sensorSensitivity,
+    history: [...(tuning.history ?? []), historyEntry],
+  };
+
+  return { tuning: updatedTuning, changes: appliedChanges };
 }
 
-/* ── Main ────────────────────────────────────────────── */
+// ── I/O helpers ───────────────────────────────────────
 
-function main() {
-  const metrics = getLatestMetrics(METRICS_PATH);
-  if (!metrics) {
-    console.log("threshold-tuner: no process metrics available, skipping");
-    return;
+function readJsonl(filePath) {
+  if (!existsSync(filePath)) return [];
+  return readFileSync(filePath, "utf-8")
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((l) => safe(() => JSON.parse(l)))
+    .filter(Boolean);
+}
+
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, "utf-8"));
+}
+
+function writeJson(filePath, data) {
+  writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+}
+
+function isoDate(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Main entry ────────────────────────────────────────
+
+/**
+ * Run the threshold auto-tuner.
+ *
+ * @param {{ dryRun?: boolean }} options
+ * @returns {Promise<{ changes: object[] }>}
+ */
+export async function run({ dryRun = false } = {}) {
+  const verifications = readJsonl(VERIFICATIONS_PATH);
+
+  if (verifications.length === 0) {
+    console.log("[threshold-tuner] No verification data — skipping tuning");
+    return { changes: [] };
   }
 
-  if (!existsSync(TUNING_PATH)) {
-    console.log("threshold-tuner: no auto-qa-tuning.json found, skipping");
-    return;
+  // process-metrics.jsonl is optional — log if absent, but don't fail
+  const processMetrics = readJsonl(METRICS_PATH);
+  if (processMetrics.length === 0) {
+    console.log("[threshold-tuner] No process-metrics.jsonl found — using verification log only");
   }
 
-  const config = JSON.parse(readFileSync(TUNING_PATH, "utf-8"));
-  const recentChanges = loadThresholdHistory(CHANGES_PATH);
-  const adjustments = computeAdjustments(metrics, config.thresholds, recentChanges);
+  const perSensorMetrics = computePerSensorMetrics(verifications);
 
-  if (adjustments.length === 0) {
-    console.log("threshold-tuner: metrics in normal range, no adjustments needed");
-    return;
+  if (Object.keys(perSensorMetrics).length === 0) {
+    console.log("[threshold-tuner] No per-sensor metrics computed — skipping tuning");
+    return { changes: [] };
   }
 
-  if (DRY_RUN) {
-    console.log("threshold-tuner (dry-run): would apply:");
-    for (const a of adjustments) {
-      console.log(`  ${a.threshold}: ${a.oldValue} → ${a.newValue} (${a.direction})`);
+  const tuning = readJson(TUNING_PATH);
+  const changesLog = readJsonl(CHANGES_LOG_PATH);
+  const today = isoDate();
+
+  const { tuning: updatedTuning, changes } = applyAdjustments(
+    tuning,
+    perSensorMetrics,
+    changesLog,
+    today
+  );
+
+  if (changes.length === 0) {
+    console.log("[threshold-tuner] No threshold adjustments needed");
+    return { changes: [] };
+  }
+
+  if (dryRun) {
+    console.log("[threshold-tuner] DRY RUN — would make these adjustments:");
+    for (const c of changes) {
+      console.log(`  ${c.threshold}: ${c.oldValue} → ${c.newValue} (${c.trigger})`);
     }
-    return;
+    return { changes };
   }
 
-  applyAdjustments(adjustments, TUNING_PATH, CHANGES_PATH);
+  // Persist tuning config
+  writeJson(TUNING_PATH, updatedTuning);
 
-  console.log(`threshold-tuner: applied ${adjustments.length} adjustment(s)`);
-  for (const a of adjustments) {
-    console.log(`  ${a.threshold}: ${a.oldValue} → ${a.newValue} (${a.direction}, ${a.trigger})`);
+  // Append each change to the audit log
+  mkdirSync(dirname(CHANGES_LOG_PATH), { recursive: true });
+  for (const change of changes) {
+    appendFileSync(CHANGES_LOG_PATH, JSON.stringify(change) + "\n");
   }
+
+  console.log(`[threshold-tuner] Applied ${changes.length} threshold adjustment(s):`);
+  for (const c of changes) {
+    console.log(`  ${c.threshold}: ${c.oldValue} → ${c.newValue} (${c.trigger})`);
+  }
+
+  return { changes };
 }
 
-const isMain =
-  process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
-
-if (isMain) {
-  main();
+// Run when invoked directly (not imported by tests)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const dryRun = process.argv.includes("--dry-run");
+  run({ dryRun }).catch((err) => {
+    process.stderr.write(`[threshold-tuner] Error: ${err.message}\n`);
+    process.exit(1);
+  });
 }
