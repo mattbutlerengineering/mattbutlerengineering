@@ -1378,13 +1378,6 @@
       partySize: number;
     }
   </file>
-  <file path="packages/api-versioning/src/fastify.ts">
-    export interface ApiVersioningOptions {
-      currentVersion: string;
-      successorVersion?: string;
-      sunsetMonthsFromNow?: number;
-    }
-  </file>
   <file path="packages/agent-test-utils/src/worktree-simulator.ts">
     export type RepoState = "clean" | "dirty" | "conflicted";
     export interface SimulatedFile {

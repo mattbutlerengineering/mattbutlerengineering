@@ -519,15 +519,6 @@
       }
     </item>
   </file>
-  <file path="packages/api-versioning/src/fastify.ts">
-    <item priority="low">
-      interface ApiVersioningOptions {
-        currentVersion: string;
-        successorVersion?: string | undefined;
-        sunsetMonthsFromNow?: number | undefined;
-      }
-    </item>
-  </file>
   <file path="packages/agent-test-utils/src/worktree-simulator.ts">
     <item priority="low">
       type RepoState = "clean" | "dirty" | "conflicted";
