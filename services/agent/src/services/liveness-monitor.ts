@@ -21,26 +21,19 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 async function checkStaleSessions(): Promise<void> {
   try {
-    const runningSessions = await sessionService.findByStatus("RUNNING");
-    const now = Date.now();
+    const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
 
-    for (const session of runningSessions) {
-      const lastEvent = await sessionService.getLastEvent(session.id);
-      const lastActivityAt = lastEvent?.createdAt ?? session.updatedAt;
-      const silenceMs = now - new Date(lastActivityAt).getTime();
+    for (const session of staleSessions) {
+      console.warn(
+        `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
+      );
 
-      if (silenceMs >= INACTIVITY_THRESHOLD_MS) {
-        console.warn(
-          `[liveness] Session ${session.id} has been inactive for ${Math.round(silenceMs / 1000)}s — auto-cancelling`
-        );
-
-        const cancelled = await cancelSession(session.id);
-        if (cancelled) {
-          await sessionService.addEvent(session.id, "session:error", {
-            message: `Auto-cancelled: no activity for ${Math.round(silenceMs / 1000)}s (threshold: ${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-            reason: "liveness_timeout",
-          });
-        }
+      const cancelled = await cancelSession(session.id);
+      if (cancelled) {
+        await sessionService.addEvent(session.id, "session:error", {
+          message: `Auto-cancelled: exceeded inactivity threshold (${INACTIVITY_THRESHOLD_MS / 1000}s)`,
+          reason: "liveness_timeout",
+        });
       }
     }
   } catch (error) {

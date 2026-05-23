@@ -16,6 +16,7 @@ vi.mock("./database.js", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -512,6 +513,166 @@ describe("sessionService", () => {
 
       const result = await sessionService.listEvents("sess-1");
       expect(result[0].createdAt).toBe("2026-03-01T12:00:00.000Z");
+    });
+  });
+
+  describe("findStaleSessions", () => {
+    it("returns sessions with no events older than threshold", async () => {
+      const now = new Date("2026-03-01T12:00:00Z");
+      vi.setSystemTime(now);
+
+      // Session updated 700s ago, threshold is 600s — stale
+      const staleRow = {
+        id: "sess-stale",
+        status: "RUNNING",
+        task_description: "Stale task",
+        branch_name: null,
+        base_branch: "main",
+        model: "claude-sonnet-4-6",
+        max_turns: 50,
+        max_budget_usd: 1.0,
+        pr_url: null,
+        pr_number: null,
+        result_text: null,
+        cost_usd: null,
+        input_tokens: null,
+        output_tokens: null,
+        num_turns: null,
+        duration_ms: null,
+        parent_id: null,
+        errors: "[]",
+        sdk_session_id: null,
+        create_pr: true,
+        failure_category: null,
+        started_at: null,
+        completed_at: null,
+        created_at: new Date(now.getTime() - 700_000),
+        updated_at: new Date(now.getTime() - 700_000),
+        last_activity: new Date(now.getTime() - 700_000),
+      };
+
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([staleRow]);
+
+      const result = await sessionService.findStaleSessions(600_000);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("sess-stale");
+      expect(result[0].status).toBe("running");
+
+      vi.useRealTimers();
+    });
+
+    it("returns sessions where latest event is older than threshold", async () => {
+      const now = new Date("2026-03-01T12:00:00Z");
+      vi.setSystemTime(now);
+
+      const staleRow = {
+        id: "sess-old-event",
+        status: "RUNNING",
+        task_description: "Old event task",
+        branch_name: null,
+        base_branch: "main",
+        model: "claude-sonnet-4-6",
+        max_turns: 50,
+        max_budget_usd: 1.0,
+        pr_url: null,
+        pr_number: null,
+        result_text: null,
+        cost_usd: null,
+        input_tokens: null,
+        output_tokens: null,
+        num_turns: null,
+        duration_ms: null,
+        parent_id: null,
+        errors: "[]",
+        sdk_session_id: null,
+        create_pr: true,
+        failure_category: null,
+        started_at: null,
+        completed_at: null,
+        created_at: new Date(now.getTime() - 900_000),
+        updated_at: new Date(now.getTime() - 900_000),
+        last_activity: new Date(now.getTime() - 700_000),
+      };
+
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([staleRow]);
+
+      const result = await sessionService.findStaleSessions(600_000);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("sess-old-event");
+
+      vi.useRealTimers();
+    });
+
+    it("does NOT return sessions with recent events", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([]);
+
+      const result = await sessionService.findStaleSessions(600_000);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("does NOT return non-RUNNING sessions", async () => {
+      // The query itself filters to RUNNING only, so no rows returned
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([]);
+
+      const result = await sessionService.findStaleSessions(600_000);
+
+      expect(result).toHaveLength(0);
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it("uses updatedAt as fallback when no events exist", async () => {
+      const now = new Date("2026-03-01T12:00:00Z");
+      vi.setSystemTime(now);
+
+      // last_activity equals updated_at (no events, so COALESCE falls back)
+      const staleRow = {
+        id: "sess-no-events",
+        status: "RUNNING",
+        task_description: "No events task",
+        branch_name: null,
+        base_branch: "main",
+        model: "claude-sonnet-4-6",
+        max_turns: 50,
+        max_budget_usd: 1.0,
+        pr_url: null,
+        pr_number: null,
+        result_text: null,
+        cost_usd: null,
+        input_tokens: null,
+        output_tokens: null,
+        num_turns: null,
+        duration_ms: null,
+        parent_id: null,
+        errors: "[]",
+        sdk_session_id: null,
+        create_pr: true,
+        failure_category: null,
+        started_at: null,
+        completed_at: null,
+        created_at: new Date(now.getTime() - 800_000),
+        updated_at: new Date(now.getTime() - 800_000),
+        last_activity: new Date(now.getTime() - 800_000),
+      };
+
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([staleRow]);
+
+      const result = await sessionService.findStaleSessions(600_000);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("sess-no-events");
+
+      vi.useRealTimers();
+    });
+
+    it("passes the threshold as interval to the query", async () => {
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([]);
+
+      await sessionService.findStaleSessions(300_000);
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     });
   });
 });
