@@ -21,6 +21,14 @@ vi.mock("../hooks/useVenueReadiness.js", () => ({
   })),
 }));
 
+vi.mock("../hooks/useReservationQuerySync.js", () => ({
+  useReservationQuerySync: vi.fn(() => ({
+    isConnected: true,
+    error: null,
+    reconnect: vi.fn(),
+  })),
+}));
+
 vi.mock("../hooks/use-command-palette.js", () => ({
   useCommandPalette: vi.fn(() => ({
     open: false,
@@ -32,7 +40,9 @@ vi.mock("../hooks/use-command-palette.js", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Breadcrumb: () => <div data-testid="breadcrumb" />,
   CommandPalette: () => <div data-testid="command-palette" />,
-  ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   ChatPanel: (props: { onClose: () => void }) => (
     <div data-testid="chat-panel">
       <button onClick={props.onClose}>Close chat</button>
@@ -40,14 +50,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Kbd: () => <div />,
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
-  ),
+  Button: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => <button onClick={onClick}>{children}</button>,
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
   Heading: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   useToast: () => ({ toast: vi.fn() }),
-  useThemeState: () => ({ preference: "system", setTheme: vi.fn(), resolved: "light" }),
+  useThemeState: () => ({
+    preference: "system",
+    setTheme: vi.fn(),
+    resolved: "light",
+  }),
   resolveTheme: vi.fn((t) => t),
 }));
 
@@ -148,7 +168,9 @@ describe("DashboardLayout", () => {
     await user.click(screen.getByText("Close chat"));
 
     expect(screen.getByTestId("chat-panel")).toBeInTheDocument();
-    const wrapper = screen.getByTestId("chat-panel").closest("[data-chat-wrapper]");
+    const wrapper = screen
+      .getByTestId("chat-panel")
+      .closest("[data-chat-wrapper]");
     expect(wrapper).toHaveStyle({ display: "none" });
   });
 });

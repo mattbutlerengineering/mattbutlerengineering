@@ -2,9 +2,18 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
-import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+} from "react-router-dom";
+import {
+  RialtoProvider,
+  ErrorBoundary,
+  ToastProvider,
+} from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
+import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
@@ -19,26 +28,38 @@ initSentry({
 
 // Lazy-loaded route components — each becomes its own chunk
 const DashboardLayout = lazy(() =>
-  import("./components/DashboardLayout.js").then((m) => ({ default: m.DashboardLayout }))
+  import("./components/DashboardLayout.js").then((m) => ({
+    default: m.DashboardLayout,
+  }))
 );
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
-const HomePage = lazy(() => import("./pages/HomePage.js").then((m) => ({ default: m.HomePage })));
+const HomePage = lazy(() =>
+  import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
+);
 const ReservationsPage = lazy(() =>
-  import("./pages/ReservationsPage.js").then((m) => ({ default: m.ReservationsPage }))
+  import("./pages/ReservationsPage.js").then((m) => ({
+    default: m.ReservationsPage,
+  }))
 );
 const GuestsPage = lazy(() =>
   import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
 );
 const FloorPlansPage = lazy(() =>
-  import("./pages/FloorPlansPage.js").then((m) => ({ default: m.FloorPlansPage }))
+  import("./pages/FloorPlansPage.js").then((m) => ({
+    default: m.FloorPlansPage,
+  }))
 );
 const FloorPlanEditorPage = lazy(() =>
-  import("./pages/FloorPlanEditorPage.js").then((m) => ({ default: m.FloorPlanEditorPage }))
+  import("./pages/FloorPlanEditorPage.js").then((m) => ({
+    default: m.FloorPlanEditorPage,
+  }))
 );
 const BookingWidgetDemoPage = lazy(() =>
-  import("./pages/BookingWidgetDemoPage.js").then((m) => ({ default: m.BookingWidgetDemoPage }))
+  import("./pages/BookingWidgetDemoPage.js").then((m) => ({
+    default: m.BookingWidgetDemoPage,
+  }))
 );
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
@@ -50,21 +71,31 @@ const AdminPage = lazy(() =>
   import("./pages/AdminPage.js").then((m) => ({ default: m.AdminPage }))
 );
 const VenueOnboardingPage = lazy(() =>
-  import("./pages/VenueOnboardingPage.js").then((m) => ({ default: m.VenueOnboardingPage }))
+  import("./pages/VenueOnboardingPage.js").then((m) => ({
+    default: m.VenueOnboardingPage,
+  }))
 );
 const SetupPage = lazy(() =>
   import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
 );
 const SetupHoursPage = lazy(() =>
-  import("./pages/SetupHoursPage.js").then((m) => ({ default: m.SetupHoursPage }))
+  import("./pages/SetupHoursPage.js").then((m) => ({
+    default: m.SetupHoursPage,
+  }))
 );
 const PublicBookingPage = lazy(() =>
-  import("./pages/PublicBookingPage.js").then((m) => ({ default: m.PublicBookingPage }))
+  import("./pages/PublicBookingPage.js").then((m) => ({
+    default: m.PublicBookingPage,
+  }))
 );
 const ManageReservationPage = lazy(() =>
-  import("./pages/ManageReservationPage.js").then((m) => ({ default: m.ManageReservationPage }))
+  import("./pages/ManageReservationPage.js").then((m) => ({
+    default: m.ManageReservationPage,
+  }))
 );
-const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage })));
+const ChatPage = lazy(() =>
+  import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -271,7 +302,9 @@ function Root() {
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
             <AuthProvider config={authConfigResult.config}>
-              <RouterProvider router={router} />
+              <QueryProvider>
+                <RouterProvider router={router} />
+              </QueryProvider>
             </AuthProvider>
           </ErrorBoundary>
         </ToastProvider>

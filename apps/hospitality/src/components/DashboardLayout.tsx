@@ -22,6 +22,7 @@ import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { ReservationDataProvider } from "../contexts/ReservationDataContext.js";
+import { useReservationQuerySync } from "../hooks/useReservationQuerySync.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -56,6 +57,7 @@ function DashboardLayoutInner() {
   const { signOut, accessToken } = useAuth();
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
+  useReservationQuerySync();
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
@@ -113,7 +115,9 @@ function DashboardLayoutInner() {
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
     const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
+    map.set("Account", [
+      { id: "signout", label: "Sign Out", path: "/__signout__" },
+    ]);
     return map;
   }, []);
 
@@ -181,7 +185,9 @@ function DashboardLayoutInner() {
     }
 
     // Always start with a clickable Timeline (new home)
-    const items: BreadcrumbItem[] = [{ label: "Timeline", onClick: () => navigate("/timeline") }];
+    const items: BreadcrumbItem[] = [
+      { label: "Timeline", onClick: () => navigate("/timeline") },
+    ];
 
     // Build intermediate + final crumbs
     let accumulated = "";
@@ -287,8 +293,13 @@ function DashboardLayoutInner() {
                 }}
               >
                 <Heading level={2}>Something went wrong</Heading>
-                <Text color="secondary">An unexpected error occurred in this page.</Text>
-                <Button variant="secondary" onClick={() => window.location.reload()}>
+                <Text color="secondary">
+                  An unexpected error occurred in this page.
+                </Text>
+                <Button
+                  variant="secondary"
+                  onClick={() => window.location.reload()}
+                >
                   Reload
                 </Button>
               </Stack>
@@ -300,7 +311,10 @@ function DashboardLayoutInner() {
       </div>
 
       {chatMounted && (
-        <div data-chat-wrapper="" style={{ display: chatOpen ? undefined : "none" }}>
+        <div
+          data-chat-wrapper=""
+          style={{ display: chatOpen ? undefined : "none" }}
+        >
           <ChatPanel
             onClose={() => setChatOpen(false)}
             api="/api/gen/agent"

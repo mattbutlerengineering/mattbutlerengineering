@@ -38,6 +38,7 @@
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
+    "@tanstack/react-query": "^5.100.14",
     "konva": "^10.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
