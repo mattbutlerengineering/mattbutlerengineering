@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { substanceCheckers, runSubstanceChecks } from "../substance.js";
 
@@ -146,6 +146,17 @@ describe("feedback loop substance checker", () => {
     assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
   });
+
+  test("repo CLAUDE.md has a recent feedback-loop entry (within last 30 days)", () => {
+    const repoRoot = resolve(join(import.meta.dirname, "../../../../"));
+    const claudeMd = join(repoRoot, "CLAUDE.md");
+    const result = checker([claudeMd], repoRoot);
+    assert.equal(
+      result.passed,
+      true,
+      `CLAUDE.md substance check failed: ${result.evidence} — add a dated feedback-loop entry`
+    );
+  });
 });
 
 describe("test coverage substance checker", () => {
@@ -184,6 +195,24 @@ describe("runbook substance checker", () => {
       "# Runbook\n\nCheck the /api/v1/users/health endpoint.\nRestart the users-service pod.\nMonitor Grafana dashboard.\n"
     );
     const result = checker([filePath], dir);
+    assert.equal(result.passed, true);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("passes when runbook directory contains files with operational indicators", () => {
+    const dir = makeTmpDir();
+    const runbooksDir = join(dir, "runbooks");
+    mkdirSync(runbooksDir, { recursive: true });
+    writeFileSync(
+      join(runbooksDir, "services-unhealthy.md"),
+      "# Runbook: API Services Unhealthy\n\nCheck /api/v1/users/health endpoint.\ndoctl apps logs $DO_APP_ID --type run\n"
+    );
+    writeFileSync(
+      join(runbooksDir, "ci-unhealthy.md"),
+      "# Runbook: CI Unhealthy\n\nMonitor dashboard for alerts.\nRollback: gh run rerun <id>\n"
+    );
+    // Pass the directory path itself (as runSubstanceChecks would when pattern is "docs/runbooks/")
+    const result = checker([runbooksDir], dir);
     assert.equal(result.passed, true);
     rmSync(dir, { recursive: true });
   });
