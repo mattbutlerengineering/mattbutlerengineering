@@ -1,4 +1,4 @@
-<codebase path="packages/notifications">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/notifications">
   <section priority="medium" role="src">
   <file path="src/booking-email-content.ts">
     export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";

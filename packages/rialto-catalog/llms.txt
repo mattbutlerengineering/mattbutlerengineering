@@ -1,4 +1,4 @@
-<codebase path="packages/rialto-catalog">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="high">

@@ -1,4 +1,4 @@
-<codebase path="packages/observability">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/observability">
   <section priority="medium" role="src">
   <file path="src/baggage.ts">
     export const BAGGAGE_KEYS = {

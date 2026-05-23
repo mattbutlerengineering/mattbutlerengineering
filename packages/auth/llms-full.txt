@@ -1,4 +1,4 @@
-<codebase path="packages/auth">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/auth">
   <section priority="medium" role="fastify">
   <file path="src/fastify/plugin.ts">
     export interface AuthPluginOptions {

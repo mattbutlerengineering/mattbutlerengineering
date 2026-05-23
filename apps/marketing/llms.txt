@@ -1,4 +1,4 @@
-<codebase path="apps/marketing">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/apps/marketing">
   <section priority="medium" role="data">
   <file path="src/data/projects.ts">
     <item priority="low">

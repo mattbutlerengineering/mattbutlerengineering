@@ -1,4 +1,4 @@
-<codebase path="packages/rialto">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/rialto">
   <section priority="medium" role="ChatPanel">
   <file path="src/components/ChatPanel/sanitize.ts">
     <item priority="high">

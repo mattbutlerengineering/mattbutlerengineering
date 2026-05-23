@@ -1,4 +1,4 @@
-<codebase path="apps/rialto-web">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/apps/rialto-web">
   <section priority="medium" role="CookieConsent">
   <file path="src/components/CookieConsent/useCookieConsent.ts">
     <item priority="low">

@@ -1,4 +1,4 @@
-<codebase path="packages/feature-flags">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/feature-flags">
   <section priority="medium" role="src">
   <file path="src/index.ts">
     <item priority="low">
