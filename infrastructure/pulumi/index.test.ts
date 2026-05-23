@@ -69,6 +69,7 @@ const configEntries: Record<string, string> = {
   otelHeaders: "Authorization=Basic abc123",
   aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
+  e2eUserPassword: "test-password-123",
 };
 
 for (const [key, value] of Object.entries(configEntries)) {
