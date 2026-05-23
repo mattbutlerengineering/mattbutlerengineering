@@ -12,7 +12,6 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
 import { venueService, venueGroupService } from "../services/venue.js";
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
@@ -65,7 +64,8 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return venueGroupService.list(page, limit);
     }
   );
@@ -364,7 +364,8 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return venueService.list(page, limit, request.query.venueGroupId);
     }
   );

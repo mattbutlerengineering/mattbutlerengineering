@@ -9,7 +9,6 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import {
   executeSession,
@@ -105,7 +104,8 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       const status = request.query.status as AgentSessionStatus | undefined;
 
       const prismaStatus = status?.toUpperCase() as

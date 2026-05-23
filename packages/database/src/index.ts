@@ -12,7 +12,6 @@ export type {
   ApiVersioningConfig,
   AppOptions,
 } from "./create-service-app.js";
-export { parseListQuery, createListResponseSchema } from "./list-utils.js";
 export { startServiceServer } from "./start-service-server.js";
 export type { StartServiceServerOptions } from "./start-service-server.js";
 
