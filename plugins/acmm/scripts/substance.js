@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -125,36 +125,49 @@ export function runSubstanceChecks(detectedIds, criteria, cwd) {
     const patterns = Array.isArray(c.detection.pattern)
       ? c.detection.pattern
       : [c.detection.pattern];
-    const filePaths = patterns
+    const resolvedPaths = patterns
       .map((p) => {
         const resolved = typeof p === "string" ? p : (p.file ?? "");
         return resolve(cwd, resolved);
       })
       .filter((p) => existsSync(p));
 
-    if (filePaths.length === 0) {
-      const dirPaths = patterns
-        .map((p) => resolve(cwd, typeof p === "string" ? p : ""))
-        .filter((p) => existsSync(p));
+    if (resolvedPaths.length === 0) {
+      results[c.id] = {
+        substantive: false,
+        substanceEvidence: "no files found for substance check",
+      };
+      continue;
+    }
 
-      const expanded = [];
-      for (const dp of dirPaths) {
-        try {
-          const files = readdirSync(dp, { recursive: true });
-          for (const f of files) {
-            const full = join(dp, f);
-            expanded.push(full);
-          }
-        } catch {
-          // skip
-        }
-      }
-      if (expanded.length > 0) {
-        const result = checker(expanded, cwd);
-        results[c.id] = { substantive: result.passed, substanceEvidence: result.evidence };
+    const filePaths = [];
+    for (const p of resolvedPaths) {
+      let stat;
+      try {
+        stat = statSync(p);
+      } catch {
         continue;
       }
+      if (stat.isDirectory()) {
+        try {
+          const entries = readdirSync(p, { recursive: true });
+          for (const entry of entries) {
+            const full = join(p, String(entry));
+            try {
+              if (statSync(full).isFile()) filePaths.push(full);
+            } catch {
+              // skip
+            }
+          }
+        } catch {
+          // skip unreadable dirs
+        }
+      } else {
+        filePaths.push(p);
+      }
+    }
 
+    if (filePaths.length === 0) {
       results[c.id] = {
         substantive: false,
         substanceEvidence: "no files found for substance check",
