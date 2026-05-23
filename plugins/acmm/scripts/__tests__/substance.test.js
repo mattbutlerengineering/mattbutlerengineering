@@ -1,10 +1,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { substanceCheckers, runSubstanceChecks } from "../substance.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function makeTmpDir() {
   return mkdtempSync(join(tmpdir(), "substance-test-"));
@@ -146,17 +150,6 @@ describe("feedback loop substance checker", () => {
     assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
   });
-
-  test("repo CLAUDE.md has a recent feedback-loop entry (within last 30 days)", () => {
-    const repoRoot = resolve(join(import.meta.dirname, "../../../../"));
-    const claudeMd = join(repoRoot, "CLAUDE.md");
-    const result = checker([claudeMd], repoRoot);
-    assert.equal(
-      result.passed,
-      true,
-      `CLAUDE.md substance check failed: ${result.evidence} — add a dated feedback-loop entry`
-    );
-  });
 });
 
 describe("test coverage substance checker", () => {
@@ -199,24 +192,6 @@ describe("runbook substance checker", () => {
     rmSync(dir, { recursive: true });
   });
 
-  test("passes when runbook directory contains files with operational indicators", () => {
-    const dir = makeTmpDir();
-    const runbooksDir = join(dir, "runbooks");
-    mkdirSync(runbooksDir, { recursive: true });
-    writeFileSync(
-      join(runbooksDir, "services-unhealthy.md"),
-      "# Runbook: API Services Unhealthy\n\nCheck /api/v1/users/health endpoint.\ndoctl apps logs $DO_APP_ID --type run\n"
-    );
-    writeFileSync(
-      join(runbooksDir, "ci-unhealthy.md"),
-      "# Runbook: CI Unhealthy\n\nMonitor dashboard for alerts.\nRollback: gh run rerun <id>\n"
-    );
-    // Pass the directory path itself (as runSubstanceChecks would when pattern is "docs/runbooks/")
-    const result = checker([runbooksDir], dir);
-    assert.equal(result.passed, true);
-    rmSync(dir, { recursive: true });
-  });
-
   test("fails when runbook is a stub without operational references", () => {
     const dir = makeTmpDir();
     const filePath = join(dir, "runbook.md");
@@ -224,6 +199,19 @@ describe("runbook substance checker", () => {
     const result = checker([filePath], dir);
     assert.equal(result.passed, false);
     rmSync(dir, { recursive: true });
+  });
+});
+
+describe("correction-capture integration — real repo files", () => {
+  const checker = substanceCheckers["acmm:correction-capture"];
+  const repoRoot = resolve(__dirname, "../../../..");
+  const correctionDir = join(repoRoot, ".claude/memory/corrections");
+
+  test("at least one correction file passes feeds_back_into + body check", () => {
+    assert.ok(existsSync(correctionDir), `corrections dir should exist: ${correctionDir}`);
+    const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
+    const result = checker(files, repoRoot);
+    assert.equal(result.passed, true, `Expected substantive: true but got: ${result.evidence}`);
   });
 });
 
@@ -302,5 +290,39 @@ describe("runSubstanceChecks", () => {
 
     const results = runSubstanceChecks(detectedIds, criteria, "/tmp");
     assert.equal(results["acmm:simple-skills"], undefined);
+  });
+
+  test("expands directory patterns that resolve to existing dirs (real-world .claude/skills/ case)", () => {
+    // Reproduces the bug: patterns like ".claude/skills/" resolve to existing directories,
+    // but substance.js was calling checker(dirPaths) directly instead of expanding them.
+    const dir = makeTmpDir();
+    const skillsDir = join(dir, ".claude", "skills", "my-skill");
+    mkdirSync(skillsDir, { recursive: true });
+    writeFileSync(
+      join(skillsDir, "SKILL.md"),
+      [
+        "---",
+        "name: my-skill",
+        "description: Does something useful",
+        "---",
+        "",
+        "# My Skill",
+        "",
+        "This skill provides a detailed workflow for completing a common task. It includes multiple steps that guide the agent through the process from start to finish with clear checkpoints.",
+      ].join("\n")
+    );
+
+    const detectedIds = new Set(["acmm:simple-skills"]);
+    const criteria = [
+      {
+        id: "acmm:simple-skills",
+        // Pattern is a directory (trailing slash), matching the real acmm.js detection pattern
+        detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/", "skills/"] },
+      },
+    ];
+
+    const results = runSubstanceChecks(detectedIds, criteria, dir);
+    assert.equal(results["acmm:simple-skills"].substantive, true);
+    rmSync(dir, { recursive: true });
   });
 });

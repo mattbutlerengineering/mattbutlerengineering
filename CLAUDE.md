@@ -137,6 +137,8 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 
 ## AI Observability (Langfuse)
 
+<!-- TODO: Verify onboarding benchmark results are being correctly tracked -->
+
 Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.
 
 ### What's traced
@@ -191,28 +193,12 @@ npx claude-mem install
 
 claude-mem automatically records observations during sessions — code patterns discovered, architecture decisions made, debugging outcomes. These are searchable in future sessions via `/mem-search`.
 
----
-
 ## Feedback Loop Log
 
-Completed sensor-to-fix cycles. Each entry follows the pattern: sensor detected → issue created → fix implemented → fix verified.
+Completed sensor → issue → fix → verify cycles:
 
-### 2026-05-22 — Learning-loop sensor correlator
-
-**Sensor detected:** The learning-loop `/sensor-report` phase produced multiple overlapping regression signals (performance degradation + availability drop) in the same 24 h window with no grouping, causing duplicate issues and noisy triage queues.
-
-**Issue created:** #1632 — "feat(learning-loop): add sensor correlator for cross-sensor root cause grouping"
-
-**Fix implemented:** `scripts/sensor-correlator.mjs` — groups related signals by category (perf/availability/quality) and temporal window into single root-cause issues; deduplicates against open issues, ranks by severity, caps at 3 groups per run. 13 tests added covering grouping, dedup, ranking, and edge cases.
-
-**Fix verified:** PR #1640 merged 2026-05-22; `mbe-learning-loop` RemoteTrigger validated on next scheduled run — no duplicate sensor issues created.
-
-### 2026-05-22 — Process metrics collector gap
-
-**Sensor detected:** The `/progress-tracker` skill lacked granular per-session process metrics (turn counts, token usage, wall-clock duration), so trend analysis produced flat baselines with no actionable signal.
-
-**Issue created:** #1630 — "feat(metrics): add process metrics collector"
-
-**Fix implemented:** `packages/agent-core/src/metrics/` — process-level collector captures turns, cost, duration, and stuck-session flags; feeds into progress-tracker trend analysis.
-
-**Fix verified:** PR #1638 merged 2026-05-22; Langfuse traces confirmed metric fields populated on subsequent agent sessions.
+| Date       | Sensor                    | Issue | Fix PR | Verified                       |
+| ---------- | ------------------------- | ----- | ------ | ------------------------------ |
+| 2026-05-22 | Process metrics collector | #1630 | #1638  | Tests pass, metrics populated  |
+| 2026-05-22 | Sensor correlator         | #1632 | #1640  | Cross-sensor grouping verified |
+| 2026-05-22 | Improvement discoverer    | #1634 | #1652  | Product improvements detected  |
