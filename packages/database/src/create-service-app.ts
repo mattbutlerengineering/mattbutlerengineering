@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
@@ -11,7 +11,6 @@ import {
   createRateLimitMonitor,
 } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
-import { apiVersioningPlugin } from "@mbe/api-versioning/fastify";
 
 /**
  * Swagger/OpenAPI configuration for the service.
@@ -203,13 +202,63 @@ export async function createServiceApp(
   // Register Sentry error handler (no-op without SENTRY_DSN)
   await fastify.register(sentryFastifyPlugin);
 
-  // --- API Versioning ---
-  const versioningConfig = config.apiVersioning ?? {
+  // --- API Versioning (inlined from @mbe/api-versioning) ---
+  const {
+    currentVersion,
+    successorVersion: configuredSuccessorVersion,
+    sunsetMonthsFromNow = 6,
+  } = config.apiVersioning ?? {
     currentVersion: "v1",
     successorVersion: "v2",
     sunsetMonthsFromNow: 6,
   };
-  await fastify.register(apiVersioningPlugin, versioningConfig);
+
+  const successorVersion =
+    configuredSuccessorVersion !== undefined
+      ? configuredSuccessorVersion
+      : (() => {
+          const match = currentVersion.match(/^v(\d+)$/);
+          if (match) {
+            return `v${parseInt(match[1], 10) + 1}`;
+          }
+          return undefined;
+        })();
+
+  const sunsetDate = (() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + sunsetMonthsFromNow);
+    return date.toUTCString();
+  })();
+
+  fastify.addHook("onSend", async (request, reply) => {
+    reply.header("API-Version", currentVersion);
+    if (successorVersion) {
+      const path = request.url.replace(/\/v\d+/, `/${successorVersion}`);
+      reply.header("Link", `<${path}>; rel="successor-version"`);
+    }
+  });
+
+  fastify.decorate("addDeprecationHeaders", (reply: FastifyReply) => {
+    reply.header("Deprecation", "true");
+    reply.header("Sunset", sunsetDate);
+    if (successorVersion) {
+      const path = reply.request.url.replace(/\/v\d+/, `/${successorVersion}`);
+      reply.header("Link", `<${path}>; rel="successor-version"`);
+    }
+  });
+
+  fastify.decorate("apiVersion", currentVersion);
+  fastify.decorate("successorVersion", successorVersion);
+  fastify.decorate("sunsetDate", sunsetDate);
 
   return fastify;
+}
+
+declare module "fastify" {
+  interface FastifyInstance {
+    apiVersion: string;
+    successorVersion?: string;
+    sunsetDate: string;
+    addDeprecationHeaders: (reply: FastifyReply) => void;
+  }
 }
