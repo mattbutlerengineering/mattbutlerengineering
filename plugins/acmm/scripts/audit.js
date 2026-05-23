@@ -216,8 +216,19 @@ for (const c of ALL_CRITERIA) {
   const formatPattern = (p) =>
     typeof p === "string" ? p : p.file ? `${p.file} (contains: ${p.contains})` : JSON.stringify(p);
 
+  // Handle `github:` prefixed patterns — delegate evidence to the criterion's check function
+  const isGithubPattern =
+    type === "active" &&
+    patterns.length === 1 &&
+    typeof patterns[0] === "string" &&
+    patterns[0].startsWith("github:") &&
+    typeof c.check === "function";
+
   let evidence;
-  if (passed) {
+  if (isGithubPattern) {
+    const checkResult = c.check(cwd);
+    evidence = checkResult.evidence;
+  } else if (passed) {
     evidence = `detected at one of: ${patterns.map(formatPattern).join(", ")}`;
   } else if (type === "active") {
     const filePath = typeof patterns[0] === "string" ? patterns[0] : patterns[0].file;
