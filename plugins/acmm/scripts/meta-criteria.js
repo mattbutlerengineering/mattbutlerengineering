@@ -1,0 +1,139 @@
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function loadJsonl(filePath) {
+  if (!existsSync(filePath)) return null;
+  try {
+    return readFileSync(filePath, "utf-8")
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+function hasRecentEntries(entries, maxAgeMs) {
+  if (!entries || entries.length === 0) return false;
+  const cutoff = Date.now() - maxAgeMs;
+  return entries.some((e) => {
+    const ts = e.timestamp ?? e.date;
+    return ts && new Date(ts).getTime() >= cutoff;
+  });
+}
+
+export function checkThresholdTuning(root) {
+  const entries = loadJsonl(join(root, "metrics", "threshold-changes.jsonl"));
+  if (!entries) return { passed: false, evidence: "metrics/threshold-changes.jsonl not found" };
+  if (!hasRecentEntries(entries, THIRTY_DAYS_MS)) {
+    return { passed: false, evidence: `${entries.length} entries but none in last 30 days` };
+  }
+  const recent = entries.filter(
+    (e) => new Date(e.date ?? e.timestamp).getTime() >= Date.now() - THIRTY_DAYS_MS
+  );
+  return { passed: true, evidence: `${recent.length} threshold adjustment(s) in last 30 days` };
+}
+
+export function checkInstructionEvolution(root) {
+  const entries = loadJsonl(join(root, "metrics", "instruction-changes.jsonl"));
+  if (!entries) return { passed: false, evidence: "metrics/instruction-changes.jsonl not found" };
+  if (!hasRecentEntries(entries, THIRTY_DAYS_MS)) {
+    return { passed: false, evidence: `${entries.length} entries but none in last 30 days` };
+  }
+  const recent = entries.filter(
+    (e) => new Date(e.date ?? e.timestamp).getTime() >= Date.now() - THIRTY_DAYS_MS
+  );
+  return { passed: true, evidence: `${recent.length} instruction change(s) in last 30 days` };
+}
+
+export function checkProcessMetrics(root) {
+  const entries = loadJsonl(join(root, "metrics", "process-metrics.jsonl"));
+  if (!entries) return { passed: false, evidence: "metrics/process-metrics.jsonl not found" };
+  if (!hasRecentEntries(entries, SEVEN_DAYS_MS)) {
+    return { passed: false, evidence: `${entries.length} entries but none in last 7 days` };
+  }
+  return { passed: true, evidence: `process metrics collected within last 7 days` };
+}
+
+export function checkFpRate(root) {
+  const entries = loadJsonl(join(root, "metrics", "process-metrics.jsonl"));
+  if (!entries || entries.length === 0) {
+    return { passed: false, evidence: "no process metrics available" };
+  }
+  const latest = entries[entries.length - 1];
+  if (latest.fp_rate === null || latest.fp_rate === undefined) {
+    return { passed: false, evidence: "latest FP rate is null" };
+  }
+  if (latest.fp_rate >= 30) {
+    return { passed: false, evidence: `FP rate ${latest.fp_rate}% >= 30% threshold` };
+  }
+  return { passed: true, evidence: `FP rate ${latest.fp_rate}% < 30%` };
+}
+
+export const META_CRITERIA = [
+  {
+    id: "meta:threshold-tuning",
+    source: "meta",
+    level: 6,
+    category: "self-improvement",
+    name: "Threshold self-tuning",
+    description: "System adjusted its own QA thresholds based on observed outcomes in last 30 days",
+    scannable: false,
+    detection: { type: "active", pattern: "metrics/threshold-changes.jsonl" },
+    check: checkThresholdTuning,
+  },
+  {
+    id: "meta:instruction-evolution",
+    source: "meta",
+    level: 6,
+    category: "self-improvement",
+    name: "Instruction evolution",
+    description: "System updated its own instructions from learned patterns in last 30 days",
+    scannable: false,
+    detection: { type: "active", pattern: "metrics/instruction-changes.jsonl" },
+    check: checkInstructionEvolution,
+  },
+  {
+    id: "meta:process-metrics",
+    source: "meta",
+    level: 6,
+    category: "self-improvement",
+    name: "Process metrics tracked",
+    description: "Operational metrics (FP rate, cost, time-to-fix) collected within last 7 days",
+    scannable: false,
+    detection: { type: "active", pattern: "metrics/process-metrics.jsonl" },
+    check: checkProcessMetrics,
+  },
+  {
+    id: "meta:fp-rate-healthy",
+    source: "meta",
+    level: 6,
+    category: "self-improvement",
+    name: "False positive rate healthy",
+    description: "Latest false positive rate below 30%",
+    scannable: false,
+    detection: { type: "active", pattern: "metrics/process-metrics.jsonl" },
+    check: checkFpRate,
+  },
+  {
+    id: "meta:product-improvements",
+    source: "meta",
+    level: 6,
+    category: "self-improvement",
+    name: "Proactive product improvements shipped",
+    description: "At least one improvement-labeled issue merged in last 30 days",
+    scannable: false,
+    detection: { type: "active", pattern: "github:improvement-label" },
+    check: null,
+  },
+];
