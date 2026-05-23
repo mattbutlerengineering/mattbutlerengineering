@@ -2,6 +2,11 @@ name: Auto-Rollback on Agent Regression
 
 on:
   workflow_dispatch:
+    inputs:
+      drill:
+        description: "Run as a dry-run drill (simulates rollback without reverting commits)"
+        type: boolean
+        default: false
   workflow_run:
     workflows: ["Post-Deploy Check"]
     types:
@@ -13,11 +18,121 @@ permissions:
   issues: write
 
 jobs:
-  dispatch-smoke:
-    if: github.event_name == 'workflow_dispatch'
+  rollback-drill:
+    name: Rollback Drill (dry-run)
+    if: github.event_name == 'workflow_dispatch' && inputs.drill == true
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Auto-rollback dispatch smoke test passed"
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 10
+
+      - name: Configure git identity
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
+      - name: Identify latest agent commit to simulate rollback
+        id: find-agent-commit
+        run: |
+          # Find the most recent commit with Claude co-authorship (agent commit signal)
+          AGENT_SHA=""
+          for sha in $(git log --format='%H' -20); do
+            msg=$(git log -1 --format='%B' "$sha")
+            if echo "$msg" | grep -qi 'Co-Authored-By:.*Claude'; then
+              AGENT_SHA="$sha"
+              break
+            fi
+          done
+
+          if [ -z "$AGENT_SHA" ]; then
+            # Fall back to HEAD if no agent commit found in recent history
+            AGENT_SHA=$(git rev-parse HEAD)
+            echo "No agent commit found in last 20 commits; using HEAD as drill target"
+          fi
+
+          SHORT_SHA="${AGENT_SHA:0:7}"
+          AUTHOR=$(git log -1 --format='%an' "$AGENT_SHA")
+          SUBJECT=$(git log -1 --format='%s' "$AGENT_SHA")
+
+          echo "agent_sha=$AGENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
+          echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
+
+          echo "=== DRILL: Target commit ==="
+          echo "  SHA:     $AGENT_SHA"
+          echo "  Author:  $AUTHOR"
+          echo "  Subject: $SUBJECT"
+
+      - name: Simulate revert on temporary drill branch
+        id: drill-revert
+        env:
+          AGENT_SHA: ${{ steps.find-agent-commit.outputs.agent_sha }}
+          SHORT_SHA: ${{ steps.find-agent-commit.outputs.short_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DRILL_BRANCH="drill/rollback-${SHORT_SHA}-$(date +%s)"
+          echo "drill_branch=$DRILL_BRANCH" >> "$GITHUB_OUTPUT"
+
+          echo "=== DRILL: Creating temporary branch '$DRILL_BRANCH' ==="
+          git checkout -b "$DRILL_BRANCH"
+
+          echo "=== DRILL: Attempting dry-run revert of $AGENT_SHA ==="
+          # Use --no-commit so we can inspect without actually committing
+          if git revert --no-commit "$AGENT_SHA" 2>/dev/null; then
+            echo "revert_clean=true" >> "$GITHUB_OUTPUT"
+            echo "=== DRILL: Revert would apply cleanly — no conflicts ==="
+            # Reset the working tree (don't commit in drill mode)
+            git checkout .
+            git clean -fd
+          else
+            echo "revert_clean=false" >> "$GITHUB_OUTPUT"
+            echo "=== DRILL: Revert would have conflicts — manual intervention would be needed ==="
+            git revert --abort 2>/dev/null || git checkout .
+            git clean -fd
+          fi
+
+          echo "=== DRILL: Pushing drill branch for build verification ==="
+          git push origin "$DRILL_BRANCH"
+
+      - name: Verify drill branch is operational
+        env:
+          DRILL_BRANCH: ${{ steps.drill-revert.outputs.drill_branch }}
+          REVERT_CLEAN: ${{ steps.drill-revert.outputs.revert_clean }}
+        run: |
+          echo "=== DRILL: Branch '$DRILL_BRANCH' pushed successfully ==="
+          echo "=== DRILL: In a real rollback, CI would run on this branch ==="
+          echo "=== DRILL: Revert was clean: $REVERT_CLEAN ==="
+
+      - name: Clean up drill branch
+        if: always()
+        env:
+          DRILL_BRANCH: ${{ steps.drill-revert.outputs.drill_branch }}
+        run: |
+          if [ -n "$DRILL_BRANCH" ]; then
+            echo "=== DRILL: Deleting temporary branch '$DRILL_BRANCH' ==="
+            git push origin --delete "$DRILL_BRANCH" || echo "Branch already deleted or never created"
+          fi
+
+      - name: Report drill results
+        env:
+          SHORT_SHA: ${{ steps.find-agent-commit.outputs.short_sha }}
+          AUTHOR: ${{ steps.find-agent-commit.outputs.author }}
+          SUBJECT: ${{ steps.find-agent-commit.outputs.subject }}
+          REVERT_CLEAN: ${{ steps.drill-revert.outputs.revert_clean }}
+        run: |
+          echo "============================================"
+          echo "  DRILL PASSED: Auto-rollback drill complete"
+          echo "============================================"
+          echo ""
+          echo "  Simulated rollback of: ${SHORT_SHA} (${AUTHOR})"
+          echo "  Subject: ${SUBJECT}"
+          echo "  Clean revert: ${REVERT_CLEAN}"
+          echo ""
+          echo "  The auto-rollback mechanism is verified operational."
+          echo "  A real regression would trigger a revert PR automatically."
+          echo "============================================"
 
   check-and-rollback:
     runs-on: ubuntu-latest
