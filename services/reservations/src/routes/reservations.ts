@@ -11,7 +11,6 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
 import { createFeatureContext } from "@mbe/feature-flags";
 import { reservationService } from "../services/reservation.js";
 import {
@@ -109,7 +108,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         );
       }
 
-      const { page, limit } = parseListQuery(request.query);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.list({
         page,
         limit,
@@ -181,7 +181,8 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
-      const { page, limit } = parseListQuery(request.query);
+      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
       return reservationService.listByUserId(authUser.id, page, limit);
     }
   );
