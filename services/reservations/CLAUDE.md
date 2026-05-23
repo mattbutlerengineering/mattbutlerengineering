@@ -394,6 +394,6 @@ pnpm db:migrate:deploy # Apply migrations (production)
 
 ## Related Documentation
 
-- [SSE Documentation](../apps/hospitality/docs/ARCHITECTURE.md#pattern-3-real-time-sse)
-- [Cross-Service Flows](../docs/CROSS-SERVICE-FLOWS.md)
-- [API Versioning](../docs/API-VERSIONING.md)
+- [SSE Documentation](../../apps/hospitality/docs/ARCHITECTURE.md#pattern-3-real-time-sse)
+- [Cross-Service Flows](../../docs/CROSS-SERVICE-FLOWS.md)
+- [API Versioning](../../docs/API-VERSIONING.md)

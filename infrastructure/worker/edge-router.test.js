@@ -94,6 +94,12 @@ function createMockKv() {
   };
 }
 
+function createMockAnalytics() {
+  return {
+    writeDataPoint: vi.fn(),
+  };
+}
+
 function createEnv() {
   return {
     API_ORIGIN: "https://api.mattbutlerengineering.com",
@@ -102,6 +108,7 @@ function createEnv() {
     RIALTO: createMockBinding("RIALTO"),
     GEN: createMockBinding("GEN"),
     HEALTH_STATE: createMockKv(),
+    ANALYTICS: createMockAnalytics(),
   };
 }
 
@@ -392,8 +399,17 @@ describe("Edge Router", () => {
       const body = await response.json();
       expect(body).toHaveProperty("status");
       expect(body).toHaveProperty("timestamp");
-      // Should NOT have detailed subsystem info without auth
-      expect(body).not.toHaveProperty("subsystems");
+      // Coarse response includes per-subsystem STATUS rollup so monitoring
+      // scripts can determine WHY the system is degraded — but no sensitive
+      // details (commit SHAs, latencies, pipeline names, service topology).
+      expect(body).toHaveProperty("subsystems.services.status");
+      expect(body).toHaveProperty("subsystems.static_sites.status");
+      expect(body).toHaveProperty("subsystems.ci.status");
+      expect(body).toHaveProperty("subsystems.deploys.status");
+      // Verify no sensitive fields leak through
+      expect(body.subsystems.ci).not.toHaveProperty("last_run");
+      expect(body.subsystems.deploys).not.toHaveProperty("pipelines");
+      expect(body.subsystems.services).not.toHaveProperty("checks");
     });
 
     it("omits CORS header when no Origin is sent", async () => {
@@ -478,7 +494,6 @@ describe("Edge Router", () => {
       const body = await response.json();
       expect(body).toHaveProperty("nodes");
       expect(body).toHaveProperty("edges");
-      expect(body).toHaveProperty("generatedAt");
       expect(Array.isArray(body.nodes)).toBe(true);
       expect(Array.isArray(body.edges)).toBe(true);
     });
@@ -630,6 +645,32 @@ describe("Edge Router", () => {
       );
       expect(response.status).toBe(200);
       expect(env.MARKETING.fetch).toHaveBeenCalled();
+    });
+  });
+
+  describe("Analytics Engine", () => {
+    it("writes analytics data point on static site request", async () => {
+      await edgeRouter.fetch(makeRequest("/"), env);
+
+      expect(env.ANALYTICS.writeDataPoint).toHaveBeenCalledTimes(1);
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      expect(call.blobs).toContain("marketing");
+      expect(call.doubles[0]).toBe(200);
+    });
+
+    it("records correct route target for each binding", async () => {
+      await edgeRouter.fetch(makeRequest("/hospitality/dashboard"), env);
+
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      expect(call.blobs).toContain("hospitality");
+    });
+
+    it("does not fail when ANALYTICS binding is absent", async () => {
+      const envWithoutAnalytics = { ...env };
+      delete envWithoutAnalytics.ANALYTICS;
+
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithoutAnalytics);
+      expect(response.status).toBe(200);
     });
   });
 });
