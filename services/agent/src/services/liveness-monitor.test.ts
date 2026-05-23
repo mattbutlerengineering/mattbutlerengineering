@@ -9,8 +9,7 @@ vi.mock("@mbe/agent-core", () => ({
 
 vi.mock("./session.js", () => ({
   sessionService: {
-    findByStatus: vi.fn().mockResolvedValue([]),
-    getLastEvent: vi.fn().mockResolvedValue(null),
+    findStaleSessions: vi.fn().mockResolvedValue([]),
     addEvent: vi.fn().mockResolvedValue(null),
   },
 }));
@@ -65,7 +64,7 @@ describe("liveness-monitor", () => {
 
       await vi.advanceTimersByTimeAsync(120_000);
 
-      expect(sessionService.findByStatus).toHaveBeenCalledWith("RUNNING");
+      expect(sessionService.findStaleSessions).toHaveBeenCalledWith(600_000);
     });
 
     it("does not start a second monitor when already running", async () => {
@@ -74,7 +73,7 @@ describe("liveness-monitor", () => {
 
       await vi.advanceTimersByTimeAsync(120_000);
 
-      expect(sessionService.findByStatus).toHaveBeenCalledTimes(1);
+      expect(sessionService.findStaleSessions).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -85,7 +84,7 @@ describe("liveness-monitor", () => {
 
       await vi.advanceTimersByTimeAsync(240_000);
 
-      expect(sessionService.findByStatus).not.toHaveBeenCalled();
+      expect(sessionService.findStaleSessions).not.toHaveBeenCalled();
     });
 
     it("is safe to call when not running", () => {
@@ -94,12 +93,10 @@ describe("liveness-monitor", () => {
   });
 
   describe("stale session detection", () => {
-    it("cancels session that has been inactive beyond threshold", async () => {
-      const now = Date.now();
-      const staleSession = makeRunningSession("stale-1", new Date(now - 700_000).toISOString());
+    it("cancels session returned by findStaleSessions", async () => {
+      const staleSession = makeRunningSession("stale-1", new Date().toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([staleSession]);
-      vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
+      vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([staleSession]);
       vi.mocked(cancelSession).mockResolvedValueOnce(true);
 
       startLivenessMonitor();
@@ -115,31 +112,8 @@ describe("liveness-monitor", () => {
       );
     });
 
-    it("does not cancel session that has recent activity", async () => {
-      const now = Date.now();
-      const activeSession = makeRunningSession("active-1", new Date(now - 60_000).toISOString());
-
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([activeSession]);
-      vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce({
-        id: "evt-1",
-        sessionId: "active-1",
-        type: "session:message",
-        data: {},
-        createdAt: new Date(now - 30_000).toISOString(),
-      });
-
-      startLivenessMonitor();
-      await vi.advanceTimersByTimeAsync(120_000);
-
-      expect(cancelSession).not.toHaveBeenCalled();
-    });
-
-    it("uses updatedAt as fallback when no events exist", async () => {
-      const now = Date.now();
-      const recentSession = makeRunningSession("recent-1", new Date(now - 60_000).toISOString());
-
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([recentSession]);
-      vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
+    it("does not cancel when findStaleSessions returns empty", async () => {
+      vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([]);
 
       startLivenessMonitor();
       await vi.advanceTimersByTimeAsync(120_000);
@@ -148,11 +122,9 @@ describe("liveness-monitor", () => {
     });
 
     it("does not add error event when cancellation returns false", async () => {
-      const now = Date.now();
-      const staleSession = makeRunningSession("stale-2", new Date(now - 700_000).toISOString());
+      const staleSession = makeRunningSession("stale-2", new Date().toISOString());
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce([staleSession]);
-      vi.mocked(sessionService.getLastEvent).mockResolvedValueOnce(null);
+      vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([staleSession]);
       vi.mocked(cancelSession).mockResolvedValueOnce(false);
 
       startLivenessMonitor();
@@ -167,7 +139,7 @@ describe("liveness-monitor", () => {
     });
 
     it("handles errors in check gracefully without crashing", async () => {
-      vi.mocked(sessionService.findByStatus)
+      vi.mocked(sessionService.findStaleSessions)
         .mockRejectedValueOnce(new Error("DB unavailable"))
         .mockResolvedValueOnce([]);
 
@@ -176,18 +148,16 @@ describe("liveness-monitor", () => {
 
       await vi.advanceTimersByTimeAsync(120_000);
 
-      expect(sessionService.findByStatus).toHaveBeenCalledTimes(2);
+      expect(sessionService.findStaleSessions).toHaveBeenCalledTimes(2);
     });
 
     it("processes multiple stale sessions in one check cycle", async () => {
-      const now = Date.now();
       const staleSessions = [
-        makeRunningSession("stale-a", new Date(now - 700_000).toISOString()),
-        makeRunningSession("stale-b", new Date(now - 700_000).toISOString()),
+        makeRunningSession("stale-a", new Date().toISOString()),
+        makeRunningSession("stale-b", new Date().toISOString()),
       ];
 
-      vi.mocked(sessionService.findByStatus).mockResolvedValueOnce(staleSessions);
-      vi.mocked(sessionService.getLastEvent).mockResolvedValue(null);
+      vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce(staleSessions);
       vi.mocked(cancelSession).mockResolvedValue(true);
 
       startLivenessMonitor();
