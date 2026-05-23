@@ -105,6 +105,7 @@ flowchart TD
   @mattbutlerengineering/rialto --> config
   rialto_catalog --> config
   rialto_plugin --> config
+  sentry --> api_client
   sentry --> types
   sentry --> config
   types --> config
