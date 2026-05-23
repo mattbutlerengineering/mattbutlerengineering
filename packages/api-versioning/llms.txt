@@ -1,2 +1,0 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/api-versioning">
-</codebase>
