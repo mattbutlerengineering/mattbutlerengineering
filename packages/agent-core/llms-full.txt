@@ -1,4 +1,4 @@
-<codebase path="packages/agent-core">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/agent-core">
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     function detectRateLimitInError(message: string): boolean {

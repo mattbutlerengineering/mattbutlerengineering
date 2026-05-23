@@ -1,4 +1,4 @@
-<codebase path="packages/database">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/packages/database">
   <section priority="medium" role="src">
   <file path="src/create-service-app.ts">
     <item priority="low">
