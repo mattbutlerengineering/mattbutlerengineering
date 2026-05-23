@@ -51,11 +51,6 @@
       "path": "packages/api-client"
     },
     {
-      "name": "@mbe/api-versioning",
-      "type": "package",
-      "path": "packages/api-versioning"
-    },
-    {
       "name": "@mbe/auth",
       "type": "package",
       "path": "packages/auth"
@@ -234,11 +229,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/api-versioning",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/auth",
       "type": "dependency"
     },
@@ -279,11 +269,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/api-versioning",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/auth",
       "type": "dependency"
     },
@@ -321,11 +306,6 @@
       "from": "@mbe/reservations-service",
       "to": "@mbe/config",
       "type": "devDependency"
-    },
-    {
-      "from": "@mbe/users-service",
-      "to": "@mbe/api-versioning",
-      "type": "dependency"
     },
     {
       "from": "@mbe/users-service",
@@ -393,11 +373,6 @@
       "type": "devDependency"
     },
     {
-      "from": "@mbe/api-versioning",
-      "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
       "from": "@mbe/auth",
       "to": "@mbe/types",
       "type": "dependency"
@@ -406,11 +381,6 @@
       "from": "@mbe/auth",
       "to": "@mbe/config",
       "type": "devDependency"
-    },
-    {
-      "from": "@mbe/database",
-      "to": "@mbe/api-versioning",
-      "type": "dependency"
     },
     {
       "from": "@mbe/database",

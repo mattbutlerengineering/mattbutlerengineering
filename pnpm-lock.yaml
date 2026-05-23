@@ -574,24 +574,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.9.0)(@vitest/browser-playwright@4.1.6)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.47.1)(tsx@4.21.0)(yaml@2.8.4))
 
-  packages/api-versioning:
-    devDependencies:
-      '@mbe/config':
-        specifier: workspace:*
-        version: link:../config
-      '@types/node':
-        specifier: 'catalog:'
-        version: 25.9.0
-      fastify:
-        specifier: 'catalog:'
-        version: 5.8.5
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.9.0)(@vitest/browser-playwright@4.1.6)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.47.1)(tsx@4.21.0)(yaml@2.8.4))
-
   packages/auth:
     dependencies:
       '@mbe/types':
@@ -712,9 +694,6 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^5.2.6
         version: 5.2.6
-      '@mbe/api-versioning':
-        specifier: workspace:*
-        version: link:../api-versioning
       '@mbe/auth':
         specifier: workspace:*
         version: link:../auth
@@ -1139,9 +1118,6 @@ importers:
       '@mbe/api-client':
         specifier: workspace:^
         version: link:../../packages/api-client
-      '@mbe/api-versioning':
-        specifier: workspace:*
-        version: link:../../packages/api-versioning
       '@mbe/auth':
         specifier: workspace:^
         version: link:../../packages/auth
@@ -1227,9 +1203,6 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^5.2.6
         version: 5.2.6
-      '@mbe/api-versioning':
-        specifier: workspace:*
-        version: link:../../packages/api-versioning
       '@mbe/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -1318,9 +1291,6 @@ importers:
       '@fastify/swagger-ui':
         specifier: ^5.2.6
         version: 5.2.6
-      '@mbe/api-versioning':
-        specifier: workspace:*
-        version: link:../../packages/api-versioning
       '@mbe/auth':
         specifier: workspace:*
         version: link:../../packages/auth

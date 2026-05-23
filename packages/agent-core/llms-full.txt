@@ -51,6 +51,27 @@
       "api:agent",
     ];
   </file>
+  <file path="src/budget-calculator.ts">
+    interface BudgetConfig {
+      readonly budgetUsd: number;
+      readonly maxTurns: number;
+      readonly reason: string;
+    }
+    export function resolveBudget(taskDescription: string): BudgetConfig {
+      // Check complex first (most specific)
+      for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
+        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.complex.budget;
+      }
+    
+      // Check simple
+      for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
+        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.simple.budget;
+      }
+    
+      // Default to standard
+      return COMPLEXITY_SIGNALS.standard.budget;
+    }
+  </file>
   <file path="src/bundle-size-tracker.ts">
     export interface FileSize {
       readonly path: string;
@@ -765,7 +786,7 @@
                   const resolvedSourcePaths =
                     config.sourceFiles ??
                     (async () => {
-                      const { resolveSourceFiles } = await import("./task-intelligence.js");
+                      const { resolveSourceFiles } = await import("./source-resolver.js");
                       return resolveSourceFiles(config.taskDescription);
                     })();
     
@@ -777,7 +798,7 @@
     
                   // Fetch recent successful PRs as examples (non-blocking)
                   const { fetchRecentPrExamples, formatPrExamples } =
-                    await import("./task-intelligence.js");
+                    await import("./budget-calculator.js");
                   const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
                   const prExamplesSection = formatPrExamples(prExamples);
     
@@ -1457,6 +1478,59 @@
       );
     }
   </file>
+  <file path="src/source-resolver.ts">
+    function detectTaskContexts(taskDescription: string): string[] {
+      const contexts: string[] = [];
+      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
+        for (const keyword of keywords) {
+          if (keyword.test(taskDescription)) {
+            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
+            for (const file of contextFiles) {
+              if (existsSync(file)) {
+                contexts.push(file);
+              }
+            }
+            break;
+          }
+        }
+      }
+      return contexts;
+    }
+    export function resolveSourceFiles(taskDescription: string): readonly string[] {
+      const files = new Set<string>();
+    
+      // Extract explicit file paths
+      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
+        files.add(match[1]);
+      }
+    
+      // Extract directory references and add key files
+      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
+        const dir = match[1];
+        // If a service or app directory is mentioned, add its CLAUDE.md
+        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
+          files.add(`${dir}CLAUDE.md`);
+        }
+      }
+    
+      // For each source file, also include its test file
+      const withTests = new Set(files);
+      for (const file of files) {
+        if (!file.includes(".test.") && !file.includes(".spec.")) {
+          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
+          withTests.add(testFile);
+        }
+      }
+    
+      // Add task-specific context bundles
+      const contexts = detectTaskContexts(taskDescription);
+      for (const ctx of contexts) {
+        withTests.add(ctx);
+      }
+    
+      return [...withTests];
+    }
+  </file>
   <file path="src/stuck-detector.ts">
     export type StuckPatternType =
       | "repeated_action_observation"
@@ -1513,59 +1587,6 @@
       baseBranch: "main",
       maxConcurrentSessions: 3,
     };
-  </file>
-  <file path="src/task-intelligence.ts">
-    function detectTaskContexts(taskDescription: string): string[] {
-      const contexts: string[] = [];
-      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
-        for (const keyword of keywords) {
-          if (keyword.test(taskDescription)) {
-            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
-            for (const file of contextFiles) {
-              if (existsSync(file)) {
-                contexts.push(file);
-              }
-            }
-            break;
-          }
-        }
-      }
-      return contexts;
-    }
-    export function resolveSourceFiles(taskDescription: string): readonly string[] {
-      const files = new Set<string>();
-    
-      // Extract explicit file paths
-      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-        files.add(match[1]);
-      }
-    
-      // Extract directory references and add key files
-      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
-        const dir = match[1];
-        // If a service or app directory is mentioned, add its CLAUDE.md
-        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
-          files.add(`${dir}CLAUDE.md`);
-        }
-      }
-    
-      // For each source file, also include its test file
-      const withTests = new Set(files);
-      for (const file of files) {
-        if (!file.includes(".test.") && !file.includes(".spec.")) {
-          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
-          withTests.add(testFile);
-        }
-      }
-    
-      // Add task-specific context bundles
-      const contexts = detectTaskContexts(taskDescription);
-      for (const ctx of contexts) {
-        withTests.add(ctx);
-      }
-    
-      return [...withTests];
-    }
   </file>
   <file path="src/tool-permissions.ts">
     export function normalizeBashCommand(command: string): readonly string[] {

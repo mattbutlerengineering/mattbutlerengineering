@@ -11,6 +11,7 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
+import { parseListQuery } from "@mbe/database";
 import { createFeatureContext } from "@mbe/feature-flags";
 import { parseListQuery } from "@mbe/database";
 import { reservationService } from "../services/reservation.js";

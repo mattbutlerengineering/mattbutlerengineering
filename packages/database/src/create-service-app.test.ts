@@ -41,12 +41,7 @@ vi.mock("@mbe/observability", () => ({
 vi.mock("@mbe/sentry/node", () => ({
   sentryFastifyPlugin: vi.fn().mockImplementation(async () => {}),
 }));
-vi.mock("@mbe/api-versioning/fastify", () => ({
-  apiVersioningPlugin: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
-    fastify.decorate("apiVersion", "v1");
-    fastify.decorate("sunsetDate", "2027-01-01");
-  }),
-}));
+// NOTE: @mbe/api-versioning is inlined into createServiceApp — no mock needed.
 
 /**
  * Helper to extract the options (second arg) from a mocked Fastify plugin call.
@@ -196,17 +191,20 @@ describe("createServiceApp", () => {
     expect(sentry.sentryFastifyPlugin).toHaveBeenCalled();
   });
 
-  it("registers API versioning plugin with defaults", async () => {
-    const versioning = await import("@mbe/api-versioning/fastify");
-    app = await createServiceApp(createTestConfig());
-    const opts = getPluginOpts(vi.mocked(versioning.apiVersioningPlugin)) as {
-      currentVersion: string;
-      successorVersion: string;
-      sunsetMonthsFromNow: number;
-    };
-    expect(opts.currentVersion).toBe("v1");
-    expect(opts.successorVersion).toBe("v2");
-    expect(opts.sunsetMonthsFromNow).toBe(6);
+  it("adds API-Version header to responses (inlined versioning)", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/v1/ping", async () => ({ ok: true }));
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/v1/ping" });
+    expect(res.headers["api-version"]).toBe("v1");
+  });
+
+  it("adds Link successor-version header by default (v1 → v2)", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/v1/items", async () => []);
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/v1/items" });
+    expect(res.headers["link"]).toBe('</v2/items>; rel="successor-version"');
   });
 
   it("accepts custom logger option", async () => {
@@ -214,8 +212,7 @@ describe("createServiceApp", () => {
     expect(app).toBeDefined();
   });
 
-  it("accepts custom API versioning config", async () => {
-    const versioning = await import("@mbe/api-versioning/fastify");
+  it("respects custom API versioning config in response headers", async () => {
     app = await createServiceApp(
       createTestConfig({
         apiVersioning: {
@@ -223,16 +220,39 @@ describe("createServiceApp", () => {
           successorVersion: "v3",
           sunsetMonthsFromNow: 12,
         },
-      })
+      }),
+      { logger: false }
     );
-    const opts = getPluginOpts(vi.mocked(versioning.apiVersioningPlugin)) as {
-      currentVersion: string;
-      successorVersion: string;
-      sunsetMonthsFromNow: number;
-    };
-    expect(opts.currentVersion).toBe("v2");
-    expect(opts.successorVersion).toBe("v3");
-    expect(opts.sunsetMonthsFromNow).toBe(12);
+    app.get("/v2/items", async () => []);
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/v2/items" });
+    expect(res.headers["api-version"]).toBe("v2");
+    expect(res.headers["link"]).toBe('</v3/items>; rel="successor-version"');
+  });
+
+  it("decorates fastify instance with apiVersion after inlined versioning", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    await app.ready();
+    expect(app.apiVersion).toBe("v1");
+  });
+
+  it("decorates fastify instance with sunsetDate after inlined versioning", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    await app.ready();
+    expect(app.sunsetDate).toBeDefined();
+    expect(new Date(app.sunsetDate).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("addDeprecationHeaders sets Deprecation and Sunset headers", async () => {
+    app = await createServiceApp(createTestConfig(), { logger: false });
+    app.get("/v1/old", async (_req, reply) => {
+      app.addDeprecationHeaders(reply);
+      return { deprecated: true };
+    });
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/v1/old" });
+    expect(res.headers["deprecation"]).toBe("true");
+    expect(res.headers["sunset"]).toMatch(/GMT/);
   });
 
   it("validates CORS origins from CORS_ORIGINS env var", async () => {
