@@ -1,43 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
-  resolveSourceFiles,
   resolveBudget,
   resolveModel,
   formatPrExamples,
   fetchRecentPrExamples,
-} from "./task-intelligence.js";
-import { existsSync } from "node:fs";
+} from "./budget-calculator.js";
 import { execFile } from "node:child_process";
 
-vi.mock("node:fs", () => ({
-  existsSync: vi.fn(),
-}));
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-describe("task-intelligence", () => {
-  describe("resolveSourceFiles", () => {
-    it("extracts explicit file paths", () => {
-      const files = resolveSourceFiles("Change apps/gen/src/main.ts");
-      expect(files).toContain("apps/gen/src/main.ts");
-      expect(files).toContain("apps/gen/src/main.test.ts");
-    });
-
-    it("handles directory references", () => {
-      const files = resolveSourceFiles("Update services/users/ and packages/types/");
-      expect(files).toContain("services/users/CLAUDE.md");
-    });
-
-    it("detects task contexts based on keywords", () => {
-      vi.mocked(existsSync).mockReturnValue(true);
-      const files = resolveSourceFiles("Fix security vulnerability in auth");
-      expect(files).toContain(".agent/contexts/security-audit.md");
-    });
-  });
-
+describe("budget-calculator", () => {
   describe("resolveBudget", () => {
     it("returns simple budget for lint tasks", () => {
       const budget = resolveBudget("fix lint errors");
@@ -56,6 +31,24 @@ describe("task-intelligence", () => {
       expect(budget.budgetUsd).toBe(1.0);
       expect(budget.reason).toBe("standard task");
     });
+
+    it("returns simple budget for bump tasks", () => {
+      const budget = resolveBudget("bump lodash version");
+      expect(budget.budgetUsd).toBe(0.5);
+      expect(budget.maxTurns).toBe(30);
+    });
+
+    it("returns complex budget for architecture tasks", () => {
+      const budget = resolveBudget("architect the new microservice");
+      expect(budget.budgetUsd).toBe(2.0);
+      expect(budget.maxTurns).toBe(75);
+    });
+
+    it("complex wins over simple when both keywords present", () => {
+      // "feat" (complex) + "rename" (simple) — complex checked first
+      const budget = resolveBudget("feat: rename old file to new system");
+      expect(budget.budgetUsd).toBe(2.0);
+    });
   });
 
   describe("resolveModel", () => {
@@ -70,6 +63,10 @@ describe("task-intelligence", () => {
     it("returns sonnet for standard tasks", () => {
       expect(resolveModel("update logic")).toBe("claude-sonnet-4-6");
     });
+
+    it("returns haiku for bump tasks", () => {
+      expect(resolveModel("bump dependencies")).toBe("claude-haiku-4-5-20251001");
+    });
   });
 
   describe("formatPrExamples", () => {
@@ -83,6 +80,16 @@ describe("task-intelligence", () => {
       expect(formatted).toContain("### Example 1: T1");
       expect(formatted).toContain("Files changed: 2");
       expect(formatted).toContain("B1");
+    });
+
+    it("formats multiple examples", () => {
+      const examples = [
+        { title: "T1", body: "B1", filesChanged: 2 },
+        { title: "T2", body: "B2", filesChanged: 5 },
+      ];
+      const formatted = formatPrExamples(examples);
+      expect(formatted).toContain("### Example 1: T1");
+      expect(formatted).toContain("### Example 2: T2");
     });
   });
 
