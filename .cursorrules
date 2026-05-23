@@ -18,7 +18,7 @@
 
 - `apps/` — Frontend React (Vite) applications: `marketing` (/), `hospitality` (/hospitality), `rialto-web` (/rialto), `gen` (/gen).
 - `services/` — Backend Fastify/Node APIs: `users` (3001), `agent` (3003), `reservations` (3004).
-- `packages/` — Shared libraries: `agent-core`, `api-client`, `api-versioning`, `auth`, `config`, `observability`, `rialto` (Design System) + `rialto-catalog`/`rialto-plugin`, `sentry`, `types`. Each has its own `CLAUDE.md`.
+- `packages/` — Shared libraries: `agent-core`, `api-client`, `auth`, `config`, `observability`, `rialto` (Design System) + `rialto-catalog`/`rialto-plugin`, `sentry`, `types`. Each has its own `CLAUDE.md`.
 - `infrastructure/` — Pulumi (IaC) and Docker configuration.
 - `tools/` — Developer CLI (`mbe`).
 
