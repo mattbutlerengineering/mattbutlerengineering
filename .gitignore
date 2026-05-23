@@ -87,6 +87,7 @@ test.txt
 playwright-report/
 test-results/
 /metrics/
+!/metrics/improvement-activity.jsonl
 
 # Playwright
 e2e/.auth/

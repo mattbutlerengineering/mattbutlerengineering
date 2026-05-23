@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -80,6 +81,106 @@ export function checkFpRate(root) {
   return { passed: true, evidence: `FP rate ${latest.fp_rate}% < 30%` };
 }
 
+/**
+ * Check whether at least one improvement-labeled issue or PR was closed/merged
+ * in the last 30 days. Reads from `metrics/improvement-activity.jsonl` (populated
+ * by `scripts/collect-improvement-activity.mjs`); falls back to querying the `gh`
+ * CLI directly when the file is absent.
+ *
+ * @param {string} root - repo root
+ * @param {{ execFileSyncFn?: Function }} [opts] - injectable for testing
+ * @returns {{ passed: boolean, evidence: string }}
+ */
+export function checkProductImprovements(root, opts = {}) {
+  // Fast path: read from pre-collected metrics file
+  const metricsFile = join(root, "metrics", "improvement-activity.jsonl");
+  const entries = loadJsonl(metricsFile);
+  if (entries !== null) {
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+    const recent = entries.filter((e) => {
+      const ts = e.closedAt ?? e.mergedAt ?? e.date ?? e.timestamp;
+      return ts && new Date(ts).getTime() >= cutoff;
+    });
+    if (recent.length === 0) {
+      return {
+        passed: false,
+        evidence: `${entries.length} improvement entries found but none in last 30 days`,
+      };
+    }
+    return {
+      passed: true,
+      evidence: `${recent.length} improvement(s) shipped in last 30 days`,
+    };
+  }
+
+  // Fallback: query gh CLI directly
+  const fn = opts.execFileSyncFn ?? execFileSync;
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+  const allItems = [];
+
+  for (const [cmd, args] of [
+    [
+      "gh",
+      [
+        "issue",
+        "list",
+        "--label",
+        "improvement",
+        "--state",
+        "closed",
+        "--limit",
+        "50",
+        "--json",
+        "number,title,closedAt,url",
+      ],
+    ],
+    [
+      "gh",
+      [
+        "pr",
+        "list",
+        "--label",
+        "improvement",
+        "--state",
+        "merged",
+        "--limit",
+        "50",
+        "--json",
+        "number,title,mergedAt,url",
+      ],
+    ],
+  ]) {
+    try {
+      const out = fn(cmd, args, { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
+      const parsed = JSON.parse(out);
+      if (Array.isArray(parsed)) allItems.push(...parsed);
+    } catch {
+      // gh unavailable or label not found — skip
+    }
+  }
+
+  if (allItems.length === 0) {
+    return { passed: false, evidence: "no improvement-labeled issues or PRs found via gh CLI" };
+  }
+
+  const recent = allItems.filter((item) => {
+    const ts = item.closedAt ?? item.mergedAt;
+    return ts && new Date(ts).getTime() >= cutoff;
+  });
+
+  if (recent.length === 0) {
+    return {
+      passed: false,
+      evidence: `${allItems.length} improvement items found but none closed/merged in last 30 days`,
+    };
+  }
+
+  return {
+    passed: true,
+    evidence: `${recent.length} improvement(s) shipped in last 30 days`,
+  };
+}
+
 export const META_CRITERIA = [
   {
     id: "meta:threshold-tuning",
@@ -133,7 +234,7 @@ export const META_CRITERIA = [
     name: "Proactive product improvements shipped",
     description: "At least one improvement-labeled issue merged in last 30 days",
     scannable: false,
-    detection: { type: "active", pattern: "github:improvement-label" },
-    check: null,
+    detection: { type: "active", pattern: "metrics/improvement-activity.jsonl" },
+    check: checkProductImprovements,
   },
 ];
