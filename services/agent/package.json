@@ -28,7 +28,6 @@
     "@fastify/swagger-ui": "^5.2.6",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
-    "@mbe/api-versioning": "workspace:*",
     "@mbe/auth": "workspace:^",
     "@mbe/database": "workspace:*",
     "@mbe/observability": "workspace:*",
