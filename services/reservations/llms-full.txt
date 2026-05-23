@@ -486,7 +486,8 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const page = parseInt(request.query.page || "1", 10);
+          const limit = parseInt(request.query.limit || "10", 10);
           return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
@@ -2219,7 +2220,8 @@
             );
           }
     
-          const { page, limit } = parseListQuery(request.query);
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
           return reservationService.list({
             page,
             limit,
@@ -2291,7 +2293,8 @@
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
-          const { page, limit } = parseListQuery(request.query);
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
           return reservationService.listByUserId(authUser.id, page, limit);
         }
       );
@@ -2878,7 +2881,8 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
           const activeOnly = request.query.activeOnly === "true";
           return tableService.list(page, limit, activeOnly);
         }
@@ -3277,7 +3281,8 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
           return venueGroupService.list(page, limit);
         }
       );
@@ -3576,7 +3581,8 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
+          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
           return venueService.list(page, limit, request.query.venueGroupId);
         }
       );
@@ -4197,6 +4203,20 @@
       await fastify.register(modifyReservationRoutes);
     
       return fastify;
+    }
+  </file>
+  <file path="src/index.ts">
+    async function main() {
+      const fastify = await buildApp();
+    
+      try {
+        await fastify.listen({ port: PORT, host: HOST });
+        fastify.log.info(`Server running at http://${HOST}:${PORT}`);
+        fastify.log.info(`API docs at http://${HOST}:${PORT}/docs`);
+      } catch (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
     }
   </file>
   </section>

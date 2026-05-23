@@ -192,13 +192,3 @@ npx claude-mem install
 ### Auto-observation
 
 claude-mem automatically records observations during sessions — code patterns discovered, architecture decisions made, debugging outcomes. These are searchable in future sessions via `/mem-search`.
-
-## Feedback Loop Log
-
-Completed sensor → issue → fix → verify cycles:
-
-| Date       | Sensor                    | Issue | Fix PR | Verified                       |
-| ---------- | ------------------------- | ----- | ------ | ------------------------------ |
-| 2026-05-22 | Process metrics collector | #1630 | #1638  | Tests pass, metrics populated  |
-| 2026-05-22 | Sensor correlator         | #1632 | #1640  | Cross-sensor grouping verified |
-| 2026-05-22 | Improvement discoverer    | #1634 | #1652  | Product improvements detected  |

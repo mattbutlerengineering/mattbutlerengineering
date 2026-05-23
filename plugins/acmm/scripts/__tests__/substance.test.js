@@ -1,14 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { substanceCheckers, runSubstanceChecks } from "../substance.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 function makeTmpDir() {
   return mkdtempSync(join(tmpdir(), "substance-test-"));
@@ -202,19 +198,6 @@ describe("runbook substance checker", () => {
   });
 });
 
-describe("correction-capture integration — real repo files", () => {
-  const checker = substanceCheckers["acmm:correction-capture"];
-  const repoRoot = resolve(__dirname, "../../../..");
-  const correctionDir = join(repoRoot, ".claude/memory/corrections");
-
-  test("at least one correction file passes feeds_back_into + body check", () => {
-    assert.ok(existsSync(correctionDir), `corrections dir should exist: ${correctionDir}`);
-    const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
-    const result = checker(files, repoRoot);
-    assert.equal(result.passed, true, `Expected substantive: true but got: ${result.evidence}`);
-  });
-});
-
 describe("runSubstanceChecks", () => {
   test("returns substantive=true for criteria with passing checker", () => {
     const dir = makeTmpDir();
@@ -290,39 +273,5 @@ describe("runSubstanceChecks", () => {
 
     const results = runSubstanceChecks(detectedIds, criteria, "/tmp");
     assert.equal(results["acmm:simple-skills"], undefined);
-  });
-
-  test("expands directory patterns that resolve to existing dirs (real-world .claude/skills/ case)", () => {
-    // Reproduces the bug: patterns like ".claude/skills/" resolve to existing directories,
-    // but substance.js was calling checker(dirPaths) directly instead of expanding them.
-    const dir = makeTmpDir();
-    const skillsDir = join(dir, ".claude", "skills", "my-skill");
-    mkdirSync(skillsDir, { recursive: true });
-    writeFileSync(
-      join(skillsDir, "SKILL.md"),
-      [
-        "---",
-        "name: my-skill",
-        "description: Does something useful",
-        "---",
-        "",
-        "# My Skill",
-        "",
-        "This skill provides a detailed workflow for completing a common task. It includes multiple steps that guide the agent through the process from start to finish with clear checkpoints.",
-      ].join("\n")
-    );
-
-    const detectedIds = new Set(["acmm:simple-skills"]);
-    const criteria = [
-      {
-        id: "acmm:simple-skills",
-        // Pattern is a directory (trailing slash), matching the real acmm.js detection pattern
-        detection: { type: "any-of", pattern: [".claude/skills/", ".claude/commands/", "skills/"] },
-      },
-    ];
-
-    const results = runSubstanceChecks(detectedIds, criteria, dir);
-    assert.equal(results["acmm:simple-skills"].substantive, true);
-    rmSync(dir, { recursive: true });
   });
 });

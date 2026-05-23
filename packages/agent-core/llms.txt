@@ -8,34 +8,20 @@
       function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
     </item>
   </file>
-  <file path="src/adapters/cli-adapter-base.ts">
-    <item priority="low">
-      class CliAdapterBase {
-        name: string;
-        cliBinary: string;
-        async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
-      }
-    </item>
-  </file>
   <file path="src/adapters/gemini-adapter.ts">
-    <item priority="high">
-      class GeminiCliAdapter {
-        name: unknown;
-        cliBinary: unknown;
-        async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
-      }
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/adapters/opencode-adapter.ts">
-    <item priority="high">
-      class OpenCodeAdapter {
-        name: unknown;
-        cliBinary: unknown;
-        async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
-      }
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
     </item>
   </file>
   </section>
