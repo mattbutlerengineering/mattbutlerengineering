@@ -10,6 +10,7 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
+import { parseListQuery } from "@mbe/database";
 import { userService } from "../services/user.js";
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
@@ -68,8 +69,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
         );
       }
-      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "10", 10) || 10));
+      const { page, limit } = parseListQuery(request.query);
       return userService.list(page, limit);
     }
   );
