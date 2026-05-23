@@ -12,6 +12,7 @@ export type {
   ApiVersioningConfig,
   AppOptions,
 } from "./create-service-app.js";
+export { parseListQuery, createListResponseSchema } from "./list-utils.js";
 
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;

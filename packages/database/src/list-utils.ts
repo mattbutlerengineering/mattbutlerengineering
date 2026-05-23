@@ -1,0 +1,27 @@
+export function parseListQuery(query: { page?: string; limit?: string }): {
+  page: number;
+  limit: number;
+} {
+  const rawPage = parseInt(query.page ?? "1", 10);
+  const rawLimit = parseInt(query.limit ?? "10", 10);
+  const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+  const limit = Math.max(1, Math.min(100, isNaN(rawLimit) ? 10 : rawLimit));
+  return { page, limit };
+}
+
+export function createListResponseSchema(entityRef: string) {
+  return {
+    type: "object" as const,
+    properties: {
+      data: { type: "array" as const, items: { $ref: entityRef } },
+      pagination: {
+        type: "object" as const,
+        properties: {
+          page: { type: "number" as const },
+          limit: { type: "number" as const },
+          total: { type: "number" as const },
+        },
+      },
+    },
+  };
+}
