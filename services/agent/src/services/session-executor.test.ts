@@ -22,8 +22,15 @@ vi.mock("@mbe/agent-core", () => ({
 
 import { runSession } from "@mbe/agent-core";
 import { sessionService } from "./session.js";
-import { executeSession, cancelSession, getActiveSessionCount } from "./session-executor.js";
+import {
+  executeSession,
+  cancelSession,
+  getActiveSessionCount,
+  _testHelpers,
+} from "./session-executor.js";
 import type { AgentSession } from "@mbe/types";
+
+const { truncate, extractText, summarizeToolInput } = _testHelpers;
 
 const makeSession = (overrides: Partial<AgentSession> = {}): AgentSession => ({
   id: "test-session-1",
@@ -69,6 +76,120 @@ describe("session-executor", () => {
     vi.resetAllMocks();
     vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
     vi.mocked(sessionService.addEvent).mockResolvedValue(null as never);
+  });
+
+  describe("truncate", () => {
+    it("returns string unchanged when shorter than maxLen", () => {
+      expect(truncate("hello", 10)).toBe("hello");
+    });
+
+    it("returns string unchanged when exactly maxLen", () => {
+      expect(truncate("hello", 5)).toBe("hello");
+    });
+
+    it("truncates and appends ellipsis when longer than maxLen", () => {
+      const result = truncate("hello world", 6);
+      expect(result).toBe("hello…");
+      expect(result.length).toBe(6);
+    });
+  });
+
+  describe("extractText", () => {
+    it("returns string content directly", () => {
+      expect(extractText("hello")).toBe("hello");
+    });
+
+    it("returns empty string for non-array, non-string content", () => {
+      expect(extractText(42)).toBe("");
+      expect(extractText(null)).toBe("");
+      expect(extractText(undefined)).toBe("");
+      expect(extractText({})).toBe("");
+    });
+
+    it("extracts text from content block array", () => {
+      const blocks = [
+        { type: "text", text: "Hello" },
+        { type: "text", text: "World" },
+      ];
+      expect(extractText(blocks)).toBe("Hello\nWorld");
+    });
+
+    it("filters out non-text blocks", () => {
+      const blocks = [
+        { type: "text", text: "Hello" },
+        { type: "tool_use", id: "123" },
+        { type: "text", text: "World" },
+      ];
+      expect(extractText(blocks)).toBe("Hello\nWorld");
+    });
+
+    it("returns empty string for empty array", () => {
+      expect(extractText([])).toBe("");
+    });
+  });
+
+  describe("summarizeToolInput", () => {
+    it("returns empty object for null/undefined input", () => {
+      expect(summarizeToolInput(null)).toEqual({});
+      expect(summarizeToolInput(undefined)).toEqual({});
+    });
+
+    it("returns empty object for non-object input", () => {
+      expect(summarizeToolInput("string")).toEqual({});
+      expect(summarizeToolInput(42)).toEqual({});
+    });
+
+    it("captures file_path", () => {
+      expect(summarizeToolInput({ file_path: "/src/auth.ts" })).toEqual({
+        file_path: "/src/auth.ts",
+      });
+    });
+
+    it("captures command with truncation", () => {
+      const longCommand = "a".repeat(300);
+      const result = summarizeToolInput({ command: longCommand });
+      expect(result.command).toHaveLength(200);
+    });
+
+    it("captures short command without truncation", () => {
+      expect(summarizeToolInput({ command: "ls -la" })).toEqual({
+        command: "ls -la",
+      });
+    });
+
+    it("captures pattern", () => {
+      expect(summarizeToolInput({ pattern: "*.ts" })).toEqual({
+        pattern: "*.ts",
+      });
+    });
+
+    it("captures path when file_path is not present", () => {
+      expect(summarizeToolInput({ path: "/src" })).toEqual({
+        path: "/src",
+      });
+    });
+
+    it("prefers file_path over path", () => {
+      const result = summarizeToolInput({
+        file_path: "/src/auth.ts",
+        path: "/src",
+      });
+      expect(result).toEqual({ file_path: "/src/auth.ts" });
+      expect(result).not.toHaveProperty("path");
+    });
+
+    it("combines multiple fields", () => {
+      const result = summarizeToolInput({
+        file_path: "/src/auth.ts",
+        command: "cat file",
+        pattern: "*.ts",
+      });
+      expect(result).toEqual({
+        file_path: "/src/auth.ts",
+        command: "cat file",
+        pattern: "*.ts",
+      });
+    });
   });
 
   describe("getActiveSessionCount", () => {

@@ -993,7 +993,7 @@
       readonly reason?: string;
     }
   </file>
-  <file path="src/services/sdk-event-mapper.ts">
+  <file path="src/services/session-executor.ts">
     function truncate(text: string, maxLen: number): string {
       if (text.length <= maxLen) return text;
       return text.slice(0, maxLen - 1) + "…";
@@ -1007,14 +1007,6 @@
         )
         .map((block: Record<string, unknown>) => block.text as string)
         .join("\n");
-    }
-  </file>
-  <file path="src/services/session-executor.ts">
-    function getRepoPath(): string {
-      return resolve(process.env.REPO_PATH ?? process.cwd());
-    }
-    export function getActiveSessionCount(): number {
-      return activeControllers.size;
     }
   </file>
   <file path="src/services/session.ts">

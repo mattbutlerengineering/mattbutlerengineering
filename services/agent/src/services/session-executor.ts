@@ -7,12 +7,57 @@ import {
 } from "@mbe/agent-core";
 import type { AgentSession } from "@mbe/types";
 import { sessionService } from "./session.js";
-import { mapSdkEvent } from "./sdk-event-mapper.js";
 
 /** Map of session ID → AbortController for cancellation support. */
 const activeControllers = new Map<string, AbortController>();
 
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+
+// ── Event enrichment helpers ──────────────────────────────────────────
+
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + "…";
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(
+      (block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string"
+    )
+    .map((block: Record<string, unknown>) => block.text as string)
+    .join("\n");
+}
+
+function summarizeToolInput(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== "object") return {};
+  const obj = input as Record<string, unknown>;
+  const summary: Record<string, unknown> = {};
+
+  // File operations: capture file_path
+  if (typeof obj.file_path === "string") {
+    summary.file_path = obj.file_path;
+  }
+
+  // Bash: capture command (truncated)
+  if (typeof obj.command === "string") {
+    summary.command = truncate(obj.command, 200);
+  }
+
+  // Glob/Grep: capture pattern
+  if (typeof obj.pattern === "string") {
+    summary.pattern = obj.pattern;
+  }
+
+  // Grep: capture path
+  if (typeof obj.path === "string" && !("file_path" in summary)) {
+    summary.path = obj.path;
+  }
+
+  return summary;
+}
 
 // ── Core functions ────────────────────────────────────────────────────
 
@@ -54,8 +99,31 @@ export async function executeSession(session: AgentSession): Promise<void> {
 
     const onEvent = async (event: SessionEvent) => {
       try {
-        const mapped = mapSdkEvent(event);
-        await sessionService.addEvent(session.id, mapped.type, mapped.data);
+        let eventType = event.type;
+        let eventData: Record<string, unknown>;
+
+        if ("message" in event.data) {
+          eventData = { message: (event.data as { message: string }).message };
+        } else {
+          const sdkMsg = event.data as Record<string, unknown>;
+          eventData = {
+            messageType: (sdkMsg.type as string) ?? "unknown",
+          };
+
+          // Capture tool use details
+          if (event.type === "session:tool_use" && sdkMsg.tool_name) {
+            eventData.toolName = sdkMsg.tool_name;
+            eventData.toolInput = summarizeToolInput(sdkMsg.input);
+          }
+
+          // Capture assistant text preview
+          if (sdkMsg.type === "assistant" && sdkMsg.content) {
+            eventType = "session:assistant";
+            eventData.textPreview = truncate(extractText(sdkMsg.content), 200);
+          }
+        }
+
+        await sessionService.addEvent(session.id, eventType, eventData);
       } catch {
         // Event logging is best-effort
       }
@@ -117,3 +185,6 @@ export async function cancelSession(sessionId: string): Promise<boolean> {
 
   return true;
 }
+
+// Exported for testing
+export const _testHelpers = { truncate, extractText, summarizeToolInput };
