@@ -232,6 +232,126 @@
     }
   </file>
   </section>
+  <section priority="medium" role="gates">
+  <file path="src/gates/llm-evaluation-gate.ts">
+    export class LlmEvaluationGate implements QualityGate {
+      readonly name = "evaluation";
+    
+      shouldSkip(context: GateContext): boolean {
+        if (context.evaluateSuccess === false) return true;
+        return !shouldEvaluate(context.diff, { commitTitle: context.commitMsg });
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.llm_evaluation_gate");
+        try {
+          const evalResult = await evaluateSuccess(context.taskDescription, context.diff);
+    
+          span.setAttribute("evaluation.passed", evalResult.passed);
+          span.setAttribute("evaluation.confidence", evalResult.confidence);
+    
+          if (!evalResult.passed) {
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Evaluation failed: ${evalResult.reasoning}`,
+            };
+          }
+    
+          return {
+            passed: true,
+            gateName: this.name,
+            severity: "error",
+            details: `confidence: ${evalResult.confidence.toFixed(2)}`,
+          };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  <file path="src/gates/security-review-gate.ts">
+    export class SecurityReviewGate implements QualityGate {
+      readonly name = "security-review";
+    
+      shouldSkip(context: GateContext): boolean {
+        return context.runSecurityReview === false;
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.security_review_gate");
+        try {
+          const reviewResult = await reviewDiff(context.diff);
+    
+          span.setAttribute("security_review.approved", reviewResult.approved);
+          span.setAttribute("security_review.issues_count", reviewResult.issues.length);
+    
+          if (!reviewResult.approved) {
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Security review failed: ${reviewResult.issues.join("; ")}`,
+            };
+          }
+    
+          return { passed: true, gateName: this.name, severity: "error" };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  <file path="src/gates/static-analysis-gate.ts">
+    export class StaticAnalysisGate implements QualityGate {
+      readonly name = "static-analysis";
+    
+      shouldSkip(context: GateContext): boolean {
+        return context.runStaticAnalysis === false;
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.static_analysis_gate");
+        try {
+          const analysisResult = analyzeDiff(context.diff);
+          const errorViolations = analysisResult.violations.filter((v) => v.severity === "error");
+          const passed = errorViolations.length === 0;
+    
+          span.setAttribute("static_analysis.clean", analysisResult.clean);
+          span.setAttribute("static_analysis.violation_count", analysisResult.violations.length);
+          span.setAttribute("static_analysis.error_count", errorViolations.length);
+    
+          if (!passed) {
+            const formatted = errorViolations
+              .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
+              .join("; ");
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Static analysis errors: ${formatted}`,
+            };
+          }
+    
+          if (!analysisResult.clean) {
+            const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
+            return {
+              passed: true,
+              gateName: this.name,
+              severity: "warning",
+              details: `${warnCount} warning(s) (non-blocking)`,
+            };
+          }
+    
+          return { passed: true, gateName: this.name, severity: "error" };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/audit-inventory.ts">
     export type Zone =
@@ -471,6 +591,32 @@
     export interface BuildReviewFixPromptOptions {
       /** Override the maximum CI log characters (default: CI_LOG_MAX_CHARS). */
       readonly ciLogMaxChars?: number;
+    }
+  </file>
+  <file path="src/gate-runner.ts">
+    export interface GateContext {
+      /** The git diff produced by the agent's commit. */
+      readonly diff: string;
+      /** The original task description used to drive the agent session. */
+      readonly taskDescription: string;
+      /** The commit message written when the agent committed changes. */
+      readonly commitMsg: string;
+      /** Whether LLM success evaluation is enabled in the session config. */
+      readonly evaluateSuccess: boolean;
+      /** Whether static diff analysis is enabled in the session config. */
+      readonly runStaticAnalysis: boolean;
+      /** Whether AI security review is enabled in the session config. */
+      readonly runSecurityReview: boolean;
+    }
+    export interface GateResult {
+      /** Whether this gate passed. Skipped gates always report passed=true. */
+      readonly passed: boolean;
+      /** The name of the gate that produced this result. */
+      readonly gateName: string;
+      /** Severity level of this gate — drives draft-PR vs normal-PR decision. */
+      readonly severity: "error" | "warning";
+      /** Human-readable details about a failure or a skip reason. */
+      readonly details?: string;
     }
   </file>
   <file path="src/intent-extractor.ts">
