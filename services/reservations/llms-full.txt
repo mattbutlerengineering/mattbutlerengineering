@@ -1926,6 +1926,66 @@
       );
     };
   </file>
+  <file path="src/routes/public-guest-recognition.ts">
+    export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { email?: string };
+        Reply: ApiResponse<GuestRecognition>;
+      }>(
+        "/:slug/guests/recognize",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          schema: {
+            summary: "Recognize a guest by email (public)",
+            description:
+              "Read-only lookup that returns limited guest info for the booking widget. No auth required. Rate-limited to 10 req/min per IP.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: {
+                slug: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email" },
+              },
+              required: ["email"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { email } = request.query;
+    
+          if (!email) {
+            return reply.status(400).send({
+              success: false,
+              error: "email query parameter is required",
+            } as never);
+          }
+    
+          const venue = await venueService.getBySlug(slug);
+    
+          if (!venue) {
+            return reply.status(404).send({
+              success: false,
+              error: "Venue not found",
+            } as never);
+          }
+    
+          const recognition = await recognizeGuest(venue.id, email);
+    
+          return reply.send({ data: recognition });
+        }
+      );
+    };
+  </file>
   <file path="src/routes/public-holds.ts">
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
@@ -2337,6 +2397,16 @@
                   minimum: 1,
                   description: "Expected duration in minutes (defaults to 90)",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["partySize", "tableId", "venueId"],
             },
@@ -2514,6 +2584,16 @@
                   type: "string",
                   description: "ID of the venue for this reservation",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["date", "startTime", "endTime", "partySize", "tableId"],
             },
@@ -2644,6 +2724,16 @@
                 cancellationNote: {
                   type: "string",
                   description: "Additional cancellation notes (used when status is CANCELLED)",
+                },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
                 },
               },
             },
@@ -3889,6 +3979,19 @@
   </file>
   </section>
   <section priority="medium" role="services">
+  <file path="services/reservations/src/services/guest-recognition.ts">
+    export interface GuestRecognition {
+      recognized: boolean;
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+      lastVisit: string | null;
+    }
+    function extractFirstName(fullName: string): string {
+      return fullName.split(" ")[0];
+    }
+  </file>
   <file path="src/services/availability.ts">
     interface VenueWithSettings {
       id: string;
@@ -3971,6 +4074,19 @@
       tables?: PrismaTable[];
     };
   </file>
+  <file path="src/services/guest-recognition.ts">
+    export interface GuestRecognition {
+      recognized: boolean;
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+      lastVisit: string | null;
+    }
+    function extractFirstName(fullName: string): string {
+      return fullName.split(" ")[0];
+    }
+  </file>
   <file path="src/services/guest.ts">
     function isPrismaNotFound(err: unknown): boolean {
       return (
@@ -3991,6 +4107,7 @@
       lifetimeSpend: Prisma.Decimal | null;
       lastVisit: Date | null;
       tags: unknown;
+      dietaryRestrictions: unknown;
       createdAt: Date;
       updatedAt: Date;
     }): Guest {
@@ -4005,6 +4122,7 @@
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
+        dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
@@ -4191,6 +4309,9 @@
       await fastify.register(publicReservationRoutes, {
         prefix: "/public/v1/venues",
       });
+      await fastify.register(publicGuestRecognitionRoutes, {
+        prefix: "/public/v1/venues",
+      });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
       await fastify.register(cancelReservationRoutes);
@@ -4229,6 +4350,8 @@
       readonly notes: string | null;
       readonly cancellationReason: string | null;
       readonly cancellationNote: string | null;
+      readonly occasion: Occasion | null;
+      readonly seatingPreference: SeatingPreference | null;
       readonly guestName: string;
       readonly guestEmail: string | null;
       readonly guestPhone: string | null;
