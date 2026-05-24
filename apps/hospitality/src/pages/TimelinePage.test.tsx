@@ -51,6 +51,15 @@ vi.mock("../components/timeline", () => ({
       ))}
     </div>
   ),
+  TimelineMobileView: ({ reservations, onReservationClick }: any) => (
+    <div data-testid="timeline-mobile-view">
+      {reservations?.map((r: any) => (
+        <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
+          {r.guestName}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock("../components/timeline/CancelReservationDialog", () => ({

@@ -10,13 +10,13 @@
 
 /* ── Panel base ──────────────────────────────── */
 .panel {
-  composes: glass from "../../styles/surfaces.module.css";
-
   position: fixed;
   z-index: 9999;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
 }
 
 :global([data-theme="dark"]) .panel {

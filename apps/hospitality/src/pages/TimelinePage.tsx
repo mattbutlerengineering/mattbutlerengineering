@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button, Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
-import { TimelineGrid } from "../components/timeline";
+import { TimelineGrid, TimelineMobileView } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
@@ -451,6 +451,13 @@ export function TimelinePage() {
               <Text className={styles.emptyStateText}>No tables configured for this venue.</Text>
               <Text className={styles.emptyStateHint}>Add tables in the Floor Plans section.</Text>
             </div>
+          ) : isMobile ? (
+            <TimelineMobileView
+              reservations={reservations}
+              tables={tables}
+              onReservationClick={handleReservationClick}
+              selectedReservationId={selectedReservation?.id}
+            />
           ) : (
             <TimelineGrid
               tables={tables}

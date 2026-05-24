@@ -11,7 +11,7 @@ base.describe("Authentication — unauthenticated", () => {
     await page.goto("http://localhost:3002/hospitality/");
 
     await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
-    await expect(page.getByTestId("dashboard-layout")).not.toBeVisible();
+    await expect(page.getByTestId("auth-layout")).not.toBeVisible();
     await page.screenshot({ path: "e2e/screenshots/auth-login.png", fullPage: true });
 
     await context.close();
@@ -20,7 +20,7 @@ base.describe("Authentication — unauthenticated", () => {
 
 test.describe("Authentication — authenticated", () => {
   test("programmatic login loads dashboard", async ({ mockedPage }) => {
-    await expect(mockedPage.getByTestId("dashboard-layout")).toBeVisible();
+    await expect(mockedPage.getByTestId("auth-layout")).toBeVisible();
     await expect(mockedPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/auth-dashboard.png", fullPage: true });
   });
@@ -34,7 +34,7 @@ test.describe("Authentication — authenticated", () => {
       .click();
 
     // Should still be authenticated
-    await expect(mockedPage.getByTestId("dashboard-layout")).toBeVisible();
+    await expect(mockedPage.getByTestId("auth-layout")).toBeVisible();
     await expect(mockedPage.getByRole("button", { name: "Sign In" })).not.toBeVisible();
   });
 });
