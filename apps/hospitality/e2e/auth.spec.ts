@@ -10,6 +10,7 @@ base.describe("Authentication — unauthenticated", () => {
 
     await page.goto("http://localhost:3002/hospitality/");
 
+    await expect(page.getByTestId("login-prompt")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
     await expect(page.getByTestId("auth-layout")).not.toBeVisible();
     await page.screenshot({ path: "e2e/screenshots/auth-login.png", fullPage: true });
