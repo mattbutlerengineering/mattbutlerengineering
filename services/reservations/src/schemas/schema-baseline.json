@@ -435,6 +435,28 @@
           }
         ]
       },
+      "occasion": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["birthday", "anniversary", "business", "date_night", "other", "none"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "seatingPreference": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["booth", "patio", "bar", "window", "quiet", "no_preference"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "guestName": {
         "anyOf": [
           {
@@ -650,6 +672,8 @@
       "notes",
       "cancellationReason",
       "cancellationNote",
+      "occasion",
+      "seatingPreference",
       "guestName",
       "guestEmail",
       "guestPhone",

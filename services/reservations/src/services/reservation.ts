@@ -43,6 +43,8 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
     notes: reservation.notes,
     cancellationReason: reservation.cancellationReason,
     cancellationNote: reservation.cancellationNote,
+    occasion: reservation.occasion as Reservation["occasion"],
+    seatingPreference: reservation.seatingPreference as Reservation["seatingPreference"],
     guestName: reservation.guestName,
     guestEmail: reservation.guestEmail,
     guestPhone: reservation.guestPhone,

@@ -8,7 +8,7 @@ base.describe("Authentication — unauthenticated", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto("http://localhost:3002/hospitality/");
+    await page.goto("");
 
     await expect(page.getByTestId("login-prompt")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();

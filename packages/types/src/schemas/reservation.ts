@@ -11,6 +11,24 @@ export const ReservationStatusSchema = z.enum([
   "NO_SHOW",
 ]);
 
+export const OccasionSchema = z.enum([
+  "birthday",
+  "anniversary",
+  "business",
+  "date_night",
+  "other",
+  "none",
+]);
+
+export const SeatingPreferenceSchema = z.enum([
+  "booth",
+  "patio",
+  "bar",
+  "window",
+  "quiet",
+  "no_preference",
+]);
+
 export const ReservationSchema = z.object({
   id: z.string(),
   date: z.string(),
@@ -21,6 +39,8 @@ export const ReservationSchema = z.object({
   notes: z.string().nullable(),
   cancellationReason: z.string().nullable(),
   cancellationNote: z.string().nullable(),
+  occasion: OccasionSchema.nullable(),
+  seatingPreference: SeatingPreferenceSchema.nullable(),
   guestName: z.string().nullable(),
   guestEmail: z.string().nullable(),
   guestPhone: z.string().nullable(),
