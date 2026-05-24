@@ -591,6 +591,35 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="gates">
+  <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
+    <item priority="high">
+      class LlmEvaluationGate {
+        name: unknown;
+        async shouldSkip(): Promise<unknown>;
+        async evaluate(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/gates/security-review-gate.ts">
+    <item priority="high">
+      class SecurityReviewGate {
+        name: unknown;
+        async shouldSkip(): Promise<unknown>;
+        async evaluate(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/gates/static-analysis-gate.ts">
+    <item priority="high">
+      class StaticAnalysisGate {
+        name: unknown;
+        async shouldSkip(): Promise<unknown>;
+        async evaluate(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useGenStream.ts">
     <item priority="high">
@@ -679,9 +708,6 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
-    <item priority="medium">
-      function reportToSentry(error: ApiClientError) { /* ... */ }
-    </item>
     <item priority="high">
       export function useApiClient() { /* ... */ }
     </item>
@@ -716,6 +742,31 @@
         venueId: string;
         timestamp: string;
         data: Reservation | Table | ReservationHold;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useReservationQuerySync.ts">
+    <item priority="high">
+      export function useReservationQuerySync() { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useReservations.ts">
+    <item priority="high">
+      export const RESERVATIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseReservationsParams {
+        enabled?: boolean;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useTables.ts">
+    <item priority="high">
+      export const TABLES_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseTablesParams {
+        enabled?: boolean;
       }
     </item>
   </file>
@@ -797,6 +848,67 @@
     </item>
     <item priority="medium">
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="phases">
+  <file path="packages/agent-core/src/phases/feedback-phase.ts">
+    <item priority="high">
+      class FeedbackPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/phases/pipeline-types.ts">
+    <item priority="low">
+      type PhaseStatus = "success" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface PhaseResult {
+        phase: string;
+        status: PhaseStatus;
+        errors: readonly string[];
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/phases/publish-phase.ts">
+    <item priority="high">
+      class PublishPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+        async createOrMergePr(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/phases/query-phase.ts">
+    <item priority="high">
+      interface StreamingResult {
+        resultMessage: SDKResultMessage | null;
+        stuckDetected: StuckPattern | null;
+      }
+    </item>
+    <item priority="high">
+      class QueryPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/phases/verification-phase.ts">
+    <item priority="high">
+      class VerificationPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/phases/worktree-phase.ts">
+    <item priority="high">
+      class WorktreePhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
     </item>
   </file>
   </section>
@@ -1068,6 +1180,11 @@
   <file path="services/reservations/src/routes/public-availability.ts">
     <item priority="high">
       export const publicAvailabilityRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-guest-recognition.ts">
+    <item priority="high">
+      export const publicGuestRecognitionRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
@@ -1385,12 +1502,20 @@
       }
     </item>
   </file>
-  <file path="services/agent/src/services/session-executor.ts">
+  <file path="services/agent/src/services/sdk-event-mapper.ts">
     <item priority="medium">
       function truncate(text: string, maxLen: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function extractText(content: unknown): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/session-executor.ts">
+    <item priority="medium">
+      function getRepoPath(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getActiveSessionCount(): number { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/session.ts">
@@ -1473,6 +1598,20 @@
         venueId: string;
         name: string;
         isAc...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/guest-recognition.ts">
+    <item priority="low">
+      interface GuestRecognition {
+        recognized: boolean;
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function extractFirstName(fullName: string): string { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/guest.ts">
@@ -1895,6 +2034,25 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/gate-runner.ts">
+    <item priority="low">
+      interface GateContext {
+        diff: string;
+        taskDescription: string;
+        commitMsg: string;
+        evaluateSuccess: boolean;
+        runStaticAnalysis: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface GateResult {
+        passed: boolean;
+        gateName: string;
+        severity: "error" | "warning";
+        details?: string;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
     <item priority="high">
       interface ContentBlock {
@@ -2110,6 +2268,12 @@
         config: SessionConfig,
         onEvent?: SessionEventCallback
       ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildFinalResult(
+        ctx: PipelineContext,
+        rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
+      ): SessionResult { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">
