@@ -10,9 +10,14 @@
       "visitCount": 12,
       "lifetimeSpend": "1450.00",
       "lastVisit": "2026-05-10T18:00:00.000Z",
-      "tags": ["VIP", "regular"],
+      "tags": [
+        "VIP",
+        "regular"
+      ],
       "createdAt": "2025-06-01T00:00:00.000Z",
-      "updatedAt": "2026-05-10T18:00:00.000Z"
+      "updatedAt": "2026-05-10T18:00:00.000Z",
+      "dietaryRestrictions": [],
+      "staffNotes": []
     },
     {
       "id": "gst_e2e_002",
@@ -26,7 +31,9 @@
       "lastVisit": "2026-04-20T19:00:00.000Z",
       "tags": null,
       "createdAt": "2026-01-15T00:00:00.000Z",
-      "updatedAt": "2026-04-20T19:00:00.000Z"
+      "updatedAt": "2026-04-20T19:00:00.000Z",
+      "dietaryRestrictions": [],
+      "staffNotes": []
     },
     {
       "id": "gst_e2e_003",
@@ -38,9 +45,13 @@
       "visitCount": 7,
       "lifetimeSpend": "920.00",
       "lastVisit": "2026-05-05T20:00:00.000Z",
-      "tags": ["regular"],
+      "tags": [
+        "regular"
+      ],
       "createdAt": "2025-09-01T00:00:00.000Z",
-      "updatedAt": "2026-05-05T20:00:00.000Z"
+      "updatedAt": "2026-05-05T20:00:00.000Z",
+      "dietaryRestrictions": [],
+      "staffNotes": []
     },
     {
       "id": "gst_e2e_004",
@@ -52,9 +63,13 @@
       "visitCount": 1,
       "lifetimeSpend": "85.00",
       "lastVisit": "2026-03-01T19:00:00.000Z",
-      "tags": ["new"],
+      "tags": [
+        "new"
+      ],
       "createdAt": "2026-03-01T00:00:00.000Z",
-      "updatedAt": "2026-03-01T19:00:00.000Z"
+      "updatedAt": "2026-03-01T19:00:00.000Z",
+      "dietaryRestrictions": [],
+      "staffNotes": []
     },
     {
       "id": "gst_e2e_005",
@@ -66,9 +81,14 @@
       "visitCount": 20,
       "lifetimeSpend": "3200.00",
       "lastVisit": "2026-05-15T19:30:00.000Z",
-      "tags": ["VIP", "corporate"],
+      "tags": [
+        "VIP",
+        "corporate"
+      ],
       "createdAt": "2025-03-01T00:00:00.000Z",
-      "updatedAt": "2026-05-15T19:30:00.000Z"
+      "updatedAt": "2026-05-15T19:30:00.000Z",
+      "dietaryRestrictions": [],
+      "staffNotes": []
     }
   ],
   "pagination": {
