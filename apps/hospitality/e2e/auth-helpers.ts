@@ -134,7 +134,7 @@ export async function injectAuth0Session(page: Page): Promise<void> {
   const entry = buildOidcUserEntry(config, tokens);
 
   // Navigate to the app first so sessionStorage is on the correct origin
-  await page.goto("/");
+  await page.goto("");
   await page.evaluate(({ key, value }) => {
     sessionStorage.setItem(key, value);
   }, entry);
