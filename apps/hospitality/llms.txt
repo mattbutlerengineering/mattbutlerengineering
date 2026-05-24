@@ -135,6 +135,31 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useReservationQuerySync.ts">
+    <item priority="high">
+      export function useReservationQuerySync() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useReservations.ts">
+    <item priority="high">
+      export const RESERVATIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseReservationsParams {
+        enabled?: boolean;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useTables.ts">
+    <item priority="high">
+      export const TABLES_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseTablesParams {
+        enabled?: boolean;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useVenueReadiness.ts">
     <item priority="low">
       type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
