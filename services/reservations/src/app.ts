@@ -15,6 +15,7 @@ import { publicVenueRoutes } from "./routes/public-venues.js";
 import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
 import { publicReservationRoutes } from "./routes/public-reservations.js";
+import { publicGuestRecognitionRoutes } from "./routes/public-guest-recognition.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
@@ -57,6 +58,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   });
   await fastify.register(publicHoldRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(publicReservationRoutes, {
+    prefix: "/public/v1/venues",
+  });
+  await fastify.register(publicGuestRecognitionRoutes, {
     prefix: "/public/v1/venues",
   });
   await fastify.register(confirmAttendanceRoutes);
