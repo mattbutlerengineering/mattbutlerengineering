@@ -15,6 +15,24 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum Occasion {
+  birthday
+  anniversary
+  business
+  date_night
+  other
+  none
+}
+
+enum SeatingPreference {
+  booth
+  patio
+  bar
+  window
+  quiet
+  no_preference
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -132,6 +150,8 @@ model Reservation {
   notes              String?
   cancellationReason String?           @map("cancellation_reason")
   cancellationNote   String?           @map("cancellation_note")
+  occasion           Occasion?
+  seatingPreference  SeatingPreference? @map("seating_preference")
   guestName          String?           @map("guest_name")
   guestEmail String?           @map("guest_email")
   guestPhone String?           @map("guest_phone")
