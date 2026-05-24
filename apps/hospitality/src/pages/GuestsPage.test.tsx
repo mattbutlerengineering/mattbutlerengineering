@@ -279,9 +279,13 @@ describe("GuestsPage - search filtering", () => {
     });
   });
 
+  afterEach(() => {
+    // Ensure fake timers never bleed into subsequent tests
+    vi.useRealTimers();
+  });
+
   it("calls search API when typing in search input", async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderPage();
 
     await waitFor(() => {
@@ -291,20 +295,19 @@ describe("GuestsPage - search filtering", () => {
     const searchInput = screen.getByPlaceholderText("Search guests...");
     await user.type(searchInput, "John");
 
-    // Advance past the 300ms debounce
-    vi.runAllTimers();
-    vi.useRealTimers();
-
-    await waitFor(() => {
-      expect(mockApiClient.guests.search).toHaveBeenCalledWith(
-        expect.objectContaining({ query: "John" })
-      );
-    });
+    // Wait for debounce (300ms) + TQ to fire the search
+    await waitFor(
+      () => {
+        expect(mockApiClient.guests.search).toHaveBeenCalledWith(
+          expect.objectContaining({ query: "John" })
+        );
+      },
+      { timeout: 2000 }
+    );
   });
 
   it("shows filtered results after search", async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderPage();
 
     await waitFor(() => {
@@ -314,13 +317,12 @@ describe("GuestsPage - search filtering", () => {
     const searchInput = screen.getByPlaceholderText("Search guests...");
     await user.type(searchInput, "John");
 
-    // Advance past the 300ms debounce
-    vi.runAllTimers();
-    vi.useRealTimers();
-
-    await waitFor(() => {
-      expect(mockApiClient.guests.search).toHaveBeenCalled();
-    });
+    await waitFor(
+      () => {
+        expect(mockApiClient.guests.search).toHaveBeenCalled();
+      },
+      { timeout: 2000 }
+    );
 
     await waitFor(() => {
       expect(screen.queryByText("Jane Smith")).toBeNull();
@@ -812,9 +814,12 @@ describe("GuestsPage - empty state", () => {
     const searchInput = screen.getByPlaceholderText("Search guests...");
     await user.type(searchInput, "zzzznonexistent");
 
-    await waitFor(() => {
-      expect(screen.getByTestId("empty-state")).toBeDefined();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("empty-state")).toBeDefined();
+      },
+      { timeout: 3000 }
+    );
 
     expect(screen.getByText("No guests found")).toBeDefined();
     expect(screen.getByText("Try adjusting your search query.")).toBeDefined();
