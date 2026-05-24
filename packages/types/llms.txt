@@ -50,7 +50,7 @@
       export const ReservationStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const ReservationSchema: unknown;
+      export const OccasionSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/user.ts">
