@@ -99,6 +99,7 @@
       email?: string;
       phone?: string;
       name: string;
+      dietaryRestrictions?: string[];
     }
     export interface ListGuestsParams {
       page?: number;

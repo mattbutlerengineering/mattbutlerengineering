@@ -90,6 +90,7 @@
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
+      dietaryRestrictions: z.array(z.string()).nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
     });
@@ -279,6 +280,7 @@
       lifetimeSpend: string | null; // Decimal as string for precision
       lastVisit: string | null;
       tags: string[] | null;
+      dietaryRestrictions: string[] | null;
       reservations?: Reservation[];
       createdAt: string;
       updatedAt: string;
@@ -290,6 +292,7 @@
       name: string;
       notes?: string;
       tags?: string[];
+      dietaryRestrictions?: string[];
     }
   </file>
   <file path="src/reservation.ts">
