@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures.js";
 
 test.describe("CF-4: Reservation edit flow", () => {
   test("opens reservation detail sidebar", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Click a reservation block
     const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
@@ -23,7 +23,7 @@ test.describe("CF-4: Reservation edit flow", () => {
   });
 
   test("opens edit drawer and shows current values", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Click a reservation block
     const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
@@ -50,7 +50,7 @@ test.describe("CF-4: Reservation edit flow", () => {
   });
 
   test("saves edited party size and verifies update", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Click a reservation block
     const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
@@ -79,7 +79,7 @@ test.describe("CF-4: Reservation edit flow", () => {
   });
 
   test("cancels edit without saving", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     const reservationBlock = mockedPage.getByTestId(/^reservation-block-/).first();
     await reservationBlock.click();
