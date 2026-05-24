@@ -15,6 +15,24 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum Occasion {
+  birthday
+  anniversary
+  business
+  date_night
+  other
+  none
+}
+
+enum SeatingPreference {
+  booth
+  patio
+  bar
+  window
+  quiet
+  no_preference
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -99,20 +117,21 @@ model Table {
 }
 
 model Guest {
-  id            String        @id @default(cuid())
-  venueId       String        @map("venue_id")
-  venue         Venue         @relation(fields: [venueId], references: [id])
-  email         String?
-  phone         String?
-  name          String
-  notes         String?
-  visitCount    Int           @default(0) @map("visit_count")
-  lifetimeSpend Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
-  lastVisit     DateTime?     @map("last_visit")
-  tags          Json?
-  reservations  Reservation[]
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id                  String        @id @default(cuid())
+  venueId             String        @map("venue_id")
+  venue               Venue         @relation(fields: [venueId], references: [id])
+  email               String?
+  phone               String?
+  name                String
+  notes               String?
+  visitCount          Int           @default(0) @map("visit_count")
+  lifetimeSpend       Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
+  lastVisit           DateTime?     @map("last_visit")
+  tags                Json?
+  dietaryRestrictions Json?         @map("dietary_restrictions")
+  reservations        Reservation[]
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
 
   @@unique([venueId, email])
   @@unique([venueId, phone])
@@ -122,27 +141,29 @@ model Guest {
 }
 
 model Reservation {
-  id                 String            @id @default(cuid())
-  date               DateTime          @db.Date
-  startTime          DateTime          @map("start_time")
-  endTime            DateTime          @map("end_time")
-  partySize          Int               @map("party_size")
-  status             ReservationStatus @default(PENDING)
+  id                 String             @id @default(cuid())
+  date               DateTime           @db.Date
+  startTime          DateTime           @map("start_time")
+  endTime            DateTime           @map("end_time")
+  partySize          Int                @map("party_size")
+  status             ReservationStatus  @default(PENDING)
   notes              String?
-  cancellationReason String?           @map("cancellation_reason")
-  cancellationNote   String?           @map("cancellation_note")
-  guestName          String?           @map("guest_name")
-  guestEmail         String?           @map("guest_email")
-  guestPhone         String?           @map("guest_phone")
-  guestId            String?           @map("guest_id")
-  guest              Guest?            @relation(fields: [guestId], references: [id])
-  userId             String?           @map("user_id")
-  tableId            String            @map("table_id")
-  table              Table             @relation(fields: [tableId], references: [id])
-  venueId            String?           @map("venue_id")
-  venue              Venue?            @relation(fields: [venueId], references: [id])
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
+  cancellationReason String?            @map("cancellation_reason")
+  cancellationNote   String?            @map("cancellation_note")
+  occasion           Occasion?
+  seatingPreference  SeatingPreference? @map("seating_preference")
+  guestName          String?            @map("guest_name")
+  guestEmail         String?            @map("guest_email")
+  guestPhone         String?            @map("guest_phone")
+  guestId            String?            @map("guest_id")
+  guest              Guest?             @relation(fields: [guestId], references: [id])
+  userId             String?            @map("user_id")
+  tableId            String             @map("table_id")
+  table              Table              @relation(fields: [tableId], references: [id])
+  venueId            String?            @map("venue_id")
+  venue              Venue?             @relation(fields: [venueId], references: [id])
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   @@index([date, status])
   @@index([tableId, date])
