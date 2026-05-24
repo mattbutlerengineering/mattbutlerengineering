@@ -1,64 +1,36 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { createApiClient } from "@mbe/api-client";
-import type { Venue } from "@mbe/types";
 import { Stack, Text, Button, Card } from "@mattbutlerengineering/rialto";
 import { BookingWidget } from "../components/booking-widget/index.js";
 import styles from "./PublicBookingPage.module.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
+// Public API client — no auth token required for public endpoints
+const publicApiClient = createApiClient({
+  baseUrl: BASE_URL,
+  getAccessToken: () => null,
+  maxRetries: 0,
+});
+
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
 
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const activeHoldIdRef = useRef<string | null>(null);
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: BASE_URL,
-        getAccessToken: () => null,
-        maxRetries: 0,
-      }),
-    []
-  );
+  const { data: venue, isLoading, error } = useQuery({
+    queryKey: ["publicVenueBySlug", venueSlug],
+    queryFn: async () => {
+      if (!venueSlug) throw new Error("No venue specified.");
+      return publicApiClient.venues.getBySlug(venueSlug);
+    },
+    enabled: !!venueSlug,
+    retry: false,
+  });
 
-  useEffect(() => {
-    if (!venueSlug) {
-      setError("No venue specified.");
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchVenue() {
-      try {
-        const result = await api.venues.getBySlug(venueSlug!);
-        if (!cancelled) {
-          setVenue(result);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Venue not found.");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchVenue();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, venueSlug]);
-
+  // beforeunload beacon to release holds
   useEffect(() => {
     const handleBeforeUnload = () => {
       const holdId = activeHoldIdRef.current;
@@ -69,6 +41,26 @@ export function PublicBookingPage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  if (!venueSlug) {
+    return (
+      <div className={styles.page}>
+        <Card variant="flat" className={styles.errorCard}>
+          <Stack gap="md" align="center">
+            <Text variant="display" as="h1" color="primary">
+              Venue Not Found
+            </Text>
+            <Text variant="body" color="secondary">
+              No venue specified.
+            </Text>
+            <Button variant="primary" onClick={() => window.history.back()}>
+              Go Back
+            </Button>
+          </Stack>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -91,7 +83,7 @@ export function PublicBookingPage() {
               Venue Not Found
             </Text>
             <Text variant="body" color="secondary">
-              {error ?? "This booking page is no longer available."}
+              {error instanceof Error ? error.message : "This booking page is no longer available."}
             </Text>
             <Button variant="primary" onClick={() => window.history.back()}>
               Go Back

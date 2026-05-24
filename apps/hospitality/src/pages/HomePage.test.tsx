@@ -1,23 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HomePage } from "./HomePage.js";
 import { useAuth } from "@mbe/auth/react";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
-import { useDashboardStats } from "../hooks/useDashboardStats.js";
+import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
+import { useSSEEventFeed } from "../hooks/useSSEEventFeed.js";
 import React from "react";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock("../contexts/ReservationDataContext.js", () => ({
-  useReservationData: vi.fn(),
+vi.mock("../hooks/useDashboardStatsQuery.js", () => ({
+  useDashboardStatsQuery: vi.fn(),
 }));
 
-vi.mock("../hooks/useDashboardStats.js", () => ({
-  useDashboardStats: vi.fn(),
+vi.mock("../hooks/useSSEStatus.js", () => ({
+  useSSEStatus: vi.fn(),
+}));
+
+vi.mock("../hooks/useSSEEventFeed.js", () => ({
+  useSSEEventFeed: vi.fn(),
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -64,8 +70,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 describe("HomePage", () => {
-  const mockSubscribe = vi.fn(() => vi.fn()); // returns unsubscribe
-
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -74,20 +78,14 @@ describe("HomePage", () => {
       accessToken: "token",
     } as any);
 
-    vi.mocked(useReservationData).mockReturnValue({
+    vi.mocked(useSSEStatus).mockReturnValue({
       isConnected: true,
-      subscribeToEvents: mockSubscribe,
-      reservations: [],
-      tables: [],
-      sseError: null,
-      addReservation: vi.fn(),
-      updateReservation: vi.fn(),
-      removeReservation: vi.fn(),
-      setReservations: vi.fn(),
-      setTables: vi.fn(),
+      error: null,
     });
 
-    vi.mocked(useDashboardStats).mockReturnValue({
+    vi.mocked(useSSEEventFeed).mockReturnValue([]);
+
+    vi.mocked(useDashboardStatsQuery).mockReturnValue({
       reservations: [],
       stats: {
         totalReservations: 5,
@@ -136,7 +134,7 @@ describe("HomePage", () => {
   });
 
   it("renders loading skeletons when stats are loading", () => {
-    vi.mocked(useDashboardStats).mockReturnValue({
+    vi.mocked(useDashboardStatsQuery).mockReturnValue({
       reservations: [],
       stats: {
         totalReservations: 0,
@@ -156,7 +154,7 @@ describe("HomePage", () => {
   });
 
   it("renders error banner when there is an error", () => {
-    vi.mocked(useDashboardStats).mockReturnValue({
+    vi.mocked(useDashboardStatsQuery).mockReturnValue({
       reservations: [],
       stats: {
         totalReservations: 0,
@@ -166,7 +164,7 @@ describe("HomePage", () => {
         cancellationTrend: "neutral",
       },
       isLoading: false,
-      error: "Failed to load",
+      error: new Error("Failed to load"),
       refetch: vi.fn(),
     });
 
@@ -194,20 +192,18 @@ describe("HomePage", () => {
     expect(screen.getByTestId("activity-feed")).toBeDefined();
   });
 
-  it("subscribes to events on mount", () => {
+  it("ActivityFeed receives isConnected status", () => {
     renderPage();
-    expect(mockSubscribe).toHaveBeenCalled();
+    const feed = screen.getByTestId("activity-feed");
+    expect(feed.getAttribute("data-connected")).toBe("true");
   });
 
-  it("handleEvent adds events to feed via subscription callback", async () => {
+  it("ActivityFeed shows events from SSE feed", () => {
+    vi.mocked(useSSEEventFeed).mockReturnValue([
+      { type: "reservation:created", venueId: "v1", timestamp: new Date().toISOString(), data: { id: "r1" } as any },
+    ]);
     renderPage();
-
-    const subscribedHandler = mockSubscribe.mock.calls[0][0];
-    subscribedHandler({ type: "reservation:created", data: { id: "r1" } });
-
-    await waitFor(() => {
-      expect(screen.getByText("1 events")).toBeDefined();
-    });
+    expect(screen.getByText("1 events")).toBeDefined();
   });
 
   it("navigation buttons call navigate with correct paths", () => {
@@ -224,7 +220,7 @@ describe("HomePage", () => {
   });
 
   it("cancellation trend shows delta text for up trend", () => {
-    vi.mocked(useDashboardStats).mockReturnValue({
+    vi.mocked(useDashboardStatsQuery).mockReturnValue({
       reservations: [],
       stats: {
         totalReservations: 5,
