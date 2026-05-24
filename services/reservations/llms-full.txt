@@ -3979,19 +3979,6 @@
   </file>
   </section>
   <section priority="medium" role="services">
-  <file path="services/reservations/src/services/guest-recognition.ts">
-    export interface GuestRecognition {
-      recognized: boolean;
-      firstName: string | null;
-      phone: string | null;
-      visitCount: number;
-      hasPreferences: boolean;
-      lastVisit: string | null;
-    }
-    function extractFirstName(fullName: string): string {
-      return fullName.split(" ")[0];
-    }
-  </file>
   <file path="src/services/availability.ts">
     interface VenueWithSettings {
       id: string;
@@ -4107,7 +4094,6 @@
       lifetimeSpend: Prisma.Decimal | null;
       lastVisit: Date | null;
       tags: unknown;
-      dietaryRestrictions: unknown;
       createdAt: Date;
       updatedAt: Date;
     }): Guest {
@@ -4122,7 +4108,6 @@
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
-        dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
