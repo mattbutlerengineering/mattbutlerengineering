@@ -41,6 +41,8 @@ export interface MockReservation {
   readonly notes: string | null;
   readonly cancellationReason: string | null;
   readonly cancellationNote: string | null;
+  readonly occasion: string | null;
+  readonly seatingPreference: string | null;
   readonly guestName: string;
   readonly guestEmail: string | null;
   readonly guestPhone: string | null;
@@ -115,6 +117,8 @@ export function createMockReservation(
     notes: null,
     cancellationReason: null,
     cancellationNote: null,
+    occasion: null,
+    seatingPreference: null,
     guestName: "John Doe",
     guestEmail: "john@example.com",
     guestPhone: null,
