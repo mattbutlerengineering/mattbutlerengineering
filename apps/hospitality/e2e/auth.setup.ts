@@ -11,6 +11,6 @@ import { injectAuth0Session } from "./auth-helpers.js";
 setup("authenticate via Auth0", async ({ page }) => {
   await injectAuth0Session(page);
 
-  await expect(page.getByTestId("dashboard-layout")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("auth-layout")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: "Sign In" })).not.toBeVisible();
 });

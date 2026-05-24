@@ -68,6 +68,67 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="phases">
+  <file path="src/phases/feedback-phase.ts">
+    <item priority="high">
+      class FeedbackPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/phases/pipeline-types.ts">
+    <item priority="low">
+      type PhaseStatus = "success" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface PhaseResult {
+        phase: string;
+        status: PhaseStatus;
+        errors: readonly string[];
+      }
+    </item>
+  </file>
+  <file path="src/phases/publish-phase.ts">
+    <item priority="high">
+      class PublishPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+        async createOrMergePr(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/phases/query-phase.ts">
+    <item priority="high">
+      interface StreamingResult {
+        resultMessage: SDKResultMessage | null;
+        stuckDetected: StuckPattern | null;
+      }
+    </item>
+    <item priority="high">
+      class QueryPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/phases/verification-phase.ts">
+    <item priority="high">
+      class VerificationPhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/phases/worktree-phase.ts">
+    <item priority="high">
+      class WorktreePhase {
+        name: unknown;
+        async run(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/audit-inventory.ts">
     <item priority="low">
@@ -520,6 +581,12 @@
         config: SessionConfig,
         onEvent?: SessionEventCallback
       ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildFinalResult(
+        ctx: PipelineContext,
+        rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
+      ): SessionResult { /* ... */ }
     </item>
   </file>
   <file path="src/source-resolver.ts">
