@@ -2471,6 +2471,16 @@
                   minimum: 1,
                   description: "Expected duration in minutes (defaults to 90)",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["partySize", "tableId", "venueId"],
             },
@@ -2648,6 +2658,16 @@
                   type: "string",
                   description: "ID of the venue for this reservation",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["date", "startTime", "endTime", "partySize", "tableId"],
             },
@@ -2778,6 +2798,16 @@
                 cancellationNote: {
                   type: "string",
                   description: "Additional cancellation notes (used when status is CANCELLED)",
+                },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
                 },
               },
             },
@@ -4389,6 +4419,8 @@
       readonly notes: string | null;
       readonly cancellationReason: string | null;
       readonly cancellationNote: string | null;
+      readonly occasion: Occasion | null;
+      readonly seatingPreference: SeatingPreference | null;
       readonly guestName: string;
       readonly guestEmail: string | null;
       readonly guestPhone: string | null;

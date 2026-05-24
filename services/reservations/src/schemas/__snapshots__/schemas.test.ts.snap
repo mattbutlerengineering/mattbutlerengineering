@@ -549,8 +549,44 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
         },
       ],
     },
+    "occasion": {
+      "anyOf": [
+        {
+          "enum": [
+            "birthday",
+            "anniversary",
+            "business",
+            "date_night",
+            "other",
+            "none",
+          ],
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "partySize": {
       "type": "number",
+    },
+    "seatingPreference": {
+      "anyOf": [
+        {
+          "enum": [
+            "booth",
+            "patio",
+            "bar",
+            "window",
+            "quiet",
+            "no_preference",
+          ],
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "startTime": {
       "type": "string",
@@ -752,6 +788,8 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
     "notes",
     "cancellationReason",
     "cancellationNote",
+    "occasion",
+    "seatingPreference",
     "guestName",
     "guestEmail",
     "guestPhone",

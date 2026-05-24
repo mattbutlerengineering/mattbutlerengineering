@@ -18,11 +18,11 @@ setup("authenticate via Auth0", async ({ page }) => {
   await expect(async () => {
     const isAuthVisible = await authLayout.isVisible();
     const isLoginVisible = await loginPrompt.isVisible();
-    
+
     if (isLoginVisible && !isAuthVisible) {
       throw new Error("Authentication failed: stuck on login prompt after injection.");
     }
-    
+
     expect(isAuthVisible).toBe(true);
   }).toPass({ timeout: 10_000 });
 

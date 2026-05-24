@@ -97,10 +97,7 @@
         "type": "string"
       },
       "data": {
-        "type": "object",
-        "propertyNames": {
-          "type": "string"
-        }
+        "type": "object"
       },
       "createdAt": {
         "type": "string"

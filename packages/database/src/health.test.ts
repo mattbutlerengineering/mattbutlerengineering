@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  createLatencyTracker,
-  checkAuth0,
-  type LatencyTracker,
-} from "./health.js";
+import { createLatencyTracker, checkAuth0, type LatencyTracker } from "./health.js";
 
 describe("createLatencyTracker", () => {
   let tracker: LatencyTracker;

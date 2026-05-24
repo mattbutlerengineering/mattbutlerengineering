@@ -15,8 +15,7 @@ const mockUseReservationEvents = vi.fn().mockReturnValue({
 });
 
 vi.mock("./useReservationEvents.js", () => ({
-  useReservationEvents: (...args: unknown[]) =>
-    mockUseReservationEvents(...args),
+  useReservationEvents: (...args: unknown[]) => mockUseReservationEvents(...args),
 }));
 
 function createWrapper() {
@@ -24,11 +23,7 @@ function createWrapper() {
     defaultOptions: { queries: { retry: false } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
+    return createElement(QueryClientProvider, { client: queryClient }, children);
   };
 }
 

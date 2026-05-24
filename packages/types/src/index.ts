@@ -38,6 +38,8 @@ export type {
   Table,
   TableStatus,
   Reservation,
+  Occasion,
+  SeatingPreference,
   CreateReservationRequest,
   UpdateReservationRequest,
   CreateTableRequest,

@@ -2,6 +2,10 @@ export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLET
 
 export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 
+export type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";
+
+export type SeatingPreference = "booth" | "patio" | "bar" | "window" | "quiet" | "no_preference";
+
 import type { TableShapeMetadata } from "./floor-plan.js";
 
 export interface Table {
@@ -37,6 +41,8 @@ export interface Reservation {
   guestPhone: string | null;
   guestId: string | null;
   userId: string | null;
+  occasion: Occasion | null;
+  seatingPreference: SeatingPreference | null;
   tableId: string;
   table?: Table;
   venueId: string | null;
@@ -51,6 +57,8 @@ export interface CreateReservationRequest {
   partySize: number;
   tableId: string;
   notes?: string;
+  occasion?: Occasion;
+  seatingPreference?: SeatingPreference;
   guestName?: string;
   guestEmail?: string;
   guestPhone?: string;
@@ -66,6 +74,8 @@ export interface UpdateReservationRequest {
   tableId?: string;
   status?: ReservationStatus;
   notes?: string;
+  occasion?: Occasion;
+  seatingPreference?: SeatingPreference;
   cancellationReason?: string;
   cancellationNote?: string;
 }
@@ -80,6 +90,8 @@ export interface WalkInRequest {
   venueId: string;
   guestName?: string;
   durationMinutes?: number;
+  occasion?: Occasion;
+  seatingPreference?: SeatingPreference;
 }
 
 export interface CreateTableRequest {
