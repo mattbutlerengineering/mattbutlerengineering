@@ -95,6 +95,7 @@
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
+      dietaryRestrictions: z.array(z.string()).nullable(),
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -272,6 +273,7 @@
       lifetimeSpend: string | null; // Decimal as string for precision
       lastVisit: string | null;
       tags: string[] | null;
+      dietaryRestrictions: string[] | null;
       /** Staff-only notes. Never returned in public-facing API responses. */
       staffNotes: StaffNote[];
       reservations?: Reservation[];
