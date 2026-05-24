@@ -11,6 +11,7 @@ export const GuestSchema = z.object({
   lifetimeSpend: z.string().nullable(),
   lastVisit: z.string().nullable(),
   tags: z.array(z.string()).nullable(),
+  dietaryRestrictions: z.array(z.string()).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

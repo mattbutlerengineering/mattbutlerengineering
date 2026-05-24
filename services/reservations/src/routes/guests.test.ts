@@ -87,7 +87,12 @@ vi.mock("../services/database.js", () => ({
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
   getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
   }),
 }));
 
@@ -111,6 +116,7 @@ const mockGuest = {
   lifetimeSpend: "500.00",
   lastVisit: "2026-01-25T19:00:00.000Z",
   tags: ["VIP", "Birthday Club"],
+  dietaryRestrictions: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
 };

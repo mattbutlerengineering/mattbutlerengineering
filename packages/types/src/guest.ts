@@ -13,6 +13,7 @@ export interface Guest {
   lifetimeSpend: string | null; // Decimal as string for precision
   lastVisit: string | null;
   tags: string[] | null;
+  dietaryRestrictions: string[] | null;
   reservations?: Reservation[];
   createdAt: string;
   updatedAt: string;
@@ -25,6 +26,7 @@ export interface CreateGuestRequest {
   name: string;
   notes?: string;
   tags?: string[];
+  dietaryRestrictions?: string[];
 }
 
 export interface UpdateGuestRequest {
@@ -33,6 +35,7 @@ export interface UpdateGuestRequest {
   name?: string;
   notes?: string | null;
   tags?: string[] | null;
+  dietaryRestrictions?: string[] | null;
 }
 
 export interface GuestSearchParams {

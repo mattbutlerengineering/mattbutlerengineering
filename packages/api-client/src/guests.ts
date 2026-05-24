@@ -11,6 +11,7 @@ export interface FindOrCreateGuestRequest {
   email?: string;
   phone?: string;
   name: string;
+  dietaryRestrictions?: string[];
 }
 import type { ApiClient } from "./client.js";
 

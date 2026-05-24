@@ -6,7 +6,7 @@ import type {
   GuestSegment,
   PaginatedResponse,
 } from "@mbe/types";
-import type { Prisma } from "../generated/prisma/index.js";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
 function isPrismaNotFound(err: unknown): boolean {
@@ -29,6 +29,7 @@ function mapPrismaGuest(guest: {
   lifetimeSpend: Prisma.Decimal | null;
   lastVisit: Date | null;
   tags: unknown;
+  dietaryRestrictions: unknown;
   createdAt: Date;
   updatedAt: Date;
 }): Guest {
@@ -43,9 +44,30 @@ function mapPrismaGuest(guest: {
     lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
     lastVisit: guest.lastVisit?.toISOString() ?? null,
     tags: guest.tags as string[] | null,
+    dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
     createdAt: guest.createdAt.toISOString(),
     updatedAt: guest.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Compute the union of two string arrays, preserving order and deduplicating.
+ * Returns null if both inputs are null/undefined/empty.
+ */
+function mergeDietaryRestrictions(
+  existing: string[] | null | undefined,
+  incoming: string[] | null | undefined
+): string[] | null {
+  const existingArr = existing ?? [];
+  const incomingArr = incoming ?? [];
+  if (existingArr.length === 0 && incomingArr.length === 0) return null;
+  const merged = [...existingArr];
+  for (const item of incomingArr) {
+    if (!merged.includes(item)) {
+      merged.push(item);
+    }
+  }
+  return merged.length > 0 ? merged : null;
 }
 
 export const guestService = {
@@ -98,11 +120,11 @@ export const guestService = {
 
   /**
    * Identity resolution: Find existing guest by email or phone, or create new one.
-   * This is the primary method for linking reservations to guests.
+   * Merges dietary restrictions (union, no duplicates) when updating an existing guest.
    */
   async findOrCreate(
     venueId: string,
-    data: { email?: string; phone?: string; name: string }
+    data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
   ): Promise<Guest> {
     // Try to find by email first
     if (data.email) {
@@ -110,13 +132,26 @@ export const guestService = {
         where: { venueId_email: { venueId, email: data.email } },
       });
       if (existingByEmail) {
-        // Update name if different and phone if provided
         const updateData: Prisma.GuestUpdateInput = {};
         if (existingByEmail.name !== data.name) {
           updateData.name = data.name;
         }
         if (data.phone && existingByEmail.phone !== data.phone) {
           updateData.phone = data.phone;
+        }
+        // Merge dietary restrictions (union, no duplicates)
+        if (data.dietaryRestrictions && data.dietaryRestrictions.length > 0) {
+          const existingDietary = existingByEmail.dietaryRestrictions as string[] | null;
+          const merged = mergeDietaryRestrictions(existingDietary, data.dietaryRestrictions);
+          // Only update if new restrictions were added
+          const hasNewRestrictions =
+            merged !== null &&
+            (existingDietary === null ||
+              merged.length > existingDietary.length ||
+              merged.some((r) => !existingDietary.includes(r)));
+          if (hasNewRestrictions) {
+            updateData.dietaryRestrictions = merged as Prisma.InputJsonValue;
+          }
         }
         if (Object.keys(updateData).length > 0) {
           const updated = await prisma.guest.update({
@@ -135,13 +170,25 @@ export const guestService = {
         where: { venueId_phone: { venueId, phone: data.phone } },
       });
       if (existingByPhone) {
-        // Update name if different and email if provided
         const updateData: Prisma.GuestUpdateInput = {};
         if (existingByPhone.name !== data.name) {
           updateData.name = data.name;
         }
         if (data.email && existingByPhone.email !== data.email) {
           updateData.email = data.email;
+        }
+        // Merge dietary restrictions (union, no duplicates)
+        if (data.dietaryRestrictions && data.dietaryRestrictions.length > 0) {
+          const existingDietary = existingByPhone.dietaryRestrictions as string[] | null;
+          const merged = mergeDietaryRestrictions(existingDietary, data.dietaryRestrictions);
+          const hasNewRestrictions =
+            merged !== null &&
+            (existingDietary === null ||
+              merged.length > existingDietary.length ||
+              merged.some((r) => !existingDietary.includes(r)));
+          if (hasNewRestrictions) {
+            updateData.dietaryRestrictions = merged as Prisma.InputJsonValue;
+          }
         }
         if (Object.keys(updateData).length > 0) {
           const updated = await prisma.guest.update({
@@ -161,6 +208,9 @@ export const guestService = {
         email: data.email,
         phone: data.phone,
         name: data.name,
+        ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
+          ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+          : {}),
       },
     });
     return mapPrismaGuest(guest);
@@ -175,6 +225,9 @@ export const guestService = {
         name: data.name,
         notes: data.notes,
         tags: data.tags as Prisma.InputJsonValue | undefined,
+        ...(data.dietaryRestrictions !== undefined
+          ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+          : {}),
       },
     });
     return mapPrismaGuest(guest);
@@ -188,6 +241,12 @@ export const guestService = {
       if (data.name !== undefined) updateData.name = data.name;
       if (data.notes !== undefined) updateData.notes = data.notes;
       if (data.tags !== undefined) updateData.tags = data.tags as Prisma.InputJsonValue;
+      if (data.dietaryRestrictions !== undefined) {
+        updateData.dietaryRestrictions =
+          data.dietaryRestrictions === null
+            ? Prisma.DbNull
+            : (data.dietaryRestrictions as Prisma.InputJsonValue);
+      }
 
       const guest = await prisma.guest.update({
         where: { id },
@@ -311,72 +370,31 @@ export const guestService = {
 
     const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
       await Promise.all([
-        // Total guests
         prisma.guest.count({ where: { venueId } }),
-
-        // VIP: 5+ visits
+        prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
+        prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
         prisma.guest.count({
-          where: { venueId, visitCount: { gte: 5 } },
+          where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
         }),
-
-        // Recent: visited in last 30 days
-        prisma.guest.count({
-          where: { venueId, lastVisit: { gte: thirtyDaysAgo } },
-        }),
-
-        // At-risk: no visit in 30-90 days
         prisma.guest.count({
           where: {
             venueId,
-            lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo },
+            OR: [
+              { lastVisit: { lt: ninetyDaysAgo } },
+              { lastVisit: null, visitCount: { gt: 0 } },
+            ],
           },
         }),
-
-        // Lapsed: no visit in 90+ days
-        prisma.guest.count({
-          where: {
-            venueId,
-            OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
-          },
-        }),
-
-        // New: never visited (visitCount = 0)
-        prisma.guest.count({
-          where: { venueId, visitCount: 0 },
-        }),
+        prisma.guest.count({ where: { venueId, visitCount: 0 } }),
       ]);
 
     return [
-      {
-        name: "All Guests",
-        description: "Total guests in database",
-        count: totalGuests,
-      },
-      {
-        name: "VIP",
-        description: "Guests with 5+ visits",
-        count: vipGuests,
-      },
-      {
-        name: "Recent",
-        description: "Visited in the last 30 days",
-        count: recentVisitors,
-      },
-      {
-        name: "At Risk",
-        description: "No visit in 30-90 days",
-        count: atRiskGuests,
-      },
-      {
-        name: "Lapsed",
-        description: "No visit in 90+ days",
-        count: lapsedGuests,
-      },
-      {
-        name: "New",
-        description: "Booked but never visited",
-        count: newGuests,
-      },
+      { name: "All Guests", description: "Total guests in database", count: totalGuests },
+      { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
+      { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
+      { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
+      { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
+      { name: "New", description: "Booked but never visited", count: newGuests },
     ];
   },
 };
