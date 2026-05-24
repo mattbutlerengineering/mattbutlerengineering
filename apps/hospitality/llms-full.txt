@@ -187,6 +187,41 @@
       data: Reservation | Table | ReservationHold;
     }
   </file>
+  <file path="src/hooks/useReservationQuerySync.ts">
+    export function useReservationQuerySync() {
+      const queryClient = useQueryClient();
+      const { selectedVenueId } = useVenue();
+    
+      const invalidateReservations = () => {
+        queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+      };
+    
+      const invalidateTables = () => {
+        queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
+      };
+    
+      return useReservationEvents({
+        venueId: selectedVenueId ?? undefined,
+        onReservationCreated: invalidateReservations,
+        onReservationUpdated: invalidateReservations,
+        onReservationCancelled: invalidateReservations,
+        onHoldConfirmed: invalidateReservations,
+        onTableUpdated: invalidateTables,
+      });
+    }
+  </file>
+  <file path="src/hooks/useReservations.ts">
+    export const RESERVATIONS_QUERY_KEY = "reservations" as const;
+    export interface UseReservationsParams extends ListReservationsParams {
+      enabled?: boolean;
+    }
+  </file>
+  <file path="src/hooks/useTables.ts">
+    export const TABLES_QUERY_KEY = "tables" as const;
+    export interface UseTablesParams extends ListTablesParams {
+      enabled?: boolean;
+    }
+  </file>
   <file path="src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
     export interface VenueReadiness {
