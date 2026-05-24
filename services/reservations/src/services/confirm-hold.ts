@@ -32,6 +32,8 @@ function mapReservationResult(result: {
   notes: string | null;
   cancellationReason: string | null;
   cancellationNote: string | null;
+  occasion: string | null;
+  seatingPreference: string | null;
   guestName: string | null;
   guestEmail: string | null;
   guestPhone: string | null;
@@ -69,6 +71,8 @@ function mapReservationResult(result: {
     notes: result.notes,
     cancellationReason: result.cancellationReason,
     cancellationNote: result.cancellationNote,
+    occasion: result.occasion as Reservation["occasion"],
+    seatingPreference: result.seatingPreference as Reservation["seatingPreference"],
     guestName: result.guestName,
     guestEmail: result.guestEmail,
     guestPhone: result.guestPhone,
