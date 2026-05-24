@@ -1,6 +1,12 @@
 import type { Venue } from "./venue.js";
 import type { Reservation } from "./reservation.js";
 
+export interface StaffNote {
+  text: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface Guest {
   id: string;
   venueId: string;
@@ -14,6 +20,8 @@ export interface Guest {
   lastVisit: string | null;
   tags: string[] | null;
   dietaryRestrictions: string[] | null;
+  /** Staff-only notes. Never returned in public-facing API responses. */
+  staffNotes: StaffNote[];
   reservations?: Reservation[];
   createdAt: string;
   updatedAt: string;

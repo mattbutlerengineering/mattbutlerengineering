@@ -1,5 +1,6 @@
 import type {
   Guest,
+  StaffNote,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
@@ -30,9 +31,18 @@ function mapPrismaGuest(guest: {
   lastVisit: Date | null;
   tags: unknown;
   dietaryRestrictions: unknown;
+  staffNotes: unknown;
   createdAt: Date;
   updatedAt: Date;
 }): Guest {
+  const rawNotes = guest.staffNotes as StaffNote[] | null;
+  // Return notes in reverse chronological order (newest first)
+  const staffNotes = rawNotes
+    ? [...rawNotes].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+    : [];
+
   return {
     id: guest.id,
     venueId: guest.venueId,
@@ -45,6 +55,7 @@ function mapPrismaGuest(guest: {
     lastVisit: guest.lastVisit?.toISOString() ?? null,
     tags: guest.tags as string[] | null,
     dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
+    staffNotes,
     createdAt: guest.createdAt.toISOString(),
     updatedAt: guest.updatedAt.toISOString(),
   };
@@ -270,6 +281,34 @@ export const guestService = {
   },
 
   /**
+   * Append a staff note to a guest. Returns updated guest or null if not found.
+   * Notes are stored as a JSON array; the service always returns them newest-first.
+   */
+  async addNote(id: string, text: string, createdBy: string): Promise<Guest | null> {
+    try {
+      const existing = await prisma.guest.findUnique({ where: { id } });
+      if (!existing) return null;
+
+      const existingNotes = (existing.staffNotes as StaffNote[] | null) ?? [];
+      const newNote: StaffNote = {
+        text,
+        createdBy,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedNotes: StaffNote[] = [...existingNotes, newNote];
+
+      const guest = await prisma.guest.update({
+        where: { id },
+        data: { staffNotes: updatedNotes as unknown as Prisma.InputJsonValue },
+      });
+      return mapPrismaGuest(guest);
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
+    }
+  },
+
+  /**
    * Update visit statistics after a completed reservation.
    */
   async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
@@ -379,10 +418,7 @@ export const guestService = {
         prisma.guest.count({
           where: {
             venueId,
-            OR: [
-              { lastVisit: { lt: ninetyDaysAgo } },
-              { lastVisit: null, visitCount: { gt: 0 } },
-            ],
+            OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
           },
         }),
         prisma.guest.count({ where: { venueId, visitCount: 0 } }),

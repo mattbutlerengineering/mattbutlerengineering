@@ -399,6 +399,80 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // Add staff note to guest
+  fastify.post<{
+    Params: { id: string };
+    Body: { text: string };
+    Reply: ApiResponse<Guest> | ApiError;
+  }>(
+    "/:id/notes",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Add a staff note to a guest",
+        operationId: "addGuestNote",
+        description:
+          "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+        tags: ["Guests"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Guest ID",
+            },
+          },
+          required: ["id"],
+        },
+        body: {
+          type: "object",
+          required: ["text"],
+          properties: {
+            text: {
+              type: "string",
+              minLength: 1,
+              description: "Note text",
+            },
+          },
+        },
+        response: {
+          201: {
+            description: "Note appended; returns updated guest",
+            type: "object",
+            properties: {
+              data: { $ref: "Guest#" },
+            },
+          },
+          400: {
+            description: "Invalid request",
+            $ref: "Error#",
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
+          404: {
+            description: "Guest not found",
+            $ref: "Error#",
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { text } = request.body;
+      if (!text || text.trim().length === 0) {
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+      }
+      const createdBy = request.user?.id ?? "unknown";
+      const guest = await guestService.addNote(request.params.id, text, createdBy);
+      if (!guest) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+      }
+      return reply.code(201).send({ data: guest });
+    }
+  );
+
   // Delete guest
   fastify.delete<{
     Params: { id: string };

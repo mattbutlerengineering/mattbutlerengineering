@@ -16,6 +16,7 @@ vi.mock("../services/guest.js", () => ({
     recordVisit: vi.fn(),
     search: vi.fn(),
     getSegments: vi.fn(),
+    addNote: vi.fn(),
   },
 }));
 
@@ -117,6 +118,7 @@ const mockGuest = {
   lastVisit: "2026-01-25T19:00:00.000Z",
   tags: ["VIP", "Birthday Club"],
   dietaryRestrictions: null,
+  staffNotes: [],
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
 };
@@ -510,6 +512,150 @@ describe("Guest Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("POST /v1/guests/:id/notes", () => {
+    const notePayload = { text: "Prefers window seat" };
+
+    it("appends a staff note and returns the updated guest", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const guestWithNote = {
+        ...mockGuest,
+        staffNotes: [
+          {
+            text: "Prefers window seat",
+            createdBy: "auth0|user-123",
+            createdAt: "2026-05-23T10:00:00.000Z",
+          },
+        ],
+      };
+      vi.mocked(guestService.addNote).mockResolvedValueOnce(guestWithNote);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/guest-123/notes",
+        headers: { "x-auth-bypass": "true" },
+        payload: notePayload,
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.staffNotes).toHaveLength(1);
+      expect(body.data.staffNotes[0].text).toBe("Prefers window seat");
+      expect(body.data.staffNotes[0].createdBy).toBe("auth0|user-123");
+      expect(guestService.addNote).toHaveBeenCalledWith(
+        "guest-123",
+        "Prefers window seat",
+        "auth0|user-123"
+      );
+    });
+
+    it("returns notes in reverse chronological order", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const newerNote = {
+        text: "Newer note",
+        createdBy: "auth0|user-123",
+        createdAt: "2026-05-23T12:00:00.000Z",
+      };
+      const olderNote = {
+        text: "Older note",
+        createdBy: "auth0|user-456",
+        createdAt: "2026-05-23T10:00:00.000Z",
+      };
+      vi.mocked(guestService.addNote).mockResolvedValueOnce({
+        ...mockGuest,
+        staffNotes: [newerNote, olderNote],
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/guest-123/notes",
+        headers: { "x-auth-bypass": "true" },
+        payload: { text: "Newer note" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.staffNotes[0].createdAt).toBe("2026-05-23T12:00:00.000Z");
+      expect(body.data.staffNotes[1].createdAt).toBe("2026-05-23T10:00:00.000Z");
+    });
+
+    it("returns 404 when guest not found", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(guestService.addNote).mockResolvedValueOnce(null);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/nonexistent/notes",
+        headers: { "x-auth-bypass": "true" },
+        payload: notePayload,
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 400 when text is missing", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/guest-123/notes",
+        headers: { "x-auth-bypass": "true" },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/guests/guest-123/notes",
+        payload: notePayload,
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("staffNotes are NOT returned on GET /v1/guests (list) when guest has no notes", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(guestService.list).mockResolvedValueOnce({
+        data: [mockGuest],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 1,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/guests?venueId=venue-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data[0].staffNotes).toEqual([]);
     });
   });
 });

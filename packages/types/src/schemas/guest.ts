@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const StaffNoteSchema = z.object({
+  text: z.string(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+});
+
 export const GuestSchema = z.object({
   id: z.string(),
   venueId: z.string(),
@@ -12,6 +18,7 @@ export const GuestSchema = z.object({
   lastVisit: z.string().nullable(),
   tags: z.array(z.string()).nullable(),
   dietaryRestrictions: z.array(z.string()).nullable(),
+  staffNotes: z.array(StaffNoteSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
