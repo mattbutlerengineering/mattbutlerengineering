@@ -239,12 +239,12 @@ function GuestDetailDrawer({
     }
   }, [guest, open]);
 
-  // Reset when guest/open changes (replaces useEffect)
-  useMemo(() => {
+  // Reset when guest/open changes
+  useEffect(() => {
     if (guest && open) {
       drawerDispatch({ type: "reset", guest });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [guest?.id, open]);
 
   const handleFieldChange = useCallback(

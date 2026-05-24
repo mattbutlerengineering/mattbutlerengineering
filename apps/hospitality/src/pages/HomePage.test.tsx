@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HomePage } from "./HomePage.js";
 import { useAuth } from "@mbe/auth/react";
@@ -200,7 +200,12 @@ describe("HomePage", () => {
 
   it("ActivityFeed shows events from SSE feed", () => {
     vi.mocked(useSSEEventFeed).mockReturnValue([
-      { type: "reservation:created", venueId: "v1", timestamp: new Date().toISOString(), data: { id: "r1" } as any },
+      {
+        type: "reservation:created",
+        venueId: "v1",
+        timestamp: new Date().toISOString(),
+        data: { id: "r1" } as any,
+      },
     ]);
     renderPage();
     expect(screen.getByText("1 events")).toBeDefined();
