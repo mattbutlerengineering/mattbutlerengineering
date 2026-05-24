@@ -327,6 +327,28 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
         },
       ],
     },
+    "staffNotes": {
+      "items": {
+        "properties": {
+          "createdAt": {
+            "type": "string",
+          },
+          "createdBy": {
+            "type": "string",
+          },
+          "text": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "text",
+          "createdBy",
+          "createdAt",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "tags": {
       "anyOf": [
         {
@@ -361,6 +383,7 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "lifetimeSpend",
     "lastVisit",
     "tags",
+    "staffNotes",
     "createdAt",
     "updatedAt",
   ],

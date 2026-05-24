@@ -6544,6 +6544,7 @@ export namespace Prisma {
     lifetimeSpend: number
     lastVisit: number
     tags: number
+    staffNotes: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -6599,6 +6600,7 @@ export namespace Prisma {
     lifetimeSpend?: true
     lastVisit?: true
     tags?: true
+    staffNotes?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -6701,6 +6703,7 @@ export namespace Prisma {
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
     tags: JsonValue | null
+    staffNotes: JsonValue | null
     createdAt: Date
     updatedAt: Date
     _count: GuestCountAggregateOutputType | null
@@ -6735,6 +6738,7 @@ export namespace Prisma {
     lifetimeSpend?: boolean
     lastVisit?: boolean
     tags?: boolean
+    staffNotes?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6753,6 +6757,7 @@ export namespace Prisma {
     lifetimeSpend?: boolean
     lastVisit?: boolean
     tags?: boolean
+    staffNotes?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6769,6 +6774,7 @@ export namespace Prisma {
     lifetimeSpend?: boolean
     lastVisit?: boolean
     tags?: boolean
+    staffNotes?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6785,11 +6791,12 @@ export namespace Prisma {
     lifetimeSpend?: boolean
     lastVisit?: boolean
     tags?: boolean
+    staffNotes?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
+  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "staffNotes" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
   export type GuestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venue?: boolean | VenueDefaultArgs<ExtArgs>
     reservations?: boolean | Guest$reservationsArgs<ExtArgs>
@@ -6819,6 +6826,7 @@ export namespace Prisma {
       lifetimeSpend: Prisma.Decimal | null
       lastVisit: Date | null
       tags: Prisma.JsonValue | null
+      staffNotes: Prisma.JsonValue | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["guest"]>
@@ -7256,6 +7264,7 @@ export namespace Prisma {
     readonly lifetimeSpend: FieldRef<"Guest", 'Decimal'>
     readonly lastVisit: FieldRef<"Guest", 'DateTime'>
     readonly tags: FieldRef<"Guest", 'Json'>
+    readonly staffNotes: FieldRef<"Guest", 'Json'>
     readonly createdAt: FieldRef<"Guest", 'DateTime'>
     readonly updatedAt: FieldRef<"Guest", 'DateTime'>
   }
@@ -10303,6 +10312,7 @@ export namespace Prisma {
     lifetimeSpend: 'lifetimeSpend',
     lastVisit: 'lastVisit',
     tags: 'tags',
+    staffNotes: 'staffNotes',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -10905,6 +10915,7 @@ export namespace Prisma {
     lifetimeSpend?: DecimalNullableFilter<"Guest"> | Decimal | DecimalJsLike | number | string | null
     lastVisit?: DateTimeNullableFilter<"Guest"> | Date | string | null
     tags?: JsonNullableFilter<"Guest">
+    staffNotes?: JsonNullableFilter<"Guest">
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -10922,6 +10933,7 @@ export namespace Prisma {
     lifetimeSpend?: SortOrderInput | SortOrder
     lastVisit?: SortOrderInput | SortOrder
     tags?: SortOrderInput | SortOrder
+    staffNotes?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     venue?: VenueOrderByWithRelationInput
@@ -10944,6 +10956,7 @@ export namespace Prisma {
     lifetimeSpend?: DecimalNullableFilter<"Guest"> | Decimal | DecimalJsLike | number | string | null
     lastVisit?: DateTimeNullableFilter<"Guest"> | Date | string | null
     tags?: JsonNullableFilter<"Guest">
+    staffNotes?: JsonNullableFilter<"Guest">
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -10961,6 +10974,7 @@ export namespace Prisma {
     lifetimeSpend?: SortOrderInput | SortOrder
     lastVisit?: SortOrderInput | SortOrder
     tags?: SortOrderInput | SortOrder
+    staffNotes?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: GuestCountOrderByAggregateInput
@@ -10984,6 +10998,7 @@ export namespace Prisma {
     lifetimeSpend?: DecimalNullableWithAggregatesFilter<"Guest"> | Decimal | DecimalJsLike | number | string | null
     lastVisit?: DateTimeNullableWithAggregatesFilter<"Guest"> | Date | string | null
     tags?: JsonNullableWithAggregatesFilter<"Guest">
+    staffNotes?: JsonNullableWithAggregatesFilter<"Guest">
     createdAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
   }
@@ -11596,6 +11611,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -11613,6 +11629,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -11628,6 +11645,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -11645,6 +11663,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -11661,6 +11680,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -11675,6 +11695,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -11690,6 +11711,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -12503,6 +12525,7 @@ export namespace Prisma {
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
     tags?: SortOrder
+    staffNotes?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -13941,6 +13964,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationCreateNestedManyWithoutGuestInput
@@ -13956,6 +13980,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -14171,6 +14196,7 @@ export namespace Prisma {
     lifetimeSpend?: DecimalNullableFilter<"Guest"> | Decimal | DecimalJsLike | number | string | null
     lastVisit?: DateTimeNullableFilter<"Guest"> | Date | string | null
     tags?: JsonNullableFilter<"Guest">
+    staffNotes?: JsonNullableFilter<"Guest">
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
   }
@@ -14808,6 +14834,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -14824,6 +14851,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -14936,6 +14964,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -14952,6 +14981,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -15333,6 +15363,7 @@ export namespace Prisma {
     lifetimeSpend?: Decimal | DecimalJsLike | number | string | null
     lastVisit?: Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -15489,6 +15520,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUpdateManyWithoutGuestNestedInput
@@ -15504,6 +15536,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -15519,6 +15552,7 @@ export namespace Prisma {
     lifetimeSpend?: NullableDecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string | null
     lastVisit?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     tags?: NullableJsonNullValueInput | InputJsonValue
+    staffNotes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

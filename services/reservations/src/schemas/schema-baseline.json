@@ -300,6 +300,24 @@
           }
         ]
       },
+      "staffNotes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "createdBy": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            }
+          },
+          "required": ["text", "createdBy", "createdAt"]
+        }
+      },
       "createdAt": {
         "type": "string"
       },
@@ -318,6 +336,7 @@
       "lifetimeSpend",
       "lastVisit",
       "tags",
+      "staffNotes",
       "createdAt",
       "updatedAt"
     ]

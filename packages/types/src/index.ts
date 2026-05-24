@@ -80,6 +80,7 @@ export type {
 // Guest types
 export type {
   Guest,
+  StaffNote,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
