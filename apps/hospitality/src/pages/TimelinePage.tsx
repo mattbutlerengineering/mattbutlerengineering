@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button, Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid } from "../components/timeline";
@@ -10,6 +9,9 @@ import { EditReservationDrawer } from "../components/timeline/EditReservationDra
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationData } from "../contexts/ReservationDataContext.js";
+import { useReservations, RESERVATIONS_QUERY_KEY } from "../hooks/useReservations.js";
+import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -163,22 +165,14 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 }
 
 export function TimelinePage() {
-  const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
-  const {
-    reservations: sharedReservations,
-    tables,
-    isConnected,
-    setReservations: setSharedReservations,
-    setTables,
-    addReservation,
-    updateReservation,
-  } = useReservationData();
+  const { isConnected } = useReservationData();
+  const api = useApiClient();
+  const queryClient = useQueryClient();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const selectedDate = searchParams.get("date") ?? todayStr;
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
@@ -187,59 +181,50 @@ export function TimelinePage() {
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const isMobile = useIsMobile();
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  // Data fetching via TanStack Query hooks
+  const {
+    data: allReservations,
+    isLoading: reservationsLoading,
+    error: reservationsError,
+  } = useReservations({
+    venueId: selectedVenueId ?? undefined,
+    date: selectedDate,
+    limit: 200,
+    enabled: !!selectedVenueId,
+  });
 
-  // Table updates and hold confirmations are now handled by the shared
-  // ReservationDataContext — no separate useReservationEvents needed.
+  const {
+    data: rawTables,
+    isLoading: tablesLoading,
+    error: tablesError,
+  } = useTables({
+    venueId: selectedVenueId ?? undefined,
+    limit: 100,
+    enabled: !!selectedVenueId,
+  });
 
-  // Filter shared reservations to the selected date
+  const isLoading = reservationsLoading || tablesLoading;
+  const fetchError = reservationsError ?? tablesError;
+
+  // Sort tables by priority, then by name
+  const tables = useMemo(() => {
+    if (!rawTables) return [];
+    return [...rawTables].sort((a, b) => {
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return (a.tableNumber || a.name).localeCompare(b.tableNumber || b.name);
+    });
+  }, [rawTables]);
+
+  // Filter reservations to the selected date
   const reservations = useMemo(
-    () => sharedReservations.filter((r) => r.date === selectedDate),
-    [sharedReservations, selectedDate]
+    () => (allReservations ?? []).filter((r) => r.date === selectedDate),
+    [allReservations, selectedDate]
   );
 
-  // Fetch tables and reservations when venue or date changes
-  useEffect(() => {
-    if (!selectedVenueId) return;
-
-    async function fetchData() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const [tablesResponse, reservationsResponse] = await Promise.all([
-          api.tables.list({ venueId: selectedVenueId!, limit: 100 }),
-          api.reservations.list({
-            venueId: selectedVenueId!,
-            date: selectedDate,
-            limit: 200,
-          }),
-        ]);
-
-        // Sort tables by priority, then by name
-        const sortedTables = tablesResponse.data.sort((a, b) => {
-          if (a.priority !== b.priority) return b.priority - a.priority;
-          return (a.tableNumber || a.name).localeCompare(b.tableNumber || b.name);
-        });
-
-        setTables(sortedTables);
-        setSharedReservations(reservationsResponse.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load data");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchData();
-  }, [api, selectedVenueId, selectedDate, setSharedReservations]);
+  const invalidateAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+    queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
+  }, [queryClient]);
 
   const handlePreviousDay = useCallback(() => {
     const prev = new Date(selectedDate + "T00:00:00");
@@ -277,12 +262,9 @@ export function TimelinePage() {
 
   const handleSeat = async (reservation: Reservation) => {
     try {
-      const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
+      await api.reservations.update(reservation.id, { status: "CONFIRMED" });
       await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
-      updateReservation(updated);
-      setTables((prev) =>
-        prev.map((t) => (t.id === reservation.tableId ? { ...t, status: "OCCUPIED" as const } : t))
-      );
+      invalidateAll();
       setSelectedReservation(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to seat guest");
@@ -296,7 +278,7 @@ export function TimelinePage() {
         cancellationReason: reason,
         cancellationNote: note,
       });
-      updateReservation({ ...selectedReservation, status: "CANCELLED" as const });
+      invalidateAll();
       setShowCancelDialog(false);
       setSelectedReservation(null);
     } catch (err) {
@@ -307,7 +289,7 @@ export function TimelinePage() {
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
     try {
       const updated = await api.reservations.update(id, data);
-      updateReservation(updated);
+      invalidateAll();
       setSelectedReservation(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update reservation");
@@ -321,19 +303,16 @@ export function TimelinePage() {
     guestName?: string;
   }) => {
     try {
-      const reservation = await api.reservations.walkIn(data);
-      addReservation(reservation);
-      setTables((prev) =>
-        prev.map((t) => (t.id === data.tableId ? { ...t, status: "OCCUPIED" as const } : t))
-      );
+      await api.reservations.walkIn(data);
+      invalidateAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create walk-in");
     }
   };
 
-  const handleTableStatusChange = async (tableId: string, status: TableStatus) => {
-    await api.tables.updateStatus(tableId, status);
-    setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
+  const handleTableStatusChange = async (tableId: string, _status: TableStatus) => {
+    await api.tables.updateStatus(tableId, _status);
+    invalidateAll();
   };
 
   // Format date for display
@@ -458,6 +437,10 @@ export function TimelinePage() {
           {isLoading ? (
             <div className={styles.loadingWrapper} aria-busy="true">
               <div className={styles.spinner} aria-label="Loading" role="status" />
+            </div>
+          ) : fetchError ? (
+            <div className={styles.errorBox} role="alert">
+              {fetchError.message}
             </div>
           ) : error ? (
             <div className={styles.errorBox} role="alert">
