@@ -1,0 +1,25 @@
+.guestCard {
+  padding: var(--rialto-space-md);
+}
+
+.contactLink {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.contactLink:hover {
+  text-decoration: underline;
+  color: var(--rialto-accent);
+}
+
+.noteItem {
+  padding: var(--rialto-space-xs) 0;
+  border-block-end: 1px solid var(--rialto-border-subtle);
+}
+
+.noteItem:last-child {
+  border-block-end: none;
+}
