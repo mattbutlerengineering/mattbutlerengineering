@@ -180,6 +180,11 @@
       export const venueRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/waitlist.ts">
+    <item priority="high">
+      export const waitlistRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/index.ts">
@@ -405,6 +410,34 @@
         settings: unknown;
         createdAt: Date;
       }): VenueGroup { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/waitlist-utils.ts">
+    <item priority="high">
+      export function calculatePosition(existingCount: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/waitlist.ts">
+    <item priority="low">
+      interface WaitlistEntryData {
+        id: string;
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="low">
+      interface CreateWaitlistEntryInput {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+        avgTurnTimeMinutes?: number;
+      }
     </item>
   </file>
   </section>
