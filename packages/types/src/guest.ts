@@ -19,6 +19,7 @@ export interface Guest {
   lifetimeSpend: string | null; // Decimal as string for precision
   lastVisit: string | null;
   tags: string[] | null;
+  dietaryRestrictions: string[] | null;
   /** Staff-only notes. Never returned in public-facing API responses. */
   staffNotes: StaffNote[];
   reservations?: Reservation[];
@@ -33,6 +34,7 @@ export interface CreateGuestRequest {
   name: string;
   notes?: string;
   tags?: string[];
+  dietaryRestrictions?: string[];
 }
 
 export interface UpdateGuestRequest {
@@ -41,6 +43,7 @@ export interface UpdateGuestRequest {
   name?: string;
   notes?: string | null;
   tags?: string[] | null;
+  dietaryRestrictions?: string[] | null;
 }
 
 export interface GuestSearchParams {

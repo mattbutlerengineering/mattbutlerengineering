@@ -51,6 +51,7 @@
         email?: string;
         phone?: string;
         name: string;
+        dietaryRestrictions?: string[];
       }
     </item>
     <item priority="low">

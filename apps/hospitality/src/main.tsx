@@ -2,16 +2,8 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Navigate,
-} from "react-router-dom";
-import {
-  RialtoProvider,
-  ErrorBoundary,
-  ToastProvider,
-} from "@mattbutlerengineering/rialto";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
@@ -35,9 +27,7 @@ const DashboardLayout = lazy(() =>
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
-const HomePage = lazy(() =>
-  import("./pages/HomePage.js").then((m) => ({ default: m.HomePage }))
-);
+const HomePage = lazy(() => import("./pages/HomePage.js").then((m) => ({ default: m.HomePage })));
 const ReservationsPage = lazy(() =>
   import("./pages/ReservationsPage.js").then((m) => ({
     default: m.ReservationsPage,
@@ -93,9 +83,7 @@ const ManageReservationPage = lazy(() =>
     default: m.ManageReservationPage,
   }))
 );
-const ChatPage = lazy(() =>
-  import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage }))
-);
+const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage })));
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();

@@ -180,6 +180,7 @@ exports.Prisma.GuestScalarFieldEnum = {
   lifetimeSpend: 'lifetimeSpend',
   lastVisit: 'lastVisit',
   tags: 'tags',
+  dietaryRestrictions: 'dietaryRestrictions',
   staffNotes: 'staffNotes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

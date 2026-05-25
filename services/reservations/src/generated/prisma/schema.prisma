@@ -117,21 +117,22 @@ model Table {
 }
 
 model Guest {
-  id            String        @id @default(cuid())
-  venueId       String        @map("venue_id")
-  venue         Venue         @relation(fields: [venueId], references: [id])
-  email         String?
-  phone         String?
-  name          String
-  notes         String?
-  visitCount    Int           @default(0) @map("visit_count")
-  lifetimeSpend Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
-  lastVisit     DateTime?     @map("last_visit")
-  tags          Json?
-  staffNotes    Json?         @map("staff_notes")
-  reservations  Reservation[]
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id                  String        @id @default(cuid())
+  venueId             String        @map("venue_id")
+  venue               Venue         @relation(fields: [venueId], references: [id])
+  email               String?
+  phone               String?
+  name                String
+  notes               String?
+  visitCount          Int           @default(0) @map("visit_count")
+  lifetimeSpend       Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
+  lastVisit           DateTime?     @map("last_visit")
+  tags                Json?
+  dietaryRestrictions Json?         @map("dietary_restrictions")
+  staffNotes          Json?         @map("staff_notes")
+  reservations        Reservation[]
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
 
   @@unique([venueId, email])
   @@unique([venueId, phone])
