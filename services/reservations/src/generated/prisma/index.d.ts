@@ -49,6 +49,11 @@ export type Reservation = $Result.DefaultSelection<Prisma.$ReservationPayload>
  */
 export type Deposit = $Result.DefaultSelection<Prisma.$DepositPayload>
 /**
+ * Model WaitlistEntry
+ * 
+ */
+export type WaitlistEntry = $Result.DefaultSelection<Prisma.$WaitlistEntryPayload>
+/**
  * Model ReservationHold
  * 
  */
@@ -131,6 +136,17 @@ export const DepositType: {
 
 export type DepositType = (typeof DepositType)[keyof typeof DepositType]
 
+
+export const WaitlistStatus: {
+  waiting: 'waiting',
+  notified: 'notified',
+  seated: 'seated',
+  expired: 'expired',
+  cancelled: 'cancelled'
+};
+
+export type WaitlistStatus = (typeof WaitlistStatus)[keyof typeof WaitlistStatus]
+
 }
 
 export type ReservationStatus = $Enums.ReservationStatus
@@ -160,6 +176,10 @@ export const DepositStatus: typeof $Enums.DepositStatus
 export type DepositType = $Enums.DepositType
 
 export const DepositType: typeof $Enums.DepositType
+
+export type WaitlistStatus = $Enums.WaitlistStatus
+
+export const WaitlistStatus: typeof $Enums.WaitlistStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -351,6 +371,16 @@ export class PrismaClient<
     * ```
     */
   get deposit(): Prisma.DepositDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.waitlistEntry`: Exposes CRUD operations for the **WaitlistEntry** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WaitlistEntries
+    * const waitlistEntries = await prisma.waitlistEntry.findMany()
+    * ```
+    */
+  get waitlistEntry(): Prisma.WaitlistEntryDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.reservationHold`: Exposes CRUD operations for the **ReservationHold** model.
@@ -802,6 +832,7 @@ export namespace Prisma {
     Guest: 'Guest',
     Reservation: 'Reservation',
     Deposit: 'Deposit',
+    WaitlistEntry: 'WaitlistEntry',
     ReservationHold: 'ReservationHold'
   };
 
@@ -818,7 +849,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "venueGroup" | "venue" | "floorPlan" | "table" | "guest" | "reservation" | "deposit" | "reservationHold"
+      modelProps: "venueGroup" | "venue" | "floorPlan" | "table" | "guest" | "reservation" | "deposit" | "waitlistEntry" | "reservationHold"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1340,6 +1371,80 @@ export namespace Prisma {
           }
         }
       }
+      WaitlistEntry: {
+        payload: Prisma.$WaitlistEntryPayload<ExtArgs>
+        fields: Prisma.WaitlistEntryFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WaitlistEntryFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WaitlistEntryFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          findFirst: {
+            args: Prisma.WaitlistEntryFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WaitlistEntryFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          findMany: {
+            args: Prisma.WaitlistEntryFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>[]
+          }
+          create: {
+            args: Prisma.WaitlistEntryCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          createMany: {
+            args: Prisma.WaitlistEntryCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WaitlistEntryCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>[]
+          }
+          delete: {
+            args: Prisma.WaitlistEntryDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          update: {
+            args: Prisma.WaitlistEntryUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          deleteMany: {
+            args: Prisma.WaitlistEntryDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WaitlistEntryUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WaitlistEntryUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>[]
+          }
+          upsert: {
+            args: Prisma.WaitlistEntryUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WaitlistEntryPayload>
+          }
+          aggregate: {
+            args: Prisma.WaitlistEntryAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWaitlistEntry>
+          }
+          groupBy: {
+            args: Prisma.WaitlistEntryGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WaitlistEntryGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WaitlistEntryCountArgs<ExtArgs>
+            result: $Utils.Optional<WaitlistEntryCountAggregateOutputType> | number
+          }
+        }
+      }
       ReservationHold: {
         payload: Prisma.$ReservationHoldPayload<ExtArgs>
         fields: Prisma.ReservationHoldFieldRefs
@@ -1529,6 +1634,7 @@ export namespace Prisma {
     guest?: GuestOmit
     reservation?: ReservationOmit
     deposit?: DepositOmit
+    waitlistEntry?: WaitlistEntryOmit
     reservationHold?: ReservationHoldOmit
   }
 
@@ -10572,6 +10678,1139 @@ export namespace Prisma {
 
 
   /**
+   * Model WaitlistEntry
+   */
+
+  export type AggregateWaitlistEntry = {
+    _count: WaitlistEntryCountAggregateOutputType | null
+    _avg: WaitlistEntryAvgAggregateOutputType | null
+    _sum: WaitlistEntrySumAggregateOutputType | null
+    _min: WaitlistEntryMinAggregateOutputType | null
+    _max: WaitlistEntryMaxAggregateOutputType | null
+  }
+
+  export type WaitlistEntryAvgAggregateOutputType = {
+    partySize: number | null
+    position: number | null
+    estimatedWaitMinutes: number | null
+  }
+
+  export type WaitlistEntrySumAggregateOutputType = {
+    partySize: number | null
+    position: number | null
+    estimatedWaitMinutes: number | null
+  }
+
+  export type WaitlistEntryMinAggregateOutputType = {
+    id: string | null
+    venueId: string | null
+    partySize: number | null
+    guestName: string | null
+    guestPhone: string | null
+    position: number | null
+    estimatedWaitMinutes: number | null
+    status: $Enums.WaitlistStatus | null
+    notifiedAt: Date | null
+    expiresAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WaitlistEntryMaxAggregateOutputType = {
+    id: string | null
+    venueId: string | null
+    partySize: number | null
+    guestName: string | null
+    guestPhone: string | null
+    position: number | null
+    estimatedWaitMinutes: number | null
+    status: $Enums.WaitlistStatus | null
+    notifiedAt: Date | null
+    expiresAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WaitlistEntryCountAggregateOutputType = {
+    id: number
+    venueId: number
+    partySize: number
+    guestName: number
+    guestPhone: number
+    position: number
+    estimatedWaitMinutes: number
+    status: number
+    notifiedAt: number
+    expiresAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WaitlistEntryAvgAggregateInputType = {
+    partySize?: true
+    position?: true
+    estimatedWaitMinutes?: true
+  }
+
+  export type WaitlistEntrySumAggregateInputType = {
+    partySize?: true
+    position?: true
+    estimatedWaitMinutes?: true
+  }
+
+  export type WaitlistEntryMinAggregateInputType = {
+    id?: true
+    venueId?: true
+    partySize?: true
+    guestName?: true
+    guestPhone?: true
+    position?: true
+    estimatedWaitMinutes?: true
+    status?: true
+    notifiedAt?: true
+    expiresAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WaitlistEntryMaxAggregateInputType = {
+    id?: true
+    venueId?: true
+    partySize?: true
+    guestName?: true
+    guestPhone?: true
+    position?: true
+    estimatedWaitMinutes?: true
+    status?: true
+    notifiedAt?: true
+    expiresAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WaitlistEntryCountAggregateInputType = {
+    id?: true
+    venueId?: true
+    partySize?: true
+    guestName?: true
+    guestPhone?: true
+    position?: true
+    estimatedWaitMinutes?: true
+    status?: true
+    notifiedAt?: true
+    expiresAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WaitlistEntryAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WaitlistEntry to aggregate.
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WaitlistEntries to fetch.
+     */
+    orderBy?: WaitlistEntryOrderByWithRelationInput | WaitlistEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WaitlistEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WaitlistEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WaitlistEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WaitlistEntries
+    **/
+    _count?: true | WaitlistEntryCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: WaitlistEntryAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: WaitlistEntrySumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WaitlistEntryMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WaitlistEntryMaxAggregateInputType
+  }
+
+  export type GetWaitlistEntryAggregateType<T extends WaitlistEntryAggregateArgs> = {
+        [P in keyof T & keyof AggregateWaitlistEntry]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWaitlistEntry[P]>
+      : GetScalarType<T[P], AggregateWaitlistEntry[P]>
+  }
+
+
+
+
+  export type WaitlistEntryGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WaitlistEntryWhereInput
+    orderBy?: WaitlistEntryOrderByWithAggregationInput | WaitlistEntryOrderByWithAggregationInput[]
+    by: WaitlistEntryScalarFieldEnum[] | WaitlistEntryScalarFieldEnum
+    having?: WaitlistEntryScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WaitlistEntryCountAggregateInputType | true
+    _avg?: WaitlistEntryAvgAggregateInputType
+    _sum?: WaitlistEntrySumAggregateInputType
+    _min?: WaitlistEntryMinAggregateInputType
+    _max?: WaitlistEntryMaxAggregateInputType
+  }
+
+  export type WaitlistEntryGroupByOutputType = {
+    id: string
+    venueId: string
+    partySize: number
+    guestName: string
+    guestPhone: string
+    position: number
+    estimatedWaitMinutes: number
+    status: $Enums.WaitlistStatus
+    notifiedAt: Date | null
+    expiresAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    _count: WaitlistEntryCountAggregateOutputType | null
+    _avg: WaitlistEntryAvgAggregateOutputType | null
+    _sum: WaitlistEntrySumAggregateOutputType | null
+    _min: WaitlistEntryMinAggregateOutputType | null
+    _max: WaitlistEntryMaxAggregateOutputType | null
+  }
+
+  type GetWaitlistEntryGroupByPayload<T extends WaitlistEntryGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WaitlistEntryGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WaitlistEntryGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WaitlistEntryGroupByOutputType[P]>
+            : GetScalarType<T[P], WaitlistEntryGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WaitlistEntrySelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    venueId?: boolean
+    partySize?: boolean
+    guestName?: boolean
+    guestPhone?: boolean
+    position?: boolean
+    estimatedWaitMinutes?: boolean
+    status?: boolean
+    notifiedAt?: boolean
+    expiresAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["waitlistEntry"]>
+
+  export type WaitlistEntrySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    venueId?: boolean
+    partySize?: boolean
+    guestName?: boolean
+    guestPhone?: boolean
+    position?: boolean
+    estimatedWaitMinutes?: boolean
+    status?: boolean
+    notifiedAt?: boolean
+    expiresAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["waitlistEntry"]>
+
+  export type WaitlistEntrySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    venueId?: boolean
+    partySize?: boolean
+    guestName?: boolean
+    guestPhone?: boolean
+    position?: boolean
+    estimatedWaitMinutes?: boolean
+    status?: boolean
+    notifiedAt?: boolean
+    expiresAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["waitlistEntry"]>
+
+  export type WaitlistEntrySelectScalar = {
+    id?: boolean
+    venueId?: boolean
+    partySize?: boolean
+    guestName?: boolean
+    guestPhone?: boolean
+    position?: boolean
+    estimatedWaitMinutes?: boolean
+    status?: boolean
+    notifiedAt?: boolean
+    expiresAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WaitlistEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "partySize" | "guestName" | "guestPhone" | "position" | "estimatedWaitMinutes" | "status" | "notifiedAt" | "expiresAt" | "createdAt" | "updatedAt", ExtArgs["result"]["waitlistEntry"]>
+
+  export type $WaitlistEntryPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WaitlistEntry"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      venueId: string
+      partySize: number
+      guestName: string
+      guestPhone: string
+      position: number
+      estimatedWaitMinutes: number
+      status: $Enums.WaitlistStatus
+      notifiedAt: Date | null
+      expiresAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["waitlistEntry"]>
+    composites: {}
+  }
+
+  type WaitlistEntryGetPayload<S extends boolean | null | undefined | WaitlistEntryDefaultArgs> = $Result.GetResult<Prisma.$WaitlistEntryPayload, S>
+
+  type WaitlistEntryCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WaitlistEntryFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WaitlistEntryCountAggregateInputType | true
+    }
+
+  export interface WaitlistEntryDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WaitlistEntry'], meta: { name: 'WaitlistEntry' } }
+    /**
+     * Find zero or one WaitlistEntry that matches the filter.
+     * @param {WaitlistEntryFindUniqueArgs} args - Arguments to find a WaitlistEntry
+     * @example
+     * // Get one WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WaitlistEntryFindUniqueArgs>(args: SelectSubset<T, WaitlistEntryFindUniqueArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WaitlistEntry that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WaitlistEntryFindUniqueOrThrowArgs} args - Arguments to find a WaitlistEntry
+     * @example
+     * // Get one WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WaitlistEntryFindUniqueOrThrowArgs>(args: SelectSubset<T, WaitlistEntryFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WaitlistEntry that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryFindFirstArgs} args - Arguments to find a WaitlistEntry
+     * @example
+     * // Get one WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WaitlistEntryFindFirstArgs>(args?: SelectSubset<T, WaitlistEntryFindFirstArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WaitlistEntry that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryFindFirstOrThrowArgs} args - Arguments to find a WaitlistEntry
+     * @example
+     * // Get one WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WaitlistEntryFindFirstOrThrowArgs>(args?: SelectSubset<T, WaitlistEntryFindFirstOrThrowArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WaitlistEntries that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WaitlistEntries
+     * const waitlistEntries = await prisma.waitlistEntry.findMany()
+     * 
+     * // Get first 10 WaitlistEntries
+     * const waitlistEntries = await prisma.waitlistEntry.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const waitlistEntryWithIdOnly = await prisma.waitlistEntry.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WaitlistEntryFindManyArgs>(args?: SelectSubset<T, WaitlistEntryFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WaitlistEntry.
+     * @param {WaitlistEntryCreateArgs} args - Arguments to create a WaitlistEntry.
+     * @example
+     * // Create one WaitlistEntry
+     * const WaitlistEntry = await prisma.waitlistEntry.create({
+     *   data: {
+     *     // ... data to create a WaitlistEntry
+     *   }
+     * })
+     * 
+     */
+    create<T extends WaitlistEntryCreateArgs>(args: SelectSubset<T, WaitlistEntryCreateArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WaitlistEntries.
+     * @param {WaitlistEntryCreateManyArgs} args - Arguments to create many WaitlistEntries.
+     * @example
+     * // Create many WaitlistEntries
+     * const waitlistEntry = await prisma.waitlistEntry.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WaitlistEntryCreateManyArgs>(args?: SelectSubset<T, WaitlistEntryCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WaitlistEntries and returns the data saved in the database.
+     * @param {WaitlistEntryCreateManyAndReturnArgs} args - Arguments to create many WaitlistEntries.
+     * @example
+     * // Create many WaitlistEntries
+     * const waitlistEntry = await prisma.waitlistEntry.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WaitlistEntries and only return the `id`
+     * const waitlistEntryWithIdOnly = await prisma.waitlistEntry.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WaitlistEntryCreateManyAndReturnArgs>(args?: SelectSubset<T, WaitlistEntryCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WaitlistEntry.
+     * @param {WaitlistEntryDeleteArgs} args - Arguments to delete one WaitlistEntry.
+     * @example
+     * // Delete one WaitlistEntry
+     * const WaitlistEntry = await prisma.waitlistEntry.delete({
+     *   where: {
+     *     // ... filter to delete one WaitlistEntry
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WaitlistEntryDeleteArgs>(args: SelectSubset<T, WaitlistEntryDeleteArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WaitlistEntry.
+     * @param {WaitlistEntryUpdateArgs} args - Arguments to update one WaitlistEntry.
+     * @example
+     * // Update one WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WaitlistEntryUpdateArgs>(args: SelectSubset<T, WaitlistEntryUpdateArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WaitlistEntries.
+     * @param {WaitlistEntryDeleteManyArgs} args - Arguments to filter WaitlistEntries to delete.
+     * @example
+     * // Delete a few WaitlistEntries
+     * const { count } = await prisma.waitlistEntry.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WaitlistEntryDeleteManyArgs>(args?: SelectSubset<T, WaitlistEntryDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WaitlistEntries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WaitlistEntries
+     * const waitlistEntry = await prisma.waitlistEntry.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WaitlistEntryUpdateManyArgs>(args: SelectSubset<T, WaitlistEntryUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WaitlistEntries and returns the data updated in the database.
+     * @param {WaitlistEntryUpdateManyAndReturnArgs} args - Arguments to update many WaitlistEntries.
+     * @example
+     * // Update many WaitlistEntries
+     * const waitlistEntry = await prisma.waitlistEntry.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WaitlistEntries and only return the `id`
+     * const waitlistEntryWithIdOnly = await prisma.waitlistEntry.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WaitlistEntryUpdateManyAndReturnArgs>(args: SelectSubset<T, WaitlistEntryUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WaitlistEntry.
+     * @param {WaitlistEntryUpsertArgs} args - Arguments to update or create a WaitlistEntry.
+     * @example
+     * // Update or create a WaitlistEntry
+     * const waitlistEntry = await prisma.waitlistEntry.upsert({
+     *   create: {
+     *     // ... data to create a WaitlistEntry
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WaitlistEntry we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WaitlistEntryUpsertArgs>(args: SelectSubset<T, WaitlistEntryUpsertArgs<ExtArgs>>): Prisma__WaitlistEntryClient<$Result.GetResult<Prisma.$WaitlistEntryPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WaitlistEntries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryCountArgs} args - Arguments to filter WaitlistEntries to count.
+     * @example
+     * // Count the number of WaitlistEntries
+     * const count = await prisma.waitlistEntry.count({
+     *   where: {
+     *     // ... the filter for the WaitlistEntries we want to count
+     *   }
+     * })
+    **/
+    count<T extends WaitlistEntryCountArgs>(
+      args?: Subset<T, WaitlistEntryCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WaitlistEntryCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WaitlistEntry.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WaitlistEntryAggregateArgs>(args: Subset<T, WaitlistEntryAggregateArgs>): Prisma.PrismaPromise<GetWaitlistEntryAggregateType<T>>
+
+    /**
+     * Group by WaitlistEntry.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WaitlistEntryGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WaitlistEntryGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WaitlistEntryGroupByArgs['orderBy'] }
+        : { orderBy?: WaitlistEntryGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WaitlistEntryGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWaitlistEntryGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WaitlistEntry model
+   */
+  readonly fields: WaitlistEntryFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WaitlistEntry.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WaitlistEntryClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WaitlistEntry model
+   */
+  interface WaitlistEntryFieldRefs {
+    readonly id: FieldRef<"WaitlistEntry", 'String'>
+    readonly venueId: FieldRef<"WaitlistEntry", 'String'>
+    readonly partySize: FieldRef<"WaitlistEntry", 'Int'>
+    readonly guestName: FieldRef<"WaitlistEntry", 'String'>
+    readonly guestPhone: FieldRef<"WaitlistEntry", 'String'>
+    readonly position: FieldRef<"WaitlistEntry", 'Int'>
+    readonly estimatedWaitMinutes: FieldRef<"WaitlistEntry", 'Int'>
+    readonly status: FieldRef<"WaitlistEntry", 'WaitlistStatus'>
+    readonly notifiedAt: FieldRef<"WaitlistEntry", 'DateTime'>
+    readonly expiresAt: FieldRef<"WaitlistEntry", 'DateTime'>
+    readonly createdAt: FieldRef<"WaitlistEntry", 'DateTime'>
+    readonly updatedAt: FieldRef<"WaitlistEntry", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WaitlistEntry findUnique
+   */
+  export type WaitlistEntryFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter, which WaitlistEntry to fetch.
+     */
+    where: WaitlistEntryWhereUniqueInput
+  }
+
+  /**
+   * WaitlistEntry findUniqueOrThrow
+   */
+  export type WaitlistEntryFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter, which WaitlistEntry to fetch.
+     */
+    where: WaitlistEntryWhereUniqueInput
+  }
+
+  /**
+   * WaitlistEntry findFirst
+   */
+  export type WaitlistEntryFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter, which WaitlistEntry to fetch.
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WaitlistEntries to fetch.
+     */
+    orderBy?: WaitlistEntryOrderByWithRelationInput | WaitlistEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WaitlistEntries.
+     */
+    cursor?: WaitlistEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WaitlistEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WaitlistEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WaitlistEntries.
+     */
+    distinct?: WaitlistEntryScalarFieldEnum | WaitlistEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WaitlistEntry findFirstOrThrow
+   */
+  export type WaitlistEntryFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter, which WaitlistEntry to fetch.
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WaitlistEntries to fetch.
+     */
+    orderBy?: WaitlistEntryOrderByWithRelationInput | WaitlistEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WaitlistEntries.
+     */
+    cursor?: WaitlistEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WaitlistEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WaitlistEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WaitlistEntries.
+     */
+    distinct?: WaitlistEntryScalarFieldEnum | WaitlistEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WaitlistEntry findMany
+   */
+  export type WaitlistEntryFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter, which WaitlistEntries to fetch.
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WaitlistEntries to fetch.
+     */
+    orderBy?: WaitlistEntryOrderByWithRelationInput | WaitlistEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WaitlistEntries.
+     */
+    cursor?: WaitlistEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WaitlistEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WaitlistEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WaitlistEntries.
+     */
+    distinct?: WaitlistEntryScalarFieldEnum | WaitlistEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WaitlistEntry create
+   */
+  export type WaitlistEntryCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * The data needed to create a WaitlistEntry.
+     */
+    data: XOR<WaitlistEntryCreateInput, WaitlistEntryUncheckedCreateInput>
+  }
+
+  /**
+   * WaitlistEntry createMany
+   */
+  export type WaitlistEntryCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WaitlistEntries.
+     */
+    data: WaitlistEntryCreateManyInput | WaitlistEntryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WaitlistEntry createManyAndReturn
+   */
+  export type WaitlistEntryCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * The data used to create many WaitlistEntries.
+     */
+    data: WaitlistEntryCreateManyInput | WaitlistEntryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WaitlistEntry update
+   */
+  export type WaitlistEntryUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * The data needed to update a WaitlistEntry.
+     */
+    data: XOR<WaitlistEntryUpdateInput, WaitlistEntryUncheckedUpdateInput>
+    /**
+     * Choose, which WaitlistEntry to update.
+     */
+    where: WaitlistEntryWhereUniqueInput
+  }
+
+  /**
+   * WaitlistEntry updateMany
+   */
+  export type WaitlistEntryUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WaitlistEntries.
+     */
+    data: XOR<WaitlistEntryUpdateManyMutationInput, WaitlistEntryUncheckedUpdateManyInput>
+    /**
+     * Filter which WaitlistEntries to update
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * Limit how many WaitlistEntries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WaitlistEntry updateManyAndReturn
+   */
+  export type WaitlistEntryUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * The data used to update WaitlistEntries.
+     */
+    data: XOR<WaitlistEntryUpdateManyMutationInput, WaitlistEntryUncheckedUpdateManyInput>
+    /**
+     * Filter which WaitlistEntries to update
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * Limit how many WaitlistEntries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WaitlistEntry upsert
+   */
+  export type WaitlistEntryUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * The filter to search for the WaitlistEntry to update in case it exists.
+     */
+    where: WaitlistEntryWhereUniqueInput
+    /**
+     * In case the WaitlistEntry found by the `where` argument doesn't exist, create a new WaitlistEntry with this data.
+     */
+    create: XOR<WaitlistEntryCreateInput, WaitlistEntryUncheckedCreateInput>
+    /**
+     * In case the WaitlistEntry was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WaitlistEntryUpdateInput, WaitlistEntryUncheckedUpdateInput>
+  }
+
+  /**
+   * WaitlistEntry delete
+   */
+  export type WaitlistEntryDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+    /**
+     * Filter which WaitlistEntry to delete.
+     */
+    where: WaitlistEntryWhereUniqueInput
+  }
+
+  /**
+   * WaitlistEntry deleteMany
+   */
+  export type WaitlistEntryDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WaitlistEntries to delete
+     */
+    where?: WaitlistEntryWhereInput
+    /**
+     * Limit how many WaitlistEntries to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WaitlistEntry without action
+   */
+  export type WaitlistEntryDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WaitlistEntry
+     */
+    select?: WaitlistEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WaitlistEntry
+     */
+    omit?: WaitlistEntryOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Model ReservationHold
    */
 
@@ -11889,6 +13128,24 @@ export namespace Prisma {
   export type DepositScalarFieldEnum = (typeof DepositScalarFieldEnum)[keyof typeof DepositScalarFieldEnum]
 
 
+  export const WaitlistEntryScalarFieldEnum: {
+    id: 'id',
+    venueId: 'venueId',
+    partySize: 'partySize',
+    guestName: 'guestName',
+    guestPhone: 'guestPhone',
+    position: 'position',
+    estimatedWaitMinutes: 'estimatedWaitMinutes',
+    status: 'status',
+    notifiedAt: 'notifiedAt',
+    expiresAt: 'expiresAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WaitlistEntryScalarFieldEnum = (typeof WaitlistEntryScalarFieldEnum)[keyof typeof WaitlistEntryScalarFieldEnum]
+
+
   export const ReservationHoldScalarFieldEnum: {
     id: 'id',
     venueId: 'venueId',
@@ -12130,6 +13387,20 @@ export namespace Prisma {
    * Reference to a field of type 'DepositStatus[]'
    */
   export type ListEnumDepositStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DepositStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WaitlistStatus'
+   */
+  export type EnumWaitlistStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WaitlistStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'WaitlistStatus[]'
+   */
+  export type ListEnumWaitlistStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WaitlistStatus[]'>
     
 
 
@@ -12871,6 +14142,95 @@ export namespace Prisma {
     forfeitedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string
+  }
+
+  export type WaitlistEntryWhereInput = {
+    AND?: WaitlistEntryWhereInput | WaitlistEntryWhereInput[]
+    OR?: WaitlistEntryWhereInput[]
+    NOT?: WaitlistEntryWhereInput | WaitlistEntryWhereInput[]
+    id?: StringFilter<"WaitlistEntry"> | string
+    venueId?: StringFilter<"WaitlistEntry"> | string
+    partySize?: IntFilter<"WaitlistEntry"> | number
+    guestName?: StringFilter<"WaitlistEntry"> | string
+    guestPhone?: StringFilter<"WaitlistEntry"> | string
+    position?: IntFilter<"WaitlistEntry"> | number
+    estimatedWaitMinutes?: IntFilter<"WaitlistEntry"> | number
+    status?: EnumWaitlistStatusFilter<"WaitlistEntry"> | $Enums.WaitlistStatus
+    notifiedAt?: DateTimeNullableFilter<"WaitlistEntry"> | Date | string | null
+    expiresAt?: DateTimeNullableFilter<"WaitlistEntry"> | Date | string | null
+    createdAt?: DateTimeFilter<"WaitlistEntry"> | Date | string
+    updatedAt?: DateTimeFilter<"WaitlistEntry"> | Date | string
+  }
+
+  export type WaitlistEntryOrderByWithRelationInput = {
+    id?: SortOrder
+    venueId?: SortOrder
+    partySize?: SortOrder
+    guestName?: SortOrder
+    guestPhone?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+    status?: SortOrder
+    notifiedAt?: SortOrderInput | SortOrder
+    expiresAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WaitlistEntryWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: WaitlistEntryWhereInput | WaitlistEntryWhereInput[]
+    OR?: WaitlistEntryWhereInput[]
+    NOT?: WaitlistEntryWhereInput | WaitlistEntryWhereInput[]
+    venueId?: StringFilter<"WaitlistEntry"> | string
+    partySize?: IntFilter<"WaitlistEntry"> | number
+    guestName?: StringFilter<"WaitlistEntry"> | string
+    guestPhone?: StringFilter<"WaitlistEntry"> | string
+    position?: IntFilter<"WaitlistEntry"> | number
+    estimatedWaitMinutes?: IntFilter<"WaitlistEntry"> | number
+    status?: EnumWaitlistStatusFilter<"WaitlistEntry"> | $Enums.WaitlistStatus
+    notifiedAt?: DateTimeNullableFilter<"WaitlistEntry"> | Date | string | null
+    expiresAt?: DateTimeNullableFilter<"WaitlistEntry"> | Date | string | null
+    createdAt?: DateTimeFilter<"WaitlistEntry"> | Date | string
+    updatedAt?: DateTimeFilter<"WaitlistEntry"> | Date | string
+  }, "id">
+
+  export type WaitlistEntryOrderByWithAggregationInput = {
+    id?: SortOrder
+    venueId?: SortOrder
+    partySize?: SortOrder
+    guestName?: SortOrder
+    guestPhone?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+    status?: SortOrder
+    notifiedAt?: SortOrderInput | SortOrder
+    expiresAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WaitlistEntryCountOrderByAggregateInput
+    _avg?: WaitlistEntryAvgOrderByAggregateInput
+    _max?: WaitlistEntryMaxOrderByAggregateInput
+    _min?: WaitlistEntryMinOrderByAggregateInput
+    _sum?: WaitlistEntrySumOrderByAggregateInput
+  }
+
+  export type WaitlistEntryScalarWhereWithAggregatesInput = {
+    AND?: WaitlistEntryScalarWhereWithAggregatesInput | WaitlistEntryScalarWhereWithAggregatesInput[]
+    OR?: WaitlistEntryScalarWhereWithAggregatesInput[]
+    NOT?: WaitlistEntryScalarWhereWithAggregatesInput | WaitlistEntryScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WaitlistEntry"> | string
+    venueId?: StringWithAggregatesFilter<"WaitlistEntry"> | string
+    partySize?: IntWithAggregatesFilter<"WaitlistEntry"> | number
+    guestName?: StringWithAggregatesFilter<"WaitlistEntry"> | string
+    guestPhone?: StringWithAggregatesFilter<"WaitlistEntry"> | string
+    position?: IntWithAggregatesFilter<"WaitlistEntry"> | number
+    estimatedWaitMinutes?: IntWithAggregatesFilter<"WaitlistEntry"> | number
+    status?: EnumWaitlistStatusWithAggregatesFilter<"WaitlistEntry"> | $Enums.WaitlistStatus
+    notifiedAt?: DateTimeNullableWithAggregatesFilter<"WaitlistEntry"> | Date | string | null
+    expiresAt?: DateTimeNullableWithAggregatesFilter<"WaitlistEntry"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"WaitlistEntry"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WaitlistEntry"> | Date | string
   }
 
   export type ReservationHoldWhereInput = {
@@ -13780,6 +15140,111 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WaitlistEntryCreateInput = {
+    id?: string
+    venueId: string
+    partySize: number
+    guestName: string
+    guestPhone: string
+    position: number
+    estimatedWaitMinutes: number
+    status?: $Enums.WaitlistStatus
+    notifiedAt?: Date | string | null
+    expiresAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WaitlistEntryUncheckedCreateInput = {
+    id?: string
+    venueId: string
+    partySize: number
+    guestName: string
+    guestPhone: string
+    position: number
+    estimatedWaitMinutes: number
+    status?: $Enums.WaitlistStatus
+    notifiedAt?: Date | string | null
+    expiresAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WaitlistEntryUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    venueId?: StringFieldUpdateOperationsInput | string
+    partySize?: IntFieldUpdateOperationsInput | number
+    guestName?: StringFieldUpdateOperationsInput | string
+    guestPhone?: StringFieldUpdateOperationsInput | string
+    position?: IntFieldUpdateOperationsInput | number
+    estimatedWaitMinutes?: IntFieldUpdateOperationsInput | number
+    status?: EnumWaitlistStatusFieldUpdateOperationsInput | $Enums.WaitlistStatus
+    notifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WaitlistEntryUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    venueId?: StringFieldUpdateOperationsInput | string
+    partySize?: IntFieldUpdateOperationsInput | number
+    guestName?: StringFieldUpdateOperationsInput | string
+    guestPhone?: StringFieldUpdateOperationsInput | string
+    position?: IntFieldUpdateOperationsInput | number
+    estimatedWaitMinutes?: IntFieldUpdateOperationsInput | number
+    status?: EnumWaitlistStatusFieldUpdateOperationsInput | $Enums.WaitlistStatus
+    notifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WaitlistEntryCreateManyInput = {
+    id?: string
+    venueId: string
+    partySize: number
+    guestName: string
+    guestPhone: string
+    position: number
+    estimatedWaitMinutes: number
+    status?: $Enums.WaitlistStatus
+    notifiedAt?: Date | string | null
+    expiresAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WaitlistEntryUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    venueId?: StringFieldUpdateOperationsInput | string
+    partySize?: IntFieldUpdateOperationsInput | number
+    guestName?: StringFieldUpdateOperationsInput | string
+    guestPhone?: StringFieldUpdateOperationsInput | string
+    position?: IntFieldUpdateOperationsInput | number
+    estimatedWaitMinutes?: IntFieldUpdateOperationsInput | number
+    status?: EnumWaitlistStatusFieldUpdateOperationsInput | $Enums.WaitlistStatus
+    notifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WaitlistEntryUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    venueId?: StringFieldUpdateOperationsInput | string
+    partySize?: IntFieldUpdateOperationsInput | number
+    guestName?: StringFieldUpdateOperationsInput | string
+    guestPhone?: StringFieldUpdateOperationsInput | string
+    position?: IntFieldUpdateOperationsInput | number
+    estimatedWaitMinutes?: IntFieldUpdateOperationsInput | number
+    status?: EnumWaitlistStatusFieldUpdateOperationsInput | $Enums.WaitlistStatus
+    notifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -14802,6 +16267,80 @@ export namespace Prisma {
     _max?: NestedEnumDepositStatusFilter<$PrismaModel>
   }
 
+  export type EnumWaitlistStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WaitlistStatus | EnumWaitlistStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWaitlistStatusFilter<$PrismaModel> | $Enums.WaitlistStatus
+  }
+
+  export type WaitlistEntryCountOrderByAggregateInput = {
+    id?: SortOrder
+    venueId?: SortOrder
+    partySize?: SortOrder
+    guestName?: SortOrder
+    guestPhone?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+    status?: SortOrder
+    notifiedAt?: SortOrder
+    expiresAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WaitlistEntryAvgOrderByAggregateInput = {
+    partySize?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+  }
+
+  export type WaitlistEntryMaxOrderByAggregateInput = {
+    id?: SortOrder
+    venueId?: SortOrder
+    partySize?: SortOrder
+    guestName?: SortOrder
+    guestPhone?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+    status?: SortOrder
+    notifiedAt?: SortOrder
+    expiresAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WaitlistEntryMinOrderByAggregateInput = {
+    id?: SortOrder
+    venueId?: SortOrder
+    partySize?: SortOrder
+    guestName?: SortOrder
+    guestPhone?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+    status?: SortOrder
+    notifiedAt?: SortOrder
+    expiresAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WaitlistEntrySumOrderByAggregateInput = {
+    partySize?: SortOrder
+    position?: SortOrder
+    estimatedWaitMinutes?: SortOrder
+  }
+
+  export type EnumWaitlistStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WaitlistStatus | EnumWaitlistStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWaitlistStatusWithAggregatesFilter<$PrismaModel> | $Enums.WaitlistStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWaitlistStatusFilter<$PrismaModel>
+    _max?: NestedEnumWaitlistStatusFilter<$PrismaModel>
+  }
+
   export type ReservationHoldCountOrderByAggregateInput = {
     id?: SortOrder
     venueId?: SortOrder
@@ -15509,6 +17048,10 @@ export namespace Prisma {
     update?: XOR<XOR<ReservationUpdateToOneWithWhereWithoutDepositInput, ReservationUpdateWithoutDepositInput>, ReservationUncheckedUpdateWithoutDepositInput>
   }
 
+  export type EnumWaitlistStatusFieldUpdateOperationsInput = {
+    set?: $Enums.WaitlistStatus
+  }
+
   export type VenueCreateNestedOneWithoutHoldsInput = {
     create?: XOR<VenueCreateWithoutHoldsInput, VenueUncheckedCreateWithoutHoldsInput>
     connectOrCreate?: VenueCreateOrConnectWithoutHoldsInput
@@ -15928,6 +17471,23 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumDepositStatusFilter<$PrismaModel>
     _max?: NestedEnumDepositStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWaitlistStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WaitlistStatus | EnumWaitlistStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWaitlistStatusFilter<$PrismaModel> | $Enums.WaitlistStatus
+  }
+
+  export type NestedEnumWaitlistStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WaitlistStatus | EnumWaitlistStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WaitlistStatus[] | ListEnumWaitlistStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWaitlistStatusWithAggregatesFilter<$PrismaModel> | $Enums.WaitlistStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWaitlistStatusFilter<$PrismaModel>
+    _max?: NestedEnumWaitlistStatusFilter<$PrismaModel>
   }
 
   export type VenueCreateWithoutVenueGroupInput = {

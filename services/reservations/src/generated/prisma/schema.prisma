@@ -60,6 +60,14 @@ enum DepositType {
   per_person
 }
 
+enum WaitlistStatus {
+  waiting
+  notified
+  seated
+  expired
+  cancelled
+}
+
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
@@ -224,6 +232,24 @@ model Deposit {
   @@index([stripePaymentIntentId])
   @@index([status])
   @@map("deposits")
+}
+
+model WaitlistEntry {
+  id                   String         @id @default(cuid())
+  venueId              String         @map("venue_id")
+  partySize            Int            @map("party_size")
+  guestName            String         @map("guest_name")
+  guestPhone           String         @map("guest_phone")
+  position             Int
+  estimatedWaitMinutes Int            @map("estimated_wait_minutes")
+  status               WaitlistStatus @default(waiting)
+  notifiedAt           DateTime?      @map("notified_at")
+  expiresAt            DateTime?      @map("expires_at")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  @@index([venueId, status])
+  @@map("waitlist_entries")
 }
 
 model ReservationHold {
