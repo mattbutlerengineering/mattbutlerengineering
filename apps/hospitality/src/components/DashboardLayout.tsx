@@ -21,7 +21,6 @@ import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
-import { ReservationDataProvider } from "../contexts/ReservationDataContext.js";
 import { useReservationQuerySync } from "../hooks/useReservationQuerySync.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
@@ -323,9 +322,7 @@ function DashboardLayoutInner() {
 export function DashboardLayout() {
   return (
     <VenueProvider>
-      <ReservationDataProvider>
-        <DashboardLayoutInner />
-      </ReservationDataProvider>
+      <DashboardLayoutInner />
     </VenueProvider>
   );
 }
