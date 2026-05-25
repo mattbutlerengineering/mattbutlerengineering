@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
 import { useAuth } from "@mbe/auth/react";
+import type { AuthUser, JWTPayload } from "@mbe/auth";
 import { useTheme } from "../hooks/use-theme.js";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -29,8 +29,8 @@ vi.mock("../hooks/useApiClient.js", () => ({
 // ApiClientError is still imported in the page
 vi.mock("@mbe/api-client", () => ({
   ApiClientError: class extends Error {
-    response: any;
-    constructor(message: string, response: any = {}) {
+    response: Record<string, unknown>;
+    constructor(message: string, response: Record<string, unknown> = {}) {
       super(message);
       this.response = response;
     }
@@ -38,7 +38,7 @@ vi.mock("@mbe/api-client", () => ({
 }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title, description }: any) => (
+  PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
       <span>{description}</span>
@@ -46,8 +46,25 @@ vi.mock("../components/PageHeader", () => ({
   ),
 }));
 
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+    </div>
+  ),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children, variant, onDismiss }: any) => (
+  Alert: ({
+    children,
+    variant,
+    onDismiss,
+  }: {
+    children: React.ReactNode;
+    variant?: string;
+    onDismiss?: () => void;
+  }) => (
     <div data-testid="alert" data-variant={variant}>
       {children}
       {onDismiss && (
@@ -57,19 +74,32 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       )}
     </div>
   ),
-  Button: ({ children, onClick, disabled }: any) => (
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+  }) => (
     <button onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
-  Card: ({ children, title }: any) => (
+  Card: ({ children, title }: { children: React.ReactNode; title?: React.ReactNode }) => (
     <div data-testid="card">
       <h1>{title}</h1>
       {children}
     </div>
   ),
   Divider: () => <hr />,
-  Select: (props: any) => (
+  Select: (props: {
+    label?: string;
+    value?: string;
+    options?: Array<{ value: string; label: string }>;
+    onChange?: (value: string) => void;
+  }) => (
     <div>
       <label>{props.label}</label>
       <select
@@ -77,7 +107,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         value={props.value}
         onChange={(e) => props.onChange?.(e.target.value)}
       >
-        {props.options?.map((o: any) => (
+        {props.options?.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
@@ -86,10 +116,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Toggle: ({ label, checked, onCheckedChange }: any) => (
+  SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="skeleton-group">{children}</div>
+  ),
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Toggle: ({
+    label,
+    checked,
+    onCheckedChange,
+  }: {
+    label?: string;
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
     <div>
       <label>{label}</label>
       <input
@@ -102,6 +142,49 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
+// ── Typed mock factories ─────────────────────────────────────────────────────
+
+function makeJWTPayload(overrides: Partial<JWTPayload> = {}): JWTPayload {
+  return {
+    sub: "user-1",
+    iss: "https://test.auth0.com/",
+    aud: "https://api.example.com",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000),
+    name: "Test User",
+    email: "test@example.com",
+    ...overrides,
+  };
+}
+
+function makeAuthUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: "user-1",
+    name: "Test User",
+    email: "test@example.com",
+    raw: makeJWTPayload(),
+    ...overrides,
+  };
+}
+
+type AuthReturnType = ReturnType<typeof useAuth>;
+
+function makeAuthResult(overrides: Partial<AuthReturnType> = {}): AuthReturnType {
+  return {
+    isLoading: false,
+    isAuthenticated: true,
+    user: makeAuthUser(),
+    accessToken: "token",
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    signInSilent: vi.fn(),
+    error: undefined,
+    ...overrides,
+  };
+}
+
+// ── Test helpers ─────────────────────────────────────────────────────────────
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -113,7 +196,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><SettingsPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <SettingsPage />
+    </Wrapper>
+  );
 }
 
 const defaultUser = {
@@ -128,12 +215,7 @@ describe("SettingsPage", () => {
     vi.clearAllMocks();
     localStorage.clear();
 
-    vi.mocked(useAuth).mockReturnValue({
-      accessToken: "token",
-      isLoading: false,
-      signOut: vi.fn(),
-      user: { sub: "user-1", name: "Test User", email: "test@example.com" },
-    } as any);
+    vi.mocked(useAuth).mockReturnValue(makeAuthResult());
 
     vi.mocked(useTheme).mockReturnValue({
       theme: "system",
@@ -177,14 +259,42 @@ describe("SettingsPage", () => {
     });
   });
 
+  describe("error state", () => {
+    it("shows ErrorRetryBanner when user data fails to load", async () => {
+      mockApiClient.users.me.mockRejectedValue(new Error("Failed to load user"));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+      });
+      expect(screen.getByText("Failed to load user")).toBeDefined();
+    });
+
+    it("retries user fetch when retry button is clicked", async () => {
+      mockApiClient.users.me
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValue(defaultUser);
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+      });
+
+      screen.getByTestId("retry-button").click();
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+        expect(screen.getByText("Settings")).toBeDefined();
+      });
+    });
+  });
+
   describe("loading skeleton", () => {
     it("shows skeleton when auth is loading", () => {
-      vi.mocked(useAuth).mockReturnValue({
-        accessToken: null,
-        isLoading: true,
-        signOut: vi.fn(),
-        user: null,
-      } as any);
+      vi.mocked(useAuth).mockReturnValue(
+        makeAuthResult({ accessToken: null, isLoading: true, user: null })
+      );
 
       renderPage();
       expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0);
@@ -265,7 +375,9 @@ describe("SettingsPage", () => {
       fireEvent.click(screen.getByTestId("toggle-Marketing emails"));
 
       await waitFor(() => {
-        expect(mockApiClient.users.updatePreferences).toHaveBeenCalledWith({ marketingEmails: true });
+        expect(mockApiClient.users.updatePreferences).toHaveBeenCalledWith({
+          marketingEmails: true,
+        });
       });
     });
   });
@@ -273,12 +385,7 @@ describe("SettingsPage", () => {
   describe("sign out", () => {
     it("calls signOut when sign out button is clicked", async () => {
       const mockSignOut = vi.fn();
-      vi.mocked(useAuth).mockReturnValue({
-        accessToken: "token",
-        isLoading: false,
-        signOut: mockSignOut,
-        user: { sub: "user-1", name: "Test User", email: "test@example.com" },
-      } as any);
+      vi.mocked(useAuth).mockReturnValue(makeAuthResult({ signOut: mockSignOut }));
 
       renderPage();
 

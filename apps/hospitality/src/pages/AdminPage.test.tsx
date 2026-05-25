@@ -24,7 +24,6 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
   Avatar: ({ name }: any) => <div data-testid="avatar">{name}</div>,
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
@@ -61,6 +60,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Text: ({ children }: any) => <span>{children}</span>,
+}));
+
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+    </div>
+  ),
 }));
 
 function createWrapper() {
@@ -152,12 +160,36 @@ describe("AdminPage", () => {
     expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0);
   });
 
-  it("shows error state when fetch fails", async () => {
+  it("shows ErrorRetryBanner when fetch fails", async () => {
     mockApiClient.users.list.mockRejectedValue(new Error("Server error"));
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("alert")).toBeDefined();
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
     });
     expect(screen.getByText("Server error")).toBeDefined();
+  });
+
+  it("retries fetch when retry button is clicked after error", async () => {
+    mockApiClient.users.list
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValue({
+        data: defaultUsers,
+        pagination: { total: 2, totalPages: 1, page: 1, limit: 10, hasNext: false },
+      });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+    });
+
+    // Click retry
+    screen.getByTestId("retry-button").click();
+
+    // After retry succeeds, error banner should disappear
+    await waitFor(() => {
+      expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+      expect(screen.getAllByText("Admin User").length).toBeGreaterThan(0);
+    });
   });
 });

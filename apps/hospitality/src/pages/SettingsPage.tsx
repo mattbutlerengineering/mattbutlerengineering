@@ -17,6 +17,7 @@ import type { UserPreferences } from "@mbe/types";
 import { useCurrentUser, useUpdatePreferences } from "../hooks/useUsers.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import styles from "./SettingsPage.module.css";
 
 /* ── Constants ──────────────────────────────── */
@@ -108,7 +109,7 @@ export function SettingsPage() {
   const { isLoading: isAuthLoading, signOut } = useAuth();
   const { setTheme: setLocalTheme } = useTheme();
 
-  const { data: user, isLoading } = useCurrentUser();
+  const { data: user, isLoading, error: loadError, refetch } = useCurrentUser();
   const updatePreferencesMutation = useUpdatePreferences();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -148,6 +149,19 @@ export function SettingsPage() {
   // Show skeleton while auth is loading or data is being fetched
   if (isAuthLoading || isLoading) {
     return <SettingsLoadingSkeleton />;
+  }
+
+  // Show error banner when user data fails to load
+  if (loadError && !user) {
+    return (
+      <div>
+        <PageHeader title="Settings" description="Manage your account settings and preferences" />
+        <ErrorRetryBanner
+          error={loadError.message}
+          onRetry={refetch}
+        />
+      </div>
+    );
   }
 
   const preferences = user?.preferences ?? {};
