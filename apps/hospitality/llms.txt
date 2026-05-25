@@ -32,7 +32,7 @@
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">
-    <item priority="high">
+    <item priority="low">
       interface Auth0Config {
         domain: string;
         clientId: string;
@@ -41,8 +41,10 @@
         password: string;
       }
     </item>
-    <item priority="medium">
-      function getAuth0Config(): Auth0Config { /* ... */ }
+    <item priority="high">
+      export function validateAuth0Config(
+        env: Record<string, string | undefined> = process.env
+      ): Auth0Config { /* ... */ }
     </item>
   </file>
   <file path="e2e/fixtures.ts">

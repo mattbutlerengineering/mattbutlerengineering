@@ -14,7 +14,6 @@
       "dietaryRestrictions": ["vegetarian"],
       "createdAt": "2025-06-01T00:00:00.000Z",
       "updatedAt": "2026-05-10T18:00:00.000Z",
-      "dietaryRestrictions": [],
       "staffNotes": []
     },
     {
@@ -31,7 +30,6 @@
       "dietaryRestrictions": null,
       "createdAt": "2026-01-15T00:00:00.000Z",
       "updatedAt": "2026-04-20T19:00:00.000Z",
-      "dietaryRestrictions": [],
       "staffNotes": []
     },
     {
@@ -48,7 +46,6 @@
       "dietaryRestrictions": ["shellfish-free"],
       "createdAt": "2025-09-01T00:00:00.000Z",
       "updatedAt": "2026-05-05T20:00:00.000Z",
-      "dietaryRestrictions": [],
       "staffNotes": []
     },
     {
@@ -65,7 +62,6 @@
       "dietaryRestrictions": [],
       "createdAt": "2026-03-01T00:00:00.000Z",
       "updatedAt": "2026-03-01T19:00:00.000Z",
-      "dietaryRestrictions": [],
       "staffNotes": []
     },
     {
@@ -82,7 +78,6 @@
       "dietaryRestrictions": [],
       "createdAt": "2025-03-01T00:00:00.000Z",
       "updatedAt": "2026-05-15T19:30:00.000Z",
-      "dietaryRestrictions": [],
       "staffNotes": []
     }
   ],
