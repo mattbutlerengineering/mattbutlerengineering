@@ -20,6 +20,7 @@ import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
 
 /**
  * Creates the Fastify application instance.
@@ -50,6 +51,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
