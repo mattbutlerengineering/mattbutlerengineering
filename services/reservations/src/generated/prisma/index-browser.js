@@ -182,6 +182,7 @@ exports.Prisma.GuestScalarFieldEnum = {
   tags: 'tags',
   dietaryRestrictions: 'dietaryRestrictions',
   staffNotes: 'staffNotes',
+  communicationPreference: 'communicationPreference',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -256,6 +257,13 @@ exports.TableStatus = exports.$Enums.TableStatus = {
   OCCUPIED: 'OCCUPIED',
   DIRTY: 'DIRTY',
   READY: 'READY'
+};
+
+exports.CommunicationPreference = exports.$Enums.CommunicationPreference = {
+  email_only: 'email_only',
+  sms_only: 'sms_only',
+  both: 'both',
+  transactional_only: 'transactional_only'
 };
 
 exports.ReservationStatus = exports.$Enums.ReservationStatus = {

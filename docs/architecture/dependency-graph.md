@@ -26,6 +26,7 @@ flowchart TD
     config["config"]
     database["database"]
     feature_flags["feature-flags"]
+    jobs["jobs"]
     mcp_server["mcp-server"]
     notifications["notifications"]
     observability["observability"]
@@ -97,6 +98,7 @@ flowchart TD
   database --> config
   database --> types
   feature_flags --> config
+  jobs --> config
   mcp_server --> config
   notifications --> config
   observability --> types
@@ -131,6 +133,7 @@ flowchart TD
   class config shared
   class database shared
   class feature_flags shared
+  class jobs shared
   class mcp_server shared
   class notifications shared
   class observability shared
