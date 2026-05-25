@@ -190,8 +190,8 @@ describe("liveness-monitor", () => {
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Error checking stale sessions"),
-        expect.any(Error)
+        expect.objectContaining({ err: expect.any(Error) }),
+        expect.stringContaining("Error checking stale sessions")
       );
     });
 

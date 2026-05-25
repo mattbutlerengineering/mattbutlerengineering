@@ -39,7 +39,7 @@ async function checkStaleSessions(): Promise<void> {
       }
     }
   } catch (error) {
-    activeLogger?.error("[liveness] Error checking stale sessions:", error);
+    activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
   }
 }
 
