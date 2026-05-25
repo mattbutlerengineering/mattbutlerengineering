@@ -27,6 +27,17 @@
       type IcalMethod = "REQUEST" | "CANCEL";
     </item>
   </file>
+  <file path="src/notification-dispatcher.ts">
+    <item priority="low">
+      type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+    </item>
+    <item priority="low">
+      interface NotificationDispatcherConfig {
+        emailAdapter: NotificationPort;
+        smsAdapter: SmsPort | null;
+      }
+    </item>
+  </file>
   <file path="src/port.ts">
     <item priority="low">
       interface BookingNotificationInput {
@@ -55,6 +66,38 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
+      }
+    </item>
+  </file>
+  <file path="src/sms-port.ts">
+    <item priority="low">
+      interface SmsNotificationInput {
+        reservationId: string;
+        date: string;
+        startTime: string;
+        partySize: number;
+        guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistUpdateInput {
+        guestName: string | null;
+        guestPhone: string;
+        venueName: string;
+        date: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  <file path="src/twilio-sms-adapter.ts">
+    <item priority="high">
+      interface TwilioMessages {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TwilioClient {
+        messages: TwilioMessages;
       }
     </item>
   </file>

@@ -88,6 +88,16 @@ export const SeatingPreference: {
 export type SeatingPreference = (typeof SeatingPreference)[keyof typeof SeatingPreference]
 
 
+export const CommunicationPreference: {
+  email_only: 'email_only',
+  sms_only: 'sms_only',
+  both: 'both',
+  transactional_only: 'transactional_only'
+};
+
+export type CommunicationPreference = (typeof CommunicationPreference)[keyof typeof CommunicationPreference]
+
+
 export const TableStatus: {
   AVAILABLE: 'AVAILABLE',
   OCCUPIED: 'OCCUPIED',
@@ -110,6 +120,10 @@ export const Occasion: typeof $Enums.Occasion
 export type SeatingPreference = $Enums.SeatingPreference
 
 export const SeatingPreference: typeof $Enums.SeatingPreference
+
+export type CommunicationPreference = $Enums.CommunicationPreference
+
+export const CommunicationPreference: typeof $Enums.CommunicationPreference
 
 export type TableStatus = $Enums.TableStatus
 
@@ -6515,6 +6529,7 @@ export namespace Prisma {
     visitCount: number | null
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
+    communicationPreference: $Enums.CommunicationPreference | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -6529,6 +6544,7 @@ export namespace Prisma {
     visitCount: number | null
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
+    communicationPreference: $Enums.CommunicationPreference | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -6546,6 +6562,7 @@ export namespace Prisma {
     tags: number
     dietaryRestrictions: number
     staffNotes: number
+    communicationPreference: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -6572,6 +6589,7 @@ export namespace Prisma {
     visitCount?: true
     lifetimeSpend?: true
     lastVisit?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -6586,6 +6604,7 @@ export namespace Prisma {
     visitCount?: true
     lifetimeSpend?: true
     lastVisit?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -6603,6 +6622,7 @@ export namespace Prisma {
     tags?: true
     dietaryRestrictions?: true
     staffNotes?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -6707,6 +6727,7 @@ export namespace Prisma {
     tags: JsonValue | null
     dietaryRestrictions: JsonValue | null
     staffNotes: JsonValue | null
+    communicationPreference: $Enums.CommunicationPreference
     createdAt: Date
     updatedAt: Date
     _count: GuestCountAggregateOutputType | null
@@ -6743,6 +6764,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6763,6 +6785,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6781,6 +6804,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -6799,11 +6823,12 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
+  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "communicationPreference" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
   export type GuestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venue?: boolean | VenueDefaultArgs<ExtArgs>
     reservations?: boolean | Guest$reservationsArgs<ExtArgs>
@@ -6835,6 +6860,7 @@ export namespace Prisma {
       tags: Prisma.JsonValue | null
       dietaryRestrictions: Prisma.JsonValue | null
       staffNotes: Prisma.JsonValue | null
+      communicationPreference: $Enums.CommunicationPreference
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["guest"]>
@@ -7274,6 +7300,7 @@ export namespace Prisma {
     readonly tags: FieldRef<"Guest", 'Json'>
     readonly dietaryRestrictions: FieldRef<"Guest", 'Json'>
     readonly staffNotes: FieldRef<"Guest", 'Json'>
+    readonly communicationPreference: FieldRef<"Guest", 'CommunicationPreference'>
     readonly createdAt: FieldRef<"Guest", 'DateTime'>
     readonly updatedAt: FieldRef<"Guest", 'DateTime'>
   }
@@ -10323,6 +10350,7 @@ export namespace Prisma {
     tags: 'tags',
     dietaryRestrictions: 'dietaryRestrictions',
     staffNotes: 'staffNotes',
+    communicationPreference: 'communicationPreference',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -10513,6 +10541,20 @@ export namespace Prisma {
    * Reference to a field of type 'Decimal[]'
    */
   export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'CommunicationPreference'
+   */
+  export type EnumCommunicationPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CommunicationPreference'>
+    
+
+
+  /**
+   * Reference to a field of type 'CommunicationPreference[]'
+   */
+  export type ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CommunicationPreference[]'>
     
 
 
@@ -10927,6 +10969,7 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -10946,6 +10989,7 @@ export namespace Prisma {
     tags?: SortOrderInput | SortOrder
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     venue?: VenueOrderByWithRelationInput
@@ -10970,6 +11014,7 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -10989,6 +11034,7 @@ export namespace Prisma {
     tags?: SortOrderInput | SortOrder
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: GuestCountOrderByAggregateInput
@@ -11014,6 +11060,7 @@ export namespace Prisma {
     tags?: JsonNullableWithAggregatesFilter<"Guest">
     dietaryRestrictions?: JsonNullableWithAggregatesFilter<"Guest">
     staffNotes?: JsonNullableWithAggregatesFilter<"Guest">
+    communicationPreference?: EnumCommunicationPreferenceWithAggregatesFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
   }
@@ -11628,6 +11675,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -11647,6 +11695,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -11664,6 +11713,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -11683,6 +11733,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -11701,6 +11752,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -11717,6 +11769,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -11734,6 +11787,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -12526,6 +12580,13 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
+  export type EnumCommunicationPreferenceFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceFilter<$PrismaModel> | $Enums.CommunicationPreference
+  }
+
   export type GuestVenueIdEmailCompoundUniqueInput = {
     venueId: string
     email: string
@@ -12549,6 +12610,7 @@ export namespace Prisma {
     tags?: SortOrder
     dietaryRestrictions?: SortOrder
     staffNotes?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -12568,6 +12630,7 @@ export namespace Prisma {
     visitCount?: SortOrder
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -12582,6 +12645,7 @@ export namespace Prisma {
     visitCount?: SortOrder
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -12619,6 +12683,16 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedDateTimeNullableFilter<$PrismaModel>
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type EnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel> | $Enums.CommunicationPreference
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
+    _max?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
   }
 
   export type EnumReservationStatusFilter<$PrismaModel = never> = {
@@ -13314,6 +13388,10 @@ export namespace Prisma {
     set?: Date | string | null
   }
 
+  export type EnumCommunicationPreferenceFieldUpdateOperationsInput = {
+    set?: $Enums.CommunicationPreference
+  }
+
   export type VenueUpdateOneRequiredWithoutGuestsNestedInput = {
     create?: XOR<VenueCreateWithoutGuestsInput, VenueUncheckedCreateWithoutGuestsInput>
     connectOrCreate?: VenueCreateOrConnectWithoutGuestsInput
@@ -13697,6 +13775,13 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
+  export type NestedEnumCommunicationPreferenceFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceFilter<$PrismaModel> | $Enums.CommunicationPreference
+  }
+
   export type NestedDecimalNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel> | null
     in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel> | null
@@ -13725,6 +13810,16 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedDateTimeNullableFilter<$PrismaModel>
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel> | $Enums.CommunicationPreference
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
+    _max?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
   }
 
   export type NestedEnumReservationStatusFilter<$PrismaModel = never> = {
@@ -13989,6 +14084,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationCreateNestedManyWithoutGuestInput
@@ -14006,6 +14102,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -14223,6 +14320,7 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
   }
@@ -14862,6 +14960,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -14880,6 +14979,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -14994,6 +15094,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -15012,6 +15113,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -15395,6 +15497,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -15553,6 +15656,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUpdateManyWithoutGuestNestedInput
@@ -15570,6 +15674,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -15587,6 +15692,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
