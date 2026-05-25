@@ -1,8 +1,12 @@
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
+import { ApiClient, ApiClientError } from "@mbe/api-client";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+// Public endpoint client — no auth token required
+const publicApiClient = new ApiClient({ baseUrl: API_BASE, maxRetries: 3 });
 
 interface ReservationDetails {
   id: string;
@@ -41,20 +45,17 @@ class ManageTokenError extends Error {
 }
 
 async function fetchManageReservation(token: string): Promise<ManageReservationData> {
-  const res = await fetch(
-    `${API_BASE}/public/v1/reservations/manage?token=${encodeURIComponent(token)}`
-  );
-
-  if (res.ok) {
-    const json = await res.json();
+  try {
+    const json = await publicApiClient.get<{ data: ManageReservationData }>(
+      `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`
+    );
     return { reservation: json.data.reservation, venue: json.data.venue };
+  } catch (err) {
+    if (err instanceof ApiClientError && err.statusCode === 410) {
+      throw new ManageTokenError("Link expired", "expired");
+    }
+    throw new ManageTokenError("Invalid link", "invalid");
   }
-
-  if (res.status === 410) {
-    throw new ManageTokenError("Link expired", "expired");
-  }
-
-  throw new ManageTokenError("Invalid link", "invalid");
 }
 
 export function ManageReservationPage() {
@@ -93,8 +94,7 @@ export function ManageReservationPage() {
   }
 
   if (error || !data) {
-    const errorType =
-      error instanceof ManageTokenError ? error.type : "invalid";
+    const errorType = error instanceof ManageTokenError ? error.type : "invalid";
 
     return (
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
