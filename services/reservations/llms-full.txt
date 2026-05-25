@@ -3941,6 +3941,232 @@
       );
     };
   </file>
+  <file path="src/routes/waitlist.ts">
+    export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST / — create waitlist entry
+      fastify.post<{
+        Body: {
+          venueId: string;
+          partySize: number;
+          guestName: string;
+          guestPhone: string;
+          avgTurnTimeMinutes?: number;
+        };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add to waitlist",
+            operationId: "createWaitlistEntry",
+            tags: ["Waitlist"],
+            body: {
+              type: "object",
+              required: ["venueId", "partySize", "guestName", "guestPhone"],
+              properties: {
+                venueId: { type: "string" },
+                partySize: { type: "integer", minimum: 1 },
+                guestName: { type: "string" },
+                guestPhone: { type: "string" },
+                avgTurnTimeMinutes: { type: "integer", minimum: 1 },
+              },
+            },
+            response: {
+              201: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              400: { $ref: "Error#" },
+              500: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.create(request.body);
+          return reply.code(201).send({ data: entry });
+        }
+      );
+    
+      // GET / — list waiting entries for venue
+      fastify.get<{
+        Querystring: { venueId: string };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List waitlist entries",
+            operationId: "listWaitlistEntries",
+            tags: ["Waitlist"],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  data: { type: "array", items: WaitlistEntrySchema },
+                },
+              },
+              400: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entries = await waitlistService.listWaiting(request.query.venueId);
+          return reply.send({ data: entries });
+        }
+      );
+    
+      // GET /:id — get single entry
+      fastify.get<{
+        Params: { id: string };
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get waitlist entry",
+            operationId: "getWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.getById(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/seat — mark seated, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/seat",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark guest as seated",
+            operationId: "seatWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.seat(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/cancel — mark cancelled, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/cancel",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Cancel waitlist entry",
+            operationId: "cancelWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.cancel(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/expire — mark expired
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/expire",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark waitlist entry as expired",
+            operationId: "expireWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.expire(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    };
+  </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/index.ts">
@@ -4237,6 +4463,37 @@
       };
     }
   </file>
+  <file path="src/services/waitlist-utils.ts">
+    export function calculatePosition(existingCount: number): number {
+      return existingCount + 1;
+    }
+    export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number {
+      return position * avgTurnTimeMinutes;
+    }
+  </file>
+  <file path="src/services/waitlist.ts">
+    export interface WaitlistEntryData {
+      id: string;
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
+      notifiedAt: Date | null;
+      expiresAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    export interface CreateWaitlistEntryInput {
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      avgTurnTimeMinutes?: number;
+    }
+  </file>
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
@@ -4266,6 +4523,7 @@
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+      await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
