@@ -22,7 +22,7 @@ jobs:
           - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web" }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
 
       - uses: pnpm/action-setup@v3
         with:
