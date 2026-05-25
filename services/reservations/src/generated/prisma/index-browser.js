@@ -210,21 +210,6 @@ exports.Prisma.ReservationScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.WaitlistEntryScalarFieldEnum = {
-  id: 'id',
-  venueId: 'venueId',
-  partySize: 'partySize',
-  guestName: 'guestName',
-  guestPhone: 'guestPhone',
-  position: 'position',
-  estimatedWaitMinutes: 'estimatedWaitMinutes',
-  status: 'status',
-  notifiedAt: 'notifiedAt',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.ReservationHoldScalarFieldEnum = {
   id: 'id',
   venueId: 'venueId',
@@ -307,14 +292,6 @@ exports.SeatingPreference = exports.$Enums.SeatingPreference = {
   no_preference: 'no_preference'
 };
 
-exports.WaitlistStatus = exports.$Enums.WaitlistStatus = {
-  waiting: 'waiting',
-  notified: 'notified',
-  seated: 'seated',
-  expired: 'expired',
-  cancelled: 'cancelled'
-};
-
 exports.Prisma.ModelName = {
   VenueGroup: 'VenueGroup',
   Venue: 'Venue',
@@ -322,7 +299,6 @@ exports.Prisma.ModelName = {
   Table: 'Table',
   Guest: 'Guest',
   Reservation: 'Reservation',
-  WaitlistEntry: 'WaitlistEntry',
   ReservationHold: 'ReservationHold'
 };
 
