@@ -2,10 +2,14 @@
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     <item priority="medium">
-      function detectRateLimitInError(message: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      class ClaudeAdapter {
+        name: unknown;
+        async isAvailable(): Promise<unknown>;
+        async run(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="src/adapters/cli-adapter-base.ts">
