@@ -91,7 +91,7 @@ function ReservationCard({ reservation, table, onClick, isSelected }: Reservatio
   const timeLabel = `${formatTime(reservation.startTime)} – ${formatTime(reservation.endTime)}`;
 
   return (
-    <button
+    <Button
       className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
       onClick={() => onClick(reservation)}
       aria-label={`${reservation.guestName || "Guest"}, party of ${reservation.partySize}, ${timeLabel}, table ${tableLabel}`}
@@ -122,7 +122,7 @@ function ReservationCard({ reservation, table, onClick, isSelected }: Reservatio
         </Stack>
         <Tag variant={statusVariant(reservation.status)}>{statusLabel(reservation.status)}</Tag>
       </Stack>
-    </button>
+    </Button>
   );
 }
 
