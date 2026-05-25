@@ -119,7 +119,11 @@ export async function mockApi(page: Page): Promise<void> {
   });
   await page.route("**/api/v1/guests?*", (route) => jsonResponse(route, "guests-list"));
   await page.route(/\/api\/v1\/guests\/[^/?]+$/, (route) => {
+    const method = route.request().method();
     const guests = JSON.parse(loadFixture("guests-list"));
+    if (method === "PATCH" || method === "PUT") {
+      return jsonOk(route, { ...guests.data[0], updatedAt: new Date().toISOString() });
+    }
     return jsonOk(route, guests.data[0]);
   });
 
