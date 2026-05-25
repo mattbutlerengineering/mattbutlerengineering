@@ -1,0 +1,41 @@
+<codebase path="packages/jobs">
+  <section priority="medium" role="src">
+  <file path="src/job-types.ts">
+    <item priority="high">
+      export const JOB_TYPES: unknown;
+    </item>
+    <item priority="low">
+      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    </item>
+  </file>
+  <file path="src/scheduler.ts">
+    <item priority="low">
+      interface JobSchedulerConfig {
+        redisUrl: string;
+        queueName?: string;
+      }
+    </item>
+    <item priority="high">
+      class JobScheduler {
+        queue: Queue;
+        redis: Redis;
+        async schedule(): Promise<unknown>;
+        async scheduleCron(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/worker.ts">
+    <item priority="low">
+      interface NotificationHandlerInput {
+        jobType: T;
+        payload: JobPayloadMap[T];
+      }
+    </item>
+    <item priority="low">
+      interface JobHandlers {
+        onNotification: (input: NotificationHandlerInput) => Promise<void>;
+      }
+    </item>
+  </file>
+  </section>
+</codebase>

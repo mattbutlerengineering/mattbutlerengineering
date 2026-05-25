@@ -4,7 +4,6 @@ import {
   Badge,
   Button,
   Card,
-  DataList,
   Dialog,
   Divider,
   Drawer,
@@ -31,6 +30,7 @@ import {
   useUpdateGuest,
 } from "../hooks/useGuests.js";
 import { useReservations } from "../hooks/useReservations.js";
+import { GuestCard } from "../components/crm/GuestCard.js";
 import styles from "./GuestsPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
@@ -383,19 +383,11 @@ function GuestDetailDrawer({
         </Stack>
       ) : (
         <Stack gap="lg">
-          <DataList items={detailItems} orientation="horizontal" striped />
-
-          {guest.notes && (
-            <>
-              <Divider />
-              <Stack gap="xs">
-                <Text variant="label" color="secondary">
-                  Notes
-                </Text>
-                <Text variant="body">{guest.notes}</Text>
-              </Stack>
-            </>
-          )}
+          {/* Unified CRM display via GuestCard */}
+          <GuestCard
+            guestId={guest.id}
+            onEditProfile={() => drawerDispatch({ type: "set_editing", isEditing: true })}
+          />
 
           {guest.tags && guest.tags.length > 0 && (
             <>
@@ -428,7 +420,7 @@ function GuestDetailDrawer({
                 </Text>
                 {guestReservations.slice(0, 5).map((r: Reservation) => (
                   <Text key={r.id} variant="caption" color="secondary">
-                    {r.date} · {r.partySize} guests
+                    {r.date} &middot; {r.partySize} guests
                   </Text>
                 ))}
               </Stack>
@@ -586,7 +578,9 @@ export function GuestsPage() {
     return (
       <div className={styles.container}>
         <PageHeader title="Guests" description="Manage your guest directory" />
-        <Alert variant="warning">Please select a venue to view guests.</Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="warning">Please select a venue to view guests.</Alert>
+        </div>
       </div>
     );
   }

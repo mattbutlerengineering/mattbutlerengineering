@@ -12,17 +12,19 @@ export interface ErrorRetryBannerProps {
 
 export function ErrorRetryBanner({ error, onRetry, onDismiss }: ErrorRetryBannerProps) {
   return (
-    <Alert
-      variant="error"
-      dismissible={!!onDismiss}
-      onDismiss={onDismiss}
-      actions={
-        <Button variant="secondary" size="sm" onClick={onRetry}>
-          Retry
-        </Button>
-      }
-    >
-      {error}
-    </Alert>
+    <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+      <Alert
+        variant="error"
+        dismissible={!!onDismiss}
+        onDismiss={onDismiss}
+        actions={
+          <Button variant="secondary" size="sm" onClick={onRetry}>
+            Retry
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
+    </div>
   );
 }

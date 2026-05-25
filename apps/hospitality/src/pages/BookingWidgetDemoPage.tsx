@@ -156,9 +156,9 @@ export function BookingWidgetDemoPage() {
       />
 
       {error && (
-        <Alert variant="error">
-          {error.message}
-        </Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="error">{error.message}</Alert>
+        </div>
       )}
 
       {/* Venue selector */}

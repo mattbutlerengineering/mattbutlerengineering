@@ -44,11 +44,6 @@ export type Guest = $Result.DefaultSelection<Prisma.$GuestPayload>
  */
 export type Reservation = $Result.DefaultSelection<Prisma.$ReservationPayload>
 /**
- * Model Deposit
- * 
- */
-export type Deposit = $Result.DefaultSelection<Prisma.$DepositPayload>
-/**
  * Model ReservationHold
  * 
  */
@@ -93,6 +88,16 @@ export const SeatingPreference: {
 export type SeatingPreference = (typeof SeatingPreference)[keyof typeof SeatingPreference]
 
 
+export const CommunicationPreference: {
+  email_only: 'email_only',
+  sms_only: 'sms_only',
+  both: 'both',
+  transactional_only: 'transactional_only'
+};
+
+export type CommunicationPreference = (typeof CommunicationPreference)[keyof typeof CommunicationPreference]
+
+
 export const TableStatus: {
   AVAILABLE: 'AVAILABLE',
   OCCUPIED: 'OCCUPIED',
@@ -101,25 +106,6 @@ export const TableStatus: {
 };
 
 export type TableStatus = (typeof TableStatus)[keyof typeof TableStatus]
-
-
-export const DepositStatus: {
-  pending: 'pending',
-  held: 'held',
-  applied: 'applied',
-  refunded: 'refunded',
-  forfeited: 'forfeited'
-};
-
-export type DepositStatus = (typeof DepositStatus)[keyof typeof DepositStatus]
-
-
-export const DepositType: {
-  flat: 'flat',
-  per_person: 'per_person'
-};
-
-export type DepositType = (typeof DepositType)[keyof typeof DepositType]
 
 }
 
@@ -135,17 +121,13 @@ export type SeatingPreference = $Enums.SeatingPreference
 
 export const SeatingPreference: typeof $Enums.SeatingPreference
 
+export type CommunicationPreference = $Enums.CommunicationPreference
+
+export const CommunicationPreference: typeof $Enums.CommunicationPreference
+
 export type TableStatus = $Enums.TableStatus
 
 export const TableStatus: typeof $Enums.TableStatus
-
-export type DepositStatus = $Enums.DepositStatus
-
-export const DepositStatus: typeof $Enums.DepositStatus
-
-export type DepositType = $Enums.DepositType
-
-export const DepositType: typeof $Enums.DepositType
 
 /**
  * ##  Prisma Client ʲˢ
@@ -327,16 +309,6 @@ export class PrismaClient<
     * ```
     */
   get reservation(): Prisma.ReservationDelegate<ExtArgs, ClientOptions>;
-
-  /**
-   * `prisma.deposit`: Exposes CRUD operations for the **Deposit** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more Deposits
-    * const deposits = await prisma.deposit.findMany()
-    * ```
-    */
-  get deposit(): Prisma.DepositDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.reservationHold`: Exposes CRUD operations for the **ReservationHold** model.
@@ -787,7 +759,6 @@ export namespace Prisma {
     Table: 'Table',
     Guest: 'Guest',
     Reservation: 'Reservation',
-    Deposit: 'Deposit',
     ReservationHold: 'ReservationHold'
   };
 
@@ -804,7 +775,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "venueGroup" | "venue" | "floorPlan" | "table" | "guest" | "reservation" | "deposit" | "reservationHold"
+      modelProps: "venueGroup" | "venue" | "floorPlan" | "table" | "guest" | "reservation" | "reservationHold"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1252,80 +1223,6 @@ export namespace Prisma {
           }
         }
       }
-      Deposit: {
-        payload: Prisma.$DepositPayload<ExtArgs>
-        fields: Prisma.DepositFieldRefs
-        operations: {
-          findUnique: {
-            args: Prisma.DepositFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload> | null
-          }
-          findUniqueOrThrow: {
-            args: Prisma.DepositFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          findFirst: {
-            args: Prisma.DepositFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload> | null
-          }
-          findFirstOrThrow: {
-            args: Prisma.DepositFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          findMany: {
-            args: Prisma.DepositFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>[]
-          }
-          create: {
-            args: Prisma.DepositCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          createMany: {
-            args: Prisma.DepositCreateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          createManyAndReturn: {
-            args: Prisma.DepositCreateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>[]
-          }
-          delete: {
-            args: Prisma.DepositDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          update: {
-            args: Prisma.DepositUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          deleteMany: {
-            args: Prisma.DepositDeleteManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateMany: {
-            args: Prisma.DepositUpdateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateManyAndReturn: {
-            args: Prisma.DepositUpdateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>[]
-          }
-          upsert: {
-            args: Prisma.DepositUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$DepositPayload>
-          }
-          aggregate: {
-            args: Prisma.DepositAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateDeposit>
-          }
-          groupBy: {
-            args: Prisma.DepositGroupByArgs<ExtArgs>
-            result: $Utils.Optional<DepositGroupByOutputType>[]
-          }
-          count: {
-            args: Prisma.DepositCountArgs<ExtArgs>
-            result: $Utils.Optional<DepositCountAggregateOutputType> | number
-          }
-        }
-      }
       ReservationHold: {
         payload: Prisma.$ReservationHoldPayload<ExtArgs>
         fields: Prisma.ReservationHoldFieldRefs
@@ -1514,7 +1411,6 @@ export namespace Prisma {
     table?: TableOmit
     guest?: GuestOmit
     reservation?: ReservationOmit
-    deposit?: DepositOmit
     reservationHold?: ReservationHoldOmit
   }
 
@@ -2872,24 +2768,8 @@ export namespace Prisma {
 
   export type AggregateVenue = {
     _count: VenueCountAggregateOutputType | null
-    _avg: VenueAvgAggregateOutputType | null
-    _sum: VenueSumAggregateOutputType | null
     _min: VenueMinAggregateOutputType | null
     _max: VenueMaxAggregateOutputType | null
-  }
-
-  export type VenueAvgAggregateOutputType = {
-    depositAmountCents: number | null
-    freeCancellationHours: number | null
-    lateCancellationFeePercent: number | null
-    noShowFeePercent: number | null
-  }
-
-  export type VenueSumAggregateOutputType = {
-    depositAmountCents: number | null
-    freeCancellationHours: number | null
-    lateCancellationFeePercent: number | null
-    noShowFeePercent: number | null
   }
 
   export type VenueMinAggregateOutputType = {
@@ -2899,12 +2779,6 @@ export namespace Prisma {
     slug: string | null
     ianaTimezone: string | null
     currencyCode: string | null
-    depositEnabled: boolean | null
-    depositType: $Enums.DepositType | null
-    depositAmountCents: number | null
-    freeCancellationHours: number | null
-    lateCancellationFeePercent: number | null
-    noShowFeePercent: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -2916,12 +2790,6 @@ export namespace Prisma {
     slug: string | null
     ianaTimezone: string | null
     currencyCode: string | null
-    depositEnabled: boolean | null
-    depositType: $Enums.DepositType | null
-    depositAmountCents: number | null
-    freeCancellationHours: number | null
-    lateCancellationFeePercent: number | null
-    noShowFeePercent: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -2935,31 +2803,11 @@ export namespace Prisma {
     currencyCode: number
     operatingHours: number
     settings: number
-    depositEnabled: number
-    depositType: number
-    depositAmountCents: number
-    freeCancellationHours: number
-    lateCancellationFeePercent: number
-    noShowFeePercent: number
     createdAt: number
     updatedAt: number
     _all: number
   }
 
-
-  export type VenueAvgAggregateInputType = {
-    depositAmountCents?: true
-    freeCancellationHours?: true
-    lateCancellationFeePercent?: true
-    noShowFeePercent?: true
-  }
-
-  export type VenueSumAggregateInputType = {
-    depositAmountCents?: true
-    freeCancellationHours?: true
-    lateCancellationFeePercent?: true
-    noShowFeePercent?: true
-  }
 
   export type VenueMinAggregateInputType = {
     id?: true
@@ -2968,12 +2816,6 @@ export namespace Prisma {
     slug?: true
     ianaTimezone?: true
     currencyCode?: true
-    depositEnabled?: true
-    depositType?: true
-    depositAmountCents?: true
-    freeCancellationHours?: true
-    lateCancellationFeePercent?: true
-    noShowFeePercent?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -2985,12 +2827,6 @@ export namespace Prisma {
     slug?: true
     ianaTimezone?: true
     currencyCode?: true
-    depositEnabled?: true
-    depositType?: true
-    depositAmountCents?: true
-    freeCancellationHours?: true
-    lateCancellationFeePercent?: true
-    noShowFeePercent?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -3004,12 +2840,6 @@ export namespace Prisma {
     currencyCode?: true
     operatingHours?: true
     settings?: true
-    depositEnabled?: true
-    depositType?: true
-    depositAmountCents?: true
-    freeCancellationHours?: true
-    lateCancellationFeePercent?: true
-    noShowFeePercent?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -3053,18 +2883,6 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
-     * Select which fields to average
-    **/
-    _avg?: VenueAvgAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to sum
-    **/
-    _sum?: VenueSumAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
      * Select which fields to find the minimum value
     **/
     _min?: VenueMinAggregateInputType
@@ -3095,8 +2913,6 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: VenueCountAggregateInputType | true
-    _avg?: VenueAvgAggregateInputType
-    _sum?: VenueSumAggregateInputType
     _min?: VenueMinAggregateInputType
     _max?: VenueMaxAggregateInputType
   }
@@ -3110,17 +2926,9 @@ export namespace Prisma {
     currencyCode: string
     operatingHours: JsonValue | null
     settings: JsonValue | null
-    depositEnabled: boolean
-    depositType: $Enums.DepositType | null
-    depositAmountCents: number | null
-    freeCancellationHours: number | null
-    lateCancellationFeePercent: number | null
-    noShowFeePercent: number | null
     createdAt: Date
     updatedAt: Date
     _count: VenueCountAggregateOutputType | null
-    _avg: VenueAvgAggregateOutputType | null
-    _sum: VenueSumAggregateOutputType | null
     _min: VenueMinAggregateOutputType | null
     _max: VenueMaxAggregateOutputType | null
   }
@@ -3148,12 +2956,6 @@ export namespace Prisma {
     currencyCode?: boolean
     operatingHours?: boolean
     settings?: boolean
-    depositEnabled?: boolean
-    depositType?: boolean
-    depositAmountCents?: boolean
-    freeCancellationHours?: boolean
-    lateCancellationFeePercent?: boolean
-    noShowFeePercent?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venueGroup?: boolean | Venue$venueGroupArgs<ExtArgs>
@@ -3174,12 +2976,6 @@ export namespace Prisma {
     currencyCode?: boolean
     operatingHours?: boolean
     settings?: boolean
-    depositEnabled?: boolean
-    depositType?: boolean
-    depositAmountCents?: boolean
-    freeCancellationHours?: boolean
-    lateCancellationFeePercent?: boolean
-    noShowFeePercent?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venueGroup?: boolean | Venue$venueGroupArgs<ExtArgs>
@@ -3194,12 +2990,6 @@ export namespace Prisma {
     currencyCode?: boolean
     operatingHours?: boolean
     settings?: boolean
-    depositEnabled?: boolean
-    depositType?: boolean
-    depositAmountCents?: boolean
-    freeCancellationHours?: boolean
-    lateCancellationFeePercent?: boolean
-    noShowFeePercent?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venueGroup?: boolean | Venue$venueGroupArgs<ExtArgs>
@@ -3214,17 +3004,11 @@ export namespace Prisma {
     currencyCode?: boolean
     operatingHours?: boolean
     settings?: boolean
-    depositEnabled?: boolean
-    depositType?: boolean
-    depositAmountCents?: boolean
-    freeCancellationHours?: boolean
-    lateCancellationFeePercent?: boolean
-    noShowFeePercent?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type VenueOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueGroupId" | "name" | "slug" | "ianaTimezone" | "currencyCode" | "operatingHours" | "settings" | "depositEnabled" | "depositType" | "depositAmountCents" | "freeCancellationHours" | "lateCancellationFeePercent" | "noShowFeePercent" | "createdAt" | "updatedAt", ExtArgs["result"]["venue"]>
+  export type VenueOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueGroupId" | "name" | "slug" | "ianaTimezone" | "currencyCode" | "operatingHours" | "settings" | "createdAt" | "updatedAt", ExtArgs["result"]["venue"]>
   export type VenueInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venueGroup?: boolean | Venue$venueGroupArgs<ExtArgs>
     tables?: boolean | Venue$tablesArgs<ExtArgs>
@@ -3260,12 +3044,6 @@ export namespace Prisma {
       currencyCode: string
       operatingHours: Prisma.JsonValue | null
       settings: Prisma.JsonValue | null
-      depositEnabled: boolean
-      depositType: $Enums.DepositType | null
-      depositAmountCents: number | null
-      freeCancellationHours: number | null
-      lateCancellationFeePercent: number | null
-      noShowFeePercent: number | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["venue"]>
@@ -3705,12 +3483,6 @@ export namespace Prisma {
     readonly currencyCode: FieldRef<"Venue", 'String'>
     readonly operatingHours: FieldRef<"Venue", 'Json'>
     readonly settings: FieldRef<"Venue", 'Json'>
-    readonly depositEnabled: FieldRef<"Venue", 'Boolean'>
-    readonly depositType: FieldRef<"Venue", 'DepositType'>
-    readonly depositAmountCents: FieldRef<"Venue", 'Int'>
-    readonly freeCancellationHours: FieldRef<"Venue", 'Int'>
-    readonly lateCancellationFeePercent: FieldRef<"Venue", 'Int'>
-    readonly noShowFeePercent: FieldRef<"Venue", 'Int'>
     readonly createdAt: FieldRef<"Venue", 'DateTime'>
     readonly updatedAt: FieldRef<"Venue", 'DateTime'>
   }
@@ -6757,7 +6529,7 @@ export namespace Prisma {
     visitCount: number | null
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
-    stripeCustomerId: string | null
+    communicationPreference: $Enums.CommunicationPreference | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -6772,7 +6544,7 @@ export namespace Prisma {
     visitCount: number | null
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
-    stripeCustomerId: string | null
+    communicationPreference: $Enums.CommunicationPreference | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -6790,7 +6562,7 @@ export namespace Prisma {
     tags: number
     dietaryRestrictions: number
     staffNotes: number
-    stripeCustomerId: number
+    communicationPreference: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -6817,7 +6589,7 @@ export namespace Prisma {
     visitCount?: true
     lifetimeSpend?: true
     lastVisit?: true
-    stripeCustomerId?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -6832,7 +6604,7 @@ export namespace Prisma {
     visitCount?: true
     lifetimeSpend?: true
     lastVisit?: true
-    stripeCustomerId?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -6850,7 +6622,7 @@ export namespace Prisma {
     tags?: true
     dietaryRestrictions?: true
     staffNotes?: true
-    stripeCustomerId?: true
+    communicationPreference?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -6955,7 +6727,7 @@ export namespace Prisma {
     tags: JsonValue | null
     dietaryRestrictions: JsonValue | null
     staffNotes: JsonValue | null
-    stripeCustomerId: string | null
+    communicationPreference: $Enums.CommunicationPreference
     createdAt: Date
     updatedAt: Date
     _count: GuestCountAggregateOutputType | null
@@ -6992,7 +6764,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
-    stripeCustomerId?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -7013,7 +6785,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
-    stripeCustomerId?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -7032,7 +6804,7 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
-    stripeCustomerId?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     venue?: boolean | VenueDefaultArgs<ExtArgs>
@@ -7051,12 +6823,12 @@ export namespace Prisma {
     tags?: boolean
     dietaryRestrictions?: boolean
     staffNotes?: boolean
-    stripeCustomerId?: boolean
+    communicationPreference?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "stripeCustomerId" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
+  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "communicationPreference" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
   export type GuestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venue?: boolean | VenueDefaultArgs<ExtArgs>
     reservations?: boolean | Guest$reservationsArgs<ExtArgs>
@@ -7088,7 +6860,7 @@ export namespace Prisma {
       tags: Prisma.JsonValue | null
       dietaryRestrictions: Prisma.JsonValue | null
       staffNotes: Prisma.JsonValue | null
-      stripeCustomerId: string | null
+      communicationPreference: $Enums.CommunicationPreference
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["guest"]>
@@ -7528,7 +7300,7 @@ export namespace Prisma {
     readonly tags: FieldRef<"Guest", 'Json'>
     readonly dietaryRestrictions: FieldRef<"Guest", 'Json'>
     readonly staffNotes: FieldRef<"Guest", 'Json'>
-    readonly stripeCustomerId: FieldRef<"Guest", 'String'>
+    readonly communicationPreference: FieldRef<"Guest", 'CommunicationPreference'>
     readonly createdAt: FieldRef<"Guest", 'DateTime'>
     readonly updatedAt: FieldRef<"Guest", 'DateTime'>
   }
@@ -8295,7 +8067,6 @@ export namespace Prisma {
     guest?: boolean | Reservation$guestArgs<ExtArgs>
     table?: boolean | TableDefaultArgs<ExtArgs>
     venue?: boolean | Reservation$venueArgs<ExtArgs>
-    deposit?: boolean | Reservation$depositArgs<ExtArgs>
   }, ExtArgs["result"]["reservation"]>
 
   export type ReservationSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -8378,7 +8149,6 @@ export namespace Prisma {
     guest?: boolean | Reservation$guestArgs<ExtArgs>
     table?: boolean | TableDefaultArgs<ExtArgs>
     venue?: boolean | Reservation$venueArgs<ExtArgs>
-    deposit?: boolean | Reservation$depositArgs<ExtArgs>
   }
   export type ReservationIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     guest?: boolean | Reservation$guestArgs<ExtArgs>
@@ -8397,7 +8167,6 @@ export namespace Prisma {
       guest: Prisma.$GuestPayload<ExtArgs> | null
       table: Prisma.$TablePayload<ExtArgs>
       venue: Prisma.$VenuePayload<ExtArgs> | null
-      deposit: Prisma.$DepositPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -8817,7 +8586,6 @@ export namespace Prisma {
     guest<T extends Reservation$guestArgs<ExtArgs> = {}>(args?: Subset<T, Reservation$guestArgs<ExtArgs>>): Prisma__GuestClient<$Result.GetResult<Prisma.$GuestPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     table<T extends TableDefaultArgs<ExtArgs> = {}>(args?: Subset<T, TableDefaultArgs<ExtArgs>>): Prisma__TableClient<$Result.GetResult<Prisma.$TablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     venue<T extends Reservation$venueArgs<ExtArgs> = {}>(args?: Subset<T, Reservation$venueArgs<ExtArgs>>): Prisma__VenueClient<$Result.GetResult<Prisma.$VenuePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-    deposit<T extends Reservation$depositArgs<ExtArgs> = {}>(args?: Subset<T, Reservation$depositArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9306,25 +9074,6 @@ export namespace Prisma {
   }
 
   /**
-   * Reservation.deposit
-   */
-  export type Reservation$depositArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    where?: DepositWhereInput
-  }
-
-  /**
    * Reservation without action
    */
   export type ReservationDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -9340,1207 +9089,6 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: ReservationInclude<ExtArgs> | null
-  }
-
-
-  /**
-   * Model Deposit
-   */
-
-  export type AggregateDeposit = {
-    _count: DepositCountAggregateOutputType | null
-    _avg: DepositAvgAggregateOutputType | null
-    _sum: DepositSumAggregateOutputType | null
-    _min: DepositMinAggregateOutputType | null
-    _max: DepositMaxAggregateOutputType | null
-  }
-
-  export type DepositAvgAggregateOutputType = {
-    amountCents: number | null
-  }
-
-  export type DepositSumAggregateOutputType = {
-    amountCents: number | null
-  }
-
-  export type DepositMinAggregateOutputType = {
-    id: string | null
-    reservationId: string | null
-    amountCents: number | null
-    currency: string | null
-    status: $Enums.DepositStatus | null
-    stripePaymentIntentId: string | null
-    stripeCustomerId: string | null
-    heldAt: Date | null
-    appliedAt: Date | null
-    refundedAt: Date | null
-    forfeitedAt: Date | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type DepositMaxAggregateOutputType = {
-    id: string | null
-    reservationId: string | null
-    amountCents: number | null
-    currency: string | null
-    status: $Enums.DepositStatus | null
-    stripePaymentIntentId: string | null
-    stripeCustomerId: string | null
-    heldAt: Date | null
-    appliedAt: Date | null
-    refundedAt: Date | null
-    forfeitedAt: Date | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type DepositCountAggregateOutputType = {
-    id: number
-    reservationId: number
-    amountCents: number
-    currency: number
-    status: number
-    stripePaymentIntentId: number
-    stripeCustomerId: number
-    heldAt: number
-    appliedAt: number
-    refundedAt: number
-    forfeitedAt: number
-    createdAt: number
-    updatedAt: number
-    _all: number
-  }
-
-
-  export type DepositAvgAggregateInputType = {
-    amountCents?: true
-  }
-
-  export type DepositSumAggregateInputType = {
-    amountCents?: true
-  }
-
-  export type DepositMinAggregateInputType = {
-    id?: true
-    reservationId?: true
-    amountCents?: true
-    currency?: true
-    status?: true
-    stripePaymentIntentId?: true
-    stripeCustomerId?: true
-    heldAt?: true
-    appliedAt?: true
-    refundedAt?: true
-    forfeitedAt?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type DepositMaxAggregateInputType = {
-    id?: true
-    reservationId?: true
-    amountCents?: true
-    currency?: true
-    status?: true
-    stripePaymentIntentId?: true
-    stripeCustomerId?: true
-    heldAt?: true
-    appliedAt?: true
-    refundedAt?: true
-    forfeitedAt?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type DepositCountAggregateInputType = {
-    id?: true
-    reservationId?: true
-    amountCents?: true
-    currency?: true
-    status?: true
-    stripePaymentIntentId?: true
-    stripeCustomerId?: true
-    heldAt?: true
-    appliedAt?: true
-    refundedAt?: true
-    forfeitedAt?: true
-    createdAt?: true
-    updatedAt?: true
-    _all?: true
-  }
-
-  export type DepositAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which Deposit to aggregate.
-     */
-    where?: DepositWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Deposits to fetch.
-     */
-    orderBy?: DepositOrderByWithRelationInput | DepositOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the start position
-     */
-    cursor?: DepositWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Deposits from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Deposits.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Count returned Deposits
-    **/
-    _count?: true | DepositCountAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to average
-    **/
-    _avg?: DepositAvgAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to sum
-    **/
-    _sum?: DepositSumAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the minimum value
-    **/
-    _min?: DepositMinAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the maximum value
-    **/
-    _max?: DepositMaxAggregateInputType
-  }
-
-  export type GetDepositAggregateType<T extends DepositAggregateArgs> = {
-        [P in keyof T & keyof AggregateDeposit]: P extends '_count' | 'count'
-      ? T[P] extends true
-        ? number
-        : GetScalarType<T[P], AggregateDeposit[P]>
-      : GetScalarType<T[P], AggregateDeposit[P]>
-  }
-
-
-
-
-  export type DepositGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: DepositWhereInput
-    orderBy?: DepositOrderByWithAggregationInput | DepositOrderByWithAggregationInput[]
-    by: DepositScalarFieldEnum[] | DepositScalarFieldEnum
-    having?: DepositScalarWhereWithAggregatesInput
-    take?: number
-    skip?: number
-    _count?: DepositCountAggregateInputType | true
-    _avg?: DepositAvgAggregateInputType
-    _sum?: DepositSumAggregateInputType
-    _min?: DepositMinAggregateInputType
-    _max?: DepositMaxAggregateInputType
-  }
-
-  export type DepositGroupByOutputType = {
-    id: string
-    reservationId: string
-    amountCents: number
-    currency: string
-    status: $Enums.DepositStatus
-    stripePaymentIntentId: string | null
-    stripeCustomerId: string | null
-    heldAt: Date | null
-    appliedAt: Date | null
-    refundedAt: Date | null
-    forfeitedAt: Date | null
-    createdAt: Date
-    updatedAt: Date
-    _count: DepositCountAggregateOutputType | null
-    _avg: DepositAvgAggregateOutputType | null
-    _sum: DepositSumAggregateOutputType | null
-    _min: DepositMinAggregateOutputType | null
-    _max: DepositMaxAggregateOutputType | null
-  }
-
-  type GetDepositGroupByPayload<T extends DepositGroupByArgs> = Prisma.PrismaPromise<
-    Array<
-      PickEnumerable<DepositGroupByOutputType, T['by']> &
-        {
-          [P in ((keyof T) & (keyof DepositGroupByOutputType))]: P extends '_count'
-            ? T[P] extends boolean
-              ? number
-              : GetScalarType<T[P], DepositGroupByOutputType[P]>
-            : GetScalarType<T[P], DepositGroupByOutputType[P]>
-        }
-      >
-    >
-
-
-  export type DepositSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    reservationId?: boolean
-    amountCents?: boolean
-    currency?: boolean
-    status?: boolean
-    stripePaymentIntentId?: boolean
-    stripeCustomerId?: boolean
-    heldAt?: boolean
-    appliedAt?: boolean
-    refundedAt?: boolean
-    forfeitedAt?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["deposit"]>
-
-  export type DepositSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    reservationId?: boolean
-    amountCents?: boolean
-    currency?: boolean
-    status?: boolean
-    stripePaymentIntentId?: boolean
-    stripeCustomerId?: boolean
-    heldAt?: boolean
-    appliedAt?: boolean
-    refundedAt?: boolean
-    forfeitedAt?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["deposit"]>
-
-  export type DepositSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    reservationId?: boolean
-    amountCents?: boolean
-    currency?: boolean
-    status?: boolean
-    stripePaymentIntentId?: boolean
-    stripeCustomerId?: boolean
-    heldAt?: boolean
-    appliedAt?: boolean
-    refundedAt?: boolean
-    forfeitedAt?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["deposit"]>
-
-  export type DepositSelectScalar = {
-    id?: boolean
-    reservationId?: boolean
-    amountCents?: boolean
-    currency?: boolean
-    status?: boolean
-    stripePaymentIntentId?: boolean
-    stripeCustomerId?: boolean
-    heldAt?: boolean
-    appliedAt?: boolean
-    refundedAt?: boolean
-    forfeitedAt?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }
-
-  export type DepositOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "reservationId" | "amountCents" | "currency" | "status" | "stripePaymentIntentId" | "stripeCustomerId" | "heldAt" | "appliedAt" | "refundedAt" | "forfeitedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["deposit"]>
-  export type DepositInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }
-  export type DepositIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }
-  export type DepositIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    reservation?: boolean | ReservationDefaultArgs<ExtArgs>
-  }
-
-  export type $DepositPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "Deposit"
-    objects: {
-      reservation: Prisma.$ReservationPayload<ExtArgs>
-    }
-    scalars: $Extensions.GetPayloadResult<{
-      id: string
-      reservationId: string
-      amountCents: number
-      currency: string
-      status: $Enums.DepositStatus
-      stripePaymentIntentId: string | null
-      stripeCustomerId: string | null
-      heldAt: Date | null
-      appliedAt: Date | null
-      refundedAt: Date | null
-      forfeitedAt: Date | null
-      createdAt: Date
-      updatedAt: Date
-    }, ExtArgs["result"]["deposit"]>
-    composites: {}
-  }
-
-  type DepositGetPayload<S extends boolean | null | undefined | DepositDefaultArgs> = $Result.GetResult<Prisma.$DepositPayload, S>
-
-  type DepositCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<DepositFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: DepositCountAggregateInputType | true
-    }
-
-  export interface DepositDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Deposit'], meta: { name: 'Deposit' } }
-    /**
-     * Find zero or one Deposit that matches the filter.
-     * @param {DepositFindUniqueArgs} args - Arguments to find a Deposit
-     * @example
-     * // Get one Deposit
-     * const deposit = await prisma.deposit.findUnique({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUnique<T extends DepositFindUniqueArgs>(args: SelectSubset<T, DepositFindUniqueArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find one Deposit that matches the filter or throw an error with `error.code='P2025'`
-     * if no matches were found.
-     * @param {DepositFindUniqueOrThrowArgs} args - Arguments to find a Deposit
-     * @example
-     * // Get one Deposit
-     * const deposit = await prisma.deposit.findUniqueOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUniqueOrThrow<T extends DepositFindUniqueOrThrowArgs>(args: SelectSubset<T, DepositFindUniqueOrThrowArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first Deposit that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositFindFirstArgs} args - Arguments to find a Deposit
-     * @example
-     * // Get one Deposit
-     * const deposit = await prisma.deposit.findFirst({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirst<T extends DepositFindFirstArgs>(args?: SelectSubset<T, DepositFindFirstArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first Deposit that matches the filter or
-     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositFindFirstOrThrowArgs} args - Arguments to find a Deposit
-     * @example
-     * // Get one Deposit
-     * const deposit = await prisma.deposit.findFirstOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirstOrThrow<T extends DepositFindFirstOrThrowArgs>(args?: SelectSubset<T, DepositFindFirstOrThrowArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more Deposits that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositFindManyArgs} args - Arguments to filter and select certain fields only.
-     * @example
-     * // Get all Deposits
-     * const deposits = await prisma.deposit.findMany()
-     * 
-     * // Get first 10 Deposits
-     * const deposits = await prisma.deposit.findMany({ take: 10 })
-     * 
-     * // Only select the `id`
-     * const depositWithIdOnly = await prisma.deposit.findMany({ select: { id: true } })
-     * 
-     */
-    findMany<T extends DepositFindManyArgs>(args?: SelectSubset<T, DepositFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
-
-    /**
-     * Create a Deposit.
-     * @param {DepositCreateArgs} args - Arguments to create a Deposit.
-     * @example
-     * // Create one Deposit
-     * const Deposit = await prisma.deposit.create({
-     *   data: {
-     *     // ... data to create a Deposit
-     *   }
-     * })
-     * 
-     */
-    create<T extends DepositCreateArgs>(args: SelectSubset<T, DepositCreateArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Create many Deposits.
-     * @param {DepositCreateManyArgs} args - Arguments to create many Deposits.
-     * @example
-     * // Create many Deposits
-     * const deposit = await prisma.deposit.createMany({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     *     
-     */
-    createMany<T extends DepositCreateManyArgs>(args?: SelectSubset<T, DepositCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Create many Deposits and returns the data saved in the database.
-     * @param {DepositCreateManyAndReturnArgs} args - Arguments to create many Deposits.
-     * @example
-     * // Create many Deposits
-     * const deposit = await prisma.deposit.createManyAndReturn({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Create many Deposits and only return the `id`
-     * const depositWithIdOnly = await prisma.deposit.createManyAndReturn({
-     *   select: { id: true },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    createManyAndReturn<T extends DepositCreateManyAndReturnArgs>(args?: SelectSubset<T, DepositCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Delete a Deposit.
-     * @param {DepositDeleteArgs} args - Arguments to delete one Deposit.
-     * @example
-     * // Delete one Deposit
-     * const Deposit = await prisma.deposit.delete({
-     *   where: {
-     *     // ... filter to delete one Deposit
-     *   }
-     * })
-     * 
-     */
-    delete<T extends DepositDeleteArgs>(args: SelectSubset<T, DepositDeleteArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Update one Deposit.
-     * @param {DepositUpdateArgs} args - Arguments to update one Deposit.
-     * @example
-     * // Update one Deposit
-     * const deposit = await prisma.deposit.update({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    update<T extends DepositUpdateArgs>(args: SelectSubset<T, DepositUpdateArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Delete zero or more Deposits.
-     * @param {DepositDeleteManyArgs} args - Arguments to filter Deposits to delete.
-     * @example
-     * // Delete a few Deposits
-     * const { count } = await prisma.deposit.deleteMany({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     * 
-     */
-    deleteMany<T extends DepositDeleteManyArgs>(args?: SelectSubset<T, DepositDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more Deposits.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositUpdateManyArgs} args - Arguments to update one or more rows.
-     * @example
-     * // Update many Deposits
-     * const deposit = await prisma.deposit.updateMany({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    updateMany<T extends DepositUpdateManyArgs>(args: SelectSubset<T, DepositUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more Deposits and returns the data updated in the database.
-     * @param {DepositUpdateManyAndReturnArgs} args - Arguments to update many Deposits.
-     * @example
-     * // Update many Deposits
-     * const deposit = await prisma.deposit.updateManyAndReturn({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Update zero or more Deposits and only return the `id`
-     * const depositWithIdOnly = await prisma.deposit.updateManyAndReturn({
-     *   select: { id: true },
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    updateManyAndReturn<T extends DepositUpdateManyAndReturnArgs>(args: SelectSubset<T, DepositUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Create or update one Deposit.
-     * @param {DepositUpsertArgs} args - Arguments to update or create a Deposit.
-     * @example
-     * // Update or create a Deposit
-     * const deposit = await prisma.deposit.upsert({
-     *   create: {
-     *     // ... data to create a Deposit
-     *   },
-     *   update: {
-     *     // ... in case it already exists, update
-     *   },
-     *   where: {
-     *     // ... the filter for the Deposit we want to update
-     *   }
-     * })
-     */
-    upsert<T extends DepositUpsertArgs>(args: SelectSubset<T, DepositUpsertArgs<ExtArgs>>): Prisma__DepositClient<$Result.GetResult<Prisma.$DepositPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-
-    /**
-     * Count the number of Deposits.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositCountArgs} args - Arguments to filter Deposits to count.
-     * @example
-     * // Count the number of Deposits
-     * const count = await prisma.deposit.count({
-     *   where: {
-     *     // ... the filter for the Deposits we want to count
-     *   }
-     * })
-    **/
-    count<T extends DepositCountArgs>(
-      args?: Subset<T, DepositCountArgs>,
-    ): Prisma.PrismaPromise<
-      T extends $Utils.Record<'select', any>
-        ? T['select'] extends true
-          ? number
-          : GetScalarType<T['select'], DepositCountAggregateOutputType>
-        : number
-    >
-
-    /**
-     * Allows you to perform aggregations operations on a Deposit.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
-     * @example
-     * // Ordered by age ascending
-     * // Where email contains prisma.io
-     * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
-     *   _avg: {
-     *     age: true,
-     *   },
-     *   where: {
-     *     email: {
-     *       contains: "prisma.io",
-     *     },
-     *   },
-     *   orderBy: {
-     *     age: "asc",
-     *   },
-     *   take: 10,
-     * })
-    **/
-    aggregate<T extends DepositAggregateArgs>(args: Subset<T, DepositAggregateArgs>): Prisma.PrismaPromise<GetDepositAggregateType<T>>
-
-    /**
-     * Group by Deposit.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {DepositGroupByArgs} args - Group by arguments.
-     * @example
-     * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
-     *   by: ['city', 'createdAt'],
-     *   orderBy: {
-     *     createdAt: true
-     *   },
-     *   _count: {
-     *     _all: true
-     *   },
-     * })
-     * 
-    **/
-    groupBy<
-      T extends DepositGroupByArgs,
-      HasSelectOrTake extends Or<
-        Extends<'skip', Keys<T>>,
-        Extends<'take', Keys<T>>
-      >,
-      OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: DepositGroupByArgs['orderBy'] }
-        : { orderBy?: DepositGroupByArgs['orderBy'] },
-      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
-      ByFields extends MaybeTupleToUnion<T['by']>,
-      ByValid extends Has<ByFields, OrderFields>,
-      HavingFields extends GetHavingFields<T['having']>,
-      HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
-      ? `Error: "by" must not be empty.`
-      : HavingValid extends False
-      ? {
-          [P in HavingFields]: P extends ByFields
-            ? never
-            : P extends string
-            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
-            : [
-                Error,
-                'Field ',
-                P,
-                ` in "having" needs to be provided in "by"`,
-              ]
-        }[HavingFields]
-      : 'take' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "take", you also need to provide "orderBy"'
-      : 'skip' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "skip", you also need to provide "orderBy"'
-      : ByValid extends True
-      ? {}
-      : {
-          [P in OrderFields]: P extends ByFields
-            ? never
-            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-        }[OrderFields]
-    >(args: SubsetIntersection<T, DepositGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetDepositGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
-  /**
-   * Fields of the Deposit model
-   */
-  readonly fields: DepositFieldRefs;
-  }
-
-  /**
-   * The delegate class that acts as a "Promise-like" for Deposit.
-   * Why is this prefixed with `Prisma__`?
-   * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
-   */
-  export interface Prisma__DepositClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
-    readonly [Symbol.toStringTag]: "PrismaPromise"
-    reservation<T extends ReservationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ReservationDefaultArgs<ExtArgs>>): Prisma__ReservationClient<$Result.GetResult<Prisma.$ReservationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    /**
-     * Attaches callbacks for the resolution and/or rejection of the Promise.
-     * @param onfulfilled The callback to execute when the Promise is resolved.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of which ever callback is executed.
-     */
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
-    /**
-     * Attaches a callback for only the rejection of the Promise.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of the callback.
-     */
-    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
-    /**
-     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
-     * resolved value cannot be modified from the callback.
-     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
-     * @returns A Promise for the completion of the callback.
-     */
-    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
-  }
-
-
-
-
-  /**
-   * Fields of the Deposit model
-   */
-  interface DepositFieldRefs {
-    readonly id: FieldRef<"Deposit", 'String'>
-    readonly reservationId: FieldRef<"Deposit", 'String'>
-    readonly amountCents: FieldRef<"Deposit", 'Int'>
-    readonly currency: FieldRef<"Deposit", 'String'>
-    readonly status: FieldRef<"Deposit", 'DepositStatus'>
-    readonly stripePaymentIntentId: FieldRef<"Deposit", 'String'>
-    readonly stripeCustomerId: FieldRef<"Deposit", 'String'>
-    readonly heldAt: FieldRef<"Deposit", 'DateTime'>
-    readonly appliedAt: FieldRef<"Deposit", 'DateTime'>
-    readonly refundedAt: FieldRef<"Deposit", 'DateTime'>
-    readonly forfeitedAt: FieldRef<"Deposit", 'DateTime'>
-    readonly createdAt: FieldRef<"Deposit", 'DateTime'>
-    readonly updatedAt: FieldRef<"Deposit", 'DateTime'>
-  }
-    
-
-  // Custom InputTypes
-  /**
-   * Deposit findUnique
-   */
-  export type DepositFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter, which Deposit to fetch.
-     */
-    where: DepositWhereUniqueInput
-  }
-
-  /**
-   * Deposit findUniqueOrThrow
-   */
-  export type DepositFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter, which Deposit to fetch.
-     */
-    where: DepositWhereUniqueInput
-  }
-
-  /**
-   * Deposit findFirst
-   */
-  export type DepositFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter, which Deposit to fetch.
-     */
-    where?: DepositWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Deposits to fetch.
-     */
-    orderBy?: DepositOrderByWithRelationInput | DepositOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for Deposits.
-     */
-    cursor?: DepositWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Deposits from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Deposits.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of Deposits.
-     */
-    distinct?: DepositScalarFieldEnum | DepositScalarFieldEnum[]
-  }
-
-  /**
-   * Deposit findFirstOrThrow
-   */
-  export type DepositFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter, which Deposit to fetch.
-     */
-    where?: DepositWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Deposits to fetch.
-     */
-    orderBy?: DepositOrderByWithRelationInput | DepositOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for Deposits.
-     */
-    cursor?: DepositWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Deposits from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Deposits.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of Deposits.
-     */
-    distinct?: DepositScalarFieldEnum | DepositScalarFieldEnum[]
-  }
-
-  /**
-   * Deposit findMany
-   */
-  export type DepositFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter, which Deposits to fetch.
-     */
-    where?: DepositWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of Deposits to fetch.
-     */
-    orderBy?: DepositOrderByWithRelationInput | DepositOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for listing Deposits.
-     */
-    cursor?: DepositWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` Deposits from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` Deposits.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of Deposits.
-     */
-    distinct?: DepositScalarFieldEnum | DepositScalarFieldEnum[]
-  }
-
-  /**
-   * Deposit create
-   */
-  export type DepositCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * The data needed to create a Deposit.
-     */
-    data: XOR<DepositCreateInput, DepositUncheckedCreateInput>
-  }
-
-  /**
-   * Deposit createMany
-   */
-  export type DepositCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to create many Deposits.
-     */
-    data: DepositCreateManyInput | DepositCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * Deposit createManyAndReturn
-   */
-  export type DepositCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelectCreateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * The data used to create many Deposits.
-     */
-    data: DepositCreateManyInput | DepositCreateManyInput[]
-    skipDuplicates?: boolean
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositIncludeCreateManyAndReturn<ExtArgs> | null
-  }
-
-  /**
-   * Deposit update
-   */
-  export type DepositUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * The data needed to update a Deposit.
-     */
-    data: XOR<DepositUpdateInput, DepositUncheckedUpdateInput>
-    /**
-     * Choose, which Deposit to update.
-     */
-    where: DepositWhereUniqueInput
-  }
-
-  /**
-   * Deposit updateMany
-   */
-  export type DepositUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update Deposits.
-     */
-    data: XOR<DepositUpdateManyMutationInput, DepositUncheckedUpdateManyInput>
-    /**
-     * Filter which Deposits to update
-     */
-    where?: DepositWhereInput
-    /**
-     * Limit how many Deposits to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * Deposit updateManyAndReturn
-   */
-  export type DepositUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelectUpdateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * The data used to update Deposits.
-     */
-    data: XOR<DepositUpdateManyMutationInput, DepositUncheckedUpdateManyInput>
-    /**
-     * Filter which Deposits to update
-     */
-    where?: DepositWhereInput
-    /**
-     * Limit how many Deposits to update.
-     */
-    limit?: number
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositIncludeUpdateManyAndReturn<ExtArgs> | null
-  }
-
-  /**
-   * Deposit upsert
-   */
-  export type DepositUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * The filter to search for the Deposit to update in case it exists.
-     */
-    where: DepositWhereUniqueInput
-    /**
-     * In case the Deposit found by the `where` argument doesn't exist, create a new Deposit with this data.
-     */
-    create: XOR<DepositCreateInput, DepositUncheckedCreateInput>
-    /**
-     * In case the Deposit was found with the provided `where` argument, update it with this data.
-     */
-    update: XOR<DepositUpdateInput, DepositUncheckedUpdateInput>
-  }
-
-  /**
-   * Deposit delete
-   */
-  export type DepositDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
-    /**
-     * Filter which Deposit to delete.
-     */
-    where: DepositWhereUniqueInput
-  }
-
-  /**
-   * Deposit deleteMany
-   */
-  export type DepositDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which Deposits to delete
-     */
-    where?: DepositWhereInput
-    /**
-     * Limit how many Deposits to delete.
-     */
-    limit?: number
-  }
-
-  /**
-   * Deposit without action
-   */
-  export type DepositDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Deposit
-     */
-    select?: DepositSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Deposit
-     */
-    omit?: DepositOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: DepositInclude<ExtArgs> | null
   }
 
 
@@ -11748,12 +10296,6 @@ export namespace Prisma {
     currencyCode: 'currencyCode',
     operatingHours: 'operatingHours',
     settings: 'settings',
-    depositEnabled: 'depositEnabled',
-    depositType: 'depositType',
-    depositAmountCents: 'depositAmountCents',
-    freeCancellationHours: 'freeCancellationHours',
-    lateCancellationFeePercent: 'lateCancellationFeePercent',
-    noShowFeePercent: 'noShowFeePercent',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -11808,7 +10350,7 @@ export namespace Prisma {
     tags: 'tags',
     dietaryRestrictions: 'dietaryRestrictions',
     staffNotes: 'staffNotes',
-    stripeCustomerId: 'stripeCustomerId',
+    communicationPreference: 'communicationPreference',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -11840,25 +10382,6 @@ export namespace Prisma {
   };
 
   export type ReservationScalarFieldEnum = (typeof ReservationScalarFieldEnum)[keyof typeof ReservationScalarFieldEnum]
-
-
-  export const DepositScalarFieldEnum: {
-    id: 'id',
-    reservationId: 'reservationId',
-    amountCents: 'amountCents',
-    currency: 'currency',
-    status: 'status',
-    stripePaymentIntentId: 'stripePaymentIntentId',
-    stripeCustomerId: 'stripeCustomerId',
-    heldAt: 'heldAt',
-    appliedAt: 'appliedAt',
-    refundedAt: 'refundedAt',
-    forfeitedAt: 'forfeitedAt',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
-  };
-
-  export type DepositScalarFieldEnum = (typeof DepositScalarFieldEnum)[keyof typeof DepositScalarFieldEnum]
 
 
   export const ReservationHoldScalarFieldEnum: {
@@ -11980,20 +10503,6 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'DepositType'
-   */
-  export type EnumDepositTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DepositType'>
-    
-
-
-  /**
-   * Reference to a field of type 'DepositType[]'
-   */
-  export type ListEnumDepositTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DepositType[]'>
-    
-
-
-  /**
    * Reference to a field of type 'Int'
    */
   export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -12036,6 +10545,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'CommunicationPreference'
+   */
+  export type EnumCommunicationPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CommunicationPreference'>
+    
+
+
+  /**
+   * Reference to a field of type 'CommunicationPreference[]'
+   */
+  export type ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CommunicationPreference[]'>
+    
+
+
+  /**
    * Reference to a field of type 'ReservationStatus'
    */
   export type EnumReservationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ReservationStatus'>
@@ -12074,20 +10597,6 @@ export namespace Prisma {
    * Reference to a field of type 'SeatingPreference[]'
    */
   export type ListEnumSeatingPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SeatingPreference[]'>
-    
-
-
-  /**
-   * Reference to a field of type 'DepositStatus'
-   */
-  export type EnumDepositStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DepositStatus'>
-    
-
-
-  /**
-   * Reference to a field of type 'DepositStatus[]'
-   */
-  export type ListEnumDepositStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DepositStatus[]'>
     
 
 
@@ -12175,12 +10684,6 @@ export namespace Prisma {
     currencyCode?: StringFilter<"Venue"> | string
     operatingHours?: JsonNullableFilter<"Venue">
     settings?: JsonNullableFilter<"Venue">
-    depositEnabled?: BoolFilter<"Venue"> | boolean
-    depositType?: EnumDepositTypeNullableFilter<"Venue"> | $Enums.DepositType | null
-    depositAmountCents?: IntNullableFilter<"Venue"> | number | null
-    freeCancellationHours?: IntNullableFilter<"Venue"> | number | null
-    lateCancellationFeePercent?: IntNullableFilter<"Venue"> | number | null
-    noShowFeePercent?: IntNullableFilter<"Venue"> | number | null
     createdAt?: DateTimeFilter<"Venue"> | Date | string
     updatedAt?: DateTimeFilter<"Venue"> | Date | string
     venueGroup?: XOR<VenueGroupNullableScalarRelationFilter, VenueGroupWhereInput> | null
@@ -12200,12 +10703,6 @@ export namespace Prisma {
     currencyCode?: SortOrder
     operatingHours?: SortOrderInput | SortOrder
     settings?: SortOrderInput | SortOrder
-    depositEnabled?: SortOrder
-    depositType?: SortOrderInput | SortOrder
-    depositAmountCents?: SortOrderInput | SortOrder
-    freeCancellationHours?: SortOrderInput | SortOrder
-    lateCancellationFeePercent?: SortOrderInput | SortOrder
-    noShowFeePercent?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     venueGroup?: VenueGroupOrderByWithRelationInput
@@ -12229,12 +10726,6 @@ export namespace Prisma {
     currencyCode?: StringFilter<"Venue"> | string
     operatingHours?: JsonNullableFilter<"Venue">
     settings?: JsonNullableFilter<"Venue">
-    depositEnabled?: BoolFilter<"Venue"> | boolean
-    depositType?: EnumDepositTypeNullableFilter<"Venue"> | $Enums.DepositType | null
-    depositAmountCents?: IntNullableFilter<"Venue"> | number | null
-    freeCancellationHours?: IntNullableFilter<"Venue"> | number | null
-    lateCancellationFeePercent?: IntNullableFilter<"Venue"> | number | null
-    noShowFeePercent?: IntNullableFilter<"Venue"> | number | null
     createdAt?: DateTimeFilter<"Venue"> | Date | string
     updatedAt?: DateTimeFilter<"Venue"> | Date | string
     venueGroup?: XOR<VenueGroupNullableScalarRelationFilter, VenueGroupWhereInput> | null
@@ -12254,19 +10745,11 @@ export namespace Prisma {
     currencyCode?: SortOrder
     operatingHours?: SortOrderInput | SortOrder
     settings?: SortOrderInput | SortOrder
-    depositEnabled?: SortOrder
-    depositType?: SortOrderInput | SortOrder
-    depositAmountCents?: SortOrderInput | SortOrder
-    freeCancellationHours?: SortOrderInput | SortOrder
-    lateCancellationFeePercent?: SortOrderInput | SortOrder
-    noShowFeePercent?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: VenueCountOrderByAggregateInput
-    _avg?: VenueAvgOrderByAggregateInput
     _max?: VenueMaxOrderByAggregateInput
     _min?: VenueMinOrderByAggregateInput
-    _sum?: VenueSumOrderByAggregateInput
   }
 
   export type VenueScalarWhereWithAggregatesInput = {
@@ -12281,12 +10764,6 @@ export namespace Prisma {
     currencyCode?: StringWithAggregatesFilter<"Venue"> | string
     operatingHours?: JsonNullableWithAggregatesFilter<"Venue">
     settings?: JsonNullableWithAggregatesFilter<"Venue">
-    depositEnabled?: BoolWithAggregatesFilter<"Venue"> | boolean
-    depositType?: EnumDepositTypeNullableWithAggregatesFilter<"Venue"> | $Enums.DepositType | null
-    depositAmountCents?: IntNullableWithAggregatesFilter<"Venue"> | number | null
-    freeCancellationHours?: IntNullableWithAggregatesFilter<"Venue"> | number | null
-    lateCancellationFeePercent?: IntNullableWithAggregatesFilter<"Venue"> | number | null
-    noShowFeePercent?: IntNullableWithAggregatesFilter<"Venue"> | number | null
     createdAt?: DateTimeWithAggregatesFilter<"Venue"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Venue"> | Date | string
   }
@@ -12492,7 +10969,7 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
-    stripeCustomerId?: StringNullableFilter<"Guest"> | string | null
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -12512,7 +10989,7 @@ export namespace Prisma {
     tags?: SortOrderInput | SortOrder
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
-    stripeCustomerId?: SortOrderInput | SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     venue?: VenueOrderByWithRelationInput
@@ -12521,7 +10998,6 @@ export namespace Prisma {
 
   export type GuestWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    stripeCustomerId?: string
     venueId_email?: GuestVenueIdEmailCompoundUniqueInput
     venueId_phone?: GuestVenueIdPhoneCompoundUniqueInput
     AND?: GuestWhereInput | GuestWhereInput[]
@@ -12538,11 +11014,12 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
     reservations?: ReservationListRelationFilter
-  }, "id" | "stripeCustomerId" | "venueId_email" | "venueId_phone">
+  }, "id" | "venueId_email" | "venueId_phone">
 
   export type GuestOrderByWithAggregationInput = {
     id?: SortOrder
@@ -12557,7 +11034,7 @@ export namespace Prisma {
     tags?: SortOrderInput | SortOrder
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
-    stripeCustomerId?: SortOrderInput | SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: GuestCountOrderByAggregateInput
@@ -12583,7 +11060,7 @@ export namespace Prisma {
     tags?: JsonNullableWithAggregatesFilter<"Guest">
     dietaryRestrictions?: JsonNullableWithAggregatesFilter<"Guest">
     staffNotes?: JsonNullableWithAggregatesFilter<"Guest">
-    stripeCustomerId?: StringNullableWithAggregatesFilter<"Guest"> | string | null
+    communicationPreference?: EnumCommunicationPreferenceWithAggregatesFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
   }
@@ -12615,7 +11092,6 @@ export namespace Prisma {
     guest?: XOR<GuestNullableScalarRelationFilter, GuestWhereInput> | null
     table?: XOR<TableScalarRelationFilter, TableWhereInput>
     venue?: XOR<VenueNullableScalarRelationFilter, VenueWhereInput> | null
-    deposit?: XOR<DepositNullableScalarRelationFilter, DepositWhereInput> | null
   }
 
   export type ReservationOrderByWithRelationInput = {
@@ -12642,7 +11118,6 @@ export namespace Prisma {
     guest?: GuestOrderByWithRelationInput
     table?: TableOrderByWithRelationInput
     venue?: VenueOrderByWithRelationInput
-    deposit?: DepositOrderByWithRelationInput
   }
 
   export type ReservationWhereUniqueInput = Prisma.AtLeast<{
@@ -12672,7 +11147,6 @@ export namespace Prisma {
     guest?: XOR<GuestNullableScalarRelationFilter, GuestWhereInput> | null
     table?: XOR<TableScalarRelationFilter, TableWhereInput>
     venue?: XOR<VenueNullableScalarRelationFilter, VenueWhereInput> | null
-    deposit?: XOR<DepositNullableScalarRelationFilter, DepositWhereInput> | null
   }, "id">
 
   export type ReservationOrderByWithAggregationInput = {
@@ -12727,103 +11201,6 @@ export namespace Prisma {
     venueId?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Reservation"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Reservation"> | Date | string
-  }
-
-  export type DepositWhereInput = {
-    AND?: DepositWhereInput | DepositWhereInput[]
-    OR?: DepositWhereInput[]
-    NOT?: DepositWhereInput | DepositWhereInput[]
-    id?: StringFilter<"Deposit"> | string
-    reservationId?: StringFilter<"Deposit"> | string
-    amountCents?: IntFilter<"Deposit"> | number
-    currency?: StringFilter<"Deposit"> | string
-    status?: EnumDepositStatusFilter<"Deposit"> | $Enums.DepositStatus
-    stripePaymentIntentId?: StringNullableFilter<"Deposit"> | string | null
-    stripeCustomerId?: StringNullableFilter<"Deposit"> | string | null
-    heldAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    appliedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    refundedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    forfeitedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    createdAt?: DateTimeFilter<"Deposit"> | Date | string
-    updatedAt?: DateTimeFilter<"Deposit"> | Date | string
-    reservation?: XOR<ReservationScalarRelationFilter, ReservationWhereInput>
-  }
-
-  export type DepositOrderByWithRelationInput = {
-    id?: SortOrder
-    reservationId?: SortOrder
-    amountCents?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    stripePaymentIntentId?: SortOrderInput | SortOrder
-    stripeCustomerId?: SortOrderInput | SortOrder
-    heldAt?: SortOrderInput | SortOrder
-    appliedAt?: SortOrderInput | SortOrder
-    refundedAt?: SortOrderInput | SortOrder
-    forfeitedAt?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    reservation?: ReservationOrderByWithRelationInput
-  }
-
-  export type DepositWhereUniqueInput = Prisma.AtLeast<{
-    id?: string
-    reservationId?: string
-    AND?: DepositWhereInput | DepositWhereInput[]
-    OR?: DepositWhereInput[]
-    NOT?: DepositWhereInput | DepositWhereInput[]
-    amountCents?: IntFilter<"Deposit"> | number
-    currency?: StringFilter<"Deposit"> | string
-    status?: EnumDepositStatusFilter<"Deposit"> | $Enums.DepositStatus
-    stripePaymentIntentId?: StringNullableFilter<"Deposit"> | string | null
-    stripeCustomerId?: StringNullableFilter<"Deposit"> | string | null
-    heldAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    appliedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    refundedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    forfeitedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null
-    createdAt?: DateTimeFilter<"Deposit"> | Date | string
-    updatedAt?: DateTimeFilter<"Deposit"> | Date | string
-    reservation?: XOR<ReservationScalarRelationFilter, ReservationWhereInput>
-  }, "id" | "reservationId">
-
-  export type DepositOrderByWithAggregationInput = {
-    id?: SortOrder
-    reservationId?: SortOrder
-    amountCents?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    stripePaymentIntentId?: SortOrderInput | SortOrder
-    stripeCustomerId?: SortOrderInput | SortOrder
-    heldAt?: SortOrderInput | SortOrder
-    appliedAt?: SortOrderInput | SortOrder
-    refundedAt?: SortOrderInput | SortOrder
-    forfeitedAt?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    _count?: DepositCountOrderByAggregateInput
-    _avg?: DepositAvgOrderByAggregateInput
-    _max?: DepositMaxOrderByAggregateInput
-    _min?: DepositMinOrderByAggregateInput
-    _sum?: DepositSumOrderByAggregateInput
-  }
-
-  export type DepositScalarWhereWithAggregatesInput = {
-    AND?: DepositScalarWhereWithAggregatesInput | DepositScalarWhereWithAggregatesInput[]
-    OR?: DepositScalarWhereWithAggregatesInput[]
-    NOT?: DepositScalarWhereWithAggregatesInput | DepositScalarWhereWithAggregatesInput[]
-    id?: StringWithAggregatesFilter<"Deposit"> | string
-    reservationId?: StringWithAggregatesFilter<"Deposit"> | string
-    amountCents?: IntWithAggregatesFilter<"Deposit"> | number
-    currency?: StringWithAggregatesFilter<"Deposit"> | string
-    status?: EnumDepositStatusWithAggregatesFilter<"Deposit"> | $Enums.DepositStatus
-    stripePaymentIntentId?: StringNullableWithAggregatesFilter<"Deposit"> | string | null
-    stripeCustomerId?: StringNullableWithAggregatesFilter<"Deposit"> | string | null
-    heldAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null
-    appliedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null
-    refundedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null
-    forfeitedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null
-    createdAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string
-    updatedAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string
   }
 
   export type ReservationHoldWhereInput = {
@@ -12979,12 +11356,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -13004,12 +11375,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -13027,12 +11392,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -13052,12 +11411,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
@@ -13076,12 +11429,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -13094,12 +11441,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13113,12 +11454,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13340,7 +11675,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -13360,7 +11695,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -13378,7 +11713,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -13398,7 +11733,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -13417,7 +11752,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -13434,7 +11769,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13452,7 +11787,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13478,7 +11813,6 @@ export namespace Prisma {
     guest?: GuestCreateNestedOneWithoutReservationsInput
     table: TableCreateNestedOneWithoutReservationsInput
     venue?: VenueCreateNestedOneWithoutReservationsInput
-    deposit?: DepositCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationUncheckedCreateInput = {
@@ -13502,7 +11836,6 @@ export namespace Prisma {
     venueId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationUpdateInput = {
@@ -13526,7 +11859,6 @@ export namespace Prisma {
     guest?: GuestUpdateOneWithoutReservationsNestedInput
     table?: TableUpdateOneRequiredWithoutReservationsNestedInput
     venue?: VenueUpdateOneWithoutReservationsNestedInput
-    deposit?: DepositUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateInput = {
@@ -13550,7 +11882,6 @@ export namespace Prisma {
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationCreateManyInput = {
@@ -13615,117 +11946,6 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type DepositCreateInput = {
-    id?: string
-    amountCents: number
-    currency?: string
-    status?: $Enums.DepositStatus
-    stripePaymentIntentId?: string | null
-    stripeCustomerId?: string | null
-    heldAt?: Date | string | null
-    appliedAt?: Date | string | null
-    refundedAt?: Date | string | null
-    forfeitedAt?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    reservation: ReservationCreateNestedOneWithoutDepositInput
-  }
-
-  export type DepositUncheckedCreateInput = {
-    id?: string
-    reservationId: string
-    amountCents: number
-    currency?: string
-    status?: $Enums.DepositStatus
-    stripePaymentIntentId?: string | null
-    stripeCustomerId?: string | null
-    heldAt?: Date | string | null
-    appliedAt?: Date | string | null
-    refundedAt?: Date | string | null
-    forfeitedAt?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type DepositUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    reservation?: ReservationUpdateOneRequiredWithoutDepositNestedInput
-  }
-
-  export type DepositUncheckedUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    reservationId?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type DepositCreateManyInput = {
-    id?: string
-    reservationId: string
-    amountCents: number
-    currency?: string
-    status?: $Enums.DepositStatus
-    stripePaymentIntentId?: string | null
-    stripeCustomerId?: string | null
-    heldAt?: Date | string | null
-    appliedAt?: Date | string | null
-    refundedAt?: Date | string | null
-    forfeitedAt?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type DepositUpdateManyMutationInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type DepositUncheckedUpdateManyInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    reservationId?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13978,29 +12198,6 @@ export namespace Prisma {
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
   }
 
-  export type BoolFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
-  }
-
-  export type EnumDepositTypeNullableFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositType | EnumDepositTypeFieldRefInput<$PrismaModel> | null
-    in?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    notIn?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    not?: NestedEnumDepositTypeNullableFilter<$PrismaModel> | $Enums.DepositType | null
-  }
-
-  export type IntNullableFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableFilter<$PrismaModel> | number | null
-  }
-
   export type VenueGroupNullableScalarRelationFilter = {
     is?: VenueGroupWhereInput | null
     isNot?: VenueGroupWhereInput | null
@@ -14070,21 +12267,8 @@ export namespace Prisma {
     currencyCode?: SortOrder
     operatingHours?: SortOrder
     settings?: SortOrder
-    depositEnabled?: SortOrder
-    depositType?: SortOrder
-    depositAmountCents?: SortOrder
-    freeCancellationHours?: SortOrder
-    lateCancellationFeePercent?: SortOrder
-    noShowFeePercent?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
-  }
-
-  export type VenueAvgOrderByAggregateInput = {
-    depositAmountCents?: SortOrder
-    freeCancellationHours?: SortOrder
-    lateCancellationFeePercent?: SortOrder
-    noShowFeePercent?: SortOrder
   }
 
   export type VenueMaxOrderByAggregateInput = {
@@ -14094,12 +12278,6 @@ export namespace Prisma {
     slug?: SortOrder
     ianaTimezone?: SortOrder
     currencyCode?: SortOrder
-    depositEnabled?: SortOrder
-    depositType?: SortOrder
-    depositAmountCents?: SortOrder
-    freeCancellationHours?: SortOrder
-    lateCancellationFeePercent?: SortOrder
-    noShowFeePercent?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -14111,21 +12289,8 @@ export namespace Prisma {
     slug?: SortOrder
     ianaTimezone?: SortOrder
     currencyCode?: SortOrder
-    depositEnabled?: SortOrder
-    depositType?: SortOrder
-    depositAmountCents?: SortOrder
-    freeCancellationHours?: SortOrder
-    lateCancellationFeePercent?: SortOrder
-    noShowFeePercent?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
-  }
-
-  export type VenueSumOrderByAggregateInput = {
-    depositAmountCents?: SortOrder
-    freeCancellationHours?: SortOrder
-    lateCancellationFeePercent?: SortOrder
-    noShowFeePercent?: SortOrder
   }
 
   export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -14146,38 +12311,9 @@ export namespace Prisma {
     _max?: NestedStringNullableFilter<$PrismaModel>
   }
 
-  export type BoolWithAggregatesFilter<$PrismaModel = never> = {
+  export type BoolFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedBoolFilter<$PrismaModel>
-    _max?: NestedBoolFilter<$PrismaModel>
-  }
-
-  export type EnumDepositTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositType | EnumDepositTypeFieldRefInput<$PrismaModel> | null
-    in?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    notIn?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    not?: NestedEnumDepositTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.DepositType | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedEnumDepositTypeNullableFilter<$PrismaModel>
-    _max?: NestedEnumDepositTypeNullableFilter<$PrismaModel>
-  }
-
-  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedIntNullableFilter<$PrismaModel>
-    _max?: NestedIntNullableFilter<$PrismaModel>
+    not?: NestedBoolFilter<$PrismaModel> | boolean
   }
   export type JsonFilter<$PrismaModel = never> =
     | PatchUndefined<
@@ -14235,6 +12371,14 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
+
+  export type BoolWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
+    not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedBoolFilter<$PrismaModel>
+    _max?: NestedBoolFilter<$PrismaModel>
+  }
   export type JsonWithAggregatesFilter<$PrismaModel = never> =
     | PatchUndefined<
         Either<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
@@ -14271,6 +12415,17 @@ export namespace Prisma {
     gt?: number | IntFieldRefInput<$PrismaModel>
     gte?: number | IntFieldRefInput<$PrismaModel>
     not?: NestedIntFilter<$PrismaModel> | number
+  }
+
+  export type IntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null
   }
 
   export type EnumTableStatusFilter<$PrismaModel = never> = {
@@ -14377,6 +12532,22 @@ export namespace Prisma {
     _max?: NestedIntFilter<$PrismaModel>
   }
 
+  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
   export type EnumTableStatusWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
     in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
@@ -14409,6 +12580,13 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
+  export type EnumCommunicationPreferenceFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceFilter<$PrismaModel> | $Enums.CommunicationPreference
+  }
+
   export type GuestVenueIdEmailCompoundUniqueInput = {
     venueId: string
     email: string
@@ -14432,7 +12610,7 @@ export namespace Prisma {
     tags?: SortOrder
     dietaryRestrictions?: SortOrder
     staffNotes?: SortOrder
-    stripeCustomerId?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -14452,7 +12630,7 @@ export namespace Prisma {
     visitCount?: SortOrder
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
-    stripeCustomerId?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -14467,7 +12645,7 @@ export namespace Prisma {
     visitCount?: SortOrder
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
-    stripeCustomerId?: SortOrder
+    communicationPreference?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -14507,6 +12685,16 @@ export namespace Prisma {
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
+  export type EnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel> | $Enums.CommunicationPreference
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
+    _max?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
+  }
+
   export type EnumReservationStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.ReservationStatus | EnumReservationStatusFieldRefInput<$PrismaModel>
     in?: $Enums.ReservationStatus[] | ListEnumReservationStatusFieldRefInput<$PrismaModel>
@@ -14536,11 +12724,6 @@ export namespace Prisma {
   export type TableScalarRelationFilter = {
     is?: TableWhereInput
     isNot?: TableWhereInput
-  }
-
-  export type DepositNullableScalarRelationFilter = {
-    is?: DepositWhereInput | null
-    isNot?: DepositWhereInput | null
   }
 
   export type ReservationCountOrderByAggregateInput = {
@@ -14648,84 +12831,6 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
     _max?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
-  }
-
-  export type EnumDepositStatusFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositStatus | EnumDepositStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumDepositStatusFilter<$PrismaModel> | $Enums.DepositStatus
-  }
-
-  export type ReservationScalarRelationFilter = {
-    is?: ReservationWhereInput
-    isNot?: ReservationWhereInput
-  }
-
-  export type DepositCountOrderByAggregateInput = {
-    id?: SortOrder
-    reservationId?: SortOrder
-    amountCents?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    stripePaymentIntentId?: SortOrder
-    stripeCustomerId?: SortOrder
-    heldAt?: SortOrder
-    appliedAt?: SortOrder
-    refundedAt?: SortOrder
-    forfeitedAt?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type DepositAvgOrderByAggregateInput = {
-    amountCents?: SortOrder
-  }
-
-  export type DepositMaxOrderByAggregateInput = {
-    id?: SortOrder
-    reservationId?: SortOrder
-    amountCents?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    stripePaymentIntentId?: SortOrder
-    stripeCustomerId?: SortOrder
-    heldAt?: SortOrder
-    appliedAt?: SortOrder
-    refundedAt?: SortOrder
-    forfeitedAt?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type DepositMinOrderByAggregateInput = {
-    id?: SortOrder
-    reservationId?: SortOrder
-    amountCents?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    stripePaymentIntentId?: SortOrder
-    stripeCustomerId?: SortOrder
-    heldAt?: SortOrder
-    appliedAt?: SortOrder
-    refundedAt?: SortOrder
-    forfeitedAt?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type DepositSumOrderByAggregateInput = {
-    amountCents?: SortOrder
-  }
-
-  export type EnumDepositStatusWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositStatus | EnumDepositStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumDepositStatusWithAggregatesFilter<$PrismaModel> | $Enums.DepositStatus
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumDepositStatusFilter<$PrismaModel>
-    _max?: NestedEnumDepositStatusFilter<$PrismaModel>
   }
 
   export type ReservationHoldCountOrderByAggregateInput = {
@@ -14899,22 +13004,6 @@ export namespace Prisma {
     connectOrCreate?: ReservationHoldCreateOrConnectWithoutVenueInput | ReservationHoldCreateOrConnectWithoutVenueInput[]
     createMany?: ReservationHoldCreateManyVenueInputEnvelope
     connect?: ReservationHoldWhereUniqueInput | ReservationHoldWhereUniqueInput[]
-  }
-
-  export type BoolFieldUpdateOperationsInput = {
-    set?: boolean
-  }
-
-  export type NullableEnumDepositTypeFieldUpdateOperationsInput = {
-    set?: $Enums.DepositType | null
-  }
-
-  export type NullableIntFieldUpdateOperationsInput = {
-    set?: number | null
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
   }
 
   export type VenueGroupUpdateOneWithoutVenuesNestedInput = {
@@ -15091,6 +13180,10 @@ export namespace Prisma {
     connect?: TableWhereUniqueInput | TableWhereUniqueInput[]
   }
 
+  export type BoolFieldUpdateOperationsInput = {
+    set?: boolean
+  }
+
   export type VenueUpdateOneRequiredWithoutFloorPlansNestedInput = {
     create?: XOR<VenueCreateWithoutFloorPlansInput, VenueUncheckedCreateWithoutFloorPlansInput>
     connectOrCreate?: VenueCreateOrConnectWithoutFloorPlansInput
@@ -15169,6 +13262,14 @@ export namespace Prisma {
 
   export type IntFieldUpdateOperationsInput = {
     set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
+  export type NullableIntFieldUpdateOperationsInput = {
+    set?: number | null
     increment?: number
     decrement?: number
     multiply?: number
@@ -15287,6 +13388,10 @@ export namespace Prisma {
     set?: Date | string | null
   }
 
+  export type EnumCommunicationPreferenceFieldUpdateOperationsInput = {
+    set?: $Enums.CommunicationPreference
+  }
+
   export type VenueUpdateOneRequiredWithoutGuestsNestedInput = {
     create?: XOR<VenueCreateWithoutGuestsInput, VenueUncheckedCreateWithoutGuestsInput>
     connectOrCreate?: VenueCreateOrConnectWithoutGuestsInput
@@ -15341,18 +13446,6 @@ export namespace Prisma {
     connect?: VenueWhereUniqueInput
   }
 
-  export type DepositCreateNestedOneWithoutReservationInput = {
-    create?: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
-    connectOrCreate?: DepositCreateOrConnectWithoutReservationInput
-    connect?: DepositWhereUniqueInput
-  }
-
-  export type DepositUncheckedCreateNestedOneWithoutReservationInput = {
-    create?: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
-    connectOrCreate?: DepositCreateOrConnectWithoutReservationInput
-    connect?: DepositWhereUniqueInput
-  }
-
   export type EnumReservationStatusFieldUpdateOperationsInput = {
     set?: $Enums.ReservationStatus
   }
@@ -15391,44 +13484,6 @@ export namespace Prisma {
     delete?: VenueWhereInput | boolean
     connect?: VenueWhereUniqueInput
     update?: XOR<XOR<VenueUpdateToOneWithWhereWithoutReservationsInput, VenueUpdateWithoutReservationsInput>, VenueUncheckedUpdateWithoutReservationsInput>
-  }
-
-  export type DepositUpdateOneWithoutReservationNestedInput = {
-    create?: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
-    connectOrCreate?: DepositCreateOrConnectWithoutReservationInput
-    upsert?: DepositUpsertWithoutReservationInput
-    disconnect?: DepositWhereInput | boolean
-    delete?: DepositWhereInput | boolean
-    connect?: DepositWhereUniqueInput
-    update?: XOR<XOR<DepositUpdateToOneWithWhereWithoutReservationInput, DepositUpdateWithoutReservationInput>, DepositUncheckedUpdateWithoutReservationInput>
-  }
-
-  export type DepositUncheckedUpdateOneWithoutReservationNestedInput = {
-    create?: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
-    connectOrCreate?: DepositCreateOrConnectWithoutReservationInput
-    upsert?: DepositUpsertWithoutReservationInput
-    disconnect?: DepositWhereInput | boolean
-    delete?: DepositWhereInput | boolean
-    connect?: DepositWhereUniqueInput
-    update?: XOR<XOR<DepositUpdateToOneWithWhereWithoutReservationInput, DepositUpdateWithoutReservationInput>, DepositUncheckedUpdateWithoutReservationInput>
-  }
-
-  export type ReservationCreateNestedOneWithoutDepositInput = {
-    create?: XOR<ReservationCreateWithoutDepositInput, ReservationUncheckedCreateWithoutDepositInput>
-    connectOrCreate?: ReservationCreateOrConnectWithoutDepositInput
-    connect?: ReservationWhereUniqueInput
-  }
-
-  export type EnumDepositStatusFieldUpdateOperationsInput = {
-    set?: $Enums.DepositStatus
-  }
-
-  export type ReservationUpdateOneRequiredWithoutDepositNestedInput = {
-    create?: XOR<ReservationCreateWithoutDepositInput, ReservationUncheckedCreateWithoutDepositInput>
-    connectOrCreate?: ReservationCreateOrConnectWithoutDepositInput
-    upsert?: ReservationUpsertWithoutDepositInput
-    connect?: ReservationWhereUniqueInput
-    update?: XOR<XOR<ReservationUpdateToOneWithWhereWithoutDepositInput, ReservationUpdateWithoutDepositInput>, ReservationUncheckedUpdateWithoutDepositInput>
   }
 
   export type VenueCreateNestedOneWithoutHoldsInput = {
@@ -15574,18 +13629,6 @@ export namespace Prisma {
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
   }
 
-  export type NestedBoolFilter<$PrismaModel = never> = {
-    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
-    not?: NestedBoolFilter<$PrismaModel> | boolean
-  }
-
-  export type NestedEnumDepositTypeNullableFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositType | EnumDepositTypeFieldRefInput<$PrismaModel> | null
-    in?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    notIn?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    not?: NestedEnumDepositTypeNullableFilter<$PrismaModel> | $Enums.DepositType | null
-  }
-
   export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null
     in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
@@ -15603,49 +13646,17 @@ export namespace Prisma {
     _max?: NestedStringNullableFilter<$PrismaModel>
   }
 
+  export type NestedBoolFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel>
+    not?: NestedBoolFilter<$PrismaModel> | boolean
+  }
+
   export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
     not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedBoolFilter<$PrismaModel>
     _max?: NestedBoolFilter<$PrismaModel>
-  }
-
-  export type NestedEnumDepositTypeNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositType | EnumDepositTypeFieldRefInput<$PrismaModel> | null
-    in?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    notIn?: $Enums.DepositType[] | ListEnumDepositTypeFieldRefInput<$PrismaModel> | null
-    not?: NestedEnumDepositTypeNullableWithAggregatesFilter<$PrismaModel> | $Enums.DepositType | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedEnumDepositTypeNullableFilter<$PrismaModel>
-    _max?: NestedEnumDepositTypeNullableFilter<$PrismaModel>
-  }
-
-  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedIntNullableFilter<$PrismaModel>
-    _max?: NestedIntNullableFilter<$PrismaModel>
-  }
-
-  export type NestedFloatNullableFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
   export type NestedJsonFilter<$PrismaModel = never> =
     | PatchUndefined<
@@ -15705,6 +13716,33 @@ export namespace Prisma {
     not?: NestedFloatFilter<$PrismaModel> | number
   }
 
+  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
+  export type NestedFloatNullableFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
+  }
+
   export type NestedEnumTableStatusWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.TableStatus | EnumTableStatusFieldRefInput<$PrismaModel>
     in?: $Enums.TableStatus[] | ListEnumTableStatusFieldRefInput<$PrismaModel>
@@ -15737,6 +13775,13 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
   }
 
+  export type NestedEnumCommunicationPreferenceFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceFilter<$PrismaModel> | $Enums.CommunicationPreference
+  }
+
   export type NestedDecimalNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel> | null
     in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel> | null
@@ -15765,6 +13810,16 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedDateTimeNullableFilter<$PrismaModel>
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.CommunicationPreference | EnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    in?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.CommunicationPreference[] | ListEnumCommunicationPreferenceFieldRefInput<$PrismaModel>
+    not?: NestedEnumCommunicationPreferenceWithAggregatesFilter<$PrismaModel> | $Enums.CommunicationPreference
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
+    _max?: NestedEnumCommunicationPreferenceFilter<$PrismaModel>
   }
 
   export type NestedEnumReservationStatusFilter<$PrismaModel = never> = {
@@ -15818,23 +13873,6 @@ export namespace Prisma {
     _max?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
   }
 
-  export type NestedEnumDepositStatusFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositStatus | EnumDepositStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumDepositStatusFilter<$PrismaModel> | $Enums.DepositStatus
-  }
-
-  export type NestedEnumDepositStatusWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.DepositStatus | EnumDepositStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.DepositStatus[] | ListEnumDepositStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumDepositStatusWithAggregatesFilter<$PrismaModel> | $Enums.DepositStatus
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumDepositStatusFilter<$PrismaModel>
-    _max?: NestedEnumDepositStatusFilter<$PrismaModel>
-  }
-
   export type VenueCreateWithoutVenueGroupInput = {
     id?: string
     name: string
@@ -15843,12 +13881,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableCreateNestedManyWithoutVenueInput
@@ -15866,12 +13898,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -15919,12 +13945,6 @@ export namespace Prisma {
     currencyCode?: StringFilter<"Venue"> | string
     operatingHours?: JsonNullableFilter<"Venue">
     settings?: JsonNullableFilter<"Venue">
-    depositEnabled?: BoolFilter<"Venue"> | boolean
-    depositType?: EnumDepositTypeNullableFilter<"Venue"> | $Enums.DepositType | null
-    depositAmountCents?: IntNullableFilter<"Venue"> | number | null
-    freeCancellationHours?: IntNullableFilter<"Venue"> | number | null
-    lateCancellationFeePercent?: IntNullableFilter<"Venue"> | number | null
-    noShowFeePercent?: IntNullableFilter<"Venue"> | number | null
     createdAt?: DateTimeFilter<"Venue"> | Date | string
     updatedAt?: DateTimeFilter<"Venue"> | Date | string
   }
@@ -16018,7 +14038,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
     table: TableCreateNestedOneWithoutReservationsInput
-    deposit?: DepositCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationUncheckedCreateWithoutVenueInput = {
@@ -16041,7 +14060,6 @@ export namespace Prisma {
     tableId: string
     createdAt?: Date | string
     updatedAt?: Date | string
-    deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationCreateOrConnectWithoutVenueInput = {
@@ -16066,7 +14084,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationCreateNestedManyWithoutGuestInput
@@ -16084,7 +14102,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutGuestInput
@@ -16302,7 +14320,7 @@ export namespace Prisma {
     tags?: JsonNullableFilter<"Guest">
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
-    stripeCustomerId?: StringNullableFilter<"Guest"> | string | null
+    communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
   }
@@ -16376,12 +14394,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -16400,12 +14412,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -16486,12 +14492,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -16510,12 +14510,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
@@ -16548,12 +14542,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -16572,12 +14560,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     reservations?: ReservationUncheckedCreateNestedManyWithoutVenueInput
@@ -16636,7 +14618,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
     venue?: VenueCreateNestedOneWithoutReservationsInput
-    deposit?: DepositCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationUncheckedCreateWithoutTableInput = {
@@ -16659,7 +14640,6 @@ export namespace Prisma {
     venueId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationCreateOrConnectWithoutTableInput = {
@@ -16725,12 +14705,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -16749,12 +14723,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutVenueNestedInput
@@ -16834,12 +14802,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -16858,12 +14820,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -16897,7 +14853,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     table: TableCreateNestedOneWithoutReservationsInput
     venue?: VenueCreateNestedOneWithoutReservationsInput
-    deposit?: DepositCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationUncheckedCreateWithoutGuestInput = {
@@ -16920,7 +14875,6 @@ export namespace Prisma {
     venueId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
   }
 
   export type ReservationCreateOrConnectWithoutGuestInput = {
@@ -16952,12 +14906,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -16976,12 +14924,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
@@ -17018,7 +14960,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
     venue: VenueCreateNestedOneWithoutGuestsInput
@@ -17037,7 +14979,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -17098,12 +15040,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -17122,12 +15058,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -17139,41 +15069,6 @@ export namespace Prisma {
   export type VenueCreateOrConnectWithoutReservationsInput = {
     where: VenueWhereUniqueInput
     create: XOR<VenueCreateWithoutReservationsInput, VenueUncheckedCreateWithoutReservationsInput>
-  }
-
-  export type DepositCreateWithoutReservationInput = {
-    id?: string
-    amountCents: number
-    currency?: string
-    status?: $Enums.DepositStatus
-    stripePaymentIntentId?: string | null
-    stripeCustomerId?: string | null
-    heldAt?: Date | string | null
-    appliedAt?: Date | string | null
-    refundedAt?: Date | string | null
-    forfeitedAt?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type DepositUncheckedCreateWithoutReservationInput = {
-    id?: string
-    amountCents: number
-    currency?: string
-    status?: $Enums.DepositStatus
-    stripePaymentIntentId?: string | null
-    stripeCustomerId?: string | null
-    heldAt?: Date | string | null
-    appliedAt?: Date | string | null
-    refundedAt?: Date | string | null
-    forfeitedAt?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type DepositCreateOrConnectWithoutReservationInput = {
-    where: DepositWhereUniqueInput
-    create: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
   }
 
   export type GuestUpsertWithoutReservationsInput = {
@@ -17199,7 +15094,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venue?: VenueUpdateOneRequiredWithoutGuestsNestedInput
@@ -17218,7 +15113,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -17291,12 +15186,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -17315,167 +15204,12 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
     guests?: GuestUncheckedUpdateManyWithoutVenueNestedInput
     floorPlans?: FloorPlanUncheckedUpdateManyWithoutVenueNestedInput
     holds?: ReservationHoldUncheckedUpdateManyWithoutVenueNestedInput
-  }
-
-  export type DepositUpsertWithoutReservationInput = {
-    update: XOR<DepositUpdateWithoutReservationInput, DepositUncheckedUpdateWithoutReservationInput>
-    create: XOR<DepositCreateWithoutReservationInput, DepositUncheckedCreateWithoutReservationInput>
-    where?: DepositWhereInput
-  }
-
-  export type DepositUpdateToOneWithWhereWithoutReservationInput = {
-    where?: DepositWhereInput
-    data: XOR<DepositUpdateWithoutReservationInput, DepositUncheckedUpdateWithoutReservationInput>
-  }
-
-  export type DepositUpdateWithoutReservationInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type DepositUncheckedUpdateWithoutReservationInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    amountCents?: IntFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
-    stripePaymentIntentId?: NullableStringFieldUpdateOperationsInput | string | null
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
-    heldAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type ReservationCreateWithoutDepositInput = {
-    id?: string
-    date: Date | string
-    startTime: Date | string
-    endTime: Date | string
-    partySize: number
-    status?: $Enums.ReservationStatus
-    notes?: string | null
-    cancellationReason?: string | null
-    cancellationNote?: string | null
-    occasion?: $Enums.Occasion | null
-    seatingPreference?: $Enums.SeatingPreference | null
-    guestName?: string | null
-    guestEmail?: string | null
-    guestPhone?: string | null
-    userId?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    guest?: GuestCreateNestedOneWithoutReservationsInput
-    table: TableCreateNestedOneWithoutReservationsInput
-    venue?: VenueCreateNestedOneWithoutReservationsInput
-  }
-
-  export type ReservationUncheckedCreateWithoutDepositInput = {
-    id?: string
-    date: Date | string
-    startTime: Date | string
-    endTime: Date | string
-    partySize: number
-    status?: $Enums.ReservationStatus
-    notes?: string | null
-    cancellationReason?: string | null
-    cancellationNote?: string | null
-    occasion?: $Enums.Occasion | null
-    seatingPreference?: $Enums.SeatingPreference | null
-    guestName?: string | null
-    guestEmail?: string | null
-    guestPhone?: string | null
-    guestId?: string | null
-    userId?: string | null
-    tableId: string
-    venueId?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type ReservationCreateOrConnectWithoutDepositInput = {
-    where: ReservationWhereUniqueInput
-    create: XOR<ReservationCreateWithoutDepositInput, ReservationUncheckedCreateWithoutDepositInput>
-  }
-
-  export type ReservationUpsertWithoutDepositInput = {
-    update: XOR<ReservationUpdateWithoutDepositInput, ReservationUncheckedUpdateWithoutDepositInput>
-    create: XOR<ReservationCreateWithoutDepositInput, ReservationUncheckedCreateWithoutDepositInput>
-    where?: ReservationWhereInput
-  }
-
-  export type ReservationUpdateToOneWithWhereWithoutDepositInput = {
-    where?: ReservationWhereInput
-    data: XOR<ReservationUpdateWithoutDepositInput, ReservationUncheckedUpdateWithoutDepositInput>
-  }
-
-  export type ReservationUpdateWithoutDepositInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    date?: DateTimeFieldUpdateOperationsInput | Date | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    partySize?: IntFieldUpdateOperationsInput | number
-    status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
-    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
-    occasion?: NullableEnumOccasionFieldUpdateOperationsInput | $Enums.Occasion | null
-    seatingPreference?: NullableEnumSeatingPreferenceFieldUpdateOperationsInput | $Enums.SeatingPreference | null
-    guestName?: NullableStringFieldUpdateOperationsInput | string | null
-    guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
-    guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
-    userId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    guest?: GuestUpdateOneWithoutReservationsNestedInput
-    table?: TableUpdateOneRequiredWithoutReservationsNestedInput
-    venue?: VenueUpdateOneWithoutReservationsNestedInput
-  }
-
-  export type ReservationUncheckedUpdateWithoutDepositInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    date?: DateTimeFieldUpdateOperationsInput | Date | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    partySize?: IntFieldUpdateOperationsInput | number
-    status?: EnumReservationStatusFieldUpdateOperationsInput | $Enums.ReservationStatus
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    cancellationReason?: NullableStringFieldUpdateOperationsInput | string | null
-    cancellationNote?: NullableStringFieldUpdateOperationsInput | string | null
-    occasion?: NullableEnumOccasionFieldUpdateOperationsInput | $Enums.Occasion | null
-    seatingPreference?: NullableEnumSeatingPreferenceFieldUpdateOperationsInput | $Enums.SeatingPreference | null
-    guestName?: NullableStringFieldUpdateOperationsInput | string | null
-    guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
-    guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
-    guestId?: NullableStringFieldUpdateOperationsInput | string | null
-    userId?: NullableStringFieldUpdateOperationsInput | string | null
-    tableId?: StringFieldUpdateOperationsInput | string
-    venueId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type VenueCreateWithoutHoldsInput = {
@@ -17486,12 +15220,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     venueGroup?: VenueGroupCreateNestedOneWithoutVenuesInput
@@ -17510,12 +15238,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     tables?: TableUncheckedCreateNestedManyWithoutVenueInput
@@ -17591,12 +15313,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     venueGroup?: VenueGroupUpdateOneWithoutVenuesNestedInput
@@ -17615,12 +15331,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
@@ -17686,12 +15396,6 @@ export namespace Prisma {
     currencyCode?: string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: boolean
-    depositType?: $Enums.DepositType | null
-    depositAmountCents?: number | null
-    freeCancellationHours?: number | null
-    lateCancellationFeePercent?: number | null
-    noShowFeePercent?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -17704,12 +15408,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUpdateManyWithoutVenueNestedInput
@@ -17727,12 +15425,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     tables?: TableUncheckedUpdateManyWithoutVenueNestedInput
@@ -17750,12 +15442,6 @@ export namespace Prisma {
     currencyCode?: StringFieldUpdateOperationsInput | string
     operatingHours?: NullableJsonNullValueInput | InputJsonValue
     settings?: NullableJsonNullValueInput | InputJsonValue
-    depositEnabled?: BoolFieldUpdateOperationsInput | boolean
-    depositType?: NullableEnumDepositTypeFieldUpdateOperationsInput | $Enums.DepositType | null
-    depositAmountCents?: NullableIntFieldUpdateOperationsInput | number | null
-    freeCancellationHours?: NullableIntFieldUpdateOperationsInput | number | null
-    lateCancellationFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
-    noShowFeePercent?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -17811,7 +15497,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: string | null
+    communicationPreference?: $Enums.CommunicationPreference
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -17912,7 +15598,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
     table?: TableUpdateOneRequiredWithoutReservationsNestedInput
-    deposit?: DepositUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateWithoutVenueInput = {
@@ -17935,7 +15620,6 @@ export namespace Prisma {
     tableId?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateManyWithoutVenueInput = {
@@ -17972,7 +15656,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUpdateManyWithoutGuestNestedInput
@@ -17990,7 +15674,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     reservations?: ReservationUncheckedUpdateManyWithoutGuestNestedInput
@@ -18008,7 +15692,7 @@ export namespace Prisma {
     tags?: NullableJsonNullValueInput | InputJsonValue
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
-    stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
+    communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18204,7 +15888,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
     venue?: VenueUpdateOneWithoutReservationsNestedInput
-    deposit?: DepositUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateWithoutTableInput = {
@@ -18227,7 +15910,6 @@ export namespace Prisma {
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateManyWithoutTableInput = {
@@ -18330,7 +16012,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     table?: TableUpdateOneRequiredWithoutReservationsNestedInput
     venue?: VenueUpdateOneWithoutReservationsNestedInput
-    deposit?: DepositUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateWithoutGuestInput = {
@@ -18353,7 +16034,6 @@ export namespace Prisma {
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
   }
 
   export type ReservationUncheckedUpdateManyWithoutGuestInput = {
