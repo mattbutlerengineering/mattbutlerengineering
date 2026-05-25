@@ -192,17 +192,19 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <Alert
-          variant="error"
-          title="Failed to load users"
-          actions={
-            <Button variant="secondary" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          }
-        >
-          {error.message}
-        </Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert
+            variant="error"
+            title="Failed to load users"
+            actions={
+              <Button variant="secondary" onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            }
+          >
+            {error.message}
+          </Alert>
+        </div>
       </div>
     );
   }

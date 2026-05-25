@@ -137,9 +137,11 @@ export function ProfilePage() {
     return (
       <div>
         <PageHeader title="Profile" description="Manage your profile" />
-        <Alert variant="error" title="Failed to load profile">
-          {error.message}
-        </Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="error" title="Failed to load profile">
+            {error.message}
+          </Alert>
+        </div>
         <div className={styles.retryWrapper}>
           <Button variant="secondary" onClick={() => window.location.reload()}>
             Retry
