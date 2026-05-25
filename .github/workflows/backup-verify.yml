@@ -55,13 +55,16 @@ jobs:
             if [ -f "services/$SERVICE/prisma.config.ts" ]; then
               (
                 cd "services/$SERVICE"
+                # Use migrate deploy (not db push) so each service's migrations are additive.
+                # db push syncs the entire schema and drops tables from other services,
+                # causing the validation step to fail with "Expected at least 3 tables".
                 DATABASE_URL="postgresql://verify:verify_test_only@localhost:5432/verify_restore" \
-                  pnpm exec prisma db push --skip-generate --accept-data-loss 2>&1
+                  pnpm exec prisma migrate deploy 2>&1
               ) || {
-                echo "::error::Schema push failed for $SERVICE"
+                echo "::error::Migration deploy failed for $SERVICE"
                 exit 1
               }
-              echo "✓ $SERVICE schema applied"
+              echo "✓ $SERVICE migrations applied"
             fi
           done
 
@@ -111,7 +114,7 @@ jobs:
             echo "### Next Steps"
             echo "1. Check workflow logs for the specific failure"
             echo "2. Verify Prisma schema files are valid"
-            echo "3. Run \`prisma db push\` locally to reproduce"
+            echo "3. Run \`prisma migrate deploy\` locally to reproduce"
             echo
             echo "---"
             echo "*Auto-created by backup-verify workflow*"
