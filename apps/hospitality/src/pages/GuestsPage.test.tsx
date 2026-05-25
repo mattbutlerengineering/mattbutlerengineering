@@ -6,6 +6,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuestsPage } from "./GuestsPage.js";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 
@@ -1067,8 +1068,7 @@ describe("GuestsPage - tags editing in drawer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockToast.mockClear();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token" } as any);
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
     vi.mocked(useVenue).mockReturnValue({
       selectedVenueId: "venue-1",
       venues: [{ id: "venue-1", name: "Test Venue" }],
@@ -1111,7 +1111,7 @@ describe("GuestsPage - tags editing in drawer", () => {
   });
 
   it("shows tags input in edit mode", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1127,7 +1127,7 @@ describe("GuestsPage - tags editing in drawer", () => {
   });
 
   it("includes tags in the update API call", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1165,8 +1165,7 @@ describe("GuestsPage - dietary restrictions editing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockToast.mockClear();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token" } as any);
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
     vi.mocked(useVenue).mockReturnValue({
       selectedVenueId: "venue-1",
       venues: [{ id: "venue-1", name: "Test Venue" }],
@@ -1198,7 +1197,7 @@ describe("GuestsPage - dietary restrictions editing", () => {
   });
 
   it("shows dietary restrictions checkboxes in edit mode", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1216,7 +1215,7 @@ describe("GuestsPage - dietary restrictions editing", () => {
   });
 
   it("pre-checks dietary restrictions from guest data", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1232,7 +1231,7 @@ describe("GuestsPage - dietary restrictions editing", () => {
   });
 
   it("includes dietaryRestrictions in the update API call", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1255,7 +1254,7 @@ describe("GuestsPage - dietary restrictions editing", () => {
 
   it("toggles a dietary restriction when checkbox is clicked", async () => {
     const user = userEvent.setup();
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1302,8 +1301,7 @@ describe("GuestsPage - success toast on save", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockToast.mockClear();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token" } as any);
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
     vi.mocked(useVenue).mockReturnValue({
       selectedVenueId: "venue-1",
       venues: [{ id: "venue-1", name: "Test Venue" }],
@@ -1324,6 +1322,7 @@ describe("GuestsPage - success toast on save", () => {
           notes: null,
           tags: [],
           dietaryRestrictions: [],
+          staffNotes: [],
           lastVisit: null,
           createdAt: "2026-01-01T00:00:00Z",
         },
@@ -1335,7 +1334,7 @@ describe("GuestsPage - success toast on save", () => {
   });
 
   it("shows success toast after successful save", async () => {
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1355,7 +1354,7 @@ describe("GuestsPage - success toast on save", () => {
 
   it("does not show success toast when save fails", async () => {
     mockApi.guests.update.mockRejectedValue(new Error("Network error"));
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1392,8 +1391,7 @@ describe("GuestsPage - form validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockToast.mockClear();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token" } as any);
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
     vi.mocked(useVenue).mockReturnValue({
       selectedVenueId: "venue-1",
       venues: [{ id: "venue-1", name: "Test Venue" }],
@@ -1425,7 +1423,7 @@ describe("GuestsPage - form validation", () => {
 
   it("disables Save when name is cleared", async () => {
     const user = userEvent.setup();
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 
@@ -1445,7 +1443,7 @@ describe("GuestsPage - form validation", () => {
 
   it("shows email format error when invalid email is entered", async () => {
     const user = userEvent.setup();
-    render(<GuestsPage />);
+    renderPage();
 
     await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
 

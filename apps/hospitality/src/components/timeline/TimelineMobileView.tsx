@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
-import { Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
+import { Button, Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
 import styles from "./TimelineMobileView.module.css";
 
 export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
