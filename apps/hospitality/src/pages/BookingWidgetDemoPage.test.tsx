@@ -20,6 +20,16 @@ vi.mock("../hooks/useApiClient.js", () => ({
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: any) => <div data-testid="page-header">{title}</div>,
 }));
+
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+    </div>
+  ),
+}));
+
 vi.mock("../components/booking-widget", () => ({
   BookingWidget: ({ venueId }: any) => <div data-testid="booking-widget">{venueId}</div>,
 }));
@@ -196,15 +206,32 @@ describe("BookingWidgetDemoPage", () => {
     expect(screen.getByTestId("segment-mobile")).toBeDefined();
   });
 
-  it("shows error alert when fetch fails", async () => {
+  it("shows ErrorRetryBanner when fetch fails", async () => {
     mockApiClient.venues.list.mockRejectedValue(new Error("Network failure"));
     renderPage();
 
     await waitFor(() => {
-      const alerts = screen.getAllByTestId("alert");
-      const errorAlert = alerts.find((a) => a.getAttribute("data-variant") === "error");
-      expect(errorAlert).toBeDefined();
-      expect(errorAlert!.textContent).toContain("Network failure");
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+    });
+    expect(screen.getByText("Network failure")).toBeDefined();
+  });
+
+  it("retries venue fetch when retry button is clicked", async () => {
+    mockApiClient.venues.list
+      .mockRejectedValueOnce(new Error("Timeout"))
+      .mockResolvedValue({ data: mockVenues });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+    });
+
+    screen.getByTestId("retry-button").click();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+      expect(screen.getByTestId("select-Venue")).toBeDefined();
     });
   });
 

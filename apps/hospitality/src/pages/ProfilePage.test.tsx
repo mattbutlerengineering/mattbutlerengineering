@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
 import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -34,6 +34,15 @@ vi.mock("../components/PageHeader", () => ({
     <div data-testid="page-header">
       <h1>{title}</h1>
       <span>{description}</span>
+    </div>
+  ),
+}));
+
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
     </div>
   ),
 }));
@@ -161,33 +170,33 @@ describe("ProfilePage", () => {
   });
 
   describe("error state", () => {
-    it("shows error alert when fetch fails", async () => {
+    it("shows ErrorRetryBanner when fetch fails", async () => {
       mockApiClient.users.me.mockRejectedValue(new Error("Network error"));
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getByTestId("alert-error")).toBeDefined();
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
       });
       expect(screen.getByText("Network error")).toBeDefined();
-      expect(screen.getByText("Failed to load profile")).toBeDefined();
     });
 
-    it("shows retry button that reloads the page", async () => {
-      mockApiClient.users.me.mockRejectedValue(new Error("Network error"));
-      const reloadSpy = vi.fn();
-      Object.defineProperty(window, "location", {
-        value: { ...window.location, reload: reloadSpy },
-        writable: true,
-      });
+    it("retries fetch via refetch when retry button is clicked", async () => {
+      mockApiClient.users.me
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValue(mockUser);
 
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getByText("Retry")).toBeDefined();
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
       });
 
-      fireEvent.click(screen.getByText("Retry"));
-      expect(reloadSpy).toHaveBeenCalled();
+      screen.getByTestId("retry-button").click();
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+        expect(screen.getAllByText("Test User").length).toBeGreaterThan(0);
+      });
     });
   });
 
