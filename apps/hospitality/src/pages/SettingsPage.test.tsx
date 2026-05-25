@@ -46,6 +46,15 @@ vi.mock("../components/PageHeader", () => ({
   ),
 }));
 
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+    </div>
+  ),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({
     children,
@@ -247,6 +256,37 @@ describe("SettingsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Sign Out")).toBeDefined();
+    });
+  });
+
+  describe("error state", () => {
+    it("shows ErrorRetryBanner when user data fails to load", async () => {
+      mockApiClient.users.me.mockRejectedValue(new Error("Failed to load user"));
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+      });
+      expect(screen.getByText("Failed to load user")).toBeDefined();
+    });
+
+    it("retries user fetch when retry button is clicked", async () => {
+      mockApiClient.users.me
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValue(defaultUser);
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+      });
+
+      screen.getByTestId("retry-button").click();
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+        expect(screen.getByText("Settings")).toBeDefined();
+      });
     });
   });
 

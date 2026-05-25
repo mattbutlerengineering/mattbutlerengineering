@@ -81,6 +81,7 @@ export interface UseUsersResult {
     | undefined;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => void;
 }
 
 export function useUsers(params: UseUsersParams = {}): UseUsersResult {
@@ -100,5 +101,6 @@ export function useUsers(params: UseUsersParams = {}): UseUsersResult {
     pagination: query.data?.pagination,
     isLoading: query.isLoading,
     error: query.error ?? null,
+    refetch: query.refetch,
   };
 }

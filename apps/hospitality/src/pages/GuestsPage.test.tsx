@@ -6,6 +6,7 @@ import { GuestsPage } from "./GuestsPage.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import type { Venue } from "@mbe/types";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 
@@ -69,11 +70,13 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error }: any) => <div data-testid="error-banner">{error}</div>,
 }));
 
+const mockToast = vi.fn();
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
-  Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+  Button: ({ children, onClick, disabled, type }: any) => (
+    <button type={type} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
@@ -82,6 +85,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {title}
       {children}
     </div>
+  ),
+  Checkbox: ({ label, checked, onCheckedChange }: any) => (
+    <label>
+      <input
+        type="checkbox"
+        aria-label={label}
+        checked={checked ?? false}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
+      {label}
+    </label>
   ),
   DataList: ({ children, items }: any) => (
     <dl>
@@ -120,13 +134,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     const id = props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
       <div>
-        <label htmlFor={id}>{props.label}</label>
+        {props.label && <label htmlFor={id}>{props.label}</label>}
         <input
           id={id}
+          type={props.type}
           value={props.value ?? ""}
           onChange={props.onChange}
+          onKeyDown={props.onKeyDown}
           placeholder={props.placeholder}
         />
+        {props.error && props.hint && <span data-testid={`input-error-${id}`}>{props.hint}</span>}
       </div>
     );
   },
@@ -157,6 +174,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   TextArea: (props: any) => (
     <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 function createWrapper() {
@@ -1054,5 +1072,419 @@ describe("GuestsPage - multi-venue", () => {
     });
 
     expect(mockSetVenueId).toHaveBeenCalledWith("venue-2");
+  });
+});
+
+/* ── TDD: New feature tests ────────────────────── */
+
+describe("GuestsPage - tags editing in drawer", () => {
+  const mockApi = {
+    guests: {
+      list: vi.fn(),
+      search: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      getSegments: vi.fn(),
+      findOrCreate: vi.fn(),
+    },
+    reservations: { list: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockToast.mockClear();
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [{ id: "venue-1", name: "Test Venue" }],
+      selectVenue: vi.fn(),
+      setVenueId: vi.fn(),
+      isMultiVenue: false,
+    } as any);
+
+    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.list.mockResolvedValue({
+      data: [
+        {
+          id: "g1",
+          name: "John Doe",
+          email: "john@example.com",
+          phone: "+15551234",
+          visitCount: 5,
+          notes: null,
+          tags: ["vip", "regular"],
+          dietaryRestrictions: [],
+          lastVisit: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      meta: { total: 1, page: 1, limit: 50 },
+    });
+    mockApi.reservations.list.mockResolvedValue({ data: [], meta: {} });
+    mockApi.guests.update.mockResolvedValue({
+      id: "g1",
+      name: "John Doe",
+      email: "john@example.com",
+      phone: "+15551234",
+      visitCount: 5,
+      notes: null,
+      tags: ["vip"],
+      dietaryRestrictions: [],
+      lastVisit: null,
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+  });
+
+  it("shows tags input in edit mode", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    // Tags input or section should be present in edit mode
+    expect(screen.getByPlaceholderText(/add tag/i)).toBeDefined();
+  });
+
+  it("includes tags in the update API call", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(mockApi.guests.update).toHaveBeenCalledWith(
+        "g1",
+        expect.objectContaining({ tags: expect.any(Array) })
+      );
+    });
+  });
+});
+
+describe("GuestsPage - dietary restrictions editing", () => {
+  const mockApi = {
+    guests: {
+      list: vi.fn(),
+      search: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      getSegments: vi.fn(),
+      findOrCreate: vi.fn(),
+    },
+    reservations: { list: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockToast.mockClear();
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [{ id: "venue-1", name: "Test Venue" }],
+      selectVenue: vi.fn(),
+      setVenueId: vi.fn(),
+      isMultiVenue: false,
+    } as any);
+
+    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.list.mockResolvedValue({
+      data: [
+        {
+          id: "g1",
+          name: "John Doe",
+          email: "john@example.com",
+          phone: null,
+          visitCount: 3,
+          notes: null,
+          tags: [],
+          dietaryRestrictions: ["vegetarian"],
+          lastVisit: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      meta: { total: 1, page: 1, limit: 50 },
+    });
+    mockApi.reservations.list.mockResolvedValue({ data: [], meta: {} });
+    mockApi.guests.update.mockResolvedValue({});
+  });
+
+  it("shows dietary restrictions checkboxes in edit mode", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    // Dietary restrictions checkboxes should be present
+    expect(screen.getByLabelText(/vegetarian/i)).toBeDefined();
+    expect(screen.getByLabelText(/vegan/i)).toBeDefined();
+    expect(screen.getByLabelText(/gluten.free/i)).toBeDefined();
+  });
+
+  it("pre-checks dietary restrictions from guest data", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    const vegetarianCheckbox = screen.getByLabelText(/vegetarian/i) as HTMLInputElement;
+    expect(vegetarianCheckbox.checked).toBe(true);
+  });
+
+  it("includes dietaryRestrictions in the update API call", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(mockApi.guests.update).toHaveBeenCalledWith(
+        "g1",
+        expect.objectContaining({ dietaryRestrictions: expect.any(Array) })
+      );
+    });
+  });
+
+  it("toggles a dietary restriction when checkbox is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    // Vegan starts unchecked, click to check it
+    const veganCheckbox = screen.getByLabelText(/vegan/i) as HTMLInputElement;
+    expect(veganCheckbox.checked).toBe(false);
+    await user.click(veganCheckbox);
+    expect(veganCheckbox.checked).toBe(true);
+
+    // Save and verify the update includes vegan
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(mockApi.guests.update).toHaveBeenCalledWith(
+        "g1",
+        expect.objectContaining({
+          dietaryRestrictions: expect.arrayContaining(["vegetarian", "vegan"]),
+        })
+      );
+    });
+  });
+});
+
+describe("GuestsPage - success toast on save", () => {
+  const mockApi = {
+    guests: {
+      list: vi.fn(),
+      search: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      getSegments: vi.fn(),
+      findOrCreate: vi.fn(),
+    },
+    reservations: { list: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockToast.mockClear();
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [{ id: "venue-1", name: "Test Venue" }],
+      selectVenue: vi.fn(),
+      setVenueId: vi.fn(),
+      isMultiVenue: false,
+    } as any);
+
+    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.list.mockResolvedValue({
+      data: [
+        {
+          id: "g1",
+          name: "John Doe",
+          email: "john@example.com",
+          phone: null,
+          visitCount: 3,
+          notes: null,
+          tags: [],
+          dietaryRestrictions: [],
+          staffNotes: [],
+          lastVisit: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      meta: { total: 1, page: 1, limit: 50 },
+    });
+    mockApi.reservations.list.mockResolvedValue({ data: [], meta: {} });
+    mockApi.guests.update.mockResolvedValue({});
+  });
+
+  it("shows success toast after successful save", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+    });
+  });
+
+  it("does not show success toast when save fails", async () => {
+    mockApi.guests.update.mockRejectedValue(new Error("Network error"));
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Network error")).toBeDefined();
+    });
+
+    expect(mockToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+  });
+});
+
+describe("GuestsPage - form validation", () => {
+  const mockApi = {
+    guests: {
+      list: vi.fn(),
+      search: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      getSegments: vi.fn(),
+      findOrCreate: vi.fn(),
+    },
+    reservations: { list: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockToast.mockClear();
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenueId: "venue-1",
+      venues: [{ id: "venue-1", name: "Test Venue" }],
+      selectVenue: vi.fn(),
+      setVenueId: vi.fn(),
+      isMultiVenue: false,
+    } as any);
+
+    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.list.mockResolvedValue({
+      data: [
+        {
+          id: "g1",
+          name: "John Doe",
+          email: "john@example.com",
+          phone: "+15551234",
+          visitCount: 3,
+          notes: null,
+          tags: [],
+          dietaryRestrictions: [],
+          lastVisit: null,
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+      meta: { total: 1, page: 1, limit: 50 },
+    });
+    mockApi.reservations.list.mockResolvedValue({ data: [], meta: {} });
+  });
+
+  it("disables Save when name is cleared", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    const nameInput = screen.getByLabelText("Name");
+    await user.clear(nameInput);
+
+    const saveButton = screen.getByText("Save");
+    expect(saveButton).toBeDisabled();
+  });
+
+  it("shows email format error when invalid email is entered", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+
+    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit Guest"));
+    await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
+
+    const emailInput = screen.getByLabelText("Email");
+    await user.clear(emailInput);
+    await user.type(emailInput, "not-an-email");
+
+    // Save button should be disabled or an error shown
+    const saveButton = screen.getByText("Save");
+    expect(saveButton).toBeDisabled();
   });
 });
