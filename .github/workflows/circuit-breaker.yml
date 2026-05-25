@@ -117,9 +117,22 @@ jobs:
           git commit -m "ci(circuit-breaker): persist state [skip ci]"
           git push origin HEAD:circuit-breaker-state
 
-      - name: Create issue on circuit trip
+      - name: Create issue on circuit trip (dedup)
         if: steps.analyze.outputs.blocked == 'true'
         run: |
+          EXISTING=$(gh issue list \
+            --label "ci-fix,blocking" \
+            --search "Circuit breaker tripped" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Open circuit breaker issue already exists: #$EXISTING — skipping"
+            exit 0
+          fi
+
           {
             echo "The deploy circuit breaker has tripped after 2+ consecutive failures."
             echo
