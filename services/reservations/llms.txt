@@ -193,6 +193,19 @@
       export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
     </item>
   </file>
+  <file path="src/services/cancellation-policy.ts">
+    <item priority="low">
+      interface CancellationPolicy {
+        freeCancellationHours: number;
+        lateCancellationFeePercent: number;
+        noShowFeePercent: number;
+        depositAmountCents: number;
+      }
+    </item>
+    <item priority="low">
+      type FeeType = "none" | "late" | "noshow";
+    </item>
+  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";

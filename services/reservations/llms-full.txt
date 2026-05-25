@@ -4207,6 +4207,19 @@
       return largestRule.durationMinutes + extraTime;
     }
   </file>
+  <file path="src/services/cancellation-policy.ts">
+    export interface CancellationPolicy {
+      /** Hours before reservation within which cancellation is free (inclusive boundary). */
+      freeCancellationHours: number;
+      /** Percentage of deposit charged for late cancellation (0–100). */
+      lateCancellationFeePercent: number;
+      /** Percentage of deposit charged for no-shows (0–100). */
+      noShowFeePercent: number;
+      /** Deposit amount in cents. */
+      depositAmountCents: number;
+    }
+    export type FeeType = "none" | "late" | "noshow";
+  </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
     export interface ConfirmHoldInput {
