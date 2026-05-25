@@ -27,9 +27,7 @@ import { waitlistRoutes } from "./routes/waitlist.js";
 /**
  * Creates the Fastify application instance.
  */
-export async function buildApp(
-  options: AppOptions = {}
-): Promise<FastifyInstance> {
+export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const fastify = await createServiceApp(
     {
       swagger: {
@@ -73,9 +71,6 @@ export async function buildApp(
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
-
-  // Waitlist routes
-  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   // Deposit routes
   await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
