@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Drawer, Button, Input, Select, TextArea, Stack } from "@mattbutlerengineering/rialto";
+import { Drawer, Button, Input, Select, TextArea, Stack, Divider } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
+import { GuestCard } from "../crm/GuestCard.js";
 import styles from "./EditReservationDrawer.module.css";
 
 interface EditReservationDrawerProps {
@@ -74,6 +75,13 @@ export function EditReservationDrawer({
   return (
     <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
       <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
+        {reservation.guestId && (
+          <>
+            <GuestCard guestId={reservation.guestId} />
+            <Divider />
+          </>
+        )}
+
         {error && <div className={styles.errorBanner}>{error}</div>}
 
         <Stack gap="md">

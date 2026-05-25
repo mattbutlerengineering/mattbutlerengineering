@@ -264,6 +264,8 @@
         lifetimeSpend: Prisma.Decimal | null;
         lastVisit: Date | null;
         tags: unknown;
+        dietaryRestrictions: unknown;
+        staffNotes: unknown;
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }

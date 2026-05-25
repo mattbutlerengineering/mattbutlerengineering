@@ -20,16 +20,14 @@ import styles from "./ReservationsPage.module.css";
 
 /* ── Status → Badge mapping ────────────────── */
 
-const STATUS_BADGE_VARIANT: Record<
-  ReservationStatus,
-  "warning" | "success" | "error" | "neutral"
-> = {
-  PENDING: "warning",
-  CONFIRMED: "success",
-  CANCELLED: "error",
-  COMPLETED: "neutral",
-  NO_SHOW: "error",
-};
+const STATUS_BADGE_VARIANT: Record<ReservationStatus, "warning" | "success" | "error" | "neutral"> =
+  {
+    PENDING: "warning",
+    CONFIRMED: "success",
+    CANCELLED: "error",
+    COMPLETED: "neutral",
+    NO_SHOW: "error",
+  };
 
 const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING: "Pending",
@@ -53,10 +51,7 @@ const STATUS_SEGMENTS = [
 function ReservationsLoadingSkeleton() {
   return (
     <div className={styles.container}>
-      <PageHeader
-        title="Reservations"
-        description="View and manage reservations"
-      />
+      <PageHeader title="Reservations" description="View and manage reservations" />
       <SkeletonGroup>
         <Skeleton variant="card" width="100%" height={300} />
       </SkeletonGroup>
@@ -82,8 +77,7 @@ export function ReservationsPage() {
   const navigate = useNavigate();
   const { selectedVenueId } = useVenue();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate =
-    searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
+  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
   const statusFilter = searchParams.get("status") ?? "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -119,15 +113,9 @@ export function ReservationsPage() {
   const displayReservations = reservations ?? [];
 
   const stats = useMemo(() => {
-    const confirmed = displayReservations.filter(
-      (r) => r.status === "CONFIRMED"
-    ).length;
-    const pending = displayReservations.filter(
-      (r) => r.status === "PENDING"
-    ).length;
-    const cancelled = displayReservations.filter(
-      (r) => r.status === "CANCELLED"
-    ).length;
+    const confirmed = displayReservations.filter((r) => r.status === "CONFIRMED").length;
+    const pending = displayReservations.filter((r) => r.status === "PENDING").length;
+    const cancelled = displayReservations.filter((r) => r.status === "CANCELLED").length;
     return { total: displayReservations.length, confirmed, pending, cancelled };
   }, [displayReservations]);
 
@@ -160,10 +148,7 @@ export function ReservationsPage() {
 
   return (
     <div className={styles.container}>
-      <PageHeader
-        title="Reservations"
-        description="View and manage reservations"
-      />
+      <PageHeader title="Reservations" description="View and manage reservations" />
 
       {lastUpdatedDisplay && (
         <div className={styles.statusBar}>
@@ -211,7 +196,11 @@ export function ReservationsPage() {
         />
       </div>
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && (
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="error">{error}</Alert>
+        </div>
+      )}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${filteredReservations.length} reservation${
@@ -227,8 +216,8 @@ export function ReservationsPage() {
               searchQuery.trim()
                 ? `No reservations matching '${searchQuery.trim()}'.`
                 : statusFilter === "all"
-                ? `No reservations found for ${selectedDate}.`
-                : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
+                  ? `No reservations found for ${selectedDate}.`
+                  : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
             }
           />
         </div>
@@ -253,9 +242,7 @@ export function ReservationsPage() {
                 {filteredReservations.map((reservation) => (
                   <tr
                     key={reservation.id}
-                    onClick={() =>
-                      navigate(`/timeline?date=${reservation.date}`)
-                    }
+                    onClick={() => navigate(`/timeline?date=${reservation.date}`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
@@ -264,21 +251,14 @@ export function ReservationsPage() {
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`View ${
-                      reservation.guestName ?? "Guest"
-                    } reservation on timeline`}
+                    aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
                     style={{ cursor: "pointer" }}
                   >
                     <td className={styles.td}>
-                      {formatTime(reservation.startTime)} -{" "}
-                      {formatTime(reservation.endTime)}
+                      {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
                     </td>
                     <td className={styles.td}>
-                      <Text
-                        variant="body"
-                        color="primary"
-                        className={styles.guestName}
-                      >
+                      <Text variant="body" color="primary" className={styles.guestName}>
                         {reservation.guestName ?? "Guest"}
                       </Text>
                       {reservation.guestEmail && (
@@ -288,17 +268,13 @@ export function ReservationsPage() {
                       )}
                     </td>
                     <td className={styles.td}>{reservation.partySize}</td>
-                    <td className={styles.td}>
-                      {reservation.table?.name ?? reservation.tableId}
-                    </td>
+                    <td className={styles.td}>{reservation.table?.name ?? reservation.tableId}</td>
                     <td className={styles.td}>
                       <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
                         {STATUS_LABEL[reservation.status]}
                       </Badge>
                     </td>
-                    <td className={styles.tdMuted}>
-                      {reservation.notes ?? "-"}
-                    </td>
+                    <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>

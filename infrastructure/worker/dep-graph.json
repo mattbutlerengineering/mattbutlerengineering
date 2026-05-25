@@ -71,6 +71,11 @@
       "path": "packages/feature-flags"
     },
     {
+      "name": "@mbe/jobs",
+      "type": "package",
+      "path": "packages/jobs"
+    },
+    {
       "name": "@mbe/mcp-server",
       "type": "package",
       "path": "packages/mcp-server"
@@ -409,6 +414,11 @@
     },
     {
       "from": "@mbe/feature-flags",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/jobs",
       "to": "@mbe/config",
       "type": "devDependency"
     },

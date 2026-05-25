@@ -300,6 +300,37 @@
           }
         ]
       },
+      "dietaryRestrictions": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "staffNotes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "createdBy": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            }
+          },
+          "required": ["text", "createdBy", "createdAt"]
+        }
+      },
       "createdAt": {
         "type": "string"
       },
@@ -318,6 +349,8 @@
       "lifetimeSpend",
       "lastVisit",
       "tags",
+      "dietaryRestrictions",
+      "staffNotes",
       "createdAt",
       "updatedAt"
     ]

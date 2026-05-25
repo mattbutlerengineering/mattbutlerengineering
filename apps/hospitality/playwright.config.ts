@@ -27,6 +27,8 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 720 },
+        // Load auth session saved by auth.setup.ts — one ROPC call per run.
+        storageState: "e2e/.auth/user.json",
       },
       dependencies: ["setup"],
     },

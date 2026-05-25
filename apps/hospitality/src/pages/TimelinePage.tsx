@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Drawer, Button, Stack, Text, Card } from "@mattbutlerengineering/rialto";
+import { Drawer, Button, Divider, Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid, TimelineMobileView } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
+import { GuestCard } from "../components/crm/GuestCard.js";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
 import { useReservations, RESERVATIONS_QUERY_KEY } from "../hooks/useReservations.js";
 import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
@@ -57,14 +58,21 @@ interface ReservationDetailsProps {
 function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: ReservationDetailsProps) {
   return (
     <Stack gap="lg" className={styles.detailsStack}>
-      <div>
-        <Text variant="label" color="secondary">
-          Guest
-        </Text>
-        <Text variant="display" as="div">
-          {reservation.guestName || "Guest"}
-        </Text>
-      </div>
+      {reservation.guestId ? (
+        <>
+          <GuestCard guestId={reservation.guestId} />
+          <Divider />
+        </>
+      ) : (
+        <div>
+          <Text variant="label" color="secondary">
+            Guest
+          </Text>
+          <Text variant="display" as="div">
+            {reservation.guestName || "Guest"}
+          </Text>
+        </div>
+      )}
 
       {reservation.guestEmail && (
         <div>
@@ -166,7 +174,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
 export function TimelinePage() {
   const { selectedVenueId } = useVenue();
-  const { isConnected } = useReservationData();
+  const { isConnected } = useSSEStatus();
   const api = useApiClient();
   const queryClient = useQueryClient();
 

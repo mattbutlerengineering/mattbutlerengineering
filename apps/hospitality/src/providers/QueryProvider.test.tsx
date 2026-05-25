@@ -6,7 +6,12 @@ import { QueryProvider } from "./QueryProvider.js";
 
 function TestConsumer() {
   const client = useQueryClient();
-  return <div data-testid="has-client">{client ? "yes" : "no"}</div>;
+  const defaults = client.getDefaultOptions().queries;
+  return (
+    <div data-testid="has-client">
+      <span data-testid="retry">{String(defaults?.retry)}</span>
+    </div>
+  );
 }
 
 describe("QueryProvider", () => {
@@ -17,7 +22,7 @@ describe("QueryProvider", () => {
       </QueryProvider>
     );
 
-    expect(screen.getByTestId("has-client")).toHaveTextContent("yes");
+    expect(screen.getByTestId("has-client")).toBeInTheDocument();
   });
 
   it("renders children", () => {
@@ -28,5 +33,15 @@ describe("QueryProvider", () => {
     );
 
     expect(screen.getByTestId("child")).toBeInTheDocument();
+  });
+
+  it("configures 3 retries for queries", () => {
+    render(
+      <QueryProvider>
+        <TestConsumer />
+      </QueryProvider>
+    );
+
+    expect(screen.getByTestId("retry")).toHaveTextContent("3");
   });
 });

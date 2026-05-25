@@ -120,6 +120,8 @@ describe("GuestSchema", () => {
     lifetimeSpend: "4500.00",
     lastVisit: "2026-05-01T12:00:00.000Z",
     tags: ["vip", "regular"],
+    dietaryRestrictions: ["gluten-free"],
+    staffNotes: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-05-10T00:00:00.000Z",
   };
@@ -137,6 +139,7 @@ describe("GuestSchema", () => {
       lifetimeSpend: null,
       lastVisit: null,
       tags: null,
+      dietaryRestrictions: null,
     };
     expect(GuestSchema.safeParse(guest).success).toBe(true);
   });

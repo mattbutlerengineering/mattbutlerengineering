@@ -1,17 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import type { VenueContextValue } from "../contexts/VenueContext.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
 import { useReservations } from "../hooks/useReservations.js";
+import type { UseReservationsResult } from "../hooks/useReservations.js";
 import { useTables } from "../hooks/useTables.js";
+import type { UseTablesResult } from "../hooks/useTables.js";
+import type { Reservation, Table } from "@mbe/types";
 import React from "react";
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
-vi.mock("../contexts/ReservationDataContext.js", () => ({ useReservationData: vi.fn() }));
+vi.mock("../hooks/useSSEStatus.js", () => ({ useSSEStatus: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({
   useReservations: vi.fn(),
   RESERVATIONS_QUERY_KEY: "reservations",
@@ -27,20 +31,30 @@ vi.mock("../hooks/useApiClient.js", () => ({
 }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title }: any) => <div data-testid="page-header">{title}</div>,
+  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
 vi.mock("../components/timeline", () => ({
-  TimelineGrid: ({ tables, reservations, onReservationClick, onTableStatusChange }: any) => (
+  TimelineGrid: ({
+    tables,
+    reservations,
+    onReservationClick,
+    onTableStatusChange,
+  }: {
+    tables?: Table[];
+    reservations?: Reservation[];
+    onReservationClick?: (r: Reservation) => void;
+    onTableStatusChange?: (id: string, status: string) => void;
+  }) => (
     <div data-testid="timeline-grid">
       <span data-testid="table-count">{tables?.length ?? 0}</span>
       <span data-testid="res-count">{reservations?.length ?? 0}</span>
-      {reservations?.map((r: any) => (
+      {reservations?.map((r) => (
         <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
           {r.guestName}
         </button>
       ))}
-      {tables?.map((t: any) => (
+      {tables?.map((t) => (
         <button
           key={t.id}
           data-testid={`table-status-${t.id}`}
@@ -51,9 +65,15 @@ vi.mock("../components/timeline", () => ({
       ))}
     </div>
   ),
-  TimelineMobileView: ({ reservations, onReservationClick }: any) => (
+  TimelineMobileView: ({
+    reservations,
+    onReservationClick,
+  }: {
+    reservations?: Reservation[];
+    onReservationClick?: (r: Reservation) => void;
+  }) => (
     <div data-testid="timeline-mobile-view">
-      {reservations?.map((r: any) => (
+      {reservations?.map((r) => (
         <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
           {r.guestName}
         </button>
@@ -63,7 +83,13 @@ vi.mock("../components/timeline", () => ({
 }));
 
 vi.mock("../components/timeline/CancelReservationDialog", () => ({
-  CancelReservationDialog: ({ onConfirm, onClose }: any) => (
+  CancelReservationDialog: ({
+    onConfirm,
+    onClose,
+  }: {
+    onConfirm: (reason: string, note: string) => void;
+    onClose: () => void;
+  }) => (
     <div data-testid="cancel-dialog">
       <button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
         Confirm Cancel
@@ -76,7 +102,15 @@ vi.mock("../components/timeline/CancelReservationDialog", () => ({
 }));
 
 vi.mock("../components/timeline/EditReservationDrawer", () => ({
-  EditReservationDrawer: ({ reservation, onSave, onClose }: any) => (
+  EditReservationDrawer: ({
+    reservation,
+    onSave,
+    onClose,
+  }: {
+    reservation: Reservation;
+    onSave: (id: string, data: Partial<Reservation>) => void;
+    onClose: () => void;
+  }) => (
     <div data-testid="edit-drawer">
       <span data-testid="edit-guest">{reservation.guestName}</span>
       <button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
@@ -90,7 +124,22 @@ vi.mock("../components/timeline/EditReservationDrawer", () => ({
 }));
 
 vi.mock("../components/timeline/WalkInDialog", () => ({
-  WalkInDialog: ({ tables, venueId, onConfirm, onClose }: any) => (
+  WalkInDialog: ({
+    tables,
+    venueId,
+    onConfirm,
+    onClose,
+  }: {
+    tables?: Table[];
+    venueId?: string;
+    onConfirm: (data: {
+      partySize: number;
+      tableId: string;
+      venueId?: string;
+      guestName: string;
+    }) => void;
+    onClose: () => void;
+  }) => (
     <div data-testid="walkin-dialog">
       <button
         data-testid="walkin-confirm"
@@ -113,15 +162,36 @@ vi.mock("../components/timeline/WalkInDialog", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Drawer: ({ children, open }: any) => (open ? <div data-testid="drawer">{children}</div> : null),
-  Button: ({ children, onClick, disabled, ...rest }: any) => (
+  Drawer: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
+    open ? <div data-testid="drawer">{children}</div> : null,
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    "aria-label"?: string;
+  }) => (
     <button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
       {children}
     </button>
   ),
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
-  Card: ({ children, title, variant }: any) => (
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Text: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <span className={className}>{children}</span>
+  ),
+  Card: ({
+    children,
+    title,
+    variant,
+  }: {
+    children: React.ReactNode;
+    title?: React.ReactNode;
+    variant?: string;
+  }) => (
     <div data-variant={variant}>
       {title}
       {children}
@@ -144,26 +214,79 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-describe("TimelinePage", () => {
-  const todayStr = new Date().toLocaleDateString("en-CA");
+// ── Typed mock factories ─────────────────────────────────────────────────────
 
-  const defaultReservation = {
+function makeVenueContext(overrides: Partial<VenueContextValue> = {}): VenueContextValue {
+  return {
+    selectedVenueId: "venue-1",
+    venues: [],
+    selectedVenue: null,
+    setVenueId: vi.fn(),
+    isLoading: false,
+    isMultiVenue: false,
+    refetchVenues: vi.fn(),
+    ...overrides,
+  };
+}
+
+function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
+  const todayStr = new Date().toLocaleDateString("en-CA");
+  return {
     id: "r1",
-    guestName: "Alice",
     date: todayStr,
     startTime: "2026-05-10T18:00:00",
     endTime: "2026-05-10T20:00:00",
     partySize: 4,
-    status: "CONFIRMED" as const,
+    status: "CONFIRMED",
+    notes: null,
+    cancellationReason: null,
+    cancellationNote: null,
+    guestName: "Alice",
+    guestEmail: null,
+    guestPhone: null,
+    guestId: null,
+    userId: null,
+    occasion: null,
+    seatingPreference: null,
     tableId: "t1",
+    venueId: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
   };
+}
 
-  const defaultTable = { id: "t1", name: "Table 1", tableNumber: "T1", priority: 1 };
+function makeTable(overrides: Partial<Table> = {}): Table {
+  return {
+    id: "t1",
+    name: "Table 1",
+    tableNumber: "T1",
+    capacity: 4,
+    minCovers: 1,
+    maxCovers: null,
+    location: null,
+    isActive: true,
+    priority: 1,
+    status: "AVAILABLE",
+    venueId: null,
+    floorPlanId: null,
+    shapeMetadata: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("TimelinePage", () => {
+  const todayStr = new Date().toLocaleDateString("en-CA");
+
+  const defaultReservation = makeReservation({ guestName: "Alice", date: todayStr });
+  const defaultTable = makeTable();
 
   function mockHooksWithData(
     overrides: {
-      reservations?: any[];
-      tables?: any[];
+      reservations?: Reservation[] | undefined;
+      tables?: Table[] | undefined;
       isConnected?: boolean;
       reservationsLoading?: boolean;
       tablesLoading?: boolean;
@@ -186,29 +309,54 @@ describe("TimelinePage", () => {
       isLoading: reservationsLoading,
       error: reservationsError,
       refetch: vi.fn(),
-    } as any);
+    } satisfies UseReservationsResult);
 
     vi.mocked(useTables).mockReturnValue({
       data: tables,
       isLoading: tablesLoading,
       error: tablesError,
       refetch: vi.fn(),
-    } as any);
+    } satisfies UseTablesResult);
 
-    vi.mocked(useReservationData).mockReturnValue({
+    vi.mocked(useSSEStatus).mockReturnValue({
       isConnected,
-      sseError: null,
-    } as any);
+      error: null,
+    });
   }
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useVenue).mockReturnValue({
-      selectedVenueId: "venue-1",
-      venues: [{ id: "venue-1", name: "Test Venue" }],
-      selectVenue: vi.fn(),
-    } as any);
+    vi.mocked(useVenue).mockReturnValue(
+      makeVenueContext({
+        venues: [
+          {
+            id: "venue-1",
+            name: "Test Venue",
+            venueGroupId: null,
+            slug: "test-venue",
+            ianaTimezone: "America/New_York",
+            currencyCode: "USD",
+            operatingHours: null,
+            settings: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+        selectedVenue: {
+          id: "venue-1",
+          name: "Test Venue",
+          venueGroupId: null,
+          slug: "test-venue",
+          ianaTimezone: "America/New_York",
+          currencyCode: "USD",
+          operatingHours: null,
+          settings: null,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+        },
+      })
+    );
 
     mockHooksWithData();
   });
@@ -742,7 +890,7 @@ describe("TimelinePage", () => {
     it("shows error message when data fetch fails", async () => {
       mockHooksWithData({
         reservationsError: new Error("Network error"),
-        reservations: undefined as any,
+        reservations: undefined,
       });
       renderPage();
       await waitFor(() => {
@@ -754,7 +902,7 @@ describe("TimelinePage", () => {
     it("shows error from tables hook", async () => {
       mockHooksWithData({
         tablesError: new Error("Tables failed"),
-        tables: undefined as any,
+        tables: undefined,
       });
       renderPage();
       await waitFor(() => {
@@ -772,11 +920,7 @@ describe("TimelinePage", () => {
     });
 
     it("disables hooks when no venue is selected", async () => {
-      vi.mocked(useVenue).mockReturnValue({
-        selectedVenueId: null,
-        venues: [],
-        selectVenue: vi.fn(),
-      } as any);
+      vi.mocked(useVenue).mockReturnValue(makeVenueContext({ selectedVenueId: null, venues: [] }));
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("page-header")).toBeDefined();

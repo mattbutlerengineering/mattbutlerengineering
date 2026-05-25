@@ -10,7 +10,9 @@ function createQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        retry: 1,
+        // 3 attempts with exponential backoff: ~1s, ~2s, ~4s
+        retry: 3,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30_000),
         refetchOnWindowFocus: false,
       },
     },
@@ -20,7 +22,5 @@ function createQueryClient(): QueryClient {
 export function QueryProvider({ children }: QueryProviderProps) {
   const [queryClient] = useState(createQueryClient);
 
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

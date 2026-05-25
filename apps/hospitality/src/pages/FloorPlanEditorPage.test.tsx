@@ -1,7 +1,9 @@
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FloorPlan, Table } from "@mbe/types";
 
 /* ── Mock react-router-dom (preserve MemoryRouter/Routes/Route) ─ */
@@ -17,13 +19,7 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-/* ── Mock @mbe/auth/react ─────────────────────────────────────── */
-
-vi.mock("@mbe/auth/react", () => ({
-  useAuth: () => ({ accessToken: "mock-token" }),
-}));
-
-/* ── Mock @mbe/api-client ─────────────────────────────────────── */
+/* ── Mock TQ hooks ────────────────────────────────────────────── */
 
 const mockGetById = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
@@ -31,8 +27,8 @@ const mockSetActive = vi.fn();
 const mockTablesCreate = vi.fn();
 const mockTablesDelete = vi.fn();
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn().mockReturnValue({
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => ({
     floorPlans: {
       getById: mockGetById,
       bulkUpdatePositions: mockBulkUpdatePositions,
@@ -42,7 +38,7 @@ vi.mock("@mbe/api-client", () => ({
       create: mockTablesCreate,
       delete: mockTablesDelete,
     },
-  }),
+  })),
 }));
 
 /* ── Mock floor-plan components ───────────────────────────────── */
@@ -244,13 +240,25 @@ const TABLE_B: Table = {
   updatedAt: "2025-01-01T00:00:00Z",
 };
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
 function renderPage(id = "fp-1") {
+  const Wrapper = createWrapper();
   return render(
-    <MemoryRouter initialEntries={[`/floor-plans/${id}`]}>
-      <Routes>
-        <Route path="/floor-plans/:id" element={<FloorPlanEditorPage />} />
-      </Routes>
-    </MemoryRouter>
+    <Wrapper>
+      <MemoryRouter initialEntries={[`/floor-plans/${id}`]}>
+        <Routes>
+          <Route path="/floor-plans/:id" element={<FloorPlanEditorPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Wrapper>
   );
 }
 
@@ -456,7 +464,6 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("+ Add Table"));
       fireEvent.click(screen.getByText("+ Add Table"));
 
-      // The mock dialog submits when the Submit Table button is clicked
       fireEvent.click(screen.getByText("Submit Table"));
 
       await waitFor(() => {
