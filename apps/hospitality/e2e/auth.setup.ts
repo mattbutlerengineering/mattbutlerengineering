@@ -1,5 +1,5 @@
 import { test as setup, expect } from "@playwright/test";
-import { injectAuth0Session } from "./auth-helpers.js";
+import { injectAuth0Session, validateAuth0Config } from "./auth-helpers.js";
 
 /**
  * Gate test: validates that programmatic Auth0 login works.
@@ -10,6 +10,10 @@ import { injectAuth0Session } from "./auth-helpers.js";
  */
 /** Saved auth state reused by all downstream tests (one ROPC call per run). */
 const AUTH_FILE = "e2e/.auth/user.json";
+
+// Pre-flight: validate credentials are present before any browser is launched.
+// Fails fast with a clear message instead of cryptic downstream test failures.
+validateAuth0Config();
 
 setup("authenticate via Auth0", async ({ page }) => {
   await injectAuth0Session(page);

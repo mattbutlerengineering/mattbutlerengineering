@@ -4,7 +4,7 @@ import type { Page } from "@playwright/test";
  * Auth0 Resource Owner Password Grant configuration.
  * All values come from environment variables — never hardcoded.
  */
-interface Auth0Config {
+export interface Auth0Config {
   domain: string;
   clientId: string;
   audience: string;
@@ -12,16 +12,33 @@ interface Auth0Config {
   password: string;
 }
 
-function getAuth0Config(): Auth0Config {
-  const domain = process.env.E2E_AUTH0_DOMAIN;
-  const clientId = process.env.E2E_AUTH0_CLIENT_ID;
-  const audience = process.env.E2E_AUTH0_AUDIENCE;
-  const email = process.env.E2E_AUTH_EMAIL;
-  const password = process.env.E2E_AUTH_PASSWORD;
+/**
+ * Validates that all required Auth0 env vars are present and returns the config.
+ * Throws a descriptive error listing the missing vars so failures are caught
+ * before any tests run (pre-flight validation).
+ *
+ * @param env - Record of environment variables (defaults to process.env)
+ */
+export function validateAuth0Config(
+  env: Record<string, string | undefined> = process.env
+): Auth0Config {
+  const domain = env["E2E_AUTH0_DOMAIN"];
+  const clientId = env["E2E_AUTH0_CLIENT_ID"];
+  const audience = env["E2E_AUTH0_AUDIENCE"];
+  const email = env["E2E_AUTH_EMAIL"];
+  const password = env["E2E_AUTH_PASSWORD"];
 
-  if (!domain || !clientId || !audience || !email || !password) {
+  const missing: string[] = [];
+  if (!domain) missing.push("E2E_AUTH0_DOMAIN");
+  if (!clientId) missing.push("E2E_AUTH0_CLIENT_ID");
+  if (!audience) missing.push("E2E_AUTH0_AUDIENCE");
+  if (!email) missing.push("E2E_AUTH_EMAIL");
+  if (!password) missing.push("E2E_AUTH_PASSWORD");
+
+  if (missing.length > 0) {
     throw new Error(
-      "Missing required E2E auth env vars. Required:\n" +
+      `Missing required E2E auth env vars: ${missing.join(", ")}\n\n` +
+        "Required vars:\n" +
         "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
         "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
         "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
@@ -31,7 +48,17 @@ function getAuth0Config(): Auth0Config {
     );
   }
 
-  return { domain, clientId, audience, email, password };
+  return {
+    domain: domain!,
+    clientId: clientId!,
+    audience: audience!,
+    email: email!,
+    password: password!,
+  };
+}
+
+function getAuth0Config(): Auth0Config {
+  return validateAuth0Config(process.env);
 }
 
 /**
@@ -44,12 +71,17 @@ interface TokenResponse {
   expires_in: number;
 }
 
+type FetchFn = typeof fetch;
+
 /**
  * Fetches tokens from Auth0 using the Resource Owner Password Grant.
  * This bypasses the browser login flow entirely — fast, reliable, CI-friendly.
  */
-async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
-  const response = await fetch(`https://${config.domain}/oauth/token`, {
+async function fetchAuth0Tokens(
+  config: Auth0Config,
+  fetchFn: FetchFn = fetch
+): Promise<TokenResponse> {
+  const response = await fetchFn(`https://${config.domain}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -72,6 +104,48 @@ async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
   }
 
   return response.json() as Promise<TokenResponse>;
+}
+
+/**
+ * Options for retry behaviour.
+ */
+export interface RetryOptions {
+  /** Maximum number of attempts (default: 3). */
+  maxAttempts?: number;
+  /** Base delay in milliseconds for exponential backoff (default: 1000). */
+  baseDelayMs?: number;
+}
+
+/**
+ * Fetches Auth0 tokens with exponential-backoff retry logic.
+ * Handles transient failures (rate limits, service unavailability) that cause
+ * E2E flakes without retrying credential errors (4xx other than 429).
+ *
+ * Retry schedule (default): attempt 1 → wait 1s → attempt 2 → wait 2s → attempt 3 → throw
+ */
+export async function fetchAuth0TokensWithRetry(
+  config: Auth0Config,
+  fetchFn: FetchFn = fetch,
+  { maxAttempts = 3, baseDelayMs = 1000 }: RetryOptions = {}
+): Promise<TokenResponse> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fetchAuth0Tokens(config, fetchFn);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (attempt < maxAttempts) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw new Error(
+    `Auth0 token request failed after ${maxAttempts} attempts. Last error: ${lastError?.message ?? "unknown"}`
+  );
 }
 
 /**
@@ -130,7 +204,7 @@ function buildOidcUserEntry(
  */
 export async function injectAuth0Session(page: Page): Promise<void> {
   const config = getAuth0Config();
-  const tokens = await fetchAuth0Tokens(config);
+  const tokens = await fetchAuth0TokensWithRetry(config);
   const entry = buildOidcUserEntry(config, tokens);
 
   // Navigate to the app first so sessionStorage is on the correct origin
