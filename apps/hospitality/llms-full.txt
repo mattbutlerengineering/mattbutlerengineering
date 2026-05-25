@@ -53,23 +53,33 @@
     }
   </file>
   <file path="e2e/auth-helpers.ts">
-    interface Auth0Config {
+    export interface Auth0Config {
       domain: string;
       clientId: string;
       audience: string;
       email: string;
       password: string;
     }
-    function getAuth0Config(): Auth0Config {
-      const domain = process.env.E2E_AUTH0_DOMAIN;
-      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
-      const audience = process.env.E2E_AUTH0_AUDIENCE;
-      const email = process.env.E2E_AUTH_EMAIL;
-      const password = process.env.E2E_AUTH_PASSWORD;
+    export function validateAuth0Config(
+      env: Record<string, string | undefined> = process.env
+    ): Auth0Config {
+      const domain = env["E2E_AUTH0_DOMAIN"];
+      const clientId = env["E2E_AUTH0_CLIENT_ID"];
+      const audience = env["E2E_AUTH0_AUDIENCE"];
+      const email = env["E2E_AUTH_EMAIL"];
+      const password = env["E2E_AUTH_PASSWORD"];
     
-      if (!domain || !clientId || !audience || !email || !password) {
+      const missing: string[] = [];
+      if (!domain) missing.push("E2E_AUTH0_DOMAIN");
+      if (!clientId) missing.push("E2E_AUTH0_CLIENT_ID");
+      if (!audience) missing.push("E2E_AUTH0_AUDIENCE");
+      if (!email) missing.push("E2E_AUTH_EMAIL");
+      if (!password) missing.push("E2E_AUTH_PASSWORD");
+    
+      if (missing.length > 0) {
         throw new Error(
-          "Missing required E2E auth env vars. Required:\n" +
+          `Missing required E2E auth env vars: ${missing.join(", ")}\n\n` +
+            "Required vars:\n" +
             "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
             "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
             "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
@@ -79,7 +89,13 @@
         );
       }
     
-      return { domain, clientId, audience, email, password };
+      return {
+        domain: domain!,
+        clientId: clientId!,
+        audience: audience!,
+        email: email!,
+        password: password!,
+      };
     }
   </file>
   <file path="e2e/fixtures.ts">
@@ -209,7 +225,10 @@
       const { selectedVenueId } = useVenue();
       const { toast } = useToast();
     
-      const makeEvent = (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
+      const makeEvent = (
+        type: ReservationEvent["type"],
+        data: ReservationEvent["data"]
+      ): ReservationEvent => ({
         type,
         venueId: selectedVenueId ?? "",
         timestamp: new Date().toISOString(),
