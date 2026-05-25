@@ -190,6 +190,28 @@ model Reservation {
   @@map("reservations")
 }
 
+model Deposit {
+  id                    String        @id @default(cuid())
+  reservationId         String        @unique @map("reservation_id")
+  reservation           Reservation   @relation(fields: [reservationId], references: [id])
+  amountCents           Int           @map("amount_cents")
+  currency              String        @default("usd")
+  status                DepositStatus @default(pending)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  stripeCustomerId      String?       @map("stripe_customer_id")
+  heldAt                DateTime?     @map("held_at")
+  appliedAt             DateTime?     @map("applied_at")
+  refundedAt            DateTime?     @map("refunded_at")
+  forfeitedAt           DateTime?     @map("forfeited_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  @@index([reservationId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@map("deposits")
+}
+
 model WaitlistEntry {
   id                   String         @id @default(cuid())
   venueId              String         @map("venue_id")
