@@ -35,8 +35,9 @@ COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/notifications/tsconfig.json ./packages/notifications/
 COPY services/reservations/tsconfig.json ./services/reservations/
 
-# Copy Prisma schema (needed for db:generate)
+# Copy Prisma schema and config (needed for db:generate)
 COPY services/reservations/prisma ./services/reservations/prisma
+COPY services/reservations/prisma.config.ts ./services/reservations/
 
 # Copy source code (most frequently changing layer — last)
 COPY packages/types/src ./packages/types/src
