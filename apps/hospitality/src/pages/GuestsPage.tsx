@@ -586,7 +586,9 @@ export function GuestsPage() {
     return (
       <div className={styles.container}>
         <PageHeader title="Guests" description="Manage your guest directory" />
-        <Alert variant="warning">Please select a venue to view guests.</Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="warning">Please select a venue to view guests.</Alert>
+        </div>
       </div>
     );
   }
