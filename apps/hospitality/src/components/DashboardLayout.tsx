@@ -115,9 +115,7 @@ function DashboardLayoutInner() {
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
     const map = new Map<string, readonly NavItem[]>();
-    map.set("Account", [
-      { id: "signout", label: "Sign Out", path: "/__signout__" },
-    ]);
+    map.set("Account", [{ id: "signout", label: "Sign Out", path: "/__signout__" }]);
     return map;
   }, []);
 
@@ -179,15 +177,13 @@ function DashboardLayoutInner() {
     const path = pathname.replace(/^\/hospitality/, "").replace(/^\//, "");
     const segments = path.split("/").filter(Boolean);
 
-    // On home/timeline page, just show "Timeline" as current (no link)
-    if (segments.length === 0) {
-      return [{ label: "Timeline" }];
+    // On root or timeline page, show "Home" as the sole current-page crumb
+    if (segments.length === 0 || (segments.length === 1 && segments[0] === "timeline")) {
+      return [{ label: "Home" }];
     }
 
-    // Always start with a clickable Timeline (new home)
-    const items: BreadcrumbItem[] = [
-      { label: "Timeline", onClick: () => navigate("/timeline") },
-    ];
+    // Always start with a clickable "Home" linking to /timeline
+    const items: BreadcrumbItem[] = [{ label: "Home", onClick: () => navigate("/timeline") }];
 
     // Build intermediate + final crumbs
     let accumulated = "";
@@ -293,13 +289,8 @@ function DashboardLayoutInner() {
                 }}
               >
                 <Heading level={2}>Something went wrong</Heading>
-                <Text color="secondary">
-                  An unexpected error occurred in this page.
-                </Text>
-                <Button
-                  variant="secondary"
-                  onClick={() => window.location.reload()}
-                >
+                <Text color="secondary">An unexpected error occurred in this page.</Text>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
                   Reload
                 </Button>
               </Stack>
@@ -311,10 +302,7 @@ function DashboardLayoutInner() {
       </div>
 
       {chatMounted && (
-        <div
-          data-chat-wrapper=""
-          style={{ display: chatOpen ? undefined : "none" }}
-        >
+        <div data-chat-wrapper="" style={{ display: chatOpen ? undefined : "none" }}>
           <ChatPanel
             onClose={() => setChatOpen(false)}
             api="/api/gen/agent"
