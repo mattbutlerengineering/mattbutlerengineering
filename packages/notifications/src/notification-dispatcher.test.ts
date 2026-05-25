@@ -121,4 +121,96 @@ describe("NotificationDispatcher", () => {
 
     expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
   });
+
+  describe("sendBookingModified", () => {
+    it("sends email when preference is email_only", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingModified(emailInput, "email_only");
+
+      expect(mockEmailAdapter.sendBookingModified).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is sms_only (modified is transactional — email fallback)", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingModified(emailInput, "sms_only");
+
+      expect(mockEmailAdapter.sendBookingModified).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is both", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingModified(emailInput, "both");
+
+      expect(mockEmailAdapter.sendBookingModified).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is transactional_only", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingModified(emailInput, "transactional_only");
+
+      expect(mockEmailAdapter.sendBookingModified).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("sendBookingCancelled", () => {
+    it("sends email when preference is email_only", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingCancelled(emailInput, "email_only");
+
+      expect(mockEmailAdapter.sendBookingCancelled).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is sms_only (cancelled is transactional — email fallback)", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingCancelled(emailInput, "sms_only");
+
+      expect(mockEmailAdapter.sendBookingCancelled).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is both", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingCancelled(emailInput, "both");
+
+      expect(mockEmailAdapter.sendBookingCancelled).toHaveBeenCalledOnce();
+    });
+
+    it("sends email when preference is transactional_only", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+      });
+
+      await dispatcher.sendBookingCancelled(emailInput, "transactional_only");
+
+      expect(mockEmailAdapter.sendBookingCancelled).toHaveBeenCalledOnce();
+    });
+  });
 });
