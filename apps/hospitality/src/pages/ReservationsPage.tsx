@@ -196,7 +196,11 @@ export function ReservationsPage() {
         />
       </div>
 
-      {error && <Alert variant="error">{error}</Alert>}
+      {error && (
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="error">{error}</Alert>
+        </div>
+      )}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${filteredReservations.length} reservation${
