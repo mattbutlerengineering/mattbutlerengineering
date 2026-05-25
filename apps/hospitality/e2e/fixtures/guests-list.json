@@ -13,7 +13,7 @@
       "tags": ["VIP", "regular"],
       "createdAt": "2025-06-01T00:00:00.000Z",
       "updatedAt": "2026-05-10T18:00:00.000Z",
-      "dietaryRestrictions": [],
+      "dietaryRestrictions": ["vegetarian"],
       "staffNotes": []
     },
     {
@@ -45,7 +45,7 @@
       "tags": ["regular"],
       "createdAt": "2025-09-01T00:00:00.000Z",
       "updatedAt": "2026-05-05T20:00:00.000Z",
-      "dietaryRestrictions": [],
+      "dietaryRestrictions": ["shellfish-free"],
       "staffNotes": []
     },
     {

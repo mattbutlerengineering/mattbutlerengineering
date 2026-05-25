@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Dialog,
   Divider,
   Drawer,
@@ -17,6 +18,7 @@ import {
   Tag,
   Text,
   TextArea,
+  useToast,
 } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import type { Guest, GuestSegment, Reservation, UpdateGuestRequest } from "@mbe/types";
@@ -43,6 +45,20 @@ const SEGMENT_ACCENT_COLORS = [
   "var(--rialto-error)",
   "var(--rialto-info, var(--rialto-accent))",
 ] as const;
+
+const DIETARY_RESTRICTION_OPTIONS = [
+  "vegetarian",
+  "vegan",
+  "gluten-free",
+  "dairy-free",
+  "nut-free",
+  "halal",
+  "kosher",
+  "shellfish-free",
+] as const;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+\d\s\-().]{7,}$/;
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -157,6 +173,9 @@ interface GuestEditFormData {
   email: string;
   phone: string;
   notes: string;
+  tags: string[];
+  dietaryRestrictions: string[];
+  tagInput: string;
 }
 
 interface GuestDetailDrawerProps {
@@ -180,6 +199,9 @@ type DrawerAction =
   | { type: "set_editing"; isEditing: boolean }
   | { type: "set_form_data"; formData: GuestEditFormData }
   | { type: "update_field"; field: keyof GuestEditFormData; value: string }
+  | { type: "toggle_dietary"; restriction: string }
+  | { type: "add_tag" }
+  | { type: "remove_tag"; tag: string }
   | { type: "save_start" }
   | { type: "save_success" }
   | { type: "save_error"; error: string }
@@ -187,7 +209,7 @@ type DrawerAction =
 
 const INITIAL_DRAWER_STATE: DrawerState = {
   isEditing: false,
-  formData: { name: "", email: "", phone: "", notes: "" },
+  formData: { name: "", email: "", phone: "", notes: "", tags: [], dietaryRestrictions: [], tagInput: "" },
   isSaving: false,
   saveError: null,
 };
@@ -202,6 +224,11 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
           email: action.guest.email ?? "",
           phone: action.guest.phone ?? "",
           notes: action.guest.notes ?? "",
+          tags: action.guest.tags ? [...action.guest.tags] : [],
+          dietaryRestrictions: action.guest.dietaryRestrictions
+            ? [...action.guest.dietaryRestrictions]
+            : [],
+          tagInput: "",
         },
       };
     case "set_editing":
@@ -210,6 +237,28 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
       return { ...state, formData: action.formData };
     case "update_field":
       return { ...state, formData: { ...state.formData, [action.field]: action.value } };
+    case "toggle_dietary": {
+      const current = state.formData.dietaryRestrictions;
+      const next = current.includes(action.restriction)
+        ? current.filter((r) => r !== action.restriction)
+        : [...current, action.restriction];
+      return { ...state, formData: { ...state.formData, dietaryRestrictions: next } };
+    }
+    case "add_tag": {
+      const trimmed = state.formData.tagInput.trim();
+      if (!trimmed || state.formData.tags.includes(trimmed)) {
+        return { ...state, formData: { ...state.formData, tagInput: "" } };
+      }
+      return {
+        ...state,
+        formData: { ...state.formData, tags: [...state.formData.tags, trimmed], tagInput: "" },
+      };
+    }
+    case "remove_tag":
+      return {
+        ...state,
+        formData: { ...state.formData, tags: state.formData.tags.filter((t) => t !== action.tag) },
+      };
     case "save_start":
       return { ...state, isSaving: true, saveError: null };
     case "save_success":
@@ -231,6 +280,7 @@ function GuestDetailDrawer({
 }: GuestDetailDrawerProps) {
   const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
   const { isEditing, formData, isSaving, saveError } = state;
+  const { toast } = useToast();
 
   // Reset form when guest changes or drawer opens
   useCallback(() => {
@@ -264,15 +314,18 @@ function GuestDetailDrawer({
         email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
         notes: formData.notes.trim() || undefined,
+        tags: formData.tags,
+        dietaryRestrictions: formData.dietaryRestrictions,
       });
       drawerDispatch({ type: "save_success" });
+      toast({ title: "Guest updated", variant: "success" });
     } catch (err) {
       drawerDispatch({
         type: "save_error",
         error: err instanceof Error ? err.message : "Failed to save guest",
       });
     }
-  }, [guest, formData, onSave]);
+  }, [guest, formData, onSave, toast]);
 
   const handleCancelEdit = useCallback(() => {
     if (guest) {
@@ -283,6 +336,9 @@ function GuestDetailDrawer({
           email: guest.email ?? "",
           phone: guest.phone ?? "",
           notes: guest.notes ?? "",
+          tags: guest.tags ? [...guest.tags] : [],
+          dietaryRestrictions: guest.dietaryRestrictions ? [...guest.dietaryRestrictions] : [],
+          tagInput: "",
         },
       });
     }
@@ -314,6 +370,9 @@ function GuestDetailDrawer({
   }
 
   const isNameValid = formData.name.trim().length > 0;
+  const isEmailValid = !formData.email.trim() || EMAIL_REGEX.test(formData.email.trim());
+  const isPhoneValid = !formData.phone.trim() || PHONE_REGEX.test(formData.phone.trim());
+  const isFormValid = isNameValid && isEmailValid && isPhoneValid;
 
   return (
     <Drawer
@@ -328,7 +387,7 @@ function GuestDetailDrawer({
             <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isNameValid}>
+            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isFormValid}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </Stack>
@@ -380,6 +439,61 @@ function GuestDetailDrawer({
             rows={4}
             autoResize
           />
+          <Stack gap="xs">
+            <Text variant="label" color="secondary">
+              Tags
+            </Text>
+            <Stack direction="row" gap="xs" wrap>
+              {formData.tags.map((tag) => (
+                <Tag
+                  key={tag}
+                  dismissible
+                  onDismiss={() => drawerDispatch({ type: "remove_tag", tag })}
+                >
+                  {tag}
+                </Tag>
+              ))}
+            </Stack>
+            <Stack direction="row" gap="xs">
+              <Input
+                label="Add tag"
+                type="text"
+                placeholder="Add tag (press Enter)"
+                value={formData.tagInput}
+                onChange={(e) =>
+                  drawerDispatch({ type: "update_field", field: "tagInput", value: e.target.value })
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    drawerDispatch({ type: "add_tag" });
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => drawerDispatch({ type: "add_tag" })}
+              >
+                Add
+              </Button>
+            </Stack>
+          </Stack>
+          <Stack gap="xs">
+            <Text variant="label" color="secondary">
+              Dietary Restrictions
+            </Text>
+            <Stack gap="xs">
+              {DIETARY_RESTRICTION_OPTIONS.map((restriction) => (
+                <Checkbox
+                  key={restriction}
+                  label={restriction}
+                  checked={formData.dietaryRestrictions.includes(restriction)}
+                  onCheckedChange={() => drawerDispatch({ type: "toggle_dietary", restriction })}
+                />
+              ))}
+            </Stack>
+          </Stack>
         </Stack>
       ) : (
         <Stack gap="lg">

@@ -39,11 +39,13 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error }: any) => <div data-testid="error-banner">{error}</div>,
 }));
 
+const mockToast = vi.fn();
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
-  Button: ({ children, onClick, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+  Button: ({ children, onClick, disabled, type }: any) => (
+    <button type={type} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
@@ -122,11 +124,32 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       <span>{value}</span>
     </div>
   ),
-  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
+  Checkbox: ({ label, checked, onCheckedChange }: any) => (
+    <label>
+      <input
+        type="checkbox"
+        aria-label={label}
+        checked={checked ?? false}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
+      {label}
+    </label>
+  ),
+  Tag: ({ children, dismissible, onDismiss }: any) => (
+    <span data-testid="tag">
+      {children}
+      {dismissible && (
+        <button type="button" onClick={onDismiss} aria-label={`Remove ${children}`}>
+          ×
+        </button>
+      )}
+    </span>
+  ),
   Text: ({ children }: any) => <span>{children}</span>,
   TextArea: (props: any) => (
     <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 function createWrapper() {
@@ -154,6 +177,8 @@ const defaultGuests = [
     visitCount: 5,
     notes: null,
     tags: [],
+    dietaryRestrictions: [],
+    staffNotes: [],
     lastVisit: null,
     createdAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
@@ -168,6 +193,8 @@ const defaultGuests = [
     visitCount: 2,
     notes: "Allergic to nuts",
     tags: ["vip"],
+    dietaryRestrictions: ["nut-free"],
+    staffNotes: [],
     lastVisit: null,
     createdAt: "2026-01-01T00:00:00Z",
     venueId: "venue-1",
