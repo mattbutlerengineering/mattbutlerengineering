@@ -1,6 +1,5 @@
 /// <reference types="@fastify/rate-limit" />
-// AI SDK routes "provider/model" strings through Vercel AI Gateway when
-// AI_GATEWAY_API_KEY is set in the environment. No @ai-sdk/anthropic import needed.
+import { anthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsync } from "fastify";
@@ -33,7 +32,8 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: {
           max: 50,
           timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+          keyGenerator: (request: FastifyRequest) =>
+            request.user?.id ?? request.ip,
         },
       },
     },
@@ -55,10 +55,10 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
       const { messages } = parseResult.data;
 
       // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
-      const modelId = "anthropic/claude-haiku-4.5";
+      const MODEL_ID = "claude-haiku-4.5";
 
       const result = streamText({
-        model: modelId, // AI SDK resolves "provider/model" via AI_GATEWAY_API_KEY
+        model: anthropic(MODEL_ID),
         // GEN-05: prompt caching via providerOptions on the system message
         // CRITICAL: must use messages array (not top-level system:) to support providerOptions
         messages: [
@@ -74,16 +74,20 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
         // GEN-06: cost logging in onFinish
         onFinish: async ({ usage, providerMetadata }) => {
           const anthropicMeta = providerMetadata?.anthropic as
-            | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+            | {
+                cacheCreationInputTokens?: number;
+                cacheReadInputTokens?: number;
+              }
             | undefined;
           request.log.info(
             {
               userId: request.user?.id,
-              modelId,
+              modelId: MODEL_ID,
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
               cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-              cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+              cacheCreationInputTokens:
+                anthropicMeta?.cacheCreationInputTokens ?? 0,
             },
             "gen-chat cost log"
           );

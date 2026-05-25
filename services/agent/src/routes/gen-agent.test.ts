@@ -11,6 +11,15 @@ vi.mock("ai", () => ({
   },
 }));
 
+// Mock the direct Anthropic provider — returns a function that produces a model object
+const mockAnthropicModel = {
+  provider: "anthropic",
+  modelId: "claude-haiku-4.5",
+};
+vi.mock("@ai-sdk/anthropic", () => ({
+  anthropic: vi.fn(() => mockAnthropicModel),
+}));
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: {
     prompt: vi.fn(() => "mock system prompt"),
@@ -63,6 +72,16 @@ vi.mock("../services/orchestrator.js", () => ({
   orchestratorService: {
     decompose: vi.fn(),
   },
+}));
+
+vi.mock("@mbe/agent-core", () => ({
+  runSession: vi.fn(),
+  DEFAULT_SESSION_CONFIG: {},
+  DEFAULT_FEEDBACK_LOOP_CONFIG: {},
+  resolveBudget: vi.fn(),
+  resolveModel: vi.fn(),
+  routeModelWithReason: vi.fn(),
+  createSanitizedStream: vi.fn((stream: unknown) => stream),
 }));
 
 import { streamText } from "ai";
@@ -130,7 +149,9 @@ describe("POST /api/gen/agent", () => {
       payload: { messages: [{ role: "user", content: "hello" }] },
     });
 
-    const call = vi.mocked(streamText).mock.calls[0]![0] as { tools: Record<string, unknown> };
+    const call = vi.mocked(streamText).mock.calls[0]![0] as {
+      tools: Record<string, unknown>;
+    };
     const toolNames = Object.keys(call.tools).sort();
     expect(toolNames).toEqual([
       "cancel_reservation",
@@ -162,7 +183,7 @@ describe("POST /api/gen/agent", () => {
 
     expect(streamText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "anthropic/claude-haiku-4.5",
+        model: mockAnthropicModel,
         tools: expect.objectContaining({
           check_availability: expect.objectContaining({
             inputSchema: expect.anything(),
@@ -210,7 +231,9 @@ describe("POST /api/gen/agent", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/gen/agent",
-      payload: { messages: [{ role: "user", content: "what is available tonight?" }] },
+      payload: {
+        messages: [{ role: "user", content: "what is available tonight?" }],
+      },
     });
 
     const lines = response.body
@@ -304,7 +327,9 @@ describe("POST /api/gen/agent", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/gen/agent",
-      payload: { messages: [{ role: "user", content: "book table 5 for Smith at 7pm" }] },
+      payload: {
+        messages: [{ role: "user", content: "book table 5 for Smith at 7pm" }],
+      },
     });
 
     const lines = response.body
@@ -338,11 +363,15 @@ describe("POST /api/gen/agent", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/gen/agent",
-      payload: { messages: [{ role: "user", content: "what is available tonight?" }] },
+      payload: {
+        messages: [{ role: "user", content: "what is available tonight?" }],
+      },
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["content-type"]).toBe("application/x-ndjson; charset=utf-8");
+    expect(response.headers["content-type"]).toBe(
+      "application/x-ndjson; charset=utf-8"
+    );
 
     const lines = response.body
       .split("\n")

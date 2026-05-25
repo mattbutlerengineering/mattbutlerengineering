@@ -9,6 +9,15 @@ vi.mock("ai", () => ({
   },
 }));
 
+// Mock the direct Anthropic provider — returns a function that produces a model object
+const mockAnthropicModel = {
+  provider: "anthropic",
+  modelId: "claude-haiku-4.5",
+};
+vi.mock("@ai-sdk/anthropic", () => ({
+  anthropic: vi.fn(() => mockAnthropicModel),
+}));
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: {
     prompt: vi.fn(() => "mock system prompt"),
@@ -62,6 +71,16 @@ vi.mock("../services/orchestrator.js", () => ({
   orchestratorService: {
     decompose: vi.fn(),
   },
+}));
+
+vi.mock("@mbe/agent-core", () => ({
+  runSession: vi.fn(),
+  DEFAULT_SESSION_CONFIG: {},
+  DEFAULT_FEEDBACK_LOOP_CONFIG: {},
+  resolveBudget: vi.fn(),
+  resolveModel: vi.fn(),
+  routeModelWithReason: vi.fn(),
+  createSanitizedStream: vi.fn((stream: unknown) => stream),
 }));
 
 import { streamText } from "ai";
@@ -129,7 +148,7 @@ describe("POST /api/gen/chat", () => {
 
     expect(streamText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "anthropic/claude-haiku-4.5",
+        model: mockAnthropicModel,
         messages: expect.arrayContaining([
           expect.objectContaining({
             role: "system",
