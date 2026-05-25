@@ -177,13 +177,13 @@ function DashboardLayoutInner() {
     const path = pathname.replace(/^\/hospitality/, "").replace(/^\//, "");
     const segments = path.split("/").filter(Boolean);
 
-    // On home/timeline page, just show "Timeline" as current (no link)
-    if (segments.length === 0) {
-      return [{ label: "Timeline" }];
+    // On root or timeline page, show "Home" as the sole current-page crumb
+    if (segments.length === 0 || (segments.length === 1 && segments[0] === "timeline")) {
+      return [{ label: "Home" }];
     }
 
-    // Always start with a clickable Timeline (new home)
-    const items: BreadcrumbItem[] = [{ label: "Timeline", onClick: () => navigate("/timeline") }];
+    // Always start with a clickable "Home" linking to /timeline
+    const items: BreadcrumbItem[] = [{ label: "Home", onClick: () => navigate("/timeline") }];
 
     // Build intermediate + final crumbs
     let accumulated = "";
