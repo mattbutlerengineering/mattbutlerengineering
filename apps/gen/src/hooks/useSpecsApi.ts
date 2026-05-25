@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useAuth } from "@mbe/auth/react";
+import { ApiClient } from "@mbe/api-client";
 import type { StoredSpec } from "../types.js";
 
 export interface SaveSpecData {
@@ -18,29 +19,24 @@ export interface UseSpecsApiReturn {
 }
 
 /**
- * Custom hook wrapping specs CRUD API calls with auth.
+ * Custom hook wrapping specs CRUD API calls with auth via @mbe/api-client.
  * Provides optimistic updates for toggleFavorite and deleteSpec.
  * Auto-fetches specs on mount.
  */
 export function useSpecsApi(): UseSpecsApiReturn {
   const { accessToken } = useAuth();
 
-  const [specs, setSpecs] = useState<StoredSpec[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const authFetch = useCallback(
-    async (input: string, init?: RequestInit): Promise<Response> => {
-      return fetch(input, {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          ...init?.headers,
-        },
-      });
-    },
+  const client = useMemo(
+    () =>
+      new ApiClient({
+        baseUrl: "",
+        getAccessToken: () => accessToken,
+      }),
     [accessToken]
   );
+
+  const [specs, setSpecs] = useState<StoredSpec[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchSpecs = useCallback(async (): Promise<void> => {
     // NOTE: We deliberately do NOT call setIsLoading(true) synchronously here.
@@ -51,35 +47,24 @@ export function useSpecsApi(): UseSpecsApiReturn {
     // `isLoading` (which flips to false after first success) and manage their
     // own UI state, or we can introduce a separate `isRefreshing` flag later.
     try {
-      const response = await authFetch("/api/gen/specs");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch specs: ${response.statusText}`);
-      }
-      const json = (await response.json()) as { data: StoredSpec[] };
+      const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
       setSpecs(json.data);
     } catch (err) {
       console.error("[useSpecsApi] fetchSpecs error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [authFetch]);
+  }, [client]);
 
   const saveSpec = useCallback(
     async (data: SaveSpecData): Promise<StoredSpec> => {
-      const response = await authFetch("/api/gen/specs", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to save spec: ${response.statusText}`);
-      }
-      const json = (await response.json()) as { data: StoredSpec };
+      const json = await client.post<{ data: StoredSpec }>("/api/gen/specs", data);
       const created = json.data;
       // Prepend to local state (immutable update)
       setSpecs((prev) => [created, ...prev]);
       return created;
     },
-    [authFetch]
+    [client]
   );
 
   const toggleFavorite = useCallback(
@@ -87,12 +72,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
       // Optimistic update — immediately flip isFavorite
       setSpecs((prev) => prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s)));
       try {
-        const response = await authFetch(`/api/gen/specs/${id}/favorite`, {
-          method: "PATCH",
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to toggle favorite: ${response.statusText}`);
-        }
+        await client.patch(`/api/gen/specs/${id}/favorite`, {});
       } catch (err) {
         // Revert optimistic update on error
         setSpecs((prev) =>
@@ -101,7 +81,7 @@ export function useSpecsApi(): UseSpecsApiReturn {
         console.error("[useSpecsApi] toggleFavorite error:", err);
       }
     },
-    [authFetch]
+    [client]
   );
 
   const deleteSpec = useCallback(
@@ -110,19 +90,14 @@ export function useSpecsApi(): UseSpecsApiReturn {
       const previous = specs;
       setSpecs((prev) => prev.filter((s) => s.id !== id));
       try {
-        const response = await authFetch(`/api/gen/specs/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to delete spec: ${response.statusText}`);
-        }
+        await client.delete(`/api/gen/specs/${id}`);
       } catch (err) {
         // Revert on error
         setSpecs(previous);
         console.error("[useSpecsApi] deleteSpec error:", err);
       }
     },
-    [authFetch, specs]
+    [client, specs]
   );
 
   useEffect(() => {
