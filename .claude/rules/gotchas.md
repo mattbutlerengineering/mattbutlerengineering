@@ -6,6 +6,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
 - JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
+- **lint-staged passes generated files to ESLint as explicit CLI args** — ESLint 10's `ignores` array in config only applies to glob-resolved files, not explicit paths. When lint-staged stages a Prisma generated file (`services/*/src/generated/**`), it passes the path directly to `eslint`, bypassing the ignore. `lint-staged.config.js` filters `/generated/` paths before grouping to prevent this
 
 ## Pre-push / typecheck
 
