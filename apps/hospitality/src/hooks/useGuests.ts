@@ -129,3 +129,45 @@ export function useUpdateGuest() {
     },
   });
 }
+
+/* ── useGuest (single) ───────────────────────────────── */
+
+export interface UseGuestResult {
+  data: Guest | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+export function useGuest(guestId: string | null | undefined): UseGuestResult {
+  const api = useApiClient();
+
+  const query = useQuery({
+    queryKey: [GUESTS_QUERY_KEY, { id: guestId }],
+    queryFn: () => api.guests.get(guestId!),
+    enabled: !!guestId,
+  });
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    error: query.error ?? null,
+    refetch: query.refetch,
+  };
+}
+
+/* ── useAddStaffNote mutation ────────────────────────── */
+
+export function useAddStaffNote() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ guestId, text }: { guestId: string; text: string }) =>
+      api.guests.addNote(guestId, text),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
+      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+    },
+  });
+}
