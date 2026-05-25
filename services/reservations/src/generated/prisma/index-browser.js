@@ -137,6 +137,12 @@ exports.Prisma.VenueScalarFieldEnum = {
   currencyCode: 'currencyCode',
   operatingHours: 'operatingHours',
   settings: 'settings',
+  depositEnabled: 'depositEnabled',
+  depositType: 'depositType',
+  depositAmountCents: 'depositAmountCents',
+  freeCancellationHours: 'freeCancellationHours',
+  lateCancellationFeePercent: 'lateCancellationFeePercent',
+  noShowFeePercent: 'noShowFeePercent',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -182,6 +188,7 @@ exports.Prisma.GuestScalarFieldEnum = {
   tags: 'tags',
   dietaryRestrictions: 'dietaryRestrictions',
   staffNotes: 'staffNotes',
+  stripeCustomerId: 'stripeCustomerId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -205,6 +212,22 @@ exports.Prisma.ReservationScalarFieldEnum = {
   userId: 'userId',
   tableId: 'tableId',
   venueId: 'venueId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DepositScalarFieldEnum = {
+  id: 'id',
+  reservationId: 'reservationId',
+  amountCents: 'amountCents',
+  currency: 'currency',
+  status: 'status',
+  stripePaymentIntentId: 'stripePaymentIntentId',
+  stripeCustomerId: 'stripeCustomerId',
+  heldAt: 'heldAt',
+  appliedAt: 'appliedAt',
+  refundedAt: 'refundedAt',
+  forfeitedAt: 'forfeitedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -251,6 +274,11 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+exports.DepositType = exports.$Enums.DepositType = {
+  flat: 'flat',
+  per_person: 'per_person'
+};
+
 exports.TableStatus = exports.$Enums.TableStatus = {
   AVAILABLE: 'AVAILABLE',
   OCCUPIED: 'OCCUPIED',
@@ -284,6 +312,14 @@ exports.SeatingPreference = exports.$Enums.SeatingPreference = {
   no_preference: 'no_preference'
 };
 
+exports.DepositStatus = exports.$Enums.DepositStatus = {
+  pending: 'pending',
+  held: 'held',
+  applied: 'applied',
+  refunded: 'refunded',
+  forfeited: 'forfeited'
+};
+
 exports.Prisma.ModelName = {
   VenueGroup: 'VenueGroup',
   Venue: 'Venue',
@@ -291,6 +327,7 @@ exports.Prisma.ModelName = {
   Table: 'Table',
   Guest: 'Guest',
   Reservation: 'Reservation',
+  Deposit: 'Deposit',
   ReservationHold: 'ReservationHold'
 };
 
