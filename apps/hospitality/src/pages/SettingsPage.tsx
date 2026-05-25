@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -12,9 +12,9 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import { UsersClient, ApiClientError } from "@mbe/api-client";
-import type { User, UserPreferences } from "@mbe/types";
-import { useApiClient } from "../hooks/useApiClient.js";
+import { ApiClientError } from "@mbe/api-client";
+import type { UserPreferences } from "@mbe/types";
+import { useCurrentUser, useUpdatePreferences } from "../hooks/useUsers.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./SettingsPage.module.css";
@@ -105,12 +105,12 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 /* ── Main component ─────────────────────────── */
 
 export function SettingsPage() {
-  const { accessToken, isLoading: isAuthLoading, signOut } = useAuth();
-  const apiClient = useApiClient();
-  const usersClient = useMemo(() => new UsersClient(apiClient.client), [apiClient]);
+  const { isLoading: isAuthLoading, signOut } = useAuth();
   const { setTheme: setLocalTheme } = useTheme();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const { data: user, isLoading } = useCurrentUser();
+  const updatePreferencesMutation = useUpdatePreferences();
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -126,38 +126,14 @@ export function SettingsPage() {
     () => readLocalStorage(LOCAL_STORAGE_KEYS.autoConfirm, "false") === "true"
   );
 
-  useEffect(() => {
-    async function fetchUser() {
-      if (!accessToken) return;
-
-      try {
-        setIsLoading(true);
-        const userData = await usersClient.me();
-        setUser(userData);
-        if (userData.preferences.theme) {
-          setLocalTheme(userData.preferences.theme);
-        }
-      } catch (err) {
-        setError(extractErrorMessage(err, "Failed to load settings"));
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchUser();
-  }, [accessToken, usersClient, setLocalTheme]);
-
   const updatePreference = useCallback(
     async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
-      if (!accessToken) return;
-
       try {
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
 
-        const updatedUser = await usersClient.updatePreferences({ [key]: value });
-        setUser(updatedUser);
+        await updatePreferencesMutation.mutateAsync({ [key]: value });
         setSuccessMessage("Settings saved");
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (err) {
@@ -166,7 +142,7 @@ export function SettingsPage() {
         setIsSaving(false);
       }
     },
-    [accessToken, usersClient]
+    [updatePreferencesMutation]
   );
 
   // Show skeleton while auth is loading or data is being fetched

@@ -1,21 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
-
-const { mockMe, mockUpdate } = vi.hoisted(() => ({
-  mockMe: vi.fn(),
-  mockUpdate: vi.fn(),
+vi.mock("@mbe/auth/react", () => ({
+  useAuth: vi.fn(() => ({
+    user: {
+      name: "Auth User",
+      email: "auth@example.com",
+      picture: "https://example.com/auth.jpg",
+    },
+  })),
 }));
-vi.mock("@mbe/api-client", () => ({
-  ApiClient: vi.fn(function (this: any) {}),
-  UsersClient: vi.fn(function (this: any) {
-    this.me = mockMe;
-    this.update = mockUpdate;
-  }),
+
+const mockApiClient = {
+  users: {
+    me: vi.fn(),
+    update: vi.fn(),
+    updatePreferences: vi.fn(),
+    list: vi.fn(),
+  },
+};
+
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => mockApiClient),
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -106,10 +117,21 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children }: any) => <span>{children}</span>,
 }));
 
-import { useAuth } from "@mbe/auth/react";
 import { ProfilePage } from "./ProfilePage.js";
 
-const mockUseAuth = vi.mocked(useAuth);
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><ProfilePage /></Wrapper>);
+}
 
 const mockUser = {
   id: "user-123",
@@ -119,25 +141,19 @@ const mockUser = {
   emailVerified: true,
   createdAt: "2025-01-15T10:00:00Z",
   updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+  preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseAuth.mockReturnValue({
-    accessToken: "test-token",
-    user: {
-      name: "Auth User",
-      email: "auth@example.com",
-      picture: "https://example.com/auth.jpg",
-    },
-  } as any);
+  mockApiClient.users.me.mockResolvedValue(mockUser);
 });
 
 describe("ProfilePage", () => {
   describe("loading state", () => {
     it("shows skeleton group while loading", () => {
-      mockMe.mockReturnValue(new Promise(() => {})); // never resolves
-      render(<ProfilePage />);
+      mockApiClient.users.me.mockReturnValue(new Promise(() => {})); // never resolves
+      renderPage();
 
       expect(screen.getAllByTestId("skeleton-group").length).toBeGreaterThan(0);
       expect(screen.getByText("Loading your profile...")).toBeDefined();
@@ -146,8 +162,8 @@ describe("ProfilePage", () => {
 
   describe("error state", () => {
     it("shows error alert when fetch fails", async () => {
-      mockMe.mockRejectedValue(new Error("Network error"));
-      render(<ProfilePage />);
+      mockApiClient.users.me.mockRejectedValue(new Error("Network error"));
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("alert-error")).toBeDefined();
@@ -157,14 +173,14 @@ describe("ProfilePage", () => {
     });
 
     it("shows retry button that reloads the page", async () => {
-      mockMe.mockRejectedValue(new Error("Network error"));
+      mockApiClient.users.me.mockRejectedValue(new Error("Network error"));
       const reloadSpy = vi.fn();
       Object.defineProperty(window, "location", {
         value: { ...window.location, reload: reloadSpy },
         writable: true,
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Retry")).toBeDefined();
@@ -176,12 +192,8 @@ describe("ProfilePage", () => {
   });
 
   describe("loaded state", () => {
-    beforeEach(() => {
-      mockMe.mockResolvedValue(mockUser);
-    });
-
     it("displays user name and email", async () => {
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         // Name appears in both Avatar mock and hero info Text
@@ -191,7 +203,7 @@ describe("ProfilePage", () => {
     });
 
     it("shows Edit Profile button", async () => {
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -199,7 +211,7 @@ describe("ProfilePage", () => {
     });
 
     it("shows account details with user ID and email verified badge", async () => {
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("User ID")).toBeDefined();
@@ -213,7 +225,7 @@ describe("ProfilePage", () => {
     });
 
     it("shows member since and last updated in account details", async () => {
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("Member Since").length).toBeGreaterThan(0);
@@ -225,13 +237,9 @@ describe("ProfilePage", () => {
   });
 
   describe("edit mode", () => {
-    beforeEach(() => {
-      mockMe.mockResolvedValue(mockUser);
-    });
-
     it("clicking Edit Profile shows edit form with name and picture inputs", async () => {
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -245,7 +253,7 @@ describe("ProfilePage", () => {
 
     it("name input is pre-filled with user name", async () => {
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -259,7 +267,7 @@ describe("ProfilePage", () => {
 
     it("clearing name shows validation error and disables Save", async () => {
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -275,12 +283,12 @@ describe("ProfilePage", () => {
       expect(saveBtn.disabled).toBe(true);
     });
 
-    it("save calls usersClient.update with correct data", async () => {
+    it("save calls users.update with correct data", async () => {
       const updatedUser = { ...mockUser, name: "Updated Name" };
-      mockUpdate.mockResolvedValue(updatedUser);
+      mockApiClient.users.update.mockResolvedValue(updatedUser);
 
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -295,7 +303,7 @@ describe("ProfilePage", () => {
       await user.click(screen.getByText("Save Changes"));
 
       await waitFor(() => {
-        expect(mockUpdate).toHaveBeenCalledWith("user-123", {
+        expect(mockApiClient.users.update).toHaveBeenCalledWith("user-123", {
           name: "Updated Name",
           picture: "https://example.com/photo.jpg",
         });
@@ -303,10 +311,10 @@ describe("ProfilePage", () => {
     });
 
     it("save success shows success alert", async () => {
-      mockUpdate.mockResolvedValue({ ...mockUser, name: "Updated" });
+      mockApiClient.users.update.mockResolvedValue({ ...mockUser, name: "Updated" });
 
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -322,10 +330,10 @@ describe("ProfilePage", () => {
     });
 
     it("save error shows error alert", async () => {
-      mockUpdate.mockRejectedValue(new Error("Save failed"));
+      mockApiClient.users.update.mockRejectedValue(new Error("Save failed"));
 
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -342,7 +350,7 @@ describe("ProfilePage", () => {
 
     it("cancel reverts form data and hides edit form", async () => {
       const user = userEvent.setup();
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Edit Profile")).toBeDefined();
@@ -370,12 +378,12 @@ describe("ProfilePage", () => {
 
   describe("helper functions via rendered output", () => {
     it("formatMemberSince formats date correctly", async () => {
-      mockMe.mockResolvedValue({
+      mockApiClient.users.me.mockResolvedValue({
         ...mockUser,
         createdAt: "2024-06-20T00:00:00Z",
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("June 2024").length).toBeGreaterThan(0);
@@ -383,12 +391,12 @@ describe("ProfilePage", () => {
     });
 
     it("formatRelativeTime shows Just now for recent updates", async () => {
-      mockMe.mockResolvedValue({
+      mockApiClient.users.me.mockResolvedValue({
         ...mockUser,
         updatedAt: new Date().toISOString(),
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("Just now").length).toBeGreaterThan(0);
@@ -396,12 +404,12 @@ describe("ProfilePage", () => {
     });
 
     it("formatRelativeTime shows minutes ago", async () => {
-      mockMe.mockResolvedValue({
+      mockApiClient.users.me.mockResolvedValue({
         ...mockUser,
         updatedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("5m ago").length).toBeGreaterThan(0);
@@ -409,12 +417,12 @@ describe("ProfilePage", () => {
     });
 
     it("formatRelativeTime shows hours ago", async () => {
-      mockMe.mockResolvedValue({
+      mockApiClient.users.me.mockResolvedValue({
         ...mockUser,
         updatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("3h ago").length).toBeGreaterThan(0);
@@ -422,12 +430,12 @@ describe("ProfilePage", () => {
     });
 
     it("formatRelativeTime shows days ago", async () => {
-      mockMe.mockResolvedValue({
+      mockApiClient.users.me.mockResolvedValue({
         ...mockUser,
         updatedAt: new Date(Date.now() - 7 * 86_400_000).toISOString(),
       });
 
-      render(<ProfilePage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getAllByText("7d ago").length).toBeGreaterThan(0);

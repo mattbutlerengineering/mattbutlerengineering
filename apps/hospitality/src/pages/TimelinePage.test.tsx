@@ -5,13 +5,13 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
 import { useReservations } from "../hooks/useReservations.js";
 import { useTables } from "../hooks/useTables.js";
 import React from "react";
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
-vi.mock("../contexts/ReservationDataContext.js", () => ({ useReservationData: vi.fn() }));
+vi.mock("../hooks/useSSEStatus.js", () => ({ useSSEStatus: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({
   useReservations: vi.fn(),
   RESERVATIONS_QUERY_KEY: "reservations",
@@ -195,10 +195,10 @@ describe("TimelinePage", () => {
       refetch: vi.fn(),
     } as any);
 
-    vi.mocked(useReservationData).mockReturnValue({
+    vi.mocked(useSSEStatus).mockReturnValue({
       isConnected,
-      sseError: null,
-    } as any);
+      error: null,
+    });
   }
 
   beforeEach(() => {
