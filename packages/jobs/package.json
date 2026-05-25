@@ -1,5 +1,5 @@
 {
-  "name": "@mbe/notifications",
+  "name": "@mbe/jobs",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,11 +8,6 @@
       "types": "./src/index.ts",
       "production": "./dist/index.js",
       "default": "./src/index.ts"
-    },
-    "./ical": {
-      "types": "./src/ical.ts",
-      "production": "./dist/ical.js",
-      "default": "./src/ical.ts"
     }
   },
   "scripts": {
@@ -24,7 +19,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "twilio": "^5.7.1"
+    "bullmq": "^5.53.0",
+    "ioredis": "^5.6.1"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
