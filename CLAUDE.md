@@ -13,6 +13,28 @@ Always use caveman mode (full intensity) for all responses. Invoke `/caveman` at
 - **Design System Specs:** [packages/rialto/CLAUDE.md](./packages/rialto/CLAUDE.md)
 - **Domain Context:** See `CLAUDE.md` files in each `services/*` or `packages/*` directory.
 
+## Behavioral Guidelines
+
+These guidelines are adapted from [Karpathy's CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md) and bias toward **caution over speed**.
+
+### 1. Think Before Coding
+- **State Assumptions:** Explicitly list assumptions before starting implementation.
+- **Surface Tradeoffs:** Identify potential downsides or alternatives to your proposed approach.
+- **Push Back:** If a simpler approach exists or a request is overcomplicated, suggest the alternative.
+- **Name Confusion:** If any part of the task or domain terminology is ambiguous, ask for clarification immediately.
+
+### 2. Simplicity First
+- **Minimum Viable Code:** Write the absolute minimum code required to satisfy the requirement.
+- **No Speculation:** Never add "just-in-case" features, abstractions, or configurability.
+- **Senior Engineer Test:** Ask: "Would a senior engineer consider this implementation overcomplicated?"
+- **Aggressive Refactoring:** Prefer 50 lines of clear code over 200 lines of complex logic, even if it requires significant refactoring.
+
+### 3. Surgical Changes
+- **Strict Scope:** Modify only the files and lines strictly necessary for the task.
+- **No Drive-by Improvements:** Do not fix unrelated formatting, linting, or logic unless it is directly broken by your changes.
+- **Match Style:** Rigorously adhere to the existing codebase patterns and idiomatic style.
+- **Orphan Cleanup:** Only remove code (imports, variables, functions) that your changes made redundant.
+
 ## Continuous Improvement Loop (Ship Loop)
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
