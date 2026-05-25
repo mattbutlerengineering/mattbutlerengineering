@@ -38,20 +38,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SegmentedControl: ({ segments, value: _value, onChange }: any) => (
     <div data-testid="segmented-control">
       {segments?.map((s: any) => (
-        <button
-          key={s.id}
-          data-testid={`segment-${s.id}`}
-          onClick={() => onChange?.(s.id)}
-        >
+        <button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
           {s.label}
         </button>
       ))}
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => (
-    <div data-testid="skeleton-group">{children}</div>
-  ),
+  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
       <span>{label}</span>
@@ -100,9 +94,7 @@ const defaultReservations = [
   },
 ];
 
-function mockReservationsHook(
-  overrides: Partial<ReturnType<typeof useReservations>> = {}
-) {
+function mockReservationsHook(overrides: Partial<ReturnType<typeof useReservations>> = {}) {
   vi.mocked(useReservations).mockReturnValue({
     data: defaultReservations as any,
     isLoading: false,
@@ -299,9 +291,7 @@ describe("ReservationsPage", () => {
 
     it("shows guest email when present", () => {
       mockReservationsHook({
-        data: [
-          { ...defaultReservations[0], guestEmail: "alice@example.com" },
-        ] as any,
+        data: [{ ...defaultReservations[0], guestEmail: "alice@example.com" }] as any,
       });
 
       renderPage();

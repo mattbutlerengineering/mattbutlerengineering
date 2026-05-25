@@ -20,7 +20,12 @@ vi.mock("../services/database.js", () => ({
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
   getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
   }),
 }));
 

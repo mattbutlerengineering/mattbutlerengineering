@@ -20,7 +20,5 @@ function createQueryClient(): QueryClient {
 export function QueryProvider({ children }: QueryProviderProps) {
   const [queryClient] = useState(createQueryClient);
 
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

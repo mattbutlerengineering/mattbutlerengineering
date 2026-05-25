@@ -1,4 +1,3 @@
- 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,9 +41,7 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   };
 }
 
-function makePaginatedResponse(
-  reservations: Reservation[]
-): PaginatedResponse<Reservation> {
+function makePaginatedResponse(reservations: Reservation[]): PaginatedResponse<Reservation> {
   return {
     data: reservations,
     pagination: {
@@ -65,11 +62,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
+    return createElement(QueryClientProvider, { client: queryClient }, children);
   };
 }
 
@@ -82,12 +75,9 @@ describe("useReservations", () => {
 
   it("returns loading state initially", () => {
     mockList.mockReturnValue(new Promise(() => {})); // never resolves
-    const { result } = renderHook(
-      () => useReservations({ date: "2026-01-15", venueId: "v1" }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
 
     expect(result.current.isLoading).toBe(true);
     expect(result.current.data).toBeUndefined();
@@ -95,18 +85,12 @@ describe("useReservations", () => {
   });
 
   it("returns reservation data on success", async () => {
-    const reservations = [
-      makeReservation({ id: "r1" }),
-      makeReservation({ id: "r2" }),
-    ];
+    const reservations = [makeReservation({ id: "r1" }), makeReservation({ id: "r2" })];
     mockList.mockResolvedValue(makePaginatedResponse(reservations));
 
-    const { result } = renderHook(
-      () => useReservations({ date: "2026-01-15", venueId: "v1" }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -119,12 +103,9 @@ describe("useReservations", () => {
   it("returns error state on failure", async () => {
     mockList.mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(
-      () => useReservations({ date: "2026-01-15", venueId: "v1" }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -160,12 +141,9 @@ describe("useReservations", () => {
   it("exposes a refetch function", async () => {
     mockList.mockResolvedValue(makePaginatedResponse([]));
 
-    const { result } = renderHook(
-      () => useReservations({ date: "2026-01-15", venueId: "v1" }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);

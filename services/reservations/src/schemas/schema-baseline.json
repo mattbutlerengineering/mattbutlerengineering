@@ -300,6 +300,19 @@
           }
         ]
       },
+      "dietaryRestrictions": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "staffNotes": {
         "type": "array",
         "items": {
@@ -336,6 +349,7 @@
       "lifetimeSpend",
       "lastVisit",
       "tags",
+      "dietaryRestrictions",
       "staffNotes",
       "createdAt",
       "updatedAt"

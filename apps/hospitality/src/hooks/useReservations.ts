@@ -16,9 +16,7 @@ export interface UseReservationsResult {
   refetch: () => void;
 }
 
-export function useReservations(
-  params: UseReservationsParams = {}
-): UseReservationsResult {
+export function useReservations(params: UseReservationsParams = {}): UseReservationsResult {
   const { enabled = true, ...queryParams } = params;
   const api = useApiClient();
 

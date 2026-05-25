@@ -17,8 +17,7 @@ const mockUseReservationEvents = vi.fn().mockReturnValue({
 });
 
 vi.mock("./useReservationEvents.js", () => ({
-  useReservationEvents: (...args: unknown[]) =>
-    mockUseReservationEvents(...args),
+  useReservationEvents: (...args: unknown[]) => mockUseReservationEvents(...args),
 }));
 
 function createWrapper() {

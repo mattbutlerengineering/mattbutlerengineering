@@ -1,4 +1,3 @@
- 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -60,11 +59,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children
-    );
+    return createElement(QueryClientProvider, { client: queryClient }, children);
   };
 }
 
@@ -148,12 +143,9 @@ describe("useTables", () => {
   });
 
   it("does not fetch when enabled is false", async () => {
-    const { result } = renderHook(
-      () => useTables({ venueId: "v1", enabled: false }),
-      {
-        wrapper: createWrapper(),
-      }
-    );
+    const { result } = renderHook(() => useTables({ venueId: "v1", enabled: false }), {
+      wrapper: createWrapper(),
+    });
 
     expect(result.current.isLoading).toBe(false);
     expect(mockList).not.toHaveBeenCalled();
