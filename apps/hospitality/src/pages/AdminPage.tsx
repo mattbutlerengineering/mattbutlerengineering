@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
-import { useAuth } from "@mbe/auth/react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import {
   Alert,
   Avatar,
@@ -15,9 +14,9 @@ import {
   Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
-import { ApiClient, UsersClient } from "@mbe/api-client";
-import type { User, Pagination as PaginationType } from "@mbe/types";
+import type { User } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
+import { useUsers } from "../hooks/useUsers.js";
 import styles from "./AdminPage.module.css";
 
 type StatusFilter = "all" | "verified" | "unverified";
@@ -85,7 +84,6 @@ function LoadingSkeleton() {
               <div key={i} className={styles.skeletonRow}>
                 <Skeleton variant="circle" width={32} />
                 <Skeleton variant="text" width="40%" />
-                <Skeleton variant="text" width="25%" />
                 <Skeleton variant="rect" width={64} height={22} />
                 <Skeleton variant="text" width="15%" />
               </div>
@@ -143,40 +141,12 @@ function UserDetailRow({ user }: { readonly user: User }) {
 }
 
 export function AdminPage() {
-  const { accessToken } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [pagination, setPagination] = useState<PaginationType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchUsers() {
-      if (!accessToken) return;
-
-      try {
-        setIsLoading(true);
-        setError(null);
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const usersClient = new UsersClient(apiClient);
-        const response = await usersClient.list(currentPage, 10);
-        setUsers(response.data);
-        setPagination(response.pagination);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load users");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchUsers();
-  }, [accessToken, currentPage]);
+  const { data: users = [], pagination, isLoading, error } = useUsers({ page: currentPage, limit: 10 });
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -231,7 +201,7 @@ export function AdminPage() {
             </Button>
           }
         >
-          {error}
+          {error.message}
         </Alert>
       </div>
     );
@@ -266,7 +236,7 @@ export function AdminPage() {
         </div>
 
         <div className={styles.tableWrapper}>
-          <table className={styles.table}>
+          <Table className={styles.table}>
             <thead>
               <tr>
                 <th className={styles.th}>User</th>
@@ -305,7 +275,7 @@ export function AdminPage() {
                           size="sm"
                         />
                         <Text variant="body" color="primary">
-                          {user.name ?? "\u2014"}
+                          {user.name ?? "—"}
                         </Text>
                       </div>
                     </td>
@@ -337,12 +307,12 @@ export function AdminPage() {
                 </Fragment>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
 
-        <span className={styles.srOnly} aria-live="polite" role="status">
+        <Text className={styles.srOnly} aria-live="polite" role="status">
           {`${filteredUsers.length} user${filteredUsers.length !== 1 ? "s" : ""} shown`}
-        </span>
+        </Text>
 
         {filteredUsers.length === 0 && (
           <div className={styles.emptyState} aria-live="polite" role="status">

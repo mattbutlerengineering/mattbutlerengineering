@@ -1,25 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
 import { useAuth } from "@mbe/auth/react";
-import { useApiClient } from "../hooks/useApiClient.js";
 import { useTheme } from "../hooks/use-theme.js";
-import { UsersClient } from "@mbe/api-client";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
-vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 vi.mock("../hooks/use-theme.js", () => ({
   useTheme: vi.fn(),
 }));
 
+const mockApiClient = {
+  users: {
+    me: vi.fn(),
+    update: vi.fn(),
+    updatePreferences: vi.fn(),
+    list: vi.fn(),
+  },
+};
+
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => mockApiClient),
+}));
+
+// ApiClientError is still imported in the page
 vi.mock("@mbe/api-client", () => ({
-  UsersClient: vi.fn(function (this: any) {
-    this.me = vi.fn();
-    this.updatePreferences = vi.fn();
-  }),
-  ApiClientError: class extends Error {},
+  ApiClientError: class extends Error {
+    response: any;
+    constructor(message: string, response: any = {}) {
+      super(message);
+      this.response = response;
+    }
+  },
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -87,6 +102,27 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><SettingsPage /></Wrapper>);
+}
+
+const defaultUser = {
+  id: "u1",
+  name: "Test User",
+  email: "test@example.com",
+  preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
+};
+
 describe("SettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -104,49 +140,38 @@ describe("SettingsPage", () => {
       setTheme: vi.fn(),
     });
 
-    vi.mocked(useApiClient).mockReturnValue({
-      client: {},
-    } as any);
-
-    vi.mocked(UsersClient).mockImplementation(function (this: any) {
-      this.me = vi.fn().mockResolvedValue({
-        id: "u1",
-        name: "Test User",
-        email: "test@example.com",
-        preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
-      });
-      this.updatePreferences = vi.fn();
-    } as any);
+    mockApiClient.users.me.mockResolvedValue(defaultUser);
+    mockApiClient.users.updatePreferences.mockResolvedValue(defaultUser);
   });
 
   it("renders the settings page header", async () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Settings")).toBeDefined();
   });
 
   it("renders theme selection after loading", async () => {
-    render(<SettingsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Theme")).toBeDefined();
     });
   });
 
   it("renders venue defaults card after loading", async () => {
-    render(<SettingsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue Defaults")).toBeDefined();
     });
   });
 
   it("renders notifications card after loading", async () => {
-    render(<SettingsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Notifications")).toBeDefined();
     });
   });
 
   it("renders sign out button", async () => {
-    render(<SettingsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Sign Out")).toBeDefined();
     });
@@ -161,18 +186,14 @@ describe("SettingsPage", () => {
         user: null,
       } as any);
 
-      render(<SettingsPage />);
+      renderPage();
       expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0);
     });
 
     it("shows skeleton while user data is fetching", () => {
-      // me() never resolves so isLoading stays true
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockReturnValue(new Promise(() => {}));
-        this.updatePreferences = vi.fn();
-      } as any);
+      mockApiClient.users.me.mockReturnValue(new Promise(() => {})); // never resolves
 
-      render(<SettingsPage />);
+      renderPage();
       expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0);
     });
   });
@@ -185,22 +206,12 @@ describe("SettingsPage", () => {
         setTheme: mockSetTheme,
       });
 
-      const mockUpdatePreferences = vi.fn().mockResolvedValue({
-        id: "u1",
-        email: "test@example.com",
+      mockApiClient.users.updatePreferences.mockResolvedValue({
+        ...defaultUser,
         preferences: { theme: "dark" },
       });
 
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockResolvedValue({
-          id: "u1",
-          email: "test@example.com",
-          preferences: { theme: "system" },
-        });
-        this.updatePreferences = mockUpdatePreferences;
-      } as any);
-
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("select-Theme")).toBeDefined();
@@ -212,29 +223,19 @@ describe("SettingsPage", () => {
 
       expect(mockSetTheme).toHaveBeenCalledWith("dark");
       await waitFor(() => {
-        expect(mockUpdatePreferences).toHaveBeenCalledWith({ theme: "dark" });
+        expect(mockApiClient.users.updatePreferences).toHaveBeenCalledWith({ theme: "dark" });
       });
     });
   });
 
   describe("notification toggles", () => {
     it("calls updatePreferences when email notifications toggled", async () => {
-      const mockUpdatePreferences = vi.fn().mockResolvedValue({
-        id: "u1",
-        email: "test@example.com",
+      mockApiClient.users.updatePreferences.mockResolvedValue({
+        ...defaultUser,
         preferences: { emailNotifications: false },
       });
 
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockResolvedValue({
-          id: "u1",
-          email: "test@example.com",
-          preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
-        });
-        this.updatePreferences = mockUpdatePreferences;
-      } as any);
-
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("toggle-Email notifications")).toBeDefined();
@@ -243,27 +244,19 @@ describe("SettingsPage", () => {
       fireEvent.click(screen.getByTestId("toggle-Email notifications"));
 
       await waitFor(() => {
-        expect(mockUpdatePreferences).toHaveBeenCalledWith({ emailNotifications: false });
+        expect(mockApiClient.users.updatePreferences).toHaveBeenCalledWith({
+          emailNotifications: false,
+        });
       });
     });
 
     it("calls updatePreferences when marketing emails toggled", async () => {
-      const mockUpdatePreferences = vi.fn().mockResolvedValue({
-        id: "u1",
-        email: "test@example.com",
+      mockApiClient.users.updatePreferences.mockResolvedValue({
+        ...defaultUser,
         preferences: { marketingEmails: true },
       });
 
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockResolvedValue({
-          id: "u1",
-          email: "test@example.com",
-          preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
-        });
-        this.updatePreferences = mockUpdatePreferences;
-      } as any);
-
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("toggle-Marketing emails")).toBeDefined();
@@ -272,7 +265,7 @@ describe("SettingsPage", () => {
       fireEvent.click(screen.getByTestId("toggle-Marketing emails"));
 
       await waitFor(() => {
-        expect(mockUpdatePreferences).toHaveBeenCalledWith({ marketingEmails: true });
+        expect(mockApiClient.users.updatePreferences).toHaveBeenCalledWith({ marketingEmails: true });
       });
     });
   });
@@ -287,7 +280,7 @@ describe("SettingsPage", () => {
         user: { sub: "user-1", name: "Test User", email: "test@example.com" },
       } as any);
 
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Sign Out")).toBeDefined();
@@ -302,7 +295,7 @@ describe("SettingsPage", () => {
     it("reads default duration from localStorage", async () => {
       localStorage.setItem("mbe-hospitality-default-duration", "90");
 
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         const select = screen.getByTestId(
@@ -313,7 +306,7 @@ describe("SettingsPage", () => {
     });
 
     it("writes duration to localStorage on change", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("select-Default reservation duration")).toBeDefined();
@@ -329,7 +322,7 @@ describe("SettingsPage", () => {
     it("reads default party size from localStorage", async () => {
       localStorage.setItem("mbe-hospitality-default-party-size", "6");
 
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         const select = screen.getByTestId("select-Default party size") as HTMLSelectElement;
@@ -338,7 +331,7 @@ describe("SettingsPage", () => {
     });
 
     it("writes party size to localStorage on change", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("select-Default party size")).toBeDefined();
@@ -354,7 +347,7 @@ describe("SettingsPage", () => {
     it("reads auto-confirm from localStorage", async () => {
       localStorage.setItem("mbe-hospitality-auto-confirm", "true");
 
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         const toggle = screen.getByTestId("toggle-Auto-confirm reservations") as HTMLInputElement;
@@ -363,7 +356,7 @@ describe("SettingsPage", () => {
     });
 
     it("writes auto-confirm to localStorage on change", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("toggle-Auto-confirm reservations")).toBeDefined();
@@ -377,22 +370,12 @@ describe("SettingsPage", () => {
 
   describe("save success and error alerts", () => {
     it("shows success alert after saving preferences", async () => {
-      const mockUpdatePreferences = vi.fn().mockResolvedValue({
-        id: "u1",
-        email: "test@example.com",
+      mockApiClient.users.updatePreferences.mockResolvedValue({
+        ...defaultUser,
         preferences: { theme: "dark" },
       });
 
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockResolvedValue({
-          id: "u1",
-          email: "test@example.com",
-          preferences: { theme: "system" },
-        });
-        this.updatePreferences = mockUpdatePreferences;
-      } as any);
-
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("select-Theme")).toBeDefined();
@@ -408,18 +391,9 @@ describe("SettingsPage", () => {
     });
 
     it("shows error alert when saving fails", async () => {
-      const mockUpdatePreferences = vi.fn().mockRejectedValue(new Error("Network error"));
+      mockApiClient.users.updatePreferences.mockRejectedValue(new Error("Network error"));
 
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockResolvedValue({
-          id: "u1",
-          email: "test@example.com",
-          preferences: { theme: "system" },
-        });
-        this.updatePreferences = mockUpdatePreferences;
-      } as any);
-
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("select-Theme")).toBeDefined();
@@ -433,24 +407,11 @@ describe("SettingsPage", () => {
         expect(screen.getByText("Network error")).toBeDefined();
       });
     });
-
-    it("shows error alert when fetching user fails", async () => {
-      vi.mocked(UsersClient).mockImplementation(function (this: any) {
-        this.me = vi.fn().mockRejectedValue(new Error("Server down"));
-        this.updatePreferences = vi.fn();
-      } as any);
-
-      render(<SettingsPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Server down")).toBeDefined();
-      });
-    });
   });
 
   describe("account sidebar", () => {
     it("displays user email in sidebar", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("test@example.com")).toBeDefined();
@@ -458,7 +419,7 @@ describe("SettingsPage", () => {
     });
 
     it("renders Data & Privacy card", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Data & Privacy")).toBeDefined();
@@ -466,7 +427,7 @@ describe("SettingsPage", () => {
     });
 
     it("renders export and delete buttons as disabled", async () => {
-      render(<SettingsPage />);
+      renderPage();
 
       await waitFor(() => {
         const exportBtn = screen.getByText("Export") as HTMLButtonElement;

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -24,46 +24,65 @@ interface VenueDetails {
   ianaTimezone: string;
 }
 
-type PageState =
-  | { kind: "loading" }
-  | { kind: "error"; type: "invalid" | "expired" }
-  | { kind: "success"; reservation: ReservationDetails; venue: VenueDetails | null };
+interface ManageReservationData {
+  reservation: ReservationDetails;
+  venue: VenueDetails | null;
+}
+
+// Custom error type to distinguish expired vs invalid
+class ManageTokenError extends Error {
+  constructor(
+    message: string,
+    public readonly type: "invalid" | "expired"
+  ) {
+    super(message);
+    this.name = "ManageTokenError";
+  }
+}
+
+async function fetchManageReservation(token: string): Promise<ManageReservationData> {
+  const res = await fetch(
+    `${API_BASE}/public/v1/reservations/manage?token=${encodeURIComponent(token)}`
+  );
+
+  if (res.ok) {
+    const json = await res.json();
+    return { reservation: json.data.reservation, venue: json.data.venue };
+  }
+
+  if (res.status === 410) {
+    throw new ManageTokenError("Link expired", "expired");
+  }
+
+  throw new ManageTokenError("Invalid link", "invalid");
+}
 
 export function ManageReservationPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-  const [state, setState] = useState<PageState>(
-    token ? { kind: "loading" } : { kind: "error", type: "invalid" }
-  );
 
-  useEffect(() => {
-    if (!token) return;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["manageReservation", token],
+    queryFn: () => fetchManageReservation(token!),
+    enabled: !!token,
+    retry: false,
+  });
 
-    const controller = new AbortController();
+  // No token in URL
+  if (!token) {
+    return (
+      <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
+        <Text as="h1" variant="display">
+          Invalid Link
+        </Text>
+        <Text variant="body" color="secondary">
+          This link is invalid or has already been used.
+        </Text>
+      </Stack>
+    );
+  }
 
-    fetch(`${API_BASE}/public/v1/reservations/manage?token=${encodeURIComponent(token)}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const json = await res.json();
-          setState({ kind: "success", reservation: json.data.reservation, venue: json.data.venue });
-        } else if (res.status === 410) {
-          setState({ kind: "error", type: "expired" });
-        } else {
-          setState({ kind: "error", type: "invalid" });
-        }
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError") {
-          setState({ kind: "error", type: "invalid" });
-        }
-      });
-
-    return () => controller.abort();
-  }, [token]);
-
-  if (state.kind === "loading") {
+  if (isLoading) {
     return (
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Text variant="body" color="secondary">
@@ -73,14 +92,17 @@ export function ManageReservationPage() {
     );
   }
 
-  if (state.kind === "error") {
+  if (error || !data) {
+    const errorType =
+      error instanceof ManageTokenError ? error.type : "invalid";
+
     return (
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Text as="h1" variant="display">
-          {state.type === "expired" ? "Link Expired" : "Invalid Link"}
+          {errorType === "expired" ? "Link Expired" : "Invalid Link"}
         </Text>
         <Text variant="body" color="secondary">
-          {state.type === "expired"
+          {errorType === "expired"
             ? "This manage link has expired. Please contact the venue for assistance."
             : "This link is invalid or has already been used."}
         </Text>
@@ -88,7 +110,7 @@ export function ManageReservationPage() {
     );
   }
 
-  const { reservation, venue } = state;
+  const { reservation, venue } = data;
 
   return (
     <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>

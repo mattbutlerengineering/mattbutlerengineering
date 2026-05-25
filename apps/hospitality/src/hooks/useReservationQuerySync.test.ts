@@ -1,7 +1,9 @@
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { useReservationQuerySync } from "./useReservationQuerySync.js";
 
 vi.mock("../contexts/VenueContext.js", () => ({
@@ -23,7 +25,11 @@ function createWrapper() {
     defaultOptions: { queries: { retry: false } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(QueryClientProvider, { client: queryClient }, children);
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      createElement(ToastProvider, null, children)
+    );
   };
 }
 

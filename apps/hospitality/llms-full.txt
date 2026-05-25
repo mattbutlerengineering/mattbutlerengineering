@@ -121,25 +121,6 @@
       setTheme: () => {},
     });
   </file>
-  <file path="src/hooks/useApiCall.ts">
-    export interface UseApiCallOptions {
-      /** Timeout in milliseconds (default: 10000) */
-      timeout?: number;
-    }
-    export interface UseApiCallResult<T> {
-      data: T | null;
-      isLoading: boolean;
-      error: string | null;
-      /** Re-execute the last call */
-      retry: () => void;
-      /** Execute a new call */
-      execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | null>;
-      /** Milliseconds since last successful fetch, or null if never fetched */
-      staleness: number | null;
-      /** Clear error state */
-      clearError: () => void;
-    }
-  </file>
   <file path="src/hooks/useApiClient.ts">
     export function useApiClient() {
       const { accessToken } = useAuth();
@@ -171,6 +152,30 @@
       refetch: () => Promise<void>;
     }
   </file>
+  <file path="src/hooks/useDashboardStatsQuery.ts">
+    export interface DashboardStats {
+      totalReservations: number;
+      expectedCovers: number;
+      upcomingCount: number;
+      cancellationRate: number;
+      cancellationTrend: "up" | "down" | "neutral";
+    }
+    export interface UseDashboardStatsQueryResult {
+      reservations: readonly Reservation[];
+      stats: DashboardStats;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+  </file>
+  <file path="src/hooks/useFloorPlans.ts">
+    export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
+    export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+  </file>
+  <file path="src/hooks/useGuests.ts">
+    export const GUESTS_QUERY_KEY = "guests" as const;
+    export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+  </file>
   <file path="src/hooks/useReservationEvents.ts">
     export type ReservationEventType =
       | "reservation:created"
@@ -188,9 +193,24 @@
     }
   </file>
   <file path="src/hooks/useReservationQuerySync.ts">
+    function canShowToast(): boolean {
+      const now = Date.now();
+      _toastTimestamps = _toastTimestamps.filter((t) => now - t < TOAST_WINDOW_MS);
+      if (_toastTimestamps.length >= TOAST_MAX) return false;
+      _toastTimestamps.push(now);
+      return true;
+    }
     export function useReservationQuerySync() {
       const queryClient = useQueryClient();
       const { selectedVenueId } = useVenue();
+      const { toast } = useToast();
+    
+      const makeEvent = (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
+        type,
+        venueId: selectedVenueId ?? "",
+        timestamp: new Date().toISOString(),
+        data,
+      });
     
       const invalidateReservations = () => {
         queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
@@ -200,14 +220,58 @@
         queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
       };
     
-      return useReservationEvents({
+      const result = useReservationEvents({
         venueId: selectedVenueId ?? undefined,
-        onReservationCreated: invalidateReservations,
-        onReservationUpdated: invalidateReservations,
-        onReservationCancelled: invalidateReservations,
-        onHoldConfirmed: invalidateReservations,
-        onTableUpdated: invalidateTables,
+        onReservationCreated: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:created", reservation));
+          if (canShowToast()) {
+            toast({
+              title: "New reservation",
+              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              variant: "accent",
+              duration: 5000,
+            });
+          }
+        },
+        onReservationUpdated: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:updated", reservation));
+        },
+        onReservationCancelled: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:cancelled", reservation));
+          if (canShowToast()) {
+            toast({
+              title: "Reservation cancelled",
+              description: `${reservation.guestName ?? "Guest"}'s reservation was cancelled`,
+              variant: "error",
+              duration: 5000,
+            });
+          }
+        },
+        onHoldCreated: (hold) => {
+          broadcastSSEEvent(makeEvent("hold:created", hold));
+        },
+        onHoldReleased: (hold) => {
+          broadcastSSEEvent(makeEvent("hold:released", hold));
+        },
+        onHoldConfirmed: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("hold:confirmed", reservation));
+        },
+        onTableUpdated: (table) => {
+          invalidateTables();
+          broadcastSSEEvent(makeEvent("table:updated", table));
+        },
       });
+    
+      // Broadcast connection status changes to any subscribers (e.g. ActivityFeed, HomePage)
+      useEffect(() => {
+        notifySSEStatus(result.isConnected, result.error);
+      }, [result.isConnected, result.error]);
+    
+      return result;
     }
   </file>
   <file path="src/hooks/useReservations.ts">
@@ -216,11 +280,33 @@
       enabled?: boolean;
     }
   </file>
+  <file path="src/hooks/useSSEEventFeed.ts">
+    type EventFeedListener = (event: ReservationEvent) => void;
+    export function broadcastSSEEvent(event: ReservationEvent): void {
+      for (const listener of _feedListeners) {
+        listener(event);
+      }
+    }
+  </file>
+  <file path="src/hooks/useSSEStatus.ts">
+    type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
+    export function notifySSEStatus(isConnected: boolean, error: Error | null): void {
+      _isConnected = isConnected;
+      _error = error;
+      for (const listener of _listeners) {
+        listener(isConnected, error);
+      }
+    }
+  </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
+  </file>
+  <file path="src/hooks/useUsers.ts">
+    export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
+    export const USERS_QUERY_KEY = "users" as const;
   </file>
   <file path="src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
@@ -230,6 +316,10 @@
       nextStep: SetupStep | null;
       progress: number; // 0–100
     }
+  </file>
+  <file path="src/hooks/useVenues.ts">
+    export const VENUES_QUERY_KEY = "venues" as const;
+    export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   </section>
   <section priority="medium" role="src">
