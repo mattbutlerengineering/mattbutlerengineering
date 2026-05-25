@@ -1,9 +1,7 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import {
-  Alert,
   Avatar,
   Badge,
-  Button,
   Card,
   Divider,
   Input,
@@ -16,6 +14,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { User } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { useUsers } from "../hooks/useUsers.js";
 import styles from "./AdminPage.module.css";
 
@@ -146,7 +145,7 @@ export function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
-  const { data: users = [], pagination, isLoading, error } = useUsers({ page: currentPage, limit: 10 });
+  const { data: users = [], pagination, isLoading, error, refetch } = useUsers({ page: currentPage, limit: 10 });
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -192,17 +191,10 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <Alert
-          variant="error"
-          title="Failed to load users"
-          actions={
-            <Button variant="secondary" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          }
-        >
-          {error.message}
-        </Alert>
+        <ErrorRetryBanner
+          error={error.message}
+          onRetry={refetch}
+        />
       </div>
     );
   }

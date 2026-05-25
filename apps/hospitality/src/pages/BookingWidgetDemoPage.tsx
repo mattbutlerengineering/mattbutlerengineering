@@ -13,6 +13,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { BookingWidget } from "../components/booking-widget";
 import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
@@ -102,7 +103,7 @@ function BookingWidgetDemoSkeleton() {
 /* ── Main component ────────────────────────── */
 
 export function BookingWidgetDemoPage() {
-  const { data: venues = [], isLoading, error } = useVenues({ limit: 50 });
+  const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [deviceFrame, setDeviceFrame] = useState("desktop");
   const [copied, setCopied] = useState(false);
@@ -156,9 +157,10 @@ export function BookingWidgetDemoPage() {
       />
 
       {error && (
-        <Alert variant="error">
-          {error.message}
-        </Alert>
+        <ErrorRetryBanner
+          error={error.message}
+          onRetry={refetch}
+        />
       )}
 
       {/* Venue selector */}

@@ -16,6 +16,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
 import styles from "./ProfilePage.module.css";
 
@@ -47,7 +48,7 @@ function formatRelativeTime(date: string | Date): string {
 
 export function ProfilePage() {
   const { user: authUser } = useAuth();
-  const { data: user, isLoading, error } = useCurrentUser();
+  const { data: user, isLoading, error, refetch } = useCurrentUser();
   const updateMutation = useUpdateCurrentUser();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -137,14 +138,10 @@ export function ProfilePage() {
     return (
       <div>
         <PageHeader title="Profile" description="Manage your profile" />
-        <Alert variant="error" title="Failed to load profile">
-          {error.message}
-        </Alert>
-        <div className={styles.retryWrapper}>
-          <Button variant="secondary" onClick={() => window.location.reload()}>
-            Retry
-          </Button>
-        </div>
+        <ErrorRetryBanner
+          error={error.message}
+          onRetry={refetch}
+        />
       </div>
     );
   }
