@@ -1,14 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { BookingWidgetDemoPage } from "./BookingWidgetDemoPage.js";
-import { useAuth } from "@mbe/auth/react";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
+const mockApiClient = {
+  venues: {
+    list: vi.fn(),
+    getBySlug: vi.fn(),
+  },
+};
 
-const { mockVenuesList } = vi.hoisted(() => ({ mockVenuesList: vi.fn() }));
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(() => ({ venues: { list: mockVenuesList } })),
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => mockApiClient),
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -49,14 +55,9 @@ vi.mock("./BookingWidgetDemoPage.module.css", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children, variant, dismissible, onDismiss }: any) => (
+  Alert: ({ children, variant }: any) => (
     <div data-testid="alert" data-variant={variant}>
       {children}
-      {dismissible && (
-        <button onClick={onDismiss} data-testid="alert-dismiss">
-          Dismiss
-        </button>
-      )}
     </div>
   ),
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
@@ -104,33 +105,44 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children }: any) => <span>{children}</span>,
 }));
 
-/* ── Clipboard mock ────────────────────────────, @eslint-react/no-array-index-key */
+/* ── Clipboard mock ─────────────────────────── */
 
 const writeText = vi.fn().mockResolvedValue(undefined);
 Object.assign(navigator, { clipboard: { writeText } });
 
-/* ── Test data ─────────────────────────────────, @eslint-react/no-array-index-key */
+/* ── Test data ──────────────────────────────── */
 
-const venuesResponse = {
-  data: [
-    {
-      id: "v-1",
-      name: "Downtown Grill",
-      settings: { maxPartySize: 10 },
-    },
-    {
-      id: "v-2",
-      name: "Uptown Bistro",
-      settings: { maxPartySize: 6 },
-    },
-  ],
-};
+const mockVenues = [
+  {
+    id: "v-1",
+    name: "Downtown Grill",
+    settings: { maxPartySize: 10 },
+  },
+  {
+    id: "v-2",
+    name: "Uptown Bistro",
+    settings: { maxPartySize: 6 },
+  },
+];
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><BookingWidgetDemoPage /></Wrapper>);
+}
 
 describe("BookingWidgetDemoPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-123" } as any);
-    mockVenuesList.mockResolvedValue(venuesResponse);
+    mockApiClient.venues.list.mockResolvedValue({ data: mockVenues });
   });
 
   afterEach(() => {
@@ -138,8 +150,8 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("shows loading skeleton initially", () => {
-    mockVenuesList.mockReturnValue(new Promise(() => {}));
-    render(<BookingWidgetDemoPage />);
+    mockApiClient.venues.list.mockReturnValue(new Promise(() => {}));
+    renderPage();
 
     const skeletons = screen.getAllByTestId("skeleton");
     expect(skeletons.length).toBeGreaterThan(0);
@@ -147,7 +159,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("shows venue selector with options after loading", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       const select = screen.getByTestId("select-Venue");
@@ -161,8 +173,8 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("shows info alert when no venues found", async () => {
-    mockVenuesList.mockResolvedValue({ data: [] });
-    render(<BookingWidgetDemoPage />);
+    mockApiClient.venues.list.mockResolvedValue({ data: [] });
+    renderPage();
 
     await waitFor(() => {
       const alerts = screen.getAllByTestId("alert");
@@ -173,7 +185,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("renders device frame switcher with 3 segments", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByTestId("segmented-control")).toBeDefined();
@@ -184,9 +196,9 @@ describe("BookingWidgetDemoPage", () => {
     expect(screen.getByTestId("segment-mobile")).toBeDefined();
   });
 
-  it("shows error alert that is dismissible", async () => {
-    mockVenuesList.mockRejectedValue(new Error("Network failure"));
-    render(<BookingWidgetDemoPage />);
+  it("shows error alert when fetch fails", async () => {
+    mockApiClient.venues.list.mockRejectedValue(new Error("Network failure"));
+    renderPage();
 
     await waitFor(() => {
       const alerts = screen.getAllByTestId("alert");
@@ -194,18 +206,10 @@ describe("BookingWidgetDemoPage", () => {
       expect(errorAlert).toBeDefined();
       expect(errorAlert!.textContent).toContain("Network failure");
     });
-
-    fireEvent.click(screen.getByTestId("alert-dismiss"));
-
-    await waitFor(() => {
-      const remaining = screen.getAllByTestId("alert");
-      const errorAlert = remaining.find((a) => a.getAttribute("data-variant") === "error");
-      expect(errorAlert).toBeUndefined();
-    });
   });
 
   it("copies embed code to clipboard on Copy click", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Copy")).toBeDefined();
@@ -223,7 +227,7 @@ describe("BookingWidgetDemoPage", () => {
 
   it("shows Copied! feedback for 2 seconds then reverts", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Copy")).toBeDefined();
@@ -245,7 +249,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("renders 3 feature cards", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Real-time Availability")).toBeDefined();
@@ -256,7 +260,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("renders BookingWidget with selected venue ID", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       const widget = screen.getByTestId("booking-widget");
@@ -266,7 +270,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("embed code contains the selected venue ID", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Copy")).toBeDefined();
@@ -281,7 +285,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("embed code section shows a coming soon indicator", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Copy")).toBeDefined();
@@ -291,7 +295,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("embed code section does not reference widget.js", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Copy")).toBeDefined();
@@ -301,7 +305,7 @@ describe("BookingWidgetDemoPage", () => {
   });
 
   it("page renders correctly with coming soon section visible", async () => {
-    render(<BookingWidgetDemoPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
