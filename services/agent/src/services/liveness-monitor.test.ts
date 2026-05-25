@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { FastifyBaseLogger } from "fastify";
 
 vi.mock("@mbe/agent-core", () => ({
   DEFAULT_HEARTBEAT_CONFIG: {
@@ -21,6 +22,20 @@ vi.mock("./session-executor.js", () => ({
 import { sessionService } from "./session.js";
 import { cancelSession } from "./session-executor.js";
 import { startLivenessMonitor, stopLivenessMonitor } from "./liveness-monitor.js";
+
+function createMockLogger(): FastifyBaseLogger {
+  return {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    fatal: vi.fn(),
+    trace: vi.fn(),
+    child: vi.fn(),
+    silent: vi.fn(),
+    level: "info",
+  } as unknown as FastifyBaseLogger;
+}
 
 const makeRunningSession = (id: string, updatedAt: string) => ({
   id,
@@ -48,9 +63,12 @@ const makeRunningSession = (id: string, updatedAt: string) => ({
 });
 
 describe("liveness-monitor", () => {
+  let mockLogger: FastifyBaseLogger;
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mockLogger = createMockLogger();
   });
 
   afterEach(() => {
@@ -60,7 +78,7 @@ describe("liveness-monitor", () => {
 
   describe("startLivenessMonitor", () => {
     it("starts periodic checks", async () => {
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
 
       await vi.advanceTimersByTimeAsync(120_000);
 
@@ -68,18 +86,24 @@ describe("liveness-monitor", () => {
     });
 
     it("does not start a second monitor when already running", async () => {
-      startLivenessMonitor();
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
+      startLivenessMonitor(mockLogger);
 
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(sessionService.findStaleSessions).toHaveBeenCalledTimes(1);
     });
+
+    it("logs info when monitor starts", () => {
+      startLivenessMonitor(mockLogger);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor started"));
+    });
   });
 
   describe("stopLivenessMonitor", () => {
     it("stops the periodic checks", async () => {
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       stopLivenessMonitor();
 
       await vi.advanceTimersByTimeAsync(240_000);
@@ -90,6 +114,13 @@ describe("liveness-monitor", () => {
     it("is safe to call when not running", () => {
       expect(() => stopLivenessMonitor()).not.toThrow();
     });
+
+    it("logs info when monitor stops", () => {
+      startLivenessMonitor(mockLogger);
+      stopLivenessMonitor();
+
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor stopped"));
+    });
   });
 
   describe("stale session detection", () => {
@@ -99,7 +130,7 @@ describe("liveness-monitor", () => {
       vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([staleSession]);
       vi.mocked(cancelSession).mockResolvedValueOnce(true);
 
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(cancelSession).toHaveBeenCalledWith("stale-1");
@@ -112,10 +143,22 @@ describe("liveness-monitor", () => {
       );
     });
 
+    it("logs warn when a stale session is auto-cancelled", async () => {
+      const staleSession = makeRunningSession("stale-1", new Date().toISOString());
+
+      vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([staleSession]);
+      vi.mocked(cancelSession).mockResolvedValueOnce(true);
+
+      startLivenessMonitor(mockLogger);
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("stale-1"));
+    });
+
     it("does not cancel when findStaleSessions returns empty", async () => {
       vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([]);
 
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(cancelSession).not.toHaveBeenCalled();
@@ -127,7 +170,7 @@ describe("liveness-monitor", () => {
       vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce([staleSession]);
       vi.mocked(cancelSession).mockResolvedValueOnce(false);
 
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(cancelSession).toHaveBeenCalledWith("stale-2");
@@ -138,12 +181,26 @@ describe("liveness-monitor", () => {
       );
     });
 
+    it("logs error when check throws", async () => {
+      vi.mocked(sessionService.findStaleSessions).mockRejectedValueOnce(
+        new Error("DB unavailable")
+      );
+
+      startLivenessMonitor(mockLogger);
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error) }),
+        expect.stringContaining("Error checking stale sessions")
+      );
+    });
+
     it("handles errors in check gracefully without crashing", async () => {
       vi.mocked(sessionService.findStaleSessions)
         .mockRejectedValueOnce(new Error("DB unavailable"))
         .mockResolvedValueOnce([]);
 
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       await vi.advanceTimersByTimeAsync(120_000);
 
       await vi.advanceTimersByTimeAsync(120_000);
@@ -160,7 +217,7 @@ describe("liveness-monitor", () => {
       vi.mocked(sessionService.findStaleSessions).mockResolvedValueOnce(staleSessions);
       vi.mocked(cancelSession).mockResolvedValue(true);
 
-      startLivenessMonitor();
+      startLivenessMonitor(mockLogger);
       await vi.advanceTimersByTimeAsync(120_000);
 
       expect(cancelSession).toHaveBeenCalledWith("stale-a");
