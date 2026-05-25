@@ -22,6 +22,7 @@ import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
 
 /**
  * Creates the Fastify application instance.
@@ -54,6 +55,7 @@ export async function buildApp(
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -71,6 +73,9 @@ export async function buildApp(
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
+
+  // Waitlist routes
+  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   // Deposit routes
   await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
