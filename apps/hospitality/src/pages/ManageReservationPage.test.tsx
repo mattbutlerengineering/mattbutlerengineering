@@ -1,14 +1,37 @@
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ManageReservationPage } from "./ManageReservationPage.js";
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockSearchParams = new URLSearchParams();
 vi.mock("react-router-dom", () => ({
   useSearchParams: () => [mockSearchParams],
 }));
 
+vi.mock("@mattbutlerengineering/rialto", () => ({
+  Stack: ({ children }: any) => <div>{children}</div>,
+  Text: ({ children }: any) => <span>{children}</span>,
+  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
+}));
+
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><ManageReservationPage /></Wrapper>);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -17,7 +40,7 @@ beforeEach(() => {
 
 describe("ManageReservationPage", () => {
   it("shows error when no token in URL", () => {
-    render(<ManageReservationPage />);
+    renderPage();
     expect(screen.getByText("Invalid Link")).toBeDefined();
   });
 
@@ -50,7 +73,7 @@ describe("ManageReservationPage", () => {
         }),
     });
 
-    render(<ManageReservationPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Jane Doe")).toBeDefined();
@@ -67,7 +90,7 @@ describe("ManageReservationPage", () => {
       json: () => Promise.resolve({ error: "TOKEN_EXPIRED" }),
     });
 
-    render(<ManageReservationPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Link Expired")).toBeDefined();
@@ -82,7 +105,7 @@ describe("ManageReservationPage", () => {
       json: () => Promise.resolve({ error: "INVALID_TOKEN" }),
     });
 
-    render(<ManageReservationPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Invalid Link")).toBeDefined();

@@ -1,23 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockNavigate = vi.fn();
-const mockUpdate = vi.fn();
 const mockValidateOperatingHours = vi.fn();
 
 vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
 }));
 
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
+const mockApiClient = {
+  venues: {
+    list: vi.fn(),
+    update: vi.fn(),
+    getBySlug: vi.fn(),
+  },
+};
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(() => ({
-    venues: { update: mockUpdate },
-  })),
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => mockApiClient),
 }));
 
 vi.mock("../contexts/VenueContext.js", () => ({
@@ -62,7 +67,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 import { SetupHoursPage } from "./SetupHoursPage.js";
-import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
 
 const defaultVenue = {
@@ -71,13 +75,23 @@ const defaultVenue = {
   operatingHours: { monday: { open: "10:00", close: "22:00" } },
 };
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><SetupHoursPage /></Wrapper>);
+}
+
 describe("SetupHoursPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    vi.mocked(useAuth).mockReturnValue({
-      accessToken: "test-token",
-    } as any);
 
     vi.mocked(useVenue).mockReturnValue({
       selectedVenue: defaultVenue,
@@ -85,23 +99,23 @@ describe("SetupHoursPage", () => {
     } as any);
 
     mockValidateOperatingHours.mockReturnValue(null);
-    mockUpdate.mockResolvedValue({});
+    mockApiClient.venues.update.mockResolvedValue({});
   });
 
   it("renders PageHeader with Operating Hours title", () => {
-    render(<SetupHoursPage />);
+    renderPage();
     expect(screen.getByText("Operating Hours")).toBeDefined();
   });
 
   it("renders OperatingHoursStep with venue hours", () => {
-    render(<SetupHoursPage />);
+    renderPage();
     expect(screen.getByTestId("operating-hours-step")).toBeDefined();
     expect(screen.getByTestId("hours-data").textContent).toContain("monday");
   });
 
   it("cancel button navigates to /setup", async () => {
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Cancel"));
     expect(mockNavigate).toHaveBeenCalledWith("/setup");
@@ -112,26 +126,26 @@ describe("SetupHoursPage", () => {
     mockValidateOperatingHours.mockReturnValue(validationErrors);
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
     expect(mockValidateOperatingHours).toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockApiClient.venues.update).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.getByTestId("hours-errors")).toBeDefined();
     });
   });
 
-  it("save success calls api.venues.update and navigates to /setup", async () => {
+  it("save success calls venues.update and navigates to /setup", async () => {
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith("venue-1", {
+      expect(mockApiClient.venues.update).toHaveBeenCalledWith("venue-1", {
         operatingHours: defaultVenue.operatingHours,
       });
     });
@@ -139,10 +153,10 @@ describe("SetupHoursPage", () => {
   });
 
   it("save failure shows error banner", async () => {
-    mockUpdate.mockRejectedValue(new Error("Network error"));
+    mockApiClient.venues.update.mockRejectedValue(new Error("Network error"));
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
@@ -153,10 +167,10 @@ describe("SetupHoursPage", () => {
   });
 
   it("save failure with non-Error shows fallback message", async () => {
-    mockUpdate.mockRejectedValue("something broke");
+    mockApiClient.venues.update.mockRejectedValue("something broke");
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
@@ -167,15 +181,15 @@ describe("SetupHoursPage", () => {
   });
 
   it("shows Saving... text while saving", async () => {
-    let resolveUpdate: () => void;
-    mockUpdate.mockReturnValue(
-      new Promise<void>((resolve) => {
+    let resolveUpdate: (v: any) => void;
+    mockApiClient.venues.update.mockReturnValue(
+      new Promise((resolve) => {
         resolveUpdate = resolve;
       })
     );
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
@@ -183,7 +197,7 @@ describe("SetupHoursPage", () => {
       expect(screen.getByText("Saving...")).toBeDefined();
     });
 
-    resolveUpdate!();
+    resolveUpdate!({});
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith("/setup");
@@ -197,12 +211,12 @@ describe("SetupHoursPage", () => {
     } as any);
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     await user.click(screen.getByText("Save Hours"));
 
     expect(mockValidateOperatingHours).not.toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockApiClient.venues.update).not.toHaveBeenCalled();
   });
 
   it("onChange clears validation errors", async () => {
@@ -210,7 +224,7 @@ describe("SetupHoursPage", () => {
     mockValidateOperatingHours.mockReturnValue(validationErrors);
 
     const user = userEvent.setup();
-    render(<SetupHoursPage />);
+    renderPage();
 
     // Trigger validation errors
     await user.click(screen.getByText("Save Hours"));

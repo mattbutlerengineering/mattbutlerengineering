@@ -81,22 +81,6 @@
       export const ThemeContext: unknown;
     </item>
   </file>
-  <file path="src/hooks/useApiCall.ts">
-    <item priority="low">
-      interface UseApiCallOptions {
-        timeout?: number;
-      }
-    </item>
-    <item priority="low">
-      interface UseApiCallResult {
-        data: T | null;
-        isLoading: boolean;
-        error: string | null;
-        retry: () => void;
-        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | ...;
-      }
-    </item>
-  </file>
   <file path="src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
@@ -122,6 +106,42 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useDashboardStatsQuery.ts">
+    <item priority="low">
+      interface DashboardStats {
+        totalReservations: number;
+        expectedCovers: number;
+        upcomingCount: number;
+        cancellationRate: number;
+        cancellationTrend: "up" | "down" | "neutral";
+      }
+    </item>
+    <item priority="low">
+      interface UseDashboardStatsQueryResult {
+        reservations: readonly Reservation[];
+        stats: DashboardStats;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+  </file>
+  <file path="src/hooks/useFloorPlans.ts">
+    <item priority="high">
+      export const FLOOR_PLANS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useGuests.ts">
+    <item priority="high">
+      export const GUESTS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_SEGMENTS_QUERY_KEY: unknown;
+    </item>
+  </file>
   <file path="src/hooks/useReservationEvents.ts">
     <item priority="low">
       type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
@@ -136,6 +156,9 @@
     </item>
   </file>
   <file path="src/hooks/useReservationQuerySync.ts">
+    <item priority="medium">
+      function canShowToast(): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function useReservationQuerySync() { /* ... */ }
     </item>
@@ -150,6 +173,22 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useSSEEventFeed.ts">
+    <item priority="high">
+      type EventFeedListener = (event: ReservationEvent) => void;
+    </item>
+    <item priority="high">
+      export function broadcastSSEEvent(event: ReservationEvent): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useSSEStatus.ts">
+    <item priority="high">
+      type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
+    </item>
+    <item priority="high">
+      export function notifySSEStatus(isConnected: boolean, error: Error | null): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -158,6 +197,14 @@
       interface UseTablesParams {
         enabled?: boolean;
       }
+    </item>
+  </file>
+  <file path="src/hooks/useUsers.ts">
+    <item priority="high">
+      export const CURRENT_USER_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const USERS_QUERY_KEY: unknown;
     </item>
   </file>
   <file path="src/hooks/useVenueReadiness.ts">
@@ -171,6 +218,14 @@
         nextStep: SetupStep | null;
         progress: number;
       }
+    </item>
+  </file>
+  <file path="src/hooks/useVenues.ts">
+    <item priority="high">
+      export const VENUES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
   </section>

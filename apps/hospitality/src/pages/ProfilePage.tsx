@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -14,10 +14,9 @@ import {
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import { ApiClient, UsersClient } from "@mbe/api-client";
-import type { User } from "@mbe/types";
 import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
+import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
 import styles from "./ProfilePage.module.css";
 
 function formatMemberSince(date: string | Date): string {
@@ -46,52 +45,16 @@ function formatRelativeTime(date: string | Date): string {
   });
 }
 
-function createApiClient(accessToken: string): UsersClient {
-  const apiClient = new ApiClient({
-    baseUrl: import.meta.env.VITE_API_URL ?? "",
-    getAccessToken: () => accessToken,
-  });
-  return new UsersClient(apiClient);
-}
-
 export function ProfilePage() {
-  const { accessToken, user: authUser } = useAuth();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user: authUser } = useAuth();
+  const { data: user, isLoading, error } = useCurrentUser();
+  const updateMutation = useUpdateCurrentUser();
+
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", picture: "" });
-
-  useEffect(() => {
-    async function fetchUser() {
-      if (!accessToken) return;
-
-      try {
-        setIsLoading(true);
-        const usersClient = createApiClient(accessToken);
-        const userData = await usersClient.me();
-        setUser(userData);
-        setFormData({
-          name: userData.name ?? "",
-          picture: userData.picture ?? "",
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchUser();
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (!saveSuccess) return;
-    const timer = setTimeout(() => setSaveSuccess(false), 3000);
-    return () => clearTimeout(timer);
-  }, [saveSuccess]);
 
   const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, name: e.target.value }));
@@ -102,21 +65,23 @@ export function ProfilePage() {
   }, []);
 
   async function handleSave() {
-    if (!accessToken || !user) return;
+    if (!user) return;
 
     try {
       setIsSaving(true);
-      setError(null);
-      const usersClient = createApiClient(accessToken);
-      const updatedUser = await usersClient.update(user.id, {
-        name: formData.name || undefined,
-        picture: formData.picture || undefined,
+      setSaveError(null);
+      await updateMutation.mutateAsync({
+        id: user.id,
+        data: {
+          name: formData.name || undefined,
+          picture: formData.picture || undefined,
+        },
       });
-      setUser(updatedUser);
       setIsEditing(false);
       setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save profile");
+      setSaveError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
     }
@@ -128,10 +93,14 @@ export function ProfilePage() {
       picture: user?.picture ?? "",
     });
     setIsEditing(false);
-    setError(null);
+    setSaveError(null);
   }
 
   function handleEdit() {
+    setFormData({
+      name: user?.name ?? "",
+      picture: user?.picture ?? "",
+    });
     setIsEditing(true);
     setSaveSuccess(false);
   }
@@ -169,7 +138,7 @@ export function ProfilePage() {
       <div>
         <PageHeader title="Profile" description="Manage your profile" />
         <Alert variant="error" title="Failed to load profile">
-          {error}
+          {error.message}
         </Alert>
         <div className={styles.retryWrapper}>
           <Button variant="secondary" onClick={() => window.location.reload()}>
@@ -220,9 +189,9 @@ export function ProfilePage() {
           </Alert>
         )}
 
-        {error && (
-          <Alert variant="error" title="Error" dismissible onDismiss={() => setError(null)}>
-            {error}
+        {saveError && (
+          <Alert variant="error" title="Error" dismissible onDismiss={() => setSaveError(null)}>
+            {saveError}
           </Alert>
         )}
 

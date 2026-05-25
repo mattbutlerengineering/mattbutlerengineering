@@ -8,7 +8,7 @@ import { CancelReservationDialog } from "../components/timeline/CancelReservatio
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
 import { useReservations, RESERVATIONS_QUERY_KEY } from "../hooks/useReservations.js";
 import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
@@ -166,7 +166,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 
 export function TimelinePage() {
   const { selectedVenueId } = useVenue();
-  const { isConnected } = useReservationData();
+  const { isConnected } = useSSEStatus();
   const api = useApiClient();
   const queryClient = useQueryClient();
 
