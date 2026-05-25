@@ -1,12 +1,42 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuestsPage } from "./GuestsPage.js";
 import { useVenue } from "../contexts/VenueContext.js";
+import type { VenueContextValue } from "../contexts/VenueContext.js";
+import type { Venue } from "@mbe/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
+
+function makeVenue(overrides: Partial<Venue> = {}): Venue {
+  return {
+    id: "venue-1",
+    venueGroupId: null,
+    name: "Test Venue",
+    slug: "test-venue",
+    ianaTimezone: "America/New_York",
+    currencyCode: "USD",
+    operatingHours: null,
+    settings: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function makeVenueContext(overrides: Partial<VenueContextValue> = {}): VenueContextValue {
+  return {
+    selectedVenueId: "venue-1",
+    venues: [makeVenue()],
+    selectedVenue: makeVenue(),
+    setVenueId: vi.fn(),
+    isLoading: false,
+    isMultiVenue: false,
+    refetchVenues: vi.fn(),
+    ...overrides,
+  };
+}
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 
@@ -140,7 +170,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><GuestsPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <GuestsPage />
+    </Wrapper>
+  );
 }
 
 /* ── Default mock data ───────────────────────── */
@@ -182,13 +216,7 @@ const defaultSegments = [
 ];
 
 function setupDefaultMocks() {
-  vi.mocked(useVenue).mockReturnValue({
-    selectedVenueId: "venue-1",
-    venues: [{ id: "venue-1", name: "Test Venue" }],
-    selectVenue: vi.fn(),
-    setVenueId: vi.fn(),
-    isMultiVenue: false,
-  } as any);
+  vi.mocked(useVenue).mockReturnValue(makeVenueContext());
 
   mockApiClient.guests.list.mockResolvedValue({ data: defaultGuests, pagination: {} });
   mockApiClient.guests.getSegments.mockResolvedValue(defaultSegments);
@@ -848,13 +876,9 @@ describe("GuestsPage - error retry", () => {
 describe("GuestsPage - no venue selected", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useVenue).mockReturnValue({
-      selectedVenueId: null,
-      venues: [],
-      selectVenue: vi.fn(),
-      setVenueId: vi.fn(),
-      isMultiVenue: false,
-    } as any);
+    vi.mocked(useVenue).mockReturnValue(
+      makeVenueContext({ selectedVenueId: null, venues: [], selectedVenue: null })
+    );
   });
 
   it("shows venue selection warning when no venue is selected", async () => {
@@ -991,16 +1015,18 @@ describe("GuestsPage - multi-venue", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useVenue).mockReturnValue({
-      selectedVenueId: "venue-1",
-      venues: [
-        { id: "venue-1", name: "Downtown" },
-        { id: "venue-2", name: "Uptown" },
-      ],
-      selectVenue: vi.fn(),
-      setVenueId: mockSetVenueId,
-      isMultiVenue: true,
-    } as any);
+    vi.mocked(useVenue).mockReturnValue(
+      makeVenueContext({
+        selectedVenueId: "venue-1",
+        venues: [
+          makeVenue({ id: "venue-1", name: "Downtown" }),
+          makeVenue({ id: "venue-2", name: "Uptown" }),
+        ],
+        selectedVenue: makeVenue({ id: "venue-1", name: "Downtown" }),
+        setVenueId: mockSetVenueId,
+        isMultiVenue: true,
+      })
+    );
 
     mockApiClient.guests.getSegments.mockResolvedValue([]);
     mockApiClient.guests.list.mockResolvedValue({ data: [defaultGuests[0]], pagination: {} });
