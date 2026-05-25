@@ -8,6 +8,9 @@ import { injectAuth0Session } from "./auth-helpers.js";
  * Required env vars: E2E_AUTH0_DOMAIN, E2E_AUTH0_CLIENT_ID,
  * E2E_AUTH0_AUDIENCE, E2E_AUTH_EMAIL, E2E_AUTH_PASSWORD
  */
+/** Saved auth state reused by all downstream tests (one ROPC call per run). */
+const AUTH_FILE = "e2e/.auth/user.json";
+
 setup("authenticate via Auth0", async ({ page }) => {
   await injectAuth0Session(page);
 
@@ -18,13 +21,17 @@ setup("authenticate via Auth0", async ({ page }) => {
   await expect(async () => {
     const isAuthVisible = await authLayout.isVisible();
     const isLoginVisible = await loginPrompt.isVisible();
-    
+
     if (isLoginVisible && !isAuthVisible) {
       throw new Error("Authentication failed: stuck on login prompt after injection.");
     }
-    
+
     expect(isAuthVisible).toBe(true);
   }).toPass({ timeout: 10_000 });
 
   await expect(page.getByRole("button", { name: "Sign In" })).not.toBeVisible();
+
+  // Persist auth session: downstream tests load storageState instead of making
+  // individual Auth0 ROPC calls — avoids rate limiting + speeds up the suite.
+  await page.context().storageState({ path: AUTH_FILE });
 });

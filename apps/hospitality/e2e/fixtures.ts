@@ -1,17 +1,20 @@
 import { test as base } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { injectAuth0Session } from "./auth-helpers.js";
 import { mockApi } from "./api-mocks.js";
 
 /* eslint-disable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
 export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
   authPage: async ({ page }, use) => {
-    await injectAuth0Session(page);
+    // storageState (from auth.setup.ts) already provides the OIDC session.
+    // Navigate so the React OIDC provider picks up the stored session.
+    await page.goto("");
     await use(page);
   },
   mockedPage: async ({ page }, use) => {
+    // Route API calls to fixtures first so no real network calls happen.
     await mockApi(page);
-    await injectAuth0Session(page);
+    // storageState provides auth — navigate to trigger OIDC session pickup.
+    await page.goto("");
     await use(page);
   },
 });
