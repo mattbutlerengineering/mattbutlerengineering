@@ -236,7 +236,8 @@ export function AdminPage() {
         </div>
 
         <div className={styles.tableWrapper}>
-          <Table className={styles.table}>
+          {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- Rialto Table requires columns/data/rowKey API; this table uses expandable detail rows via Fragment which is unsupported */}
+          <table className={styles.table}>
             <thead>
               <tr>
                 <th className={styles.th}>User</th>
@@ -307,7 +308,8 @@ export function AdminPage() {
                 </Fragment>
               ))}
             </tbody>
-          </Table>
+          {/* eslint-disable-next-line mbe-local/prefer-rialto-components */}
+          </table>
         </div>
 
         <Text className={styles.srOnly} aria-live="polite" role="status">
