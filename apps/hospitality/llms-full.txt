@@ -370,6 +370,15 @@
     }
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/ordinal.ts">
+    export function ordinalVisit(n: number): string {
+      const suffix = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]} visit`;
+    }
+  </file>
+  </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/generate-slug.ts">
     export function generateSlug(name: string): string {

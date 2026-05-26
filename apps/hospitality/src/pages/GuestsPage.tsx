@@ -10,7 +10,6 @@ import {
   Drawer,
   EmptyState,
   Input,
-  Select,
   Skeleton,
   SkeletonGroup,
   Stack,
@@ -601,7 +600,7 @@ function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
 /* ── Main component ─────────────────────────── */
 
 export function GuestsPage() {
-  const { venues, selectedVenueId, setVenueId, isMultiVenue } = useVenue();
+  const { selectedVenueId } = useVenue();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
@@ -647,11 +646,6 @@ export function GuestsPage() {
   );
 
   const drawerOpen = selectedGuestId !== null;
-
-  const venueOptions = useMemo(
-    () => [...venues].map((v) => ({ value: v.id, label: v.name })),
-    [venues]
-  );
 
   const formatDate = (isoString: string | null) => {
     if (!isoString) return "Never";
@@ -719,14 +713,6 @@ export function GuestsPage() {
       <div className={styles.header}>
         <PageHeader title="Guests" description="Manage your guest directory" />
         <div className={styles.headerControls}>
-          {isMultiVenue && (
-            <Select
-              label="Venue"
-              options={venueOptions}
-              value={selectedVenueId ?? ""}
-              onChange={(value) => setVenueId(value)}
-            />
-          )}
           <Input
             type="text"
             placeholder="Search guests..."
