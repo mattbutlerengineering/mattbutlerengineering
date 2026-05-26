@@ -156,6 +156,14 @@
       );
     }
   </file>
+  <file path="src/hooks/useBriefing.ts">
+    export const BRIEFING_QUERY_KEY = "briefing" as const;
+    export interface UseBriefingParams {
+      venueId?: string;
+      date?: string;
+      enabled?: boolean;
+    }
+  </file>
   <file path="src/hooks/useDashboardStats.ts">
     export interface DashboardStats {
       totalReservations: number;

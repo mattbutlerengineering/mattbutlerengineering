@@ -68,7 +68,9 @@ describe("buildNavSections", () => {
       // First section has no label (primary nav)
       const primary = sections[0];
       expect(primary.label).toBeUndefined();
-      expect(primary.items[0].id).toBe("timeline");
+      expect(primary.items[0].id).toBe("briefing");
+      const timelineItem = primary.items.find((i) => i.id === "timeline");
+      expect(timelineItem).toBeDefined();
     });
 
     it("includes a Manage section", () => {

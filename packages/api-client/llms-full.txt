@@ -14,6 +14,34 @@
       partySize: number;
     }
   </file>
+  <file path="src/briefing.ts">
+    export interface BriefingGuest {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      visitCount: number;
+      lastVisit: string | null;
+      dietaryRestrictions: string[] | null;
+      tags: string[] | null;
+      staffNotes: Array<{ text: string; createdBy: string; createdAt: string }>;
+    }
+    export interface BriefingReservation {
+      id: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      status: "PENDING" | "CONFIRMED";
+      notes: string | null;
+      occasion: string | null;
+      seatingPreference: string | null;
+      guestName: string | null;
+      tableId: string;
+      tableName: string | null;
+      venueId: string | null;
+      guest: BriefingGuest | null;
+    }
+  </file>
   <file path="src/client.ts">
     export interface ClientConfig {
       baseUrl: string;
@@ -150,6 +178,7 @@
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         health: new HealthClient(client),
+        briefing: new BriefingClient(client),
       };
     }
   </file>

@@ -18,6 +18,26 @@
       }
     </item>
   </file>
+  <file path="src/briefing.ts">
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        visitCount: number;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingReservation {
+        id: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        status: "PENDING" | "CONFIRMED";
+      }
+    </item>
+  </file>
   <file path="src/client.ts">
     <item priority="low">
       interface ClientConfig {

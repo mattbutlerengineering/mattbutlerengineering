@@ -35,6 +35,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
@@ -209,6 +214,26 @@
     </item>
     <item priority="high">
       export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        visitCount: number;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingReservation {
+        id: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        status: "PENDING" | "CONFIRMED";
+      }
     </item>
   </file>
   <file path="src/services/confirm-hold.ts">
