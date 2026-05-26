@@ -2167,6 +2167,19 @@
       );
     };
   </file>
+  <file path="src/routes/public-deposits.ts">
+    interface CreatePublicPaymentIntentBody {
+      reservationId: string;
+      guestEmail?: string;
+      guestName?: string;
+    }
+    interface PublicPaymentIntentResponse {
+      clientSecret: string;
+      depositId: string;
+      amountCents: number;
+      currency: string;
+    }
+  </file>
   <file path="src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
@@ -2357,6 +2370,14 @@
         maxAdvanceBooking?: number;
         slotIntervalMinutes?: number;
       };
+      deposit: {
+        enabled: boolean;
+        depositType: string | null;
+        amountCents: number | null;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      };
     }
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
@@ -2388,6 +2409,9 @@
             } as never);
           }
     
+          // Fetch deposit-specific fields (not on the mapped Venue type) via service
+          const rawVenue = await venueService.getRawBySlug(slug);
+    
           const publicVenue: PublicVenueResponse = {
             name: venue.name,
             slug: venue.slug,
@@ -2399,6 +2423,14 @@
               maxPartySize: venue.settings?.maxPartySize,
               maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
               slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+            },
+            deposit: {
+              enabled: rawVenue?.depositEnabled ?? false,
+              depositType: rawVenue?.depositType ?? null,
+              amountCents: rawVenue?.depositAmountCents ?? null,
+              freeCancellationHours: rawVenue?.freeCancellationHours ?? null,
+              lateCancellationFeePercent: rawVenue?.lateCancellationFeePercent ?? null,
+              noShowFeePercent: rawVenue?.noShowFeePercent ?? null,
             },
           };
     
@@ -4955,6 +4987,7 @@
     
       // Deposit routes
       await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+      await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(stripeWebhookRoutes);
     
       return fastify;
