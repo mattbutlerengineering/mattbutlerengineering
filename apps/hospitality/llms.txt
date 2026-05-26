@@ -265,6 +265,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/ordinal.ts">
+    <item priority="high">
+      export function ordinalVisit(n: number): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/generate-slug.ts">
     <item priority="high">

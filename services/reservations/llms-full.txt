@@ -4373,6 +4373,7 @@
     }
     type PrismaReservationWithTable = PrismaReservation & {
       table?: PrismaTable;
+      guest?: { visitCount: number } | null;
     };
   </file>
   <file path="src/services/sse-connection-manager.ts">
