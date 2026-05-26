@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Alert,
   Badge,
@@ -72,8 +72,7 @@ function DietaryFlags({ restrictions }: { readonly restrictions: string[] | null
 function BriefingCard({ reservation }: { readonly reservation: BriefingReservation }) {
   const guest = reservation.guest;
   const guestName = guest?.name ?? reservation.guestName ?? "Unknown Guest";
-  const hasAllergies =
-    guest?.dietaryRestrictions != null && guest.dietaryRestrictions.length > 0;
+  const hasAllergies = guest?.dietaryRestrictions != null && guest.dietaryRestrictions.length > 0;
 
   return (
     <Card className={`${styles.card} ${hasAllergies ? styles.cardAllergies : ""}`}>
@@ -223,7 +222,7 @@ function groupByTimeSlot(reservations: BriefingReservation[]): TimeSlot[] {
 function BriefingLoadingSkeleton() {
   return (
     <div className={styles.container}>
-      <PageHeader title="Tonight&apos;s Service" description="Pre-service guest intelligence" />
+      <PageHeader title="Tonight's Service" description="Pre-service guest intelligence" />
       <SkeletonGroup>
         <Skeleton variant="card" width="100%" height={200} />
         <Skeleton variant="card" width="100%" height={200} />
@@ -247,7 +246,9 @@ export function BriefingPage() {
 
   // SSE: update briefing on reservation changes using refs to avoid reconnect
   const refetchRef = useRef(refetch);
-  refetchRef.current = refetch;
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
 
   const handleReservationChange = useCallback(() => {
     refetchRef.current();
@@ -278,14 +279,9 @@ export function BriefingPage() {
 
   return (
     <div className={styles.container} data-testid="briefing-page">
-      <PageHeader
-        title="Tonight's Service"
-        description="Pre-service guest intelligence briefing"
-      />
+      <PageHeader title="Tonight's Service" description="Pre-service guest intelligence briefing" />
 
-      {error && (
-        <Alert variant="error">Failed to load briefing. Please try again.</Alert>
-      )}
+      {error && <Alert variant="error">Failed to load briefing. Please try again.</Alert>}
 
       {/* Controls */}
       <div className={styles.controls}>
@@ -308,7 +304,8 @@ export function BriefingPage() {
       {reservations.length > 0 && (
         <div className={styles.stats}>
           <Text variant="caption" color="secondary">
-            {filtered.length} reservation{filtered.length === 1 ? "" : "s"} &middot; {totalCovers} covers &middot; {confirmedCount} confirmed
+            {filtered.length} reservation{filtered.length === 1 ? "" : "s"} &middot; {totalCovers}{" "}
+            covers &middot; {confirmedCount} confirmed
           </Text>
         </div>
       )}
@@ -333,7 +330,8 @@ export function BriefingPage() {
               {slot.label}
             </Text>
             <Text variant="caption" color="secondary">
-              {slot.reservations.length} {slot.reservations.length === 1 ? "party" : "parties"} &middot; {slot.totalCovers} covers
+              {slot.reservations.length} {slot.reservations.length === 1 ? "party" : "parties"}{" "}
+              &middot; {slot.totalCovers} covers
             </Text>
           </div>
           <div className={styles.cardList}>
