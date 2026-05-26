@@ -35,6 +35,8 @@ export type {
 // Reservation types
 export type {
   ReservationStatus,
+  DepositStatus,
+  Deposit,
   Table,
   TableStatus,
   Reservation,
@@ -57,6 +59,8 @@ export type {
   VenueSettings,
   PacingRule,
   DurationRule,
+  DepositType,
+  DepositConfig,
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
   CreateVenueRequest,
