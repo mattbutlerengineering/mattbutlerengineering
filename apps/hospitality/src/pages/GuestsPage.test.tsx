@@ -1052,26 +1052,16 @@ describe("GuestsPage - multi-venue", () => {
     mockApiClient.reservations.list.mockResolvedValue({ data: [], pagination: {} });
   });
 
-  it("shows venue selector when isMultiVenue is true", async () => {
+  it("does not show a venue selector (venue switching is sidebar-only)", async () => {
     renderPage();
 
+    // Wait for the page to finish loading (guest data rendered)
     await waitFor(() => {
-      expect(screen.getByTestId("select-Venue")).toBeDefined();
-    });
-  });
-
-  it("calls setVenueId when venue is changed", async () => {
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("select-Venue")).toBeDefined();
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    fireEvent.change(screen.getByTestId("select-Venue"), {
-      target: { value: "venue-2" },
-    });
-
-    expect(mockSetVenueId).toHaveBeenCalledWith("venue-2");
+    // Venue selector should NOT be present — switching is sidebar-only
+    expect(screen.queryByTestId("select-Venue")).toBeNull();
   });
 });
 
