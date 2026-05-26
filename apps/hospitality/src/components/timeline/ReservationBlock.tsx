@@ -42,7 +42,8 @@ export function ReservationBlock({
   const visitLabel = visitCount !== null ? ordinalVisit(visitCount) : null;
 
   return (
-    <Button
+    /* eslint-disable mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */
+    <button
       type="button"
       onClick={onClick}
       className={[
@@ -66,6 +67,7 @@ export function ReservationBlock({
           {visitLabel !== null && ` · ${visitLabel}`}
         </div>
       </div>
-    </Button>
+    </button>
+    /* eslint-enable mbe-local/prefer-rialto-components */
   );
 }
