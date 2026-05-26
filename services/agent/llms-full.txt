@@ -966,7 +966,7 @@
         const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
     
         for (const session of staleSessions) {
-          console.warn(
+          activeLogger?.warn(
             `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
           );
     
@@ -979,13 +979,14 @@
           }
         }
       } catch (error) {
-        console.error("[liveness] Error checking stale sessions:", error);
+        activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
       }
     }
-    export function startLivenessMonitor(): void {
+    export function startLivenessMonitor(logger: FastifyBaseLogger): void {
       if (intervalHandle) return;
+      activeLogger = logger;
       intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-      console.log(
+      logger.info(
         `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
       );
     }
