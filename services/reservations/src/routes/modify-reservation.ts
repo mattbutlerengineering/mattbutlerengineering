@@ -1,24 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
-import { Resend } from "resend";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
-import { ResendNotificationAdapter } from "@mbe/notifications";
 import { rescheduleBookingReminders } from "../services/booking-notifications.js";
-
-const resendClient = process.env.RESEND_API_KEY
-  ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-      emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
-      };
-    })
-  : null;
-
-const notificationAdapter = new ResendNotificationAdapter({
-  resend: resendClient,
-  fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-  manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
-});
 
 interface ModifyBody {
   date?: string;
@@ -149,29 +133,32 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
 
       // Reschedule reminder jobs if time changed
-      const timeChanged =
-        date !== undefined || startTime !== undefined || endTime !== undefined;
+      const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
       if (timeChanged) {
         rescheduleBookingReminders(updated, token).catch(() => {});
       }
 
       if (updated.guestEmail && venue) {
-        await notificationAdapter.sendBookingModified({
-          reservationId: updated.id,
-          date: updated.date,
-          startTime: updated.startTime,
-          endTime: updated.endTime,
-          partySize: updated.partySize,
-          guestName: updated.guestName,
-          guestEmail: updated.guestEmail,
-          guestPhone: updated.guestPhone ?? null,
-          specialRequests: updated.notes ?? null,
-          venueName: venue.name,
-          venueTimezone: venue.ianaTimezone,
-          venueAddress: null,
-          manageToken: token,
-          sequence: 2,
-        });
+        try {
+          await fastify.notificationPort.sendBookingModified({
+            reservationId: updated.id,
+            date: updated.date,
+            startTime: updated.startTime,
+            endTime: updated.endTime,
+            partySize: updated.partySize,
+            guestName: updated.guestName,
+            guestEmail: updated.guestEmail,
+            guestPhone: updated.guestPhone ?? null,
+            specialRequests: updated.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken: token,
+            sequence: 2,
+          });
+        } catch {
+          request.log.error("Failed to send booking modified notification");
+        }
       }
 
       return reply.status(200).send({

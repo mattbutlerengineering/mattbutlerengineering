@@ -1,24 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
-import { Resend } from "resend";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
-import { ResendNotificationAdapter } from "@mbe/notifications";
 import { cancelBookingReminders } from "../services/booking-notifications.js";
-
-const resendClient = process.env.RESEND_API_KEY
-  ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-      emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
-      };
-    })
-  : null;
-
-const notificationAdapter = new ResendNotificationAdapter({
-  resend: resendClient,
-  fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-  manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
-});
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Querystring: { token?: string } }>(
@@ -107,21 +91,25 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
       cancelBookingReminders(reservation.id).catch(() => {});
 
       if (reservation.guestEmail && venue) {
-        await notificationAdapter.sendBookingCancelled({
-          reservationId: reservation.id,
-          date: reservation.date,
-          startTime: reservation.startTime,
-          endTime: reservation.endTime,
-          partySize: reservation.partySize,
-          guestName: reservation.guestName,
-          guestEmail: reservation.guestEmail,
-          guestPhone: reservation.guestPhone ?? null,
-          specialRequests: reservation.notes ?? null,
-          venueName: venue.name,
-          venueTimezone: venue.ianaTimezone,
-          venueAddress: null,
-          manageToken: token,
-        });
+        try {
+          await fastify.notificationPort.sendBookingCancelled({
+            reservationId: reservation.id,
+            date: reservation.date,
+            startTime: reservation.startTime,
+            endTime: reservation.endTime,
+            partySize: reservation.partySize,
+            guestName: reservation.guestName,
+            guestEmail: reservation.guestEmail,
+            guestPhone: reservation.guestPhone ?? null,
+            specialRequests: reservation.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken: token,
+          });
+        } catch {
+          request.log.error("Failed to send booking cancelled notification");
+        }
       }
 
       return reply.status(200).send({
