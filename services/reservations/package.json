@@ -28,6 +28,7 @@
     "@fastify/swagger-ui": "^5.2.6",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
+    "@mbe/jobs": "workspace:*",
     "@mbe/feature-flags": "workspace:*",
     "@mbe/notifications": "workspace:^",
     "@mbe/observability": "workspace:*",

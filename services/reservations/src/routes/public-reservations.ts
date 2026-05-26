@@ -5,6 +5,7 @@ import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
+import { scheduleBookingNotifications } from "../services/booking-notifications.js";
 
 const TOKEN_SECRET = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
 
@@ -112,6 +113,9 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       decrementHoldCount(ip);
 
       const manageToken = generateManageToken(result.reservation.id, guestEmail);
+
+      // Fire-and-forget: send confirmation + schedule reminders (non-blocking)
+      scheduleBookingNotifications(result.reservation, manageToken).catch(() => {});
 
       return reply.status(201).send({
         data: {
