@@ -137,7 +137,7 @@
       async function checkStaleSessions(): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export function startLivenessMonitor(): void { /* ... */ }
+      export function startLivenessMonitor(logger: FastifyBaseLogger): void { /* ... */ }
     </item>
   </file>
   <file path="src/services/remediation-circuit-breaker.ts">

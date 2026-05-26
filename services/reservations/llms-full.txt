@@ -364,21 +364,25 @@
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           if (reservation.guestEmail && venue) {
-            await notificationAdapter.sendBookingCancelled({
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-            });
+            try {
+              await fastify.notificationPort.sendBookingCancelled({
+                reservationId: reservation.id,
+                date: reservation.date,
+                startTime: reservation.startTime,
+                endTime: reservation.endTime,
+                partySize: reservation.partySize,
+                guestName: reservation.guestName,
+                guestEmail: reservation.guestEmail,
+                guestPhone: reservation.guestPhone ?? null,
+                specialRequests: reservation.notes ?? null,
+                venueName: venue.name,
+                venueTimezone: venue.ianaTimezone,
+                venueAddress: null,
+                manageToken: token,
+              });
+            } catch {
+              request.log.error("Failed to send booking cancelled notification");
+            }
           }
     
           return reply.status(200).send({
@@ -2057,22 +2061,26 @@
           const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
     
           if (updated.guestEmail && venue) {
-            await notificationAdapter.sendBookingModified({
-              reservationId: updated.id,
-              date: updated.date,
-              startTime: updated.startTime,
-              endTime: updated.endTime,
-              partySize: updated.partySize,
-              guestName: updated.guestName,
-              guestEmail: updated.guestEmail,
-              guestPhone: updated.guestPhone ?? null,
-              specialRequests: updated.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-              sequence: 2,
-            });
+            try {
+              await fastify.notificationPort.sendBookingModified({
+                reservationId: updated.id,
+                date: updated.date,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                partySize: updated.partySize,
+                guestName: updated.guestName,
+                guestEmail: updated.guestEmail,
+                guestPhone: updated.guestPhone ?? null,
+                specialRequests: updated.notes ?? null,
+                venueName: venue.name,
+                venueTimezone: venue.ianaTimezone,
+                venueAddress: null,
+                manageToken: token,
+                sequence: 2,
+              });
+            } catch {
+              request.log.error("Failed to send booking modified notification");
+            }
           }
     
           return reply.status(200).send({
@@ -4749,6 +4757,7 @@
     }
     type PrismaReservationWithTable = PrismaReservation & {
       table?: PrismaTable;
+      guest?: { visitCount: number } | null;
     };
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -4887,7 +4896,10 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+    export interface ReservationsAppOptions extends AppOptions {
+      notificationPort?: NotificationPort;
+    }
+    export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       const fastify = await createServiceApp(
         {
           swagger: {
@@ -4899,6 +4911,10 @@
         },
         options
       );
+    
+      // Wire notification port (injected or default Resend-backed)
+      const notificationPort = options.notificationPort ?? createNotificationPort();
+      fastify.decorate("notificationPort", notificationPort);
     
       // Register routes
       await fastify.register(healthRoutes);
@@ -4937,6 +4953,23 @@
       await fastify.register(stripeWebhookRoutes);
     
       return fastify;
+    }
+  </file>
+  <file path="src/notifications.ts">
+    export function createNotificationPort(): NotificationPort {
+      const resendClient = process.env.RESEND_API_KEY
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+            emails: {
+              send(payload: Record<string, unknown>): Promise<{ id: string }>;
+            };
+          })
+        : null;
+    
+      return new ResendNotificationAdapter({
+        resend: resendClient,
+        fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+      });
     }
   </file>
   </section>
