@@ -52,6 +52,7 @@ model Venue {
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   @@unique([venueGroupId, slug])
+  @@index([venueGroupId])
   @@map("venues")
 }
 
@@ -118,6 +119,7 @@ model Guest {
   @@unique([venueId, phone])
   @@index([venueId])
   @@index([venueId, lastVisit])
+  @@index([venueId, visitCount])
   @@map("guests")
 }
 
