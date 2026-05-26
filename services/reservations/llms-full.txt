@@ -2344,6 +2344,33 @@
       }
     }
   </file>
+  <file path="src/routes/public-unsubscribe.ts">
+    function getUnsubscribeSecret(): string {
+      return process.env.UNSUBSCRIBE_SECRET ?? process.env.MANAGE_TOKEN_SECRET ?? "dev-secret-do-not-use";
+    }
+    function verifyUnsubscribeToken(token: string): { valid: true; guestId: string } | { valid: false } {
+      const dotIdx = token.indexOf(".");
+      if (dotIdx < 1) return { valid: false };
+    
+      const sig = token.slice(0, dotIdx);
+      const guestId = token.slice(dotIdx + 1);
+    
+      if (!guestId) return { valid: false };
+    
+      const expected = createHmac("sha256", getUnsubscribeSecret()).update(guestId).digest("hex");
+    
+      try {
+        const sigBuf = Buffer.from(sig, "hex");
+        const expBuf = Buffer.from(expected, "hex");
+        if (sigBuf.length !== expBuf.length) return { valid: false };
+        if (!timingSafeEqual(sigBuf, expBuf)) return { valid: false };
+      } catch {
+        return { valid: false };
+      }
+    
+      return { valid: true, guestId };
+    }
+  </file>
   <file path="src/routes/public-venues.ts">
     interface PublicVenueResponse {
       name: string;
@@ -3057,6 +3084,11 @@
               .send(
                 createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
               );
+          }
+    
+          // Fire-and-forget post-visit email on COMPLETED transition
+          if (request.body.status === "COMPLETED" && result.reservation) {
+            void sendPostVisitEmail(result.reservation.id);
           }
     
           return { data: result.reservation! };
@@ -4731,6 +4763,14 @@
       error?: string;
     }
   </file>
+  <file path="src/services/notification.ts">
+    function getUnsubscribeSecret(): string {
+      return process.env.UNSUBSCRIBE_SECRET ?? process.env.MANAGE_TOKEN_SECRET ?? "dev-secret-do-not-use";
+    }
+    function getEmailFrom(): string {
+      return process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com";
+    }
+  </file>
   <file path="src/services/reminder.ts">
     export async function findReservationsNeedingReminder() {
       const now = new Date();
@@ -4952,6 +4992,9 @@
       await fastify.register(manageReservationRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
+    
+      // Public unsubscribe (no auth)
+      await fastify.register(publicUnsubscribeRoutes);
     
       // Deposit routes
       await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });

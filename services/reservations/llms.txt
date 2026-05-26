@@ -138,6 +138,14 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/public-unsubscribe.ts">
+    <item priority="medium">
+      function getUnsubscribeSecret(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function verifyUnsubscribeToken(token: string): { valid: true; guestId: string } | { valid: false } { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/public-venues.ts">
     <item priority="high">
       interface PublicVenueResponse {
@@ -326,6 +334,14 @@
         hold?: ReservationHold;
         error?: string;
       }
+    </item>
+  </file>
+  <file path="src/services/notification.ts">
+    <item priority="medium">
+      function getUnsubscribeSecret(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getEmailFrom(): string { /* ... */ }
     </item>
   </file>
   <file path="src/services/reminder.ts">
