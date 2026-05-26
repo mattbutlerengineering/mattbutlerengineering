@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServiceApp, type AppOptions } from "@mbe/database";
+import type { NotificationPort } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { readinessRoutes } from "./routes/ready.js";
@@ -21,11 +22,16 @@ import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
+import { createNotificationPort } from "./notifications.js";
+
+export interface ReservationsAppOptions extends AppOptions {
+  notificationPort?: NotificationPort;
+}
 
 /**
  * Creates the Fastify application instance.
  */
-export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
   const fastify = await createServiceApp(
     {
       swagger: {
@@ -37,6 +43,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
     options
   );
+
+  // Wire notification port (injected or default Resend-backed)
+  const notificationPort = options.notificationPort ?? createNotificationPort();
+  fastify.decorate("notificationPort", notificationPort);
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -71,4 +81,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(modifyReservationRoutes);
 
   return fastify;
+}
+
+declare module "fastify" {
+  interface FastifyInstance {
+    notificationPort: NotificationPort;
+  }
 }

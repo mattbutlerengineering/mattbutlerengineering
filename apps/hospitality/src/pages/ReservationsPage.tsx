@@ -15,6 +15,7 @@ import {
 import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservations } from "../hooks/useReservations.js";
+import { ordinalVisit } from "../utils/ordinal.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -265,6 +266,11 @@ export function ReservationsPage() {
                         <Text variant="caption" color="secondary">
                           {reservation.guestEmail}
                         </Text>
+                      )}
+                      {reservation.guest && reservation.guest.visitCount > 1 && (
+                        <Badge variant="accent" size="sm">
+                          {ordinalVisit(reservation.guest.visitCount)}
+                        </Badge>
                       )}
                     </td>
                     <td className={styles.td}>{reservation.partySize}</td>
