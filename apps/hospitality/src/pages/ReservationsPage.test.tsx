@@ -331,6 +331,42 @@ describe("ReservationsPage", () => {
       expect(badges.length).toBe(3);
     });
 
+    it("shows returning-guest badge with visit count when guest.visitCount > 1", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Dave", guest: { visitCount: 4 } })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => t === "4th visit")).toBe(true);
+    });
+
+    it("does not show returning-guest badge when guest is null", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Eve", guest: null })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => (t ?? "").includes("visit"))).toBe(false);
+    });
+
+    it("does not show returning-guest badge when guest.visitCount is 1", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Frank", guest: { visitCount: 1 } })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => (t ?? "").includes("visit"))).toBe(false);
+    });
+
     it("displays notes or dash when no notes", () => {
       mockReservationsHook({
         data: [
