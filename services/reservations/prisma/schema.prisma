@@ -68,14 +68,6 @@ enum WaitlistStatus {
   cancelled
 }
 
-enum DepositStatus {
-  pending
-  held
-  applied
-  refunded
-  forfeited
-}
-
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
