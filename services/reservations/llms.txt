@@ -256,14 +256,14 @@
   </file>
   <file path="src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing";
     </item>
     <item priority="low">
       interface ReservationEvent {
         type: ReservationEventType;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold | FloorPlan;
+        data: Reservation | Table | ReservationHold | FloorPlan | Lapsi...;
       }
     </item>
   </file>
@@ -309,6 +309,7 @@
         lifetimeSpend: Prisma.Decimal | null;
         lastVisit: Date | null;
         tags: unknown;
+        communicationPreference: string;
         dietaryRestrictions: unknown;
         staffNotes: unknown;
         createdAt: Date;
@@ -326,6 +327,28 @@
         hold?: ReservationHold;
         error?: string;
       }
+    </item>
+  </file>
+  <file path="src/services/lapse-detector.ts">
+    <item priority="low">
+      interface LapseResult {
+        avgFrequencyDays: number;
+        daysSinceLastVisit: number;
+        isLapsing: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function detectLapse(visitDates: string[]): LapseResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/lapsed-guest-cron.ts">
+    <item priority="high">
+      export function scheduleLapsedGuestCron(log: FastifyBaseLogger): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/lapsed-guest-scan.ts">
+    <item priority="high">
+      export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[]> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reminder.ts">
@@ -438,6 +461,14 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+  </file>
+  <file path="src/services/win-back.ts">
+    <item priority="high">
+      export async function sendWinBack(
+        guest: Guest,
+        notificationPort: NotificationPort
+      ): Promise<boolean> { /* ... */ }
     </item>
   </file>
   </section>

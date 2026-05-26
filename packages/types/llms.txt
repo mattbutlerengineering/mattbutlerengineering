@@ -144,19 +144,13 @@
   </file>
   <file path="src/guest.ts">
     <item priority="low">
+      type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+    </item>
+    <item priority="low">
       interface StaffNote {
         text: string;
         createdBy: string;
         createdAt: string;
-      }
-    </item>
-    <item priority="low">
-      interface Guest {
-        id: string;
-        venueId: string;
-        venue?: Venue;
-        email: string | null;
-        phone: string | null;
       }
     </item>
   </file>
