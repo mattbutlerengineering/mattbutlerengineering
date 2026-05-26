@@ -147,4 +147,33 @@ describe("ReservationBlock", () => {
     expect(label).toContain("party of 4");
     expect(label).toContain("confirmed");
   });
+
+  describe("returning guest visit count", () => {
+    it("shows visit count in details when guest.visitCount > 1", () => {
+      render(
+        <ReservationBlock
+          reservation={makeReservation({ guest: { visitCount: 3 } })}
+          style={defaultStyle}
+        />
+      );
+      expect(screen.getByText(/3rd visit/)).toBeDefined();
+    });
+
+    it("does not show visit count when guest is null", () => {
+      render(
+        <ReservationBlock reservation={makeReservation({ guest: null })} style={defaultStyle} />
+      );
+      expect(screen.queryByText(/visit/)).toBeNull();
+    });
+
+    it("does not show visit count when guest.visitCount is 1", () => {
+      render(
+        <ReservationBlock
+          reservation={makeReservation({ guest: { visitCount: 1 } })}
+          style={defaultStyle}
+        />
+      );
+      expect(screen.queryByText(/visit/)).toBeNull();
+    });
+  });
 });
