@@ -424,7 +424,7 @@ export const reservationService = {
           ...(reason !== undefined && { cancellationReason: reason }),
           ...(note !== undefined && { cancellationNote: note }),
         },
-        include: { table: true },
+        include: { table: true, guest: { select: { visitCount: true } } },
       });
       return mapPrismaReservation(reservation);
     } catch (err: unknown) {
