@@ -68,6 +68,12 @@ enum WaitlistStatus {
   cancelled
 }
 
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
@@ -166,6 +172,7 @@ model Guest {
   dietaryRestrictions     Json?                   @map("dietary_restrictions")
   staffNotes              Json?                   @map("staff_notes")
   communicationPreference CommunicationPreference @default(both) @map("communication_preference")
+  unsubscribed            Boolean                 @default(false)
   stripeCustomerId        String?                 @unique @map("stripe_customer_id")
   reservations            Reservation[]
   createdAt               DateTime                @default(now()) @map("created_at")
@@ -200,6 +207,7 @@ model Reservation {
   table              Table              @relation(fields: [tableId], references: [id])
   venueId            String?            @map("venue_id")
   venue              Venue?             @relation(fields: [venueId], references: [id])
+  emailStatus        EmailStatus?       @map("email_status")
   deposit            Deposit?
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")

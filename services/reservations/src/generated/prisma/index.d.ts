@@ -147,6 +147,15 @@ export const WaitlistStatus: {
 
 export type WaitlistStatus = (typeof WaitlistStatus)[keyof typeof WaitlistStatus]
 
+
+export const EmailStatus: {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED'
+};
+
+export type EmailStatus = (typeof EmailStatus)[keyof typeof EmailStatus]
+
 }
 
 export type ReservationStatus = $Enums.ReservationStatus
@@ -180,6 +189,10 @@ export const DepositType: typeof $Enums.DepositType
 export type WaitlistStatus = $Enums.WaitlistStatus
 
 export const WaitlistStatus: typeof $Enums.WaitlistStatus
+
+export type EmailStatus = $Enums.EmailStatus
+
+export const EmailStatus: typeof $Enums.EmailStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -6878,6 +6891,7 @@ export namespace Prisma {
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
     communicationPreference: $Enums.CommunicationPreference | null
+    unsubscribed: boolean | null
     stripeCustomerId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -6894,6 +6908,7 @@ export namespace Prisma {
     lifetimeSpend: Decimal | null
     lastVisit: Date | null
     communicationPreference: $Enums.CommunicationPreference | null
+    unsubscribed: boolean | null
     stripeCustomerId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -6913,6 +6928,7 @@ export namespace Prisma {
     dietaryRestrictions: number
     staffNotes: number
     communicationPreference: number
+    unsubscribed: number
     stripeCustomerId: number
     createdAt: number
     updatedAt: number
@@ -6941,6 +6957,7 @@ export namespace Prisma {
     lifetimeSpend?: true
     lastVisit?: true
     communicationPreference?: true
+    unsubscribed?: true
     stripeCustomerId?: true
     createdAt?: true
     updatedAt?: true
@@ -6957,6 +6974,7 @@ export namespace Prisma {
     lifetimeSpend?: true
     lastVisit?: true
     communicationPreference?: true
+    unsubscribed?: true
     stripeCustomerId?: true
     createdAt?: true
     updatedAt?: true
@@ -6976,6 +6994,7 @@ export namespace Prisma {
     dietaryRestrictions?: true
     staffNotes?: true
     communicationPreference?: true
+    unsubscribed?: true
     stripeCustomerId?: true
     createdAt?: true
     updatedAt?: true
@@ -7082,6 +7101,7 @@ export namespace Prisma {
     dietaryRestrictions: JsonValue | null
     staffNotes: JsonValue | null
     communicationPreference: $Enums.CommunicationPreference
+    unsubscribed: boolean
     stripeCustomerId: string | null
     createdAt: Date
     updatedAt: Date
@@ -7120,6 +7140,7 @@ export namespace Prisma {
     dietaryRestrictions?: boolean
     staffNotes?: boolean
     communicationPreference?: boolean
+    unsubscribed?: boolean
     stripeCustomerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -7142,6 +7163,7 @@ export namespace Prisma {
     dietaryRestrictions?: boolean
     staffNotes?: boolean
     communicationPreference?: boolean
+    unsubscribed?: boolean
     stripeCustomerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -7162,6 +7184,7 @@ export namespace Prisma {
     dietaryRestrictions?: boolean
     staffNotes?: boolean
     communicationPreference?: boolean
+    unsubscribed?: boolean
     stripeCustomerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -7182,12 +7205,13 @@ export namespace Prisma {
     dietaryRestrictions?: boolean
     staffNotes?: boolean
     communicationPreference?: boolean
+    unsubscribed?: boolean
     stripeCustomerId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "communicationPreference" | "stripeCustomerId" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
+  export type GuestOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "venueId" | "email" | "phone" | "name" | "notes" | "visitCount" | "lifetimeSpend" | "lastVisit" | "tags" | "dietaryRestrictions" | "staffNotes" | "communicationPreference" | "unsubscribed" | "stripeCustomerId" | "createdAt" | "updatedAt", ExtArgs["result"]["guest"]>
   export type GuestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     venue?: boolean | VenueDefaultArgs<ExtArgs>
     reservations?: boolean | Guest$reservationsArgs<ExtArgs>
@@ -7220,6 +7244,7 @@ export namespace Prisma {
       dietaryRestrictions: Prisma.JsonValue | null
       staffNotes: Prisma.JsonValue | null
       communicationPreference: $Enums.CommunicationPreference
+      unsubscribed: boolean
       stripeCustomerId: string | null
       createdAt: Date
       updatedAt: Date
@@ -7661,6 +7686,7 @@ export namespace Prisma {
     readonly dietaryRestrictions: FieldRef<"Guest", 'Json'>
     readonly staffNotes: FieldRef<"Guest", 'Json'>
     readonly communicationPreference: FieldRef<"Guest", 'CommunicationPreference'>
+    readonly unsubscribed: FieldRef<"Guest", 'Boolean'>
     readonly stripeCustomerId: FieldRef<"Guest", 'String'>
     readonly createdAt: FieldRef<"Guest", 'DateTime'>
     readonly updatedAt: FieldRef<"Guest", 'DateTime'>
@@ -8146,6 +8172,7 @@ export namespace Prisma {
     userId: string | null
     tableId: string | null
     venueId: string | null
+    emailStatus: $Enums.EmailStatus | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -8169,6 +8196,7 @@ export namespace Prisma {
     userId: string | null
     tableId: string | null
     venueId: string | null
+    emailStatus: $Enums.EmailStatus | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -8192,6 +8220,7 @@ export namespace Prisma {
     userId: number
     tableId: number
     venueId: number
+    emailStatus: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -8225,6 +8254,7 @@ export namespace Prisma {
     userId?: true
     tableId?: true
     venueId?: true
+    emailStatus?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -8248,6 +8278,7 @@ export namespace Prisma {
     userId?: true
     tableId?: true
     venueId?: true
+    emailStatus?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -8271,6 +8302,7 @@ export namespace Prisma {
     userId?: true
     tableId?: true
     venueId?: true
+    emailStatus?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -8381,6 +8413,7 @@ export namespace Prisma {
     userId: string | null
     tableId: string
     venueId: string | null
+    emailStatus: $Enums.EmailStatus | null
     createdAt: Date
     updatedAt: Date
     _count: ReservationCountAggregateOutputType | null
@@ -8423,6 +8456,7 @@ export namespace Prisma {
     userId?: boolean
     tableId?: boolean
     venueId?: boolean
+    emailStatus?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     guest?: boolean | Reservation$guestArgs<ExtArgs>
@@ -8450,6 +8484,7 @@ export namespace Prisma {
     userId?: boolean
     tableId?: boolean
     venueId?: boolean
+    emailStatus?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     guest?: boolean | Reservation$guestArgs<ExtArgs>
@@ -8476,6 +8511,7 @@ export namespace Prisma {
     userId?: boolean
     tableId?: boolean
     venueId?: boolean
+    emailStatus?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     guest?: boolean | Reservation$guestArgs<ExtArgs>
@@ -8502,11 +8538,12 @@ export namespace Prisma {
     userId?: boolean
     tableId?: boolean
     venueId?: boolean
+    emailStatus?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ReservationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "date" | "startTime" | "endTime" | "partySize" | "status" | "notes" | "cancellationReason" | "cancellationNote" | "occasion" | "seatingPreference" | "guestName" | "guestEmail" | "guestPhone" | "guestId" | "userId" | "tableId" | "venueId" | "createdAt" | "updatedAt", ExtArgs["result"]["reservation"]>
+  export type ReservationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "date" | "startTime" | "endTime" | "partySize" | "status" | "notes" | "cancellationReason" | "cancellationNote" | "occasion" | "seatingPreference" | "guestName" | "guestEmail" | "guestPhone" | "guestId" | "userId" | "tableId" | "venueId" | "emailStatus" | "createdAt" | "updatedAt", ExtArgs["result"]["reservation"]>
   export type ReservationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     guest?: boolean | Reservation$guestArgs<ExtArgs>
     table?: boolean | TableDefaultArgs<ExtArgs>
@@ -8551,6 +8588,7 @@ export namespace Prisma {
       userId: string | null
       tableId: string
       venueId: string | null
+      emailStatus: $Enums.EmailStatus | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["reservation"]>
@@ -8998,6 +9036,7 @@ export namespace Prisma {
     readonly userId: FieldRef<"Reservation", 'String'>
     readonly tableId: FieldRef<"Reservation", 'String'>
     readonly venueId: FieldRef<"Reservation", 'String'>
+    readonly emailStatus: FieldRef<"Reservation", 'EmailStatus'>
     readonly createdAt: FieldRef<"Reservation", 'DateTime'>
     readonly updatedAt: FieldRef<"Reservation", 'DateTime'>
   }
@@ -13075,6 +13114,7 @@ export namespace Prisma {
     dietaryRestrictions: 'dietaryRestrictions',
     staffNotes: 'staffNotes',
     communicationPreference: 'communicationPreference',
+    unsubscribed: 'unsubscribed',
     stripeCustomerId: 'stripeCustomerId',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -13102,6 +13142,7 @@ export namespace Prisma {
     userId: 'userId',
     tableId: 'tableId',
     venueId: 'venueId',
+    emailStatus: 'emailStatus',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -13373,6 +13414,20 @@ export namespace Prisma {
    * Reference to a field of type 'SeatingPreference[]'
    */
   export type ListEnumSeatingPreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SeatingPreference[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'EmailStatus'
+   */
+  export type EnumEmailStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EmailStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'EmailStatus[]'
+   */
+  export type ListEnumEmailStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EmailStatus[]'>
     
 
 
@@ -13806,6 +13861,7 @@ export namespace Prisma {
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
     communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
+    unsubscribed?: BoolFilter<"Guest"> | boolean
     stripeCustomerId?: StringNullableFilter<"Guest"> | string | null
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
@@ -13827,6 +13883,7 @@ export namespace Prisma {
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
     communicationPreference?: SortOrder
+    unsubscribed?: SortOrder
     stripeCustomerId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -13854,6 +13911,7 @@ export namespace Prisma {
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
     communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
+    unsubscribed?: BoolFilter<"Guest"> | boolean
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
     venue?: XOR<VenueScalarRelationFilter, VenueWhereInput>
@@ -13874,6 +13932,7 @@ export namespace Prisma {
     dietaryRestrictions?: SortOrderInput | SortOrder
     staffNotes?: SortOrderInput | SortOrder
     communicationPreference?: SortOrder
+    unsubscribed?: SortOrder
     stripeCustomerId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -13901,6 +13960,7 @@ export namespace Prisma {
     dietaryRestrictions?: JsonNullableWithAggregatesFilter<"Guest">
     staffNotes?: JsonNullableWithAggregatesFilter<"Guest">
     communicationPreference?: EnumCommunicationPreferenceWithAggregatesFilter<"Guest"> | $Enums.CommunicationPreference
+    unsubscribed?: BoolWithAggregatesFilter<"Guest"> | boolean
     stripeCustomerId?: StringNullableWithAggregatesFilter<"Guest"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Guest"> | Date | string
@@ -13928,6 +13988,7 @@ export namespace Prisma {
     userId?: StringNullableFilter<"Reservation"> | string | null
     tableId?: StringFilter<"Reservation"> | string
     venueId?: StringNullableFilter<"Reservation"> | string | null
+    emailStatus?: EnumEmailStatusNullableFilter<"Reservation"> | $Enums.EmailStatus | null
     createdAt?: DateTimeFilter<"Reservation"> | Date | string
     updatedAt?: DateTimeFilter<"Reservation"> | Date | string
     guest?: XOR<GuestNullableScalarRelationFilter, GuestWhereInput> | null
@@ -13955,6 +14016,7 @@ export namespace Prisma {
     userId?: SortOrderInput | SortOrder
     tableId?: SortOrder
     venueId?: SortOrderInput | SortOrder
+    emailStatus?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     guest?: GuestOrderByWithRelationInput
@@ -13985,6 +14047,7 @@ export namespace Prisma {
     userId?: StringNullableFilter<"Reservation"> | string | null
     tableId?: StringFilter<"Reservation"> | string
     venueId?: StringNullableFilter<"Reservation"> | string | null
+    emailStatus?: EnumEmailStatusNullableFilter<"Reservation"> | $Enums.EmailStatus | null
     createdAt?: DateTimeFilter<"Reservation"> | Date | string
     updatedAt?: DateTimeFilter<"Reservation"> | Date | string
     guest?: XOR<GuestNullableScalarRelationFilter, GuestWhereInput> | null
@@ -14012,6 +14075,7 @@ export namespace Prisma {
     userId?: SortOrderInput | SortOrder
     tableId?: SortOrder
     venueId?: SortOrderInput | SortOrder
+    emailStatus?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: ReservationCountOrderByAggregateInput
@@ -14043,6 +14107,7 @@ export namespace Prisma {
     userId?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
     tableId?: StringWithAggregatesFilter<"Reservation"> | string
     venueId?: StringNullableWithAggregatesFilter<"Reservation"> | string | null
+    emailStatus?: EnumEmailStatusNullableWithAggregatesFilter<"Reservation"> | $Enums.EmailStatus | null
     createdAt?: DateTimeWithAggregatesFilter<"Reservation"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Reservation"> | Date | string
   }
@@ -14748,6 +14813,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -14769,6 +14835,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -14788,6 +14855,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14809,6 +14877,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14829,6 +14898,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -14847,6 +14917,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14866,6 +14937,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -14887,6 +14959,7 @@ export namespace Prisma {
     guestEmail?: string | null
     guestPhone?: string | null
     userId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
@@ -14914,6 +14987,7 @@ export namespace Prisma {
     userId?: string | null
     tableId: string
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
@@ -14935,6 +15009,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
@@ -14962,6 +15037,7 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
@@ -14986,6 +15062,7 @@ export namespace Prisma {
     userId?: string | null
     tableId: string
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -15006,6 +15083,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -15029,6 +15107,7 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -15959,6 +16038,7 @@ export namespace Prisma {
     dietaryRestrictions?: SortOrder
     staffNotes?: SortOrder
     communicationPreference?: SortOrder
+    unsubscribed?: SortOrder
     stripeCustomerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -15980,6 +16060,7 @@ export namespace Prisma {
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
     communicationPreference?: SortOrder
+    unsubscribed?: SortOrder
     stripeCustomerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -15996,6 +16077,7 @@ export namespace Prisma {
     lifetimeSpend?: SortOrder
     lastVisit?: SortOrder
     communicationPreference?: SortOrder
+    unsubscribed?: SortOrder
     stripeCustomerId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -16067,6 +16149,13 @@ export namespace Prisma {
     not?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel> | $Enums.SeatingPreference | null
   }
 
+  export type EnumEmailStatusNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.EmailStatus | EnumEmailStatusFieldRefInput<$PrismaModel> | null
+    in?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumEmailStatusNullableFilter<$PrismaModel> | $Enums.EmailStatus | null
+  }
+
   export type GuestNullableScalarRelationFilter = {
     is?: GuestWhereInput | null
     isNot?: GuestWhereInput | null
@@ -16101,6 +16190,7 @@ export namespace Prisma {
     userId?: SortOrder
     tableId?: SortOrder
     venueId?: SortOrder
+    emailStatus?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -16128,6 +16218,7 @@ export namespace Prisma {
     userId?: SortOrder
     tableId?: SortOrder
     venueId?: SortOrder
+    emailStatus?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -16151,6 +16242,7 @@ export namespace Prisma {
     userId?: SortOrder
     tableId?: SortOrder
     venueId?: SortOrder
+    emailStatus?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -16187,6 +16279,16 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
     _max?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
+  }
+
+  export type EnumEmailStatusNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.EmailStatus | EnumEmailStatusFieldRefInput<$PrismaModel> | null
+    in?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumEmailStatusNullableWithAggregatesFilter<$PrismaModel> | $Enums.EmailStatus | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumEmailStatusNullableFilter<$PrismaModel>
+    _max?: NestedEnumEmailStatusNullableFilter<$PrismaModel>
   }
 
   export type EnumDepositStatusFilter<$PrismaModel = never> = {
@@ -16982,6 +17084,10 @@ export namespace Prisma {
     set?: $Enums.SeatingPreference | null
   }
 
+  export type NullableEnumEmailStatusFieldUpdateOperationsInput = {
+    set?: $Enums.EmailStatus | null
+  }
+
   export type GuestUpdateOneWithoutReservationsNestedInput = {
     create?: XOR<GuestCreateWithoutReservationsInput, GuestUncheckedCreateWithoutReservationsInput>
     connectOrCreate?: GuestCreateOrConnectWithoutReservationsInput
@@ -17426,6 +17532,13 @@ export namespace Prisma {
     not?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel> | $Enums.SeatingPreference | null
   }
 
+  export type NestedEnumEmailStatusNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.EmailStatus | EnumEmailStatusFieldRefInput<$PrismaModel> | null
+    in?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumEmailStatusNullableFilter<$PrismaModel> | $Enums.EmailStatus | null
+  }
+
   export type NestedEnumReservationStatusWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.ReservationStatus | EnumReservationStatusFieldRefInput<$PrismaModel>
     in?: $Enums.ReservationStatus[] | ListEnumReservationStatusFieldRefInput<$PrismaModel>
@@ -17454,6 +17567,16 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
     _max?: NestedEnumSeatingPreferenceNullableFilter<$PrismaModel>
+  }
+
+  export type NestedEnumEmailStatusNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.EmailStatus | EnumEmailStatusFieldRefInput<$PrismaModel> | null
+    in?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.EmailStatus[] | ListEnumEmailStatusFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumEmailStatusNullableWithAggregatesFilter<$PrismaModel> | $Enums.EmailStatus | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumEmailStatusNullableFilter<$PrismaModel>
+    _max?: NestedEnumEmailStatusNullableFilter<$PrismaModel>
   }
 
   export type NestedEnumDepositStatusFilter<$PrismaModel = never> = {
@@ -17669,6 +17792,7 @@ export namespace Prisma {
     guestEmail?: string | null
     guestPhone?: string | null
     userId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
@@ -17694,6 +17818,7 @@ export namespace Prisma {
     guestId?: string | null
     userId?: string | null
     tableId: string
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
@@ -17722,6 +17847,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -17741,6 +17867,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -17923,6 +18050,7 @@ export namespace Prisma {
     userId?: StringNullableFilter<"Reservation"> | string | null
     tableId?: StringFilter<"Reservation"> | string
     venueId?: StringNullableFilter<"Reservation"> | string | null
+    emailStatus?: EnumEmailStatusNullableFilter<"Reservation"> | $Enums.EmailStatus | null
     createdAt?: DateTimeFilter<"Reservation"> | Date | string
     updatedAt?: DateTimeFilter<"Reservation"> | Date | string
   }
@@ -17960,6 +18088,7 @@ export namespace Prisma {
     dietaryRestrictions?: JsonNullableFilter<"Guest">
     staffNotes?: JsonNullableFilter<"Guest">
     communicationPreference?: EnumCommunicationPreferenceFilter<"Guest"> | $Enums.CommunicationPreference
+    unsubscribed?: BoolFilter<"Guest"> | boolean
     stripeCustomerId?: StringNullableFilter<"Guest"> | string | null
     createdAt?: DateTimeFilter<"Guest"> | Date | string
     updatedAt?: DateTimeFilter<"Guest"> | Date | string
@@ -18290,6 +18419,7 @@ export namespace Prisma {
     guestEmail?: string | null
     guestPhone?: string | null
     userId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
@@ -18315,6 +18445,7 @@ export namespace Prisma {
     guestId?: string | null
     userId?: string | null
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
@@ -18551,6 +18682,7 @@ export namespace Prisma {
     guestEmail?: string | null
     guestPhone?: string | null
     userId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     table: TableCreateNestedOneWithoutReservationsInput
@@ -18576,6 +18708,7 @@ export namespace Prisma {
     userId?: string | null
     tableId: string
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     deposit?: DepositUncheckedCreateNestedOneWithoutReservationInput
@@ -18677,6 +18810,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -18697,6 +18831,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -18860,6 +18995,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -18880,6 +19016,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19048,6 +19185,7 @@ export namespace Prisma {
     guestEmail?: string | null
     guestPhone?: string | null
     userId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
     guest?: GuestCreateNestedOneWithoutReservationsInput
@@ -19074,6 +19212,7 @@ export namespace Prisma {
     userId?: string | null
     tableId: string
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -19110,6 +19249,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
@@ -19136,6 +19276,7 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -19457,6 +19598,7 @@ export namespace Prisma {
     guestId?: string | null
     userId?: string | null
     tableId: string
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -19474,6 +19616,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: $Enums.CommunicationPreference
+    unsubscribed?: boolean
     stripeCustomerId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -19571,6 +19714,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
@@ -19596,6 +19740,7 @@ export namespace Prisma {
     guestId?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
@@ -19619,6 +19764,7 @@ export namespace Prisma {
     guestId?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -19636,6 +19782,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19655,6 +19802,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19674,6 +19822,7 @@ export namespace Prisma {
     dietaryRestrictions?: NullableJsonNullValueInput | InputJsonValue
     staffNotes?: NullableJsonNullValueInput | InputJsonValue
     communicationPreference?: EnumCommunicationPreferenceFieldUpdateOperationsInput | $Enums.CommunicationPreference
+    unsubscribed?: BoolFieldUpdateOperationsInput | boolean
     stripeCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19834,6 +19983,7 @@ export namespace Prisma {
     guestId?: string | null
     userId?: string | null
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -19866,6 +20016,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     guest?: GuestUpdateOneWithoutReservationsNestedInput
@@ -19891,6 +20042,7 @@ export namespace Prisma {
     guestId?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
@@ -19914,6 +20066,7 @@ export namespace Prisma {
     guestId?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -19972,6 +20125,7 @@ export namespace Prisma {
     userId?: string | null
     tableId: string
     venueId?: string | null
+    emailStatus?: $Enums.EmailStatus | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -19992,6 +20146,7 @@ export namespace Prisma {
     guestEmail?: NullableStringFieldUpdateOperationsInput | string | null
     guestPhone?: NullableStringFieldUpdateOperationsInput | string | null
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     table?: TableUpdateOneRequiredWithoutReservationsNestedInput
@@ -20017,6 +20172,7 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deposit?: DepositUncheckedUpdateOneWithoutReservationNestedInput
@@ -20040,6 +20196,7 @@ export namespace Prisma {
     userId?: NullableStringFieldUpdateOperationsInput | string | null
     tableId?: StringFieldUpdateOperationsInput | string
     venueId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailStatus?: NullableEnumEmailStatusFieldUpdateOperationsInput | $Enums.EmailStatus | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

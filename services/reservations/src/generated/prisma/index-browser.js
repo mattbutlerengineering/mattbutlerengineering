@@ -189,6 +189,7 @@ exports.Prisma.GuestScalarFieldEnum = {
   dietaryRestrictions: 'dietaryRestrictions',
   staffNotes: 'staffNotes',
   communicationPreference: 'communicationPreference',
+  unsubscribed: 'unsubscribed',
   stripeCustomerId: 'stripeCustomerId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -213,6 +214,7 @@ exports.Prisma.ReservationScalarFieldEnum = {
   userId: 'userId',
   tableId: 'tableId',
   venueId: 'venueId',
+  emailStatus: 'emailStatus',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -333,6 +335,12 @@ exports.SeatingPreference = exports.$Enums.SeatingPreference = {
   window: 'window',
   quiet: 'quiet',
   no_preference: 'no_preference'
+};
+
+exports.EmailStatus = exports.$Enums.EmailStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED'
 };
 
 exports.DepositStatus = exports.$Enums.DepositStatus = {

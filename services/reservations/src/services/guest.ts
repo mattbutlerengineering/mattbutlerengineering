@@ -433,4 +433,11 @@ export const guestService = {
       { name: "New", description: "Booked but never visited", count: newGuests },
     ];
   },
+
+  async unsubscribe(guestId: string): Promise<void> {
+    await prisma.guest.update({
+      where: { id: guestId },
+      data: { unsubscribed: true },
+    });
+  },
 };
