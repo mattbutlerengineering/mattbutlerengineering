@@ -116,6 +116,7 @@ export function PublicBookingPage() {
       <div className={styles.widgetWrapper}>
         <BookingWidget
           venueId={venue.id}
+          venueSlug={venue.slug}
           apiBaseUrl={BASE_URL}
           onCancellation={() => {
             activeHoldIdRef.current = null;
