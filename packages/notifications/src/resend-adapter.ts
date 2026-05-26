@@ -1,4 +1,8 @@
-import type { NotificationPort, BookingNotificationInput } from "./port.js";
+import type {
+  NotificationPort,
+  BookingNotificationInput,
+  WinBackNotificationInput,
+} from "./port.js";
 import { buildBookingEmailContent } from "./booking-email-content.js";
 
 interface ResendClient {
@@ -86,6 +90,16 @@ export class ResendNotificationAdapter implements NotificationPort {
           contentType: `text/calendar; method=${content.icalMethod}`,
         },
       ],
+    });
+  }
+
+  async sendWinBack(input: WinBackNotificationInput): Promise<void> {
+    if (!this.resend) return;
+    await this.resend.emails.send({
+      from: this.fromAddress,
+      to: input.guestEmail,
+      subject: `We miss you, ${input.guestName}!`,
+      html: `<p>Hi ${input.guestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${input.venueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
     });
   }
 }
