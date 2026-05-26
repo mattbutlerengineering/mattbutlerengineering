@@ -20,6 +20,12 @@ export {
 } from "./availability.js";
 export { streamNDJSON, type StreamConfig } from "./streaming.js";
 export { HealthClient, type SystemHealth, type ServiceHealth } from "./health.js";
+export {
+  BriefingClient,
+  type BriefingGuest,
+  type BriefingReservation,
+  type BriefingResponse,
+} from "./briefing.js";
 
 import { ApiClient } from "./client.js";
 import type { ApiClientError } from "./client.js";
@@ -31,6 +37,7 @@ import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
 import { AvailabilityClient, HoldsClient } from "./availability.js";
 import { HealthClient } from "./health.js";
+import { BriefingClient } from "./briefing.js";
 
 /**
  * Create a configured API client for the MBE platform
@@ -62,5 +69,6 @@ export function createApiClient(config: {
     availability: new AvailabilityClient(client),
     holds: new HoldsClient(client),
     health: new HealthClient(client),
+    briefing: new BriefingClient(client),
   };
 }
