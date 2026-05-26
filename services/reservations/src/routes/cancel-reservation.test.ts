@@ -1,21 +1,8 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
-
-const { mockSendBookingCancelled } = vi.hoisted(() => ({
-  mockSendBookingCancelled: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock("@mbe/notifications", () => {
-  class MockResendNotificationAdapter {
-    sendBookingConfirmation = vi.fn().mockResolvedValue(undefined);
-    sendBookingReminder = vi.fn().mockResolvedValue(undefined);
-    sendBookingModified = vi.fn().mockResolvedValue(undefined);
-    sendBookingCancelled = mockSendBookingCancelled;
-  }
-  return { ResendNotificationAdapter: MockResendNotificationAdapter };
-});
+import type { NotificationPort } from "@mbe/notifications";
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -38,12 +25,6 @@ vi.mock("../services/venue.js", () => ({
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
-}));
-
-vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: { send: vi.fn().mockResolvedValue({ id: "email_1" }) },
-  })),
 }));
 
 import { reservationService } from "../services/reservation.js";
@@ -79,13 +60,33 @@ const mockVenue = {
   address: "123 Oak St, Portland OR",
 };
 
+function createStubNotificationPort(): NotificationPort & {
+  sendBookingConfirmation: ReturnType<typeof vi.fn>;
+  sendBookingReminder: ReturnType<typeof vi.fn>;
+  sendBookingModified: ReturnType<typeof vi.fn>;
+  sendBookingCancelled: ReturnType<typeof vi.fn>;
+} {
+  return {
+    sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
+    sendBookingReminder: vi.fn().mockResolvedValue(undefined),
+    sendBookingModified: vi.fn().mockResolvedValue(undefined),
+    sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe("DELETE /public/v1/reservations/manage", () => {
   let app: FastifyInstance;
+  let stubNotifications: ReturnType<typeof createStubNotificationPort>;
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false });
+    stubNotifications = createStubNotificationPort();
+    app = await buildApp({ logger: false, notificationPort: stubNotifications });
     await app.ready();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -128,13 +129,33 @@ describe("DELETE /public/v1/reservations/manage", () => {
       url: `/public/v1/reservations/manage?token=${token}`,
     });
 
-    expect(mockSendBookingCancelled).toHaveBeenCalledWith(
+    expect(stubNotifications.sendBookingCancelled).toHaveBeenCalledWith(
       expect.objectContaining({
         reservationId: "res_1",
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
       })
     );
+  });
+
+  it("returns 200 even when NotificationPort throws", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    stubNotifications.sendBookingCancelled.mockRejectedValueOnce(new Error("Email service down"));
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    // Cancellation succeeded, notification failure is non-fatal
+    expect(response.statusCode).toBe(200);
   });
 
   it("returns 409 when reservation is already cancelled", async () => {
