@@ -45,6 +45,16 @@
       export const confirmAttendanceRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/deposits.ts">
+    <item priority="high">
+      interface ApiResponse {
+        data: T;
+      }
+    </item>
+    <item priority="high">
+      export const depositRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/events.ts">
     <item priority="medium">
       class EventBuffer {
@@ -105,6 +115,11 @@
       export const publicAvailabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-guest-recognition.ts">
+    <item priority="high">
+      export const publicGuestRecognitionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-holds.ts">
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
@@ -121,6 +136,14 @@
         reservationId?: string;
         guestEmail?: string;
       } { /* ... */ }
+    </item>
+  </file>
+  <file path="src/routes/public-unsubscribe.ts">
+    <item priority="medium">
+      function getUnsubscribeSecret(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function verifyUnsubscribeToken(token: string): { valid: true; guestId: string } | { valid: false } { /* ... */ }
     </item>
   </file>
   <file path="src/routes/public-venues.ts">
@@ -147,6 +170,14 @@
       export const reservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/stripe-webhook.ts">
+    <item priority="high">
+      export const stripeWebhookRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="low">
+      async function handleStripeEvent(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
@@ -155,6 +186,11 @@
   <file path="src/routes/venues.ts">
     <item priority="high">
       export const venueRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/waitlist.ts">
+    <item priority="high">
+      export const waitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
   </section>
@@ -204,6 +240,28 @@
       export const getSlowQueryStats: unknown;
     </item>
   </file>
+  <file path="src/services/deposit-state-machine.ts">
+    <item priority="high">
+      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/deposit.ts">
+    <item priority="high">
+      class DepositNotFoundError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface CreateDepositOptions {
+        reservationId: string;
+        amountCents: number;
+        currency?: string;
+      }
+    </item>
+  </file>
   <file path="src/services/events.ts">
     <item priority="low">
       type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
@@ -229,6 +287,20 @@
         isAc...;
     </item>
   </file>
+  <file path="src/services/guest-recognition.ts">
+    <item priority="low">
+      interface GuestRecognition {
+        recognized: boolean;
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function extractFirstName(fullName: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/guest.ts">
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
@@ -245,6 +317,8 @@
         lifetimeSpend: Prisma.Decimal | null;
         lastVisit: Date | null;
         tags: unknown;
+        dietaryRestrictions: unknown;
+        staffNotes: unknown;
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
@@ -262,6 +336,14 @@
       }
     </item>
   </file>
+  <file path="src/services/notification.ts">
+    <item priority="medium">
+      function getUnsubscribeSecret(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getEmailFrom(): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/reminder.ts">
     <item priority="high">
       export async function findReservationsNeedingReminder() { /* ... */ }
@@ -274,7 +356,7 @@
     <item priority="high">
       type PrismaReservationWithTable = PrismaReservation & {
         table?: PrismaTable;
-      };
+        guest?: { ...;
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -288,6 +370,24 @@
     </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+  </file>
+  <file path="src/services/stripe.ts">
+    <item priority="low">
+      interface CreatePaymentIntentOptions {
+        amountCents: number;
+        currency: string;
+        customerId?: string;
+        reservationId: string;
+        metadata?: Record<string, string>;
+      }
+    </item>
+    <item priority="low">
+      interface PaymentIntentResult {
+        id: string;
+        status: string;
+        clientSecret: string | null;
+      }
     </item>
   </file>
   <file path="src/services/table.ts">
@@ -328,11 +428,49 @@
       }): VenueGroup { /* ... */ }
     </item>
   </file>
+  <file path="src/services/waitlist-utils.ts">
+    <item priority="high">
+      export function calculatePosition(existingCount: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/waitlist.ts">
+    <item priority="low">
+      interface WaitlistEntryData {
+        id: string;
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="low">
+      interface CreateWaitlistEntryInput {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+        avgTurnTimeMinutes?: number;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
+    <item priority="low">
+      interface ReservationsAppOptions {
+        notificationPort?: NotificationPort;
+      }
+    </item>
     <item priority="high">
-      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+      export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/notifications.ts">
+    <item priority="high">
+      export function createNotificationPort(): NotificationPort { /* ... */ }
     </item>
   </file>
   </section>

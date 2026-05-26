@@ -20,6 +20,7 @@ import {
   emitTableUpdated,
 } from "../services/events.js";
 import { tableService } from "../services/table.js";
+import { sendPostVisitEmail } from "../services/notification.js";
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -95,20 +96,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const adminAccess = hasPermission(request.user, "admin");
-
-      if (!adminAccess) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(
-            403,
-            "Forbidden",
-            "Admin access required to list all reservations"
-          ) as never
-        );
-      }
-
+    async (request, _reply) => {
       const { page, limit } = parseListQuery(request.query);
       return reservationService.list({
         page,
@@ -226,6 +214,16 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               type: "integer",
               minimum: 1,
               description: "Expected duration in minutes (defaults to 90)",
+            },
+            occasion: {
+              type: "string",
+              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+              description: "Occasion for the reservation",
+            },
+            seatingPreference: {
+              type: "string",
+              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+              description: "Guest seating preference",
             },
           },
           required: ["partySize", "tableId", "venueId"],
@@ -404,6 +402,16 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "ID of the venue for this reservation",
             },
+            occasion: {
+              type: "string",
+              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+              description: "Occasion for the reservation",
+            },
+            seatingPreference: {
+              type: "string",
+              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+              description: "Guest seating preference",
+            },
           },
           required: ["date", "startTime", "endTime", "partySize", "tableId"],
         },
@@ -535,6 +543,16 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "Additional cancellation notes (used when status is CANCELLED)",
             },
+            occasion: {
+              type: "string",
+              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+              description: "Occasion for the reservation",
+            },
+            seatingPreference: {
+              type: "string",
+              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+              description: "Guest seating preference",
+            },
           },
         },
         response: {
@@ -629,6 +647,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(
             createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
           );
+      }
+
+      // Fire-and-forget post-visit email on COMPLETED transition
+      if (request.body.status === "COMPLETED" && result.reservation) {
+        void sendPostVisitEmail(result.reservation.id);
       }
 
       return { data: result.reservation! };

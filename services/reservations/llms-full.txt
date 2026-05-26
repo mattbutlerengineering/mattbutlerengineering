@@ -364,21 +364,25 @@
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           if (reservation.guestEmail && venue) {
-            await notificationAdapter.sendBookingCancelled({
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-            });
+            try {
+              await fastify.notificationPort.sendBookingCancelled({
+                reservationId: reservation.id,
+                date: reservation.date,
+                startTime: reservation.startTime,
+                endTime: reservation.endTime,
+                partySize: reservation.partySize,
+                guestName: reservation.guestName,
+                guestEmail: reservation.guestEmail,
+                guestPhone: reservation.guestPhone ?? null,
+                specialRequests: reservation.notes ?? null,
+                venueName: venue.name,
+                venueTimezone: venue.ianaTimezone,
+                venueAddress: null,
+                manageToken: token,
+              });
+            } catch {
+              request.log.error("Failed to send booking cancelled notification");
+            }
           }
     
           return reply.status(200).send({
@@ -419,6 +423,256 @@
           }
     
           return reply.status(200).type("text/html").send(successHtml);
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/deposits.ts">
+    interface ApiResponse<T> {
+      data: T;
+    }
+    export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /api/v1/deposits — create a deposit
+      fastify.post<{
+        Body: { reservationId: string; amountCents: number; currency?: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a deposit",
+            operationId: "createDeposit",
+            description: "Create a new deposit in pending state for a reservation.",
+            tags: ["Deposits"],
+            body: {
+              type: "object",
+              required: ["reservationId", "amountCents"],
+              properties: {
+                reservationId: { type: "string", description: "ID of the reservation" },
+                amountCents: { type: "integer", minimum: 1, description: "Deposit amount in cents" },
+                currency: { type: "string", default: "usd", description: "ISO currency code" },
+              },
+            },
+            response: {
+              201: {
+                description: "Deposit created",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              400: { description: "Bad request", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.create({
+            reservationId: request.body.reservationId,
+            amountCents: request.body.amountCents,
+            currency: request.body.currency,
+          });
+          return reply.code(201).send({ data: deposit });
+        }
+      );
+    
+      // GET /api/v1/deposits/:id — get deposit by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get deposit by ID",
+            operationId: "getDepositById",
+            description: "Retrieve a deposit by its unique identifier.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit found",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.getById(request.params.id);
+          if (!deposit) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+          return { data: deposit };
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/capture — apply (capture) a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/capture",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Capture (apply) a deposit",
+            operationId: "captureDeposit",
+            description: "Capture a held deposit — transitions state from held → applied and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit applied",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.apply(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/refund — refund a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/refund",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Refund a deposit",
+            operationId: "refundDeposit",
+            description: "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit refunded",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.refund(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/forfeit",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Forfeit a deposit",
+            operationId: "forfeitDeposit",
+            description: "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit forfeited",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.forfeit(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
         }
       );
     };
@@ -793,15 +1047,8 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to list guests for",
-                },
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
+                venueId: { type: "string", description: "Venue ID to list guests for" },
+                page: { type: "string", default: "1", description: "Page number (1-indexed)" },
                 limit: {
                   type: "string",
                   default: "20",
@@ -814,17 +1061,11 @@
                 description: "Successful response with paginated guest list",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Guest#" },
-                  },
+                  data: { type: "array", items: { $ref: "Guest#" } },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -843,12 +1084,7 @@
     
       // Search guests
       fastify.get<{
-        Querystring: {
-          venueId: string;
-          query?: string;
-          tags?: string;
-          hasNotVisitedInDays?: string;
-        };
+        Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
         Reply: PaginatedResponse<Guest> | ApiError;
       }>(
         "/search",
@@ -864,18 +1100,9 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to search within",
-                },
-                query: {
-                  type: "string",
-                  description: "Search term (matches name, email, or phone)",
-                },
-                tags: {
-                  type: "string",
-                  description: "Comma-separated tags to filter by",
-                },
+                venueId: { type: "string", description: "Venue ID to search within" },
+                query: { type: "string", description: "Search term (matches name, email, or phone)" },
+                tags: { type: "string", description: "Comma-separated tags to filter by" },
                 hasNotVisitedInDays: {
                   type: "string",
                   description: "Filter guests who haven't visited in X days",
@@ -887,17 +1114,11 @@
                 description: "Search results",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Guest#" },
-                  },
+                  data: { type: "array", items: { $ref: "Guest#" } },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -935,10 +1156,7 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to get segments for",
-                },
+                venueId: { type: "string", description: "Venue ID to get segments for" },
               },
             },
             response: {
@@ -946,16 +1164,10 @@
                 description: "Guest segments",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "GuestSegment#" },
-                  },
+                  data: { type: "array", items: { $ref: "GuestSegment#" } },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -987,26 +1199,16 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
+              properties: { id: { type: "string", description: "Guest ID" } },
               required: ["id"],
             },
             response: {
               200: {
                 description: "Guest found",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
+              404: { description: "Guest not found", $ref: "Error#" },
             },
           },
         },
@@ -1037,31 +1239,20 @@
               type: "object",
               required: ["venueId", "name"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
-                },
-                email: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email",
-                },
-                phone: {
-                  type: "string",
-                  description: "Guest phone",
-                },
-                name: {
-                  type: "string",
-                  description: "Guest name",
-                },
-                notes: {
-                  type: "string",
-                  description: "Internal notes",
-                },
+                venueId: { type: "string", description: "Venue ID" },
+                email: { type: "string", format: "email", description: "Guest email" },
+                phone: { type: "string", description: "Guest phone" },
+                name: { type: "string", description: "Guest name" },
+                notes: { type: "string", description: "Internal notes" },
                 tags: {
                   type: "array",
                   items: { type: "string" },
                   description: "Tags for categorization",
+                },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
                 },
               },
             },
@@ -1069,18 +1260,10 @@
               201: {
                 description: "Guest created",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              400: {
-                description: "Invalid request or duplicate email/phone",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              400: { description: "Invalid request or duplicate email/phone", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -1107,7 +1290,13 @@
     
       // Find or create guest (identity resolution)
       fastify.post<{
-        Body: { venueId: string; email?: string; phone?: string; name: string };
+        Body: {
+          venueId: string;
+          email?: string;
+          phone?: string;
+          name: string;
+          dietaryRestrictions?: string[];
+        };
         Reply: ApiResponse<Guest> | ApiError;
       }>(
         "/find-or-create",
@@ -1124,10 +1313,7 @@
               type: "object",
               required: ["venueId", "name"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
-                },
+                venueId: { type: "string", description: "Venue ID" },
                 email: {
                   type: "string",
                   format: "email",
@@ -1137,9 +1323,11 @@
                   type: "string",
                   description: "Guest phone (used for matching if email not found)",
                 },
-                name: {
-                  type: "string",
-                  description: "Guest name",
+                name: { type: "string", description: "Guest name" },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Dietary restrictions to merge with existing guest profile",
                 },
               },
             },
@@ -1147,29 +1335,26 @@
               200: {
                 description: "Guest found or created",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              400: {
-                description: "Invalid request",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              400: { description: "Invalid request", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
         async (request, reply) => {
-          const { venueId, email, phone, name } = request.body;
+          const { venueId, email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
-          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
+          const guest = await guestService.findOrCreate(venueId, {
+            email,
+            phone,
+            name,
+            dietaryRestrictions,
+          });
           return { data: guest };
         }
       );
@@ -1191,6 +1376,62 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
+              properties: { id: { type: "string", description: "Guest ID" } },
+              required: ["id"],
+            },
+            body: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email", nullable: true },
+                phone: { type: "string", nullable: true },
+                name: { type: "string" },
+                notes: { type: "string", nullable: true },
+                tags: { type: "array", items: { type: "string" }, nullable: true },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  nullable: true,
+                  description: "Dietary restrictions (replaces existing list)",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Guest updated",
+                type: "object",
+                properties: { data: { $ref: "Guest#" } },
+              },
+              404: { description: "Guest not found", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const guest = await guestService.update(request.params.id, request.body);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          }
+          return { data: guest };
+        }
+      );
+    
+      // Add staff note to guest
+      fastify.post<{
+        Params: { id: string };
+        Body: { text: string };
+        Reply: ApiResponse<Guest> | ApiError;
+      }>(
+        "/:id/notes",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add a staff note to a guest",
+            operationId: "addGuestNote",
+            description:
+              "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
               properties: {
                 id: {
                   type: "string",
@@ -1201,25 +1442,30 @@
             },
             body: {
               type: "object",
+              required: ["text"],
               properties: {
-                email: { type: "string", format: "email", nullable: true },
-                phone: { type: "string", nullable: true },
-                name: { type: "string" },
-                notes: { type: "string", nullable: true },
-                tags: {
-                  type: "array",
-                  items: { type: "string" },
-                  nullable: true,
+                text: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Note text",
                 },
               },
             },
             response: {
-              200: {
-                description: "Guest updated",
+              201: {
+                description: "Note appended; returns updated guest",
                 type: "object",
                 properties: {
                   data: { $ref: "Guest#" },
                 },
+              },
+              400: {
+                description: "Invalid request",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
               },
               404: {
                 description: "Guest not found",
@@ -1229,11 +1475,16 @@
           },
         },
         async (request, reply) => {
-          const guest = await guestService.update(request.params.id, request.body);
+          const { text } = request.body;
+          if (!text || text.trim().length === 0) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+          }
+          const createdBy = request.user?.id ?? "unknown";
+          const guest = await guestService.addNote(request.params.id, text, createdBy);
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
-          return { data: guest };
+          return reply.code(201).send({ data: guest });
         }
       );
     
@@ -1252,27 +1503,13 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
+              properties: { id: { type: "string", description: "Guest ID" } },
               required: ["id"],
             },
             response: {
-              204: {
-                description: "Guest deleted",
-                type: "null",
-              },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
-              409: {
-                description: "Guest has reservations",
-                $ref: "Error#",
-              },
+              204: { description: "Guest deleted", type: "null" },
+              404: { description: "Guest not found", $ref: "Error#" },
+              409: { description: "Guest has reservations", $ref: "Error#" },
             },
           },
         },
@@ -1829,22 +2066,26 @@
           const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
     
           if (updated.guestEmail && venue) {
-            await notificationAdapter.sendBookingModified({
-              reservationId: updated.id,
-              date: updated.date,
-              startTime: updated.startTime,
-              endTime: updated.endTime,
-              partySize: updated.partySize,
-              guestName: updated.guestName,
-              guestEmail: updated.guestEmail,
-              guestPhone: updated.guestPhone ?? null,
-              specialRequests: updated.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-              sequence: 2,
-            });
+            try {
+              await fastify.notificationPort.sendBookingModified({
+                reservationId: updated.id,
+                date: updated.date,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                partySize: updated.partySize,
+                guestName: updated.guestName,
+                guestEmail: updated.guestEmail,
+                guestPhone: updated.guestPhone ?? null,
+                specialRequests: updated.notes ?? null,
+                venueName: venue.name,
+                venueTimezone: venue.ianaTimezone,
+                venueAddress: null,
+                manageToken: token,
+                sequence: 2,
+              });
+            } catch {
+              request.log.error("Failed to send booking modified notification");
+            }
           }
     
           return reply.status(200).send({
@@ -1922,6 +2163,66 @@
           const availableOnly = slots.filter((s: TimeSlot) => s.available);
     
           return reply.send({ data: availableOnly });
+        }
+      );
+    };
+  </file>
+  <file path="src/routes/public-guest-recognition.ts">
+    export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { email?: string };
+        Reply: ApiResponse<GuestRecognition>;
+      }>(
+        "/:slug/guests/recognize",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          schema: {
+            summary: "Recognize a guest by email (public)",
+            description:
+              "Read-only lookup that returns limited guest info for the booking widget. No auth required. Rate-limited to 10 req/min per IP.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: {
+                slug: { type: "string" },
+              },
+              required: ["slug"],
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email" },
+              },
+              required: ["email"],
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { email } = request.query;
+    
+          if (!email) {
+            return reply.status(400).send({
+              success: false,
+              error: "email query parameter is required",
+            } as never);
+          }
+    
+          const venue = await venueService.getBySlug(slug);
+    
+          if (!venue) {
+            return reply.status(404).send({
+              success: false,
+              error: "Venue not found",
+            } as never);
+          }
+    
+          const recognition = await recognizeGuest(venue.id, email);
+    
+          return reply.send({ data: recognition });
         }
       );
     };
@@ -2041,6 +2342,33 @@
       } catch {
         return { valid: false };
       }
+    }
+  </file>
+  <file path="src/routes/public-unsubscribe.ts">
+    function getUnsubscribeSecret(): string {
+      return process.env.UNSUBSCRIBE_SECRET ?? process.env.MANAGE_TOKEN_SECRET ?? "dev-secret-do-not-use";
+    }
+    function verifyUnsubscribeToken(token: string): { valid: true; guestId: string } | { valid: false } {
+      const dotIdx = token.indexOf(".");
+      if (dotIdx < 1) return { valid: false };
+    
+      const sig = token.slice(0, dotIdx);
+      const guestId = token.slice(dotIdx + 1);
+    
+      if (!guestId) return { valid: false };
+    
+      const expected = createHmac("sha256", getUnsubscribeSecret()).update(guestId).digest("hex");
+    
+      try {
+        const sigBuf = Buffer.from(sig, "hex");
+        const expBuf = Buffer.from(expected, "hex");
+        if (sigBuf.length !== expBuf.length) return { valid: false };
+        if (!timingSafeEqual(sigBuf, expBuf)) return { valid: false };
+      } catch {
+        return { valid: false };
+      }
+    
+      return { valid: true, guestId };
     }
   </file>
   <file path="src/routes/public-venues.ts">
@@ -2205,20 +2533,7 @@
             },
           },
         },
-        async (request, reply) => {
-          const adminAccess = hasPermission(request.user, "admin");
-    
-          if (!adminAccess) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "Admin access required to list all reservations"
-              ) as never
-            );
-          }
-    
+        async (request, _reply) => {
           const { page, limit } = parseListQuery(request.query);
           return reservationService.list({
             page,
@@ -2336,6 +2651,16 @@
                   type: "integer",
                   minimum: 1,
                   description: "Expected duration in minutes (defaults to 90)",
+                },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
                 },
               },
               required: ["partySize", "tableId", "venueId"],
@@ -2514,6 +2839,16 @@
                   type: "string",
                   description: "ID of the venue for this reservation",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["date", "startTime", "endTime", "partySize", "tableId"],
             },
@@ -2645,6 +2980,16 @@
                   type: "string",
                   description: "Additional cancellation notes (used when status is CANCELLED)",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
             },
             response: {
@@ -2741,6 +3086,11 @@
               );
           }
     
+          // Fire-and-forget post-visit email on COMPLETED transition
+          if (request.body.status === "COMPLETED" && result.reservation) {
+            void sendPostVisitEmail(result.reservation.id);
+          }
+    
           return { data: result.reservation! };
         }
       );
@@ -2821,6 +3171,112 @@
         }
       );
     };
+  </file>
+  <file path="src/routes/stripe-webhook.ts">
+    export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post(
+        "/api/v1/stripe/webhook",
+        {
+          config: {
+            // Disable body parsing — we need the raw body for Stripe signature verification
+            rawBody: true,
+          },
+        },
+        async (request, reply) => {
+          const signature = request.headers["stripe-signature"];
+    
+          if (!signature || typeof signature !== "string") {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Missing stripe-signature header"));
+          }
+    
+          // Get raw body buffer
+          const rawBody =
+            (request as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(request.body));
+    
+          let event: Stripe.Event;
+          try {
+            event = stripeService.constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Invalid webhook signature";
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
+          }
+    
+          try {
+            await handleStripeEvent(event);
+          } catch (err) {
+            // Log but don't fail — return 200 to prevent Stripe retrying
+            fastify.log.error({ err, eventType: event.type }, "Error handling Stripe webhook event");
+          }
+    
+          return reply.code(200).send({ received: true });
+        }
+      );
+    };
+    async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+      switch (event.type) {
+        case "payment_intent.succeeded": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const paymentIntentId = paymentIntent.id;
+    
+          // Find the deposit associated with this PaymentIntent
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) {
+            // No deposit linked — nothing to do
+            return;
+          }
+    
+          // Only transition from pending to held if not already transitioned
+          if (deposit.status === "pending") {
+            await depositService.hold(deposit.id, paymentIntentId);
+          }
+          break;
+        }
+    
+        case "payment_intent.canceled": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const paymentIntentId = paymentIntent.id;
+    
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) return;
+    
+          // If pending, can't directly refund (no transition pending → refunded)
+          // If held, we can refund
+          if (deposit.status === "held") {
+            await depositService.refund(deposit.id);
+          }
+          break;
+        }
+    
+        case "charge.refunded": {
+          const charge = event.data.object as Stripe.Charge;
+          // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
+          const paymentIntentId =
+            typeof charge.payment_intent === "string"
+              ? charge.payment_intent
+              : charge.payment_intent?.id;
+    
+          if (!paymentIntentId) return;
+    
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) return;
+    
+          // Only transition if currently held
+          if (deposit.status === "held") {
+            await depositService.refund(deposit.id);
+          }
+          break;
+        }
+    
+        default:
+          // Unknown event type — ignore gracefully
+          break;
+      }
+    }
   </file>
   <file path="src/routes/tables.ts">
     export const tableRoutes: FastifyPluginAsync = async (fastify) => {
@@ -3881,6 +4337,232 @@
       );
     };
   </file>
+  <file path="src/routes/waitlist.ts">
+    export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST / — create waitlist entry
+      fastify.post<{
+        Body: {
+          venueId: string;
+          partySize: number;
+          guestName: string;
+          guestPhone: string;
+          avgTurnTimeMinutes?: number;
+        };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add to waitlist",
+            operationId: "createWaitlistEntry",
+            tags: ["Waitlist"],
+            body: {
+              type: "object",
+              required: ["venueId", "partySize", "guestName", "guestPhone"],
+              properties: {
+                venueId: { type: "string" },
+                partySize: { type: "integer", minimum: 1 },
+                guestName: { type: "string" },
+                guestPhone: { type: "string" },
+                avgTurnTimeMinutes: { type: "integer", minimum: 1 },
+              },
+            },
+            response: {
+              201: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              400: { $ref: "Error#" },
+              500: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.create(request.body);
+          return reply.code(201).send({ data: entry });
+        }
+      );
+    
+      // GET / — list waiting entries for venue
+      fastify.get<{
+        Querystring: { venueId: string };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List waitlist entries",
+            operationId: "listWaitlistEntries",
+            tags: ["Waitlist"],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  data: { type: "array", items: WaitlistEntrySchema },
+                },
+              },
+              400: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entries = await waitlistService.listWaiting(request.query.venueId);
+          return reply.send({ data: entries });
+        }
+      );
+    
+      // GET /:id — get single entry
+      fastify.get<{
+        Params: { id: string };
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get waitlist entry",
+            operationId: "getWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.getById(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/seat — mark seated, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/seat",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark guest as seated",
+            operationId: "seatWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.seat(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/cancel — mark cancelled, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/cancel",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Cancel waitlist entry",
+            operationId: "cancelWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.cancel(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/expire — mark expired
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/expire",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark waitlist entry as expired",
+            operationId: "expireWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.expire(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    };
+  </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/index.ts">
@@ -3934,6 +4616,31 @@
     export const prisma = db.prisma as unknown as PrismaClient;
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
+  <file path="src/services/deposit-state-machine.ts">
+    export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
+      pending: ["held"],
+      held: ["applied", "refunded", "forfeited"],
+      applied: [],
+      refunded: [],
+      forfeited: [],
+    };
+    export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
+      return VALID_TRANSITIONS[from].includes(to);
+    }
+  </file>
+  <file path="src/services/deposit.ts">
+    export class DepositNotFoundError extends Error {
+      constructor(id: string) {
+        super(`Deposit not found: ${id}`);
+        this.name = "DepositNotFoundError";
+      }
+    }
+    export interface CreateDepositOptions {
+      reservationId: string;
+      amountCents: number;
+      currency?: string;
+    }
+  </file>
   <file path="src/services/events.ts">
     export type ReservationEventType =
       | "reservation:created"
@@ -3971,6 +4678,19 @@
       tables?: PrismaTable[];
     };
   </file>
+  <file path="src/services/guest-recognition.ts">
+    export interface GuestRecognition {
+      recognized: boolean;
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+      lastVisit: string | null;
+    }
+    function extractFirstName(fullName: string): string {
+      return fullName.split(" ")[0];
+    }
+  </file>
   <file path="src/services/guest.ts">
     function isPrismaNotFound(err: unknown): boolean {
       return (
@@ -3991,9 +4711,19 @@
       lifetimeSpend: Prisma.Decimal | null;
       lastVisit: Date | null;
       tags: unknown;
+      dietaryRestrictions: unknown;
+      staffNotes: unknown;
       createdAt: Date;
       updatedAt: Date;
     }): Guest {
+      const rawNotes = guest.staffNotes as StaffNote[] | null;
+      // Return notes in reverse chronological order (newest first)
+      const staffNotes = rawNotes
+        ? [...rawNotes].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        : [];
+    
       return {
         id: guest.id,
         venueId: guest.venueId,
@@ -4005,6 +4735,8 @@
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
+        dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
+        staffNotes,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
@@ -4029,6 +4761,14 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+    }
+  </file>
+  <file path="src/services/notification.ts">
+    function getUnsubscribeSecret(): string {
+      return process.env.UNSUBSCRIBE_SECRET ?? process.env.MANAGE_TOKEN_SECRET ?? "dev-secret-do-not-use";
+    }
+    function getEmailFrom(): string {
+      return process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com";
     }
   </file>
   <file path="src/services/reminder.ts">
@@ -4062,6 +4802,7 @@
     }
     type PrismaReservationWithTable = PrismaReservation & {
       table?: PrismaTable;
+      guest?: { visitCount: number } | null;
     };
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -4081,6 +4822,20 @@
       maxEventBufferSize: 100,
       heartbeatIntervalMs: 30_000, // 30 seconds
     });
+  </file>
+  <file path="src/services/stripe.ts">
+    export interface CreatePaymentIntentOptions {
+      amountCents: number;
+      currency: string;
+      customerId?: string;
+      reservationId: string;
+      metadata?: Record<string, string>;
+    }
+    export interface PaymentIntentResult {
+      id: string;
+      status: string;
+      clientSecret: string | null;
+    }
   </file>
   <file path="src/services/table.ts">
     function isPrismaNotFound(err: unknown): boolean {
@@ -4152,10 +4907,44 @@
       };
     }
   </file>
+  <file path="src/services/waitlist-utils.ts">
+    export function calculatePosition(existingCount: number): number {
+      return existingCount + 1;
+    }
+    export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number {
+      return position * avgTurnTimeMinutes;
+    }
+  </file>
+  <file path="src/services/waitlist.ts">
+    export interface WaitlistEntryData {
+      id: string;
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
+      notifiedAt: Date | null;
+      expiresAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    export interface CreateWaitlistEntryInput {
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      avgTurnTimeMinutes?: number;
+    }
+  </file>
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
-    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+    export interface ReservationsAppOptions extends AppOptions {
+      notificationPort?: NotificationPort;
+    }
+    export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       const fastify = await createServiceApp(
         {
           swagger: {
@@ -4167,6 +4956,10 @@
         },
         options
       );
+    
+      // Wire notification port (injected or default Resend-backed)
+      const notificationPort = options.notificationPort ?? createNotificationPort();
+      fastify.decorate("notificationPort", notificationPort);
     
       // Register routes
       await fastify.register(healthRoutes);
@@ -4181,6 +4974,7 @@
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+      await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -4191,12 +4985,39 @@
       await fastify.register(publicReservationRoutes, {
         prefix: "/public/v1/venues",
       });
+      await fastify.register(publicGuestRecognitionRoutes, {
+        prefix: "/public/v1/venues",
+      });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
     
+      // Public unsubscribe (no auth)
+      await fastify.register(publicUnsubscribeRoutes);
+    
+      // Deposit routes
+      await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+      await fastify.register(stripeWebhookRoutes);
+    
       return fastify;
+    }
+  </file>
+  <file path="src/notifications.ts">
+    export function createNotificationPort(): NotificationPort {
+      const resendClient = process.env.RESEND_API_KEY
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+            emails: {
+              send(payload: Record<string, unknown>): Promise<{ id: string }>;
+            };
+          })
+        : null;
+    
+      return new ResendNotificationAdapter({
+        resend: resendClient,
+        fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+      });
     }
   </file>
   </section>
@@ -4229,6 +5050,8 @@
       readonly notes: string | null;
       readonly cancellationReason: string | null;
       readonly cancellationNote: string | null;
+      readonly occasion: Occasion | null;
+      readonly seatingPreference: SeatingPreference | null;
       readonly guestName: string;
       readonly guestEmail: string | null;
       readonly guestPhone: string | null;

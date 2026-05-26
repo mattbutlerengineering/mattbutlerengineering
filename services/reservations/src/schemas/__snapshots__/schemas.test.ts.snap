@@ -271,6 +271,19 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "createdAt": {
       "type": "string",
     },
+    "dietaryRestrictions": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "email": {
       "anyOf": [
         {
@@ -327,6 +340,28 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
         },
       ],
     },
+    "staffNotes": {
+      "items": {
+        "properties": {
+          "createdAt": {
+            "type": "string",
+          },
+          "createdBy": {
+            "type": "string",
+          },
+          "text": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "text",
+          "createdBy",
+          "createdAt",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "tags": {
       "anyOf": [
         {
@@ -361,6 +396,8 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "lifetimeSpend",
     "lastVisit",
     "tags",
+    "dietaryRestrictions",
+    "staffNotes",
     "createdAt",
     "updatedAt",
   ],
@@ -512,8 +549,44 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
         },
       ],
     },
+    "occasion": {
+      "anyOf": [
+        {
+          "enum": [
+            "birthday",
+            "anniversary",
+            "business",
+            "date_night",
+            "other",
+            "none",
+          ],
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "partySize": {
       "type": "number",
+    },
+    "seatingPreference": {
+      "anyOf": [
+        {
+          "enum": [
+            "booth",
+            "patio",
+            "bar",
+            "window",
+            "quiet",
+            "no_preference",
+          ],
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
     },
     "startTime": {
       "type": "string",
@@ -715,6 +788,8 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
     "notes",
     "cancellationReason",
     "cancellationNote",
+    "occasion",
+    "seatingPreference",
     "guestName",
     "guestEmail",
     "guestPhone",

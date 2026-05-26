@@ -31,10 +31,10 @@
   </file>
   <file path="src/schemas/guest.ts">
     <item priority="high">
-      export const GuestSchema: unknown;
+      export const StaffNoteSchema: unknown;
     </item>
     <item priority="high">
-      export const GuestSegmentSchema: unknown;
+      export const GuestSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/json-schema.ts">
@@ -50,7 +50,7 @@
       export const ReservationStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const ReservationSchema: unknown;
+      export const OccasionSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/user.ts">
@@ -144,21 +144,19 @@
   </file>
   <file path="src/guest.ts">
     <item priority="low">
+      interface StaffNote {
+        text: string;
+        createdBy: string;
+        createdAt: string;
+      }
+    </item>
+    <item priority="low">
       interface Guest {
         id: string;
         venueId: string;
         venue?: Venue;
         email: string | null;
         phone: string | null;
-      }
-    </item>
-    <item priority="low">
-      interface CreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        notes?: string;
       }
     </item>
   </file>

@@ -711,7 +711,7 @@ describe("reservationService", () => {
       expect(prisma.reservation.update).toHaveBeenCalledWith({
         where: { id: "res-1" },
         data: expect.objectContaining({ status: "CANCELLED" }),
-        include: { table: true },
+        include: { table: true, guest: { select: { visitCount: true } } },
       });
     });
 
