@@ -313,7 +313,7 @@
     <item priority="high">
       type PrismaReservationWithTable = PrismaReservation & {
         table?: PrismaTable;
-      };
+        guest?: { ...;
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -398,8 +398,18 @@
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
+    <item priority="low">
+      interface ReservationsAppOptions {
+        notificationPort?: NotificationPort;
+      }
+    </item>
     <item priority="high">
-      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+      export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/notifications.ts">
+    <item priority="high">
+      export function createNotificationPort(): NotificationPort { /* ... */ }
     </item>
   </file>
   </section>
