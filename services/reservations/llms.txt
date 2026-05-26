@@ -300,7 +300,7 @@
     <item priority="high">
       type PrismaReservationWithTable = PrismaReservation & {
         table?: PrismaTable;
-      };
+        guest?: { ...;
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
