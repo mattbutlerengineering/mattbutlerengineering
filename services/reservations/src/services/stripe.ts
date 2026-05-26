@@ -108,11 +108,7 @@ export class StripeService {
    * Validates and parses an incoming Stripe webhook payload.
    * Throws if the signature is invalid.
    */
-  constructWebhookEvent(
-    payload: Buffer,
-    signature: string,
-    webhookSecret: string
-  ): Stripe.Event {
+  constructWebhookEvent(payload: Buffer, signature: string, webhookSecret: string): Stripe.Event {
     return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   }
 }
@@ -121,4 +117,6 @@ export class StripeService {
  * Singleton Stripe service instance.
  * Uses STRIPE_SECRET_KEY from environment (falls back to empty string for tests).
  */
-export const stripeService = new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder");
+export const stripeService = new StripeService(
+  process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"
+);

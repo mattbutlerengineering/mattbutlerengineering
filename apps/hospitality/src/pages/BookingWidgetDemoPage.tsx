@@ -156,12 +156,7 @@ export function BookingWidgetDemoPage() {
         description="Preview the embeddable booking widget. This is what guests see when making a reservation."
       />
 
-      {error && (
-        <ErrorRetryBanner
-          error={error.message}
-          onRetry={refetch}
-        />
-      )}
+      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} />}
 
       {/* Venue selector */}
       <Card variant="flat" className={styles.venueSection}>

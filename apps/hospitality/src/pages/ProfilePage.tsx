@@ -138,10 +138,7 @@ export function ProfilePage() {
     return (
       <div>
         <PageHeader title="Profile" description="Manage your profile" />
-        <ErrorRetryBanner
-          error={error.message}
-          onRetry={refetch}
-        />
+        <ErrorRetryBanner error={error.message} onRetry={refetch} />
       </div>
     );
   }

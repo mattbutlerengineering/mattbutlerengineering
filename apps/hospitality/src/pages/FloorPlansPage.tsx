@@ -129,13 +129,7 @@ export function FloorPlansPage() {
         />
       )}
 
-      {error && (
-        <ErrorRetryBanner
-          error={error.message}
-          onRetry={refetch}
-          onDismiss={() => {}}
-        />
-      )}
+      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} onDismiss={() => {}} />}
 
       {!isLoading && !error && floorPlans.length === 0 && (
         <EmptyState

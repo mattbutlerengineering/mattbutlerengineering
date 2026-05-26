@@ -86,7 +86,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><SetupHoursPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <SetupHoursPage />
+    </Wrapper>
+  );
 }
 
 describe("SetupHoursPage", () => {

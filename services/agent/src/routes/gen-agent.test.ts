@@ -369,9 +369,7 @@ describe("POST /api/gen/agent", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["content-type"]).toBe(
-      "application/x-ndjson; charset=utf-8"
-    );
+    expect(response.headers["content-type"]).toBe("application/x-ndjson; charset=utf-8");
 
     const lines = response.body
       .split("\n")

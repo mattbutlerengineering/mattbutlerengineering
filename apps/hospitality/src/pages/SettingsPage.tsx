@@ -156,10 +156,7 @@ export function SettingsPage() {
     return (
       <div>
         <PageHeader title="Settings" description="Manage your account settings and preferences" />
-        <ErrorRetryBanner
-          error={loadError.message}
-          onRetry={refetch}
-        />
+        <ErrorRetryBanner error={loadError.message} onRetry={refetch} />
       </div>
     );
   }

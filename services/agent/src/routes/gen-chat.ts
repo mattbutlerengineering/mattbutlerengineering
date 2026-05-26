@@ -32,8 +32,7 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: {
           max: 50,
           timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) =>
-            request.user?.id ?? request.ip,
+          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
         },
       },
     },
@@ -86,8 +85,7 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
               cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-              cacheCreationInputTokens:
-                anthropicMeta?.cacheCreationInputTokens ?? 0,
+              cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
             },
             "gen-chat cost log"
           );
