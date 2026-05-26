@@ -55,6 +55,14 @@ enum WaitlistStatus {
   cancelled
 }
 
+enum DepositStatus {
+  pending
+  held
+  applied
+  refunded
+  forfeited
+}
+
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
@@ -179,6 +187,7 @@ model Reservation {
   table              Table              @relation(fields: [tableId], references: [id])
   venueId            String?            @map("venue_id")
   venue              Venue?             @relation(fields: [venueId], references: [id])
+  deposit            Deposit?
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
