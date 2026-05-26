@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useReducer, type ChangeEvent } from "react";
 import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
+import { createApiClient, type GuestRiskResponse } from "@mbe/api-client";
 import {
   Alert,
   Badge,
@@ -168,6 +168,7 @@ type DrawerState = {
   saveError: string | null;
   reservationHistory: Reservation[];
   historyLoading: boolean;
+  risk: GuestRiskResponse | null;
 };
 
 type DrawerAction =
@@ -181,7 +182,9 @@ type DrawerAction =
   | { type: "clear_save_error" }
   | { type: "history_loading" }
   | { type: "history_loaded"; data: Reservation[] }
-  | { type: "history_error" };
+  | { type: "history_error" }
+  | { type: "risk_loaded"; data: GuestRiskResponse }
+  | { type: "risk_error" };
 
 const INITIAL_DRAWER_STATE: DrawerState = {
   isEditing: false,
@@ -190,6 +193,7 @@ const INITIAL_DRAWER_STATE: DrawerState = {
   saveError: null,
   reservationHistory: [],
   historyLoading: false,
+  risk: null,
 };
 
 function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
@@ -224,12 +228,16 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
       return { ...state, historyLoading: false, reservationHistory: action.data };
     case "history_error":
       return { ...state, historyLoading: false, reservationHistory: [] };
+    case "risk_loaded":
+      return { ...state, risk: action.data };
+    case "risk_error":
+      return { ...state, risk: null };
   }
 }
 
 function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDrawerProps) {
   const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
-  const { isEditing, formData, isSaving, saveError } = state;
+  const { isEditing, formData, isSaving, saveError, risk } = state;
 
   // Reset form when guest changes or drawer opens
   useEffect(() => {
@@ -238,7 +246,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
     }
   }, [guest, open]);
 
-  // Fetch reservation history when drawer opens
+  // Fetch reservation history and risk score when drawer opens
   const guestId = guest?.id ?? null;
   useEffect(() => {
     if (!guestId || !open || !api) return;
@@ -252,6 +260,15 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
       })
       .catch(() => {
         if (!cancelled) drawerDispatch({ type: "history_error" });
+      });
+
+    api.guests
+      .getRisk(guestId)
+      .then((data) => {
+        if (!cancelled) drawerDispatch({ type: "risk_loaded", data });
+      })
+      .catch(() => {
+        if (!cancelled) drawerDispatch({ type: "risk_error" });
       });
 
     return () => {
@@ -396,6 +413,39 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
       ) : (
         <Stack gap="lg">
           <DataList items={detailItems} orientation="horizontal" striped />
+
+          {risk && (
+            <>
+              <Divider />
+              <Stack gap="xs">
+                <Text variant="label" color="secondary">
+                  Risk Level
+                </Text>
+                <Stack direction="row" gap="sm" align="center">
+                  <Badge
+                    variant={
+                      risk.riskLevel === "trusted"
+                        ? "success"
+                        : risk.riskLevel === "risky"
+                          ? "error"
+                          : "neutral"
+                    }
+                  >
+                    {risk.riskLevel === "trusted"
+                      ? "Trusted"
+                      : risk.riskLevel === "risky"
+                        ? "At Risk"
+                        : "Standard"}
+                  </Badge>
+                  {risk.noShowCount > 0 && (
+                    <Text variant="caption" color="secondary">
+                      {risk.noShowCount} no-show{risk.noShowCount !== 1 ? "s" : ""}
+                    </Text>
+                  )}
+                </Stack>
+              </Stack>
+            </>
+          )}
 
           {guest.notes && (
             <>

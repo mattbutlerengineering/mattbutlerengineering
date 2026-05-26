@@ -41,8 +41,9 @@ model Venue {
   slug           String
   ianaTimezone   String            @map("iana_timezone")
   currencyCode   String            @default("USD") @map("currency_code")
-  operatingHours Json?             @map("operating_hours")
-  settings       Json?
+  operatingHours            Json?             @map("operating_hours")
+  settings                  Json?
+  autoDepositAfterNoShows   Int               @default(2) @map("auto_deposit_after_no_shows")
   tables         Table[]
   reservations   Reservation[]
   guests         Guest[]

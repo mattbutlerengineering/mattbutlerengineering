@@ -14,6 +14,14 @@ export interface FindOrCreateGuestRequest {
 }
 import type { ApiClient } from "./client.js";
 
+export interface GuestRiskResponse {
+  guestId: string;
+  riskLevel: "trusted" | "standard" | "risky";
+  noShowCount: number;
+  weightedNoShows: number;
+  totalReservations: number;
+}
+
 export interface ListGuestsParams {
   page?: number;
   limit?: number;
@@ -69,6 +77,13 @@ export class GuestsClient {
    */
   async get(id: string): Promise<Guest> {
     return this.client.getOne<Guest>(`/api/v1/guests/${id}`);
+  }
+
+  /**
+   * Get risk score for a guest
+   */
+  async getRisk(guestId: string): Promise<GuestRiskResponse> {
+    return this.client.get<GuestRiskResponse>(`/api/v1/guests/${guestId}/risk`);
   }
 
   /**

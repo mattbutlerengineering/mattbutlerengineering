@@ -8,6 +8,7 @@ import type {
 } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { computeGuestRisk } from "./guest-risk.js";
 
 function isPrismaNotFound(err: unknown): boolean {
   return (
@@ -298,6 +299,43 @@ export const guestService = {
         hasNext: total > 50,
         hasPrev: false,
       },
+    };
+  },
+
+  /**
+   * Get risk score for a guest based on no-show history.
+   */
+  async getRisk(guestId: string): Promise<{
+    guestId: string;
+    riskLevel: "trusted" | "standard" | "risky";
+    noShowCount: number;
+    weightedNoShows: number;
+    totalReservations: number;
+  }> {
+    const [noShowReservations, totalReservations] = await Promise.all([
+      prisma.reservation.findMany({
+        where: { guestId, status: "NO_SHOW" },
+        select: { date: true },
+      }),
+      prisma.reservation.count({ where: { guestId } }),
+    ]);
+
+    const noShowRecords = noShowReservations.map((r) => ({ reservationDate: r.date }));
+    const riskLevel = computeGuestRisk(noShowRecords, totalReservations);
+
+    const now = Date.now();
+    const TWELVE_MONTHS_MS = 12 * 30 * 24 * 60 * 60 * 1000;
+    const weightedNoShows = noShowRecords.reduce((sum, r) => {
+      const ageMs = now - r.reservationDate.getTime();
+      return sum + (ageMs > TWELVE_MONTHS_MS ? 0.5 : 1.0);
+    }, 0);
+
+    return {
+      guestId,
+      riskLevel,
+      noShowCount: noShowReservations.length,
+      weightedNoShows,
+      totalReservations,
     };
   },
 

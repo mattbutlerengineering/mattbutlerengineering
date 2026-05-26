@@ -124,6 +124,7 @@ describe("GuestsPage", () => {
       update: vi.fn(),
       getSegments: vi.fn(),
       findOrCreate: vi.fn(),
+      getRisk: vi.fn(),
     },
     reservations: { list: vi.fn() },
   };
@@ -145,6 +146,14 @@ describe("GuestsPage", () => {
       { id: "s1", name: "VIP", count: 5 },
       { id: "s2", name: "Regular", count: 10 },
     ]);
+
+    mockApi.guests.getRisk.mockResolvedValue({
+      guestId: "g1",
+      riskLevel: "trusted",
+      noShowCount: 0,
+      weightedNoShows: 0,
+      totalReservations: 5,
+    });
 
     mockApi.guests.list.mockResolvedValue({
       data: [
@@ -450,6 +459,7 @@ describe("GuestsPage - guest detail drawer", () => {
       update: vi.fn(),
       getSegments: vi.fn(),
       findOrCreate: vi.fn(),
+      getRisk: vi.fn(),
     },
     reservations: { list: vi.fn() },
   };
@@ -499,6 +509,14 @@ describe("GuestsPage - guest detail drawer", () => {
     mockApi.reservations.list.mockResolvedValue({
       data: [],
       meta: { total: 0, page: 1, limit: 10 },
+    });
+
+    mockApi.guests.getRisk.mockResolvedValue({
+      guestId: "g1",
+      riskLevel: "trusted",
+      noShowCount: 0,
+      weightedNoShows: 0,
+      totalReservations: 5,
     });
   });
 

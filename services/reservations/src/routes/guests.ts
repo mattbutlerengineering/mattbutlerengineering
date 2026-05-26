@@ -210,6 +210,65 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // Get guest risk score
+  fastify.get<{
+    Params: { id: string };
+    Reply:
+      | {
+          guestId: string;
+          riskLevel: "trusted" | "standard" | "risky";
+          noShowCount: number;
+          weightedNoShows: number;
+          totalReservations: number;
+        }
+      | ApiError;
+  }>(
+    "/:id/risk",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Get guest risk score",
+        operationId: "getGuestRisk",
+        description:
+          "Returns the no-show risk level for a guest based on their reservation history.",
+        tags: ["Guests"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Guest ID" },
+          },
+          required: ["id"],
+        },
+        response: {
+          200: {
+            description: "Guest risk score",
+            type: "object",
+            properties: {
+              guestId: { type: "string" },
+              riskLevel: { type: "string", enum: ["trusted", "standard", "risky"] },
+              noShowCount: { type: "number" },
+              weightedNoShows: { type: "number" },
+              totalReservations: { type: "number" },
+            },
+          },
+          404: { description: "Guest not found", $ref: "Error#" },
+          401: { description: "Authentication required", $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const guest = await guestService.getById(id);
+      if (!guest) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+      }
+
+      return guestService.getRisk(id);
+    }
+  );
+
   // Get guest by ID
   fastify.get<{
     Params: { id: string };
