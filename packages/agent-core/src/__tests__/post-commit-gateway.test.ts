@@ -5,9 +5,25 @@ vi.mock("../verification-orchestrator.js", () => ({
   orchestrateVerification: vi.fn(),
 }));
 
-// Mock runQualityGates
-vi.mock("../quality-gates.js", () => ({
-  runQualityGates: vi.fn(),
+// Mock GateRunner
+vi.mock("../gate-runner.js", () => ({
+  GateRunner: vi.fn().mockImplementation(function () {
+    return { run: vi.fn() };
+  }),
+}));
+
+// Mock gate classes — plain vi.fn() so they are constructable
+// GateRunner itself is mocked; the gate instances are never actually used
+vi.mock("../gates/llm-evaluation-gate.js", () => ({
+  LlmEvaluationGate: vi.fn(),
+}));
+
+vi.mock("../gates/security-review-gate.js", () => ({
+  SecurityReviewGate: vi.fn(),
+}));
+
+vi.mock("../gates/static-analysis-gate.js", () => ({
+  StaticAnalysisGate: vi.fn(),
 }));
 
 // Mock isTrivialDepBump
@@ -17,9 +33,15 @@ vi.mock("../dep-bump-merger.js", () => ({
 }));
 
 import { orchestrateVerification } from "../verification-orchestrator.js";
-import { runQualityGates } from "../quality-gates.js";
+import { GateRunner } from "../gate-runner.js";
 import { isTrivialDepBump } from "../dep-bump-merger.js";
 import { runPostCommitGateway } from "../post-commit-gateway.js";
+
+// Helper to get the mock run fn from the constructed GateRunner instance
+function getMockRunnerInstance() {
+  const calls = vi.mocked(GateRunner).mock.results;
+  return calls[calls.length - 1]?.value as { run: ReturnType<typeof vi.fn> } | undefined;
+}
 
 const VALID_INPUT = {
   worktreePath: "/repo/.agent-worktrees/branch-abc",
@@ -39,12 +61,19 @@ describe("runPostCommitGateway", () => {
 
     // Default: all gates pass
     vi.mocked(orchestrateVerification).mockResolvedValue({ passed: true });
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
+
+    // Re-mock GateRunner with fresh instance per test
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: [],
+          evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
+          securityReview: { approved: true, issues: [] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
+
     vi.mocked(isTrivialDepBump).mockReturnValue({ isTrivial: false });
   });
 
@@ -79,11 +108,16 @@ describe("runPostCommitGateway", () => {
       ...VALID_INPUT,
       config: { ...VALID_INPUT.config, evaluateSuccess: false },
     };
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
-      securityReview: { approved: true, issues: [] },
-      // No evaluation result since it was skipped
+
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: [],
+          securityReview: { approved: true, issues: [] },
+          // No evaluation result since it was skipped
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(input);
@@ -108,11 +142,15 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when static analysis fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: false,
-      errors: ["Static analysis errors: src/foo.ts:10 [no-console] console.log detected"],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: false,
+          errors: ["Static analysis errors: src/foo.ts:10 [no-console] console.log detected"],
+          evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
+          securityReview: { approved: true, issues: [] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -123,11 +161,20 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when LLM evaluation fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Evaluation failed: Task not addressed"],
-      evaluation: { passed: false, confidence: 0.3, reasoning: "Task not addressed", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: ["Evaluation failed: Task not addressed"],
+          evaluation: {
+            passed: false,
+            confidence: 0.3,
+            reasoning: "Task not addressed",
+            issues: [],
+          },
+          securityReview: { approved: true, issues: [] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -138,11 +185,15 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when security review fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Security review failed: Hardcoded secret detected"],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: false, issues: ["Hardcoded secret detected"] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: ["Security review failed: Hardcoded secret detected"],
+          evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
+          securityReview: { approved: false, issues: ["Hardcoded secret detected"] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -159,11 +210,15 @@ describe("runPostCommitGateway", () => {
       passed: false,
       error: "Lint failed",
     });
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: false,
-      errors: ["Static analysis errors: ..."],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: false,
+          errors: ["Static analysis errors: ..."],
+          evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
+          securityReview: { approved: true, issues: [] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -175,14 +230,18 @@ describe("runPostCommitGateway", () => {
   });
 
   it("collects evaluation and security-review failures when both fail", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [
-        "Evaluation failed: Not addressed",
-        "Security review failed: SQL injection detected",
-      ],
-      evaluation: { passed: false, confidence: 0.2, reasoning: "Not addressed", issues: [] },
-      securityReview: { approved: false, issues: ["SQL injection detected"] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: [
+            "Evaluation failed: Not addressed",
+            "Security review failed: SQL injection detected",
+          ],
+          evaluation: { passed: false, confidence: 0.2, reasoning: "Not addressed", issues: [] },
+          securityReview: { approved: false, issues: ["SQL injection detected"] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -207,11 +266,15 @@ describe("runPostCommitGateway", () => {
   });
 
   it("propagates quality gate errors into verdict errors", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Evaluation failed: diff does not address task"],
-      evaluation: { passed: false, confidence: 0.2, reasoning: "...", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: ["Evaluation failed: diff does not address task"],
+          evaluation: { passed: false, confidence: 0.2, reasoning: "...", issues: [] },
+          securityReview: { approved: true, issues: [] },
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -221,7 +284,7 @@ describe("runPostCommitGateway", () => {
 
   // ── Config passthrough ─────────────────────────────────────────────
 
-  it("passes config options to runQualityGates", async () => {
+  it("passes config options to GateRunner.run()", async () => {
     const input = {
       ...VALID_INPUT,
       config: {
@@ -230,21 +293,24 @@ describe("runPostCommitGateway", () => {
         runStaticAnalysis: true,
       },
     };
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
+
+    vi.mocked(GateRunner).mockImplementation(function () {
+      return {
+        run: vi.fn().mockResolvedValue({
+          staticAnalysisClean: true,
+          errors: [],
+        }),
+      } as unknown as InstanceType<typeof GateRunner>;
     });
 
     await runPostCommitGateway(input);
 
-    expect(runQualityGates).toHaveBeenCalledWith(
-      input.taskDescription,
-      input.diff,
-      input.commitMsg,
+    const instance = getMockRunnerInstance();
+    expect(instance?.run).toHaveBeenCalledWith(
       expect.objectContaining({
-        evaluateSuccess: false,
-        runSecurityReview: false,
-        runStaticAnalysis: true,
+        taskDescription: input.taskDescription,
+        diff: input.diff,
+        commitMsg: input.commitMsg,
       }),
       undefined // no onEvent
     );
@@ -258,8 +324,8 @@ describe("runPostCommitGateway", () => {
 
     await runPostCommitGateway(VALID_INPUT);
 
-    // Quality gates should NOT be called if verification failed
-    expect(runQualityGates).not.toHaveBeenCalled();
+    // GateRunner should not be constructed at all if verification failed
+    expect(vi.mocked(GateRunner)).not.toHaveBeenCalled();
   });
 
   it("passes worktreePath to orchestrateVerification", async () => {
@@ -271,18 +337,14 @@ describe("runPostCommitGateway", () => {
     );
   });
 
-  it("passes onEvent callback to orchestrateVerification and runQualityGates", async () => {
+  it("passes onEvent callback to orchestrateVerification and GateRunner.run()", async () => {
     const onEvent = vi.fn();
 
     await runPostCommitGateway(VALID_INPUT, onEvent);
 
     expect(orchestrateVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath, onEvent);
-    expect(runQualityGates).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.any(String),
-      expect.any(Object),
-      onEvent
-    );
+
+    const instance = getMockRunnerInstance();
+    expect(instance?.run).toHaveBeenCalledWith(expect.any(Object), onEvent);
   });
 });

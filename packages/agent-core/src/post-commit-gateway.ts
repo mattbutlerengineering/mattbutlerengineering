@@ -1,5 +1,8 @@
 import { orchestrateVerification } from "./verification-orchestrator.js";
-import { runQualityGates } from "./quality-gates.js";
+import { GateRunner } from "./gate-runner.js";
+import { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
+import { SecurityReviewGate } from "./gates/security-review-gate.js";
+import { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
 import { isTrivialDepBump } from "./dep-bump-merger.js";
 import type { SessionEventCallback } from "./types.js";
 import type { EvaluationResult } from "./success-evaluator.js";
@@ -62,11 +65,17 @@ export async function runPostCommitGateway(
   // 2. Quality gates — only run when verification passed
   let evaluation: EvaluationResult | undefined;
   if (verification.passed) {
-    const qualityResult = await runQualityGates(
-      taskDescription,
-      diff,
-      commitMsg,
+    const runner = new GateRunner([
+      new StaticAnalysisGate(),
+      new LlmEvaluationGate(),
+      new SecurityReviewGate(),
+    ]);
+
+    const qualityResult = await runner.run(
       {
+        taskDescription,
+        diff,
+        commitMsg,
         evaluateSuccess: config.evaluateSuccess,
         runSecurityReview: config.runSecurityReview,
         runStaticAnalysis: config.runStaticAnalysis,
