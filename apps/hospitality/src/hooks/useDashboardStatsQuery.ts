@@ -48,9 +48,7 @@ function computeUpcoming(reservations: readonly Reservation[]): number {
   }).length;
 }
 
-export function computeStatsFromReservations(
-  reservations: readonly Reservation[]
-): DashboardStats {
+export function computeStatsFromReservations(reservations: readonly Reservation[]): DashboardStats {
   if (reservations.length === 0) return FALLBACK_STATS;
 
   const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");

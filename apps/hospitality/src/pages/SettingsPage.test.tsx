@@ -50,7 +50,9 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
     <div data-testid="error-retry-banner">
       <span>{error}</span>
-      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+      <button data-testid="retry-button" onClick={onRetry}>
+        Retry
+      </button>
     </div>
   ),
 }));

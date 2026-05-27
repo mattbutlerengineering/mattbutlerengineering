@@ -98,7 +98,12 @@ beforeEach(() => {
 describe("GuestCard", () => {
   describe("loading state", () => {
     it("renders skeleton while loading", () => {
-      mockUseGuest.mockReturnValue({ data: undefined, isLoading: true, error: null, refetch: vi.fn() });
+      mockUseGuest.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+        refetch: vi.fn(),
+      });
       render(<GuestCard guestId="guest-1" />);
       expect(screen.getByTestId("guest-card-loading")).toBeDefined();
     });
