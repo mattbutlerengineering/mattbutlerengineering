@@ -19,6 +19,7 @@ import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
 
 /**
  * Creates the Fastify application instance.
@@ -63,6 +64,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
+  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   return fastify;
 }

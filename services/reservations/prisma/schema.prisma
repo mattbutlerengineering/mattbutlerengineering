@@ -15,6 +15,14 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  SEATED
+  EXPIRED
+  REMOVED
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -48,6 +56,7 @@ model Venue {
   guests         Guest[]
   floorPlans     FloorPlan[]
   holds          ReservationHold[]
+  waitlistEntries WaitlistEntry[]
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
@@ -150,6 +159,24 @@ model Reservation {
   @@index([venueId, date])
   @@index([guestId])
   @@map("reservations")
+}
+
+model WaitlistEntry {
+  id         String        @id @default(cuid())
+  venueId    String        @map("venue_id")
+  venue      Venue         @relation(fields: [venueId], references: [id])
+  guestName  String        @map("guest_name")
+  guestPhone String        @map("guest_phone")
+  partySize  Int           @map("party_size")
+  status     WaitlistStatus @default(WAITING)
+  position   Int
+  notifyJobId String?      @map("notify_job_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  @@index([venueId, status])
+  @@index([venueId, position])
+  @@map("waitlist_entries")
 }
 
 model ReservationHold {
