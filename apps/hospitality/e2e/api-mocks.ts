@@ -85,8 +85,8 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Reservations
-  // Re-date fixtures to today so the timeline's client-side date filter doesn't discard them.
-  // The fixture JSON uses a static past date; the app filters r.date === selectedDate (today).
+  // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
+  // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
   function todayReservations(): string {
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const fixture = JSON.parse(loadFixture("reservations-list")) as {
