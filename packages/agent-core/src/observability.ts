@@ -1,11 +1,5 @@
-import { trace, SpanStatusCode } from "@opentelemetry/api";
-import type { Span, Tracer } from "@opentelemetry/api";
 import type { FailureCategory, TurnMetrics, ToolCallMetrics } from "./types.js";
 import type { StuckPatternType } from "./stuck-detector.js";
-
-// ── OTel tracer ──────────────────────────────────────────────────────
-
-export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
 
 // ── Failure categorization ───────────────────────────────────────────
 
@@ -96,101 +90,6 @@ export function categorizeFailure(
   }
 
   return undefined;
-}
-
-// ── OTel decision-point spans ─────────────────────────────────────────
-
-/**
- * Wrap a model-selection call in an OTel span.
- * The span records the resolved tier, model ID, and reason.
- */
-export function withModelSelectionSpan<T extends { tier: string; modelId: string; reason: string }>(
-  fn: () => T
-): T {
-  const span: Span = observabilityTracer.startSpan("agent_core.model_selection");
-  try {
-    const result = fn();
-    span.setAttribute("model.tier", result.tier);
-    span.setAttribute("model.id", result.modelId);
-    span.setAttribute("model.selection_reason", result.reason);
-    return result;
-  } catch (err) {
-    span.recordException(err as Error);
-    span.setStatus({ code: SpanStatusCode.ERROR });
-    throw err;
-  } finally {
-    span.end();
-  }
-}
-
-/**
- * Wrap a tool-permission check in an OTel span.
- * The span records the tool name and whether it was allowed or denied.
- */
-export async function withToolPermissionSpan<T extends { behavior: string }>(
-  toolName: string,
-  fn: () => Promise<T>
-): Promise<T> {
-  const span: Span = observabilityTracer.startSpan("agent_core.tool_permission_check");
-  span.setAttribute("tool.name", toolName);
-  try {
-    const result = await fn();
-    span.setAttribute("tool.allowed", result.behavior === "allow");
-    return result;
-  } catch (err) {
-    span.recordException(err as Error);
-    span.setStatus({ code: SpanStatusCode.ERROR });
-    throw err;
-  } finally {
-    span.end();
-  }
-}
-
-/**
- * Wrap a stuck-detection ingestion step in an OTel span.
- * The span records whether a stuck pattern was detected and its type.
- */
-export function withStuckDetectionSpan<T extends { type: string; description: string } | null>(
-  fn: () => T
-): T {
-  const span: Span = observabilityTracer.startSpan("agent_core.stuck_detection");
-  try {
-    const result = fn();
-    span.setAttribute("stuck.detected", result !== null);
-    if (result !== null) {
-      span.setAttribute("stuck.pattern_type", result.type);
-      span.setAttribute("stuck.description", result.description);
-    }
-    return result;
-  } catch (err) {
-    span.recordException(err as Error);
-    span.setStatus({ code: SpanStatusCode.ERROR });
-    throw err;
-  } finally {
-    span.end();
-  }
-}
-
-/**
- * Wrap a success-evaluation call in an OTel span.
- * The span records whether the evaluation passed and its confidence.
- */
-export async function withSuccessEvaluationSpan<T extends { passed: boolean; confidence: number }>(
-  fn: () => Promise<T>
-): Promise<T> {
-  const span: Span = observabilityTracer.startSpan("agent_core.success_evaluation");
-  try {
-    const result = await fn();
-    span.setAttribute("evaluation.passed", result.passed);
-    span.setAttribute("evaluation.confidence", result.confidence);
-    return result;
-  } catch (err) {
-    span.recordException(err as Error);
-    span.setStatus({ code: SpanStatusCode.ERROR });
-    throw err;
-  } finally {
-    span.end();
-  }
 }
 
 // ── Per-turn metrics aggregation ─────────────────────────────────────

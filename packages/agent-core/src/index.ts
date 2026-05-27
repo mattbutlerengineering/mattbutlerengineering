@@ -134,16 +134,11 @@ export type {
   TurnMetricsEvent,
 } from "./event-mapper.js";
 
-// Observability — failure categorization, OTel spans, metrics builders
+// Observability — failure categorization, metrics builders
 export {
   categorizeFailure,
   buildTurnMetricsList,
   buildToolCallMetricsList,
-  withModelSelectionSpan,
-  withToolPermissionSpan,
-  withStuckDetectionSpan,
-  withSuccessEvaluationSpan,
-  observabilityTracer,
 } from "./observability.js";
 
 // Types
