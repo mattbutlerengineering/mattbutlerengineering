@@ -85,19 +85,40 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Reservations
+  // Re-date fixtures to today so the timeline's client-side date filter doesn't discard them.
+  // The fixture JSON uses a static past date; the app filters r.date === selectedDate (today).
+  function todayReservations(): string {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const fixture = JSON.parse(loadFixture("reservations-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: unknown;
+    };
+    return JSON.stringify({
+      ...fixture,
+      data: fixture.data.map((r) => ({
+        ...r,
+        date: today,
+        startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+        endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+      })),
+    });
+  }
+
   await page.route("**/api/v1/reservations/walk-in", (route) => {
-    const reservations = JSON.parse(loadFixture("reservations-list"));
+    const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
     return jsonOk(route, {
-      ...reservations.data[0],
+      ...fixture.data[0],
       id: "res_e2e_walkin",
       status: "CONFIRMED",
       notes: "Walk-in",
     });
   });
   await page.route("**/api/v1/reservations/me*", (route) =>
-    jsonResponse(route, "reservations-list")
+    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
   );
-  await page.route("**/api/v1/reservations?*", (route) => jsonResponse(route, "reservations-list"));
+  await page.route("**/api/v1/reservations?*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
+  );
   await page.route(/\/api\/v1\/reservations\/[^/?]+$/, (route) => {
     const method = route.request().method();
     const reservations = JSON.parse(loadFixture("reservations-list"));
