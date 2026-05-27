@@ -1,23 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
-import { Resend } from "resend";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
-import { ResendNotificationAdapter } from "@mbe/notifications";
+import { createNotificationDispatcher } from "../notifications.js";
 
-const resendClient = process.env.RESEND_API_KEY
-  ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-      emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
-      };
-    })
-  : null;
-
-const notificationAdapter = new ResendNotificationAdapter({
-  resend: resendClient,
-  fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-  manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
-});
+const notificationDispatcher = createNotificationDispatcher();
 
 interface ModifyBody {
   date?: string;
@@ -148,7 +135,7 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
 
       if (updated.guestEmail && venue) {
-        await notificationAdapter.sendBookingModified({
+        await notificationDispatcher.sendBookingModified({
           reservationId: updated.id,
           date: updated.date,
           startTime: updated.startTime,

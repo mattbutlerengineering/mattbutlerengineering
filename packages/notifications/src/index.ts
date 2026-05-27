@@ -5,3 +5,7 @@ export type { ResendAdapterConfig } from "./resend-adapter.js";
 export type { NotificationPort, BookingNotificationInput } from "./port.js";
 export { buildBookingEmailContent } from "./booking-email-content.js";
 export type { BookingEmailContent, NotificationEventType } from "./booking-email-content.js";
+export { NotificationDispatcher } from "./notification-dispatcher.js";
+export type { CommunicationPreference } from "./notification-dispatcher.js";
+export { TwilioSmsAdapter } from "./twilio-sms-adapter.js";
+export type { TwilioAdapterConfig } from "./twilio-sms-adapter.js";

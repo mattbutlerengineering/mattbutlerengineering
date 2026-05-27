@@ -7,15 +7,14 @@ const { mockSendBookingCancelled } = vi.hoisted(() => ({
   mockSendBookingCancelled: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@mbe/notifications", () => {
-  class MockResendNotificationAdapter {
-    sendBookingConfirmation = vi.fn().mockResolvedValue(undefined);
-    sendBookingReminder = vi.fn().mockResolvedValue(undefined);
-    sendBookingModified = vi.fn().mockResolvedValue(undefined);
-    sendBookingCancelled = mockSendBookingCancelled;
-  }
-  return { ResendNotificationAdapter: MockResendNotificationAdapter };
-});
+vi.mock("../notifications.js", () => ({
+  createNotificationDispatcher: () => ({
+    sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
+    sendBookingReminder: vi.fn().mockResolvedValue(undefined),
+    sendBookingModified: vi.fn().mockResolvedValue(undefined),
+    sendBookingCancelled: mockSendBookingCancelled,
+  }),
+}));
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -38,12 +37,6 @@ vi.mock("../services/venue.js", () => ({
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
-}));
-
-vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: { send: vi.fn().mockResolvedValue({ id: "email_1" }) },
-  })),
 }));
 
 import { reservationService } from "../services/reservation.js";
