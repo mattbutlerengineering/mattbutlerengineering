@@ -396,11 +396,11 @@
     </item>
   </file>
   <file path="src/observability.ts">
-    <item priority="high">
-      export const observabilityTracer: Tracer;
-    </item>
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      type BudgetSignal = RegExp | ((str: string) => boolean);
     </item>
   </file>
   <file path="src/orchestrator.ts">

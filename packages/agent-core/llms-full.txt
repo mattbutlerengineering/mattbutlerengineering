@@ -1335,12 +1335,12 @@
     }
   </file>
   <file path="src/observability.ts">
-    export const observabilityTracer: Tracer = trace.getTracer("@mbe/agent-core");
     function containsInOrder(str: string, a: string, b: string): boolean {
       const lower = str.toLowerCase();
       const idx = lower.indexOf(a);
       return idx !== -1 && lower.indexOf(b, idx + a.length) !== -1;
     }
+    type BudgetSignal = RegExp | ((str: string) => boolean);
   </file>
   <file path="src/orchestrator.ts">
     interface SessionApiResponse<T> {
