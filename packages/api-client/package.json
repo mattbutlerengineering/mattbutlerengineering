@@ -6,14 +6,17 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
+      "production": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./users": {
       "types": "./src/users.ts",
+      "production": "./dist/users.js",
       "default": "./dist/users.js"
     },
     "./streaming": {
       "types": "./src/streaming.ts",
+      "production": "./dist/streaming.js",
       "default": "./dist/streaming.js"
     }
   },
