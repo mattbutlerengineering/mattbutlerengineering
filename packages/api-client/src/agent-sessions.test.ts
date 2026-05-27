@@ -54,7 +54,11 @@ describe("AgentSessionClient", () => {
 
       const [, options] = mockFetch.mock.calls[0]!;
       const body = JSON.parse(options?.body as string);
-      expect(body).toMatchObject({ taskDescription: "Do work", model: "claude-sonnet-4-6", maxBudgetUsd: 1.5 });
+      expect(body).toMatchObject({
+        taskDescription: "Do work",
+        model: "claude-sonnet-4-6",
+        maxBudgetUsd: 1.5,
+      });
     });
   });
 
