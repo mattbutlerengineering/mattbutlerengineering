@@ -74,7 +74,7 @@ overrides:
   path-to-regexp@<0.1.13: '>=0.1.13'
   serialize-javascript@<7.0.5: '>=7.0.5'
   yaml@>=2.0.0 <2.8.3: '>=2.8.3'
-  tmp: '>=0.2.4'
+  tmp@<0.2.6: ^0.2.6
   minimatch@<3.1.4: 3.1.4
   minimatch@>=5.0.0 <5.1.8: 5.1.8
   minimatch@>=9.0.0 <9.0.7: 9.0.7
@@ -8888,8 +8888,8 @@ packages:
     resolution: {integrity: sha512-ASdhgQIBSay0R/eXggAkQ53G4nTJqTXqC2kbaBbdDwM7SkjyZyO0OaaN1/FH7U/yCeqOHDwFO5j8+Os/IS1dXw==}
     hasBin: true
 
-  tmp@0.2.5:
-    resolution: {integrity: sha512-voyz6MApa1rQGUxT3E+BK7/ROe8itEx7vD8/HEvt4xwXucvQ5G5oeEiHkmHZJuBO21RpOf+YYm9MOivj709jow==}
+  tmp@0.2.7:
+    resolution: {integrity: sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==}
     engines: {node: '>=14.14'}
 
   to-regex-range@5.0.1:
@@ -11451,7 +11451,7 @@ snapshots:
       lighthouse-logger: 1.2.0
       open: 7.4.2
       proxy-agent: 6.5.0
-      tmp: 0.2.5
+      tmp: 0.2.7
       uuid: 14.0.0
       yargs: 15.4.1
       yargs-parser: 13.1.2
@@ -12537,7 +12537,7 @@ snapshots:
       require-from-string: 2.0.2
       semver: 7.7.4
       source-map-support: 0.5.21
-      tmp: 0.2.5
+      tmp: 0.2.7
       upath: 1.2.0
     optionalDependencies:
       typescript: 6.0.3
@@ -15380,7 +15380,7 @@ snapshots:
     dependencies:
       chardet: 0.7.0
       iconv-lite: 0.4.24
-      tmp: 0.2.5
+      tmp: 0.2.7
 
   extract-zip@2.0.1:
     dependencies:
@@ -18319,7 +18319,7 @@ snapshots:
     dependencies:
       tldts-core: 7.0.23
 
-  tmp@0.2.5: {}
+  tmp@0.2.7: {}
 
   to-regex-range@5.0.1:
     dependencies:
