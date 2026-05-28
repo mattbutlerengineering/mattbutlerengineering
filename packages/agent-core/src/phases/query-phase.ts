@@ -87,6 +87,9 @@ export class QueryPhase implements PipelinePhase {
             append: systemPrompt,
           },
           canUseTool: async (toolName, input) => canUseTool(toolName, input),
+          ...(process.env["MBE_CLAUDE_PATH"]
+            ? { pathToClaudeCodeExecutable: process.env["MBE_CLAUDE_PATH"] }
+            : {}),
         },
       });
     } catch (err) {
