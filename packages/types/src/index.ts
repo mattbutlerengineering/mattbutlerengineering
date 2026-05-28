@@ -44,6 +44,11 @@ export type {
   UpdateTableRequest,
   UpdateTableStatusRequest,
   WalkInRequest,
+  WaitlistStatus,
+  WaitlistEntry,
+  CreateWaitlistEntryRequest,
+  WaitlistEstimate,
+  JoinWaitlistResponse,
 } from "./reservation.js";
 
 // Venue types

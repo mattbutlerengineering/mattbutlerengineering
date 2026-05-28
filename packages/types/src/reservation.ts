@@ -107,3 +107,42 @@ export interface UpdateTableRequest {
   floorPlanId?: string | null;
   shapeMetadata?: TableShapeMetadata | null;
 }
+
+export type WaitlistStatus = "WAITING" | "NOTIFIED" | "SEATED" | "CANCELLED" | "EXPIRED";
+
+export interface WaitlistEntry {
+  id: string;
+  venueId: string;
+  date: string;
+  partySize: number;
+  guestName: string | null;
+  guestPhone: string;
+  guestEmail: string | null;
+  notes: string | null;
+  position: number;
+  estimatedWaitMinutes: number | null;
+  status: WaitlistStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWaitlistEntryRequest {
+  venueId: string;
+  date: string;
+  partySize: number;
+  guestPhone: string;
+  guestName?: string;
+  guestEmail?: string;
+  notes?: string;
+}
+
+export interface WaitlistEstimate {
+  estimatedWaitMinutes: number;
+  queueLength: number;
+}
+
+export interface JoinWaitlistResponse {
+  entry: WaitlistEntry;
+  position: number;
+  estimatedWaitMinutes: number;
+}
