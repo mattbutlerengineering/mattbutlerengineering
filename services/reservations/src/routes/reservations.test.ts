@@ -106,7 +106,12 @@ vi.mock("../services/database.js", () => ({
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
   getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1, idle: 4, busy: 1, size: 5, utilization: 0.2, isDegraded: false,
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
   }),
 }));
 
@@ -364,6 +369,43 @@ describe("Reservation Routes", () => {
       );
     });
 
+    it("accepts occasion and seatingPreference on create", async () => {
+      const birthdayReservation = createMockReservation({
+        occasion: "birthday",
+        seatingPreference: "patio",
+      });
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: birthdayReservation,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+          occasion: "birthday",
+          seatingPreference: "patio",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.occasion).toBe("birthday");
+      expect(body.data.seatingPreference).toBe("patio");
+      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+        expect.objectContaining({
+          occasion: "birthday",
+          seatingPreference: "patio",
+        }),
+        undefined
+      );
+    });
+
     it("returns 401 when Bearer token is invalid", async () => {
       vi.mocked(jwtVerify).mockRejectedValueOnce(new Error("invalid signature"));
 
@@ -437,6 +479,39 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.partySize).toBe(6);
+    });
+
+    it("updates occasion and seatingPreference", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({
+          occasion: "anniversary",
+          seatingPreference: "window",
+        }),
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          occasion: "anniversary",
+          seatingPreference: "window",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data.occasion).toBe("anniversary");
+      expect(body.data.seatingPreference).toBe("window");
+      expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith(
+        "res-123",
+        expect.objectContaining({
+          occasion: "anniversary",
+          seatingPreference: "window",
+        })
+      );
     });
 
     it("returns 404 when updating nonexistent reservation", async () => {
@@ -642,6 +717,50 @@ describe("Reservation Routes", () => {
           venueId: "venue-123",
           guestName: "Sarah Smith",
           durationMinutes: 90,
+        }),
+        "auth0|user-123"
+      );
+    });
+
+    it("accepts occasion and seatingPreference on walk-in", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const walkInReservation = createMockReservation({
+        id: "res-walkin-bday",
+        status: "CONFIRMED",
+        occasion: "birthday",
+        seatingPreference: "booth",
+      });
+
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: walkInReservation,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          tableId: "table-123",
+          partySize: 4,
+          venueId: "venue-123",
+          occasion: "birthday",
+          seatingPreference: "booth",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.data.occasion).toBe("birthday");
+      expect(body.data.seatingPreference).toBe("booth");
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          occasion: "birthday",
+          seatingPreference: "booth",
         }),
         "auth0|user-123"
       );

@@ -35,7 +35,9 @@
       },
       "venueId": "ven_e2e_001",
       "createdAt": "2026-05-10T12:00:00.000Z",
-      "updatedAt": "2026-05-10T12:00:00.000Z"
+      "updatedAt": "2026-05-10T12:00:00.000Z",
+      "occasion": null,
+      "seatingPreference": null
     },
     {
       "id": "res_e2e_002",
@@ -55,7 +57,9 @@
       "tableId": "tbl_e2e_003",
       "venueId": "ven_e2e_001",
       "createdAt": "2026-05-11T09:00:00.000Z",
-      "updatedAt": "2026-05-11T09:00:00.000Z"
+      "updatedAt": "2026-05-11T09:00:00.000Z",
+      "occasion": null,
+      "seatingPreference": null
     },
     {
       "id": "res_e2e_003",
@@ -75,7 +79,9 @@
       "tableId": "tbl_e2e_002",
       "venueId": "ven_e2e_001",
       "createdAt": "2026-05-12T15:00:00.000Z",
-      "updatedAt": "2026-05-12T15:00:00.000Z"
+      "updatedAt": "2026-05-12T15:00:00.000Z",
+      "occasion": null,
+      "seatingPreference": null
     },
     {
       "id": "res_e2e_004",
@@ -95,7 +101,9 @@
       "tableId": "tbl_e2e_004",
       "venueId": "ven_e2e_001",
       "createdAt": "2026-05-13T10:00:00.000Z",
-      "updatedAt": "2026-05-15T08:00:00.000Z"
+      "updatedAt": "2026-05-15T08:00:00.000Z",
+      "occasion": null,
+      "seatingPreference": null
     }
   ],
   "pagination": {

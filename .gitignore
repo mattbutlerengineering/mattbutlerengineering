@@ -86,7 +86,8 @@ test.txt
 # Test artifacts
 playwright-report/
 test-results/
-/metrics/
+/metrics/*
+!/metrics/*.jsonl
 
 # Playwright
 e2e/.auth/

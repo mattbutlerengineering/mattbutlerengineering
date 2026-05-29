@@ -209,7 +209,8 @@
             rateLimit: {
               max: 30,
               timeWindow: "1 hour",
-              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+              keyGenerator: (request: FastifyRequest) =>
+                request.user?.id ?? request.ip,
             },
           },
         },
@@ -229,15 +230,18 @@
     
           const { messages } = parseResult.data;
           const authHeader = request.headers.authorization;
-          const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+          const token = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice(7)
+            : null;
           const api = createApiClient({
             baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
             getAccessToken: () => token,
           });
           const agentTools = createAgentTools(request.log, api);
     
+          const MODEL_ID = "claude-haiku-4.5";
           const result = streamText({
-            model: "anthropic/claude-haiku-4.5",
+            model: anthropic(MODEL_ID),
             messages: [
               {
                 role: "system" as const,
@@ -252,16 +256,20 @@
             stopWhen: stepCountIs(5),
             onFinish: async ({ usage, providerMetadata }) => {
               const anthropicMeta = providerMetadata?.anthropic as
-                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+                | {
+                    cacheCreationInputTokens?: number;
+                    cacheReadInputTokens?: number;
+                  }
                 | undefined;
               request.log.info(
                 {
                   userId: request.user?.id,
-                  modelId: "anthropic/claude-haiku-4.5",
+                  modelId: MODEL_ID,
                   inputTokens: usage.inputTokens,
                   outputTokens: usage.outputTokens,
                   cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+                  cacheCreationInputTokens:
+                    anthropicMeta?.cacheCreationInputTokens ?? 0,
                 },
                 "gen-agent cost log"
               );
@@ -279,7 +287,10 @@
               try {
                 for await (const event of result.fullStream) {
                   if (event.type === "text-delta") {
-                    const line = JSON.stringify({ type: "text", content: event.text });
+                    const line = JSON.stringify({
+                      type: "text",
+                      content: event.text,
+                    });
                     controller.enqueue(encoder.encode(line + "\n"));
                   } else if (event.type === "tool-call") {
                     if (event.toolName === "render_component") {
@@ -335,7 +346,8 @@
             rateLimit: {
               max: 50,
               timeWindow: "1 hour",
-              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+              keyGenerator: (request: FastifyRequest) =>
+                request.user?.id ?? request.ip,
             },
           },
         },
@@ -357,10 +369,10 @@
           const { messages } = parseResult.data;
     
           // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
-          const modelId = "anthropic/claude-haiku-4.5";
+          const MODEL_ID = "claude-haiku-4.5";
     
           const result = streamText({
-            model: modelId, // AI SDK resolves "provider/model" via AI_GATEWAY_API_KEY
+            model: anthropic(MODEL_ID),
             // GEN-05: prompt caching via providerOptions on the system message
             // CRITICAL: must use messages array (not top-level system:) to support providerOptions
             messages: [
@@ -376,16 +388,20 @@
             // GEN-06: cost logging in onFinish
             onFinish: async ({ usage, providerMetadata }) => {
               const anthropicMeta = providerMetadata?.anthropic as
-                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+                | {
+                    cacheCreationInputTokens?: number;
+                    cacheReadInputTokens?: number;
+                  }
                 | undefined;
               request.log.info(
                 {
                   userId: request.user?.id,
-                  modelId,
+                  modelId: MODEL_ID,
                   inputTokens: usage.inputTokens,
                   outputTokens: usage.outputTokens,
                   cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+                  cacheCreationInputTokens:
+                    anthropicMeta?.cacheCreationInputTokens ?? 0,
                 },
                 "gen-chat cost log"
               );
@@ -947,36 +963,30 @@
   <file path="src/services/liveness-monitor.ts">
     async function checkStaleSessions(): Promise<void> {
       try {
-        const runningSessions = await sessionService.findByStatus("RUNNING");
-        const now = Date.now();
+        const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
     
-        for (const session of runningSessions) {
-          const lastEvent = await sessionService.getLastEvent(session.id);
-          const lastActivityAt = lastEvent?.createdAt ?? session.updatedAt;
-          const silenceMs = now - new Date(lastActivityAt).getTime();
+        for (const session of staleSessions) {
+          activeLogger?.warn(
+            `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
+          );
     
-          if (silenceMs >= INACTIVITY_THRESHOLD_MS) {
-            console.warn(
-              `[liveness] Session ${session.id} has been inactive for ${Math.round(silenceMs / 1000)}s — auto-cancelling`
-            );
-    
-            const cancelled = await cancelSession(session.id);
-            if (cancelled) {
-              await sessionService.addEvent(session.id, "session:error", {
-                message: `Auto-cancelled: no activity for ${Math.round(silenceMs / 1000)}s (threshold: ${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-                reason: "liveness_timeout",
-              });
-            }
+          const cancelled = await cancelSession(session.id);
+          if (cancelled) {
+            await sessionService.addEvent(session.id, "session:error", {
+              message: `Auto-cancelled: exceeded inactivity threshold (${INACTIVITY_THRESHOLD_MS / 1000}s)`,
+              reason: "liveness_timeout",
+            });
           }
         }
       } catch (error) {
-        console.error("[liveness] Error checking stale sessions:", error);
+        activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
       }
     }
-    export function startLivenessMonitor(): void {
+    export function startLivenessMonitor(logger: FastifyBaseLogger): void {
       if (intervalHandle) return;
+      activeLogger = logger;
       intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-      console.log(
+      logger.info(
         `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
       );
     }
@@ -993,7 +1003,7 @@
       readonly reason?: string;
     }
   </file>
-  <file path="src/services/session-executor.ts">
+  <file path="src/services/sdk-event-mapper.ts">
     function truncate(text: string, maxLen: number): string {
       if (text.length <= maxLen) return text;
       return text.slice(0, maxLen - 1) + "…";
@@ -1007,6 +1017,14 @@
         )
         .map((block: Record<string, unknown>) => block.text as string)
         .join("\n");
+    }
+  </file>
+  <file path="src/services/session-executor.ts">
+    function getRepoPath(): string {
+      return resolve(process.env.REPO_PATH ?? process.cwd());
+    }
+    export function getActiveSessionCount(): number {
+      return activeControllers.size;
     }
   </file>
   <file path="src/services/session.ts">

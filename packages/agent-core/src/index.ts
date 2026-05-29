@@ -281,3 +281,10 @@ export {
   formatRevertForIssue,
 } from "./revert-detector.js";
 export type { RevertCommit, RevertedPR } from "./revert-detector.js";
+
+// Quality gate interface, runner, and built-in gate implementations
+export { GateRunner } from "./gate-runner.js";
+export type { GateContext, GateResult, GateRunResult, QualityGate } from "./gate-runner.js";
+export { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
+export { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
+export { SecurityReviewGate } from "./gates/security-review-gate.js";

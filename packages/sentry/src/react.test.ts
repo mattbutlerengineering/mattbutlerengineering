@@ -25,13 +25,7 @@ vi.mock("@sentry/react", () => ({
   addBreadcrumb: mockAddBreadcrumb,
 }));
 
-import {
-  initSentry,
-  handleErrorBoundary,
-  captureException,
-  captureMessage,
-  addBreadcrumb,
-} from "./react.js";
+import { initSentry, handleErrorBoundary, reportApiError } from "./react.js";
 
 describe("initSentry (react)", () => {
   const savedEnv: Record<string, string | undefined> = {};
@@ -172,25 +166,137 @@ describe("handleErrorBoundary", () => {
   });
 });
 
-describe("re-exported Sentry utilities", () => {
+describe("reportApiError", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("captureException delegates to Sentry.captureException", () => {
-    const error = new Error("test");
-    captureException(error);
+  function makeError(overrides: {
+    statusCode: number;
+    method?: string;
+    path?: string;
+    message?: string;
+  }) {
+    return {
+      statusCode: overrides.statusCode,
+      method: overrides.method ?? "GET",
+      path: overrides.path ?? "/api/v1/test",
+      message: overrides.message ?? "Error",
+      name: "ApiClientError",
+      response: {
+        status: overrides.statusCode,
+        message: overrides.message ?? "Error",
+      },
+    };
+  }
+
+  it("calls captureException for 5xx server errors", () => {
+    const error = makeError({
+      statusCode: 500,
+      method: "POST",
+      path: "/api/v1/reservations",
+      message: "Internal Server Error",
+    });
+
+    reportApiError(error as never);
+
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("calls captureException for 502 server errors", () => {
+    const error = makeError({ statusCode: 502, message: "Bad Gateway" });
+
+    reportApiError(error as never);
+
     expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
 
-  it("captureMessage delegates to Sentry.captureMessage", () => {
-    captureMessage("Something happened");
-    expect(mockCaptureMessage).toHaveBeenCalledWith("Something happened");
+  it("calls captureMessage with warning for 401 errors", () => {
+    const error = makeError({
+      statusCode: 401,
+      method: "GET",
+      path: "/api/v1/users/me",
+      message: "Unauthorized",
+    });
+
+    reportApiError(error as never);
+
+    expect(mockCaptureMessage).toHaveBeenCalledWith("Unauthorized", "warning");
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it("addBreadcrumb delegates to Sentry.addBreadcrumb", () => {
-    const breadcrumb = { message: "User clicked button", category: "ui.click" };
-    addBreadcrumb(breadcrumb);
-    expect(mockAddBreadcrumb).toHaveBeenCalledWith(breadcrumb);
+  it("calls captureMessage with warning for 403 errors", () => {
+    const error = makeError({
+      statusCode: 403,
+      method: "DELETE",
+      path: "/api/v1/venues/v1",
+      message: "Forbidden",
+    });
+
+    reportApiError(error as never);
+
+    expect(mockCaptureMessage).toHaveBeenCalledWith("Forbidden", "warning");
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it("does not call captureException or captureMessage for other 4xx errors", () => {
+    const error = makeError({
+      statusCode: 404,
+      method: "GET",
+      path: "/api/v1/venues/missing",
+      message: "Not Found",
+    });
+
+    reportApiError(error as never);
+
+    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("always adds a breadcrumb with category api", () => {
+    const error = makeError({
+      statusCode: 404,
+      method: "GET",
+      path: "/api/v1/venues/missing",
+    });
+
+    reportApiError(error as never);
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "api",
+        message: "GET /api/v1/venues/missing → 404",
+        data: expect.objectContaining({
+          statusCode: 404,
+          method: "GET",
+          path: "/api/v1/venues/missing",
+        }),
+      })
+    );
+  });
+
+  it("uses error level in breadcrumb for 5xx", () => {
+    const error = makeError({ statusCode: 503 });
+
+    reportApiError(error as never);
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "error" }));
+  });
+
+  it("uses warning level in breadcrumb for 4xx", () => {
+    const error = makeError({ statusCode: 422 });
+
+    reportApiError(error as never);
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
+  });
+
+  it("uses warning level in breadcrumb for 401", () => {
+    const error = makeError({ statusCode: 401 });
+
+    reportApiError(error as never);
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
   });
 });

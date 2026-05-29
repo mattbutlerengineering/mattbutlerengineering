@@ -23,8 +23,12 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
+  "dependencies": {
+    "twilio": "^5.7.1"
+  },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

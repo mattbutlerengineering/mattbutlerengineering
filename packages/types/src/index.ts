@@ -38,6 +38,8 @@ export type {
   Table,
   TableStatus,
   Reservation,
+  Occasion,
+  SeatingPreference,
   CreateReservationRequest,
   UpdateReservationRequest,
   CreateTableRequest,
@@ -78,6 +80,7 @@ export type {
 // Guest types
 export type {
   Guest,
+  StaffNote,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
