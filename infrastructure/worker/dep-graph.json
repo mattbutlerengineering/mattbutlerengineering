@@ -284,6 +284,11 @@
     },
     {
       "from": "@mbe/reservations-service",
+      "to": "@mbe/jobs",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
       "to": "@mbe/feature-flags",
       "type": "dependency"
     },
@@ -341,6 +346,11 @@
       "from": "@mbe/users-service",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/agent-core",
+      "to": "@mbe/api-client",
+      "type": "dependency"
     },
     {
       "from": "@mbe/agent-core",

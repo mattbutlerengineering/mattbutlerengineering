@@ -33,6 +33,7 @@ pnpm-debug.log*
 
 # Testing
 coverage/
+*.test-tmp
 
 # Docker
 .docker/
