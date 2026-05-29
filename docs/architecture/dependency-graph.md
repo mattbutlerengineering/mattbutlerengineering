@@ -71,6 +71,7 @@ flowchart TD
   agent_service --> config
   reservations_service --> auth
   reservations_service --> database
+  reservations_service --> jobs
   reservations_service --> feature_flags
   reservations_service --> notifications
   reservations_service --> observability
@@ -83,6 +84,7 @@ flowchart TD
   users_service --> types
   users_service --> database
   users_service --> config
+  agent_core --> api_client
   agent_core --> types
   agent_core --> config
   agent_test_utils --> agent_core
