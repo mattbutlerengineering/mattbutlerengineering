@@ -66,19 +66,21 @@
   </file>
   <file path="src/guests.ts">
     <item priority="low">
+      interface GuestRecognition {
+        recognized: boolean;
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="low">
       interface FindOrCreateGuestRequest {
         venueId: string;
         email?: string;
         phone?: string;
         name: string;
         dietaryRestrictions?: string[];
-      }
-    </item>
-    <item priority="low">
-      interface ListGuestsParams {
-        page?: number;
-        limit?: number;
-        venueId: string;
       }
     </item>
   </file>

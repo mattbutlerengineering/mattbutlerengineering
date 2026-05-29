@@ -113,17 +113,20 @@
     }
   </file>
   <file path="src/guests.ts">
+    export interface GuestRecognition {
+      recognized: boolean;
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+      lastVisit: string | null;
+    }
     export interface FindOrCreateGuestRequest {
       venueId: string;
       email?: string;
       phone?: string;
       name: string;
       dietaryRestrictions?: string[];
-    }
-    export interface ListGuestsParams {
-      page?: number;
-      limit?: number;
-      venueId: string;
     }
   </file>
   <file path="src/health.ts">
