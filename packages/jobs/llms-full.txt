@@ -1,0 +1,27 @@
+<codebase path="packages/jobs">
+  <section priority="medium" role="src">
+  <file path="src/job-types.ts">
+    export enum JobType {
+      BOOKING_REMINDER = "BOOKING_REMINDER",
+      DAY_OF_REMINDER = "DAY_OF_REMINDER",
+      POST_VISIT_FOLLOWUP = "POST_VISIT_FOLLOWUP",
+      PRE_ARRIVAL_BRIEFING = "PRE_ARRIVAL_BRIEFING",
+      LAPSED_GUEST_SCAN = "LAPSED_GUEST_SCAN",
+      WAITLIST_EXPIRY = "WAITLIST_EXPIRY",
+    }
+  </file>
+  <file path="src/worker.ts">
+    export type JobPayloadMap = {
+      [JobType.BOOKING_REMINDER]: { reservationId: string; guestEmail: string };
+      [JobType.DAY_OF_REMINDER]: { reservationId: string; guestEmail: string };
+      [JobType.POST_VISIT_FOLLOWUP]: { reservationId: string; guestEmail: string };
+      [JobType.PRE_ARRIVAL_BRIEFING]: { reservationId: string; guestEmail: string };
+      [JobType.LAPSED_GUEST_SCAN]: { guestId: string };
+      [JobType.WAITLIST_EXPIRY]: { waitlistId: string };
+    };
+    export type JobHandlerMap = {
+      [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+    };
+  </file>
+  </section>
+</codebase>
