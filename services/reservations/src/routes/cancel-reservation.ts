@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { cancelBookingReminders } from "../services/booking-notifications.js";
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Querystring: { token?: string } }>(
@@ -85,6 +86,9 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
+
+      // Cancel any pending reminder jobs for this reservation
+      cancelBookingReminders(reservation.id).catch(() => {});
 
       if (reservation.guestEmail && venue) {
         try {

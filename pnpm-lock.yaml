@@ -1257,6 +1257,9 @@ importers:
       '@mbe/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
+      '@mbe/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@mbe/notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
