@@ -12,11 +12,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
+COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/notifications/package.json ./packages/notifications/
+COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install all dependencies
@@ -26,34 +28,41 @@ RUN pnpm install --frozen-lockfile
 COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/config/typescript ./packages/config/typescript
+COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/notifications/tsconfig.json ./packages/notifications/
+COPY packages/jobs/tsconfig.json ./packages/jobs/
 COPY services/reservations/tsconfig.json ./services/reservations/
 
-# Copy Prisma schema (needed for db:generate)
+# Copy Prisma schema and config (needed for db:generate)
 COPY services/reservations/prisma ./services/reservations/prisma
+COPY services/reservations/prisma.config.ts ./services/reservations/
 
 # Copy source code (most frequently changing layer — last)
 COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
+COPY packages/api-client/src ./packages/api-client/src
 COPY packages/observability/src ./packages/observability/src
 COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
 COPY packages/notifications/src ./packages/notifications/src
+COPY packages/jobs/src ./packages/jobs/src
 COPY services/reservations/src ./services/reservations/src
 
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
+    pnpm --filter @mbe/api-client build && \
     pnpm --filter @mbe/observability build && \
     pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/notifications build && \
+    pnpm --filter @mbe/jobs build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
 
@@ -75,11 +84,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
+COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/notifications/package.json ./packages/notifications/
+COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -89,11 +100,13 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/notifications/dist ./packages/notifications/dist
+COPY --from=builder /app/packages/jobs/dist ./packages/jobs/dist
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist

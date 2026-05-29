@@ -1,5 +1,25 @@
 <codebase path="packages/api-client">
   <section priority="medium" role="src">
+  <file path="src/agent-sessions.ts">
+    <item priority="low">
+      interface SessionSummary {
+        id: string;
+        status: string;
+        taskDescription: string;
+        branchName: string | null;
+        prUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface PaginatedSessions {
+        data: readonly SessionSummary[];
+        pagination: {
+          readonly page: number;
+          readonly total: number;
+      ...;
+      }
+    </item>
+  </file>
   <file path="src/availability.ts">
     <item priority="low">
       interface GetTimeSlotsParams {
@@ -51,6 +71,7 @@
         email?: string;
         phone?: string;
         name: string;
+        dietaryRestrictions?: string[];
       }
     </item>
     <item priority="low">

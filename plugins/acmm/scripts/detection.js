@@ -96,6 +96,18 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
  */
 export function detect(cwd, criterion, opts = {}) {
   const { type, pattern, maxAgeDays = 30 } = criterion.detection;
+
+  // Delegate `github:` prefixed patterns to the criterion's check function
+  if (
+    type === "active" &&
+    typeof pattern === "string" &&
+    pattern.startsWith("github:") &&
+    typeof criterion.check === "function"
+  ) {
+    const result = criterion.check(cwd, opts);
+    return result.passed;
+  }
+
   if (type === "path") {
     if (Array.isArray(pattern)) return pattern.some((p) => existsAt(cwd, p));
     return existsAt(cwd, pattern);
@@ -154,6 +166,24 @@ export function detectAll(cwd, criteria, opts = {}) {
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
+
+      // Handle `github:` prefixed patterns via the criterion's check function
+      const isGithubPattern =
+        patterns.length === 1 &&
+        typeof patterns[0] === "string" &&
+        patterns[0].startsWith("github:") &&
+        typeof c.check === "function";
+      if (isGithubPattern) {
+        const checkResult = c.check(cwd, opts);
+        if (checkResult.passed) {
+          detected.add(c.id);
+          meta.set(c.id, { status: "active", reason: checkResult.evidence });
+        } else {
+          meta.set(c.id, { status: "inactive", reason: checkResult.evidence });
+        }
+        continue;
+      }
+
       const filePresent = patterns.some((p) => existsAt(cwd, p));
       if (!filePresent) {
         meta.set(c.id, { status: "missing", reason: "file not found" });

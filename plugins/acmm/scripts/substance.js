@@ -81,6 +81,25 @@ function checkTestCoverage(filePaths, _cwd) {
   return { passed: false, evidence: "no recognizable coverage threshold" };
 }
 
+function expandToFiles(paths) {
+  const result = [];
+  for (const fp of paths) {
+    try {
+      if (existsSync(fp) && statSync(fp).isDirectory()) {
+        const entries = readdirSync(fp, { recursive: true });
+        for (const entry of entries) {
+          result.push(join(fp, entry));
+        }
+      } else {
+        result.push(fp);
+      }
+    } catch {
+      result.push(fp);
+    }
+  }
+  return result;
+}
+
 function checkRunbook(filePaths, _cwd) {
   const indicators = [
     /\/api\/v\d+\//,
@@ -91,7 +110,7 @@ function checkRunbook(filePaths, _cwd) {
     /(?:endpoint|dashboard|alert|monitor)/i,
   ];
 
-  for (const fp of filePaths) {
+  for (const fp of expandToFiles(filePaths)) {
     const content = readFileSafe(fp);
     if (!content) continue;
     const matches = indicators.filter((re) => re.test(content));

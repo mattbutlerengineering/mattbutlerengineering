@@ -1,18 +1,15 @@
-import { useState, useEffect, useMemo, useCallback, useReducer, type ChangeEvent } from "react";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
+import { useState, useMemo, useCallback, useReducer, useEffect, type ChangeEvent } from "react";
 import {
   Alert,
   Badge,
   Button,
   Card,
-  DataList,
+  Checkbox,
   Dialog,
   Divider,
   Drawer,
   EmptyState,
   Input,
-  Select,
   Skeleton,
   SkeletonGroup,
   Stack,
@@ -20,11 +17,21 @@ import {
   Tag,
   Text,
   TextArea,
+  useToast,
 } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import type { Guest, GuestSegment, Reservation, UpdateGuestRequest } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
+import {
+  useGuests,
+  useGuestSearch,
+  useGuestSegments,
+  useAddGuest,
+  useUpdateGuest,
+} from "../hooks/useGuests.js";
+import { useReservations } from "../hooks/useReservations.js";
+import { GuestCard } from "../components/crm/GuestCard.js";
 import styles from "./GuestsPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
@@ -37,6 +44,20 @@ const SEGMENT_ACCENT_COLORS = [
   "var(--rialto-error)",
   "var(--rialto-info, var(--rialto-accent))",
 ] as const;
+
+const DIETARY_RESTRICTION_OPTIONS = [
+  "vegetarian",
+  "vegan",
+  "gluten-free",
+  "dairy-free",
+  "nut-free",
+  "halal",
+  "kosher",
+  "shellfish-free",
+] as const;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+\d\s\-().]{7,}$/;
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -151,6 +172,9 @@ interface GuestEditFormData {
   email: string;
   phone: string;
   notes: string;
+  tags: string[];
+  dietaryRestrictions: string[];
+  tagInput: string;
 }
 
 interface GuestDetailDrawerProps {
@@ -158,7 +182,8 @@ interface GuestDetailDrawerProps {
   open: boolean;
   onClose: () => void;
   onSave: (guestId: string, data: UpdateGuestRequest) => Promise<void>;
-  api: ReturnType<typeof createApiClient>;
+  guestReservations: Reservation[];
+  isLoadingHistory: boolean;
 }
 
 type DrawerState = {
@@ -166,8 +191,6 @@ type DrawerState = {
   formData: GuestEditFormData;
   isSaving: boolean;
   saveError: string | null;
-  reservationHistory: Reservation[];
-  historyLoading: boolean;
 };
 
 type DrawerAction =
@@ -175,21 +198,27 @@ type DrawerAction =
   | { type: "set_editing"; isEditing: boolean }
   | { type: "set_form_data"; formData: GuestEditFormData }
   | { type: "update_field"; field: keyof GuestEditFormData; value: string }
+  | { type: "toggle_dietary"; restriction: string }
+  | { type: "add_tag" }
+  | { type: "remove_tag"; tag: string }
   | { type: "save_start" }
   | { type: "save_success" }
   | { type: "save_error"; error: string }
-  | { type: "clear_save_error" }
-  | { type: "history_loading" }
-  | { type: "history_loaded"; data: Reservation[] }
-  | { type: "history_error" };
+  | { type: "clear_save_error" };
 
 const INITIAL_DRAWER_STATE: DrawerState = {
   isEditing: false,
-  formData: { name: "", email: "", phone: "", notes: "" },
+  formData: {
+    name: "",
+    email: "",
+    phone: "",
+    notes: "",
+    tags: [],
+    dietaryRestrictions: [],
+    tagInput: "",
+  },
   isSaving: false,
   saveError: null,
-  reservationHistory: [],
-  historyLoading: false,
 };
 
 function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
@@ -202,6 +231,11 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
           email: action.guest.email ?? "",
           phone: action.guest.phone ?? "",
           notes: action.guest.notes ?? "",
+          tags: action.guest.tags ? [...action.guest.tags] : [],
+          dietaryRestrictions: action.guest.dietaryRestrictions
+            ? [...action.guest.dietaryRestrictions]
+            : [],
+          tagInput: "",
         },
       };
     case "set_editing":
@@ -210,6 +244,31 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
       return { ...state, formData: action.formData };
     case "update_field":
       return { ...state, formData: { ...state.formData, [action.field]: action.value } };
+    case "toggle_dietary": {
+      const current = state.formData.dietaryRestrictions;
+      const next = current.includes(action.restriction)
+        ? current.filter((r) => r !== action.restriction)
+        : [...current, action.restriction];
+      return { ...state, formData: { ...state.formData, dietaryRestrictions: next } };
+    }
+    case "add_tag": {
+      const trimmed = state.formData.tagInput.trim();
+      if (!trimmed || state.formData.tags.includes(trimmed)) {
+        return { ...state, formData: { ...state.formData, tagInput: "" } };
+      }
+      return {
+        ...state,
+        formData: { ...state.formData, tags: [...state.formData.tags, trimmed], tagInput: "" },
+      };
+    }
+    case "remove_tag":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          tags: state.formData.tags.filter((t) => t !== action.tag),
+        },
+      };
     case "save_start":
       return { ...state, isSaving: true, saveError: null };
     case "save_success":
@@ -218,46 +277,35 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
       return { ...state, isSaving: false, saveError: action.error };
     case "clear_save_error":
       return { ...state, saveError: null };
-    case "history_loading":
-      return { ...state, historyLoading: true };
-    case "history_loaded":
-      return { ...state, historyLoading: false, reservationHistory: action.data };
-    case "history_error":
-      return { ...state, historyLoading: false, reservationHistory: [] };
   }
 }
 
-function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDrawerProps) {
+function GuestDetailDrawer({
+  guest,
+  open,
+  onClose,
+  onSave,
+  guestReservations,
+  isLoadingHistory,
+}: GuestDetailDrawerProps) {
   const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
   const { isEditing, formData, isSaving, saveError } = state;
+  const { toast } = useToast();
 
   // Reset form when guest changes or drawer opens
-  useEffect(() => {
+  useCallback(() => {
     if (guest && open) {
       drawerDispatch({ type: "reset", guest });
     }
   }, [guest, open]);
 
-  // Fetch reservation history when drawer opens
-  const guestId = guest?.id ?? null;
+  // Reset when guest/open changes
   useEffect(() => {
-    if (!guestId || !open || !api) return;
-    let cancelled = false;
-
-    drawerDispatch({ type: "history_loading" });
-    api.reservations
-      .list({ guestId, limit: 10 })
-      .then((response) => {
-        if (!cancelled) drawerDispatch({ type: "history_loaded", data: response.data });
-      })
-      .catch(() => {
-        if (!cancelled) drawerDispatch({ type: "history_error" });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [guestId, open, api]);
+    if (guest && open) {
+      drawerDispatch({ type: "reset", guest });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+  }, [guest?.id, open]);
 
   const handleFieldChange = useCallback(
     (field: keyof GuestEditFormData) =>
@@ -266,6 +314,13 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
       },
     []
   );
+
+  const handleTagInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      drawerDispatch({ type: "add_tag" });
+    }
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!guest) return;
@@ -276,15 +331,18 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
         email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
         notes: formData.notes.trim() || undefined,
+        tags: formData.tags,
+        dietaryRestrictions: formData.dietaryRestrictions,
       });
       drawerDispatch({ type: "save_success" });
+      toast({ title: "Guest updated", variant: "success" });
     } catch (err) {
       drawerDispatch({
         type: "save_error",
         error: err instanceof Error ? err.message : "Failed to save guest",
       });
     }
-  }, [guest, formData, onSave]);
+  }, [guest, formData, onSave, toast]);
 
   const handleCancelEdit = useCallback(() => {
     if (guest) {
@@ -295,6 +353,9 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
           email: guest.email ?? "",
           phone: guest.phone ?? "",
           notes: guest.notes ?? "",
+          tags: guest.tags ? [...guest.tags] : [],
+          dietaryRestrictions: guest.dietaryRestrictions ? [...guest.dietaryRestrictions] : [],
+          tagInput: "",
         },
       });
     }
@@ -326,6 +387,9 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
   }
 
   const isNameValid = formData.name.trim().length > 0;
+  const isEmailValid = !formData.email.trim() || EMAIL_REGEX.test(formData.email.trim());
+  const isPhoneValid = !formData.phone.trim() || PHONE_REGEX.test(formData.phone.trim());
+  const isFormValid = isNameValid && isEmailValid && isPhoneValid;
 
   return (
     <Drawer
@@ -340,7 +404,7 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isNameValid}>
+            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isFormValid}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </Stack>
@@ -376,6 +440,8 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             placeholder="guest@example.com"
             value={formData.email}
             onChange={handleFieldChange("email")}
+            error={!isEmailValid}
+            hint={!isEmailValid ? "Please enter a valid email address" : undefined}
           />
           <Input
             label="Phone"
@@ -383,6 +449,8 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             placeholder="+1 (555) 000-0000"
             value={formData.phone}
             onChange={handleFieldChange("phone")}
+            error={!isPhoneValid}
+            hint={!isPhoneValid ? "Please enter a valid phone number" : undefined}
           />
           <TextArea
             label="Notes"
@@ -392,22 +460,58 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
             rows={4}
             autoResize
           />
+
+          {/* Tags editing */}
+          <Stack gap="xs">
+            <Text variant="label" color="secondary">
+              Tags
+            </Text>
+            <Stack direction="row" gap="xs" wrap>
+              {formData.tags.map((tag) => (
+                <Button
+                  key={tag}
+                  variant="ghost"
+                  onClick={() => drawerDispatch({ type: "remove_tag", tag })}
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  {tag} ×
+                </Button>
+              ))}
+            </Stack>
+            <Input
+              label=""
+              type="text"
+              placeholder="Add tag (press Enter)"
+              value={formData.tagInput}
+              onChange={handleFieldChange("tagInput")}
+              onKeyDown={handleTagInputKeyDown}
+            />
+          </Stack>
+
+          {/* Dietary restrictions */}
+          <Stack gap="xs">
+            <Text variant="label" color="secondary">
+              Dietary Restrictions
+            </Text>
+            <Stack gap="xs">
+              {DIETARY_RESTRICTION_OPTIONS.map((restriction) => (
+                <Checkbox
+                  key={restriction}
+                  label={restriction}
+                  checked={formData.dietaryRestrictions.includes(restriction)}
+                  onCheckedChange={() => drawerDispatch({ type: "toggle_dietary", restriction })}
+                />
+              ))}
+            </Stack>
+          </Stack>
         </Stack>
       ) : (
         <Stack gap="lg">
-          <DataList items={detailItems} orientation="horizontal" striped />
-
-          {guest.notes && (
-            <>
-              <Divider />
-              <Stack gap="xs">
-                <Text variant="label" color="secondary">
-                  Notes
-                </Text>
-                <Text variant="body">{guest.notes}</Text>
-              </Stack>
-            </>
-          )}
+          {/* Unified CRM display via GuestCard */}
+          <GuestCard
+            guestId={guest.id}
+            onEditProfile={() => drawerDispatch({ type: "set_editing", isEditing: true })}
+          />
 
           {guest.tags && guest.tags.length > 0 && (
             <>
@@ -421,6 +525,28 @@ function GuestDetailDrawer({ guest, open, onClose, onSave, api }: GuestDetailDra
                     <Tag key={tag}>{tag}</Tag>
                   ))}
                 </Stack>
+              </Stack>
+            </>
+          )}
+
+          {isLoadingHistory && (
+            <Text variant="caption" color="secondary">
+              Loading reservation history...
+            </Text>
+          )}
+
+          {!isLoadingHistory && guestReservations.length > 0 && (
+            <>
+              <Divider />
+              <Stack gap="xs">
+                <Text variant="label" color="secondary">
+                  Recent Reservations
+                </Text>
+                {guestReservations.slice(0, 5).map((r: Reservation) => (
+                  <Text key={r.id} variant="caption" color="secondary">
+                    {r.date} &middot; {r.partySize} guests
+                  </Text>
+                ))}
               </Stack>
             </>
           )}
@@ -474,72 +600,52 @@ function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
 /* ── Main component ─────────────────────────── */
 
 export function GuestsPage() {
-  const { accessToken } = useAuth();
-  const { venues, selectedVenueId, setVenueId, isMultiVenue } = useVenue();
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [segments, setSegments] = useState<GuestSegment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { selectedVenueId } = useVenue();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  // Debounce search query to avoid firing a TQ query on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Drawer state
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
 
   // Add guest dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addDialogSubmitting, setAddDialogSubmitting] = useState(false);
   const [addDialogError, setAddDialogError] = useState<string | null>(null);
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  // Use search query hook when query is non-empty, otherwise use list hook
+  const listResult = useGuests({ venueId: selectedVenueId, enabled: !debouncedSearchQuery });
+  const searchResult = useGuestSearch({
+    venueId: selectedVenueId,
+    query: debouncedSearchQuery,
+    enabled: !!debouncedSearchQuery,
+  });
+
+  const { data: segments } = useGuestSegments(selectedVenueId);
+  const addGuestMutation = useAddGuest();
+  const updateGuestMutation = useUpdateGuest();
+
+  const { data: guests = [], isLoading, error } = debouncedSearchQuery ? searchResult : listResult;
+
+  // Fetch reservation history for selected guest
+  const { data: guestReservations = [], isLoading: historyLoading } = useReservations({
+    guestId: selectedGuestId ?? undefined,
+    limit: 10,
+    enabled: !!selectedGuestId,
+  });
 
   const selectedGuest = useMemo(
-    () => guests.find((g) => g.id === selectedGuestId) ?? null,
+    () => guests.find((g: Guest) => g.id === selectedGuestId) ?? null,
     [guests, selectedGuestId]
   );
 
   const drawerOpen = selectedGuestId !== null;
-
-  const fetchGuests = useCallback(async () => {
-    if (!selectedVenueId) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [guestsResponse, segmentsResponse] = await Promise.all([
-        searchQuery
-          ? api.guests.search({ venueId: selectedVenueId, query: searchQuery })
-          : api.guests.list({ venueId: selectedVenueId, limit: 50 }),
-        api.guests.getSegments(selectedVenueId),
-      ]);
-
-      setGuests(guestsResponse.data);
-      setSegments(segmentsResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load guests");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [api, selectedVenueId, searchQuery]);
-
-  useEffect(() => {
-    fetchGuests();
-  }, [fetchGuests]);
-
-  const venueOptions = useMemo(
-    () => [...venues].map((v) => ({ value: v.id, label: v.name })),
-    [venues]
-  );
 
   const formatDate = (isoString: string | null) => {
     if (!isoString) return "Never";
@@ -558,42 +664,42 @@ export function GuestsPage() {
     async (data: { name: string; email: string; phone: string; notes: string }) => {
       if (!selectedVenueId) return;
 
-      setAddDialogSubmitting(true);
       setAddDialogError(null);
 
       try {
-        await api.guests.findOrCreate({
+        await addGuestMutation.mutateAsync({
           venueId: selectedVenueId,
           name: data.name.trim(),
           ...(data.email.trim() ? { email: data.email.trim() } : {}),
           ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
         });
         setAddDialogOpen(false);
-        await fetchGuests();
       } catch (err) {
         setAddDialogError(err instanceof Error ? err.message : "Failed to add guest");
-      } finally {
-        setAddDialogSubmitting(false);
       }
     },
-    [api, selectedVenueId, fetchGuests]
+    [addGuestMutation, selectedVenueId]
   );
 
   const handleEditGuest = useCallback(
     async (guestId: string, data: UpdateGuestRequest) => {
-      await api.guests.update(guestId, data);
-      await fetchGuests();
+      await updateGuestMutation.mutateAsync({ guestId, data });
     },
-    [api, fetchGuests]
+    [updateGuestMutation]
   );
 
-  const totalGuestCount = useMemo(() => segments.reduce((sum, s) => sum + s.count, 0), [segments]);
+  const totalGuestCount = useMemo(
+    () => (segments ?? []).reduce((sum: number, s: GuestSegment) => sum + s.count, 0),
+    [segments]
+  );
 
   if (!selectedVenueId && !isLoading) {
     return (
       <div className={styles.container}>
         <PageHeader title="Guests" description="Manage your guest directory" />
-        <Alert variant="warning">Please select a venue to view guests.</Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="warning">Please select a venue to view guests.</Alert>
+        </div>
       </div>
     );
   }
@@ -607,14 +713,6 @@ export function GuestsPage() {
       <div className={styles.header}>
         <PageHeader title="Guests" description="Manage your guest directory" />
         <div className={styles.headerControls}>
-          {isMultiVenue && (
-            <Select
-              label="Venue"
-              options={venueOptions}
-              value={selectedVenueId ?? ""}
-              onChange={(value) => setVenueId(value)}
-            />
-          )}
           <Input
             type="text"
             placeholder="Search guests..."
@@ -628,9 +726,9 @@ export function GuestsPage() {
       </div>
 
       {/* Segments Overview */}
-      {segments.length > 0 && (
+      {(segments ?? []).length > 0 && (
         <div className={styles.segmentsGrid}>
-          {segments.map((segment, index) => (
+          {(segments ?? []).map((segment: GuestSegment, index: number) => (
             <Card
               key={segment.name}
               className={styles.segmentCard}
@@ -645,7 +743,11 @@ export function GuestsPage() {
       )}
 
       {error && (
-        <ErrorRetryBanner error={error} onRetry={fetchGuests} onDismiss={() => setError(null)} />
+        <ErrorRetryBanner
+          error={error.message}
+          onRetry={debouncedSearchQuery ? searchResult.refetch : listResult.refetch}
+          onDismiss={() => {}}
+        />
       )}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
@@ -655,9 +757,9 @@ export function GuestsPage() {
       {!isLoading && !error && guests.length === 0 && (
         <div aria-live="polite" role="status">
           <EmptyState
-            heading={searchQuery ? "No guests found" : "No guests yet"}
+            heading={debouncedSearchQuery ? "No guests found" : "No guests yet"}
             description={
-              searchQuery
+              debouncedSearchQuery
                 ? "Try adjusting your search query."
                 : "Guests will appear here once they make a reservation."
             }
@@ -686,7 +788,7 @@ export function GuestsPage() {
                   </tr>
                 </thead>
                 <tbody className={styles.tbody}>
-                  {guests.map((guest) => (
+                  {guests.map((guest: Guest) => (
                     <tr
                       key={guest.id}
                       className={[
@@ -732,7 +834,7 @@ export function GuestsPage() {
                       <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
                       <td className={styles.tdTags}>
                         <div className={styles.tagList}>
-                          {guest.tags?.map((tag) => (
+                          {guest.tags?.map((tag: string) => (
                             <Tag key={tag}>{tag}</Tag>
                           ))}
                         </div>
@@ -747,7 +849,7 @@ export function GuestsPage() {
 
           {/* Mobile cards */}
           <div className={styles.mobileCards}>
-            {guests.map((guest) => (
+            {guests.map((guest: Guest) => (
               <MobileGuestCard
                 key={guest.id}
                 guest={guest}
@@ -764,7 +866,8 @@ export function GuestsPage() {
         open={drawerOpen}
         onClose={handleDrawerClose}
         onSave={handleEditGuest}
-        api={api}
+        guestReservations={guestReservations}
+        isLoadingHistory={historyLoading}
       />
 
       {/* Add Guest Dialog */}
@@ -775,7 +878,7 @@ export function GuestsPage() {
           setAddDialogError(null);
         }}
         onSubmit={handleAddGuest}
-        isSubmitting={addDialogSubmitting}
+        isSubmitting={addGuestMutation.isPending}
         error={addDialogError}
       />
     </div>

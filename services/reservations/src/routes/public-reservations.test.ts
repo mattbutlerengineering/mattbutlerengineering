@@ -118,6 +118,8 @@ const mockReservation = {
   notes: null,
   cancellationReason: null,
   cancellationNote: null,
+  occasion: null,
+  seatingPreference: null,
   guestName: "Jane Doe",
   guestEmail: "jane@example.com",
   guestPhone: "+1555123456",

@@ -1,8 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@mbe/auth/react";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
-import { createApiClient } from "@mbe/api-client";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import {
@@ -11,26 +9,18 @@ import {
 } from "../components/venue-onboarding/OperatingHoursStep.js";
 import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep.js";
 import { PageHeader } from "../components/PageHeader.js";
+import { useUpdateVenue } from "../hooks/useVenues.js";
 import styles from "./SetupHoursPage.module.css";
 
 export function SetupHoursPage() {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
   const { selectedVenue, selectedVenueId } = useVenue();
+  const updateVenueMutation = useUpdateVenue();
 
   const [hours, setHours] = useState<OperatingHours>(selectedVenue?.operatingHours ?? {});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoursErrors, setHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
-
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
 
   const handleSave = async () => {
     if (!selectedVenueId) return;
@@ -45,7 +35,7 @@ export function SetupHoursPage() {
     setError(null);
 
     try {
-      await api.venues.update(selectedVenueId, { operatingHours: hours });
+      await updateVenueMutation.mutateAsync({ venueId: selectedVenueId, data: { operatingHours: hours } });
       navigate("/setup");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save operating hours.");

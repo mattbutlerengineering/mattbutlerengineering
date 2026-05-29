@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures.js";
 
 test.describe("CF-3: Walk-in creation", () => {
   test("opens walk-in dialog and lists available tables", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Click "Walk-In" button
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
@@ -24,7 +24,7 @@ test.describe("CF-3: Walk-in creation", () => {
   });
 
   test("creates walk-in and verifies timeline update", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Click "Walk-In" button
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
@@ -60,7 +60,7 @@ test.describe("CF-3: Walk-in creation", () => {
   });
 
   test("cancels walk-in dialog", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 

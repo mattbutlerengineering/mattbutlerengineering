@@ -1,9 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import {
-  registerHealthRoutes,
-  createLatencyTracker,
-  checkAuth0,
-} from "@mbe/database";
+import { registerHealthRoutes, createLatencyTracker, checkAuth0 } from "@mbe/database";
 import {
   prisma,
   getSlowQueryStats,

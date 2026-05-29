@@ -14,6 +14,7 @@
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
+import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -22,17 +23,6 @@ const DEFAULT_TIMEOUT_MS = 600_000;
 
 /** Maximum task description length passed to CLI (prevent arg overflow) */
 const MAX_TASK_LENGTH = 8_000;
-
-/**
- * Case-insensitive patterns that indicate rate limiting in CLI output.
- */
-const RATE_LIMIT_PATTERNS: readonly RegExp[] = [
-  /rate.?limit/i,
-  /quota.?exceeded/i,
-  /\b429\b/,
-  /throttled/i,
-  /too.?many.?requests/i,
-];
 
 export abstract class CliAdapterBase implements AgentAdapter {
   /** Unique adapter name matching AgentAdapter.name. */
@@ -137,9 +127,10 @@ export abstract class CliAdapterBase implements AgentAdapter {
 
   /**
    * Scan combined CLI output for rate-limit indicators.
+   * Delegates to the shared scanForRateLimitPatterns utility in rate-limit-detector.ts.
    */
   protected detectRateLimiting(output: string): boolean {
-    return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    return scanForRateLimitPatterns(output);
   }
 
   /**

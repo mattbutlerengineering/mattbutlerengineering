@@ -121,7 +121,7 @@ function LoginPrompt() {
   const { signIn } = useAuth();
 
   return (
-    <Stack gap="lg" align="center">
+    <Stack gap="lg" align="center" data-testid="login-prompt">
       <Stack gap="sm" align="center">
         <Text as="h1" variant="display" color="primary">
           Hospitality

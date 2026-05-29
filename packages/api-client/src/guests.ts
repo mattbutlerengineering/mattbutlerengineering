@@ -11,6 +11,7 @@ export interface FindOrCreateGuestRequest {
   email?: string;
   phone?: string;
   name: string;
+  dietaryRestrictions?: string[];
 }
 import type { ApiClient } from "./client.js";
 
@@ -97,5 +98,12 @@ export class GuestsClient {
    */
   async delete(id: string): Promise<void> {
     await this.client.delete(`/api/v1/guests/${id}`);
+  }
+
+  /**
+   * Add a staff note to a guest
+   */
+  async addNote(id: string, text: string): Promise<Guest> {
+    return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text });
   }
 }

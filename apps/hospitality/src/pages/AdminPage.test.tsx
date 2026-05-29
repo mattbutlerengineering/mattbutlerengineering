@@ -1,22 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AdminPage } from "./AdminPage.js";
-import { useAuth } from "@mbe/auth/react";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const { mockUsersList } = vi.hoisted(() => ({
-  mockUsersList: vi.fn(),
-}));
+const mockApiClient = {
+  users: {
+    me: vi.fn(),
+    update: vi.fn(),
+    updatePreferences: vi.fn(),
+    list: vi.fn(),
+  },
+};
 
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
-vi.mock("@mbe/api-client", () => ({
-  ApiClient: vi.fn(function (this: any) {
-    // no-op constructor
-  }),
-  UsersClient: vi.fn(function (this: any) {
-    this.list = mockUsersList;
-  }),
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => mockApiClient),
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -24,7 +24,6 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
   Avatar: ({ name }: any) => <div data-testid="avatar">{name}</div>,
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
@@ -63,47 +62,67 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children }: any) => <span>{children}</span>,
 }));
 
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+    <div data-testid="error-retry-banner">
+      <span>{error}</span>
+      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+    </div>
+  ),
+}));
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(<Wrapper><AdminPage /></Wrapper>);
+}
+
+const defaultUsers = [
+  {
+    id: "u1",
+    name: "Admin User",
+    email: "admin@example.com",
+    emailVerified: true,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    preferences: { theme: "dark" },
+  },
+  {
+    id: "u2",
+    name: "Regular User",
+    email: "user@example.com",
+    emailVerified: false,
+    createdAt: "2026-03-15T00:00:00Z",
+    updatedAt: "2026-03-15T00:00:00Z",
+    preferences: {},
+  },
+];
+
 describe("AdminPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useAuth).mockReturnValue({
-      accessToken: "admin-token",
-      user: { sub: "admin-1", name: "Admin" },
-    } as any);
-
-    mockUsersList.mockResolvedValue({
-      data: [
-        {
-          id: "u1",
-          name: "Admin User",
-          email: "admin@example.com",
-          role: "admin",
-          emailVerified: true,
-          createdAt: "2026-01-01T00:00:00Z",
-          preferences: { theme: "dark" },
-        },
-        {
-          id: "u2",
-          name: "Regular User",
-          email: "user@example.com",
-          role: "user",
-          emailVerified: false,
-          createdAt: "2026-03-15T00:00:00Z",
-          preferences: {},
-        },
-      ],
-      pagination: { total: 2, page: 1, limit: 10 },
+    mockApiClient.users.list.mockResolvedValue({
+      data: defaultUsers,
+      pagination: { total: 2, totalPages: 1, page: 1, limit: 10, hasNext: false },
     });
   });
 
   it("renders the admin page header", async () => {
-    render(<AdminPage />);
+    renderPage();
     expect(screen.getByText("Admin")).toBeDefined();
   });
 
   it("renders user list after loading", async () => {
-    render(<AdminPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getAllByText("Admin User").length).toBeGreaterThan(0);
     });
@@ -111,7 +130,7 @@ describe("AdminPage", () => {
   });
 
   it("renders status filter segments", async () => {
-    render(<AdminPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("segmented-control")).toBeDefined();
     });
@@ -121,17 +140,56 @@ describe("AdminPage", () => {
   });
 
   it("renders search input", async () => {
-    render(<AdminPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("search-input")).toBeDefined();
     });
   });
 
   it("renders user stats", async () => {
-    render(<AdminPage />);
+    renderPage();
     await waitFor(() => {
       const stats = screen.getAllByTestId("stat");
       expect(stats.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows loading skeleton while fetching", () => {
+    mockApiClient.users.list.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("shows ErrorRetryBanner when fetch fails", async () => {
+    mockApiClient.users.list.mockRejectedValue(new Error("Server error"));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+    });
+    expect(screen.getByText("Server error")).toBeDefined();
+  });
+
+  it("retries fetch when retry button is clicked after error", async () => {
+    mockApiClient.users.list
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValue({
+        data: defaultUsers,
+        pagination: { total: 2, totalPages: 1, page: 1, limit: 10, hasNext: false },
+      });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("error-retry-banner")).toBeDefined();
+    });
+
+    // Click retry
+    screen.getByTestId("retry-button").click();
+
+    // After retry succeeds, error banner should disappear
+    await waitFor(() => {
+      expect(screen.queryByTestId("error-retry-banner")).toBeNull();
+      expect(screen.getAllByText("Admin User").length).toBeGreaterThan(0);
     });
   });
 });
