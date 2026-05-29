@@ -18,6 +18,7 @@ COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/notifications/package.json ./packages/notifications/
+COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install all dependencies
@@ -33,6 +34,7 @@ COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/notifications/tsconfig.json ./packages/notifications/
+COPY packages/jobs/tsconfig.json ./packages/jobs/
 COPY services/reservations/tsconfig.json ./services/reservations/
 
 # Copy Prisma schema and config (needed for db:generate)
@@ -48,6 +50,7 @@ COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
 COPY packages/notifications/src ./packages/notifications/src
+COPY packages/jobs/src ./packages/jobs/src
 COPY services/reservations/src ./services/reservations/src
 
 # Build workspace packages and service in a single layer
@@ -59,6 +62,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/notifications build && \
+    pnpm --filter @mbe/jobs build && \
     pnpm --filter @mbe/reservations-service db:generate && \
     pnpm --filter @mbe/reservations-service build
 
@@ -86,6 +90,7 @@ COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/notifications/package.json ./packages/notifications/
+COPY packages/jobs/package.json ./packages/jobs/
 COPY services/reservations/package.json ./services/reservations/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -101,6 +106,7 @@ COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/di
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/notifications/dist ./packages/notifications/dist
+COPY --from=builder /app/packages/jobs/dist ./packages/jobs/dist
 
 # Copy built reservations service
 COPY --from=builder /app/services/reservations/dist ./services/reservations/dist
