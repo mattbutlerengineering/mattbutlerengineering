@@ -45,6 +45,16 @@
       export const confirmAttendanceRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/deposits.ts">
+    <item priority="high">
+      interface ApiResponse {
+        data: T;
+      }
+    </item>
+    <item priority="high">
+      export const depositRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/events.ts">
     <item priority="medium">
       class EventBuffer {
@@ -152,6 +162,14 @@
       export const reservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/stripe-webhook.ts">
+    <item priority="high">
+      export const stripeWebhookRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="low">
+      async function handleStripeEvent(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
@@ -212,6 +230,28 @@
     </item>
     <item priority="high">
       export const getSlowQueryStats: unknown;
+    </item>
+  </file>
+  <file path="src/services/deposit-state-machine.ts">
+    <item priority="high">
+      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/deposit.ts">
+    <item priority="high">
+      class DepositNotFoundError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface CreateDepositOptions {
+        reservationId: string;
+        amountCents: number;
+        currency?: string;
+      }
     </item>
   </file>
   <file path="src/services/events.ts">
@@ -314,6 +354,24 @@
     </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+  </file>
+  <file path="src/services/stripe.ts">
+    <item priority="low">
+      interface CreatePaymentIntentOptions {
+        amountCents: number;
+        currency: string;
+        customerId?: string;
+        reservationId: string;
+        metadata?: Record<string, string>;
+      }
+    </item>
+    <item priority="low">
+      interface PaymentIntentResult {
+        id: string;
+        status: string;
+        clientSecret: string | null;
+      }
     </item>
   </file>
   <file path="src/services/table.ts">
