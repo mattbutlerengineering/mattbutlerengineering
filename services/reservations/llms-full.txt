@@ -363,6 +363,9 @@
     
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
+          // Cancel any pending reminder jobs for this reservation
+          cancelBookingReminders(reservation.id).catch(() => {});
+    
           if (reservation.guestEmail && venue) {
             try {
               await fastify.notificationPort.sendBookingCancelled({
@@ -2064,6 +2067,12 @@
     
           const updated = updateResult.reservation!;
           const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
+    
+          // Reschedule reminder jobs if time changed
+          const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
+          if (timeChanged) {
+            rescheduleBookingReminders(updated, token).catch(() => {});
+          }
     
           if (updated.guestEmail && venue) {
             try {
@@ -4569,6 +4578,17 @@
       const extraGuests = partySize - largestRule.maxPartySize;
       const extraTime = Math.ceil(extraGuests / 2) * 15;
       return largestRule.durationMinutes + extraTime;
+    }
+  </file>
+  <file path="src/services/booking-notifications.ts">
+    function getScheduler(): JobScheduler {
+      if (!_scheduler) {
+        _scheduler = new JobScheduler({ redisUrl: REDIS_URL });
+      }
+      return _scheduler;
+    }
+    function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
     }
   </file>
   <file path="src/services/confirm-hold.ts">

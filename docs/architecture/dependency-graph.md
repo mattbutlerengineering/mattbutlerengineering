@@ -71,6 +71,7 @@ flowchart TD
   agent_service --> config
   reservations_service --> auth
   reservations_service --> database
+  reservations_service --> jobs
   reservations_service --> feature_flags
   reservations_service --> notifications
   reservations_service --> observability
