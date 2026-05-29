@@ -133,6 +133,13 @@ exports.Prisma.VenueScalarFieldEnum = {
   currencyCode: "currencyCode",
   operatingHours: "operatingHours",
   settings: "settings",
+  depositEnabled: "depositEnabled",
+  depositType: "depositType",
+  depositAmountCents: "depositAmountCents",
+  freeCancellationHours: "freeCancellationHours",
+  lateCancellationFeePercent: "lateCancellationFeePercent",
+  noShowFeePercent: "noShowFeePercent",
+  postVisitEmailEnabled: "postVisitEmailEnabled",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
 };
@@ -176,6 +183,11 @@ exports.Prisma.GuestScalarFieldEnum = {
   lifetimeSpend: "lifetimeSpend",
   lastVisit: "lastVisit",
   tags: "tags",
+  dietaryRestrictions: "dietaryRestrictions",
+  staffNotes: "staffNotes",
+  communicationPreference: "communicationPreference",
+  stripeCustomerId: "stripeCustomerId",
+  unsubscribed: "unsubscribed",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
 };
@@ -190,6 +202,8 @@ exports.Prisma.ReservationScalarFieldEnum = {
   notes: "notes",
   cancellationReason: "cancellationReason",
   cancellationNote: "cancellationNote",
+  occasion: "occasion",
+  seatingPreference: "seatingPreference",
   guestName: "guestName",
   guestEmail: "guestEmail",
   guestPhone: "guestPhone",
@@ -197,6 +211,38 @@ exports.Prisma.ReservationScalarFieldEnum = {
   userId: "userId",
   tableId: "tableId",
   venueId: "venueId",
+  emailStatus: "emailStatus",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+};
+
+exports.Prisma.DepositScalarFieldEnum = {
+  id: "id",
+  reservationId: "reservationId",
+  amountCents: "amountCents",
+  currency: "currency",
+  status: "status",
+  stripePaymentIntentId: "stripePaymentIntentId",
+  stripeCustomerId: "stripeCustomerId",
+  heldAt: "heldAt",
+  appliedAt: "appliedAt",
+  refundedAt: "refundedAt",
+  forfeitedAt: "forfeitedAt",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+};
+
+exports.Prisma.WaitlistEntryScalarFieldEnum = {
+  id: "id",
+  venueId: "venueId",
+  partySize: "partySize",
+  guestName: "guestName",
+  guestPhone: "guestPhone",
+  position: "position",
+  estimatedWaitMinutes: "estimatedWaitMinutes",
+  status: "status",
+  notifiedAt: "notifiedAt",
+  expiresAt: "expiresAt",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
 };
@@ -243,11 +289,23 @@ exports.Prisma.NullsOrder = {
   first: "first",
   last: "last",
 };
+exports.DepositType = exports.$Enums.DepositType = {
+  flat: "flat",
+  per_person: "per_person",
+};
+
 exports.TableStatus = exports.$Enums.TableStatus = {
   AVAILABLE: "AVAILABLE",
   OCCUPIED: "OCCUPIED",
   DIRTY: "DIRTY",
   READY: "READY",
+};
+
+exports.CommunicationPreference = exports.$Enums.CommunicationPreference = {
+  email_only: "email_only",
+  sms_only: "sms_only",
+  both: "both",
+  transactional_only: "transactional_only",
 };
 
 exports.ReservationStatus = exports.$Enums.ReservationStatus = {
@@ -258,6 +316,46 @@ exports.ReservationStatus = exports.$Enums.ReservationStatus = {
   NO_SHOW: "NO_SHOW",
 };
 
+exports.Occasion = exports.$Enums.Occasion = {
+  birthday: "birthday",
+  anniversary: "anniversary",
+  business: "business",
+  date_night: "date_night",
+  other: "other",
+  none: "none",
+};
+
+exports.SeatingPreference = exports.$Enums.SeatingPreference = {
+  booth: "booth",
+  patio: "patio",
+  bar: "bar",
+  window: "window",
+  quiet: "quiet",
+  no_preference: "no_preference",
+};
+
+exports.EmailStatus = exports.$Enums.EmailStatus = {
+  PENDING: "PENDING",
+  SENT: "SENT",
+  FAILED: "FAILED",
+};
+
+exports.DepositStatus = exports.$Enums.DepositStatus = {
+  pending: "pending",
+  held: "held",
+  applied: "applied",
+  refunded: "refunded",
+  forfeited: "forfeited",
+};
+
+exports.WaitlistStatus = exports.$Enums.WaitlistStatus = {
+  waiting: "waiting",
+  notified: "notified",
+  seated: "seated",
+  expired: "expired",
+  cancelled: "cancelled",
+};
+
 exports.Prisma.ModelName = {
   VenueGroup: "VenueGroup",
   Venue: "Venue",
@@ -265,6 +363,8 @@ exports.Prisma.ModelName = {
   Table: "Table",
   Guest: "Guest",
   Reservation: "Reservation",
+  Deposit: "Deposit",
+  WaitlistEntry: "WaitlistEntry",
   ReservationHold: "ReservationHold",
 };
 

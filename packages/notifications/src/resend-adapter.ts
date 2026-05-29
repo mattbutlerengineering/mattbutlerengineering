@@ -1,4 +1,4 @@
-import type { NotificationPort, BookingNotificationInput } from "./port.js";
+import type { NotificationPort, BookingNotificationInput, PostVisitInput } from "./port.js";
 import { buildBookingEmailContent } from "./booking-email-content.js";
 
 interface ResendClient {
@@ -86,6 +86,22 @@ export class ResendNotificationAdapter implements NotificationPort {
           contentType: `text/calendar; method=${content.icalMethod}`,
         },
       ],
+    });
+  }
+
+  async sendPostVisitThankYou(input: PostVisitInput): Promise<void> {
+    if (!this.resend) return;
+    const greeting = input.guestFirstName ? `Hi ${input.guestFirstName},` : "Hi there,";
+    const html = [
+      `<h1>Thank you for visiting ${input.venueName}!</h1>`,
+      `<p>${greeting}</p>`,
+      `<p>We hope you enjoyed your visit on ${input.reservationDate}. We look forward to seeing you again soon.</p>`,
+    ].join("\n");
+    await this.resend.emails.send({
+      from: this.fromAddress,
+      to: input.guestEmail,
+      subject: `Thank you for visiting ${input.venueName}`,
+      html,
     });
   }
 }

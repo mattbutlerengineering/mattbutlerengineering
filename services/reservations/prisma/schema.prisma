@@ -15,11 +15,63 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum Occasion {
+  birthday
+  anniversary
+  business
+  date_night
+  other
+  none
+}
+
+enum SeatingPreference {
+  booth
+  patio
+  bar
+  window
+  quiet
+  no_preference
+}
+
+enum CommunicationPreference {
+  email_only
+  sms_only
+  both
+  transactional_only
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
   DIRTY
   READY
+}
+
+enum DepositStatus {
+  pending
+  held
+  applied
+  refunded
+  forfeited
+}
+
+enum DepositType {
+  flat
+  per_person
+}
+
+enum WaitlistStatus {
+  waiting
+  notified
+  seated
+  expired
+  cancelled
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 model VenueGroup {
@@ -34,22 +86,31 @@ model VenueGroup {
 }
 
 model Venue {
-  id             String            @id @default(cuid())
-  venueGroupId   String?           @map("venue_group_id")
-  venueGroup     VenueGroup?       @relation(fields: [venueGroupId], references: [id])
-  name           String
-  slug           String
-  ianaTimezone   String            @map("iana_timezone")
-  currencyCode   String            @default("USD") @map("currency_code")
-  operatingHours Json?             @map("operating_hours")
-  settings       Json?
-  tables         Table[]
-  reservations   Reservation[]
-  guests         Guest[]
-  floorPlans     FloorPlan[]
-  holds          ReservationHold[]
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id                         String            @id @default(cuid())
+  venueGroupId               String?           @map("venue_group_id")
+  venueGroup                 VenueGroup?       @relation(fields: [venueGroupId], references: [id])
+  name                       String
+  slug                       String
+  ianaTimezone               String            @map("iana_timezone")
+  currencyCode               String            @default("USD") @map("currency_code")
+  operatingHours             Json?             @map("operating_hours")
+  settings                   Json?
+  // Deposit policy
+  depositEnabled             Boolean           @default(false) @map("deposit_enabled")
+  depositType                DepositType?      @map("deposit_type")
+  depositAmountCents         Int?              @map("deposit_amount_cents")
+  freeCancellationHours      Int?              @map("free_cancellation_hours")
+  lateCancellationFeePercent Int?              @map("late_cancellation_fee_percent")
+  noShowFeePercent           Int?              @map("no_show_fee_percent")
+  // Post-visit email setting
+  postVisitEmailEnabled      Boolean           @default(false) @map("post_visit_email_enabled")
+  tables                     Table[]
+  reservations               Reservation[]
+  guests                     Guest[]
+  floorPlans                 FloorPlan[]
+  holds                      ReservationHold[]
+  createdAt                  DateTime          @default(now()) @map("created_at")
+  updatedAt                  DateTime          @updatedAt @map("updated_at")
 
   @@unique([venueGroupId, slug])
   @@map("venues")
@@ -99,20 +160,25 @@ model Table {
 }
 
 model Guest {
-  id            String        @id @default(cuid())
-  venueId       String        @map("venue_id")
-  venue         Venue         @relation(fields: [venueId], references: [id])
-  email         String?
-  phone         String?
-  name          String
-  notes         String?
-  visitCount    Int           @default(0) @map("visit_count")
-  lifetimeSpend Decimal?      @map("lifetime_spend") @db.Decimal(10, 2)
-  lastVisit     DateTime?     @map("last_visit")
-  tags          Json?
-  reservations  Reservation[]
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id                      String                  @id @default(cuid())
+  venueId                 String                  @map("venue_id")
+  venue                   Venue                   @relation(fields: [venueId], references: [id])
+  email                   String?
+  phone                   String?
+  name                    String
+  notes                   String?
+  visitCount              Int                     @default(0) @map("visit_count")
+  lifetimeSpend           Decimal?                @map("lifetime_spend") @db.Decimal(10, 2)
+  lastVisit               DateTime?               @map("last_visit")
+  tags                    Json?
+  dietaryRestrictions     Json?                   @map("dietary_restrictions")
+  staffNotes              Json?                   @map("staff_notes")
+  communicationPreference CommunicationPreference @default(both) @map("communication_preference")
+  stripeCustomerId        String?                 @unique @map("stripe_customer_id")
+  unsubscribed            Boolean                 @default(false)
+  reservations            Reservation[]
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
 
   @@unique([venueId, email])
   @@unique([venueId, phone])
@@ -122,27 +188,31 @@ model Guest {
 }
 
 model Reservation {
-  id         String            @id @default(cuid())
-  date       DateTime          @db.Date
-  startTime  DateTime          @map("start_time")
-  endTime    DateTime          @map("end_time")
-  partySize  Int               @map("party_size")
-  status             ReservationStatus @default(PENDING)
+  id                 String             @id @default(cuid())
+  date               DateTime           @db.Date
+  startTime          DateTime           @map("start_time")
+  endTime            DateTime           @map("end_time")
+  partySize          Int                @map("party_size")
+  status             ReservationStatus  @default(PENDING)
   notes              String?
-  cancellationReason String?           @map("cancellation_reason")
-  cancellationNote   String?           @map("cancellation_note")
-  guestName          String?           @map("guest_name")
-  guestEmail String?           @map("guest_email")
-  guestPhone String?           @map("guest_phone")
-  guestId    String?           @map("guest_id")
-  guest      Guest?            @relation(fields: [guestId], references: [id])
-  userId     String?           @map("user_id")
-  tableId    String            @map("table_id")
-  table      Table             @relation(fields: [tableId], references: [id])
-  venueId    String?           @map("venue_id")
-  venue      Venue?            @relation(fields: [venueId], references: [id])
-  createdAt  DateTime          @default(now()) @map("created_at")
-  updatedAt  DateTime          @updatedAt @map("updated_at")
+  cancellationReason String?            @map("cancellation_reason")
+  cancellationNote   String?            @map("cancellation_note")
+  occasion           Occasion?
+  seatingPreference  SeatingPreference? @map("seating_preference")
+  guestName          String?            @map("guest_name")
+  guestEmail         String?            @map("guest_email")
+  guestPhone         String?            @map("guest_phone")
+  guestId            String?            @map("guest_id")
+  guest              Guest?             @relation(fields: [guestId], references: [id])
+  userId             String?            @map("user_id")
+  tableId            String             @map("table_id")
+  table              Table              @relation(fields: [tableId], references: [id])
+  venueId            String?            @map("venue_id")
+  venue              Venue?             @relation(fields: [venueId], references: [id])
+  emailStatus        EmailStatus?       @map("email_status")
+  deposit            Deposit?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   @@index([date, status])
   @@index([tableId, date])
@@ -150,6 +220,46 @@ model Reservation {
   @@index([venueId, date])
   @@index([guestId])
   @@map("reservations")
+}
+
+model Deposit {
+  id                    String        @id @default(cuid())
+  reservationId         String        @unique @map("reservation_id")
+  reservation           Reservation   @relation(fields: [reservationId], references: [id])
+  amountCents           Int           @map("amount_cents")
+  currency              String        @default("usd")
+  status                DepositStatus @default(pending)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  stripeCustomerId      String?       @map("stripe_customer_id")
+  heldAt                DateTime?     @map("held_at")
+  appliedAt             DateTime?     @map("applied_at")
+  refundedAt            DateTime?     @map("refunded_at")
+  forfeitedAt           DateTime?     @map("forfeited_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  @@index([reservationId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@map("deposits")
+}
+
+model WaitlistEntry {
+  id                   String         @id @default(cuid())
+  venueId              String         @map("venue_id")
+  partySize            Int            @map("party_size")
+  guestName            String         @map("guest_name")
+  guestPhone           String         @map("guest_phone")
+  position             Int
+  estimatedWaitMinutes Int            @map("estimated_wait_minutes")
+  status               WaitlistStatus @default(waiting)
+  notifiedAt           DateTime?      @map("notified_at")
+  expiresAt            DateTime?      @map("expires_at")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  @@index([venueId, status])
+  @@map("waitlist_entries")
 }
 
 model ReservationHold {

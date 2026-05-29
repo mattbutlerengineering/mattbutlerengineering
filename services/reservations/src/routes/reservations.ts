@@ -20,6 +20,7 @@ import {
   emitTableUpdated,
 } from "../services/events.js";
 import { tableService } from "../services/table.js";
+import { triggerPostVisitEmail } from "../services/post-visit.js";
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -629,6 +630,18 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(
             createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
           );
+      }
+
+      if (result.reservation!.status === "COMPLETED") {
+        triggerPostVisitEmail(
+          result.reservation!.id,
+          result.reservation!.guestId ?? null,
+          result.reservation!.venueId ?? null,
+          result.reservation!.guestEmail ?? null,
+          new Date(result.reservation!.date),
+          fastify.notificationPort,
+          fastify.log
+        );
       }
 
       return { data: result.reservation! };

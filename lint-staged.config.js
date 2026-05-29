@@ -19,11 +19,13 @@ function groupByPackage(files) {
 
 export default {
   "**/*.{ts,tsx}": (files) => {
-    const groups = groupByPackage(files);
+    const filtered = files.filter((f) => !f.includes("/generated/"));
+    const groups = groupByPackage(filtered);
     const commands = [];
     for (const [pkgDir, pkgFiles] of groups) {
       const localConfig = path.resolve(pkgDir, "eslint.config.js");
       const configFlag = fs.existsSync(localConfig) ? `--config "${localConfig}"` : "";
+      if (pkgFiles.length === 0) continue;
       const escaped = pkgFiles.map((f) => `"${f}"`).join(" ");
       commands.push(`eslint --fix ${configFlag} ${escaped}`);
     }
