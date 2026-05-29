@@ -1,5 +1,24 @@
 <codebase path="packages/api-client">
   <section priority="medium" role="src">
+  <file path="src/agent-sessions.ts">
+    export interface SessionSummary {
+      readonly id: string;
+      readonly status: string;
+      readonly taskDescription: string;
+      readonly branchName: string | null;
+      readonly prUrl: string | null;
+      readonly costUsd: number | null;
+      readonly errors: readonly string[];
+    }
+    export interface PaginatedSessions {
+      readonly data: readonly SessionSummary[];
+      readonly pagination: {
+        readonly page: number;
+        readonly total: number;
+        readonly totalPages: number;
+      };
+    }
+  </file>
   <file path="src/availability.ts">
     export interface GetTimeSlotsParams {
       venueId: string;
