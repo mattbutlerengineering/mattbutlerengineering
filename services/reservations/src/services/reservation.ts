@@ -30,6 +30,7 @@ function isPrismaNotFound(err: unknown): boolean {
 
 type PrismaReservationWithTable = PrismaReservation & {
   table?: PrismaTable;
+  guest?: { visitCount: number } | null;
 };
 
 function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservation {
@@ -43,6 +44,8 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
     notes: reservation.notes,
     cancellationReason: reservation.cancellationReason,
     cancellationNote: reservation.cancellationNote,
+    occasion: reservation.occasion as Reservation["occasion"],
+    seatingPreference: reservation.seatingPreference as Reservation["seatingPreference"],
     guestName: reservation.guestName,
     guestEmail: reservation.guestEmail,
     guestPhone: reservation.guestPhone,
@@ -68,6 +71,7 @@ function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservat
           updatedAt: reservation.table.updatedAt.toISOString(),
         }
       : undefined,
+    guest: reservation.guest ?? null,
     venueId: reservation.venueId,
     createdAt: reservation.createdAt.toISOString(),
     updatedAt: reservation.updatedAt.toISOString(),
@@ -123,7 +127,7 @@ export const reservationService = {
         skip,
         take: limit,
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
-        include: { table: true },
+        include: { table: true, guest: { select: { visitCount: true } } },
       }),
       prisma.reservation.count({ where }),
     ]);
@@ -156,7 +160,7 @@ export const reservationService = {
         skip,
         take: limit,
         orderBy: [{ date: "desc" }, { startTime: "desc" }],
-        include: { table: true },
+        include: { table: true, guest: { select: { visitCount: true } } },
       }),
       prisma.reservation.count({ where: { userId } }),
     ]);
@@ -179,7 +183,7 @@ export const reservationService = {
   async getById(id: string): Promise<Reservation | null> {
     const reservation = await prisma.reservation.findUnique({
       where: { id },
-      include: { table: true },
+      include: { table: true, guest: { select: { visitCount: true } } },
     });
     return reservation ? mapPrismaReservation(reservation) : null;
   },
@@ -200,7 +204,7 @@ export const reservationService = {
         userId: userId ?? null,
         venueId: data.venueId ?? null,
       },
-      include: { table: true },
+      include: { table: true, guest: { select: { visitCount: true } } },
     });
     return mapPrismaReservation(reservation);
   },
@@ -420,7 +424,7 @@ export const reservationService = {
           ...(reason !== undefined && { cancellationReason: reason }),
           ...(note !== undefined && { cancellationNote: note }),
         },
-        include: { table: true },
+        include: { table: true, guest: { select: { visitCount: true } } },
       });
       return mapPrismaReservation(reservation);
     } catch (err: unknown) {

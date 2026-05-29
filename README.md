@@ -3,7 +3,7 @@
 [![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 [![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg?token=ANNEPED1FV)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
-[![ACMM Level 3](https://img.shields.io/badge/ACMM-Level%203-7a5a36?style=flat-square)](docs/acmm.md)
+[![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)](docs/acmm.md)
 
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
@@ -59,7 +59,6 @@ mattbutlerengineering/
 │   ├── agent-core/           # Agent session runner and worktree management
 │   ├── agent-test-utils/     # Test helpers for agent sessions
 │   ├── api-client/           # Typed fetch client for frontend apps
-│   ├── api-versioning/       # API version negotiation middleware
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
 │   ├── feature-flags/        # Feature flag evaluation library

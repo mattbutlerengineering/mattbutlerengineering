@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServiceApp, type AppOptions } from "@mbe/database";
+import type { NotificationPort } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { readinessRoutes } from "./routes/ready.js";
@@ -15,15 +16,24 @@ import { publicVenueRoutes } from "./routes/public-venues.js";
 import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
 import { publicReservationRoutes } from "./routes/public-reservations.js";
+import { publicGuestRecognitionRoutes } from "./routes/public-guest-recognition.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
+import { depositRoutes } from "./routes/deposits.js";
+import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
+import { createNotificationPort } from "./notifications.js";
+
+export interface ReservationsAppOptions extends AppOptions {
+  notificationPort?: NotificationPort;
+}
 
 /**
  * Creates the Fastify application instance.
  */
-export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
   const fastify = await createServiceApp(
     {
       swagger: {
@@ -35,6 +45,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     },
     options
   );
+
+  // Wire notification port (injected or default Resend-backed)
+  const notificationPort = options.notificationPort ?? createNotificationPort();
+  fastify.decorate("notificationPort", notificationPort);
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -49,6 +63,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+  await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -59,10 +74,23 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(publicReservationRoutes, {
     prefix: "/public/v1/venues",
   });
+  await fastify.register(publicGuestRecognitionRoutes, {
+    prefix: "/public/v1/venues",
+  });
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
 
+  // Deposit routes
+  await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+  await fastify.register(stripeWebhookRoutes);
+
   return fastify;
+}
+
+declare module "fastify" {
+  interface FastifyInstance {
+    notificationPort: NotificationPort;
+  }
 }

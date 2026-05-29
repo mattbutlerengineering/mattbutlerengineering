@@ -62,10 +62,10 @@ describe("GET /ready", () => {
     const { buildApp } = await import("../app.js");
     app = await buildApp({ logger: false });
     await app.ready();
-  });
+  }, 30000);
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it("returns 200 with ready: true when all checks pass", async () => {

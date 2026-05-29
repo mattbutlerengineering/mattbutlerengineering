@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { FloorPlansPage } from "./FloorPlansPage.js";
-import { useAuth } from "@mbe/auth/react";
 import { useNavigate } from "react-router-dom";
 import { useVenue } from "../contexts/VenueContext.js";
 
@@ -11,15 +11,15 @@ vi.mock("react-router-dom", async () => ({
   ...(await vi.importActual("react-router-dom")),
   useNavigate: vi.fn(),
 }));
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
 
 const { mockFloorPlansList, mockFloorPlansClone, mockFloorPlansCreate } = vi.hoisted(() => ({
   mockFloorPlansList: vi.fn(),
   mockFloorPlansClone: vi.fn(),
   mockFloorPlansCreate: vi.fn(),
 }));
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(() => ({
+
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(() => ({
     floorPlans: {
       list: mockFloorPlansList,
       clone: mockFloorPlansClone,
@@ -95,7 +95,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children }: any) => <span>{children}</span>,
 }));
 
-/* ── Test data ─────────────────────────────────, @eslint-react/no-array-index-key */
+// Wrap with QueryClientProvider since useFloorPlans uses useQuery
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement, type ReactNode } from "react";
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+/* ── Test data ───────────────────────────────── */
 
 const mockFloorPlan = {
   id: "fp-1",
@@ -113,22 +126,24 @@ const mockFloorPlan2 = {
   updatedAt: "2026-02-20T14:00:00Z",
 };
 
-/* ── Helpers ───────────────────────────────────, @eslint-react/no-array-index-key */
+/* ── Helpers ─────────────────────────────────── */
 
 const mockNavigate = vi.fn();
 
 function renderPage() {
+  const Wrapper = createWrapper();
   return render(
-    <MemoryRouter>
-      <FloorPlansPage />
-    </MemoryRouter>
+    <Wrapper>
+      <MemoryRouter>
+        <FloorPlansPage />
+      </MemoryRouter>
+    </Wrapper>
   );
 }
 
 describe("FloorPlansPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-abc" } as any);
     vi.mocked(useNavigate).mockReturnValue(mockNavigate);
     vi.mocked(useVenue).mockReturnValue({
       selectedVenueId: "v1",
@@ -254,7 +269,7 @@ describe("FloorPlansPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/fp-3");
   });
 
-  it("clone error shows error banner", async () => {
+  it("clone error shows live region error", async () => {
     mockFloorPlansClone.mockRejectedValue(new Error("Clone failed"));
 
     renderPage();
@@ -269,9 +284,8 @@ describe("FloorPlansPage", () => {
     });
 
     await waitFor(() => {
-      const banner = screen.getByTestId("error-banner");
-      expect(banner).toBeDefined();
-      expect(banner.textContent).toContain("Clone failed");
+      const liveRegion = screen.getByRole("status");
+      expect(liveRegion.textContent).toContain("Error: Clone failed");
     });
   });
 

@@ -1,0 +1,118 @@
+{"date":"2026-05-23","file":"CLAUDE.md","summary":"fix(acmm): fix substance checker + close 4 substance gaps (#1664, #1665, #1666, #1667) (#1677)","change_type":"correction"}
+{"date":"2026-05-22","file":"CLAUDE.md","summary":"docs: document claude-mem plugin for cross-session memory (#1623) (#1627)","change_type":"documentation"}
+{"date":"2026-05-19","file":"AGENTS.md","summary":"docs: add green-main CI policy and clean up stale gotchas (#1593)","change_type":"documentation"}
+{"date":"2026-05-18","file":".claude/skills/sentry-triage/scripts/triage.mjs","summary":"ci: add daily sentry triage workflow","change_type":"update"}
+{"date":"2026-05-17","file":".claude/skills/ci-monitor/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/deploy/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/new-adr/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/new-service-route/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/new-service/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/reservations-service/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":".claude/skills/users-service/SKILL.md","summary":"chore: audit and fix skill descriptions and triggers (#1493)","change_type":"maintenance"}
+{"date":"2026-05-17","file":"AGENTS.md","summary":"chore: audit and fix agent config files (#1490)","change_type":"maintenance"}
+{"date":"2026-05-17","file":"GEMINI.md","summary":"chore: audit and fix agent config files (#1490)","change_type":"maintenance"}
+{"date":"2026-05-17","file":"CLAUDE.md","summary":"docs: consolidate RemoteTriggers from 6 to 5 for Max 5x plan (#1488)","change_type":"documentation"}
+{"date":"2026-05-17","file":"CLAUDE.md","summary":"docs: add TDD enforcement and CI gotchas from /reflect session","change_type":"documentation"}
+{"date":"2026-05-17","file":"CLAUDE.md","summary":"fix: add typecheck to pre-push hook to prevent CI breakage","change_type":"correction"}
+{"date":"2026-05-16","file":".claude/skills/auth-package/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/chaos-agent/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/ci-monitor/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/codex/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/decompose/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/deploy/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/issue-worker/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/learning-loop/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/learning-loop/scripts/sensor-report.mjs","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/learning-loop/scripts/sentry-sensor.mjs","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/learning-loop/scripts/verify-fixes.mjs","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/local-ci-precheck/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/new-adr/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/new-service-route/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/new-service/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/opencode/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/perf-budget/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/prisma-migrations/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/prisma-migrations/examples/github-action.yml","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/prisma-migrations/references/baselining-guide.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/prisma-migrations/references/ci-cd-patterns.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/prisma-migrations/references/troubleshooting.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/progress-tracker/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/reservations-service/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/revert-rca-loop/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/sentry-triage/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/sentry-triage/scripts/fetch-issues.mjs","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/sentry-triage/scripts/triage.mjs","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/ship-loop/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/site-audit/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":".claude/skills/users-service/SKILL.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":"AGENTS.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-16","file":"GEMINI.md","summary":"feat(rialto): add useBoop hook for spring scale microinteraction (#1397)","change_type":"addition"}
+{"date":"2026-05-14","file":"CLAUDE.md","summary":"feat: enable caveman mode as default communication style","change_type":"addition"}
+{"date":"2026-05-11","file":"AGENTS.md","summary":"feat(acmm): implement multi-repo orchestrator script for L6","change_type":"addition"}
+{"date":"2026-05-11","file":"CLAUDE.md","summary":"fix(acmm): L3 gaps — deterministic llms.txt, onboarding benchmark, CLAUDE.md quality","change_type":"correction"}
+{"date":"2026-05-11","file":".claude/skills/ship-loop/SKILL.md","summary":"fix(ship-loop): add X-Audit-Token header to all health check curl calls (#1251)","change_type":"correction"}
+{"date":"2026-05-10","file":".claude/skills/caveman","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/diagnose","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/grill-me","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/grill-with-docs","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/improve-codebase-architecture","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/tdd","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/to-issues","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/triage","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/write-a-skill","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":"skills-lock.json","summary":"chore: add installed skills, agent configs, and generated context files","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/perf-budget/SKILL.md","summary":"feat: add Claude Code automation guards and tooling","change_type":"addition"}
+{"date":"2026-05-10","file":"AGENTS.md","summary":"feat: Implement synthetic bug audit (#1191): create scheduled Chaos A... (#1217)","change_type":"addition"}
+{"date":"2026-05-10","file":"AGENTS.md","summary":"feat: Implement instruction sync gate and registry integrity check (#... (#1218)","change_type":"addition"}
+{"date":"2026-05-10","file":"AGENTS.md","summary":"feat: Implement instruction regression testing (#1190): create Instru... (#1216)","change_type":"addition"}
+{"date":"2026-05-10","file":"CLAUDE.md","summary":"feat: Implement instruction regression testing (#1190): create Instru... (#1216)","change_type":"addition"}
+{"date":"2026-05-10","file":"GEMINI.md","summary":"feat: Implement instruction regression testing (#1190): create Instru... (#1216)","change_type":"addition"}
+{"date":"2026-05-10","file":".claude/skills/chaos-agent/SKILL.md","summary":"wip: Implement synthetic bug audit as described in issue #1191: create a sche (#1215)","change_type":"update"}
+{"date":"2026-05-10","file":".claude/skills/revert-rca-loop/SKILL.md","summary":"wip: Implement synthetic bug audit as described in issue #1191: create a sche (#1215)","change_type":"update"}
+{"date":"2026-05-10","file":"CLAUDE.md","summary":"chore: complete onboarding benchmark for ACMM Level 3 maturity (#1189) (#1201)","change_type":"maintenance"}
+{"date":"2026-05-10","file":".claude/skills/ci-monitor/SKILL.md","summary":"feat: Fix issue #1197: 1. Update .github/workflows/auto-issue.yml to ... (#1200)","change_type":"addition"}
+{"date":"2026-05-10","file":".claude/skills/issue-worker/SKILL.md","summary":"feat: Fix issue #1197: 1. Update .github/workflows/auto-issue.yml to ... (#1200)","change_type":"addition"}
+{"date":"2026-05-10","file":".claude/skills/ship-loop/SKILL.md","summary":"feat: Fix issue #1197: 1. Update .github/workflows/auto-issue.yml to ... (#1200)","change_type":"addition"}
+{"date":"2026-05-10","file":"CLAUDE.md","summary":"docs: add multi-CLI adapter system to CLAUDE.md files","change_type":"documentation"}
+{"date":"2026-05-08","file":".claude/skills/learning-loop/scripts/sensor-report.mjs","summary":"feat(learning-loop): Sentry → GitHub issue pipeline (#983) (#1148)","change_type":"addition"}
+{"date":"2026-05-08","file":".claude/skills/learning-loop/scripts/sentry-sensor.mjs","summary":"feat(learning-loop): Sentry → GitHub issue pipeline (#983) (#1148)","change_type":"addition"}
+{"date":"2026-05-08","file":".claude/skills/sentry-triage/SKILL.md","summary":"feat(learning-loop): Sentry → GitHub issue pipeline (#983) (#1148)","change_type":"addition"}
+{"date":"2026-05-08","file":".claude/skills/sentry-triage/scripts/fetch-issues.mjs","summary":"feat(learning-loop): Sentry → GitHub issue pipeline (#983) (#1148)","change_type":"addition"}
+{"date":"2026-05-08","file":".claude/skills/sentry-triage/scripts/triage.mjs","summary":"feat(learning-loop): Sentry → GitHub issue pipeline (#983) (#1148)","change_type":"addition"}
+{"date":"2026-05-08","file":"CLAUDE.md","summary":"fix(ci): resolve typecheck errors across api-client, auth, and rialto test files","change_type":"correction"}
+{"date":"2026-05-07","file":"AGENTS.md","summary":"docs(acmm): implement Zero-Touch Audit checklist to reduce human-touch ratio (#1077)","change_type":"documentation"}
+{"date":"2026-05-07","file":"GEMINI.md","summary":"docs(acmm): implement Zero-Touch Audit checklist to reduce human-touch ratio (#1077)","change_type":"documentation"}
+{"date":"2026-05-07","file":".claude/skills/site-audit/SKILL.md","summary":"fix(site-audit): graceful 403 handling, proper headers, Chrome availability check (#1083)","change_type":"correction"}
+{"date":"2026-05-06","file":"AGENTS.md","summary":"feat(acmm): add Zero-Touch Audit mandate to reduce agent human-touch ratio","change_type":"addition"}
+{"date":"2026-05-06","file":"CLAUDE.md","summary":"feat(acmm): add Zero-Touch Audit mandate to reduce agent human-touch ratio","change_type":"addition"}
+{"date":"2026-05-06","file":"GEMINI.md","summary":"feat(acmm): add Zero-Touch Audit mandate to reduce agent human-touch ratio","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/learning-loop/scripts/sensor-report.mjs","summary":"fix: update pnpm-lock.yaml and add learning-loop scripts","change_type":"correction"}
+{"date":"2026-05-02","file":".claude/skills/learning-loop/scripts/verify-fixes.mjs","summary":"fix: update pnpm-lock.yaml and add learning-loop scripts","change_type":"correction"}
+{"date":"2026-05-02","file":".claude/skills/learning-loop/SKILL.md","summary":"feat: add Sentry → GitHub issue pipeline with /sentry-triage skill (#983) (#1016)","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/sentry-triage/SKILL.md","summary":"feat: add Sentry → GitHub issue pipeline with /sentry-triage skill (#983) (#1016)","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/ship-loop/SKILL.md","summary":"feat: add Sentry → GitHub issue pipeline with /sentry-triage skill (#983) (#1016)","change_type":"addition"}
+{"date":"2026-05-02","file":"CLAUDE.md","summary":"feat: add Sentry → GitHub issue pipeline with /sentry-triage skill (#983) (#1016)","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/issue-worker/SKILL.md","summary":"feat(acmm): add adaptive cadence governor for RemoteTriggers (#995) (#1007)","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/issue-worker/SKILL.md","summary":"feat(acmm): add per-issue retry tracking with agent-skip label (#994) (#1001)","change_type":"addition"}
+{"date":"2026-05-02","file":".claude/skills/progress-tracker/SKILL.md","summary":"feat(acmm): add per-issue retry tracking with agent-skip label (#994) (#1001)","change_type":"addition"}
+{"date":"2026-05-02","file":"CLAUDE.md","summary":"feat(acmm): add per-issue retry tracking with agent-skip label (#994) (#1001)","change_type":"addition"}
+{"date":"2026-05-02","file":"CLAUDE.md","summary":"docs: add mbe-learning-loop RemoteTrigger to CLAUDE.md","change_type":"documentation"}
+{"date":"2026-05-02","file":".claude/skills/learning-loop/SKILL.md","summary":"feat: implement learning loop — sensor-driven continuous improvement","change_type":"addition"}
+{"date":"2026-05-02","file":"CLAUDE.md","summary":"feat: implement learning loop — sensor-driven continuous improvement","change_type":"addition"}
+{"date":"2026-05-02","file":"AGENTS.md","summary":"docs: add cross-platform ACMM audit instructions","change_type":"documentation"}
+{"date":"2026-05-02","file":"GEMINI.md","summary":"docs: add cross-platform ACMM audit instructions","change_type":"documentation"}
+{"date":"2026-05-02","file":"CLAUDE.md","summary":"fix(acmm): audit and fix instruction rot, stale paths, and broken workflows","change_type":"correction"}
+{"date":"2026-04-30","file":"AGENTS.md","summary":"feat: add Semgrep security scanning with comprehensive rules and documentation (#872)","change_type":"addition"}
+{"date":"2026-04-30","file":"CLAUDE.md","summary":"feat: add Semgrep security scanning with comprehensive rules and documentation (#872)","change_type":"addition"}
+{"date":"2026-04-30","file":".claude/skills/codex/SKILL.md","summary":"feat: configure project for gemini, claude, opencode, codex, and cursor","change_type":"addition"}
+{"date":"2026-04-30","file":".claude/skills/opencode/SKILL.md","summary":"feat: configure project for gemini, claude, opencode, codex, and cursor","change_type":"addition"}
+{"date":"2026-04-30","file":"AGENTS.md","summary":"feat: configure project for gemini, claude, opencode, codex, and cursor","change_type":"addition"}
+{"date":"2026-04-30","file":".claude/skills/ship-loop/SKILL.md","summary":"feat(infra): health-aware ship-loop (#220) (#835)","change_type":"addition"}
+{"date":"2026-04-26","file":"AGENTS.md","summary":"docs: correct stale claims in CLAUDE.md/AGENTS.md/gotchas","change_type":"documentation"}
+{"date":"2026-04-26","file":"CLAUDE.md","summary":"docs: correct stale claims in CLAUDE.md/AGENTS.md/gotchas","change_type":"documentation"}
+{"date":"2026-04-26","file":".claude/skills/local-ci-precheck/SKILL.md","summary":"feat(ci-safety-nets): close 3 gaps that bit us in the auth+rialto+ci-cache PR stack (#655)","change_type":"addition"}
+{"date":"2026-04-25","file":"CLAUDE.md","summary":"feat(dx): streamline CLAUDE.md and enhance contribution templates","change_type":"addition"}
+{"date":"2026-04-25","file":"CLAUDE.md","summary":"chore(oss): prepare repo for open-source release (#620)","change_type":"maintenance"}
+{"date":"2026-04-25","file":"CLAUDE.md","summary":"docs(claude): add Prisma 6/7 migrate and DB-health gotchas","change_type":"documentation"}
+{"date":"2026-04-24","file":".claude/skills/acmm-audit/SKILL.md","summary":"feat(acmm): port canonical 6-level rubric + daily cadence (#619)","change_type":"addition"}
+{"date":"2026-04-24","file":"CLAUDE.md","summary":"feat(acmm): port canonical 6-level rubric + daily cadence (#619)","change_type":"addition"}

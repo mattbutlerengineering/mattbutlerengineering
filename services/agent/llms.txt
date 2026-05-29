@@ -137,7 +137,7 @@
       async function checkStaleSessions(): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export function startLivenessMonitor(): void { /* ... */ }
+      export function startLivenessMonitor(logger: FastifyBaseLogger): void { /* ... */ }
     </item>
   </file>
   <file path="src/services/remediation-circuit-breaker.ts">
@@ -156,12 +156,20 @@
       }
     </item>
   </file>
-  <file path="src/services/session-executor.ts">
+  <file path="src/services/sdk-event-mapper.ts">
     <item priority="medium">
       function truncate(text: string, maxLen: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function extractText(content: unknown): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/session-executor.ts">
+    <item priority="medium">
+      function getRepoPath(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getActiveSessionCount(): number { /* ... */ }
     </item>
   </file>
   <file path="src/services/session.ts">

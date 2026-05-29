@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync as _execFileSync } from "node:child_process";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -80,6 +81,77 @@ export function checkFpRate(root) {
   return { passed: true, evidence: `FP rate ${latest.fp_rate}% < 30%` };
 }
 
+/**
+ * Check whether any improvement-labeled issues or PRs were closed/merged in the last 30 days.
+ *
+ * Checks both `gh issue list` and `gh pr list` for items with the `improvement` label
+ * closed within the past 30 days. Uses the `gh` CLI; accepts an injectable execFileSyncFn for testing.
+ *
+ * @param {string} _root - repo root (unused; gh resolves repo from git remote)
+ * @param {{ execFileSyncFn?: Function }} [opts]
+ * @returns {{ passed: boolean, evidence: string }}
+ */
+export function checkProductImprovements(_root, opts = {}) {
+  const fn = opts.execFileSyncFn ?? _execFileSync;
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+
+  function queryRecent(subcommand) {
+    try {
+      const raw = fn(
+        "gh",
+        [
+          subcommand,
+          "list",
+          "--label",
+          "improvement",
+          "--state",
+          "closed",
+          "--json",
+          "number,closedAt",
+          "--limit",
+          "50",
+        ],
+        { encoding: "utf-8", timeout: 15_000, stdio: ["pipe", "pipe", "pipe"] }
+      );
+      const items = JSON.parse(raw);
+      if (!Array.isArray(items)) return { items: [], recent: [] };
+      const recent = items.filter(
+        (item) => item.closedAt && new Date(item.closedAt).getTime() >= cutoff
+      );
+      return { items, recent };
+    } catch {
+      return null; // CLI unavailable
+    }
+  }
+
+  const issueResult = queryRecent("issue");
+  const prResult = queryRecent("pr");
+
+  // Both queries threw — gh is unavailable
+  if (issueResult === null && prResult === null) {
+    return { passed: false, evidence: "gh CLI unavailable or error querying improvement issues" };
+  }
+
+  const totalItems =
+    (issueResult ? issueResult.items.length : 0) + (prResult ? prResult.items.length : 0);
+  const recentItems =
+    (issueResult ? issueResult.recent.length : 0) + (prResult ? prResult.recent.length : 0);
+
+  if (totalItems === 0) {
+    return { passed: false, evidence: "no improvement-labeled issues found" };
+  }
+  if (recentItems === 0) {
+    return {
+      passed: false,
+      evidence: `${totalItems} improvement issue(s) found but none in last 30 days`,
+    };
+  }
+  return {
+    passed: true,
+    evidence: `${recentItems} improvement issue(s) closed in last 30 days`,
+  };
+}
+
 export const META_CRITERIA = [
   {
     id: "meta:threshold-tuning",
@@ -134,6 +206,6 @@ export const META_CRITERIA = [
     description: "At least one improvement-labeled issue merged in last 30 days",
     scannable: false,
     detection: { type: "active", pattern: "github:improvement-label" },
-    check: null,
+    check: checkProductImprovements,
   },
 ];
