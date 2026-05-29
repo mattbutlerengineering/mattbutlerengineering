@@ -47,20 +47,25 @@ enum TableStatus {
   READY
 }
 
-enum WaitlistStatus {
-  waiting
-  notified
-  seated
-  expired
-  cancelled
-}
-
 enum DepositStatus {
   pending
   held
   applied
   refunded
   forfeited
+}
+
+enum DepositType {
+  flat
+  per_person
+}
+
+enum WaitlistStatus {
+  waiting
+  notified
+  seated
+  expired
+  cancelled
 }
 
 model VenueGroup {
@@ -75,22 +80,29 @@ model VenueGroup {
 }
 
 model Venue {
-  id             String            @id @default(cuid())
-  venueGroupId   String?           @map("venue_group_id")
-  venueGroup     VenueGroup?       @relation(fields: [venueGroupId], references: [id])
-  name           String
-  slug           String
-  ianaTimezone   String            @map("iana_timezone")
-  currencyCode   String            @default("USD") @map("currency_code")
-  operatingHours Json?             @map("operating_hours")
-  settings       Json?
-  tables         Table[]
-  reservations   Reservation[]
-  guests         Guest[]
-  floorPlans     FloorPlan[]
-  holds          ReservationHold[]
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id                        String            @id @default(cuid())
+  venueGroupId              String?           @map("venue_group_id")
+  venueGroup                VenueGroup?       @relation(fields: [venueGroupId], references: [id])
+  name                      String
+  slug                      String
+  ianaTimezone              String            @map("iana_timezone")
+  currencyCode              String            @default("USD") @map("currency_code")
+  operatingHours            Json?             @map("operating_hours")
+  settings                  Json?
+  // Deposit policy
+  depositEnabled            Boolean           @default(false) @map("deposit_enabled")
+  depositType               DepositType?      @map("deposit_type")
+  depositAmountCents        Int?              @map("deposit_amount_cents")
+  freeCancellationHours     Int?              @map("free_cancellation_hours")
+  lateCancellationFeePercent Int?             @map("late_cancellation_fee_percent")
+  noShowFeePercent          Int?              @map("no_show_fee_percent")
+  tables                    Table[]
+  reservations              Reservation[]
+  guests                    Guest[]
+  floorPlans                FloorPlan[]
+  holds                     ReservationHold[]
+  createdAt                 DateTime          @default(now()) @map("created_at")
+  updatedAt                 DateTime          @updatedAt @map("updated_at")
 
   @@unique([venueGroupId, slug])
   @@map("venues")
@@ -154,6 +166,7 @@ model Guest {
   dietaryRestrictions     Json?                   @map("dietary_restrictions")
   staffNotes              Json?                   @map("staff_notes")
   communicationPreference CommunicationPreference @default(both) @map("communication_preference")
+  stripeCustomerId        String?                 @unique @map("stripe_customer_id")
   reservations            Reservation[]
   createdAt               DateTime                @default(now()) @map("created_at")
   updatedAt               DateTime                @updatedAt @map("updated_at")
