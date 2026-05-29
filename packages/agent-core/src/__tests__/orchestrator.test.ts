@@ -750,7 +750,8 @@ describe("orchestrator MCP tool handlers", () => {
     const response = result as { content: Array<{ text: string }>; isError: boolean };
     expect(response.isError).toBe(true);
     const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.error).toBe("Session already completed");
+    // ApiClientError includes method+path prefix; check the original message is present
+    expect(parsed.error).toContain("Session already completed");
   });
 
   it("cancel_session handles non-Error thrown exceptions", async () => {
@@ -769,11 +770,12 @@ describe("orchestrator MCP tool handlers", () => {
   it("apiCall throws on non-ok response with fallback message", async () => {
     const handlers = await captureToolHandlers();
 
-    // Simulate json() failing (e.g. empty body)
+    // Simulate json() failing (e.g. empty body). Use 500 (not 503) to avoid
+    // ApiClient's retry-on-503 logic consuming more mock invocations.
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      status: 503,
-      statusText: "Service Unavailable",
+      status: 500,
+      statusText: "Internal Server Error",
       json: async () => {
         throw new Error("no body");
       },
@@ -784,7 +786,7 @@ describe("orchestrator MCP tool handlers", () => {
     const response = result as { content: Array<{ text: string }>; isError: boolean };
     expect(response.isError).toBe(true);
     const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.error).toBe("Service Unavailable");
+    expect(parsed.error).toContain("Internal Server Error");
   });
 
   it("apiCall handles 204 No Content response", async () => {

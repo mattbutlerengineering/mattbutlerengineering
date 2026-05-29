@@ -84,6 +84,7 @@ flowchart TD
   users_service --> types
   users_service --> database
   users_service --> config
+  agent_core --> api_client
   agent_core --> types
   agent_core --> config
   agent_test_utils --> agent_core

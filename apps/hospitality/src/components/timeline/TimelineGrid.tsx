@@ -220,6 +220,7 @@ export function TimelineGrid({
   return (
     <div
       ref={containerRef}
+      data-testid="timeline-grid"
       className={`${styles.gridWrapper} ${showMobileView ? styles.gridWrapperMobile : ""}`}
       role="grid"
       aria-label="Reservation timeline"
@@ -250,6 +251,7 @@ export function TimelineGrid({
         {tables.map((table) => (
           <div
             key={table.id}
+            data-testid={`table-row-${table.id}`}
             className={styles.tableRow}
             role="row"
             aria-label={`Table ${table.name}`}

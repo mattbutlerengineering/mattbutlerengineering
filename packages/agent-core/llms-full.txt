@@ -1343,17 +1343,194 @@
     }
   </file>
   <file path="src/orchestrator.ts">
-    interface SessionApiResponse<T> {
-      readonly data: T;
+    function createSessionTools(config: OrchestratorConfig) {
+      const client =
+        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+    
+      const createSessionTool = tool(
+        "create_session",
+        "Create a new coding agent session for a sub-task. Returns the session ID and initial status.",
+        {
+          taskDescription: z
+            .string()
+            .describe("Clear, self-contained description of what the agent should do"),
+          model: z.string().optional().describe("Model to use (defaults to configured session model)"),
+          maxBudgetUsd: z
+            .number()
+            .optional()
+            .describe("Budget cap in USD (defaults to configured limit)"),
+          maxTurns: z
+            .number()
+            .optional()
+            .describe("Max conversation turns (defaults to configured limit)"),
+          baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
+        },
+        async (args) => {
+          const session = await client.createSession({
+            taskDescription: args.taskDescription,
+            model: args.model ?? config.sessionModel,
+            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+            baseBranch: args.baseBranch ?? config.baseBranch,
+            ...(config.parentSessionId && { parentId: config.parentSessionId }),
+          });
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessionId: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const checkSessionTool = tool(
+        "check_session",
+        "Check the current status of a session. Returns full session details including status, PR URL, cost, and errors.",
+        {
+          sessionId: z.string().describe("The session ID to check"),
+        },
+        async (args) => {
+          const session = await client.getSession(args.sessionId);
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  id: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                  branchName: session.branchName,
+                  prUrl: session.prUrl,
+                  costUsd: session.costUsd,
+                  errors: session.errors,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const listSessionsTool = tool(
+        "list_sessions",
+        "List all sessions. Use to check overall progress.",
+        {
+          status: z
+            .enum(["pending", "running", "succeeded", "failed", "cancelled"])
+            .optional()
+            .describe("Filter by status"),
+          page: z.number().optional().describe("Page number (default 1)"),
+          limit: z.number().optional().describe("Items per page (default 20)"),
+        },
+        async (args) => {
+          const result = await client.listSessions({
+            status: args.status,
+            page: args.page,
+            limit: args.limit ?? 20,
+          });
+    
+          const summary = result.data.map((s) => ({
+            id: s.id,
+            status: s.status,
+            task: s.taskDescription.slice(0, 80),
+            prUrl: s.prUrl,
+            costUsd: s.costUsd,
+          }));
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessions: summary,
+                  total: result.pagination.total,
+                  page: result.pagination.page,
+                  totalPages: result.pagination.totalPages,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const cancelSessionTool = tool(
+        "cancel_session",
+        "Cancel a running session. Use if a session is stuck or no longer needed.",
+        {
+          sessionId: z.string().describe("The session ID to cancel"),
+        },
+        async (args) => {
+          try {
+            const session = await client.cancelSession(args.sessionId);
+    
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    id: session.id,
+                    status: session.status,
+                    message: "Session cancelled successfully",
+                  }),
+                },
+              ],
+            };
+          } catch (error) {
+            const message =
+              error instanceof ApiClientError
+                ? (error.response.detail ??
+                  error.response.message ??
+                  String(error.response.status ?? error.response.statusCode ?? ""))
+                : error instanceof Error
+                  ? error.message
+                  : String(error);
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({ error: message }),
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+      );
+    
+      return [createSessionTool, checkSessionTool, listSessionsTool, cancelSessionTool];
     }
-    interface SessionSummary {
-      readonly id: string;
-      readonly status: string;
-      readonly taskDescription: string;
-      readonly branchName: string | null;
-      readonly prUrl: string | null;
-      readonly costUsd: number | null;
-      readonly errors: readonly string[];
+    function extractSessionIds(obj: unknown): string[] {
+      const ids: string[] = [];
+    
+      if (typeof obj === "string") {
+        try {
+          const parsed: unknown = JSON.parse(obj);
+          ids.push(...extractSessionIds(parsed));
+        } catch {
+          // Not JSON — skip
+        }
+      } else if (Array.isArray(obj)) {
+        for (const item of obj) {
+          ids.push(...extractSessionIds(item));
+        }
+      } else if (typeof obj === "object" && obj !== null) {
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === "sessionId" && typeof value === "string") {
+            ids.push(value);
+          } else {
+            ids.push(...extractSessionIds(value));
+          }
+        }
+      }
+    
+      return ids;
     }
   </file>
   <file path="src/post-commit-gateway.ts">
@@ -1963,56 +2140,23 @@
     }
   </file>
   <file path="src/source-resolver.ts">
-    function detectTaskContexts(taskDescription: string): string[] {
-      const contexts: string[] = [];
+    export function classifyTaskContexts(taskDescription: string): readonly string[] {
+      const contexts = new Set<string>();
       for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
         for (const keyword of keywords) {
           if (keyword.test(taskDescription)) {
             const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
             for (const file of contextFiles) {
-              if (existsSync(file)) {
-                contexts.push(file);
-              }
+              contexts.add(file);
             }
             break;
           }
         }
       }
-      return contexts;
+      return [...contexts];
     }
-    export function resolveSourceFiles(taskDescription: string): readonly string[] {
-      const files = new Set<string>();
-    
-      // Extract explicit file paths
-      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-        files.add(match[1]);
-      }
-    
-      // Extract directory references and add key files
-      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
-        const dir = match[1];
-        // If a service or app directory is mentioned, add its CLAUDE.md
-        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
-          files.add(`${dir}CLAUDE.md`);
-        }
-      }
-    
-      // For each source file, also include its test file
-      const withTests = new Set(files);
-      for (const file of files) {
-        if (!file.includes(".test.") && !file.includes(".spec.")) {
-          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
-          withTests.add(testFile);
-        }
-      }
-    
-      // Add task-specific context bundles
-      const contexts = detectTaskContexts(taskDescription);
-      for (const ctx of contexts) {
-        withTests.add(ctx);
-      }
-    
-      return [...withTests];
+    function detectTaskContexts(taskDescription: string): string[] {
+      return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
     }
   </file>
   <file path="src/stuck-detector.ts">
@@ -2054,6 +2198,7 @@
     export interface OrchestratorConfig {
       readonly taskDescription: string;
       readonly apiBaseUrl: string;
+      readonly sessionClient?: AgentSessionClient;
       readonly model: string;
       readonly sessionModel: string;
       readonly maxBudgetPerSession: number;
