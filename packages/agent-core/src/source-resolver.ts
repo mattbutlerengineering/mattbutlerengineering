@@ -19,22 +19,28 @@ const TASK_KEYWORDS: Record<string, RegExp[]> = {
   audit: [/audit/i, /security/i],
 };
 
-function detectTaskContexts(taskDescription: string): string[] {
-  const contexts: string[] = [];
+/**
+ * Pure function: returns candidate context-bundle file paths matched by keywords.
+ * No filesystem access — caller decides whether paths exist.
+ */
+export function classifyTaskContexts(taskDescription: string): readonly string[] {
+  const contexts = new Set<string>();
   for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
     for (const keyword of keywords) {
       if (keyword.test(taskDescription)) {
         const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
         for (const file of contextFiles) {
-          if (existsSync(file)) {
-            contexts.push(file);
-          }
+          contexts.add(file);
         }
         break;
       }
     }
   }
-  return contexts;
+  return [...contexts];
+}
+
+function detectTaskContexts(taskDescription: string): string[] {
+  return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
 }
 
 // ── Source File Resolution ──────────────────────────────────────────

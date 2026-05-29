@@ -219,6 +219,14 @@
       export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
     </item>
   </file>
+  <file path="src/services/booking-notifications.ts">
+    <item priority="medium">
+      function getScheduler(): JobScheduler { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
