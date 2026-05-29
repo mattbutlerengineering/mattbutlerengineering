@@ -10,6 +10,7 @@ export {
   type ListGuestsParams,
   type SearchGuestsParams,
   type FindOrCreateGuestRequest,
+  type GuestRecognition,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
 export {

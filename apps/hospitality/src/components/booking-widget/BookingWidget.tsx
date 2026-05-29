@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createApiClient } from "@mbe/api-client";
+import type { GuestRecognition } from "@mbe/api-client";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import type { TimeSlot, ReservationHold, Reservation } from "@mbe/types";
@@ -13,6 +14,7 @@ type BookingStep = "date-party" | "time-slot" | "guest-details" | "confirmation"
 
 export interface BookingWidgetProps {
   venueId: string;
+  venueSlug?: string;
   apiBaseUrl?: string;
   maxPartySize?: number;
   holdDurationMinutes?: number;
@@ -34,6 +36,7 @@ const BOOKING_STEPS: StepItem[] = [
 
 export function BookingWidget({
   venueId,
+  venueSlug,
   apiBaseUrl = import.meta.env.VITE_API_URL ?? "",
   maxPartySize = 8,
   holdDurationMinutes = 10,
@@ -68,6 +71,11 @@ export function BookingWidget({
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
+  // Guest recognition
+  const [recognition, setRecognition] = useState<GuestRecognition | null>(null);
+  const [recognitionLoading, setRecognitionLoading] = useState(false);
+  const recognitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // API client - no auth token for public booking
   const api = useMemo(
     () =>
@@ -76,6 +84,26 @@ export function BookingWidget({
         getAccessToken: () => null,
       }),
     [apiBaseUrl]
+  );
+
+  // Debounced guest recognition on email blur (300ms, no-op if venueSlug not provided)
+  const handleEmailRecognition = useCallback(
+    (email: string) => {
+      if (!venueSlug || !email) return;
+      if (recognitionTimerRef.current) clearTimeout(recognitionTimerRef.current);
+      recognitionTimerRef.current = setTimeout(async () => {
+        setRecognitionLoading(true);
+        try {
+          const result = await api.guests.recognizeBySlug(venueSlug, email);
+          setRecognition(result);
+        } catch {
+          // Recognition is progressive enhancement — silently ignore errors
+        } finally {
+          setRecognitionLoading(false);
+        }
+      }, 300);
+    },
+    [api, venueSlug]
   );
 
   // Fetch available time slots
@@ -205,6 +233,8 @@ export function BookingWidget({
     setSlotsError(null);
     setHoldError(null);
     setConfirmError(null);
+    setRecognition(null);
+    if (recognitionTimerRef.current) clearTimeout(recognitionTimerRef.current);
   }, []);
 
   // Hold expiry timer
@@ -288,6 +318,9 @@ export function BookingWidget({
           error={confirmError}
           onSubmit={confirmReservation}
           onBack={goToTimeSlot}
+          onEmailBlur={venueSlug ? handleEmailRecognition : undefined}
+          recognition={recognition}
+          recognitionLoading={recognitionLoading}
         />
       )}
 

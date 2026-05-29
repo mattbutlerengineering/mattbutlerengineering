@@ -20,6 +20,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     required,
     value,
     onChange,
+    onBlur,
     placeholder,
     type,
   }: {
@@ -27,6 +28,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     required?: boolean;
     value?: string;
     onChange?: (e: any) => void;
+    onBlur?: () => void;
     placeholder?: string;
     type?: string;
   }) => (
@@ -40,6 +42,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         type={type || "text"}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
       />
     </div>
@@ -94,13 +97,38 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
-    <div data-testid="alert" data-variant={variant}>
+  Alert: ({
+    children,
+    variant,
+    "data-testid": testId,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+    "data-testid"?: string;
+  }) => (
+    <div data-testid={testId ?? "alert"} data-variant={variant}>
       {children}
     </div>
   ),
-  Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
-    <div data-testid="text" className={className}>
+  Text: ({
+    children,
+    className,
+    variant,
+    color,
+    "data-testid": testId,
+  }: {
+    children?: React.ReactNode;
+    className?: string;
+    variant?: string;
+    color?: string;
+    "data-testid"?: string;
+  }) => (
+    <div
+      data-testid={testId ?? "text"}
+      className={className}
+      data-variant={variant}
+      data-color={color}
+    >
       {children}
     </div>
   ),
@@ -219,5 +247,92 @@ describe("GuestDetailsForm", () => {
   it("should show hold timer when hold is provided", () => {
     render(<GuestDetailsForm {...defaultProps} hold={mockHold} />);
     expect(screen.getByText(/hold expires in/i)).toBeDefined();
+  });
+
+  describe("guest recognition", () => {
+    const recognizedGuest = {
+      recognized: true,
+      firstName: "Jane",
+      phone: "+15559876543",
+      visitCount: 3,
+      hasPreferences: true,
+      lastVisit: "2025-12-01T00:00:00Z",
+    };
+
+    it("shows welcome banner when recognition is recognized", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect(screen.getByTestId("recognition-banner")).toBeDefined();
+      expect(screen.getByText(/welcome back, jane/i)).toBeDefined();
+    });
+
+    it("shows visit count in banner when visitCount > 1", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect(screen.getByText(/you've visited 3 times/i)).toBeDefined();
+    });
+
+    it("shows preferences note when hasPreferences is true", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect(screen.getByText(/your preferences are on file/i)).toBeDefined();
+    });
+
+    it("does not show banner when recognized is false", () => {
+      const unrecognized = { ...recognizedGuest, recognized: false };
+      render(<GuestDetailsForm {...defaultProps} recognition={unrecognized} />);
+      expect(screen.queryByTestId("recognition-banner")).toBeNull();
+    });
+
+    it("does not show banner when recognition is null", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={null} />);
+      expect(screen.queryByTestId("recognition-banner")).toBeNull();
+    });
+
+    it("auto-fills name from recognition when field is empty", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect((screen.getByTestId("name") as HTMLInputElement).value).toBe("Jane");
+    });
+
+    it("auto-fills phone from recognition when field is empty", () => {
+      render(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("+15559876543");
+    });
+
+    it("does not overwrite name when user has already typed", () => {
+      const { rerender } = render(<GuestDetailsForm {...defaultProps} recognition={null} />);
+      fireEvent.change(screen.getByTestId("name"), { target: { value: "Bob" } });
+      rerender(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect((screen.getByTestId("name") as HTMLInputElement).value).toBe("Bob");
+    });
+
+    it("does not overwrite phone when user has already typed", () => {
+      const { rerender } = render(<GuestDetailsForm {...defaultProps} recognition={null} />);
+      fireEvent.change(screen.getByTestId("phone"), { target: { value: "555-111-2222" } });
+      rerender(<GuestDetailsForm {...defaultProps} recognition={recognizedGuest} />);
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-111-2222");
+    });
+
+    it("calls onEmailBlur when email input loses focus", () => {
+      const onEmailBlur = vi.fn();
+      render(<GuestDetailsForm {...defaultProps} onEmailBlur={onEmailBlur} />);
+      fireEvent.change(screen.getByTestId("email"), { target: { value: "jane@example.com" } });
+      fireEvent.blur(screen.getByTestId("email"));
+      expect(onEmailBlur).toHaveBeenCalledWith("jane@example.com");
+    });
+
+    it("does not call onEmailBlur when email is empty", () => {
+      const onEmailBlur = vi.fn();
+      render(<GuestDetailsForm {...defaultProps} onEmailBlur={onEmailBlur} />);
+      fireEvent.blur(screen.getByTestId("email"));
+      expect(onEmailBlur).not.toHaveBeenCalled();
+    });
+
+    it("shows loading indicator when recognitionLoading is true", () => {
+      render(<GuestDetailsForm {...defaultProps} recognitionLoading={true} />);
+      expect(screen.getByTestId("recognition-loading")).toBeDefined();
+    });
+
+    it("hides loading indicator when recognitionLoading is false", () => {
+      render(<GuestDetailsForm {...defaultProps} recognitionLoading={false} />);
+      expect(screen.queryByTestId("recognition-loading")).toBeNull();
+    });
   });
 });

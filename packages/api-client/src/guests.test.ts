@@ -176,6 +176,61 @@ describe("GuestsClient", () => {
     });
   });
 
+  describe("recognizeBySlug", () => {
+    const fakeRecognition = {
+      recognized: true,
+      firstName: "Jane",
+      phone: "+15559876543",
+      visitCount: 3,
+      hasPreferences: true,
+      lastVisit: "2025-12-01T00:00:00Z",
+    };
+
+    it("requests the correct public endpoint with encoded slug and email", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeRecognition }));
+
+      await makeClient().recognizeBySlug("my-venue", "jane@example.com");
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.pathname).toBe("/public/v1/venues/my-venue/guests/recognize");
+      expect(parsed.searchParams.get("email")).toBe("jane@example.com");
+    });
+
+    it("encodes special characters in slug and email", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeRecognition }));
+
+      await makeClient().recognizeBySlug("the venue", "user+tag@example.com");
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.pathname).toBe("/public/v1/venues/the%20venue/guests/recognize");
+      expect(parsed.searchParams.get("email")).toBe("user+tag@example.com");
+    });
+
+    it("returns the recognition response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeRecognition }));
+
+      const result = await makeClient().recognizeBySlug("my-venue", "jane@example.com");
+      expect(result).toEqual(fakeRecognition);
+    });
+
+    it("returns unrecognized result when guest not found", async () => {
+      const unrecognized = {
+        recognized: false,
+        firstName: null,
+        phone: null,
+        visitCount: 0,
+        hasPreferences: false,
+        lastVisit: null,
+      };
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: unrecognized }));
+
+      const result = await makeClient().recognizeBySlug("my-venue", "unknown@example.com");
+      expect(result.recognized).toBe(false);
+    });
+  });
+
   describe("error handling", () => {
     it("propagates 404 errors", async () => {
       mockFetch.mockResolvedValueOnce(

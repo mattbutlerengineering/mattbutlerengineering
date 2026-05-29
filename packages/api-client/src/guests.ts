@@ -6,6 +6,15 @@ import type {
   UpdateGuestRequest,
 } from "@mbe/types";
 
+export interface GuestRecognition {
+  recognized: boolean;
+  firstName: string | null;
+  phone: string | null;
+  visitCount: number;
+  hasPreferences: boolean;
+  lastVisit: string | null;
+}
+
 export interface FindOrCreateGuestRequest {
   venueId: string;
   email?: string;
@@ -105,5 +114,15 @@ export class GuestsClient {
    */
   async addNote(id: string, text: string): Promise<Guest> {
     return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text });
+  }
+
+  /**
+   * Public read-only lookup: recognize a guest by email within a venue (no auth required).
+   * Returns only safe public fields — never exposes id, notes, tags, or lifetimeSpend.
+   */
+  async recognizeBySlug(venueSlug: string, email: string): Promise<GuestRecognition> {
+    return this.client.getOne<GuestRecognition>(
+      `/public/v1/venues/${encodeURIComponent(venueSlug)}/guests/recognize?email=${encodeURIComponent(email)}`
+    );
   }
 }

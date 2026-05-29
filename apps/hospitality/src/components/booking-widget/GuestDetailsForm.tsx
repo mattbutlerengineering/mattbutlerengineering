@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useReducer } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
+import type { GuestRecognition } from "@mbe/api-client";
 import { Input, TextArea, Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import styles from "./GuestDetailsForm.module.css";
 
@@ -19,6 +20,9 @@ export interface GuestDetailsFormProps {
   error: string | null;
   onSubmit: (details: GuestDetails) => void;
   onBack: () => void;
+  onEmailBlur?: (email: string) => void;
+  recognition?: GuestRecognition | null;
+  recognitionLoading?: boolean;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -40,6 +44,9 @@ export function GuestDetailsForm({
   error,
   onSubmit,
   onBack,
+  onEmailBlur,
+  recognition,
+  recognitionLoading,
 }: GuestDetailsFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,6 +62,19 @@ export function GuestDetailsForm({
   }, [hold]);
 
   const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
+
+  // Auto-fill name and phone when recognition returns data (only if user hasn't typed yet)
+  useEffect(() => {
+    if (!recognition?.recognized) return;
+    if (recognition.firstName && !name) setName(recognition.firstName);
+    if (recognition.phone && !phone) setPhone(recognition.phone);
+  }, [recognition]);
+
+  const handleEmailBlur = useCallback(() => {
+    if (email && onEmailBlur) {
+      onEmailBlur(email);
+    }
+  }, [email, onEmailBlur]);
 
   // Format date and time for display
   const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
@@ -106,6 +126,20 @@ export function GuestDetailsForm({
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      {recognition?.recognized && (
+        <Alert variant="success" data-testid="recognition-banner">
+          Welcome back, {recognition.firstName}!
+          {recognition.visitCount > 1 && ` You've visited ${recognition.visitCount} times.`}
+          {recognition.hasPreferences && " Your preferences are on file."}
+        </Alert>
+      )}
+
+      {recognitionLoading && (
+        <Text variant="caption" color="secondary" data-testid="recognition-loading">
+          Looking up your details…
+        </Text>
+      )}
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Name"
@@ -120,6 +154,7 @@ export function GuestDetailsForm({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onBlur={handleEmailBlur}
           placeholder="john@example.com"
         />
 
