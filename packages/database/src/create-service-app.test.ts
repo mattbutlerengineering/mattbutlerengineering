@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, type ServiceAppConfig } from "./create-service-app.js";
+import {
+  createServiceApp,
+  validateCorsOrigins,
+  type ServiceAppConfig,
+} from "./create-service-app.js";
 
 // Mock all plugin dependencies so tests don't require real servers/auth
 vi.mock("@fastify/cors", () => ({
@@ -328,5 +332,58 @@ describe("createServiceApp", () => {
     const monitor = vi.mocked(obs.createRateLimitMonitor).mock.results[0]?.value;
     expect(monitor.recordHit).toHaveBeenCalledWith("127.0.0.1", "/test");
     expect(mockReq.log.warn).toHaveBeenCalled();
+  });
+});
+
+describe("validateCorsOrigins", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it("accepts *.mattbutlerengineering.com origins", () => {
+    const result = validateCorsOrigins([
+      "https://mattbutlerengineering.com",
+      "https://subdomain.mattbutlerengineering.com",
+      "https://hospitality.mattbutlerengineering.com",
+    ]);
+    expect(result).toEqual([
+      "https://mattbutlerengineering.com",
+      "https://subdomain.mattbutlerengineering.com",
+      "https://hospitality.mattbutlerengineering.com",
+    ]);
+  });
+
+  it("rejects invalid origins", () => {
+    const result = validateCorsOrigins(["https://evil.com", "https://attacker.io"]);
+    expect(result).toEqual([]);
+  });
+
+  it("filters mixed valid/invalid — keeps only valid", () => {
+    const result = validateCorsOrigins(["https://mattbutlerengineering.com", "https://evil.com"]);
+    expect(result).toEqual(["https://mattbutlerengineering.com"]);
+  });
+
+  it("accepts localhost origins in development mode", () => {
+    process.env.NODE_ENV = "development";
+    const result = validateCorsOrigins(["http://localhost:3000", "http://localhost:5173"]);
+    expect(result).toEqual(["http://localhost:3000", "http://localhost:5173"]);
+  });
+
+  it("rejects localhost origins outside development mode", () => {
+    process.env.NODE_ENV = "production";
+    const result = validateCorsOrigins(["http://localhost:3000"]);
+    expect(result).toEqual([]);
+  });
+
+  it("trims whitespace from origins", () => {
+    const result = validateCorsOrigins([" https://mattbutlerengineering.com "]);
+    expect(result).toEqual(["https://mattbutlerengineering.com"]);
+  });
+
+  it("returns empty array for empty input", () => {
+    const result = validateCorsOrigins([]);
+    expect(result).toEqual([]);
   });
 });
