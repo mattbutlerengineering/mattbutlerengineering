@@ -21,6 +21,8 @@ import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
+import { depositRoutes } from "./routes/deposits.js";
+import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { createNotificationPort } from "./notifications.js";
 
@@ -79,6 +81,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
+
+  // Deposit routes
+  await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+  await fastify.register(stripeWebhookRoutes);
 
   return fastify;
 }
