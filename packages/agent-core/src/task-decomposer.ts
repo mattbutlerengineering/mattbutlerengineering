@@ -7,10 +7,12 @@
  */
 
 import { resolveModelId } from "./model-router.js";
+import type { AgentSessionClient } from "@mbe/api-client";
 
 export interface OrchestratorConfig {
   readonly taskDescription: string;
   readonly apiBaseUrl: string;
+  readonly sessionClient?: AgentSessionClient;
   readonly model: string;
   readonly sessionModel: string;
   readonly maxBudgetPerSession: number;

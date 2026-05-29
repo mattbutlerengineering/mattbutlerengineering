@@ -19,6 +19,13 @@ export {
   type GetDatesParams,
 } from "./availability.js";
 export { streamNDJSON, type StreamConfig } from "./streaming.js";
+export {
+  AgentSessionClient,
+  type SessionSummary,
+  type PaginatedSessions,
+  type CreateSessionRequest,
+  type ListSessionsParams,
+} from "./agent-sessions.js";
 export { HealthClient, type SystemHealth, type ServiceHealth } from "./health.js";
 
 import { ApiClient } from "./client.js";

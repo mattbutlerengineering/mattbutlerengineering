@@ -349,6 +349,11 @@
     },
     {
       "from": "@mbe/agent-core",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-core",
       "to": "@mbe/types",
       "type": "dependency"
     },
