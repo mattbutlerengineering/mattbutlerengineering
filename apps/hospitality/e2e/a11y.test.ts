@@ -3,7 +3,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 
 test.describe("Accessibility", () => {
   test("homepage has no critical violations", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("");
 
     const accessibilityScanResults = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
 

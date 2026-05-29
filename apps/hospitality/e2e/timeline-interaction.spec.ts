@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures.js";
 
 test.describe("CF-2: Timeline loads and displays reservations", () => {
   test("loads timeline with reservation grid", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // PageHeader shows "Timeline"
     await expect(mockedPage.getByRole("heading", { name: "Timeline" })).toBeVisible();
@@ -25,7 +25,7 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
   });
 
   test("venue selector visible for multi-venue", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Venue selector may be visible if multi-venue
     const venueSelector = mockedPage.getByTestId("venue-selector");
@@ -35,7 +35,7 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
   });
 
   test("date navigation shows today's date", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Date navigation shows today's date
     const dateNav = mockedPage.getByTestId("date-navigation");
@@ -47,7 +47,7 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
   });
 
   test("reservation blocks are color-coded by status", async ({ mockedPage }) => {
-    await mockedPage.goto("/timeline");
+    await mockedPage.goto("timeline");
 
     // Wait for reservation blocks to render
     const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);

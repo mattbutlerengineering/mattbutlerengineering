@@ -1,0 +1,85 @@
+.root {
+  padding: var(--rialto-space-xs);
+}
+
+/* Filter chip row */
+.filterRow {
+  padding-block-end: var(--rialto-space-xs);
+}
+
+/* Time slot label */
+.slotLabel {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-inline-start: var(--rialto-space-xs);
+}
+
+/* Reservation card button — full-width, touch-friendly */
+.card {
+  display: block;
+  width: 100%;
+  min-block-size: 44px;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  cursor: pointer;
+  text-align: start;
+  transition:
+    background var(--rialto-ease-precision) 120ms,
+    border-color var(--rialto-ease-precision) 120ms;
+}
+
+.card:hover {
+  background: var(--rialto-surface-recessed);
+  border-color: var(--rialto-border-strong);
+}
+
+.card:active {
+  background: var(--rialto-surface-recessed);
+}
+
+.cardSelected {
+  border-color: var(--rialto-accent);
+  background: color-mix(in srgb, var(--rialto-accent) 8%, var(--rialto-surface-elevated));
+}
+
+.cardRow {
+  width: 100%;
+}
+
+.cardMain {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.guestName {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-xs);
+}
+
+.cardMetaDot {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-xs);
+}
+
+/* Empty state */
+.emptyCard {
+  padding: var(--rialto-space-xl);
+  text-align: center;
+}
+
+.emptyText {
+  color: var(--rialto-text-secondary);
+}

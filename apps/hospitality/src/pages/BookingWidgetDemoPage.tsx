@@ -1,6 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
+import { useState, useMemo, useCallback } from "react";
 import {
   Alert,
   Badge,
@@ -14,9 +12,10 @@ import {
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { Venue } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { BookingWidget } from "../components/booking-widget";
+import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
 import styles from "./BookingWidgetDemoPage.module.css";
 
@@ -104,50 +103,24 @@ function BookingWidgetDemoSkeleton() {
 /* ── Main component ────────────────────────── */
 
 export function BookingWidgetDemoPage() {
-  const { accessToken } = useAuth();
-  const [venues, setVenues] = useState<Venue[]>([]);
+  const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [deviceFrame, setDeviceFrame] = useState("desktop");
   const [copied, setCopied] = useState(false);
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
-
-  // Fetch venues on mount
-  useEffect(() => {
-    async function fetchVenues() {
-      try {
-        const response = await api.venues.list({ limit: 50 });
-        setVenues(response.data);
-        if (response.data.length > 0) {
-          setSelectedVenueId(response.data[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load venues");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchVenues();
-  }, [api]);
+  // Auto-select first venue when venues load
+  const firstVenueId = venues[0]?.id ?? null;
+  const effectiveVenueId = selectedVenueId ?? firstVenueId;
 
   const venueOptions = useMemo(() => venues.map((v) => ({ value: v.id, label: v.name })), [venues]);
 
   const selectedVenue = useMemo(
-    () => venues.find((v) => v.id === selectedVenueId) ?? null,
-    [venues, selectedVenueId]
+    () => venues.find((v) => v.id === effectiveVenueId) ?? null,
+    [venues, effectiveVenueId]
   );
 
   const embedCode = useMemo(() => {
-    const venueIdValue = selectedVenueId ?? "YOUR_VENUE_ID";
+    const venueIdValue = effectiveVenueId ?? "YOUR_VENUE_ID";
     const maxParty = selectedVenue?.settings?.maxPartySize ?? 8;
     return `<!-- embeddable widget — coming soon -->
 <!-- When available, add it to your website like this: -->
@@ -160,7 +133,7 @@ export function BookingWidgetDemoPage() {
     maxPartySize: ${maxParty},
   });
 </script>`;
-  }, [selectedVenueId, selectedVenue]);
+  }, [effectiveVenueId, selectedVenue]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -184,9 +157,10 @@ export function BookingWidgetDemoPage() {
       />
 
       {error && (
-        <Alert variant="error" dismissible onDismiss={() => setError(null)}>
-          {error}
-        </Alert>
+        <ErrorRetryBanner
+          error={error.message}
+          onRetry={refetch}
+        />
       )}
 
       {/* Venue selector */}
@@ -199,7 +173,7 @@ export function BookingWidgetDemoPage() {
             <Select
               label="Venue"
               options={venueOptions}
-              value={selectedVenueId ?? ""}
+              value={effectiveVenueId ?? ""}
               onChange={(value) => setSelectedVenueId(value)}
               placeholder="Choose a venue..."
             />
@@ -234,8 +208,8 @@ export function BookingWidgetDemoPage() {
                 className={styles.deviceFrame}
                 style={{ maxInlineSize: DEVICE_WIDTHS[deviceFrame] }}
               >
-                {selectedVenueId ? (
-                  <BookingWidget venueId={selectedVenueId} />
+                {effectiveVenueId ? (
+                  <BookingWidget venueId={effectiveVenueId} />
                 ) : (
                   <Alert variant="info">Select a venue above to preview the widget.</Alert>
                 )}

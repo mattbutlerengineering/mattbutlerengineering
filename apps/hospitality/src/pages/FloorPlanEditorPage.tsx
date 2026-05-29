@@ -1,24 +1,28 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useBlocker } from "react-router-dom";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import type { CreateTableRequest, FloorPlan, Table } from "@mbe/types";
+import type { CreateTableRequest, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import {
+  useFloorPlan,
+  useActivateFloorPlan,
+  useBulkUpdatePositions,
+  useAddTable,
+  useDeleteTable,
+} from "../hooks/useFloorPlans.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
 
-  const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null);
+  const { data: floorPlan, isLoading, error, refetch } = useFloorPlan(id);
+
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
@@ -29,6 +33,18 @@ export function FloorPlanEditorPage() {
 
   // Store previous table state for rollback on save failure
   const previousTablesRef = useRef<Table[]>([]);
+
+  // Sync tables from the TQ query result
+  useEffect(() => {
+    if (floorPlan?.tables) {
+      setTables(floorPlan.tables);
+    }
+  }, [floorPlan]);
+
+  const activateMutation = useActivateFloorPlan();
+  const bulkUpdateMutation = useBulkUpdatePositions();
+  const addTableMutation = useAddTable();
+  const deleteTableMutation = useDeleteTable();
 
   // Warn on browser tab close / refresh when unsaved changes exist
   useEffect(() => {
@@ -48,43 +64,11 @@ export function FloorPlanEditorPage() {
       hasChanges && currentLocation.pathname !== nextLocation.pathname
   );
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
-
-  const fetchFloorPlan = useCallback(async () => {
-    if (!id) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const fp = await api.floorPlans.getById(id);
-      setFloorPlan(fp);
-      setTables(fp.tables ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load floor plan");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, api]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchFloorPlan();
-  }, [fetchFloorPlan]);
-
   const handleTableMove = useCallback((tableId: string, x: number, y: number) => {
     // Update local state immediately for responsiveness
     setTables((prev) =>
       prev.map((t) => {
         if (t.id !== tableId) return t;
-        // Preserve existing metadata or use defaults
         const existing = t.shapeMetadata ?? {
           width: 80,
           height: 60,
@@ -103,12 +87,13 @@ export function FloorPlanEditorPage() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (pendingUpdates.size === 0) return;
+    if (pendingUpdates.size === 0 || !floorPlan) return;
 
     // Snapshot current tables for rollback on failure
     previousTablesRef.current = [...tables];
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       const positions = Array.from(pendingUpdates.entries()).map(([tableId, pos]) => {
         const table = tables.find((t) => t.id === tableId);
@@ -127,18 +112,18 @@ export function FloorPlanEditorPage() {
         };
       });
 
-      await api.floorPlans.bulkUpdatePositions(floorPlan!.id, positions);
+      await bulkUpdateMutation.mutateAsync({ floorPlanId: floorPlan.id, positions });
       setPendingUpdates(new Map());
       setHasChanges(false);
     } catch (err) {
       // Rollback to previous table positions on failure
       setTables(previousTablesRef.current);
       setPendingUpdates(new Map());
-      setError(err instanceof Error ? err.message : "Failed to save changes — positions reverted");
+      setSaveError(err instanceof Error ? err.message : "Failed to save changes — positions reverted");
     } finally {
       setIsSaving(false);
     }
-  }, [pendingUpdates, tables, api, floorPlan]);
+  }, [pendingUpdates, tables, bulkUpdateMutation, floorPlan]);
 
   const handleDeleteTable = useCallback(
     async (tableId: string) => {
@@ -146,14 +131,14 @@ export function FloorPlanEditorPage() {
       if (!confirmed) return;
 
       try {
-        await api.tables.delete(tableId);
+        await deleteTableMutation.mutateAsync(tableId);
         setTables((prev) => prev.filter((t) => t.id !== tableId));
         setSelectedTableId((prev) => (prev === tableId ? null : prev));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete table");
+        setSaveError(err instanceof Error ? err.message : "Failed to delete table");
       }
     },
-    [api]
+    [deleteTableMutation]
   );
 
   // Auto-save with 1s debounce after changes
@@ -168,20 +153,17 @@ export function FloorPlanEditorPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't capture shortcuts when typing in inputs/dialogs
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
         return;
       }
 
-      // Ctrl+S / Cmd+S — save
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         handleSave();
         return;
       }
 
-      // Delete / Backspace — remove selected table
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedTableId) {
           handleDeleteTable(selectedTableId);
@@ -189,13 +171,11 @@ export function FloorPlanEditorPage() {
         return;
       }
 
-      // Escape — deselect
       if (e.key === "Escape") {
         setSelectedTableId(null);
         return;
       }
 
-      // Arrow keys — nudge selected table by 1 grid unit (20px)
       if (selectedTableId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         e.preventDefault();
         const selectedTable = tables.find((t) => t.id === selectedTableId);
@@ -214,22 +194,21 @@ export function FloorPlanEditorPage() {
 
   const handleActivate = async () => {
     if (!floorPlan) return;
-
     try {
-      const updated = await api.floorPlans.setActive(floorPlan.id);
-      setFloorPlan(updated);
+      await activateMutation.mutateAsync(floorPlan.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to activate floor plan");
+      setSaveError(err instanceof Error ? err.message : "Failed to activate floor plan");
     }
   };
 
   const handleAddTable = async (data: CreateTableRequest) => {
-    const newTable = await api.tables.create(data);
+    const newTable = await addTableMutation.mutateAsync(data);
     setTables((prev) => [...prev, newTable]);
     setShowAddDialog(false);
   };
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
+  const displayError = saveError ?? (error ? error.message : null);
 
   if (isLoading) {
     return (
@@ -239,10 +218,13 @@ export function FloorPlanEditorPage() {
     );
   }
 
-  if (error || !floorPlan) {
+  if (displayError || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <ErrorRetryBanner error={error ?? "Floor plan not found"} onRetry={fetchFloorPlan} />
+        <ErrorRetryBanner
+          error={displayError ?? "Floor plan not found"}
+          onRetry={refetch}
+        />
         <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </Button>

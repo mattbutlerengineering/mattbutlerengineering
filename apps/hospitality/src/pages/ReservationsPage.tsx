@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo, useReducer } from "react";
+import { useState, useMemo, useReducer, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
 import {
   Alert,
   Badge,
@@ -16,7 +14,8 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import { useReservations } from "../hooks/useReservations.js";
+import { ordinalVisit } from "../utils/ordinal.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -77,32 +76,32 @@ function formatRelativeTime(date: Date): string {
 
 export function ReservationsPage() {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
-  const {
-    reservations: sharedReservations,
-    isConnected,
-    setReservations: setSharedReservations,
-  } = useReservationData();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
   const statusFilter = searchParams.get("status") ?? "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  const {
+    data: reservations,
+    isLoading,
+    error: queryError,
+  } = useReservations({
+    date: selectedDate,
+    venueId: selectedVenueId ?? undefined,
+    limit: 50,
+  });
+
+  const error = queryError?.message ?? null;
 
   /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
   const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
+
+  useEffect(() => {
+    if (!reservations) return;
+    setLastUpdated(new Date());
+  }, [reservations]);
 
   useEffect(() => {
     if (!lastUpdated) return;
@@ -112,21 +111,17 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
-  // Filter shared reservations to the selected date
-  const reservations = useMemo(
-    () => sharedReservations.filter((r) => r.date === selectedDate),
-    [sharedReservations, selectedDate]
-  );
+  const displayReservations = reservations ?? [];
 
   const stats = useMemo(() => {
-    const confirmed = reservations.filter((r) => r.status === "CONFIRMED").length;
-    const pending = reservations.filter((r) => r.status === "PENDING").length;
-    const cancelled = reservations.filter((r) => r.status === "CANCELLED").length;
-    return { total: reservations.length, confirmed, pending, cancelled };
-  }, [reservations]);
+    const confirmed = displayReservations.filter((r) => r.status === "CONFIRMED").length;
+    const pending = displayReservations.filter((r) => r.status === "PENDING").length;
+    const cancelled = displayReservations.filter((r) => r.status === "CANCELLED").length;
+    return { total: displayReservations.length, confirmed, pending, cancelled };
+  }, [displayReservations]);
 
   const filteredReservations = useMemo(() => {
-    let result = reservations;
+    let result = displayReservations;
     if (statusFilter !== "all") {
       result = result.filter((r) => r.status === statusFilter);
     }
@@ -139,33 +134,7 @@ export function ReservationsPage() {
       );
     }
     return result;
-  }, [reservations, statusFilter, searchQuery]);
-
-  /* ── Fetch reservations when filters change ── */
-
-  useEffect(() => {
-    async function fetchReservations() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.reservations.list({
-          date: selectedDate,
-          venueId: selectedVenueId ?? undefined,
-          limit: 50,
-        });
-
-        setSharedReservations(response.data);
-        setLastUpdated(new Date());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load reservations");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchReservations();
-  }, [api, selectedDate, selectedVenueId, setSharedReservations]);
+  }, [displayReservations, statusFilter, searchQuery]);
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], {
@@ -174,7 +143,7 @@ export function ReservationsPage() {
     });
   };
 
-  if (isLoading && reservations.length === 0) {
+  if (isLoading && displayReservations.length === 0) {
     return <ReservationsLoadingSkeleton />;
   }
 
@@ -182,21 +151,13 @@ export function ReservationsPage() {
     <div className={styles.container}>
       <PageHeader title="Reservations" description="View and manage reservations" />
 
-      <div className={styles.statusBar}>
-        <div className={styles.liveIndicator}>
-          <Text
-            className={`${styles.liveDot} ${isConnected ? styles.liveDotConnected : styles.liveDotOffline}`}
-          />
-          <Text className={isConnected ? styles.liveTextConnected : styles.liveTextOffline}>
-            {isConnected ? "Live" : "Offline"}
-          </Text>
-        </div>
-        {lastUpdatedDisplay && (
+      {lastUpdatedDisplay && (
+        <div className={styles.statusBar}>
           <Text variant="caption" color="secondary">
             Updated {lastUpdatedDisplay}
           </Text>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className={styles.statsRow} aria-live="polite" role="status">
         <Stat label="Total" value={stats.total} size="sm" />
@@ -237,13 +198,15 @@ export function ReservationsPage() {
       </div>
 
       {error && (
-        <Alert variant="error" dismissible onDismiss={() => setError(null)}>
-          {error}
-        </Alert>
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <Alert variant="error">{error}</Alert>
+        </div>
       )}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
-        {`${filteredReservations.length} reservation${filteredReservations.length !== 1 ? "s" : ""} shown`}
+        {`${filteredReservations.length} reservation${
+          filteredReservations.length !== 1 ? "s" : ""
+        } shown`}
       </Text>
 
       {!isLoading && !error && filteredReservations.length === 0 && (
@@ -303,6 +266,11 @@ export function ReservationsPage() {
                         <Text variant="caption" color="secondary">
                           {reservation.guestEmail}
                         </Text>
+                      )}
+                      {reservation.guest && reservation.guest.visitCount > 1 && (
+                        <Badge variant="accent" size="sm">
+                          {ordinalVisit(reservation.guest.visitCount)}
+                        </Badge>
                       )}
                     </td>
                     <td className={styles.td}>{reservation.partySize}</td>

@@ -9,25 +9,9 @@
 
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
 import { runSession } from "../session-runner.js";
+import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
 import { DEFAULT_SESSION_CONFIG } from "../types.js";
 import type { SessionResult } from "../types.js";
-
-/**
- * Case-insensitive patterns that indicate rate limiting in error messages.
- */
-const RATE_LIMIT_PATTERNS: readonly RegExp[] = [
-  /rate.?limit/i,
-  /\b429\b/,
-  /throttled/i,
-  /too.?many.?requests/i,
-];
-
-/**
- * Scan an error string for rate-limit indicators.
- */
-function detectRateLimitInError(message: string): boolean {
-  return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
-}
 
 /**
  * Determine whether a SessionResult indicates the agent made git-visible changes.
@@ -92,7 +76,7 @@ export class ClaudeAdapter implements AgentAdapter {
     } catch (err: unknown) {
       const durationMs = Date.now() - startTime;
       const message = err instanceof Error ? err.message : String(err);
-      const rateLimited = detectRateLimitInError(message);
+      const rateLimited = scanForRateLimitPatterns(message);
 
       return {
         success: false,

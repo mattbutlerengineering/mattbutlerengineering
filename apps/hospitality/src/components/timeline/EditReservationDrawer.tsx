@@ -1,6 +1,15 @@
 import { useState } from "react";
-import { Drawer, Button, Input, Select, TextArea, Stack } from "@mattbutlerengineering/rialto";
+import {
+  Drawer,
+  Button,
+  Input,
+  Select,
+  TextArea,
+  Stack,
+  Divider,
+} from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
+import { GuestCard } from "../crm/GuestCard.js";
 import styles from "./EditReservationDrawer.module.css";
 
 interface EditReservationDrawerProps {
@@ -73,77 +82,86 @@ export function EditReservationDrawer({
 
   return (
     <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
-      <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
-        {error && <div className={styles.errorBanner}>{error}</div>}
+      <div data-testid="edit-reservation-drawer">
+        <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
+          {reservation.guestId && (
+            <>
+              <GuestCard guestId={reservation.guestId} />
+              <Divider />
+            </>
+          )}
 
-        <Stack gap="md">
-          <div className={styles.fieldRow}>
-            <div style={{ flex: 1 }}>
-              <Input
-                label="Start Time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                disabled={isLoading}
-              />
+          {error && <div className={styles.errorBanner}>{error}</div>}
+
+          <Stack gap="md">
+            <div className={styles.fieldRow}>
+              <div style={{ flex: 1 }}>
+                <Input
+                  label="Start Time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Input
+                  label="End Time"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <Input
-                label="End Time"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
+
+            <Input
+              label="Party Size"
+              type="number"
+              value={partySize}
+              min={1}
+              onChange={(e) => setPartySize(e.target.value)}
+              disabled={isLoading}
+            />
+
+            <Select
+              label="Assign Table"
+              value={tableId}
+              onChange={setTableId}
+              disabled={isLoading}
+              options={tableOptions}
+            />
+
+            <TextArea
+              label="Notes"
+              value={notes}
+              rows={4}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isLoading}
+            />
+          </Stack>
+
+          <div className={styles.drawerActions}>
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              disabled={isLoading}
+              className={styles.fullWidth}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              isLoading={isLoading}
+              loadingText="Saving…"
+              className={styles.fullWidth}
+            >
+              Save Changes
+            </Button>
           </div>
-
-          <Input
-            label="Party Size"
-            type="number"
-            value={partySize}
-            min={1}
-            onChange={(e) => setPartySize(e.target.value)}
-            disabled={isLoading}
-          />
-
-          <Select
-            label="Assign Table"
-            value={tableId}
-            onChange={setTableId}
-            disabled={isLoading}
-            options={tableOptions}
-          />
-
-          <TextArea
-            label="Notes"
-            value={notes}
-            rows={4}
-            onChange={(e) => setNotes(e.target.value)}
-            disabled={isLoading}
-          />
         </Stack>
-
-        <div className={styles.drawerActions}>
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-            className={styles.fullWidth}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            isLoading={isLoading}
-            loadingText="Saving…"
-            className={styles.fullWidth}
-          >
-            Save Changes
-          </Button>
-        </div>
-      </Stack>
+      </div>
     </Drawer>
   );
 }
