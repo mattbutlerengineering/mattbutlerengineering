@@ -80,6 +80,19 @@ export class JobScheduler {
   }
 
   /**
+   * Cancel a scheduled job by its job ID.
+   * Silently succeeds if the job does not exist.
+   * @param jobId The job ID to cancel.
+   */
+  async cancel(jobId: string): Promise<void> {
+    try {
+      await this.queue.remove(jobId);
+    } catch {
+      // Job may already be processed or not exist — treat as success
+    }
+  }
+
+  /**
    * Gracefully close BullMQ queue and Redis connections.
    */
   async close(): Promise<void> {

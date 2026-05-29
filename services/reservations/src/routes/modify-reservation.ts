@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { rescheduleBookingReminders } from "../services/booking-notifications.js";
 
 interface ModifyBody {
   date?: string;
@@ -130,6 +131,12 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       const updated = updateResult.reservation!;
       const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
+
+      // Reschedule reminder jobs if time changed
+      const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
+      if (timeChanged) {
+        rescheduleBookingReminders(updated, token).catch(() => {});
+      }
 
       if (updated.guestEmail && venue) {
         try {
