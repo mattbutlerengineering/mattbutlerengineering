@@ -35,12 +35,13 @@ jobs:
           sparse-checkout: |
             .github/circuit-breaker-state
           sparse-checkout-cone-mode: false
+          ref: circuit-breaker-state
 
       - name: Check state
         id: check
         run: |
           if [ -f ".github/circuit-breaker-state" ]; then
-            STATE=$(cat .github/circuit-breaker-state)
+            STATE=$(jq -r '.state // "closed"' .github/circuit-breaker-state 2>/dev/null || echo "closed")
           else
             STATE="closed"
           fi

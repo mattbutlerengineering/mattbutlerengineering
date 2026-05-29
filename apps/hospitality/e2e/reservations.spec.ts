@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures.js";
 
 test.describe("CF-6: Reservations page with filtering", () => {
   test("page loads with header and stats row", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations");
+    await mockedPage.goto("reservations");
 
     await expect(mockedPage.getByRole("heading", { name: "Reservations" })).toBeVisible();
 
@@ -13,7 +13,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 
   test("displays status filter segments and search input", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations");
+    await mockedPage.goto("reservations");
 
     await expect(mockedPage.getByRole("radio", { name: "All" })).toBeVisible();
     await expect(mockedPage.getByRole("radio", { name: "Confirmed" })).toBeVisible();
@@ -29,7 +29,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 
   test("status filter updates list when Confirmed is selected", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations");
+    await mockedPage.goto("reservations");
 
     await mockedPage.getByRole("radio", { name: "Confirmed" }).click();
 
@@ -37,7 +37,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 
   test("search input filters the reservation list", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations");
+    await mockedPage.goto("reservations");
 
     const searchInput = mockedPage.getByRole("textbox");
     await searchInput.fill("Test");
@@ -49,7 +49,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 
   test("All filter clears status selection", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations?status=CONFIRMED");
+    await mockedPage.goto("reservations?status=CONFIRMED");
 
     await mockedPage.getByRole("radio", { name: "All" }).click();
 
@@ -57,7 +57,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 
   test("shows empty state when no results match search", async ({ mockedPage }) => {
-    await mockedPage.goto("/reservations");
+    await mockedPage.goto("reservations");
 
     const searchInput = mockedPage.getByRole("textbox");
     await searchInput.fill("zzzzz-no-match-9999");

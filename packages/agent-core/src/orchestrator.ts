@@ -10,61 +10,15 @@
 import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { AgentSessionClient, ApiClientError } from "@mbe/api-client";
 import type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.js";
 import { buildOrchestratorPrompt } from "./task-decomposer.js";
-
-// ── Session API client (used by MCP tools) ───────────────────────────
-
-interface SessionApiResponse<T> {
-  readonly data: T;
-}
-
-interface SessionSummary {
-  readonly id: string;
-  readonly status: string;
-  readonly taskDescription: string;
-  readonly branchName: string | null;
-  readonly prUrl: string | null;
-  readonly costUsd: number | null;
-  readonly errors: readonly string[];
-}
-
-interface PaginatedSessions {
-  readonly data: readonly SessionSummary[];
-  readonly pagination: {
-    readonly page: number;
-    readonly total: number;
-    readonly totalPages: number;
-  };
-}
-
-async function apiCall<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers as Record<string, string>),
-    },
-  });
-
-  if (!response.ok) {
-    const error = (await response.json().catch(() => ({
-      message: response.statusText,
-    }))) as { message?: string };
-    throw new Error(error.message ?? `API request failed (${response.status})`);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
 
 // ── MCP tool factory ─────────────────────────────────────────────────
 
 function createSessionTools(config: OrchestratorConfig) {
-  const { apiBaseUrl } = config;
+  const client =
+    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
 
   const createSessionTool = tool(
     "create_session",
@@ -85,30 +39,23 @@ function createSessionTools(config: OrchestratorConfig) {
       baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
     },
     async (args) => {
-      const session = await apiCall<SessionApiResponse<SessionSummary>>(
-        apiBaseUrl,
-        "/v1/sessions",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            taskDescription: args.taskDescription,
-            model: args.model ?? config.sessionModel,
-            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
-            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
-            baseBranch: args.baseBranch ?? config.baseBranch,
-            ...(config.parentSessionId && { parentId: config.parentSessionId }),
-          }),
-        }
-      );
+      const session = await client.createSession({
+        taskDescription: args.taskDescription,
+        model: args.model ?? config.sessionModel,
+        maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+        maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+        baseBranch: args.baseBranch ?? config.baseBranch,
+        ...(config.parentSessionId && { parentId: config.parentSessionId }),
+      });
 
       return {
         content: [
           {
             type: "text" as const,
             text: JSON.stringify({
-              sessionId: session.data.id,
-              status: session.data.status,
-              taskDescription: session.data.taskDescription,
+              sessionId: session.id,
+              status: session.status,
+              taskDescription: session.taskDescription,
             }),
           },
         ],
@@ -123,23 +70,20 @@ function createSessionTools(config: OrchestratorConfig) {
       sessionId: z.string().describe("The session ID to check"),
     },
     async (args) => {
-      const session = await apiCall<SessionApiResponse<SessionSummary>>(
-        apiBaseUrl,
-        `/v1/sessions/${args.sessionId}`
-      );
+      const session = await client.getSession(args.sessionId);
 
       return {
         content: [
           {
             type: "text" as const,
             text: JSON.stringify({
-              id: session.data.id,
-              status: session.data.status,
-              taskDescription: session.data.taskDescription,
-              branchName: session.data.branchName,
-              prUrl: session.data.prUrl,
-              costUsd: session.data.costUsd,
-              errors: session.data.errors,
+              id: session.id,
+              status: session.status,
+              taskDescription: session.taskDescription,
+              branchName: session.branchName,
+              prUrl: session.prUrl,
+              costUsd: session.costUsd,
+              errors: session.errors,
             }),
           },
         ],
@@ -159,15 +103,11 @@ function createSessionTools(config: OrchestratorConfig) {
       limit: z.number().optional().describe("Items per page (default 20)"),
     },
     async (args) => {
-      const params = new URLSearchParams();
-      if (args.status) params.set("status", args.status);
-      if (args.page) params.set("page", String(args.page));
-      params.set("limit", String(args.limit ?? 20));
-
-      const result = await apiCall<PaginatedSessions>(
-        apiBaseUrl,
-        `/v1/sessions?${params.toString()}`
-      );
+      const result = await client.listSessions({
+        status: args.status,
+        page: args.page,
+        limit: args.limit ?? 20,
+      });
 
       const summary = result.data.map((s) => ({
         id: s.id,
@@ -201,26 +141,29 @@ function createSessionTools(config: OrchestratorConfig) {
     },
     async (args) => {
       try {
-        const session = await apiCall<SessionApiResponse<SessionSummary>>(
-          apiBaseUrl,
-          `/v1/sessions/${args.sessionId}/cancel`,
-          { method: "POST" }
-        );
+        const session = await client.cancelSession(args.sessionId);
 
         return {
           content: [
             {
               type: "text" as const,
               text: JSON.stringify({
-                id: session.data.id,
-                status: session.data.status,
+                id: session.id,
+                status: session.status,
                 message: "Session cancelled successfully",
               }),
             },
           ],
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message =
+          error instanceof ApiClientError
+            ? (error.response.detail ??
+              error.response.message ??
+              String(error.response.status ?? error.response.statusCode ?? ""))
+            : error instanceof Error
+              ? error.message
+              : String(error);
         return {
           content: [
             {
@@ -283,6 +226,10 @@ export async function runOrchestrator(
   };
 
   emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);
+
+  // Session client for status gathering after orchestration completes
+  const sessionClient =
+    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
 
   // Create MCP server with session management tools
   const tools = createSessionTools(config);
@@ -360,16 +307,13 @@ export async function runOrchestrator(
 
     for (const sessionId of childSessionIds) {
       try {
-        const session = await apiCall<SessionApiResponse<SessionSummary>>(
-          config.apiBaseUrl,
-          `/v1/sessions/${sessionId}`
-        );
+        const session = await sessionClient.getSession(sessionId);
 
-        if (session.data.costUsd !== null) {
-          totalCost += session.data.costUsd;
+        if (session.costUsd !== null) {
+          totalCost += session.costUsd;
         }
 
-        if (session.data.status === "succeeded") {
+        if (session.status === "succeeded") {
           anySucceeded = true;
         } else {
           allSucceeded = false;

@@ -79,6 +79,11 @@
     });
   </file>
   <file path="src/schemas/guest.ts">
+    export const StaffNoteSchema = z.object({
+      text: z.string(),
+      createdBy: z.string(),
+      createdAt: z.string(),
+    });
     export const GuestSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -90,13 +95,10 @@
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
+      dietaryRestrictions: z.array(z.string()).nullable(),
+      staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
-    });
-    export const GuestSegmentSchema = z.object({
-      name: z.string(),
-      description: z.string(),
-      count: z.number(),
     });
   </file>
   <file path="src/schemas/json-schema.ts">
@@ -136,27 +138,14 @@
       "COMPLETED",
       "NO_SHOW",
     ]);
-    export const ReservationSchema = z.object({
-      id: z.string(),
-      date: z.string(),
-      startTime: z.string(),
-      endTime: z.string(),
-      partySize: z.number(),
-      status: ReservationStatusSchema,
-      notes: z.string().nullable(),
-      cancellationReason: z.string().nullable(),
-      cancellationNote: z.string().nullable(),
-      guestName: z.string().nullable(),
-      guestEmail: z.string().nullable(),
-      guestPhone: z.string().nullable(),
-      guestId: z.string().nullable(),
-      userId: z.string().nullable(),
-      tableId: z.string(),
-      table: TableSchema.optional(),
-      venueId: z.string().nullable(),
-      createdAt: z.string(),
-      updatedAt: z.string(),
-    });
+    export const OccasionSchema = z.enum([
+      "birthday",
+      "anniversary",
+      "business",
+      "date_night",
+      "other",
+      "none",
+    ]);
   </file>
   <file path="src/schemas/user.ts">
     export const UserPreferencesSchema = z.object({
@@ -267,6 +256,11 @@
     }
   </file>
   <file path="src/guest.ts">
+    export interface StaffNote {
+      text: string;
+      createdBy: string;
+      createdAt: string;
+    }
     export interface Guest {
       id: string;
       venueId: string;
@@ -279,17 +273,12 @@
       lifetimeSpend: string | null; // Decimal as string for precision
       lastVisit: string | null;
       tags: string[] | null;
+      dietaryRestrictions: string[] | null;
+      /** Staff-only notes. Never returned in public-facing API responses. */
+      staffNotes: StaffNote[];
       reservations?: Reservation[];
       createdAt: string;
       updatedAt: string;
-    }
-    export interface CreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      notes?: string;
-      tags?: string[];
     }
   </file>
   <file path="src/reservation.ts">

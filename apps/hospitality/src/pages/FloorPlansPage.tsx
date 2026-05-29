@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
 import {
   Badge,
   Button,
@@ -15,6 +13,8 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { NewFloorPlanDialog } from "../components/floor-plan";
+import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import styles from "./FloorPlansPage.module.css";
 
 /* ── Loading skeleton ───────────────────────── */
@@ -38,44 +38,19 @@ function FloorPlansLoadingSkeleton() {
 
 export function FloorPlansPage() {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
   const { selectedVenueId } = useVenue();
-  const [floorPlans, setFloorPlans] = useState<FloorPlan[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
-  const liveRegionRef = useRef<HTMLDivElement>(null);
 
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  const {
+    data: floorPlans = [],
+    isLoading,
+    error,
+    refetch,
+  } = useFloorPlans({ venueId: selectedVenueId });
 
-  const fetchFloorPlans = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const floorPlansResponse = await api.floorPlans.list({
-        venueId: selectedVenueId ?? undefined,
-        limit: 50,
-      });
-      setFloorPlans(floorPlansResponse.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load floor plans");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [api, selectedVenueId]);
-
-  useEffect(() => {
-    fetchFloorPlans();
-  }, [fetchFloorPlans]);
+  const cloneMutation = useCloneFloorPlan();
 
   const handleCreate = useCallback(
     async (data: Parameters<typeof api.floorPlans.create>[0]) => {
@@ -87,17 +62,15 @@ export function FloorPlansPage() {
   const handleClone = useCallback(
     async (id: string) => {
       try {
-        const cloned = await api.floorPlans.clone(id);
-        setFloorPlans((prev) => [...prev, cloned]);
+        const cloned = await cloneMutation.mutateAsync(id);
         setLiveMessage(`Floor plan "${cloned.name}" cloned successfully`);
         navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to clone floor plan";
-        setError(message);
         setLiveMessage(`Error: ${message}`);
       }
     },
-    [api, navigate]
+    [cloneMutation, navigate]
   );
 
   const handleCreated = useCallback(
@@ -119,7 +92,6 @@ export function FloorPlansPage() {
     <div className={styles.container}>
       {/* Live region for screen reader announcements */}
       <div
-        ref={liveRegionRef}
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -159,9 +131,9 @@ export function FloorPlansPage() {
 
       {error && (
         <ErrorRetryBanner
-          error={error}
-          onRetry={fetchFloorPlans}
-          onDismiss={() => setError(null)}
+          error={error.message}
+          onRetry={refetch}
+          onDismiss={() => {}}
         />
       )}
 

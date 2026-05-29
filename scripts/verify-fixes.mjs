@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { run as runThresholdTuner } from "./threshold-tuner.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -291,5 +292,13 @@ const failed = results.filter((r) => !r.verified && r.confidence !== "skip").len
 const skipped = results.filter((r) => r.confidence === "skip").length;
 
 console.log(`Summary: ${verified} verified, ${failed} failed, ${skipped} skipped\n`);
+
+/* ── Threshold auto-tuning (feedback loop) ───────────── */
+
+console.log("🔧 Running threshold auto-tuner…\n");
+await runThresholdTuner({ dryRun: DRY_RUN }).catch((err) => {
+  // Non-fatal — tuning failure never blocks the verification report
+  console.error(`[threshold-tuner] Warning: ${err.message}`);
+});
 
 process.exit(failed > 0 ? 1 : 0);

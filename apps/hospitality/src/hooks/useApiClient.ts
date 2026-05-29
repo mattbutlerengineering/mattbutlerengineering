@@ -1,24 +1,7 @@
 import { useMemo } from "react";
-import { createApiClient, type ApiClientError } from "@mbe/api-client";
+import { createApiClient } from "@mbe/api-client";
 import { useAuth } from "@mbe/auth/react";
-import { captureException, captureMessage, addBreadcrumb } from "@mbe/sentry/react";
-
-function reportToSentry(error: ApiClientError) {
-  const code = error.statusCode;
-
-  addBreadcrumb({
-    category: "api",
-    message: `${error.method} ${error.path} → ${code}`,
-    level: code >= 500 ? "error" : "warning",
-    data: { statusCode: code, method: error.method, path: error.path },
-  });
-
-  if (code >= 500) {
-    captureException(error);
-  } else if (code === 401 || code === 403) {
-    captureMessage(error.message, "warning");
-  }
-}
+import { reportApiError } from "@mbe/sentry/react";
 
 export function useApiClient() {
   const { accessToken } = useAuth();
@@ -28,7 +11,7 @@ export function useApiClient() {
       createApiClient({
         baseUrl: import.meta.env.VITE_API_URL ?? "",
         getAccessToken: () => accessToken,
-        onError: reportToSentry,
+        onError: reportApiError,
       }),
     [accessToken]
   );

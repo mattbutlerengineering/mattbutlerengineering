@@ -183,7 +183,7 @@ export type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.j
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 
 // Source file resolution (parses task descriptions for file paths)
-export { resolveSourceFiles } from "./source-resolver.js";
+export { resolveSourceFiles, classifyTaskContexts } from "./source-resolver.js";
 
 // Budget and model calculation (scales budget/model based on task complexity)
 export {
@@ -281,3 +281,10 @@ export {
   formatRevertForIssue,
 } from "./revert-detector.js";
 export type { RevertCommit, RevertedPR } from "./revert-detector.js";
+
+// Quality gate interface, runner, and built-in gate implementations
+export { GateRunner } from "./gate-runner.js";
+export type { GateContext, GateResult, GateRunResult, QualityGate } from "./gate-runner.js";
+export { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
+export { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
+export { SecurityReviewGate } from "./gates/security-review-gate.js";

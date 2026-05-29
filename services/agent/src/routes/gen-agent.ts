@@ -1,4 +1,5 @@
 /// <reference types="@fastify/rate-limit" />
+import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, stepCountIs } from "ai";
 import type { FastifyRequest, FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
@@ -30,7 +31,8 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: {
           max: 30,
           timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+          keyGenerator: (request: FastifyRequest) =>
+            request.user?.id ?? request.ip,
         },
       },
     },
@@ -50,15 +52,18 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { messages } = parseResult.data;
       const authHeader = request.headers.authorization;
-      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
       const api = createApiClient({
         baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
         getAccessToken: () => token,
       });
       const agentTools = createAgentTools(request.log, api);
 
+      const MODEL_ID = "claude-haiku-4.5";
       const result = streamText({
-        model: "anthropic/claude-haiku-4.5",
+        model: anthropic(MODEL_ID),
         messages: [
           {
             role: "system" as const,
@@ -73,16 +78,20 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
         stopWhen: stepCountIs(5),
         onFinish: async ({ usage, providerMetadata }) => {
           const anthropicMeta = providerMetadata?.anthropic as
-            | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
+            | {
+                cacheCreationInputTokens?: number;
+                cacheReadInputTokens?: number;
+              }
             | undefined;
           request.log.info(
             {
               userId: request.user?.id,
-              modelId: "anthropic/claude-haiku-4.5",
+              modelId: MODEL_ID,
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
               cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-              cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+              cacheCreationInputTokens:
+                anthropicMeta?.cacheCreationInputTokens ?? 0,
             },
             "gen-agent cost log"
           );
@@ -100,7 +109,10 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
           try {
             for await (const event of result.fullStream) {
               if (event.type === "text-delta") {
-                const line = JSON.stringify({ type: "text", content: event.text });
+                const line = JSON.stringify({
+                  type: "text",
+                  content: event.text,
+                });
                 controller.enqueue(encoder.encode(line + "\n"));
               } else if (event.type === "tool-call") {
                 if (event.toolName === "render_component") {

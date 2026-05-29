@@ -32,15 +32,8 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["venueId"],
           properties: {
-            venueId: {
-              type: "string",
-              description: "Venue ID to list guests for",
-            },
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
+            venueId: { type: "string", description: "Venue ID to list guests for" },
+            page: { type: "string", default: "1", description: "Page number (1-indexed)" },
             limit: {
               type: "string",
               default: "20",
@@ -53,17 +46,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Successful response with paginated guest list",
             type: "object",
             properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Guest#" },
-              },
+              data: { type: "array", items: { $ref: "Guest#" } },
               pagination: { $ref: "Pagination#" },
             },
           },
-          401: {
-            description: "Authentication required",
-            $ref: "Error#",
-          },
+          401: { description: "Authentication required", $ref: "Error#" },
         },
       },
     },
@@ -82,12 +69,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Search guests
   fastify.get<{
-    Querystring: {
-      venueId: string;
-      query?: string;
-      tags?: string;
-      hasNotVisitedInDays?: string;
-    };
+    Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
     Reply: PaginatedResponse<Guest> | ApiError;
   }>(
     "/search",
@@ -103,18 +85,9 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["venueId"],
           properties: {
-            venueId: {
-              type: "string",
-              description: "Venue ID to search within",
-            },
-            query: {
-              type: "string",
-              description: "Search term (matches name, email, or phone)",
-            },
-            tags: {
-              type: "string",
-              description: "Comma-separated tags to filter by",
-            },
+            venueId: { type: "string", description: "Venue ID to search within" },
+            query: { type: "string", description: "Search term (matches name, email, or phone)" },
+            tags: { type: "string", description: "Comma-separated tags to filter by" },
             hasNotVisitedInDays: {
               type: "string",
               description: "Filter guests who haven't visited in X days",
@@ -126,17 +99,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Search results",
             type: "object",
             properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Guest#" },
-              },
+              data: { type: "array", items: { $ref: "Guest#" } },
               pagination: { $ref: "Pagination#" },
             },
           },
-          401: {
-            description: "Authentication required",
-            $ref: "Error#",
-          },
+          401: { description: "Authentication required", $ref: "Error#" },
         },
       },
     },
@@ -174,10 +141,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["venueId"],
           properties: {
-            venueId: {
-              type: "string",
-              description: "Venue ID to get segments for",
-            },
+            venueId: { type: "string", description: "Venue ID to get segments for" },
           },
         },
         response: {
@@ -185,16 +149,10 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Guest segments",
             type: "object",
             properties: {
-              data: {
-                type: "array",
-                items: { $ref: "GuestSegment#" },
-              },
+              data: { type: "array", items: { $ref: "GuestSegment#" } },
             },
           },
-          401: {
-            description: "Authentication required",
-            $ref: "Error#",
-          },
+          401: { description: "Authentication required", $ref: "Error#" },
         },
       },
     },
@@ -226,26 +184,16 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         security: [{ bearerAuth: [] }],
         params: {
           type: "object",
-          properties: {
-            id: {
-              type: "string",
-              description: "Guest ID",
-            },
-          },
+          properties: { id: { type: "string", description: "Guest ID" } },
           required: ["id"],
         },
         response: {
           200: {
             description: "Guest found",
             type: "object",
-            properties: {
-              data: { $ref: "Guest#" },
-            },
+            properties: { data: { $ref: "Guest#" } },
           },
-          404: {
-            description: "Guest not found",
-            $ref: "Error#",
-          },
+          404: { description: "Guest not found", $ref: "Error#" },
         },
       },
     },
@@ -276,31 +224,20 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["venueId", "name"],
           properties: {
-            venueId: {
-              type: "string",
-              description: "Venue ID",
-            },
-            email: {
-              type: "string",
-              format: "email",
-              description: "Guest email",
-            },
-            phone: {
-              type: "string",
-              description: "Guest phone",
-            },
-            name: {
-              type: "string",
-              description: "Guest name",
-            },
-            notes: {
-              type: "string",
-              description: "Internal notes",
-            },
+            venueId: { type: "string", description: "Venue ID" },
+            email: { type: "string", format: "email", description: "Guest email" },
+            phone: { type: "string", description: "Guest phone" },
+            name: { type: "string", description: "Guest name" },
+            notes: { type: "string", description: "Internal notes" },
             tags: {
               type: "array",
               items: { type: "string" },
               description: "Tags for categorization",
+            },
+            dietaryRestrictions: {
+              type: "array",
+              items: { type: "string" },
+              description: "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
             },
           },
         },
@@ -308,18 +245,10 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           201: {
             description: "Guest created",
             type: "object",
-            properties: {
-              data: { $ref: "Guest#" },
-            },
+            properties: { data: { $ref: "Guest#" } },
           },
-          400: {
-            description: "Invalid request or duplicate email/phone",
-            $ref: "Error#",
-          },
-          401: {
-            description: "Authentication required",
-            $ref: "Error#",
-          },
+          400: { description: "Invalid request or duplicate email/phone", $ref: "Error#" },
+          401: { description: "Authentication required", $ref: "Error#" },
         },
       },
     },
@@ -346,7 +275,13 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Find or create guest (identity resolution)
   fastify.post<{
-    Body: { venueId: string; email?: string; phone?: string; name: string };
+    Body: {
+      venueId: string;
+      email?: string;
+      phone?: string;
+      name: string;
+      dietaryRestrictions?: string[];
+    };
     Reply: ApiResponse<Guest> | ApiError;
   }>(
     "/find-or-create",
@@ -363,10 +298,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["venueId", "name"],
           properties: {
-            venueId: {
-              type: "string",
-              description: "Venue ID",
-            },
+            venueId: { type: "string", description: "Venue ID" },
             email: {
               type: "string",
               format: "email",
@@ -376,9 +308,11 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
               type: "string",
               description: "Guest phone (used for matching if email not found)",
             },
-            name: {
-              type: "string",
-              description: "Guest name",
+            name: { type: "string", description: "Guest name" },
+            dietaryRestrictions: {
+              type: "array",
+              items: { type: "string" },
+              description: "Dietary restrictions to merge with existing guest profile",
             },
           },
         },
@@ -386,29 +320,26 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           200: {
             description: "Guest found or created",
             type: "object",
-            properties: {
-              data: { $ref: "Guest#" },
-            },
+            properties: { data: { $ref: "Guest#" } },
           },
-          400: {
-            description: "Invalid request",
-            $ref: "Error#",
-          },
-          401: {
-            description: "Authentication required",
-            $ref: "Error#",
-          },
+          400: { description: "Invalid request", $ref: "Error#" },
+          401: { description: "Authentication required", $ref: "Error#" },
         },
       },
     },
     async (request, reply) => {
-      const { venueId, email, phone, name } = request.body;
+      const { venueId, email, phone, name, dietaryRestrictions } = request.body;
       if (!email && !phone) {
         return reply
           .code(400)
           .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
       }
-      const guest = await guestService.findOrCreate(venueId, { email, phone, name });
+      const guest = await guestService.findOrCreate(venueId, {
+        email,
+        phone,
+        name,
+        dietaryRestrictions,
+      });
       return { data: guest };
     }
   );
@@ -430,6 +361,62 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         security: [{ bearerAuth: [] }],
         params: {
           type: "object",
+          properties: { id: { type: "string", description: "Guest ID" } },
+          required: ["id"],
+        },
+        body: {
+          type: "object",
+          properties: {
+            email: { type: "string", format: "email", nullable: true },
+            phone: { type: "string", nullable: true },
+            name: { type: "string" },
+            notes: { type: "string", nullable: true },
+            tags: { type: "array", items: { type: "string" }, nullable: true },
+            dietaryRestrictions: {
+              type: "array",
+              items: { type: "string" },
+              nullable: true,
+              description: "Dietary restrictions (replaces existing list)",
+            },
+          },
+        },
+        response: {
+          200: {
+            description: "Guest updated",
+            type: "object",
+            properties: { data: { $ref: "Guest#" } },
+          },
+          404: { description: "Guest not found", $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const guest = await guestService.update(request.params.id, request.body);
+      if (!guest) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+      }
+      return { data: guest };
+    }
+  );
+
+  // Add staff note to guest
+  fastify.post<{
+    Params: { id: string };
+    Body: { text: string };
+    Reply: ApiResponse<Guest> | ApiError;
+  }>(
+    "/:id/notes",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Add a staff note to a guest",
+        operationId: "addGuestNote",
+        description:
+          "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+        tags: ["Guests"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
           properties: {
             id: {
               type: "string",
@@ -440,25 +427,30 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         },
         body: {
           type: "object",
+          required: ["text"],
           properties: {
-            email: { type: "string", format: "email", nullable: true },
-            phone: { type: "string", nullable: true },
-            name: { type: "string" },
-            notes: { type: "string", nullable: true },
-            tags: {
-              type: "array",
-              items: { type: "string" },
-              nullable: true,
+            text: {
+              type: "string",
+              minLength: 1,
+              description: "Note text",
             },
           },
         },
         response: {
-          200: {
-            description: "Guest updated",
+          201: {
+            description: "Note appended; returns updated guest",
             type: "object",
             properties: {
               data: { $ref: "Guest#" },
             },
+          },
+          400: {
+            description: "Invalid request",
+            $ref: "Error#",
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
           },
           404: {
             description: "Guest not found",
@@ -468,11 +460,16 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const guest = await guestService.update(request.params.id, request.body);
+      const { text } = request.body;
+      if (!text || text.trim().length === 0) {
+        return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+      }
+      const createdBy = request.user?.id ?? "unknown";
+      const guest = await guestService.addNote(request.params.id, text, createdBy);
       if (!guest) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
-      return { data: guest };
+      return reply.code(201).send({ data: guest });
     }
   );
 
@@ -491,27 +488,13 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         security: [{ bearerAuth: [] }],
         params: {
           type: "object",
-          properties: {
-            id: {
-              type: "string",
-              description: "Guest ID",
-            },
-          },
+          properties: { id: { type: "string", description: "Guest ID" } },
           required: ["id"],
         },
         response: {
-          204: {
-            description: "Guest deleted",
-            type: "null",
-          },
-          404: {
-            description: "Guest not found",
-            $ref: "Error#",
-          },
-          409: {
-            description: "Guest has reservations",
-            $ref: "Error#",
-          },
+          204: { description: "Guest deleted", type: "null" },
+          404: { description: "Guest not found", $ref: "Error#" },
+          409: { description: "Guest has reservations", $ref: "Error#" },
         },
       },
     },

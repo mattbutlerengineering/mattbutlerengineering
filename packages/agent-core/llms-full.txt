@@ -1,15 +1,71 @@
 <codebase path="packages/agent-core">
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
-    function detectRateLimitInError(message: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
-    }
     function deriveHasChanges(result: SessionResult): boolean {
       if (result.prUrl !== null) return true;
       // If the session succeeded and produced a branch, there were likely changes
       // even if the PR wasn't created (createPr: false path).
       if (result.status === "succeeded" && result.branchName.length > 0) return true;
       return false;
+    }
+    export class ClaudeAdapter implements AgentAdapter {
+      readonly name = "claude";
+    
+      /**
+       * The Claude SDK adapter is available when the ANTHROPIC_API_KEY env var is set.
+       */
+      async isAvailable(): Promise<boolean> {
+        return (
+          typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
+          process.env["ANTHROPIC_API_KEY"].length > 0
+        );
+      }
+    
+      /**
+       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
+       * result back to AdapterResult.
+       */
+      async run(config: AdapterConfig): Promise<AdapterResult> {
+        const startTime = Date.now();
+    
+        try {
+          const sessionResult = await runSession({
+            taskDescription: config.taskDescription,
+            repoPath: config.repoPath,
+            baseBranch: config.baseBranch,
+            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
+            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
+            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+            createPr: false, // Worktree lifecycle is managed by the caller / router
+          });
+    
+          const durationMs = Date.now() - startTime;
+          const rateLimited = sessionResult.failureCategory === "rate_limited";
+          const success = sessionResult.status === "succeeded";
+          const hasChanges = deriveHasChanges(sessionResult);
+    
+          return {
+            success,
+            hasChanges,
+            rateLimited,
+            durationMs,
+            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
+          };
+        } catch (err: unknown) {
+          const durationMs = Date.now() - startTime;
+          const message = err instanceof Error ? err.message : String(err);
+          const rateLimited = scanForRateLimitPatterns(message);
+    
+          return {
+            success: false,
+            hasChanges: false,
+            rateLimited,
+            durationMs,
+            error: message,
+          };
+        }
+      }
     }
   </file>
   <file path="src/adapters/cli-adapter-base.ts">
@@ -116,9 +172,10 @@
     
       /**
        * Scan combined CLI output for rate-limit indicators.
+       * Delegates to the shared scanForRateLimitPatterns utility in rate-limit-detector.ts.
        */
       protected detectRateLimiting(output: string): boolean {
-        return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+        return scanForRateLimitPatterns(output);
       }
     
       /**
@@ -228,6 +285,767 @@
         stderr: string
       ): { hasChanges: boolean; summary?: string } {
         return { hasChanges: false, summary: stderr || undefined };
+      }
+    }
+  </file>
+  </section>
+  <section priority="medium" role="gates">
+  <file path="src/gates/llm-evaluation-gate.ts">
+    export class LlmEvaluationGate implements QualityGate {
+      readonly name = "evaluation";
+    
+      shouldSkip(context: GateContext): boolean {
+        if (context.evaluateSuccess === false) return true;
+        return !shouldEvaluate(context.diff, { commitTitle: context.commitMsg });
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.llm_evaluation_gate");
+        try {
+          const evalResult = await evaluateSuccess(context.taskDescription, context.diff);
+    
+          span.setAttribute("evaluation.passed", evalResult.passed);
+          span.setAttribute("evaluation.confidence", evalResult.confidence);
+    
+          if (!evalResult.passed) {
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Evaluation failed: ${evalResult.reasoning}`,
+            };
+          }
+    
+          return {
+            passed: true,
+            gateName: this.name,
+            severity: "error",
+            details: `confidence: ${evalResult.confidence.toFixed(2)}`,
+          };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  <file path="src/gates/security-review-gate.ts">
+    export class SecurityReviewGate implements QualityGate {
+      readonly name = "security-review";
+    
+      shouldSkip(context: GateContext): boolean {
+        return context.runSecurityReview === false;
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.security_review_gate");
+        try {
+          const reviewResult = await reviewDiff(context.diff);
+    
+          span.setAttribute("security_review.approved", reviewResult.approved);
+          span.setAttribute("security_review.issues_count", reviewResult.issues.length);
+    
+          if (!reviewResult.approved) {
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Security review failed: ${reviewResult.issues.join("; ")}`,
+            };
+          }
+    
+          return { passed: true, gateName: this.name, severity: "error" };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  <file path="src/gates/static-analysis-gate.ts">
+    export class StaticAnalysisGate implements QualityGate {
+      readonly name = "static-analysis";
+    
+      shouldSkip(context: GateContext): boolean {
+        return context.runStaticAnalysis === false;
+      }
+    
+      async evaluate(context: GateContext): Promise<GateResult> {
+        const span = tracer.startSpan("agent_core.static_analysis_gate");
+        try {
+          const analysisResult = analyzeDiff(context.diff);
+          const errorViolations = analysisResult.violations.filter((v) => v.severity === "error");
+          const passed = errorViolations.length === 0;
+    
+          span.setAttribute("static_analysis.clean", analysisResult.clean);
+          span.setAttribute("static_analysis.violation_count", analysisResult.violations.length);
+          span.setAttribute("static_analysis.error_count", errorViolations.length);
+    
+          if (!passed) {
+            const formatted = errorViolations
+              .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
+              .join("; ");
+            return {
+              passed: false,
+              gateName: this.name,
+              severity: "error",
+              details: `Static analysis errors: ${formatted}`,
+            };
+          }
+    
+          if (!analysisResult.clean) {
+            const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
+            return {
+              passed: true,
+              gateName: this.name,
+              severity: "warning",
+              details: `${warnCount} warning(s) (non-blocking)`,
+            };
+          }
+    
+          return { passed: true, gateName: this.name, severity: "error" };
+        } finally {
+          span.end();
+        }
+      }
+    }
+  </file>
+  </section>
+  <section priority="medium" role="phases">
+  <file path="src/phases/feedback-phase.ts">
+    export class FeedbackPhase implements PipelinePhase {
+      readonly name = "feedback" as const;
+    
+      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
+        const { config, onEvent, worktree, resultMessage, prNumber } = ctx;
+    
+        if (!config.feedbackLoop?.enabled || !prNumber || !ctx.prUrl || !worktree) {
+          return {
+            result: { phase: this.name, status: "skipped", errors: [] },
+            ctx,
+          };
+        }
+    
+        // Use remaining budget instead of fixed 50% ratio
+        const sessionCost = resultMessage?.total_cost_usd ?? 0;
+        const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
+    
+        const fbSpan = tracer.startSpan("agent_core.feedback_loop");
+        let feedbackResult;
+        try {
+          feedbackResult = await runFeedbackLoop(
+            {
+              prNumber,
+              branchName: worktree.branchName,
+              repoPath: worktree.path,
+              model: getFeedbackLoopModel(config.model),
+              maxRetries: config.feedbackLoop.maxRetries ?? 2,
+              pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
+              pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
+              maxBudgetUsd: remainingBudget,
+              allowedTools: config.allowedTools,
+            },
+            onEvent
+          );
+          fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
+          fbSpan.setAttribute("feedback.resolved", feedbackResult.resolved);
+        } finally {
+          fbSpan.end();
+        }
+    
+        emitEvent(onEvent, "session:result", {
+          message: `Feedback loop: ${feedbackResult.resolved ? "resolved" : "escalated"} after ${feedbackResult.retriesUsed} retries`,
+        });
+    
+        return {
+          result: { phase: this.name, status: "success", errors: [] },
+          ctx,
+        };
+      }
+    }
+  </file>
+  <file path="src/phases/pipeline-types.ts">
+    export type PhaseStatus = "success" | "failed" | "skipped";
+    export interface PhaseResult {
+      readonly phase: string;
+      readonly status: PhaseStatus;
+      readonly errors: readonly string[];
+    }
+  </file>
+  <file path="src/phases/publish-phase.ts">
+    export class PublishPhase implements PipelinePhase {
+      readonly name = "publish" as const;
+    
+      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
+        const { config, worktree } = ctx;
+    
+        if (!config.createPr || !ctx.hasChanges || !worktree) {
+          return {
+            result: { phase: this.name, status: "skipped", errors: [] },
+            ctx,
+          };
+        }
+    
+        const { prUrl, prNumber } = await this.createOrMergePr(ctx, worktree);
+    
+        return {
+          result: { phase: this.name, status: "success", errors: [] },
+          ctx: { ...ctx, prUrl, prNumber },
+        };
+      }
+    
+      private async createOrMergePr(
+        ctx: PipelineContext,
+        worktree: WorktreeInfo
+      ): Promise<{ prUrl: string | null; prNumber?: number }> {
+        const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = ctx;
+    
+        if (gatewayVerdict?.outcome === "merge-direct") {
+          const commitTitle = buildPrTitle(config.taskDescription);
+          const mergedUrl = await mergeDirectly({
+            branchName: worktree.branchName,
+            baseBranch: config.baseBranch,
+            repoPath: worktree.path,
+            commitTitle,
+          });
+          emitEvent(onEvent, "session:result", {
+            message: `Trivial dep bump — direct-merged: ${mergedUrl}`,
+          });
+          return { prUrl: mergedUrl };
+        }
+    
+        if (!gatewayVerdict || gatewayVerdict.outcome === "create-pr") {
+          const title = buildPrTitle(config.taskDescription);
+          const body = resultMessage
+            ? buildPrBody(
+                config.taskDescription,
+                resultMessage.session_id,
+                resultMessage.total_cost_usd,
+                resultMessage.num_turns
+              )
+            : buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+    
+          const prSpan = tracer.startSpan("agent_core.create_pr");
+          try {
+            const { value: pr } = await withRetry(
+              () =>
+                createPullRequest({
+                  title,
+                  body,
+                  baseBranch: config.baseBranch,
+                  branchName: worktree.branchName,
+                  repoPath: worktree.path,
+                  draft: false,
+                }),
+              { maxRetries: 3 }
+            );
+            prSpan.setAttribute("pr.url", pr.url);
+            prSpan.setAttribute("pr.number", pr.number);
+            prSpan.setAttribute("pr.draft", false);
+    
+            emitEvent(onEvent, "session:result", {
+              message: `PR created: ${pr.url}`,
+            });
+            return { prUrl: pr.url, prNumber: pr.number };
+          } finally {
+            prSpan.end();
+          }
+        }
+    
+        // verdict.outcome === "create-draft-pr" — quality gates failed
+        const title = `wip: ${config.taskDescription.slice(0, 57)}`;
+        const body = buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+    
+        const { value: pr } = await withRetry(
+          () =>
+            createPullRequest({
+              title,
+              body,
+              baseBranch: config.baseBranch,
+              branchName: worktree.branchName,
+              repoPath: worktree.path,
+              draft: true,
+            }),
+          { maxRetries: 3 }
+        );
+    
+        emitEvent(onEvent, "session:result", {
+          message: `Draft PR created (failed gates: ${gatewayVerdict!.gateFailures.join(", ")}): ${pr.url}`,
+        });
+        return { prUrl: pr.url, prNumber: pr.number };
+      }
+    }
+  </file>
+  <file path="src/phases/query-phase.ts">
+    interface StreamingResult {
+      readonly resultMessage: SDKResultMessage | null;
+      readonly stuckDetected: StuckPattern | null;
+    }
+    export class QueryPhase implements PipelinePhase {
+      readonly name = "query" as const;
+    
+      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
+        const { config, onEvent, worktree, systemPrompt } = ctx;
+    
+        if (!worktree || !systemPrompt) {
+          const msg = "QueryPhase requires worktree and systemPrompt in context";
+          return {
+            result: { phase: this.name, status: "failed", errors: [msg] },
+            ctx: { ...ctx, errors: [...ctx.errors, msg] },
+          };
+        }
+    
+        // Fail fast if the circuit breaker is open
+        if (apiCircuitBreaker.getState() === CircuitState.Open) {
+          const circuitMsg =
+            "Circuit breaker is OPEN — Anthropic API appears degraded. Skipping session.";
+          emitEvent(onEvent, "session:error", { message: circuitMsg });
+          return {
+            result: { phase: this.name, status: "failed", errors: [circuitMsg] },
+            ctx: { ...ctx, errors: [...ctx.errors, circuitMsg] },
+          };
+        }
+    
+        const abortController = new AbortController();
+        const canUseTool = createToolPermissionHandler(worktree.path);
+    
+        const detector = createStuckDetector(config.stuckDetectorConfig);
+    
+        let conversation: ReturnType<typeof query>;
+        try {
+          conversation = query({
+            prompt: config.taskDescription,
+            options: {
+              abortController,
+              cwd: worktree.path,
+              model: config.model,
+              maxTurns: config.maxTurns,
+              maxBudgetUsd: config.maxBudgetUsd,
+              allowedTools: [...config.allowedTools],
+              permissionMode: "acceptEdits",
+              settingSources: ["project"],
+              systemPrompt: {
+                type: "preset",
+                preset: "claude_code",
+                append: systemPrompt,
+              },
+              canUseTool: async (toolName, input) => canUseTool(toolName, input),
+            },
+          });
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          return {
+            result: { phase: this.name, status: "failed", errors: [errMsg] },
+            ctx: { ...ctx, errors: [...ctx.errors, errMsg] },
+          };
+        }
+    
+        const querySpan = tracer.startSpan("agent_core.sdk_query", {
+          attributes: { "sdk.model": config.model },
+        });
+    
+        let compactionCount = 0;
+        let turnIndex = 0;
+    
+        const rawTurnMetrics: Array<{
+          turnIndex: number;
+          startedAt: string;
+          inputTokens: number;
+          outputTokens: number;
+          thinkingTokens: number;
+          costUsd: number;
+          modelId: string;
+        }> = [];
+    
+        const rawToolCallMetrics: Array<{
+          toolName: string;
+          toolUseId: string;
+          latencyMs: number;
+          isError: boolean;
+        }> = [];
+    
+        const pendingToolCalls = new Map<string, { toolName: string; startMs: number }>();
+    
+        // Heartbeat: periodic liveness signal + inactivity timeout
+        const heartbeat = DEFAULT_HEARTBEAT_CONFIG;
+        const startTime = Date.now();
+        let lastActivityMs = Date.now();
+        let stuckReason: StuckPattern | null = null;
+    
+        const heartbeatInterval = setInterval(() => {
+          const silenceMs = Date.now() - lastActivityMs;
+          emitEvent(onEvent, "session:heartbeat", {
+            message: JSON.stringify({
+              turnCount: turnIndex,
+              compactionCount,
+              elapsedMs: Date.now() - startTime,
+              lastActivityMs: silenceMs,
+            }),
+          });
+          if (silenceMs >= heartbeat.inactivityTimeoutMs) {
+            stuckReason = {
+              type: "zero_progress" as const,
+              count: 0,
+              threshold: 0,
+              description: `No SDK activity for ${Math.round(silenceMs / 1000)}s — session appears hung`,
+              severity: "error" as const,
+            };
+            emitEvent(onEvent, "session:stuck", {
+              message: `Inactivity timeout: no messages for ${Math.round(silenceMs / 1000)}s`,
+            });
+            abortController.abort();
+          }
+        }, heartbeat.intervalMs);
+    
+        let streamResult: StreamingResult = { resultMessage: null, stuckDetected: null };
+        let circuitBreakerTripped = false;
+    
+        try {
+          streamResult = await apiCircuitBreaker.wrap(async (): Promise<StreamingResult> => {
+            let innerResult: SDKResultMessage | null = null;
+            let innerStuck: StuckPattern | null = null;
+            try {
+              for await (const message of conversation) {
+                lastActivityMs = Date.now();
+                emitEvent(onEvent, "session:message", message);
+    
+                if (message.type === "assistant") {
+                  turnIndex++;
+                }
+    
+                // Track assistant messages as Langfuse generation observations
+                if (message.type === "assistant" && "message" in message) {
+                  const msg = message.message as {
+                    role: string;
+                    content: unknown;
+                    usage?: { input_tokens?: number; output_tokens?: number };
+                  };
+                  const gen = startObservation(
+                    `llm-turn-${turnIndex}`,
+                    { model: config.model, input: msg.content },
+                    { asType: "generation" }
+                  );
+                  gen
+                    .update({
+                      output: msg.content,
+                      usageDetails: {
+                        input: msg.usage?.input_tokens ?? 0,
+                        output: msg.usage?.output_tokens ?? 0,
+                      },
+                    })
+                    .end();
+                }
+    
+                // Emit typed events for observability
+                for (const mapped of mapSdkMessage(message, turnIndex)) {
+                  emitEvent(onEvent, mapped.type, {
+                    message: sanitizeStreamChunk(JSON.stringify(mapped)),
+                  });
+    
+                  if (mapped.type === "session:turn_metrics") {
+                    const tm = mapped as TurnMetricsEvent;
+                    rawTurnMetrics.push({
+                      turnIndex: tm.turnIndex,
+                      startedAt: new Date().toISOString(),
+                      inputTokens: tm.inputTokens,
+                      outputTokens: tm.outputTokens,
+                      thinkingTokens: tm.thinkingTokens,
+                      costUsd: tm.costUsd,
+                      modelId: tm.modelId,
+                    });
+                  }
+    
+                  if (mapped.type === "session:tool_use") {
+                    pendingToolCalls.set(mapped.toolUseId, {
+                      toolName: mapped.toolName,
+                      startMs: Date.now(),
+                    });
+                  }
+    
+                  if (mapped.type === "session:tool_result") {
+                    const pending = pendingToolCalls.get(mapped.toolUseId);
+                    if (pending) {
+                      const latencyMs = Date.now() - pending.startMs;
+                      rawToolCallMetrics.push({
+                        toolName: pending.toolName,
+                        toolUseId: mapped.toolUseId,
+                        latencyMs,
+                        isError: mapped.isError,
+                      });
+                      pendingToolCalls.delete(mapped.toolUseId);
+                      emitEvent(onEvent, "session:tool_latency", {
+                        message: JSON.stringify({
+                          toolName: pending.toolName,
+                          toolUseId: mapped.toolUseId,
+                          latencyMs,
+                          isError: mapped.isError,
+                        }),
+                      });
+                    }
+                  }
+                }
+    
+                // Track compaction events
+                if (
+                  message.type === "system" &&
+                  "subtype" in message &&
+                  message.subtype === "compact_boundary"
+                ) {
+                  compactionCount++;
+                  if (compactionCount >= MAX_COMPACTIONS) {
+                    innerStuck = {
+                      type: "context_window_loop",
+                      count: compactionCount,
+                      threshold: MAX_COMPACTIONS,
+                      description: `Context window compacted ${compactionCount} times — session exhausted`,
+                      severity: "error",
+                    };
+                    emitEvent(onEvent, "session:stuck", {
+                      message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
+                    });
+                    querySpan.setAttribute("sdk.compaction_count", compactionCount);
+                    abortController.abort();
+                    break;
+                  }
+                }
+    
+                if (message.type === "result") {
+                  innerResult = message as SDKResultMessage;
+                  continue;
+                }
+    
+                const stuckPattern = detector.ingest(message);
+                if (stuckPattern) {
+                  if (stuckPattern.severity === "error") {
+                    innerStuck = stuckPattern;
+                    emitEvent(onEvent, "session:stuck", {
+                      message: `Stuck detected: ${stuckPattern.description}`,
+                    });
+                    querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
+                    abortController.abort();
+                    break;
+                  }
+                  emitEvent(onEvent, "session:stuck", {
+                    message: `Stuck warning: ${stuckPattern.description}`,
+                  });
+                }
+              }
+    
+              querySpan.setAttribute("sdk.turns_completed", innerResult?.num_turns ?? 0);
+              querySpan.setAttribute("sdk.compaction_count", compactionCount);
+            } catch (err) {
+              if (err instanceof ContextWindowExhaustedError) {
+                innerStuck = {
+                  type: "context_window_loop",
+                  count: compactionCount,
+                  threshold: MAX_COMPACTIONS,
+                  description: err.message,
+                  severity: "error",
+                };
+                emitEvent(onEvent, "session:stuck", {
+                  message: `Context window exhaustion: ${err.message}`,
+                });
+              } else {
+                querySpan.recordException(err as Error);
+                querySpan.setStatus({ code: SpanStatusCode.ERROR });
+                throw err;
+              }
+            }
+            return { resultMessage: innerResult, stuckDetected: innerStuck };
+          });
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          if (errMsg.includes("Circuit breaker is OPEN")) {
+            circuitBreakerTripped = true;
+            emitEvent(onEvent, "session:error", {
+              message: `Circuit breaker tripped: ${errMsg}`,
+            });
+            querySpan.setAttribute("session.circuit_breaker", "tripped");
+          } else {
+            clearInterval(heartbeatInterval);
+            querySpan.end();
+            return {
+              result: { phase: this.name, status: "failed", errors: [errMsg] },
+              ctx: { ...ctx, errors: [...ctx.errors, errMsg] },
+            };
+          }
+        } finally {
+          clearInterval(heartbeatInterval);
+          querySpan.end();
+        }
+    
+        const resultMessage = streamResult.resultMessage ?? undefined;
+        const detectedStuck = streamResult.stuckDetected ?? stuckReason ?? undefined;
+    
+        if (circuitBreakerTripped) {
+          const circuitMsg = "Circuit breaker tripped — too many consecutive API failures";
+          return {
+            result: { phase: this.name, status: "failed", errors: [circuitMsg] },
+            ctx: { ...ctx, errors: [...ctx.errors, circuitMsg] },
+          };
+        }
+    
+        const { buildTurnMetricsList, buildToolCallMetricsList } = await import("../observability.js");
+    
+        return {
+          result: { phase: this.name, status: "success", errors: [] },
+          ctx: {
+            ...ctx,
+            resultMessage,
+            stuckReason: detectedStuck,
+            turnMetrics: buildTurnMetricsList(rawTurnMetrics),
+            toolCallMetrics: buildToolCallMetricsList(rawToolCallMetrics),
+          },
+        };
+      }
+    }
+  </file>
+  <file path="src/phases/verification-phase.ts">
+    export class VerificationPhase implements PipelinePhase {
+      readonly name = "verification" as const;
+    
+      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
+        const { config, onEvent, worktree, resultMessage, stuckReason } = ctx;
+    
+        if (!worktree) {
+          return {
+            result: { phase: this.name, status: "skipped", errors: [] },
+            ctx,
+          };
+        }
+    
+        const changed = await hasChanges(worktree.path);
+    
+        if (!changed) {
+          emitEvent(onEvent, "session:result", {
+            message: "No changes were made by the agent",
+          });
+          return {
+            result: { phase: this.name, status: "success", errors: [] },
+            ctx: { ...ctx, hasChanges: false },
+          };
+        }
+    
+        // Commit changes
+        const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
+        const prefix = isSuccess ? "feat" : "wip";
+        const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
+        await commitChanges(worktree.path, commitMsg);
+    
+        // Push with retry for transient network failures
+        await withRetry(() => pushBranch(worktree.path, worktree.branchName), { maxRetries: 3 });
+    
+        // Run post-commit gateway (verification + quality gates) only on success
+        const errors: string[] = [];
+        let gatewayVerdict;
+        let gatewayEvaluation;
+        let cachedDiff: string | undefined;
+    
+        if (isSuccess) {
+          cachedDiff = await getGitDiff(worktree.path);
+          gatewayVerdict = await runPostCommitGateway(
+            {
+              worktreePath: worktree.path,
+              diff: cachedDiff,
+              commitMsg,
+              taskDescription: config.taskDescription,
+              config: {
+                evaluateSuccess: config.evaluateSuccess,
+                runSecurityReview: true,
+                runStaticAnalysis: true,
+              },
+            },
+            onEvent
+          );
+          errors.push(...gatewayVerdict.errors);
+          gatewayEvaluation = gatewayVerdict.evaluation;
+        }
+    
+        return {
+          result: { phase: this.name, status: "success", errors },
+          ctx: {
+            ...ctx,
+            hasChanges: true,
+            commitMsg,
+            cachedDiff,
+            gatewayVerdict,
+            gatewayEvaluation,
+            errors: [...ctx.errors, ...errors],
+          },
+        };
+      }
+    }
+  </file>
+  <file path="src/phases/worktree-phase.ts">
+    export class WorktreePhase implements PipelinePhase {
+      readonly name = "worktree" as const;
+    
+      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
+        const { config, onEvent } = ctx;
+    
+        emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
+    
+        const wtSpan = tracer.startSpan("agent_core.create_worktree");
+        try {
+          // 1. Create isolated worktree (with retry for transient git failures)
+          const { value: worktree } = await withRetry(
+            () => createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+            { maxRetries: 2 }
+          );
+          wtSpan.setAttribute("worktree.branch", worktree.branchName);
+          wtSpan.setAttribute("worktree.mode", worktree.mode);
+          wtSpan.end();
+    
+          // 2. Build system prompt with failure context, source files, and PR examples
+          const failureMemory = await loadMemory(config.repoPath);
+          const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
+          const failureContext = buildFailureContext(pastFailures);
+    
+          // Auto-resolve source files from task description if none provided
+          const resolvedSourcePaths =
+            config.sourceFiles ??
+            (async () => {
+              const { resolveSourceFiles } = await import("../source-resolver.js");
+              return resolveSourceFiles(config.taskDescription);
+            })();
+    
+          const finalSourcePaths = await resolvedSourcePaths;
+    
+          const sourceFileEntries =
+            finalSourcePaths.length > 0 ? await loadSourceFiles(finalSourcePaths) : undefined;
+    
+          // Fetch recent successful PRs as examples (non-blocking)
+          const { fetchRecentPrExamples, formatPrExamples } = await import("../budget-calculator.js");
+          const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
+          const prExamplesSection = formatPrExamples(prExamples);
+    
+          // Load project CLAUDE.md for coding conventions (non-blocking)
+          const projectContext = await loadProjectContext(worktree.path).catch(() => null);
+          const projectSection = projectContext
+            ? `\n\n## Project Conventions (from CLAUDE.md)\n\n${projectContext}`
+            : "";
+    
+          const systemPrompt =
+            (await buildSystemPrompt(config.taskDescription, {
+              sourceFileEntries,
+              prExamplesSection,
+              failureContext,
+            })) + projectSection;
+    
+          emitEvent(onEvent, "session:start", {
+            message: `Starting agent on branch ${worktree.branchName}`,
+          });
+    
+          return {
+            result: { phase: this.name, status: "success", errors: [] },
+            ctx: { ...ctx, worktree, systemPrompt },
+          };
+        } catch (error) {
+          wtSpan.end();
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          return {
+            result: { phase: this.name, status: "failed", errors: [errorMessage] },
+            ctx: { ...ctx, errors: [...ctx.errors, errorMessage] },
+          };
+        }
       }
     }
   </file>
@@ -473,6 +1291,32 @@
       readonly ciLogMaxChars?: number;
     }
   </file>
+  <file path="src/gate-runner.ts">
+    export interface GateContext {
+      /** The git diff produced by the agent's commit. */
+      readonly diff: string;
+      /** The original task description used to drive the agent session. */
+      readonly taskDescription: string;
+      /** The commit message written when the agent committed changes. */
+      readonly commitMsg: string;
+      /** Whether LLM success evaluation is enabled in the session config. */
+      readonly evaluateSuccess: boolean;
+      /** Whether static diff analysis is enabled in the session config. */
+      readonly runStaticAnalysis: boolean;
+      /** Whether AI security review is enabled in the session config. */
+      readonly runSecurityReview: boolean;
+    }
+    export interface GateResult {
+      /** Whether this gate passed. Skipped gates always report passed=true. */
+      readonly passed: boolean;
+      /** The name of the gate that produced this result. */
+      readonly gateName: string;
+      /** Severity level of this gate — drives draft-PR vs normal-PR decision. */
+      readonly severity: "error" | "warning";
+      /** Human-readable details about a failure or a skip reason. */
+      readonly details?: string;
+    }
+  </file>
   <file path="src/intent-extractor.ts">
     interface ContentBlock {
       readonly type: string;
@@ -499,17 +1343,194 @@
     }
   </file>
   <file path="src/orchestrator.ts">
-    interface SessionApiResponse<T> {
-      readonly data: T;
+    function createSessionTools(config: OrchestratorConfig) {
+      const client =
+        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+    
+      const createSessionTool = tool(
+        "create_session",
+        "Create a new coding agent session for a sub-task. Returns the session ID and initial status.",
+        {
+          taskDescription: z
+            .string()
+            .describe("Clear, self-contained description of what the agent should do"),
+          model: z.string().optional().describe("Model to use (defaults to configured session model)"),
+          maxBudgetUsd: z
+            .number()
+            .optional()
+            .describe("Budget cap in USD (defaults to configured limit)"),
+          maxTurns: z
+            .number()
+            .optional()
+            .describe("Max conversation turns (defaults to configured limit)"),
+          baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
+        },
+        async (args) => {
+          const session = await client.createSession({
+            taskDescription: args.taskDescription,
+            model: args.model ?? config.sessionModel,
+            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+            baseBranch: args.baseBranch ?? config.baseBranch,
+            ...(config.parentSessionId && { parentId: config.parentSessionId }),
+          });
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessionId: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const checkSessionTool = tool(
+        "check_session",
+        "Check the current status of a session. Returns full session details including status, PR URL, cost, and errors.",
+        {
+          sessionId: z.string().describe("The session ID to check"),
+        },
+        async (args) => {
+          const session = await client.getSession(args.sessionId);
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  id: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                  branchName: session.branchName,
+                  prUrl: session.prUrl,
+                  costUsd: session.costUsd,
+                  errors: session.errors,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const listSessionsTool = tool(
+        "list_sessions",
+        "List all sessions. Use to check overall progress.",
+        {
+          status: z
+            .enum(["pending", "running", "succeeded", "failed", "cancelled"])
+            .optional()
+            .describe("Filter by status"),
+          page: z.number().optional().describe("Page number (default 1)"),
+          limit: z.number().optional().describe("Items per page (default 20)"),
+        },
+        async (args) => {
+          const result = await client.listSessions({
+            status: args.status,
+            page: args.page,
+            limit: args.limit ?? 20,
+          });
+    
+          const summary = result.data.map((s) => ({
+            id: s.id,
+            status: s.status,
+            task: s.taskDescription.slice(0, 80),
+            prUrl: s.prUrl,
+            costUsd: s.costUsd,
+          }));
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessions: summary,
+                  total: result.pagination.total,
+                  page: result.pagination.page,
+                  totalPages: result.pagination.totalPages,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const cancelSessionTool = tool(
+        "cancel_session",
+        "Cancel a running session. Use if a session is stuck or no longer needed.",
+        {
+          sessionId: z.string().describe("The session ID to cancel"),
+        },
+        async (args) => {
+          try {
+            const session = await client.cancelSession(args.sessionId);
+    
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    id: session.id,
+                    status: session.status,
+                    message: "Session cancelled successfully",
+                  }),
+                },
+              ],
+            };
+          } catch (error) {
+            const message =
+              error instanceof ApiClientError
+                ? (error.response.detail ??
+                  error.response.message ??
+                  String(error.response.status ?? error.response.statusCode ?? ""))
+                : error instanceof Error
+                  ? error.message
+                  : String(error);
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({ error: message }),
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+      );
+    
+      return [createSessionTool, checkSessionTool, listSessionsTool, cancelSessionTool];
     }
-    interface SessionSummary {
-      readonly id: string;
-      readonly status: string;
-      readonly taskDescription: string;
-      readonly branchName: string | null;
-      readonly prUrl: string | null;
-      readonly costUsd: number | null;
-      readonly errors: readonly string[];
+    function extractSessionIds(obj: unknown): string[] {
+      const ids: string[] = [];
+    
+      if (typeof obj === "string") {
+        try {
+          const parsed: unknown = JSON.parse(obj);
+          ids.push(...extractSessionIds(parsed));
+        } catch {
+          // Not JSON — skip
+        }
+      } else if (Array.isArray(obj)) {
+        for (const item of obj) {
+          ids.push(...extractSessionIds(item));
+        }
+      } else if (typeof obj === "object" && obj !== null) {
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === "sessionId" && typeof value === "string") {
+            ids.push(value);
+          } else {
+            ids.push(...extractSessionIds(value));
+          }
+        }
+      }
+    
+      return ids;
     }
   </file>
   <file path="src/post-commit-gateway.ts">
@@ -879,8 +1900,7 @@
               },
             },
             async (): Promise<SessionResult> => {
-              // Apply QA tuning defaults from .github/auto-qa-tuning.json.
-              // Explicit config (e.g. CLI --max-budget) wins over tuning values.
+              // Apply QA tuning defaults from .github/auto-qa-tuning.json
               const tuning = loadQaTuning(config.repoPath);
               const tuningOverrides = tuning
                 ? applyTuningDefaults(
@@ -921,815 +1941,222 @@
                 },
               });
     
-              {
-                // Fail fast if the circuit breaker is open (API is degraded)
-                if (apiCircuitBreaker.getState() === CircuitState.Open) {
-                  const circuitMsg =
-                    "Circuit breaker is OPEN — Anthropic API appears degraded. Skipping session.";
-                  emitEvent(onEvent, "session:error", { message: circuitMsg });
-                  rootSpan.setAttribute("session.status", "failed");
-                  rootSpan.setAttribute("session.circuit_breaker", "open");
-                  rootSpan.end();
-                  return {
-                    sessionId: "",
-                    status: "failed",
-                    branchName: "",
-                    prUrl: null,
-                    costUsd: 0,
-                    tokenUsage: { inputTokens: 0, outputTokens: 0 },
-                    durationMs: 0,
-                    numTurns: 0,
-                    resultText: "",
-                    errors: [circuitMsg],
-                  };
-                }
+              const cleanupErrors: string[] = [];
+              let ctx: PipelineContext = {
+                config: effectiveConfig,
+                onEvent,
+                errors: [],
+              };
     
-                const abortController = new AbortController();
-                let worktree: WorktreeInfo | undefined;
-                let stuckReason: StuckPattern | null = null;
-                const cleanupErrors: string[] = [];
-                let pendingResult: SessionResult | undefined;
+              let pendingResult: SessionResult | undefined;
     
-                // Cached git diff — computed once, reused across evaluation, static analysis,
-                // security review, dep-bump check, and PR body generation.
-                let cachedDiff: string | null = null;
+              try {
+                // Run pipeline phases sequentially
+                for (const phase of phases) {
+                  const { result, ctx: nextCtx } = await phase.run(ctx);
+                  ctx = nextCtx;
     
-                async function getCachedDiff(worktreePath: string): Promise<string> {
-                  if (cachedDiff === null) {
-                    cachedDiff = await getGitDiff(worktreePath);
+                  if (result.status === "failed") {
+                    // Phase failure — attempt partial work push then abort
+                    if (ctx.worktree && effectiveConfig.createPr) {
+                      const errorMsg = result.errors[0] ?? "Phase failed";
+                      const prUrl = await pushPartialWork(ctx, errorMsg);
+                      if (prUrl) {
+                        ctx = { ...ctx, prUrl };
+                      }
+                    }
+                    break;
                   }
-                  return cachedDiff;
                 }
     
-                try {
-                  // 1. Create isolated worktree (with retry for transient git failures)
-                  emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
+                pendingResult = buildFinalResult(ctx, rootSpan);
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                emitEvent(onEvent, "session:error", { message: errorMessage });
+                rootSpan.recordException(error as Error);
+                rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
     
-                  const wtSpan = tracer.startSpan("agent_core.create_worktree");
+                // Attempt to push partial work from failed sessions
+                const prUrl = await pushPartialWork(ctx, errorMessage);
+    
+                rootSpan.setAttribute("session.status", "failed");
+                pendingResult = {
+                  sessionId: "",
+                  status: "failed",
+                  branchName: ctx.worktree?.branchName ?? "",
+                  prUrl,
+                  costUsd: 0,
+                  tokenUsage: { inputTokens: 0, outputTokens: 0 },
+                  durationMs: 0,
+                  numTurns: 0,
+                  resultText: "",
+                  errors: [errorMessage],
+                  stuckPattern: ctx.stuckReason?.type,
+                };
+              } finally {
+                // Clean up worktree when PR was created (branch is pushed)
+                // Keep worktree when --no-pr so user can inspect
+                if (ctx.worktree && effectiveConfig.createPr) {
                   try {
-                    const { value: wt } = await withRetry(
-                      () => createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
-                      { maxRetries: 2 }
-                    );
-                    worktree = wt;
-                    wtSpan.setAttribute("worktree.branch", worktree.branchName);
-                    wtSpan.setAttribute("worktree.mode", worktree.mode);
-                  } finally {
-                    wtSpan.end();
-                  }
-    
-                  // 2. Build system prompt with failure context, source files, and PR examples
-                  const failureMemory = await loadMemory(config.repoPath);
-                  const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
-                  const failureContext = buildFailureContext(pastFailures);
-    
-                  // Auto-resolve source files from task description if none provided
-                  const resolvedSourcePaths =
-                    config.sourceFiles ??
-                    (async () => {
-                      const { resolveSourceFiles } = await import("./source-resolver.js");
-                      return resolveSourceFiles(config.taskDescription);
-                    })();
-    
-                  // Wait for resolved source paths if it was an async resolution
-                  const finalSourcePaths = await resolvedSourcePaths;
-    
-                  const sourceFileEntries =
-                    finalSourcePaths.length > 0 ? await loadSourceFiles(finalSourcePaths) : undefined;
-    
-                  // Fetch recent successful PRs as examples (non-blocking)
-                  const { fetchRecentPrExamples, formatPrExamples } =
-                    await import("./budget-calculator.js");
-                  const prExamples = await fetchRecentPrExamples(config.repoPath).catch(() => []);
-                  const prExamplesSection = formatPrExamples(prExamples);
-    
-                  // Load project CLAUDE.md for coding conventions (non-blocking)
-                  const projectContext = await loadProjectContext(worktree.path).catch(() => null);
-                  const projectSection = projectContext
-                    ? `\n\n## Project Conventions (from CLAUDE.md)\n\n${projectContext}`
-                    : "";
-    
-                  const systemPrompt =
-                    (await buildSystemPrompt(config.taskDescription, {
-                      sourceFileEntries,
-                      prExamplesSection,
-                      failureContext,
-                    })) + projectSection;
-    
-                  // 3. Run the agent via SDK query()
-                  emitEvent(onEvent, "session:start", {
-                    message: `Starting agent on branch ${worktree.branchName}`,
-                  });
-    
-                  const canUseTool = createToolPermissionHandler(worktree.path);
-    
-                  const detector = createStuckDetector(effectiveConfig.stuckDetectorConfig);
-                  const conversation = query({
-                    prompt: effectiveConfig.taskDescription,
-                    options: {
-                      abortController,
-                      cwd: worktree.path,
-                      model: effectiveConfig.model,
-                      maxTurns: effectiveConfig.maxTurns,
-                      maxBudgetUsd: effectiveConfig.maxBudgetUsd,
-                      allowedTools: [...effectiveConfig.allowedTools],
-                      permissionMode: "acceptEdits",
-                      settingSources: ["project"],
-                      systemPrompt: {
-                        type: "preset",
-                        preset: "claude_code",
-                        append: systemPrompt,
-                      },
-                      canUseTool: async (toolName, input) => canUseTool(toolName, input),
-                    },
-                  });
-    
-                  // 4. Stream events with stuck detection, context exhaustion tracking,
-                  //    and event mapping
-                  const querySpan = tracer.startSpan("agent_core.sdk_query", {
-                    attributes: { "sdk.model": config.model },
-                  });
-    
-                  let compactionCount = 0;
-    
-                  // Per-turn and tool-call metrics accumulators
-                  let turnIndex = 0;
-                  const rawTurnMetrics: Array<{
-                    turnIndex: number;
-                    startedAt: string;
-                    inputTokens: number;
-                    outputTokens: number;
-                    thinkingTokens: number;
-                    costUsd: number;
-                    modelId: string;
-                  }> = [];
-                  const rawToolCallMetrics: Array<{
-                    toolName: string;
-                    toolUseId: string;
-                    latencyMs: number;
-                    isError: boolean;
-                  }> = [];
-    
-                  // Track pending tool calls by toolUseId → { name, startMs }
-                  const pendingToolCalls = new Map<string, { toolName: string; startMs: number }>();
-    
-                  // Heartbeat: periodic liveness signal + inactivity timeout
-                  const heartbeat = DEFAULT_HEARTBEAT_CONFIG;
-                  const startTime = Date.now();
-                  let lastActivityMs = Date.now();
-                  const heartbeatInterval = setInterval(() => {
-                    const silenceMs = Date.now() - lastActivityMs;
-                    emitEvent(onEvent, "session:heartbeat", {
-                      message: JSON.stringify({
-                        turnCount: turnIndex,
-                        compactionCount,
-                        elapsedMs: Date.now() - startTime,
-                        lastActivityMs: silenceMs,
-                      }),
-                    });
-                    if (silenceMs >= heartbeat.inactivityTimeoutMs) {
-                      stuckReason = {
-                        type: "zero_progress" as const,
-                        count: 0,
-                        threshold: 0,
-                        description: `No SDK activity for ${Math.round(silenceMs / 1000)}s — session appears hung`,
-                        severity: "error" as const,
-                      };
-                      emitEvent(onEvent, "session:stuck", {
-                        message: `Inactivity timeout: no messages for ${Math.round(silenceMs / 1000)}s`,
-                      });
-                      abortController.abort();
-                    }
-                  }, heartbeat.intervalMs);
-    
-                  // Wrap the SDK streaming loop with the circuit breaker so that
-                  // repeated API failures trip the breaker and subsequent sessions
-                  // fail fast instead of hammering a degraded API.
-                  interface StreamingResult {
-                    readonly resultMessage: SDKResultMessage | null;
-                    readonly stuckDetected: StuckPattern | null;
-                  }
-    
-                  let streamResult: StreamingResult = { resultMessage: null, stuckDetected: null };
-                  let circuitBreakerTripped = false;
-    
-                  try {
-                    streamResult = await apiCircuitBreaker.wrap(async (): Promise<StreamingResult> => {
-                      let innerResult: SDKResultMessage | null = null;
-                      let innerStuck: StuckPattern | null = null;
-                      try {
-                        for await (const message of conversation) {
-                          lastActivityMs = Date.now();
-                          emitEvent(onEvent, "session:message", message);
-    
-                          // Increment turn counter for assistant messages
-                          if (message.type === "assistant") {
-                            turnIndex++;
-                          }
-    
-                          // Track assistant messages as Langfuse generation observations
-                          if (message.type === "assistant" && "message" in message) {
-                            const msg = message.message as {
-                              role: string;
-                              content: unknown;
-                              usage?: { input_tokens?: number; output_tokens?: number };
-                            };
-                            const gen = startObservation(
-                              `llm-turn-${turnIndex}`,
-                              { model: config.model, input: msg.content },
-                              { asType: "generation" }
-                            );
-                            gen
-                              .update({
-                                output: msg.content,
-                                usageDetails: {
-                                  input: msg.usage?.input_tokens ?? 0,
-                                  output: msg.usage?.output_tokens ?? 0,
-                                },
-                              })
-                              .end();
-                          }
-    
-                          // Emit typed events for observability (pass current turn index)
-                          for (const mapped of mapSdkMessage(message, turnIndex)) {
-                            emitEvent(onEvent, mapped.type, {
-                              message: sanitizeStreamChunk(JSON.stringify(mapped)),
-                            });
-    
-                            // Accumulate per-turn metrics
-                            if (mapped.type === "session:turn_metrics") {
-                              const tm = mapped as TurnMetricsEvent;
-                              rawTurnMetrics.push({
-                                turnIndex: tm.turnIndex,
-                                startedAt: new Date().toISOString(),
-                                inputTokens: tm.inputTokens,
-                                outputTokens: tm.outputTokens,
-                                thinkingTokens: tm.thinkingTokens,
-                                costUsd: tm.costUsd,
-                                modelId: tm.modelId,
-                              });
-                            }
-    
-                            // Record tool call start time for latency tracking
-                            if (mapped.type === "session:tool_use") {
-                              pendingToolCalls.set(mapped.toolUseId, {
-                                toolName: mapped.toolName,
-                                startMs: Date.now(),
-                              });
-                            }
-    
-                            // Record tool call completion and compute latency
-                            if (mapped.type === "session:tool_result") {
-                              const pending = pendingToolCalls.get(mapped.toolUseId);
-                              if (pending) {
-                                const latencyMs = Date.now() - pending.startMs;
-                                rawToolCallMetrics.push({
-                                  toolName: pending.toolName,
-                                  toolUseId: mapped.toolUseId,
-                                  latencyMs,
-                                  isError: mapped.isError,
-                                });
-                                pendingToolCalls.delete(mapped.toolUseId);
-                                emitEvent(onEvent, "session:tool_latency", {
-                                  message: JSON.stringify({
-                                    toolName: pending.toolName,
-                                    toolUseId: mapped.toolUseId,
-                                    latencyMs,
-                                    isError: mapped.isError,
-                                  }),
-                                });
-                              }
-                            }
-                          }
-    
-                          // Track compaction events for context window exhaustion detection
-                          if (
-                            message.type === "system" &&
-                            "subtype" in message &&
-                            message.subtype === "compact_boundary"
-                          ) {
-                            compactionCount++;
-                            if (compactionCount >= MAX_COMPACTIONS) {
-                              innerStuck = {
-                                type: "context_window_loop",
-                                count: compactionCount,
-                                threshold: MAX_COMPACTIONS,
-                                description: `Context window compacted ${compactionCount} times — session exhausted`,
-                                severity: "error",
-                              };
-                              emitEvent(onEvent, "session:stuck", {
-                                message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
-                              });
-                              querySpan.setAttribute("sdk.compaction_count", compactionCount);
-                              abortController.abort();
-                              break;
-                            }
-                          }
-    
-                          if (message.type === "result") {
-                            innerResult = message as SDKResultMessage;
-                            continue;
-                          }
-    
-                          const stuckPattern = detector.ingest(message);
-                          if (stuckPattern) {
-                            if (stuckPattern.severity === "error") {
-                              innerStuck = stuckPattern;
-                              emitEvent(onEvent, "session:stuck", {
-                                message: `Stuck detected: ${stuckPattern.description}`,
-                              });
-                              querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
-                              abortController.abort();
-                              break;
-                            }
-                            // Warnings are emitted but don't abort the session
-                            emitEvent(onEvent, "session:stuck", {
-                              message: `Stuck warning: ${stuckPattern.description}`,
-                            });
-                          }
-                        }
-    
-                        querySpan.setAttribute("sdk.turns_completed", innerResult?.num_turns ?? 0);
-                        querySpan.setAttribute("sdk.compaction_count", compactionCount);
-                      } catch (err) {
-                        // Detect context window exhaustion from SDK errors
-                        if (err instanceof ContextWindowExhaustedError) {
-                          innerStuck = {
-                            type: "context_window_loop",
-                            count: compactionCount,
-                            threshold: MAX_COMPACTIONS,
-                            description: err.message,
-                            severity: "error",
-                          };
-                          emitEvent(onEvent, "session:stuck", {
-                            message: `Context window exhaustion: ${err.message}`,
-                          });
-                        } else {
-                          querySpan.recordException(err as Error);
-                          querySpan.setStatus({ code: SpanStatusCode.ERROR });
-                          throw err;
-                        }
-                      }
-                      return { resultMessage: innerResult, stuckDetected: innerStuck };
-                    });
-                  } catch (err) {
-                    // Handle circuit breaker OPEN — graceful exit instead of crash
-                    const errMsg = err instanceof Error ? err.message : String(err);
-                    if (errMsg.includes("Circuit breaker is OPEN")) {
-                      circuitBreakerTripped = true;
-                      emitEvent(onEvent, "session:error", {
-                        message: `Circuit breaker tripped: ${errMsg}`,
-                      });
-                      querySpan.setAttribute("session.circuit_breaker", "tripped");
-                    } else {
-                      // Re-throw non-circuit-breaker errors for the outer handler
-                      throw err;
-                    }
-                  } finally {
-                    clearInterval(heartbeatInterval);
-                    querySpan.end();
-                  }
-    
-                  // Unpack streaming results for downstream consumption
-                  const resultMessage = streamResult.resultMessage;
-                  stuckReason = streamResult.stuckDetected;
-    
-                  // If the circuit breaker tripped mid-session, treat as a failed session
-                  if (circuitBreakerTripped) {
-                    const circuitMsg = "Circuit breaker tripped — too many consecutive API failures";
-                    emitEvent(onEvent, "session:error", { message: circuitMsg });
-                    rootSpan.setAttribute("session.status", "failed");
-                    rootSpan.setAttribute("session.circuit_breaker", "tripped");
-                    rootSpan.end();
-                    return {
-                      sessionId: "",
-                      status: "failed",
-                      branchName: worktree?.branchName ?? "",
-                      prUrl: null,
-                      costUsd: 0,
-                      tokenUsage: { inputTokens: 0, outputTokens: 0 },
-                      durationMs: 0,
-                      numTurns: 0,
-                      resultText: "",
-                      errors: [circuitMsg],
-                    };
-                  }
-    
-                  // 5. Determine success/failure
-                  const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
-                  const errors: string[] = [];
-    
-                  if (stuckReason) {
-                    errors.push(`Stuck: ${stuckReason.description}`);
-                  }
-                  if (!resultMessage) {
-                    errors.push("No result message received from agent");
-                  }
-    
-                  // 6. Commit, push, and create PR if there are changes
-                  let prUrl: string | null = null;
-                  const changed = worktree ? await hasChanges(worktree.path) : false;
-    
-                  let gatewayEvaluation: EvaluationResult | undefined;
-    
-                  if (changed && worktree) {
-                    // Capture narrowed worktree for use in closures (TS loses narrowing in callbacks)
-                    const wt = worktree;
-                    const prefix = isSuccess ? "feat" : "wip";
-                    const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-                    await commitChanges(wt.path, commitMsg);
-    
-                    // Push with retry for transient network failures
-                    await withRetry(() => pushBranch(wt.path, wt.branchName), { maxRetries: 3 });
-    
-                    // 6a–6d. Run post-commit gateway (verification + quality gates)
-                    let verdict;
-                    if (isSuccess) {
-                      const diff = await getCachedDiff(wt.path);
-                      verdict = await runPostCommitGateway(
-                        {
-                          worktreePath: wt.path,
-                          diff,
-                          commitMsg,
-                          taskDescription: config.taskDescription,
-                          config: {
-                            evaluateSuccess: config.evaluateSuccess,
-                            runSecurityReview: true,
-                            runStaticAnalysis: true,
-                          },
-                        },
-                        onEvent
-                      );
-                      errors.push(...verdict.errors);
-                      gatewayEvaluation = verdict.evaluation;
-                    }
-    
-                    if (config.createPr) {
-                      if (verdict?.outcome === "merge-direct") {
-                        // Fast-path: trivial dep bump — direct-merge
-                        const commitTitle = buildPrTitle(config.taskDescription);
-                        prUrl = await mergeDirectly({
-                          branchName: wt.branchName,
-                          baseBranch: config.baseBranch,
-                          repoPath: wt.path,
-                          commitTitle,
-                        });
-                        emitEvent(onEvent, "session:result", {
-                          message: `Trivial dep bump — direct-merged: ${prUrl}`,
-                        });
-                      } else if (!verdict || verdict.outcome === "create-pr") {
-                        // All gates passed — create normal PR
-                        const title = buildPrTitle(config.taskDescription);
-                        const body = resultMessage
-                          ? buildPrBody(
-                              config.taskDescription,
-                              resultMessage.session_id,
-                              resultMessage.total_cost_usd,
-                              resultMessage.num_turns
-                            )
-                          : buildFailurePrBody(config.taskDescription, errors, stuckReason?.type);
-    
-                        const prSpan = tracer.startSpan("agent_core.create_pr");
-                        let pr;
-                        try {
-                          // Retry PR creation for transient GitHub API failures
-                          const { value: prResult } = await withRetry(
-                            () =>
-                              createPullRequest({
-                                title,
-                                body,
-                                baseBranch: config.baseBranch,
-                                branchName: wt.branchName,
-                                repoPath: wt.path,
-                                draft: false,
-                              }),
-                            { maxRetries: 3 }
-                          );
-                          pr = prResult;
-                          prSpan.setAttribute("pr.url", pr.url);
-                          prSpan.setAttribute("pr.number", pr.number);
-                          prSpan.setAttribute("pr.draft", false);
-                        } finally {
-                          prSpan.end();
-                        }
-    
-                        prUrl = pr.url;
-                        emitEvent(onEvent, "session:result", {
-                          message: `PR created: ${pr.url}`,
-                        });
-    
-                        // Run feedback loop if enabled (poll for review comments / CI failures)
-                        if (config.feedbackLoop?.enabled) {
-                          // Use remaining budget instead of fixed 50% ratio
-                          const sessionCost = resultMessage?.total_cost_usd ?? 0;
-                          const remainingBudget = Math.max(
-                            0,
-                            effectiveConfig.maxBudgetUsd - sessionCost
-                          );
-    
-                          const fbSpan = tracer.startSpan("agent_core.feedback_loop");
-                          let feedbackResult;
-                          try {
-                            feedbackResult = await runFeedbackLoop(
-                              {
-                                prNumber: pr.number,
-                                branchName: wt.branchName,
-                                repoPath: wt.path,
-                                model: getFeedbackLoopModel(config.model),
-                                maxRetries: config.feedbackLoop.maxRetries ?? 2,
-                                pollIntervalMs: config.feedbackLoop.pollIntervalMs ?? 30_000,
-                                pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
-                                maxBudgetUsd: remainingBudget,
-                                allowedTools: config.allowedTools,
-                              },
-                              onEvent
-                            );
-                            fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
-                            fbSpan.setAttribute("feedback.resolved", feedbackResult.resolved);
-                          } finally {
-                            fbSpan.end();
-                          }
-    
-                          emitEvent(onEvent, "session:result", {
-                            message: `Feedback loop: ${feedbackResult.resolved ? "resolved" : "escalated"} after ${feedbackResult.retriesUsed} retries`,
-                          });
-                        }
-                      } else {
-                        // verdict.outcome === "create-draft-pr" — quality gates failed
-                        const title = `wip: ${config.taskDescription.slice(0, 57)}`;
-                        const body = buildFailurePrBody(
-                          config.taskDescription,
-                          errors,
-                          stuckReason?.type
-                        );
-    
-                        // Retry draft PR creation for transient failures
-                        const { value: pr } = await withRetry(
-                          () =>
-                            createPullRequest({
-                              title,
-                              body,
-                              baseBranch: config.baseBranch,
-                              branchName: wt.branchName,
-                              repoPath: wt.path,
-                              draft: true,
-                            }),
-                          { maxRetries: 3 }
-                        );
-    
-                        prUrl = pr.url;
-                        emitEvent(onEvent, "session:result", {
-                          message: `Draft PR created (failed gates: ${verdict.gateFailures.join(", ")}): ${pr.url}`,
-                        });
-                      }
-                    }
-                  } else {
-                    emitEvent(onEvent, "session:result", {
-                      message: "No changes were made by the agent",
+                    await removeWorktree(effectiveConfig.repoPath, ctx.worktree.path);
+                  } catch (cleanupErr) {
+                    const cleanupMsg =
+                      cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+                    cleanupErrors.push(cleanupMsg);
+                    console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
+                    emitEvent(onEvent, "session:cleanup_warning", {
+                      message: `Worktree cleanup failed: ${cleanupMsg}`,
                     });
                   }
-    
-                  // 7. Build final result
-                  const evalSummary = gatewayEvaluation
-                    ? {
-                        passed: gatewayEvaluation.passed,
-                        confidence: gatewayEvaluation.confidence,
-                        reasoning: gatewayEvaluation.reasoning,
-                      }
-                    : undefined;
-    
-                  const collectedTurnMetrics = buildTurnMetricsList(rawTurnMetrics);
-                  const collectedToolCallMetrics = buildToolCallMetricsList(rawToolCallMetrics);
-    
-                  if (resultMessage) {
-                    const sessionResult = buildSessionResult(
-                      resultMessage,
-                      worktree?.branchName ?? "",
-                      prUrl
-                    );
-    
-                    const isFailed = sessionResult.status === "failed" || !!stuckReason;
-    
-                    const failureCategory = isFailed
-                      ? categorizeFailure(errors, stuckReason?.type)
-                      : undefined;
-    
-                    const finalResult = {
-                      ...sessionResult,
-                      ...(stuckReason
-                        ? { status: "failed" as const, stuckPattern: stuckReason.type }
-                        : {}),
-                      ...(evalSummary ? { evaluation: evalSummary } : {}),
-                      ...(failureCategory ? { failureCategory } : {}),
-                      turnMetrics: collectedTurnMetrics,
-                      toolCallMetrics: collectedToolCallMetrics,
-                    };
-    
-                    // Record failure for future context
-                    if (finalResult.status === "failed") {
-                      await recordFailure(config.repoPath, {
-                        taskDescription: config.taskDescription,
-                        timestamp: new Date().toISOString(),
-                        stuckPattern: stuckReason?.type,
-                        errors,
-                        approach: finalResult.resultText || "Unknown approach",
-                      }).catch(() => {});
-                    }
-    
-                    // Set final span attributes
-                    rootSpan.setAttribute("session.status", finalResult.status);
-                    rootSpan.setAttribute("session.cost_usd", finalResult.costUsd);
-                    rootSpan.setAttribute("session.num_turns", finalResult.numTurns);
-                    rootSpan.setAttribute("session.branch", finalResult.branchName);
-                    if (finalResult.prUrl) rootSpan.setAttribute("session.pr_url", finalResult.prUrl);
-                    if (finalResult.stuckPattern)
-                      rootSpan.setAttribute("session.stuck_pattern", finalResult.stuckPattern);
-                    if (failureCategory)
-                      rootSpan.setAttribute("session.failure_category", failureCategory);
-                    rootSpan.setAttribute("session.turn_count", collectedTurnMetrics.length);
-                    rootSpan.setAttribute("session.tool_call_count", collectedToolCallMetrics.length);
-    
-                    emitEvent(onEvent, "session:result", {
-                      message: `Session completed: ${finalResult.status}`,
-                    });
-    
-                    // Attach session metrics to the Langfuse trace as metadata
-                    updateActiveObservation({
-                      metadata: {
-                        success: String(finalResult.status === "succeeded" ? 1 : 0),
-                        cost_usd: String(finalResult.costUsd),
-                        num_turns: String(finalResult.numTurns),
-                        stuck: String(stuckReason ? 1 : 0),
-                        ...(evalSummary
-                          ? {
-                              evaluation_confidence: String(evalSummary.confidence),
-                              evaluation_reasoning: evalSummary.reasoning,
-                            }
-                          : {}),
-                      },
-                    });
-    
-                    pendingResult = finalResult;
-                  } else {
-                    const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
-    
-                    rootSpan.setAttribute("session.status", "failed");
-                    pendingResult = {
-                      sessionId: "",
-                      status: "failed",
-                      branchName: worktree?.branchName ?? "",
-                      prUrl,
-                      costUsd: 0,
-                      tokenUsage: { inputTokens: 0, outputTokens: 0 },
-                      durationMs: 0,
-                      numTurns: 0,
-                      resultText: "",
-                      errors,
-                      stuckPattern: stuckReason?.type,
-                      evaluation: evalSummary,
-                      ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
-                      turnMetrics: collectedTurnMetrics,
-                      toolCallMetrics: collectedToolCallMetrics,
-                    };
-                  }
-                } catch (error) {
-                  const errorMessage = error instanceof Error ? error.message : String(error);
-                  emitEvent(onEvent, "session:error", { message: errorMessage });
-                  rootSpan.recordException(error as Error);
-                  rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
-    
-                  // Attempt to push partial work from failed sessions
-                  let prUrl: string | null = null;
-                  if (worktree && config.createPr) {
-                    const failedWt = worktree;
-                    try {
-                      const changed = await hasChanges(failedWt.path);
-                      if (changed) {
-                        const commitMsg = `wip: ${sanitizeForCommitMessage(config.taskDescription)}`;
-                        await commitChanges(failedWt.path, commitMsg);
-                        await withRetry(() => pushBranch(failedWt.path, failedWt.branchName), {
-                          maxRetries: 2,
-                        });
-    
-                        const { value: pr } = await withRetry(
-                          () =>
-                            createPullRequest({
-                              title: `wip: ${config.taskDescription.slice(0, 57)}`,
-                              body: buildFailurePrBody(
-                                config.taskDescription,
-                                [errorMessage],
-                                stuckReason?.type
-                              ),
-                              baseBranch: config.baseBranch,
-                              branchName: failedWt.branchName,
-                              repoPath: failedWt.path,
-                              draft: true,
-                            }),
-                          { maxRetries: 2 }
-                        );
-                        prUrl = pr.url;
-                        emitEvent(onEvent, "session:result", {
-                          message: `Draft PR created from failed session: ${pr.url}`,
-                        });
-                      }
-                    } catch {
-                      // Best-effort — don't mask the original error
-                    }
-                  }
-    
-                  rootSpan.setAttribute("session.status", "failed");
-                  pendingResult = {
-                    sessionId: "",
-                    status: "failed",
-                    branchName: worktree?.branchName ?? "",
-                    prUrl,
-                    costUsd: 0,
-                    tokenUsage: { inputTokens: 0, outputTokens: 0 },
-                    durationMs: 0,
-                    numTurns: 0,
-                    resultText: "",
-                    errors: [errorMessage],
-                    stuckPattern: stuckReason?.type,
-                  };
-                } finally {
-                  // Clean up worktree when PR was created (branch is pushed, worktree not needed)
-                  // Keep worktree when --no-pr so user can inspect the agent's work
-                  if (worktree && config.createPr) {
-                    try {
-                      await removeWorktree(config.repoPath, worktree.path);
-                    } catch (cleanupErr) {
-                      const cleanupMsg =
-                        cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-                      cleanupErrors.push(cleanupMsg);
-                      console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
-                      emitEvent(onEvent, "session:cleanup_warning", {
-                        message: `Worktree cleanup failed: ${cleanupMsg}`,
-                      });
-                    }
-                  }
-                  rootSpan.end();
                 }
-    
-                // Attach any cleanup errors to the final result (immutable spread)
-                return cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+                rootSpan.end();
               }
+    
+              // Attach cleanup errors to the final result (immutable spread)
+              return cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
             }
           );
         }
       );
     }
+    function buildFinalResult(
+      ctx: PipelineContext,
+      rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
+    ): SessionResult {
+      const { resultMessage, stuckReason, gatewayEvaluation, turnMetrics, toolCallMetrics } = ctx;
+      const errors = [...ctx.errors];
+    
+      if (stuckReason) {
+        // Deduplicate — stuck error may already be in ctx.errors
+        const stuckMsg = `Stuck: ${stuckReason.description}`;
+        if (!errors.includes(stuckMsg)) {
+          errors.push(stuckMsg);
+        }
+      }
+      if (!resultMessage) {
+        const noResultMsg = "No result message received from agent";
+        if (!errors.includes(noResultMsg)) {
+          errors.push(noResultMsg);
+        }
+      }
+    
+      const evalSummary = gatewayEvaluation
+        ? {
+            passed: gatewayEvaluation.passed,
+            confidence: gatewayEvaluation.confidence,
+            reasoning: gatewayEvaluation.reasoning,
+          }
+        : undefined;
+    
+      const collectedTurnMetrics = turnMetrics ?? [];
+      const collectedToolCallMetrics = toolCallMetrics ?? [];
+    
+      if (resultMessage) {
+        const sessionResult = buildSessionResult(
+          resultMessage,
+          ctx.worktree?.branchName ?? "",
+          ctx.prUrl ?? null
+        );
+    
+        const isFailed = sessionResult.status === "failed" || !!stuckReason;
+        const failureCategory = isFailed ? categorizeFailure(errors, stuckReason?.type) : undefined;
+    
+        const finalResult: SessionResult = {
+          ...sessionResult,
+          ...(stuckReason ? { status: "failed" as const, stuckPattern: stuckReason.type } : {}),
+          ...(evalSummary ? { evaluation: evalSummary } : {}),
+          ...(failureCategory ? { failureCategory } : {}),
+          turnMetrics: collectedTurnMetrics,
+          toolCallMetrics: collectedToolCallMetrics,
+        };
+    
+        // Record failure for future context
+        if (finalResult.status === "failed") {
+          recordFailure(ctx.config.repoPath, {
+            taskDescription: ctx.config.taskDescription,
+            timestamp: new Date().toISOString(),
+            stuckPattern: stuckReason?.type,
+            errors,
+            approach: finalResult.resultText || "Unknown approach",
+          }).catch(() => {});
+        }
+    
+        // Set final span attributes
+        rootSpan.setAttribute("session.status", finalResult.status);
+        rootSpan.setAttribute("session.cost_usd", finalResult.costUsd);
+        rootSpan.setAttribute("session.num_turns", finalResult.numTurns);
+        rootSpan.setAttribute("session.branch", finalResult.branchName);
+        if (finalResult.prUrl) rootSpan.setAttribute("session.pr_url", finalResult.prUrl);
+        if (finalResult.stuckPattern)
+          rootSpan.setAttribute("session.stuck_pattern", finalResult.stuckPattern);
+        if (failureCategory) rootSpan.setAttribute("session.failure_category", failureCategory);
+        rootSpan.setAttribute("session.turn_count", collectedTurnMetrics.length);
+        rootSpan.setAttribute("session.tool_call_count", collectedToolCallMetrics.length);
+    
+        emitEvent(ctx.onEvent, "session:result", {
+          message: `Session completed: ${finalResult.status}`,
+        });
+    
+        // Attach session metrics to the Langfuse trace
+        updateActiveObservation({
+          metadata: {
+            success: String(finalResult.status === "succeeded" ? 1 : 0),
+            cost_usd: String(finalResult.costUsd),
+            num_turns: String(finalResult.numTurns),
+            stuck: String(stuckReason ? 1 : 0),
+            ...(evalSummary
+              ? {
+                  evaluation_confidence: String(evalSummary.confidence),
+                  evaluation_reasoning: evalSummary.reasoning,
+                }
+              : {}),
+          },
+        });
+    
+        return finalResult;
+      }
+    
+      // No result message — build a failure result
+      const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
+      rootSpan.setAttribute("session.status", "failed");
+    
+      return {
+        sessionId: "",
+        status: "failed",
+        branchName: ctx.worktree?.branchName ?? "",
+        prUrl: ctx.prUrl ?? null,
+        costUsd: 0,
+        tokenUsage: { inputTokens: 0, outputTokens: 0 },
+        durationMs: 0,
+        numTurns: 0,
+        resultText: "",
+        errors,
+        stuckPattern: stuckReason?.type,
+        evaluation: evalSummary,
+        ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
+        turnMetrics: collectedTurnMetrics,
+        toolCallMetrics: collectedToolCallMetrics,
+      };
+    }
   </file>
   <file path="src/source-resolver.ts">
-    function detectTaskContexts(taskDescription: string): string[] {
-      const contexts: string[] = [];
+    export function classifyTaskContexts(taskDescription: string): readonly string[] {
+      const contexts = new Set<string>();
       for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
         for (const keyword of keywords) {
           if (keyword.test(taskDescription)) {
             const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
             for (const file of contextFiles) {
-              if (existsSync(file)) {
-                contexts.push(file);
-              }
+              contexts.add(file);
             }
             break;
           }
         }
       }
-      return contexts;
+      return [...contexts];
     }
-    export function resolveSourceFiles(taskDescription: string): readonly string[] {
-      const files = new Set<string>();
-    
-      // Extract explicit file paths
-      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-        files.add(match[1]);
-      }
-    
-      // Extract directory references and add key files
-      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
-        const dir = match[1];
-        // If a service or app directory is mentioned, add its CLAUDE.md
-        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
-          files.add(`${dir}CLAUDE.md`);
-        }
-      }
-    
-      // For each source file, also include its test file
-      const withTests = new Set(files);
-      for (const file of files) {
-        if (!file.includes(".test.") && !file.includes(".spec.")) {
-          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
-          withTests.add(testFile);
-        }
-      }
-    
-      // Add task-specific context bundles
-      const contexts = detectTaskContexts(taskDescription);
-      for (const ctx of contexts) {
-        withTests.add(ctx);
-      }
-    
-      return [...withTests];
+    function detectTaskContexts(taskDescription: string): string[] {
+      return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
     }
   </file>
   <file path="src/stuck-detector.ts">
@@ -1771,6 +2198,7 @@
     export interface OrchestratorConfig {
       readonly taskDescription: string;
       readonly apiBaseUrl: string;
+      readonly sessionClient?: AgentSessionClient;
       readonly model: string;
       readonly sessionModel: string;
       readonly maxBudgetPerSession: number;

@@ -85,19 +85,40 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Reservations
+  // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
+  // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
+  function todayReservations(): string {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const fixture = JSON.parse(loadFixture("reservations-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: unknown;
+    };
+    return JSON.stringify({
+      ...fixture,
+      data: fixture.data.map((r) => ({
+        ...r,
+        date: today,
+        startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+        endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+      })),
+    });
+  }
+
   await page.route("**/api/v1/reservations/walk-in", (route) => {
-    const reservations = JSON.parse(loadFixture("reservations-list"));
+    const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
     return jsonOk(route, {
-      ...reservations.data[0],
+      ...fixture.data[0],
       id: "res_e2e_walkin",
       status: "CONFIRMED",
       notes: "Walk-in",
     });
   });
   await page.route("**/api/v1/reservations/me*", (route) =>
-    jsonResponse(route, "reservations-list")
+    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
   );
-  await page.route("**/api/v1/reservations?*", (route) => jsonResponse(route, "reservations-list"));
+  await page.route("**/api/v1/reservations?*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
+  );
   await page.route(/\/api\/v1\/reservations\/[^/?]+$/, (route) => {
     const method = route.request().method();
     const reservations = JSON.parse(loadFixture("reservations-list"));
@@ -119,7 +140,11 @@ export async function mockApi(page: Page): Promise<void> {
   });
   await page.route("**/api/v1/guests?*", (route) => jsonResponse(route, "guests-list"));
   await page.route(/\/api\/v1\/guests\/[^/?]+$/, (route) => {
+    const method = route.request().method();
     const guests = JSON.parse(loadFixture("guests-list"));
+    if (method === "PATCH" || method === "PUT") {
+      return jsonOk(route, { ...guests.data[0], updatedAt: new Date().toISOString() });
+    }
     return jsonOk(route, guests.data[0]);
   });
 
