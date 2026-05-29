@@ -1,36 +1,48 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ReservationsPage } from "./ReservationsPage.js";
-import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
+import type { VenueContextValue } from "../contexts/VenueContext.js";
+import { useReservations } from "../hooks/useReservations.js";
+import type { UseReservationsResult } from "../hooks/useReservations.js";
+import type { Reservation } from "@mbe/types";
 import React from "react";
 
 const today = new Date().toLocaleDateString("en-CA");
 
-vi.mock("@mbe/auth/react", () => ({ useAuth: vi.fn() }));
-vi.mock("@mbe/api-client", () => ({ createApiClient: vi.fn() }));
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
-vi.mock("../contexts/ReservationDataContext.js", () => ({ useReservationData: vi.fn() }));
+vi.mock("../hooks/useReservations.js", () => ({ useReservations: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title }: any) => <div data-testid="page-header">{title}</div>,
+  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
-  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
-  EmptyState: ({ heading, description }: any) => (
+  Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
+  Badge: ({ children }: { children: React.ReactNode }) => (
+    <span data-testid="badge">{children}</span>
+  ),
+  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
+  EmptyState: ({
+    heading,
+    description,
+  }: {
+    heading: React.ReactNode;
+    description?: React.ReactNode;
+  }) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
     </div>
   ),
-  Input: (props: any) => (
+  Input: (props: {
+    type?: string;
+    placeholder?: string;
+    value?: string;
+    onChange?: React.ChangeEventHandler<HTMLInputElement>;
+  }) => (
     <input
       data-testid={props.type === "date" ? "date-input" : "search-input"}
       type={props.type}
@@ -39,9 +51,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       onChange={props.onChange}
     />
   ),
-  SegmentedControl: ({ segments, value: _value, onChange }: any) => (
+  SegmentedControl: ({
+    segments,
+    value: _value,
+    onChange,
+  }: {
+    segments?: Array<{ id: string; label: string }>;
+    value?: string;
+    onChange?: (id: string) => void;
+  }) => (
     <div data-testid="segmented-control">
-      {segments?.map((s: any) => (
+      {segments?.map((s) => (
         <button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
           {s.label}
         </button>
@@ -49,85 +69,108 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Stat: ({ label, value }: any) => (
+  SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="skeleton-group">{children}</div>
+  ),
+  Stat: ({ label, value }: { label: React.ReactNode; value: React.ReactNode }) => (
     <div data-testid="stat">
       <span>{label}</span>
       <span>{value}</span>
     </div>
   ),
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 
-describe("ReservationsPage", () => {
-  const mockApi = {
-    reservations: { list: vi.fn() },
-  };
+// ── Typed mock factories ─────────────────────────────────────────────────────
 
+function makeVenueContext(overrides: Partial<VenueContextValue> = {}): VenueContextValue {
+  return {
+    selectedVenueId: "venue-1",
+    venues: [],
+    selectedVenue: null,
+    setVenueId: vi.fn(),
+    isLoading: false,
+    isMultiVenue: false,
+    refetchVenues: vi.fn(),
+    ...overrides,
+  };
+}
+
+function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
+  return {
+    id: "r1",
+    date: today,
+    startTime: "2026-01-15T18:00:00Z",
+    endTime: "2026-01-15T20:00:00Z",
+    partySize: 2,
+    status: "CONFIRMED",
+    notes: null,
+    cancellationReason: null,
+    cancellationNote: null,
+    guestName: null,
+    guestEmail: null,
+    guestPhone: null,
+    guestId: null,
+    userId: null,
+    occasion: null,
+    seatingPreference: null,
+    tableId: "t1",
+    venueId: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function makeHookResult(overrides: Partial<UseReservationsResult> = {}): UseReservationsResult {
+  return {
+    data: undefined,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+    ...overrides,
+  };
+}
+
+const defaultReservations: Reservation[] = [
+  makeReservation({
+    id: "r1",
+    guestName: "Alice",
+    partySize: 2,
+    status: "CONFIRMED",
+    tableId: "t1",
+  }),
+  makeReservation({
+    id: "r2",
+    guestName: "Bob",
+    startTime: "2026-01-15T19:00:00Z",
+    endTime: "2026-01-15T21:00:00Z",
+    partySize: 4,
+    status: "PENDING",
+    tableId: "t2",
+  }),
+  makeReservation({
+    id: "r3",
+    guestName: "Carol",
+    startTime: "2026-01-15T20:00:00Z",
+    endTime: "2026-01-15T22:00:00Z",
+    partySize: 6,
+    status: "CANCELLED",
+    tableId: "t3",
+  }),
+];
+
+function mockReservationsHook(overrides: Partial<UseReservationsResult> = {}) {
+  vi.mocked(useReservations).mockReturnValue(
+    makeHookResult({ data: defaultReservations, ...overrides })
+  );
+}
+
+describe("ReservationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token" } as any);
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
-    vi.mocked(useVenue).mockReturnValue({
-      selectedVenueId: "venue-1",
-      venues: [],
-      selectVenue: vi.fn(),
-    } as any);
-    vi.mocked(useReservationData).mockReturnValue({
-      reservations: [
-        {
-          id: "r1",
-          guestName: "Alice",
-          date: today,
-          startTime: "18:00",
-          endTime: "20:00",
-          partySize: 2,
-          status: "CONFIRMED",
-        },
-        {
-          id: "r2",
-          guestName: "Bob",
-          date: today,
-          startTime: "19:00",
-          endTime: "21:00",
-          partySize: 4,
-          status: "PENDING",
-        },
-        {
-          id: "r3",
-          guestName: "Carol",
-          date: today,
-          startTime: "20:00",
-          endTime: "22:00",
-          partySize: 6,
-          status: "CANCELLED",
-        },
-      ],
-      tables: [],
-      isConnected: true,
-      sseError: null,
-      addReservation: vi.fn(),
-      updateReservation: vi.fn(),
-      removeReservation: vi.fn(),
-      setReservations: vi.fn(),
-      setTables: vi.fn(),
-      subscribeToEvents: vi.fn(() => vi.fn()),
-    } as any);
-
-    mockApi.reservations.list.mockResolvedValue({
-      data: [
-        {
-          id: "r1",
-          guestName: "Alice",
-          date: today,
-          startTime: "18:00",
-          endTime: "20:00",
-          partySize: 2,
-          status: "CONFIRMED",
-        },
-      ],
-    });
+    vi.mocked(useVenue).mockReturnValue(makeVenueContext());
+    mockReservationsHook();
   });
 
   const renderPage = () =>
@@ -162,20 +205,16 @@ describe("ReservationsPage", () => {
     expect(inputs.length).toBeGreaterThan(0);
   });
 
-  it("displays guest names in the reservation list", async () => {
+  it("displays guest names in the reservation list", () => {
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByText("Alice")).toBeDefined();
-    });
+    expect(screen.getByText("Alice")).toBeDefined();
   });
 
   describe("stats display", () => {
     it("shows correct stat totals", () => {
       renderPage();
       const stats = screen.getAllByTestId("stat");
-      // Total=3, Confirmed=1, Pending=1, Cancelled=1
       expect(stats).toHaveLength(4);
-      // Check stat values via stat element text content
       expect(stats[0].textContent).toContain("Total");
       expect(stats[0].textContent).toContain("3");
       expect(stats[1].textContent).toContain("Confirmed");
@@ -186,31 +225,15 @@ describe("ReservationsPage", () => {
       expect(stats[3].textContent).toContain("1");
     });
 
-    it("shows zero totals when no reservations", async () => {
-      vi.mocked(useReservationData).mockReturnValue({
-        reservations: [],
-        tables: [],
-        isConnected: true,
-        sseError: null,
-        addReservation: vi.fn(),
-        updateReservation: vi.fn(),
-        removeReservation: vi.fn(),
-        setReservations: vi.fn(),
-        setTables: vi.fn(),
-        subscribeToEvents: vi.fn(() => vi.fn()),
-      } as any);
-
-      // API must resolve so isLoading becomes false (otherwise skeleton renders)
-      mockApi.reservations.list.mockResolvedValue({ data: [] });
+    it("shows zero totals when no reservations", () => {
+      mockReservationsHook({ data: [] });
 
       renderPage();
 
-      await waitFor(() => {
-        const stats = screen.getAllByTestId("stat");
-        expect(stats).toHaveLength(4);
-        const zeroValues = stats.filter((s) => s.textContent?.includes("0"));
-        expect(zeroValues).toHaveLength(4);
-      });
+      const stats = screen.getAllByTestId("stat");
+      expect(stats).toHaveLength(4);
+      const zeroValues = stats.filter((s) => s.textContent?.includes("0"));
+      expect(zeroValues).toHaveLength(4);
     });
   });
 
@@ -218,12 +241,9 @@ describe("ReservationsPage", () => {
     it("clicking CONFIRMED segment filters to confirmed only", async () => {
       renderPage();
 
-      // All three guests visible initially
-      await waitFor(() => {
-        expect(screen.getByText("Alice")).toBeDefined();
-        expect(screen.getByText("Bob")).toBeDefined();
-        expect(screen.getByText("Carol")).toBeDefined();
-      });
+      expect(screen.getByText("Alice")).toBeDefined();
+      expect(screen.getByText("Bob")).toBeDefined();
+      expect(screen.getByText("Carol")).toBeDefined();
 
       fireEvent.click(screen.getByTestId("segment-CONFIRMED"));
 
@@ -237,9 +257,7 @@ describe("ReservationsPage", () => {
     it("clicking PENDING segment filters to pending only", async () => {
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("Bob")).toBeDefined();
-      });
+      expect(screen.getByText("Bob")).toBeDefined();
 
       fireEvent.click(screen.getByTestId("segment-PENDING"));
 
@@ -273,9 +291,7 @@ describe("ReservationsPage", () => {
     it("filters by guest name", async () => {
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("Alice")).toBeDefined();
-      });
+      expect(screen.getByText("Alice")).toBeDefined();
 
       const searchInput = screen.getAllByTestId("search-input")[0];
       fireEvent.change(searchInput, { target: { value: "Bob" } });
@@ -290,9 +306,7 @@ describe("ReservationsPage", () => {
     it("shows empty state when search has no matches", async () => {
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("Alice")).toBeDefined();
-      });
+      expect(screen.getByText("Alice")).toBeDefined();
 
       const searchInput = screen.getAllByTestId("search-input")[0];
       fireEvent.change(searchInput, { target: { value: "Zzznotfound" } });
@@ -304,172 +318,108 @@ describe("ReservationsPage", () => {
   });
 
   describe("reservation row details", () => {
-    it("displays party size for each reservation", async () => {
+    it("displays party size for each reservation", () => {
       renderPage();
-
-      await waitFor(() => {
-        // Party sizes: 2, 4, 6
-        expect(screen.getByText("2")).toBeDefined();
-        expect(screen.getByText("4")).toBeDefined();
-        expect(screen.getByText("6")).toBeDefined();
-      });
+      expect(screen.getByText("2")).toBeDefined();
+      expect(screen.getByText("4")).toBeDefined();
+      expect(screen.getByText("6")).toBeDefined();
     });
 
-    it("displays status badges", async () => {
+    it("displays status badges", () => {
       renderPage();
-
-      await waitFor(() => {
-        const badges = screen.getAllByTestId("badge");
-        expect(badges.length).toBe(3);
-      });
+      const badges = screen.getAllByTestId("badge");
+      expect(badges.length).toBe(3);
     });
 
-    it("displays notes or dash when no notes", async () => {
-      vi.mocked(useReservationData).mockReturnValue({
-        reservations: [
-          {
-            id: "r1",
-            guestName: "Alice",
-            date: today,
-            startTime: "18:00",
-            endTime: "20:00",
-            partySize: 2,
-            status: "CONFIRMED",
-            notes: "Window seat please",
-          },
-          {
-            id: "r2",
-            guestName: "Bob",
-            date: today,
-            startTime: "19:00",
-            endTime: "21:00",
-            partySize: 4,
-            status: "PENDING",
-            notes: null,
-          },
+    it("shows returning-guest badge with visit count when guest.visitCount > 1", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Dave", guest: { visitCount: 4 } })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => t === "4th visit")).toBe(true);
+    });
+
+    it("does not show returning-guest badge when guest is null", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Eve", guest: null })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => (t ?? "").includes("visit"))).toBe(false);
+    });
+
+    it("does not show returning-guest badge when guest.visitCount is 1", () => {
+      mockReservationsHook({
+        data: [makeReservation({ id: "r1", guestName: "Frank", guest: { visitCount: 1 } })],
+      });
+
+      renderPage();
+
+      const badges = screen.getAllByTestId("badge");
+      const badgeTexts = badges.map((b) => b.textContent);
+      expect(badgeTexts.some((t) => (t ?? "").includes("visit"))).toBe(false);
+    });
+
+    it("displays notes or dash when no notes", () => {
+      mockReservationsHook({
+        data: [
+          { ...defaultReservations[0], notes: "Window seat please" },
+          { ...defaultReservations[1], notes: null },
         ],
-        tables: [],
-        isConnected: true,
-        sseError: null,
-        addReservation: vi.fn(),
-        updateReservation: vi.fn(),
-        removeReservation: vi.fn(),
-        setReservations: vi.fn(),
-        setTables: vi.fn(),
-        subscribeToEvents: vi.fn(() => vi.fn()),
-      } as any);
+      });
 
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("Window seat please")).toBeDefined();
-        expect(screen.getByText("-")).toBeDefined();
-      });
+      expect(screen.getByText("Window seat please")).toBeDefined();
+      expect(screen.getByText("-")).toBeDefined();
     });
 
-    it("shows guest email when present", async () => {
-      vi.mocked(useReservationData).mockReturnValue({
-        reservations: [
-          {
-            id: "r1",
-            guestName: "Alice",
-            guestEmail: "alice@example.com",
-            date: today,
-            startTime: "18:00",
-            endTime: "20:00",
-            partySize: 2,
-            status: "CONFIRMED",
-          },
-        ],
-        tables: [],
-        isConnected: true,
-        sseError: null,
-        addReservation: vi.fn(),
-        updateReservation: vi.fn(),
-        removeReservation: vi.fn(),
-        setReservations: vi.fn(),
-        setTables: vi.fn(),
-        subscribeToEvents: vi.fn(() => vi.fn()),
-      } as any);
+    it("shows guest email when present", () => {
+      mockReservationsHook({
+        data: [{ ...defaultReservations[0], guestEmail: "alice@example.com" }],
+      });
 
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("alice@example.com")).toBeDefined();
-      });
+      expect(screen.getByText("alice@example.com")).toBeDefined();
     });
   });
 
   describe("empty state", () => {
-    it("shows empty state when no reservations for selected date", async () => {
-      vi.mocked(useReservationData).mockReturnValue({
-        reservations: [],
-        tables: [],
-        isConnected: true,
-        sseError: null,
-        addReservation: vi.fn(),
-        updateReservation: vi.fn(),
-        removeReservation: vi.fn(),
-        setReservations: vi.fn(),
-        setTables: vi.fn(),
-        subscribeToEvents: vi.fn(() => vi.fn()),
-      } as any);
-
-      mockApi.reservations.list.mockResolvedValue({ data: [] });
+    it("shows empty state when no reservations for selected date", () => {
+      mockReservationsHook({ data: [] });
 
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByTestId("empty-state")).toBeDefined();
-        expect(screen.getByText("No reservations")).toBeDefined();
-      });
+      expect(screen.getByTestId("empty-state")).toBeDefined();
+      expect(screen.getByText("No reservations")).toBeDefined();
     });
   });
 
-  describe("connection status", () => {
-    it("shows Live when connected", () => {
-      renderPage();
-      expect(screen.getByText("Live")).toBeDefined();
-    });
-
-    it("shows Offline when disconnected", () => {
-      vi.mocked(useReservationData).mockReturnValue({
-        reservations: [
-          {
-            id: "r1",
-            guestName: "Alice",
-            date: today,
-            startTime: "18:00",
-            endTime: "20:00",
-            partySize: 2,
-            status: "CONFIRMED",
-          },
-        ],
-        tables: [],
-        isConnected: false,
-        sseError: null,
-        addReservation: vi.fn(),
-        updateReservation: vi.fn(),
-        removeReservation: vi.fn(),
-        setReservations: vi.fn(),
-        setTables: vi.fn(),
-        subscribeToEvents: vi.fn(() => vi.fn()),
-      } as any);
+  describe("loading state", () => {
+    it("shows skeleton when loading and no data", () => {
+      mockReservationsHook({ data: undefined, isLoading: true });
 
       renderPage();
-      expect(screen.getByText("Offline")).toBeDefined();
+
+      expect(screen.getByTestId("skeleton-group")).toBeDefined();
     });
   });
 
   describe("error handling", () => {
-    it("shows error alert when API fetch fails", async () => {
-      mockApi.reservations.list.mockRejectedValue(new Error("API failure"));
+    it("shows error alert when query fails", () => {
+      mockReservationsHook({ error: new Error("API failure") });
 
       renderPage();
 
-      await waitFor(() => {
-        expect(screen.getByText("API failure")).toBeDefined();
-      });
+      expect(screen.getByText("API failure")).toBeDefined();
     });
   });
 });

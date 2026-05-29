@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Stat, Button, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed } from "../components/dashboard";
-import { useReservationData } from "../contexts/ReservationDataContext.js";
-import { useDashboardStats } from "../hooks/useDashboardStats";
-import type { ReservationEvent } from "../hooks/useReservationEvents";
+import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
+import { useSSEStatus } from "../hooks/useSSEStatus.js";
+import { useSSEEventFeed } from "../hooks/useSSEEventFeed.js";
 import styles from "./HomePage.module.css";
-
-const MAX_FEED_ITEMS = 5;
 
 function StatsLoading() {
   return (
@@ -25,18 +23,13 @@ function StatsLoading() {
 export function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { isConnected, subscribeToEvents } = useReservationData();
-  const { reservations, stats, isLoading, error, refetch } = useDashboardStats();
-  const [feedEvents, setFeedEvents] = useState<readonly ReservationEvent[]>([]);
+  const { reservations, stats, isLoading, error, refetch } = useDashboardStatsQuery();
+  const { isConnected } = useSSEStatus();
+  const feedEvents = useSSEEventFeed({ maxItems: 5 });
 
-  const handleEvent = useCallback((event: ReservationEvent) => {
-    setFeedEvents((prev) => [event, ...prev].slice(0, MAX_FEED_ITEMS));
-  }, []);
-
-  // Subscribe to SSE events via the shared context (no extra EventSource connection)
-  useEffect(() => {
-    return subscribeToEvents(handleEvent);
-  }, [subscribeToEvents, handleEvent]);
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   return (
     <div>
@@ -45,7 +38,7 @@ export function HomePage() {
         description={`Welcome back${user?.name ? `, ${user.name}` : ""}`}
       />
 
-      {error && <ErrorRetryBanner error={error} onRetry={refetch} />}
+      {error && <ErrorRetryBanner error={error.message} onRetry={handleRetry} />}
 
       {isLoading ? (
         <StatsLoading />

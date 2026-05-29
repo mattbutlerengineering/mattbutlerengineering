@@ -12,7 +12,7 @@ await startServiceServer({
     const { buildApp } = await import("./app.js");
     const { startLivenessMonitor } = await import("./services/liveness-monitor.js");
     const fastify = await buildApp();
-    startLivenessMonitor();
+    startLivenessMonitor(fastify.log);
     return fastify;
   },
   beforeShutdown: async () => {

@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
+import type { ApiClientError } from "@mbe/api-client";
 import { resolveConfig } from "./config.js";
 
 export interface InitOptions {
@@ -32,6 +33,26 @@ export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void {
   });
 }
 
-export const captureException = Sentry.captureException.bind(Sentry);
-export const captureMessage = Sentry.captureMessage.bind(Sentry);
-export const addBreadcrumb = Sentry.addBreadcrumb.bind(Sentry);
+/**
+ * Report an API client error to Sentry with severity classification.
+ *
+ * - 5xx → captureException (error-level breadcrumb)
+ * - 401/403 → captureMessage with "warning" severity
+ * - Other 4xx → breadcrumb only
+ */
+export function reportApiError(error: ApiClientError): void {
+  const code = error.statusCode;
+
+  Sentry.addBreadcrumb({
+    category: "api",
+    message: `${error.method} ${error.path} → ${code}`,
+    level: code >= 500 ? "error" : "warning",
+    data: { statusCode: code, method: error.method, path: error.path },
+  });
+
+  if (code >= 500) {
+    Sentry.captureException(error);
+  } else if (code === 401 || code === 403) {
+    Sentry.captureMessage(error.message, "warning");
+  }
+}
