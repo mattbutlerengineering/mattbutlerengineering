@@ -12,14 +12,11 @@ test.describe("CF-3: Walk-in creation", () => {
     const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
     await expect(dialog).toBeVisible();
 
-    // Party size input
-    const partySizeInput = dialog.getByLabel(/party size/i);
-    await expect(partySizeInput).toBeVisible();
-    await partySizeInput.fill("4");
+    // Party size buttons are visible (WalkInDialog uses buttons, not a text input)
+    await expect(dialog.getByRole("button", { name: "4" })).toBeVisible();
 
-    // Available tables are listed
-    const tableList = dialog.getByTestId(/^table-list-/);
-    await expect(tableList.first()).toBeVisible();
+    // Table select is visible
+    await expect(dialog.getByLabel(/table/i)).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/walkin-dialog.png", fullPage: true });
   });
 
@@ -32,12 +29,8 @@ test.describe("CF-3: Walk-in creation", () => {
     const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
     await expect(dialog).toBeVisible();
 
-    // Fill form
-    await dialog.getByLabel(/party size/i).fill("4");
-
-    // Select first available table
-    const firstTable = dialog.getByTestId(/^table-list-/).first();
-    await firstTable.click();
+    // Select party size 4
+    await dialog.getByRole("button", { name: "4" }).click();
 
     // Optionally enter guest name
     const guestNameInput = dialog.getByLabel(/guest name/i);
@@ -45,8 +38,8 @@ test.describe("CF-3: Walk-in creation", () => {
       await guestNameInput.fill("Test Guest");
     }
 
-    // Click "Confirm"
-    await dialog.getByRole("button", { name: /confirm/i }).click();
+    // Click "Seat Now" (the confirm action in WalkInDialog)
+    await dialog.getByRole("button", { name: /seat now/i }).click();
 
     // Dialog closes
     await expect(dialog).not.toBeVisible();
@@ -54,9 +47,6 @@ test.describe("CF-3: Walk-in creation", () => {
     // New reservation appears on timeline
     const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
     await expect(reservationBlocks).toHaveCount(await reservationBlocks.count());
-
-    // Table status changes to OCCUPIED (check via testid)
-    // Note: exact verification depends on table testid patterns
   });
 
   test("cancels walk-in dialog", async ({ mockedPage }) => {
