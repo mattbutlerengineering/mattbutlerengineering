@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import type { Reservation, Table, ReservationHold, FloorPlan } from "@mbe/types";
+import type { Reservation, Table, ReservationHold, FloorPlan, LapsingGuest } from "@mbe/types";
 
 export type ReservationEventType =
   | "reservation:created"
@@ -9,13 +9,14 @@ export type ReservationEventType =
   | "hold:released"
   | "hold:confirmed"
   | "table:updated"
-  | "floor-plan:created";
+  | "floor-plan:created"
+  | "guest:lapsing";
 
 export interface ReservationEvent {
   type: ReservationEventType;
   venueId: string;
   timestamp: string;
-  data: Reservation | Table | ReservationHold | FloorPlan;
+  data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
 }
 
 /** Maximum concurrent SSE connections before Node emits a warning. */
@@ -133,5 +134,14 @@ export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
     venueId: floorPlan.venueId,
     timestamp: new Date().toISOString(),
     data: floorPlan,
+  });
+}
+
+export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
+  reservationEvents.emitChange({
+    type: "guest:lapsing",
+    venueId,
+    timestamp: new Date().toISOString(),
+    data: guests,
   });
 }

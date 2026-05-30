@@ -219,6 +219,10 @@ describe("venueService", () => {
       expect(prisma.venue.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { venueGroupId: "group-1" } })
       );
+      // count query must also filter by venueGroupId so both use the venues_venue_group_id_idx index
+      expect(prisma.venue.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { venueGroupId: "group-1" } })
+      );
     });
 
     it("does not filter when venueGroupId is omitted", async () => {

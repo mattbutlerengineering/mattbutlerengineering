@@ -146,14 +146,14 @@
   </file>
   <file path="src/hooks/useReservationEvents.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "guest:lapsing";
     </item>
     <item priority="low">
       interface ReservationEvent {
         type: ReservationEventType;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold;
+        data: Reservation | Table | ReservationHold | LapsingGuest[];
       }
     </item>
   </file>
