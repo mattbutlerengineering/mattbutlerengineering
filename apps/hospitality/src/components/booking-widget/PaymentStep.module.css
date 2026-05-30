@@ -1,0 +1,55 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+}
+
+.depositSummary {
+  background: var(--rialto-surface-raised);
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.amountRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rialto-space-sm);
+}
+
+.policyCard {
+  background: var(--rialto-surface-raised);
+  border-radius: var(--rialto-radius-soft);
+  padding: var(--rialto-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.policyList {
+  list-style: disc;
+  padding-inline-start: var(--rialto-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.cardElementWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.cardElement {
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-surface);
+}

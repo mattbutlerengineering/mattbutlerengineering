@@ -115,6 +115,23 @@
       export const publicAvailabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-deposits.ts">
+    <item priority="high">
+      interface CreatePublicPaymentIntentBody {
+        reservationId: string;
+        guestEmail?: string;
+        guestName?: string;
+      }
+    </item>
+    <item priority="high">
+      interface PublicPaymentIntentResponse {
+        clientSecret: string;
+        depositId: string;
+        amountCents: number;
+        currency: string;
+      }
+    </item>
+  </file>
   <file path="src/routes/public-guest-recognition.ts">
     <item priority="high">
       export const publicGuestRecognitionRoutes: FastifyPluginAsync;

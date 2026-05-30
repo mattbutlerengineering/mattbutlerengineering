@@ -165,7 +165,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
     </item>
   </file>
   <file path="src/schema-compat.ts">

@@ -198,6 +198,14 @@ export const venueService = {
     return venue ? mapPrismaVenue(venue) : null;
   },
 
+  /**
+   * Returns the raw Prisma venue record for a given slug, including deposit fields.
+   * Use in routes that need deposit-specific fields not on the mapped Venue type.
+   */
+  async getRawBySlug(slug: string) {
+    return prisma.venue.findFirst({ where: { slug } });
+  },
+
   async create(data: CreateVenueRequest): Promise<Venue> {
     const venue = await prisma.venue.create({
       data: {
