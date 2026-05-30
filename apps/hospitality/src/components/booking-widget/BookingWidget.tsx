@@ -13,6 +13,7 @@ type BookingStep = "date-party" | "time-slot" | "guest-details" | "confirmation"
 
 export interface BookingWidgetProps {
   venueId: string;
+  venueSlug?: string;
   apiBaseUrl?: string;
   maxPartySize?: number;
   holdDurationMinutes?: number;
@@ -34,6 +35,7 @@ const BOOKING_STEPS: StepItem[] = [
 
 export function BookingWidget({
   venueId,
+  venueSlug,
   apiBaseUrl = import.meta.env.VITE_API_URL ?? "",
   maxPartySize = 8,
   holdDurationMinutes = 10,
@@ -288,6 +290,8 @@ export function BookingWidget({
           error={confirmError}
           onSubmit={confirmReservation}
           onBack={goToTimeSlot}
+          venueSlug={venueSlug}
+          apiBaseUrl={apiBaseUrl}
         />
       )}
 
