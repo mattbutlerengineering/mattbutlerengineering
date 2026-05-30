@@ -2,6 +2,7 @@ import type {
   PaginatedResponse,
   Guest,
   GuestSegment,
+  LapsingGuest,
   CreateGuestRequest,
   UpdateGuestRequest,
 } from "@mbe/types";
@@ -105,5 +106,19 @@ export class GuestsClient {
    */
   async addNote(id: string, text: string): Promise<Guest> {
     return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text });
+  }
+
+  /**
+   * Get lapsing guests for a venue (on-demand scan)
+   */
+  async getLapsing(venueId: string): Promise<LapsingGuest[]> {
+    return this.client.getOne<LapsingGuest[]>(`/api/v1/guests/lapsing?venueId=${venueId}`);
+  }
+
+  /**
+   * Send a win-back message to a guest
+   */
+  async sendWinBack(id: string): Promise<{ sent: boolean }> {
+    return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
   }
 }
