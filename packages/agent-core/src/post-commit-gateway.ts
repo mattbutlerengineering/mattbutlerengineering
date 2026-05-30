@@ -1,6 +1,11 @@
 import { orchestrateVerification } from "./verification-orchestrator.js";
-import { runQualityGates } from "./quality-gates.js";
+import { GateRunner } from "./gate-runner.js";
+import type { GateContext } from "./gate-runner.js";
+import { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
+import { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
+import { SecurityReviewGate } from "./gates/security-review-gate.js";
 import { isTrivialDepBump } from "./dep-bump-merger.js";
+import { emitEvent } from "./utils.js";
 import type { SessionEventCallback } from "./types.js";
 import type { EvaluationResult } from "./success-evaluator.js";
 
@@ -59,27 +64,42 @@ export async function runPostCommitGateway(
     if (verification.error) errors.push(verification.error);
   }
 
-  // 2. Quality gates — only run when verification passed
+  // 2. Quality gates via GateRunner — only run when verification passed
   let evaluation: EvaluationResult | undefined;
   if (verification.passed) {
-    const qualityResult = await runQualityGates(
-      taskDescription,
+    const staticGate = new StaticAnalysisGate();
+    const evalGate = new LlmEvaluationGate();
+    const securityGate = new SecurityReviewGate({
+      skipWhen: () => staticGate.lastResult !== undefined && !staticGate.lastResult.passed,
+    });
+
+    const context: GateContext = {
       diff,
+      taskDescription,
       commitMsg,
-      {
-        evaluateSuccess: config.evaluateSuccess,
-        runSecurityReview: config.runSecurityReview,
-        runStaticAnalysis: config.runStaticAnalysis,
-      },
-      onEvent
-    );
+      evaluateSuccess: config.evaluateSuccess !== false,
+      runStaticAnalysis: config.runStaticAnalysis !== false,
+      runSecurityReview: config.runSecurityReview !== false,
+    };
 
-    errors.push(...qualityResult.errors);
-    evaluation = qualityResult.evaluation;
+    const gateRunResult = await new GateRunner([staticGate, evalGate, securityGate]).run(context);
+    evaluation = evalGate.lastEvaluation;
 
-    if (!qualityResult.staticAnalysisClean) gateFailures.push("static-analysis");
-    if (qualityResult.evaluation?.passed === false) gateFailures.push("evaluation");
-    if (qualityResult.securityReview?.approved === false) gateFailures.push("security-review");
+    for (const result of gateRunResult.results) {
+      if (!result.passed) {
+        gateFailures.push(result.gateName);
+        if (result.details) errors.push(result.details);
+      }
+      if (result.details && result.details !== "skipped") {
+        const eventType =
+          result.gateName === "static-analysis"
+            ? "session:verification"
+            : result.gateName === "evaluation"
+              ? "session:evaluation"
+              : "session:review";
+        emitEvent(onEvent, eventType, { message: result.details });
+      }
+    }
   }
 
   const allGatesPass = gateFailures.length === 0;
