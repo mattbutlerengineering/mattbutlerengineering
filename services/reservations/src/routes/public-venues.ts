@@ -14,6 +14,14 @@ interface PublicVenueResponse {
     maxAdvanceBooking?: number;
     slotIntervalMinutes?: number;
   };
+  deposit: {
+    enabled: boolean;
+    depositType: string | null;
+    amountCents: number | null;
+    freeCancellationHours: number | null;
+    lateCancellationFeePercent: number | null;
+    noShowFeePercent: number | null;
+  };
 }
 
 export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
@@ -46,6 +54,9 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
         } as never);
       }
 
+      // Fetch deposit-specific fields (not on the mapped Venue type) via service
+      const rawVenue = await venueService.getRawBySlug(slug);
+
       const publicVenue: PublicVenueResponse = {
         name: venue.name,
         slug: venue.slug,
@@ -57,6 +68,14 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
           maxPartySize: venue.settings?.maxPartySize,
           maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
           slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+        },
+        deposit: {
+          enabled: rawVenue?.depositEnabled ?? false,
+          depositType: rawVenue?.depositType ?? null,
+          amountCents: rawVenue?.depositAmountCents ?? null,
+          freeCancellationHours: rawVenue?.freeCancellationHours ?? null,
+          lateCancellationFeePercent: rawVenue?.lateCancellationFeePercent ?? null,
+          noShowFeePercent: rawVenue?.noShowFeePercent ?? null,
         },
       };
 

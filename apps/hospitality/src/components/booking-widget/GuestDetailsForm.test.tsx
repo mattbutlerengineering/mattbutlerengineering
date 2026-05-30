@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { GuestDetailsForm } from "./GuestDetailsForm.js";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
@@ -20,6 +20,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     required,
     value,
     onChange,
+    onBlur,
     placeholder,
     type,
   }: {
@@ -27,6 +28,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     required?: boolean;
     value?: string;
     onChange?: (e: any) => void;
+    onBlur?: (e: any) => void;
     placeholder?: string;
     type?: string;
   }) => (
@@ -40,6 +42,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         type={type || "text"}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
       />
     </div>
@@ -104,7 +107,29 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
+  Banner: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+    <div data-testid="recognition-banner" data-variant={variant}>
+      {children}
+    </div>
+  ),
+  Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+    <span data-testid="preferences-badge" data-variant={variant}>
+      {children}
+    </span>
+  ),
 }));
+
+/** Fire email blur + advance 300ms debounce + flush async microtasks */
+async function triggerRecognition(emailInput: HTMLElement, email: string) {
+  fireEvent.change(emailInput, { target: { value: email } });
+  fireEvent.blur(emailInput);
+  await act(async () => {
+    vi.advanceTimersByTime(300);
+    // Flush pending microtasks (promise resolutions) after timer fires
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
 
 describe("GuestDetailsForm", () => {
   const defaultProps = {
@@ -120,6 +145,12 @@ describe("GuestDetailsForm", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should render the form with all fields", () => {
@@ -219,5 +250,185 @@ describe("GuestDetailsForm", () => {
   it("should show hold timer when hold is provided", () => {
     render(<GuestDetailsForm {...defaultProps} hold={mockHold} />);
     expect(screen.getByText(/hold expires in/i)).toBeDefined();
+  });
+
+  // --- Returning guest recognition tests ---
+
+  describe("returning guest recognition", () => {
+    const propsWithSlug = {
+      ...defaultProps,
+      venueSlug: "the-grill",
+      apiBaseUrl: "https://api.example.com",
+    };
+
+    it("calls recognize endpoint after email blur with 300ms debounce", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ recognized: false }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+      const emailInput = screen.getByTestId("email");
+
+      fireEvent.change(emailInput, { target: { value: "jane@example.com" } });
+      fireEvent.blur(emailInput);
+
+      // Before debounce fires — fetch not yet called
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.example.com/public/v1/venues/the-grill/guests/recognize?email=jane%40example.com"
+      );
+    });
+
+    it("shows welcome banner and auto-fills fields when guest is recognized", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          recognized: true,
+          firstName: "Jane",
+          phone: "555-999-0000",
+          visitCount: 5,
+          hasPreferences: false,
+        }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(screen.getByTestId("recognition-banner")).toBeDefined();
+      expect(screen.getByTestId("recognition-banner").textContent).toContain("Welcome back, Jane");
+      expect(screen.getByTestId("recognition-banner").textContent).toContain("5th visit");
+
+      // Auto-filled phone
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-999-0000");
+    });
+
+    it("shows preferences badge when hasPreferences is true", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          recognized: true,
+          firstName: "Jane",
+          phone: null,
+          visitCount: 3,
+          hasPreferences: true,
+        }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(screen.getByTestId("preferences-badge")).toBeDefined();
+      expect(screen.getByTestId("preferences-badge").textContent).toContain("Preferences on file");
+    });
+
+    it("does not show badge when hasPreferences is false", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          recognized: true,
+          firstName: "Jane",
+          phone: null,
+          visitCount: 2,
+          hasPreferences: false,
+        }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(screen.getByTestId("recognition-banner")).toBeDefined();
+      expect(screen.queryByTestId("preferences-badge")).toBeNull();
+    });
+
+    it("shows no recognition UI when guest is not recognized", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ recognized: false }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "new@example.com");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(screen.queryByTestId("recognition-banner")).toBeNull();
+    });
+
+    it("silently swallows errors — no recognition UI shown", async () => {
+      const mockFetch = vi.fn().mockRejectedValue(new Error("Network error"));
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(screen.queryByTestId("recognition-banner")).toBeNull();
+    });
+
+    it("silently swallows non-ok HTTP responses", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(mockFetch).toHaveBeenCalled();
+      expect(screen.queryByTestId("recognition-banner")).toBeNull();
+    });
+
+    it("does not call recognize when venueSlug is not provided", async () => {
+      const mockFetch = vi.fn();
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...defaultProps} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("auto-filled fields remain editable", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          recognized: true,
+          firstName: "Jane",
+          phone: "555-999-0000",
+          visitCount: 1,
+          hasPreferences: false,
+        }),
+      });
+      global.fetch = mockFetch;
+
+      render(<GuestDetailsForm {...propsWithSlug} />);
+
+      await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
+
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-999-0000");
+
+      // User can override the auto-filled value
+      fireEvent.change(screen.getByTestId("phone"), { target: { value: "555-111-2222" } });
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-111-2222");
+    });
   });
 });

@@ -7,6 +7,8 @@ export interface ConfirmationViewProps {
   onNewBooking: () => void;
   cancellationUrl?: string;
   onCancellation?: () => void;
+  depositAmountCents?: number | null;
+  depositCurrency?: string | null;
 }
 
 export function ConfirmationView({
@@ -14,6 +16,8 @@ export function ConfirmationView({
   onNewBooking,
   cancellationUrl,
   onCancellation,
+  depositAmountCents,
+  depositCurrency,
 }: ConfirmationViewProps) {
   // Format date for display
   const formattedDate = new Date(reservation.date + "T00:00:00").toLocaleDateString("en-US", {
@@ -35,10 +39,10 @@ export function ConfirmationView({
       {/* Success icon with animation */}
       <div className={styles.iconWrapper}>
         <div className={styles.accentBurst} aria-hidden="true">
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
         </div>
         <svg
           className={styles.icon}
@@ -126,6 +130,23 @@ export function ConfirmationView({
           )}
         </dl>
       </div>
+
+      {/* Deposit authorization notice */}
+      {depositAmountCents != null && depositAmountCents > 0 && (
+        <div className={styles.detailsCard}>
+          <Text variant="label" as="h3" className={styles.detailsTitle}>
+            Deposit
+          </Text>
+          <Text variant="caption" color="secondary">
+            Your card has been authorized for{" "}
+            {new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: (depositCurrency ?? "usd").toUpperCase(),
+            }).format(depositAmountCents / 100)}
+            . The hold will be released or captured based on your cancellation timeline.
+          </Text>
+        </div>
+      )}
 
       {/* Contact info note */}
       {(reservation.guestEmail || reservation.guestPhone) && (
