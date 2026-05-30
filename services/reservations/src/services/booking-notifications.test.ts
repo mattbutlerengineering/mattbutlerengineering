@@ -31,7 +31,18 @@ vi.mock("@mbe/notifications", () => {
     sendBookingModified = vi.fn().mockResolvedValue(undefined);
     sendBookingCancelled = vi.fn().mockResolvedValue(undefined);
   }
-  return { ResendNotificationAdapter: MockResendNotificationAdapter };
+  class MockTwilioSmsAdapter {}
+  class MockNotificationDispatcher {
+    sendBookingConfirmation = vi.fn().mockResolvedValue(undefined);
+    sendBookingReminder = vi.fn().mockResolvedValue(undefined);
+    sendBookingModified = vi.fn().mockResolvedValue(undefined);
+    sendBookingCancelled = vi.fn().mockResolvedValue(undefined);
+  }
+  return {
+    ResendNotificationAdapter: MockResendNotificationAdapter,
+    TwilioSmsAdapter: MockTwilioSmsAdapter,
+    NotificationDispatcher: MockNotificationDispatcher,
+  };
 });
 
 vi.mock("resend", () => ({
@@ -265,7 +276,15 @@ describe("rescheduleBookingReminders", () => {
     expect(mockCancel).toHaveBeenCalledWith("day-of-reminder:res-1");
 
     // Should schedule new jobs
-    expect(mockSchedule).toHaveBeenCalledWith("booking-reminder", expect.any(Object), expect.any(Number));
-    expect(mockSchedule).toHaveBeenCalledWith("day-of-reminder", expect.any(Object), expect.any(Number));
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "day-of-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
   });
 });
