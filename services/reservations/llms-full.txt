@@ -1491,6 +1491,118 @@
         }
       );
     
+      // Get lapsing guests for a venue (on-demand scan)
+      fastify.get<{
+        Querystring: { venueId: string };
+        Reply: ApiResponse<LapsingGuest[]> | ApiError;
+      }>(
+        "/lapsing",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get lapsing guests",
+            operationId: "getLapsingGuests",
+            description:
+              "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: { type: "string", description: "Venue ID to scan" },
+              },
+            },
+            response: {
+              200: {
+                description: "Lapsing guests list",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        guestId: { type: "string" },
+                        name: { type: "string" },
+                        email: { type: "string", nullable: true },
+                        phone: { type: "string", nullable: true },
+                        communicationPreference: { type: "string" },
+                        avgFrequencyDays: { type: "number" },
+                        daysSinceLastVisit: { type: "number" },
+                        daysOverdue: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+              400: { $ref: "Error#" },
+              401: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+          }
+          const lapsing = await runLapsedGuestScan(venueId);
+          return { data: lapsing };
+        }
+      );
+    
+      // Send win-back message to a guest
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<{ sent: boolean }> | ApiError;
+      }>(
+        "/:id/win-back",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Send win-back message",
+            operationId: "sendGuestWinBack",
+            description:
+              "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id: { type: "string", description: "Guest ID" },
+              },
+            },
+            response: {
+              200: {
+                description: "Win-back result",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "object",
+                    properties: {
+                      sent: { type: "boolean" },
+                    },
+                  },
+                },
+              },
+              404: { $ref: "Error#" },
+              401: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const guest = await guestService.getById(request.params.id);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          }
+          const sent = await sendWinBack(guest, fastify.notificationPort);
+          return { data: { sent } };
+        }
+      );
+    
       // Delete guest
       fastify.delete<{
         Params: { id: string };
@@ -4670,12 +4782,13 @@
       | "hold:released"
       | "hold:confirmed"
       | "table:updated"
-      | "floor-plan:created";
+      | "floor-plan:created"
+      | "guest:lapsing";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan;
+      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
     }
   </file>
   <file path="src/services/floor-plan.ts">
@@ -4731,6 +4844,7 @@
       lifetimeSpend: Prisma.Decimal | null;
       lastVisit: Date | null;
       tags: unknown;
+      communicationPreference: string;
       dietaryRestrictions: unknown;
       staffNotes: unknown;
       createdAt: Date;
@@ -4755,6 +4869,7 @@
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
+        communicationPreference: guest.communicationPreference as CommunicationPreference,
         dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
         staffNotes,
         createdAt: guest.createdAt.toISOString(),
@@ -4781,6 +4896,110 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+    }
+  </file>
+  <file path="src/services/lapse-detector.ts">
+    export interface LapseResult {
+      /** Average days between visits (0 if fewer than 2 visits). */
+      avgFrequencyDays: number;
+      /** Days since the most recent visit. */
+      daysSinceLastVisit: number;
+      /** True when daysSinceLastVisit > avgFrequencyDays * 2 and visitCount >= 3. */
+      isLapsing: boolean;
+    }
+    export function detectLapse(visitDates: string[]): LapseResult {
+      const LAPSE_MIN_VISITS = 3;
+    
+      if (visitDates.length < LAPSE_MIN_VISITS) {
+        return { avgFrequencyDays: 0, daysSinceLastVisit: 0, isLapsing: false };
+      }
+    
+      const sorted = [...visitDates].map((d) => new Date(d).getTime()).sort((a, b) => a - b);
+    
+      // Average gap between consecutive visits
+      let totalGap = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        totalGap += sorted[i] - sorted[i - 1];
+      }
+      const avgFrequencyDays = totalGap / (sorted.length - 1) / DAY_MS;
+    
+      const daysSinceLastVisit = (Date.now() - sorted[sorted.length - 1]) / DAY_MS;
+    
+      const isLapsing = daysSinceLastVisit > avgFrequencyDays * 2;
+    
+      return { avgFrequencyDays, daysSinceLastVisit, isLapsing };
+    }
+  </file>
+  <file path="src/services/lapsed-guest-cron.ts">
+    export function scheduleLapsedGuestCron(log: FastifyBaseLogger): void {
+      const scan = async () => {
+        try {
+          const venues = await prisma.venue.findMany({ select: { id: true } });
+          for (const venue of venues) {
+            const lapsing = await runLapsedGuestScan(venue.id);
+            if (lapsing.length > 0) {
+              log.info(
+                { venueId: venue.id, count: lapsing.length },
+                "lapsed guest scan: found lapsing guests"
+              );
+            }
+          }
+        } catch (err) {
+          log.error({ err }, "lapsed guest scan: error");
+        }
+      };
+    
+      // Run first scan after 1 minute (let service fully start), then daily
+      setTimeout(() => {
+        void scan();
+        setInterval(() => void scan(), DAILY_MS);
+      }, 60_000);
+    }
+  </file>
+  <file path="src/services/lapsed-guest-scan.ts">
+    export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[]> {
+      // Fetch guests with 3+ visits and a lastVisit date
+      const guests = await prisma.guest.findMany({
+        where: { venueId, visitCount: { gte: MIN_VISITS }, lastVisit: { not: null } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          communicationPreference: true,
+          reservations: {
+            where: { status: "COMPLETED" },
+            select: { startTime: true },
+            orderBy: { startTime: "asc" },
+          },
+        },
+      });
+    
+      const lapsing: LapsingGuest[] = [];
+    
+      for (const guest of guests) {
+        const visitDates = guest.reservations.map((r) => r.startTime.toISOString());
+        const { avgFrequencyDays, daysSinceLastVisit, isLapsing } = detectLapse(visitDates);
+    
+        if (!isLapsing) continue;
+    
+        lapsing.push({
+          guestId: guest.id,
+          name: guest.name,
+          email: guest.email,
+          phone: guest.phone,
+          communicationPreference: guest.communicationPreference as CommunicationPreference,
+          avgFrequencyDays,
+          daysSinceLastVisit,
+          daysOverdue: daysSinceLastVisit - avgFrequencyDays * 2,
+        });
+      }
+    
+      if (lapsing.length > 0) {
+        emitLapsingGuests(venueId, lapsing);
+      }
+    
+      return lapsing;
     }
   </file>
   <file path="src/services/reminder.ts">
@@ -4950,6 +5169,28 @@
       avgTurnTimeMinutes?: number;
     }
   </file>
+  <file path="src/services/win-back.ts">
+    export async function sendWinBack(
+      guest: Guest,
+      notificationPort: NotificationPort
+    ): Promise<boolean> {
+      if (guest.communicationPreference === "transactional_only") {
+        return false;
+      }
+    
+      if (!guest.email) {
+        return false;
+      }
+    
+      await notificationPort.sendWinBack({
+        guestName: guest.name,
+        guestEmail: guest.email,
+        venueName: "your favourite restaurant",
+      });
+    
+      return true;
+    }
+  </file>
   </section>
   <section priority="medium" role="src">
   <file path="src/app.ts">
@@ -5009,6 +5250,11 @@
       await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
       await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(stripeWebhookRoutes);
+    
+      // Schedule daily lapsed guest scan (skip in test mode)
+      if (process.env.NODE_ENV !== "test") {
+        scheduleLapsedGuestCron(fastify.log);
+      }
     
       return fastify;
     }

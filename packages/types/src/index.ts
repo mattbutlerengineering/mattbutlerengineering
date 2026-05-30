@@ -85,10 +85,12 @@ export type {
 export type {
   Guest,
   StaffNote,
+  CommunicationPreference,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
   GuestSegment,
+  LapsingGuest,
 } from "./guest.js";
 
 // Agent types

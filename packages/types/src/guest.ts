@@ -1,6 +1,8 @@
 import type { Venue } from "./venue.js";
 import type { Reservation } from "./reservation.js";
 
+export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+
 export interface StaffNote {
   text: string;
   createdBy: string;
@@ -20,11 +22,23 @@ export interface Guest {
   lastVisit: string | null;
   tags: string[] | null;
   dietaryRestrictions: string[] | null;
+  communicationPreference: CommunicationPreference;
   /** Staff-only notes. Never returned in public-facing API responses. */
   staffNotes: StaffNote[];
   reservations?: Reservation[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LapsingGuest {
+  guestId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  communicationPreference: CommunicationPreference;
+  avgFrequencyDays: number;
+  daysSinceLastVisit: number;
+  daysOverdue: number;
 }
 
 export interface CreateGuestRequest {

@@ -256,29 +256,11 @@
     }
   </file>
   <file path="src/guest.ts">
+    export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
     export interface StaffNote {
       text: string;
       createdBy: string;
       createdAt: string;
-    }
-    export interface Guest {
-      id: string;
-      venueId: string;
-      venue?: Venue;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: string | null; // Decimal as string for precision
-      lastVisit: string | null;
-      tags: string[] | null;
-      dietaryRestrictions: string[] | null;
-      /** Staff-only notes. Never returned in public-facing API responses. */
-      staffNotes: StaffNote[];
-      reservations?: Reservation[];
-      createdAt: string;
-      updatedAt: string;
     }
   </file>
   <file path="src/reservation.ts">
