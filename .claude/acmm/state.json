@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-05-23T21:57:14.428Z",
+  "lastRun": "2026-05-30T17:04:57.061Z",
   "currentLevel": 6,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -9,10 +9,8 @@
       "substanceEvidence": null
     },
     "acmm:prereq-e2e": {
-      "passed": true,
-      "evidence": "detected at one of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/",
-      "substantive": null,
-      "substanceEvidence": null
+      "passed": false,
+      "evidence": "none of: playwright.config.ts, playwright.config.js, cypress.config.ts, cypress.config.js, e2e/, tests/e2e/"
     },
     "acmm:prereq-cicd": {
       "passed": true,
@@ -675,10 +673,8 @@
       "substanceEvidence": null
     },
     "meta:product-improvements": {
-      "passed": true,
-      "evidence": "2 improvement issue(s) closed in last 30 days",
-      "substantive": null,
-      "substanceEvidence": null
+      "passed": false,
+      "evidence": "gh CLI unavailable or error querying improvement issues"
     }
   },
   "history": [
@@ -759,6 +755,12 @@
       "level": 6,
       "detected": 113,
       "total": 113
+    },
+    {
+      "date": "2026-05-30",
+      "level": 6,
+      "detected": 111,
+      "total": 113
     }
   ],
   "issuesCreated": {
@@ -772,7 +774,6 @@
   "role": "Strategist",
   "detectedIds": [
     "acmm:prereq-test-suite",
-    "acmm:prereq-e2e",
     "acmm:prereq-cicd",
     "acmm:prereq-pr-template",
     "acmm:prereq-issue-template",
@@ -882,8 +883,7 @@
     "meta:threshold-tuning",
     "meta:instruction-evolution",
     "meta:process-metrics",
-    "meta:fp-rate-healthy",
-    "meta:product-improvements"
+    "meta:fp-rate-healthy"
   ],
   "computation": {
     "level": 6,
@@ -909,7 +909,7 @@
     "nextTransitionTrigger": null,
     "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
     "prerequisites": {
-      "met": 8,
+      "met": 7,
       "total": 8
     },
     "crossCutting": {
@@ -1005,11 +1005,11 @@
         }
       },
       "status": "green",
-      "measured_at": "2026-05-23T21:57:13.603Z"
+      "measured_at": "2026-05-30T17:04:57.036Z"
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-05-23T21:57:13.603Z"
+      "measured_at": "2026-05-30T17:04:57.037Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."

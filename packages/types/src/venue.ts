@@ -64,6 +64,18 @@ export interface VenueSettings {
   durationRules?: DurationRule[];
 }
 
+export type DepositType = "flat" | "per_person";
+
+export interface DepositConfig {
+  enabled: boolean;
+  depositType: DepositType | null;
+  amountCents: number | null;
+  currency: string;
+  freeCancellationHours: number | null;
+  lateCancellationFeePercent: number | null;
+  noShowFeePercent: number | null;
+}
+
 export interface CreateVenueGroupRequest {
   name: string;
   slug: string;

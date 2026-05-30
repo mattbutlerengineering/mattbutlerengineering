@@ -204,12 +204,13 @@
       | "hold:created"
       | "hold:released"
       | "hold:confirmed"
-      | "table:updated";
+      | "table:updated"
+      | "guest:lapsing";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold;
+      data: Reservation | Table | ReservationHold | LapsingGuest[];
     }
   </file>
   <file path="src/hooks/useReservationQuerySync.ts">

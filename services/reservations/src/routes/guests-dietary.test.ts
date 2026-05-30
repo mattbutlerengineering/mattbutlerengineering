@@ -109,6 +109,7 @@ const mockGuestWithDietary = {
   lifetimeSpend: null,
   lastVisit: null,
   tags: null,
+  communicationPreference: "both" as const,
   dietaryRestrictions: ["gluten-free", "vegan"],
   staffNotes: [],
   createdAt: "2026-01-01T00:00:00.000Z",
