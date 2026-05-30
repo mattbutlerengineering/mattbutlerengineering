@@ -31,7 +31,18 @@ vi.mock("@mbe/notifications", () => {
     sendBookingModified = vi.fn().mockResolvedValue(undefined);
     sendBookingCancelled = vi.fn().mockResolvedValue(undefined);
   }
-  return { ResendNotificationAdapter: MockResendNotificationAdapter };
+  class MockTwilioSmsAdapter {}
+  class MockNotificationDispatcher {
+    sendBookingConfirmation = vi.fn().mockResolvedValue(undefined);
+    sendBookingReminder = vi.fn().mockResolvedValue(undefined);
+    sendBookingModified = vi.fn().mockResolvedValue(undefined);
+    sendBookingCancelled = vi.fn().mockResolvedValue(undefined);
+  }
+  return {
+    ResendNotificationAdapter: MockResendNotificationAdapter,
+    TwilioSmsAdapter: MockTwilioSmsAdapter,
+    NotificationDispatcher: MockNotificationDispatcher,
+  };
 });
 
 vi.mock("resend", () => ({
