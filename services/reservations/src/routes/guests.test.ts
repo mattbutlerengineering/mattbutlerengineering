@@ -117,6 +117,7 @@ const mockGuest = {
   lifetimeSpend: "500.00",
   lastVisit: "2026-01-25T19:00:00.000Z",
   tags: ["VIP", "Birthday Club"],
+  communicationPreference: "both" as const,
   dietaryRestrictions: null,
   staffNotes: [],
   createdAt: "2026-01-01T00:00:00.000Z",

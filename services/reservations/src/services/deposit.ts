@@ -64,6 +64,24 @@ export class DepositService {
   }
 
   /**
+   * Links a Stripe PaymentIntent to a pending deposit.
+   * Called immediately after creating the PaymentIntent so the webhook can find it.
+   */
+  async linkPaymentIntent(
+    depositId: string,
+    stripePaymentIntentId: string,
+    stripeCustomerId?: string
+  ): Promise<Deposit> {
+    return prisma.deposit.update({
+      where: { id: depositId },
+      data: {
+        stripePaymentIntentId,
+        ...(stripeCustomerId ? { stripeCustomerId } : {}),
+      },
+    });
+  }
+
+  /**
    * Transitions deposit from `pending` → `held`.
    * Called after Stripe confirms the PaymentIntent is authorized.
    */

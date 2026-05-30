@@ -15,9 +15,16 @@ export interface BookingNotificationInput {
   sequence?: number;
 }
 
+export interface WinBackNotificationInput {
+  guestName: string;
+  guestEmail: string;
+  venueName: string;
+}
+
 export interface NotificationPort {
   sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
   sendBookingReminder(input: BookingNotificationInput): Promise<void>;
   sendBookingModified(input: BookingNotificationInput): Promise<void>;
   sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
+  sendWinBack(input: WinBackNotificationInput): Promise<void>;
 }
