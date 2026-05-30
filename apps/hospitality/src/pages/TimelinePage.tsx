@@ -352,7 +352,7 @@ export function TimelinePage() {
         </div>
 
         {/* Date navigation */}
-        <div className={styles.dateNav}>
+        <div className={styles.dateNav} data-testid="date-navigation">
           <div className={styles.dateNavLeft}>
             <Button
               variant="ghost"
@@ -480,7 +480,11 @@ export function TimelinePage() {
 
         {/* Sidebar - Reservation details (hidden on mobile via CSS) */}
         {selectedReservation && (
-          <Card className={styles.sidebar} variant="elevated">
+          <Card
+            className={styles.sidebar}
+            variant="elevated"
+            data-testid="reservation-detail-sidebar"
+          >
             <div className={styles.sidebarHeader}>
               <Text variant="display" as="h2" className={styles.sidebarTitle}>
                 Reservation Details

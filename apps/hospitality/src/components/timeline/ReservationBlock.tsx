@@ -45,6 +45,7 @@ export function ReservationBlock({
     /* eslint-disable mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */
     <button
       type="button"
+      data-testid={`reservation-block-${reservation.id}`}
       onClick={onClick}
       className={[
         styles.block,

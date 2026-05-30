@@ -49,8 +49,10 @@
       }
     </item>
     <item priority="low">
-      interface NotificationPort {
-        
+      interface WinBackNotificationInput {
+        guestName: string;
+        guestEmail: string;
+        venueName: string;
       }
     </item>
   </file>
