@@ -1076,19 +1076,14 @@
       readonly maxTurns: number;
       readonly reason: string;
     }
-    export function resolveBudget(taskDescription: string): BudgetConfig {
-      // Check complex first (most specific)
+    export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" {
       for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.complex.budget;
+        if (signal.test(description)) return "complex";
       }
-    
-      // Check simple
       for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.simple.budget;
+        if (signal.test(description)) return "simple";
       }
-    
-      // Default to standard
-      return COMPLEXITY_SIGNALS.standard.budget;
+      return "standard";
     }
   </file>
   <file path="src/bundle-size-tracker.ts">
