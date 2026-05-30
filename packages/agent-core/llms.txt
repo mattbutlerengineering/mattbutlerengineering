@@ -151,7 +151,7 @@
       }
     </item>
     <item priority="high">
-      export function resolveBudget(taskDescription: string): BudgetConfig { /* ... */ }
+      export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
     </item>
   </file>
   <file path="src/bundle-size-tracker.ts">
