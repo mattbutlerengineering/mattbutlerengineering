@@ -491,29 +491,6 @@
       }
     </item>
   </file>
-  <file path="src/quality-gates.ts">
-    <item priority="low">
-      interface QualityGatesResult {
-        evaluation?: EvaluationResult;
-        securityReview?: ReviewResult;
-        staticAnalysisClean: boolean;
-        errors: string[];
-      }
-    </item>
-    <item priority="high">
-      export async function runQualityGates(
-        taskDescription: string,
-        diff: string,
-        commitMsg: string,
-        options: {
-          evaluateSuccess?: boolean;
-          runSecurityReview?: boolean;
-          runStaticAnalysis?: boolean;
-        },
-        onEvent?: SessionEventCallback
-      ): Promise<QualityGatesResult> { /* ... */ }
-    </item>
-  </file>
   <file path="src/rate-limit-detector.ts">
     <item priority="high">
       export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
