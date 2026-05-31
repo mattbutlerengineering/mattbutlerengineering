@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import "@testing-library/jest-dom";
-import {
-  validateAuth0Config,
-  fetchAuth0TokensWithRetry,
-} from "../auth-helpers.js";
+import { validateAuth0Config, fetchAuth0TokensWithRetry } from "../auth-helpers.js";
 import type { Auth0Config } from "../auth-helpers.js";
 
 const VALID_CONFIG: Auth0Config = {
@@ -92,9 +89,7 @@ describe("validateAuth0Config", () => {
   });
 
   it("throws with guidance about ROPC grant requirements when any var is missing", () => {
-    expect(() => validateAuth0Config({})).toThrow(
-      "Password grant type enabled"
-    );
+    expect(() => validateAuth0Config({})).toThrow("Password grant type enabled");
   });
 });
 
@@ -172,11 +167,9 @@ describe("fetchAuth0TokensWithRetry", () => {
     });
 
     let caughtError: Error | undefined;
-    const promise = fetchAuth0TokensWithRetry(VALID_CONFIG, mockFetch).catch(
-      (err: Error) => {
-        caughtError = err;
-      }
-    );
+    const promise = fetchAuth0TokensWithRetry(VALID_CONFIG, mockFetch).catch((err: Error) => {
+      caughtError = err;
+    });
     await vi.runAllTimersAsync();
     await promise;
 
@@ -235,11 +228,9 @@ describe("fetchAuth0TokensWithRetry", () => {
     });
 
     let caughtError: Error | undefined;
-    const promise = fetchAuth0TokensWithRetry(VALID_CONFIG, mockFetch).catch(
-      (err: Error) => {
-        caughtError = err;
-      }
-    );
+    const promise = fetchAuth0TokensWithRetry(VALID_CONFIG, mockFetch).catch((err: Error) => {
+      caughtError = err;
+    });
     await vi.runAllTimersAsync();
     await promise;
 

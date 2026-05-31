@@ -388,7 +388,7 @@ export function BookingWidget({
       {step === "confirmation" && reservation && (
         <ConfirmationView
           reservation={reservation}
-          depositAmountCents={depositPaymentIntentId ? depositConfig?.amountCents ?? null : null}
+          depositAmountCents={depositPaymentIntentId ? (depositConfig?.amountCents ?? null) : null}
           depositCurrency={depositConfig?.currency ?? null}
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}

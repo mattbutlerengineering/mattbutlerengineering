@@ -26,9 +26,7 @@ export interface UseSSEEventFeedOptions {
   maxItems?: number;
 }
 
-export function useSSEEventFeed(
-  options: UseSSEEventFeedOptions = {}
-): readonly ReservationEvent[] {
+export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly ReservationEvent[] {
   const { maxItems = 5 } = options;
   const [events, setEvents] = useState<readonly ReservationEvent[]>([]);
 

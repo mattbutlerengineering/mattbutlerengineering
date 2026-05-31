@@ -1,7 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
-import { depositService, DepositTransitionError, DepositNotFoundError } from "../services/deposit.js";
+import {
+  depositService,
+  DepositTransitionError,
+  DepositNotFoundError,
+} from "../services/deposit.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
 interface ApiResponse<T> {
@@ -102,9 +106,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deposit = await depositService.getById(request.params.id);
       if (!deposit) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
       }
       return { data: deposit };
     }
@@ -121,7 +123,8 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Capture (apply) a deposit",
         operationId: "captureDeposit",
-        description: "Capture a held deposit — transitions state from held → applied and charges the card.",
+        description:
+          "Capture a held deposit — transitions state from held → applied and charges the card.",
         tags: ["Deposits"],
         params: {
           type: "object",
@@ -144,9 +147,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const existing = await depositService.getById(request.params.id);
       if (!existing) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
       }
 
       try {
@@ -174,7 +175,8 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Refund a deposit",
         operationId: "refundDeposit",
-        description: "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
+        description:
+          "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
         tags: ["Deposits"],
         params: {
           type: "object",
@@ -197,9 +199,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const existing = await depositService.getById(request.params.id);
       if (!existing) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
       }
 
       try {
@@ -227,7 +227,8 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Forfeit a deposit",
         operationId: "forfeitDeposit",
-        description: "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
+        description:
+          "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
         tags: ["Deposits"],
         params: {
           type: "object",
@@ -250,9 +251,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const existing = await depositService.getById(request.params.id);
       if (!existing) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
       }
 
       try {

@@ -127,7 +127,6 @@ describe("PaymentStep", () => {
   it("shows error when payment fails", async () => {
     const { useStripe, useElements } = await import("@stripe/react-stripe-js");
     vi.mocked(useStripe).mockReturnValue({
-       
       confirmCardPayment: vi.fn().mockResolvedValue({ error: { message: "Card declined" } }),
     } as any);
     vi.mocked(useElements).mockReturnValue({
@@ -136,12 +135,14 @@ describe("PaymentStep", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
         )
-      )
     );
 
     render(<PaymentStep {...defaultProps} />);
@@ -166,12 +167,14 @@ describe("PaymentStep", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
         )
-      )
     );
 
     render(<PaymentStep {...defaultProps} />);

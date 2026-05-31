@@ -122,10 +122,7 @@ function $(e) {
 }
 let A = null;
 function y() {
-  return (
-    (A === null || A.byteLength === 0) && (A = new Uint8Array(_.memory.buffer)),
-    A
-  );
+  return ((A === null || A.byteLength === 0) && (A = new Uint8Array(_.memory.buffer)), A);
 }
 let S = new TextDecoder("utf-8", { ignoreBOM: !0, fatal: !0 });
 S.decode();
@@ -134,22 +131,19 @@ let I = 0;
 function W(e, t) {
   return (
     (I += t),
-    I >= V &&
-      ((S = new TextDecoder("utf-8", { ignoreBOM: !0, fatal: !0 })),
-      S.decode(),
-      (I = t)),
+    I >= V && ((S = new TextDecoder("utf-8", { ignoreBOM: !0, fatal: !0 })), S.decode(), (I = t)),
     S.decode(y().subarray(e, e + t))
   );
 }
 function w(e, t) {
-  return (e = e >>> 0), W(e, t);
+  return ((e = e >>> 0), W(e, t));
 }
 let s = 0;
 const m = new TextEncoder();
 "encodeInto" in m ||
   (m.encodeInto = function (e, t) {
     const n = m.encode(e);
-    return t.set(n), { read: e.length, written: n.length };
+    return (t.set(n), { read: e.length, written: n.length });
   });
 function b(e, t, n) {
   if (n === void 0) {
@@ -173,12 +167,12 @@ function b(e, t, n) {
     i[o + c] = u;
   }
   if (c !== r) {
-    c !== 0 && (e = e.slice(c)), (o = n(o, r, (r = c + e.length * 3), 1) >>> 0);
+    (c !== 0 && (e = e.slice(c)), (o = n(o, r, (r = c + e.length * 3), 1) >>> 0));
     const u = y().subarray(o + c, o + r),
       f = m.encodeInto(e, u);
-    (c += f.written), (o = n(o, r, c, 1) >>> 0);
+    ((c += f.written), (o = n(o, r, c, 1) >>> 0));
   }
-  return (s = c), o;
+  return ((s = c), o);
 }
 let p = null;
 function l() {
@@ -210,7 +204,7 @@ function q(e) {
     let i = "[";
     o > 0 && (i += q(e[0]));
     for (let c = 1; c < o; c++) i += ", " + q(e[c]);
-    return (i += "]"), i;
+    return ((i += "]"), i);
   }
   const n = /\[object ([^\]]+)\]/.exec(toString.call(e));
   let r;
@@ -229,7 +223,7 @@ ${e.stack}`
 }
 function x(e) {
   const t = _.__externref_table_alloc();
-  return _.__wbindgen_externrefs.set(t, e), t;
+  return (_.__wbindgen_externrefs.set(t, e), t);
 }
 function g(e, t) {
   try {
@@ -240,7 +234,7 @@ function g(e, t) {
   }
 }
 function E(e, t) {
-  return (e = e >>> 0), y().subarray(e / 1, e / 1 + t);
+  return ((e = e >>> 0), y().subarray(e / 1, e / 1 + t));
 }
 const O =
   typeof FinalizationRegistry > "u"
@@ -255,7 +249,7 @@ function z(e, t, n, r) {
       try {
         return r(u, o.b, ...c);
       } finally {
-        (o.a = u), i._wbg_cb_unref();
+        ((o.a = u), i._wbg_cb_unref());
       }
     };
   return (
@@ -268,7 +262,7 @@ function z(e, t, n, r) {
 }
 function M(e) {
   const t = _.__wbindgen_externrefs.get(e);
-  return _.__externref_table_dealloc(e), t;
+  return (_.__externref_table_dealloc(e), t);
 }
 function P() {
   return _.getBuildTimeInfo();
@@ -292,7 +286,7 @@ const v =
 class k {
   __destroy_into_raw() {
     const t = this.__wbg_ptr;
-    return (this.__wbg_ptr = 0), v.unregister(this), t;
+    return ((this.__wbg_ptr = 0), v.unregister(this), t);
   }
   free() {
     const t = this.__destroy_into_raw();
@@ -335,11 +329,7 @@ class k {
   constructor(t, n, r) {
     const o = _.queryengine_new(t, n, r);
     if (o[2]) throw M(o[1]);
-    return (
-      (this.__wbg_ptr = o[0] >>> 0),
-      v.register(this, this.__wbg_ptr, this),
-      this
-    );
+    return ((this.__wbg_ptr = o[0] >>> 0), v.register(this, this.__wbg_ptr, this), this);
   }
   query(t, n, r, o) {
     const i = b(t, _.__wbindgen_malloc, _.__wbindgen_realloc),
@@ -381,13 +371,12 @@ function Y(e, t) {
   const n = String(t),
     r = b(n, _.__wbindgen_malloc, _.__wbindgen_realloc),
     o = s;
-  l().setInt32(e + 4 * 1, o, !0), l().setInt32(e + 4 * 0, r, !0);
+  (l().setInt32(e + 4 * 1, o, !0), l().setInt32(e + 4 * 0, r, !0));
 }
 function K(e, t) {
   const n = t,
     r = typeof n == "bigint" ? n : void 0;
-  l().setBigInt64(e + 8 * 1, a(r) ? BigInt(0) : r, !0),
-    l().setInt32(e + 4 * 0, !a(r), !0);
+  (l().setBigInt64(e + 8 * 1, a(r) ? BigInt(0) : r, !0), l().setInt32(e + 4 * 0, !a(r), !0));
 }
 function Z(e) {
   const t = e,
@@ -398,7 +387,7 @@ function ee(e, t) {
   const n = q(t),
     r = b(n, _.__wbindgen_malloc, _.__wbindgen_realloc),
     o = s;
-  l().setInt32(e + 4 * 1, o, !0), l().setInt32(e + 4 * 0, r, !0);
+  (l().setInt32(e + 4 * 1, o, !0), l().setInt32(e + 4 * 0, r, !0));
 }
 function te(e, t) {
   return e in t;
@@ -428,15 +417,14 @@ function ue(e, t) {
 function se(e, t) {
   const n = t,
     r = typeof n == "number" ? n : void 0;
-  l().setFloat64(e + 8 * 1, a(r) ? 0 : r, !0),
-    l().setInt32(e + 4 * 0, !a(r), !0);
+  (l().setFloat64(e + 8 * 1, a(r) ? 0 : r, !0), l().setInt32(e + 4 * 0, !a(r), !0));
 }
 function be(e, t) {
   const n = t,
     r = typeof n == "string" ? n : void 0;
   var o = a(r) ? 0 : b(r, _.__wbindgen_malloc, _.__wbindgen_realloc),
     i = s;
-  l().setInt32(e + 4 * 1, i, !0), l().setInt32(e + 4 * 0, o, !0);
+  (l().setInt32(e + 4 * 1, i, !0), l().setInt32(e + 4 * 0, o, !0));
 }
 function fe(e, t) {
   throw new Error(w(e, t));
@@ -719,11 +707,7 @@ function qt(e) {
 function Et() {
   const e = _.__wbindgen_externrefs,
     t = e.grow(4);
-  e.set(0, void 0),
-    e.set(t + 0, void 0),
-    e.set(t + 1, null),
-    e.set(t + 2, !0),
-    e.set(t + 3, !1);
+  (e.set(0, void 0), e.set(t + 0, void 0), e.set(t + 1, null), e.set(t + 2, !0), e.set(t + 3, !1));
 }
 0 &&
   (module.exports = {

@@ -31,8 +31,7 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: {
           max: 30,
           timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) =>
-            request.user?.id ?? request.ip,
+          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
         },
       },
     },
@@ -52,9 +51,7 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { messages } = parseResult.data;
       const authHeader = request.headers.authorization;
-      const token = authHeader?.startsWith("Bearer ")
-        ? authHeader.slice(7)
-        : null;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
       const api = createApiClient({
         baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
         getAccessToken: () => token,
@@ -90,8 +87,7 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
               cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-              cacheCreationInputTokens:
-                anthropicMeta?.cacheCreationInputTokens ?? 0,
+              cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
             },
             "gen-agent cost log"
           );
