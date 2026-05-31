@@ -64,12 +64,17 @@ const mockVenue = {
 
 function createStubNotificationDispatcher(): Pick<
   NotificationDispatcher,
-  "sendBookingConfirmation" | "sendBookingReminder" | "sendBookingModified" | "sendBookingCancelled"
+  | "sendBookingConfirmation"
+  | "sendBookingReminder"
+  | "sendBookingModified"
+  | "sendBookingCancelled"
+  | "sendWinBack"
 > & {
   sendBookingConfirmation: ReturnType<typeof vi.fn>;
   sendBookingReminder: ReturnType<typeof vi.fn>;
   sendBookingModified: ReturnType<typeof vi.fn>;
   sendBookingCancelled: ReturnType<typeof vi.fn>;
+  sendWinBack: ReturnType<typeof vi.fn>;
 } {
   return {
     sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
