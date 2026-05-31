@@ -138,7 +138,8 @@
         inactivityThresholdMs: number;
         checkIntervalMs: number;
         sessionService: {
-          findStaleSessions(ms: number): Promise<Array<{ id: ...;
+          findStaleSessions(ms: number): Promise<string[]>;
+       ...;
         cancelSession: (id: string) => Promise<boolean>;
       }
     </item>

@@ -30,31 +30,6 @@ function createMockConfig(overrides: Partial<LivenessMonitorConfig> = {}): Liven
   };
 }
 
-const makeRunningSession = (id: string, updatedAt: string) => ({
-  id,
-  status: "running" as const,
-  taskDescription: `Task ${id}`,
-  branchName: null,
-  baseBranch: "main",
-  model: "claude-sonnet-4-6",
-  maxTurns: 50,
-  maxBudgetUsd: 1.0,
-  prUrl: null,
-  prNumber: null,
-  resultText: null,
-  costUsd: null,
-  inputTokens: null,
-  outputTokens: null,
-  numTurns: null,
-  durationMs: null,
-  parentId: null,
-  errors: [],
-  startedAt: null,
-  completedAt: null,
-  createdAt: updatedAt,
-  updatedAt,
-});
-
 describe("createLivenessMonitor", () => {
   let mockLogger: FastifyBaseLogger;
 
@@ -132,10 +107,9 @@ describe("createLivenessMonitor", () => {
 
   describe("stale session detection", () => {
     it("cancels session returned by findStaleSessions", async () => {
-      const staleSession = makeRunningSession("stale-1", new Date().toISOString());
       const config = createMockConfig({
         sessionService: {
-          findStaleSessions: vi.fn().mockResolvedValueOnce([staleSession]),
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-1"]),
           addEvent: vi.fn().mockResolvedValue(null),
         },
         cancelSession: vi.fn().mockResolvedValueOnce(true),
@@ -156,10 +130,9 @@ describe("createLivenessMonitor", () => {
     });
 
     it("logs warn when a stale session is auto-cancelled", async () => {
-      const staleSession = makeRunningSession("stale-1", new Date().toISOString());
       const config = createMockConfig({
         sessionService: {
-          findStaleSessions: vi.fn().mockResolvedValueOnce([staleSession]),
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-1"]),
           addEvent: vi.fn().mockResolvedValue(null),
         },
         cancelSession: vi.fn().mockResolvedValueOnce(true),
@@ -188,10 +161,9 @@ describe("createLivenessMonitor", () => {
     });
 
     it("does not add error event when cancellation returns false", async () => {
-      const staleSession = makeRunningSession("stale-2", new Date().toISOString());
       const config = createMockConfig({
         sessionService: {
-          findStaleSessions: vi.fn().mockResolvedValueOnce([staleSession]),
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-2"]),
           addEvent: vi.fn().mockResolvedValue(null),
         },
         cancelSession: vi.fn().mockResolvedValueOnce(false),
@@ -248,13 +220,9 @@ describe("createLivenessMonitor", () => {
     });
 
     it("processes multiple stale sessions in one check cycle", async () => {
-      const staleSessions = [
-        makeRunningSession("stale-a", new Date().toISOString()),
-        makeRunningSession("stale-b", new Date().toISOString()),
-      ];
       const config = createMockConfig({
         sessionService: {
-          findStaleSessions: vi.fn().mockResolvedValueOnce(staleSessions),
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-a", "stale-b"]),
           addEvent: vi.fn().mockResolvedValue(null),
         },
         cancelSession: vi.fn().mockResolvedValue(true),
