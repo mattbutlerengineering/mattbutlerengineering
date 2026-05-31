@@ -84,7 +84,7 @@ test.describe("CF-7: Guest directory and search", () => {
 
 test.describe("CF-7: Guest profile editing", () => {
   test("Edit Guest button opens edit form in drawer", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     // Open the first guest drawer
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
@@ -107,7 +107,7 @@ test.describe("CF-7: Guest profile editing", () => {
   });
 
   test("dietary restriction checkboxes appear in edit mode", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
     await firstGuestRow.click();
@@ -122,7 +122,7 @@ test.describe("CF-7: Guest profile editing", () => {
   });
 
   test("Save button saves guest and closes edit mode", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
     await firstGuestRow.click();
@@ -147,7 +147,7 @@ test.describe("CF-7: Guest profile editing", () => {
   });
 
   test("Cancel button restores original data", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
     await firstGuestRow.click();
@@ -167,7 +167,7 @@ test.describe("CF-7: Guest profile editing", () => {
   });
 
   test("Save button is disabled when name is empty", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
     await firstGuestRow.click();
@@ -185,7 +185,7 @@ test.describe("CF-7: Guest profile editing", () => {
   });
 
   test("tag input adds tags in edit mode", async ({ mockedPage }) => {
-    await mockedPage.goto("/guests");
+    await mockedPage.goto("guests");
 
     const firstGuestRow = mockedPage.getByRole("button", { name: /view details for/i }).first();
     await firstGuestRow.click();
