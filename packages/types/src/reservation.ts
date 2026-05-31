@@ -1,5 +1,23 @@
 export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
 
+export type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
+
+export interface Deposit {
+  id: string;
+  reservationId: string;
+  amountCents: number;
+  currency: string;
+  status: DepositStatus;
+  stripePaymentIntentId: string | null;
+  stripeCustomerId: string | null;
+  heldAt: string | null;
+  appliedAt: string | null;
+  refundedAt: string | null;
+  forfeitedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 
 export type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";

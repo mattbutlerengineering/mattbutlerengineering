@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type {
   Guest,
+  LapsingGuest,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSegment,
@@ -11,6 +12,8 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
+import { runLapsedGuestScan } from "../services/lapsed-guest-scan.js";
+import { sendWinBack } from "../services/win-back.js";
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // List guests for a venue
@@ -470,6 +473,118 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
       return reply.code(201).send({ data: guest });
+    }
+  );
+
+  // Get lapsing guests for a venue (on-demand scan)
+  fastify.get<{
+    Querystring: { venueId: string };
+    Reply: ApiResponse<LapsingGuest[]> | ApiError;
+  }>(
+    "/lapsing",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Get lapsing guests",
+        operationId: "getLapsingGuests",
+        description:
+          "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+        tags: ["Guests"],
+        security: [{ bearerAuth: [] }],
+        querystring: {
+          type: "object",
+          required: ["venueId"],
+          properties: {
+            venueId: { type: "string", description: "Venue ID to scan" },
+          },
+        },
+        response: {
+          200: {
+            description: "Lapsing guests list",
+            type: "object",
+            properties: {
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    guestId: { type: "string" },
+                    name: { type: "string" },
+                    email: { type: "string", nullable: true },
+                    phone: { type: "string", nullable: true },
+                    communicationPreference: { type: "string" },
+                    avgFrequencyDays: { type: "number" },
+                    daysSinceLastVisit: { type: "number" },
+                    daysOverdue: { type: "number" },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: "Error#" },
+          401: { $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { venueId } = request.query;
+      if (!venueId) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+      }
+      const lapsing = await runLapsedGuestScan(venueId);
+      return { data: lapsing };
+    }
+  );
+
+  // Send win-back message to a guest
+  fastify.post<{
+    Params: { id: string };
+    Reply: ApiResponse<{ sent: boolean }> | ApiError;
+  }>(
+    "/:id/win-back",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Send win-back message",
+        operationId: "sendGuestWinBack",
+        description:
+          "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+        tags: ["Guests"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", description: "Guest ID" },
+          },
+        },
+        response: {
+          200: {
+            description: "Win-back result",
+            type: "object",
+            properties: {
+              data: {
+                type: "object",
+                properties: {
+                  sent: { type: "boolean" },
+                },
+              },
+            },
+          },
+          404: { $ref: "Error#" },
+          401: { $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const guest = await guestService.getById(request.params.id);
+      if (!guest) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+      }
+      const sent = await sendWinBack(guest, fastify.notificationPort);
+      return { data: { sent } };
     }
   );
 

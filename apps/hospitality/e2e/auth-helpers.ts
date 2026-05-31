@@ -207,10 +207,13 @@ export async function injectAuth0Session(page: Page): Promise<void> {
   const tokens = await fetchAuth0TokensWithRetry(config);
   const entry = buildOidcUserEntry(config, tokens);
 
-  // Navigate to the app first so sessionStorage is on the correct origin
+  // Navigate to the app first so localStorage is on the correct origin.
+  // Use localStorage (not sessionStorage) so Playwright's storageState captures
+  // the OIDC session for downstream tests. The AuthProvider is configured with
+  // userStore: new WebStorageStateStore({ store: localStorage }) to match.
   await page.goto("");
   await page.evaluate(({ key, value }) => {
-    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
   }, entry);
 
   // Reload so AuthProvider picks up the injected session

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useReducer } from "react";
+import { useState, useEffect, useCallback, useReducer, useRef } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
-import { Input, TextArea, Button, Alert, Text } from "@mattbutlerengineering/rialto";
+import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -19,6 +19,15 @@ export interface GuestDetailsFormProps {
   error: string | null;
   onSubmit: (details: GuestDetails) => void;
   onBack: () => void;
+  venueSlug?: string;
+  apiBaseUrl?: string;
+}
+
+interface RecognitionResult {
+  firstName: string | null;
+  phone: string | null;
+  visitCount: number;
+  hasPreferences: boolean;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -31,6 +40,12 @@ function computeHoldTimeRemaining(hold: ReservationHold): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function ordinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
 export function GuestDetailsForm({
   slot,
   hold,
@@ -40,13 +55,17 @@ export function GuestDetailsForm({
   error,
   onSubmit,
   onBack,
+  venueSlug,
+  apiBaseUrl = "",
 }: GuestDetailsFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [recognition, setRecognition] = useState<RecognitionResult | null>(null);
   // Force re-render every second so the hold countdown stays current
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!hold) return;
@@ -77,6 +96,52 @@ export function GuestDetailsForm({
     [name, email, phone, notes, onSubmit]
   );
 
+  const handleEmailBlur = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      const emailValue = e.target.value;
+      if (!venueSlug || !emailValue) return;
+
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(async () => {
+        try {
+          const url = `${apiBaseUrl}/public/v1/venues/${venueSlug}/guests/recognize?email=${encodeURIComponent(emailValue)}`;
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.recognized) {
+            setRecognition({
+              firstName: data.firstName ?? null,
+              phone: data.phone ?? null,
+              visitCount: data.visitCount ?? 1,
+              hasPreferences: data.hasPreferences ?? false,
+            });
+            if (data.firstName && !name) {
+              setName(data.firstName);
+            }
+            if (data.phone && !phone) {
+              setPhone(data.phone);
+            }
+          }
+        } catch {
+          // Silent fail — never block booking
+        }
+      }, 300);
+    },
+    [venueSlug, apiBaseUrl, name, phone]
+  );
+
+  // Clear debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
 
   return (
@@ -106,6 +171,18 @@ export function GuestDetailsForm({
 
       {error && <Alert variant="error">{error}</Alert>}
 
+      {recognition && (
+        <Banner variant="accent">
+          Welcome back, {recognition.firstName} &mdash; your {ordinalSuffix(recognition.visitCount)}{" "}
+          visit!
+          {recognition.hasPreferences && (
+            <Badge variant="success" size="sm">
+              Preferences on file
+            </Badge>
+          )}
+        </Banner>
+      )}
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Name"
@@ -120,6 +197,7 @@ export function GuestDetailsForm({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onBlur={handleEmailBlur}
           placeholder="john@example.com"
         />
 
