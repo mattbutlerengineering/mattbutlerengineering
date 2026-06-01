@@ -31,6 +31,10 @@
       readonly latencyTracker: LatencyTracker;
       /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
       readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
+      /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
+      readonly rateLimitMonitor: RateLimitMonitor;
+      /** Error rate snapshot getter — from errorRatePlugin_ decoration */
+      readonly getErrorRates: () => ErrorRateSnapshot;
       /** Routes to register — each gets the same health handler */
       readonly routes: readonly HealthRouteConfig[];
     }

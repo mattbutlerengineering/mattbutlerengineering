@@ -512,9 +512,7 @@
         async (request, reply) => {
           const deposit = await depositService.getById(request.params.id);
           if (!deposit) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
           }
           return { data: deposit };
         }
@@ -531,7 +529,8 @@
           schema: {
             summary: "Capture (apply) a deposit",
             operationId: "captureDeposit",
-            description: "Capture a held deposit — transitions state from held → applied and charges the card.",
+            description:
+              "Capture a held deposit — transitions state from held → applied and charges the card.",
             tags: ["Deposits"],
             params: {
               type: "object",
@@ -554,9 +553,7 @@
         async (request, reply) => {
           const existing = await depositService.getById(request.params.id);
           if (!existing) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
           }
     
           try {
@@ -584,7 +581,8 @@
           schema: {
             summary: "Refund a deposit",
             operationId: "refundDeposit",
-            description: "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
+            description:
+              "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
             tags: ["Deposits"],
             params: {
               type: "object",
@@ -607,9 +605,7 @@
         async (request, reply) => {
           const existing = await depositService.getById(request.params.id);
           if (!existing) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
           }
     
           try {
@@ -637,7 +633,8 @@
           schema: {
             summary: "Forfeit a deposit",
             operationId: "forfeitDeposit",
-            description: "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
+            description:
+              "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
             tags: ["Deposits"],
             params: {
               type: "object",
@@ -660,9 +657,7 @@
         async (request, reply) => {
           const existing = await depositService.getById(request.params.id);
           if (!existing) {
-            return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Deposit not found"));
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
           }
     
           try {
@@ -1647,6 +1642,8 @@
         getPoolMetrics,
         latencyTracker,
         checkAuth0,
+        rateLimitMonitor: fastify.rateLimitMonitor,
+        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/health", operationId: "getHealthApi" },
