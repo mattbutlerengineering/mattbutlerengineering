@@ -10,13 +10,23 @@ await startServiceServer({
   port: PORT,
   buildApp: async () => {
     const { buildApp } = await import("./app.js");
-    const { startLivenessMonitor } = await import("./services/liveness-monitor.js");
+    const { createLivenessMonitor } = await import("./services/liveness-monitor.js");
+    const { sessionService } = await import("./services/session.js");
+    const { cancelSession } = await import("./services/session-executor.js");
+    const { DEFAULT_HEARTBEAT_CONFIG } = await import("@mbe/agent-core");
     const fastify = await buildApp();
-    startLivenessMonitor(fastify.log);
+    const monitor = createLivenessMonitor({
+      inactivityThresholdMs: DEFAULT_HEARTBEAT_CONFIG.inactivityTimeoutMs,
+      checkIntervalMs: 120_000,
+      sessionService,
+      cancelSession,
+    });
+    fastify.addHook("onReady", () => {
+      monitor.start(fastify.log);
+    });
+    fastify.addHook("onClose", () => {
+      monitor.stop();
+    });
     return fastify;
-  },
-  beforeShutdown: async () => {
-    const { stopLivenessMonitor } = await import("./services/liveness-monitor.js");
-    stopLivenessMonitor();
   },
 });
