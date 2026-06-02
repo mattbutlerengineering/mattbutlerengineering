@@ -6,6 +6,7 @@ import {
   Button,
   Shortcut,
   CommandPalette,
+  Text,
 } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
