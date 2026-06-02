@@ -674,25 +674,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: dryrun
-          POSTGRES_PASSWORD: dryrun_test
-          POSTGRES_DB: dryrun
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U dryrun"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
         with:
           fetch-depth: 0
+
+      - name: Start postgres
+        run: |
+          for i in 1 2 3; do
+            docker pull postgres:16-alpine && break || (echo "Pull attempt $i failed, retrying in 10s..." && sleep 10)
+          done
+          docker run -d --name postgres \
+            -p 5432:5432 \
+            -e POSTGRES_USER=dryrun \
+            -e POSTGRES_PASSWORD=dryrun_test \
+            -e POSTGRES_DB=dryrun \
+            postgres:16-alpine
+          for i in $(seq 1 20); do
+            docker exec postgres pg_isready -U dryrun && break || sleep 3
+          done
 
       - name: Check for migration changes
         id: changes
