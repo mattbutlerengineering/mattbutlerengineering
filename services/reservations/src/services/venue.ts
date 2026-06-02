@@ -198,6 +198,27 @@ export const venueService = {
     return venue ? mapPrismaVenue(venue) : null;
   },
 
+  async getRawBySlug(slug: string): Promise<{
+    id: string;
+    slug: string;
+    currencyCode: string;
+    depositEnabled: boolean;
+    depositType: string | null;
+    depositAmountCents: number | null;
+  } | null> {
+    return prisma.venue.findFirst({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        currencyCode: true,
+        depositEnabled: true,
+        depositType: true,
+        depositAmountCents: true,
+      },
+    });
+  },
+
   async create(data: CreateVenueRequest): Promise<Venue> {
     const venue = await prisma.venue.create({
       data: {
