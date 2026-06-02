@@ -1,35 +1,25 @@
 import type { LapsingGuest, CommunicationPreference } from "@mbe/types";
-import { prisma } from "./database.js";
 import { detectLapse } from "./lapse-detector.js";
-import { emitLapsingGuests } from "./events.js";
 
-const MIN_VISITS = 3;
+interface GuestForScan {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  communicationPreference: string | null;
+  reservations: { startTime: Date }[];
+}
 
-/**
- * Scan all guests for a venue with 3+ visits, detect lapsing ones,
- * emit a guest:lapsing SSE event, and return the list.
- *
- * For each lapsing guest, we need their visit dates — these come from
- * COMPLETED reservations linked to the guest.
- */
-export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[]> {
-  // Fetch guests with 3+ visits and a lastVisit date
-  const guests = await prisma.guest.findMany({
-    where: { venueId, visitCount: { gte: MIN_VISITS }, lastVisit: { not: null } },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      communicationPreference: true,
-      reservations: {
-        where: { status: "COMPLETED" },
-        select: { startTime: true },
-        orderBy: { startTime: "asc" },
-      },
-    },
-  });
+export interface LapsedGuestScanDeps {
+  findGuestsForScan: (venueId: string) => Promise<GuestForScan[]>;
+  emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
+}
 
+export async function runLapsedGuestScan(
+  venueId: string,
+  deps: LapsedGuestScanDeps
+): Promise<LapsingGuest[]> {
+  const guests = await deps.findGuestsForScan(venueId);
   const lapsing: LapsingGuest[] = [];
 
   for (const guest of guests) {
@@ -51,7 +41,7 @@ export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[
   }
 
   if (lapsing.length > 0) {
-    emitLapsingGuests(venueId, lapsing);
+    deps.emitLapsingGuests(venueId, lapsing);
   }
 
   return lapsing;

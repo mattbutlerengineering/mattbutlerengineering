@@ -1,5 +1,6 @@
 import type {
   Guest,
+  LapsingGuest,
   StaffNote,
   CommunicationPreference,
   CreateGuestRequest,
@@ -10,6 +11,8 @@ import type {
 } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
+import { emitLapsingGuests } from "./events.js";
 
 function isPrismaNotFound(err: unknown): boolean {
   return (
@@ -435,5 +438,27 @@ export const guestService = {
       { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
       { name: "New", description: "Booked but never visited", count: newGuests },
     ];
+  },
+
+  async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
+    return runLapsedGuestScan(venueId, {
+      findGuestsForScan: (vid) =>
+        prisma.guest.findMany({
+          where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            communicationPreference: true,
+            reservations: {
+              where: { status: "COMPLETED" },
+              select: { startTime: true },
+              orderBy: { startTime: "asc" },
+            },
+          },
+        }),
+      emitLapsingGuests,
+    });
   },
 };
