@@ -75,7 +75,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><PublicBookingPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <PublicBookingPage />
+    </Wrapper>
+  );
 }
 
 beforeEach(() => {

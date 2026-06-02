@@ -328,7 +328,10 @@ describe("Waitlist Routes", () => {
 
   describe("PUT /api/v1/waitlist/:id/seat", () => {
     it("marks entry as seated and recalculates positions", async () => {
-      vi.mocked(waitlistService.seat).mockResolvedValue({ ...mockEntry, status: "seated" } as never);
+      vi.mocked(waitlistService.seat).mockResolvedValue({
+        ...mockEntry,
+        status: "seated",
+      } as never);
 
       const response = await app.inject({
         method: "PUT",
@@ -389,7 +392,10 @@ describe("Waitlist Routes", () => {
 
   describe("PUT /api/v1/waitlist/:id/expire", () => {
     it("marks entry as expired", async () => {
-      vi.mocked(waitlistService.expire).mockResolvedValue({ ...mockEntry, status: "expired" } as never);
+      vi.mocked(waitlistService.expire).mockResolvedValue({
+        ...mockEntry,
+        status: "expired",
+      } as never);
 
       const response = await app.inject({
         method: "PUT",

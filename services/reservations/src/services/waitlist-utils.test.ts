@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  calculatePosition,
-  estimateWaitMinutes,
-  recalculatePositions,
-} from "./waitlist-utils.js";
+import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./waitlist-utils.js";
 
 describe("calculatePosition", () => {
   it("returns 1 when no existing entries", () => {

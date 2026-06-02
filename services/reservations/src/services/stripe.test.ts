@@ -179,11 +179,7 @@ describe("StripeService", () => {
       });
 
       expect(() =>
-        stripeService.constructWebhookEvent(
-          Buffer.from("raw"),
-          "bad_sig",
-          "whsec_test_secret"
-        )
+        stripeService.constructWebhookEvent(Buffer.from("raw"), "bad_sig", "whsec_test_secret")
       ).toThrow("No signatures found");
     });
   });

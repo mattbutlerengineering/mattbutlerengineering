@@ -265,7 +265,15 @@ describe("rescheduleBookingReminders", () => {
     expect(mockCancel).toHaveBeenCalledWith("day-of-reminder:res-1");
 
     // Should schedule new jobs
-    expect(mockSchedule).toHaveBeenCalledWith("booking-reminder", expect.any(Object), expect.any(Number));
-    expect(mockSchedule).toHaveBeenCalledWith("day-of-reminder", expect.any(Object), expect.any(Number));
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "day-of-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
   });
 });
