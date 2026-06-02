@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { createApiClient } from "@mbe/api-client";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
-import type { TimeSlot, ReservationHold, Reservation } from "@mbe/types";
+import type { DepositConfig, TimeSlot, ReservationHold, Reservation } from "@mbe/types";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
@@ -67,6 +67,10 @@ export function BookingWidget({
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  // Deposit payment (optional — only set when venue requires deposit)
+  const [depositPaymentIntentId] = useState<string | null>(null);
+  const [depositConfig] = useState<DepositConfig | null>(null);
 
   // API client - no auth token for public booking
   const api = useMemo(

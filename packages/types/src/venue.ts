@@ -1,3 +1,12 @@
+export interface DepositConfig {
+  amountCents: number | null;
+  depositType: "per_person" | "flat" | null;
+  currency: string;
+  freeCancellationHours: number | null;
+  lateCancellationFeePercent: number | null;
+  noShowFeePercent: number | null;
+}
+
 export interface VenueGroup {
   id: string;
   name: string;

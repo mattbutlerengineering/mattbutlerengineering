@@ -4,6 +4,8 @@ import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
   reservation: Reservation;
+  depositAmountCents?: number | null;
+  depositCurrency?: string | null;
   onNewBooking: () => void;
   cancellationUrl?: string;
   onCancellation?: () => void;
@@ -35,10 +37,10 @@ export function ConfirmationView({
       {/* Success icon with animation */}
       <div className={styles.iconWrapper}>
         <div className={styles.accentBurst} aria-hidden="true">
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
-          <span className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
+          <Text className={styles.burstDot} />
         </div>
         <svg
           className={styles.icon}

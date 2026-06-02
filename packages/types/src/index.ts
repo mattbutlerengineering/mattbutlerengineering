@@ -50,6 +50,7 @@ export type {
 
 // Venue types
 export type {
+  DepositConfig,
   VenueGroup,
   Venue,
   OperatingHours,
