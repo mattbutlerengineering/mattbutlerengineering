@@ -30,6 +30,7 @@ vi.mock("@mbe/notifications", () => {
     sendBookingReminder = vi.fn().mockResolvedValue(undefined);
     sendBookingModified = vi.fn().mockResolvedValue(undefined);
     sendBookingCancelled = vi.fn().mockResolvedValue(undefined);
+    sendWinBack = vi.fn().mockResolvedValue(undefined);
   }
   return { ResendNotificationAdapter: MockResendNotificationAdapter };
 });
@@ -280,7 +281,7 @@ describe("rescheduleBookingReminders", () => {
   });
 });
 
-// ─── createBookingNotifier factory tests ────────────────────────────────────
+// ─── createBookingNotifier factory tests ────────────────────────────────────────────
 // No vi.mock for @mbe/notifications or ./venue.js — deps injected directly.
 
 describe("createBookingNotifier", () => {
@@ -296,6 +297,7 @@ describe("createBookingNotifier", () => {
         sendBookingReminder: vi.fn().mockResolvedValue(undefined),
         sendBookingModified: vi.fn().mockResolvedValue(undefined),
         sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+        sendWinBack: vi.fn().mockResolvedValue(undefined),
       },
       scheduler: {
         schedule: scheduleStub,
