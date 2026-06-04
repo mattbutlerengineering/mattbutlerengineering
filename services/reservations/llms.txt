@@ -230,10 +230,14 @@
   </file>
   <file path="src/services/booking-notifications.ts">
     <item priority="medium">
-      function getScheduler(): JobScheduler { /* ... */ }
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+      function resolveChannel(
+        guestEmail: string | null,
+        guestPhone: string | null,
+        communicationPreference: string | null = null
+      ): "email" | "sms" | "both" { /* ... */ }
     </item>
   </file>
   <file path="src/services/confirm-hold.ts">
@@ -367,13 +371,35 @@
     </item>
   </file>
   <file path="src/services/lapsed-guest-cron.ts">
-    <item priority="high">
-      export function scheduleLapsedGuestCron(log: FastifyBaseLogger): void { /* ... */ }
+    <item priority="low">
+      interface LapsedGuestMonitorConfig {
+        getVenueIds: () => Promise<string[]>;
+        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+        startupDelayMs?: number;
+        intervalMs?: number;
+      }
+    </item>
+    <item priority="low">
+      interface LapsedGuestMonitor {
+        
+      }
     </item>
   </file>
   <file path="src/services/lapsed-guest-scan.ts">
     <item priority="high">
-      export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[]> { /* ... */ }
+      interface GuestForScan {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        communicationPreference: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface LapsedGuestScanDeps {
+        findGuestsForScan: (venueId: string) => Promise<GuestForScan[]>;
+        emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
+      }
     </item>
   </file>
   <file path="src/services/reminder.ts">

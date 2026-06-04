@@ -6,6 +6,7 @@ import {
   Button,
   Shortcut,
   CommandPalette,
+  Text,
 } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
@@ -56,31 +57,34 @@ export function AppShell({
 
   return (
     <div className={styles.shell}>
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to main content
+      </a>
       <AppBar
         logo={
           <div className={styles.logoGroup}>
             {onToggleHistory && (
-              <button
+              <Button
                 type="button"
                 className={`${styles.panelToggle} ${historyVisible ? styles.panelToggleActive : ""}`}
                 onClick={onToggleHistory}
                 aria-label="Toggle history panel"
                 aria-pressed={historyVisible}
               >
-                <span aria-hidden="true">&#9776;</span>
-              </button>
+                <Text aria-hidden="true">&#9776;</Text>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
               className={styles.logoButton}
               onClick={onLogoClick}
               aria-label="Return to empty state"
             >
-              <span className={styles.logoAccent} aria-hidden="true">
+              <Text className={styles.logoAccent} aria-hidden="true">
                 &#9670;
-              </span>
-              <span className={styles.logoText}>Gen Playground</span>
-            </button>
+              </Text>
+              <Text className={styles.logoText}>Gen Playground</Text>
+            </Button>
             <Shortcut keys={["\u2318", "K"]} className={styles.shortcutHint} />
           </div>
         }
@@ -92,15 +96,15 @@ export function AppShell({
               </Button>
             )}
             {onToggleInspector && (
-              <button
+              <Button
                 type="button"
                 className={`${styles.panelToggle} ${inspectorVisible ? styles.panelToggleActive : ""}`}
                 onClick={onToggleInspector}
                 aria-label="Toggle JSON inspector"
                 aria-pressed={inspectorVisible}
               >
-                <span aria-hidden="true">{"{}"}</span>
-              </button>
+                <Text aria-hidden="true">{"{}"}</Text>
+              </Button>
             )}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             {user && (
@@ -112,7 +116,9 @@ export function AppShell({
           </div>
         }
       />
-      <div className={styles.content}>{children}</div>
+      <div id="main-content" className={styles.content}>
+        {children}
+      </div>
       {paletteOpen !== undefined && onPaletteOpenChange && commandItems && (
         <CommandPalette
           open={paletteOpen}

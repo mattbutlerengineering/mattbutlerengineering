@@ -47,6 +47,8 @@ function createTestOptions(overrides?: Partial<HealthRoutesOptions>): HealthRout
     getPoolMetrics: mockGetPoolMetrics,
     latencyTracker: mockLatencyTracker,
     checkAuth0: mockCheckAuth0,
+    rateLimitMonitor: mockRateLimitMonitor,
+    getErrorRates: mockGetErrorRates,
     routes: [
       { path: "/health", operationId: "getHealth" },
       { path: "/api/v1/test/health", operationId: "getTestHealth" },
@@ -60,10 +62,6 @@ describe("registerHealthRoutes", () => {
 
   beforeEach(async () => {
     app = Fastify({ logger: false });
-
-    // Decorate with rateLimitMonitor (simulating what services do)
-    app.decorate("rateLimitMonitor", mockRateLimitMonitor);
-    app.decorate("getErrorRates", mockGetErrorRates);
 
     // Decorate with apiVersion (simulating what services do)
     app.decorate("apiVersion", "v1");

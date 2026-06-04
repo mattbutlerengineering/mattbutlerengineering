@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
-import type { RateLimitMonitor } from "@mbe/observability";
+import type { RateLimitMonitor, ErrorRateSnapshot } from "@mbe/observability";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "./index.js";
 import type { LatencyTracker, Auth0CheckResult } from "./health.js";
 
@@ -23,6 +23,10 @@ export interface HealthRoutesOptions {
   readonly latencyTracker: LatencyTracker;
   /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
   readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
+  /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
+  readonly rateLimitMonitor: RateLimitMonitor;
+  /** Error rate snapshot getter — from errorRatePlugin_ decoration */
+  readonly getErrorRates: () => ErrorRateSnapshot;
   /** Routes to register — each gets the same health handler */
   readonly routes: readonly HealthRouteConfig[];
 }
@@ -122,6 +126,8 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     getPoolMetrics,
     latencyTracker,
     checkAuth0: checkAuth0Fn,
+    rateLimitMonitor,
+    getErrorRates,
     routes,
   } = opts;
 
@@ -175,8 +181,6 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     };
 
     // Rate limits
-    const rateLimitMonitor = (request.server as unknown as { rateLimitMonitor: RateLimitMonitor })
-      .rateLimitMonitor;
     const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
     checks.rate_limits = {
       status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
@@ -203,7 +207,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     };
 
     // Error rates
-    const errorRates = fastify.getErrorRates();
+    const errorRates = getErrorRates();
     const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
 
     const hasErrors =
