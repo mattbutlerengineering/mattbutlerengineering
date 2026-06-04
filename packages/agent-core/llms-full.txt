@@ -993,6 +993,10 @@
       async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
         const { config, onEvent } = ctx;
     
+        // Classify the task once so downstream consumers reuse the result instead
+        // of re-scanning the description.
+        const taskSignals = classifyTask(config.taskDescription);
+    
         emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
     
         const wtSpan = tracer.startSpan("agent_core.create_worktree");
@@ -1048,7 +1052,7 @@
     
           return {
             result: { phase: this.name, status: "success", errors: [] },
-            ctx: { ...ctx, worktree, systemPrompt },
+            ctx: { ...ctx, worktree, systemPrompt, taskSignals },
           };
         } catch (error) {
           wtSpan.end();
@@ -1089,13 +1093,8 @@
       readonly reason: string;
     }
     export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" {
-      for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-        if (signal.test(description)) return "complex";
-      }
-      for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-        if (signal.test(description)) return "simple";
-      }
-      return "standard";
+      const { tier } = classifyTask(description);
+      return tier === "trivial" ? "simple" : tier;
     }
   </file>
   <file path="src/bundle-size-tracker.ts">
@@ -2053,19 +2052,7 @@
   </file>
   <file path="src/source-resolver.ts">
     export function classifyTaskContexts(taskDescription: string): readonly string[] {
-      const contexts = new Set<string>();
-      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
-        for (const keyword of keywords) {
-          if (keyword.test(taskDescription)) {
-            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
-            for (const file of contextFiles) {
-              contexts.add(file);
-            }
-            break;
-          }
-        }
-      }
-      return [...contexts];
+      return classifyTask(taskDescription).contextBundles;
     }
     function detectTaskContexts(taskDescription: string): string[] {
       return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
@@ -2128,6 +2115,10 @@
       baseBranch: "main",
       maxConcurrentSessions: 3,
     };
+  </file>
+  <file path="src/task-signal-registry.ts">
+    export type TaskTier = "trivial" | "simple" | "standard" | "complex";
+    export type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
   </file>
   <file path="src/tool-permissions.ts">
     export function normalizeBashCommand(command: string): readonly string[] {
