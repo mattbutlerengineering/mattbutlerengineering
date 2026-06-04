@@ -9,6 +9,7 @@ import {
   createRequestIdMiddleware,
   errorRatePlugin_,
   createRateLimitMonitor,
+  type RateLimitMonitor,
 } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 
@@ -260,5 +261,6 @@ declare module "fastify" {
     successorVersion?: string;
     sunsetDate: string;
     addDeprecationHeaders: (reply: FastifyReply) => void;
+    rateLimitMonitor: RateLimitMonitor;
   }
 }

@@ -1,35 +1,12 @@
 import { JobScheduler, JOB_TYPES } from "@mbe/jobs";
 import { ResendNotificationAdapter } from "@mbe/notifications";
+import type { NotificationPort } from "@mbe/notifications";
 import { Resend } from "resend";
-import type { Reservation } from "@mbe/types";
+import type { Reservation, Venue } from "@mbe/types";
 import { venueService } from "./venue.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 const MANAGE_BASE_URL = process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com";
-
-// Lazy singletons — only instantiated when actually used
-let _scheduler: JobScheduler | null = null;
-
-function getScheduler(): JobScheduler {
-  if (!_scheduler) {
-    _scheduler = new JobScheduler({ redisUrl: REDIS_URL });
-  }
-  return _scheduler;
-}
-
-const resendClient = process.env.RESEND_API_KEY
-  ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-      emails: {
-        send(payload: Record<string, unknown>): Promise<{ id: string }>;
-      };
-    })
-  : null;
-
-const notificationAdapter = new ResendNotificationAdapter({
-  resend: resendClient,
-  fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-  manageBaseUrl: MANAGE_BASE_URL,
-});
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -40,11 +17,148 @@ function reminderJobId(jobType: string, reservationId: string): string {
 
 function resolveChannel(
   guestEmail: string | null,
-  guestPhone: string | null
+  guestPhone: string | null,
+  communicationPreference: string | null = null
 ): "email" | "sms" | "both" {
+  if (communicationPreference === "email") return "email";
+  if (communicationPreference === "sms") return "sms";
+  if (communicationPreference === "both") return "both";
+  // Fall back to data availability
   if (guestEmail && guestPhone) return "both";
   if (guestPhone) return "sms";
   return "email";
+}
+
+// ─── BookingNotifier factory ─────────────────────────────────────────────────
+
+export interface BookingNotifierDeps {
+  notificationAdapter: NotificationPort;
+  scheduler: { schedule(...args: unknown[]): Promise<unknown>; cancel(id: string): Promise<void> };
+  getVenue: (venueId: string) => Promise<Venue | null>;
+}
+
+export interface BookingNotifier {
+  scheduleBookingNotifications(reservation: Reservation, manageToken: string): Promise<void>;
+  cancelBookingReminders(reservationId: string): Promise<void>;
+  rescheduleBookingReminders(reservation: Reservation, manageToken: string): Promise<void>;
+}
+
+export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier {
+  const { notificationAdapter, scheduler, getVenue } = deps;
+
+  async function scheduleBookingNotifications(
+    reservation: Reservation,
+    manageToken: string
+  ): Promise<void> {
+    const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
+
+    if (guestEmail && venueId) {
+      const venue = await getVenue(venueId);
+      if (venue) {
+        await notificationAdapter.sendBookingConfirmation({
+          reservationId: id,
+          date: reservation.date,
+          startTime,
+          endTime: reservation.endTime,
+          partySize: reservation.partySize,
+          guestName: reservation.guestName,
+          guestEmail,
+          guestPhone: guestPhone ?? null,
+          specialRequests: reservation.notes ?? null,
+          venueName: venue.name,
+          venueTimezone: venue.ianaTimezone,
+          venueAddress: null,
+          manageToken,
+        });
+      }
+    }
+
+    if (!venueId) return;
+
+    const startMs = new Date(startTime).getTime();
+    const now = Date.now();
+
+    if (startMs <= now) return;
+
+    const communicationPreference = (reservation as unknown as Record<string, unknown>)
+      .communicationPreference as string | null | undefined;
+    const channel = resolveChannel(guestEmail, guestPhone, communicationPreference ?? null);
+
+    const dayBeforeDelay = startMs - now - DAY_MS;
+    if (dayBeforeDelay > 0) {
+      await scheduler.schedule(
+        JOB_TYPES.BOOKING_REMINDER,
+        { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
+        dayBeforeDelay
+      );
+    }
+
+    const dayOfDelay = startMs - now - TWO_HOURS_MS;
+    if (dayOfDelay > 0) {
+      await scheduler.schedule(
+        JOB_TYPES.DAY_OF_REMINDER,
+        { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
+        dayOfDelay
+      );
+    }
+  }
+
+  async function cancelBookingReminders(reservationId: string): Promise<void> {
+    await Promise.allSettled([
+      scheduler.cancel(reminderJobId(JOB_TYPES.BOOKING_REMINDER, reservationId)),
+      scheduler.cancel(reminderJobId(JOB_TYPES.DAY_OF_REMINDER, reservationId)),
+    ]);
+  }
+
+  async function rescheduleBookingReminders(
+    reservation: Reservation,
+    manageToken: string
+  ): Promise<void> {
+    await cancelBookingReminders(reservation.id);
+    await scheduleBookingNotifications(reservation, manageToken);
+  }
+
+  return { scheduleBookingNotifications, cancelBookingReminders, rescheduleBookingReminders };
+}
+
+// ─── Module-level singletons (kept for backward compat with existing routes) ─
+
+// Lazy scheduler
+let _scheduler: JobScheduler | null = null;
+function getScheduler(): JobScheduler {
+  if (!_scheduler) {
+    _scheduler = new JobScheduler({ redisUrl: REDIS_URL });
+  }
+  return _scheduler;
+}
+
+function createDefaultNotificationAdapter(): NotificationPort {
+  const resendClient = process.env.RESEND_API_KEY
+    ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+        emails: {
+          send(payload: Record<string, unknown>): Promise<{ id: string }>;
+        };
+      })
+    : null;
+
+  return new ResendNotificationAdapter({
+    resend: resendClient,
+    fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+    manageBaseUrl: MANAGE_BASE_URL,
+  });
+}
+
+let _defaultNotifier: BookingNotifier | null = null;
+
+function getDefaultNotifier(): BookingNotifier {
+  if (!_defaultNotifier) {
+    _defaultNotifier = createBookingNotifier({
+      notificationAdapter: createDefaultNotificationAdapter(),
+      scheduler: getScheduler(),
+      getVenue: (venueId) => venueService.getById(venueId),
+    });
+  }
+  return _defaultNotifier;
 }
 
 /**
@@ -55,72 +169,14 @@ export async function scheduleBookingNotifications(
   reservation: Reservation,
   manageToken: string
 ): Promise<void> {
-  const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
-
-  // Send confirmation if we have venue + email
-  if (guestEmail && venueId) {
-    const venue = await venueService.getById(venueId);
-    if (venue) {
-      await notificationAdapter.sendBookingConfirmation({
-        reservationId: id,
-        date: reservation.date,
-        startTime,
-        endTime: reservation.endTime,
-        partySize: reservation.partySize,
-        guestName: reservation.guestName,
-        guestEmail,
-        guestPhone: guestPhone ?? null,
-        specialRequests: reservation.notes ?? null,
-        venueName: venue.name,
-        venueTimezone: venue.ianaTimezone,
-        venueAddress: null,
-        manageToken,
-      });
-    }
-  }
-
-  // Schedule reminders only for future bookings with a venue
-  if (!venueId) return;
-
-  const startMs = new Date(startTime).getTime();
-  const now = Date.now();
-
-  if (startMs <= now) {
-    // Walk-in or past reservation — skip reminders
-    return;
-  }
-
-  const scheduler = getScheduler();
-  const channel = resolveChannel(guestEmail, guestPhone);
-
-  const dayBeforeDelay = startMs - now - DAY_MS;
-  if (dayBeforeDelay > 0) {
-    await scheduler.schedule(
-      JOB_TYPES.BOOKING_REMINDER,
-      { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
-      dayBeforeDelay
-    );
-  }
-
-  const dayOfDelay = startMs - now - TWO_HOURS_MS;
-  if (dayOfDelay > 0) {
-    await scheduler.schedule(
-      JOB_TYPES.DAY_OF_REMINDER,
-      { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
-      dayOfDelay
-    );
-  }
+  return getDefaultNotifier().scheduleBookingNotifications(reservation, manageToken);
 }
 
 /**
  * Cancel pending reminder jobs for a reservation (on cancellation).
  */
 export async function cancelBookingReminders(reservationId: string): Promise<void> {
-  const scheduler = getScheduler();
-  await Promise.allSettled([
-    scheduler.cancel(reminderJobId(JOB_TYPES.BOOKING_REMINDER, reservationId)),
-    scheduler.cancel(reminderJobId(JOB_TYPES.DAY_OF_REMINDER, reservationId)),
-  ]);
+  return getDefaultNotifier().cancelBookingReminders(reservationId);
 }
 
 /**
@@ -130,6 +186,5 @@ export async function rescheduleBookingReminders(
   reservation: Reservation,
   manageToken: string
 ): Promise<void> {
-  await cancelBookingReminders(reservation.id);
-  await scheduleBookingNotifications(reservation, manageToken);
+  return getDefaultNotifier().rescheduleBookingReminders(reservation, manageToken);
 }

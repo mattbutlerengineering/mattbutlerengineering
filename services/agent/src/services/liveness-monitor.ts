@@ -1,7 +1,4 @@
 import type { FastifyBaseLogger } from "fastify";
-import { DEFAULT_HEARTBEAT_CONFIG } from "@mbe/agent-core";
-import { sessionService } from "./session.js";
-import { cancelSession } from "./session-executor.js";
 
 /**
  * Background liveness monitor for agent sessions.
@@ -15,48 +12,66 @@ import { cancelSession } from "./session-executor.js";
  * cases where the runner itself hangs (e.g., process crash, network partition).
  */
 
-const CHECK_INTERVAL_MS = 120_000; // 2 minutes
-const INACTIVITY_THRESHOLD_MS = DEFAULT_HEARTBEAT_CONFIG.inactivityTimeoutMs;
+export interface LivenessMonitorConfig {
+  inactivityThresholdMs: number;
+  checkIntervalMs: number;
+  sessionService: {
+    findStaleSessions(ms: number): Promise<string[]>;
+    addEvent(id: string, type: string, payload: Record<string, unknown>): Promise<unknown>;
+  };
+  cancelSession: (id: string) => Promise<boolean>;
+}
 
-let intervalHandle: ReturnType<typeof setInterval> | null = null;
-let activeLogger: FastifyBaseLogger | null = null;
+export interface LivenessMonitor {
+  start(logger: FastifyBaseLogger): void;
+  stop(): void;
+}
 
-async function checkStaleSessions(): Promise<void> {
-  try {
-    const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
+export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMonitor {
+  const { inactivityThresholdMs, checkIntervalMs, sessionService, cancelSession } = config;
 
-    for (const session of staleSessions) {
-      activeLogger?.warn(
-        `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
-      );
+  let intervalHandle: ReturnType<typeof setInterval> | null = null;
+  let activeLogger: FastifyBaseLogger | null = null;
 
-      const cancelled = await cancelSession(session.id);
-      if (cancelled) {
-        await sessionService.addEvent(session.id, "session:error", {
-          message: `Auto-cancelled: exceeded inactivity threshold (${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-          reason: "liveness_timeout",
-        });
+  async function checkStaleSessions(): Promise<void> {
+    try {
+      const staleSessionIds = await sessionService.findStaleSessions(inactivityThresholdMs);
+
+      for (const sessionId of staleSessionIds) {
+        activeLogger?.warn(
+          `[liveness] Session ${sessionId} exceeded inactivity threshold — auto-cancelling`
+        );
+
+        const cancelled = await cancelSession(sessionId);
+        if (cancelled) {
+          await sessionService.addEvent(sessionId, "session:error", {
+            message: `Auto-cancelled: exceeded inactivity threshold (${inactivityThresholdMs / 1000}s)`,
+            reason: "liveness_timeout",
+          });
+        }
       }
+    } catch (error) {
+      activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
     }
-  } catch (error) {
-    activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
   }
-}
 
-export function startLivenessMonitor(logger: FastifyBaseLogger): void {
-  if (intervalHandle) return;
-  activeLogger = logger;
-  intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-  logger.info(
-    `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
-  );
-}
+  return {
+    start(logger: FastifyBaseLogger): void {
+      if (intervalHandle) return;
+      activeLogger = logger;
+      intervalHandle = setInterval(() => void checkStaleSessions(), checkIntervalMs);
+      logger.info(
+        `[liveness] Monitor started (check every ${checkIntervalMs / 1000}s, timeout ${inactivityThresholdMs / 1000}s)`
+      );
+    },
 
-export function stopLivenessMonitor(): void {
-  if (intervalHandle) {
-    clearInterval(intervalHandle);
-    intervalHandle = null;
-    activeLogger?.info("[liveness] Monitor stopped");
-    activeLogger = null;
-  }
+    stop(): void {
+      if (intervalHandle) {
+        clearInterval(intervalHandle);
+        intervalHandle = null;
+        activeLogger?.info("[liveness] Monitor stopped");
+        activeLogger = null;
+      }
+    },
+  };
 }
