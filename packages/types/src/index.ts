@@ -35,6 +35,8 @@ export type {
 // Reservation types
 export type {
   ReservationStatus,
+  DepositStatus,
+  Deposit,
   Table,
   TableStatus,
   Reservation,
@@ -57,6 +59,8 @@ export type {
   VenueSettings,
   PacingRule,
   DurationRule,
+  DepositType,
+  DepositConfig,
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
   CreateVenueRequest,
@@ -81,10 +85,12 @@ export type {
 export type {
   Guest,
   StaffNote,
+  CommunicationPreference,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
   GuestSegment,
+  LapsingGuest,
 } from "./guest.js";
 
 // Agent types

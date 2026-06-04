@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useCallback, useRef, useReducer } from "react";
-import type { Reservation, Table, ReservationHold } from "@mbe/types";
+import type { Reservation, Table, ReservationHold, LapsingGuest } from "@mbe/types";
 
 export type ReservationEventType =
   | "reservation:created"
@@ -8,13 +8,14 @@ export type ReservationEventType =
   | "hold:created"
   | "hold:released"
   | "hold:confirmed"
-  | "table:updated";
+  | "table:updated"
+  | "guest:lapsing";
 
 export interface ReservationEvent {
   type: ReservationEventType;
   venueId: string;
   timestamp: string;
-  data: Reservation | Table | ReservationHold;
+  data: Reservation | Table | ReservationHold | LapsingGuest[];
 }
 
 export interface UseReservationEventsOptions {
@@ -26,6 +27,7 @@ export interface UseReservationEventsOptions {
   onHoldReleased?: (hold: ReservationHold) => void;
   onHoldConfirmed?: (reservation: Reservation) => void;
   onTableUpdated?: (table: Table) => void;
+  onGuestLapsing?: (guests: LapsingGuest[]) => void;
   onError?: (error: Error) => void;
   enabled?: boolean;
 }
@@ -58,6 +60,7 @@ export function useReservationEvents(
     onHoldReleased,
     onHoldConfirmed,
     onTableUpdated,
+    onGuestLapsing,
     onError,
     enabled = true,
   } = options;
@@ -97,6 +100,7 @@ export function useReservationEvents(
     onHoldReleased,
     onHoldConfirmed,
     onTableUpdated,
+    onGuestLapsing,
     onError,
   });
 
@@ -110,6 +114,7 @@ export function useReservationEvents(
       onHoldReleased,
       onHoldConfirmed,
       onTableUpdated,
+      onGuestLapsing,
       onError,
     };
   });
@@ -200,6 +205,11 @@ export function useReservationEvents(
     eventSource.addEventListener("table:updated", (event) => {
       const data = JSON.parse(event.data) as ReservationEvent;
       callbacksRef.current.onTableUpdated?.(data.data as Table);
+    });
+
+    eventSource.addEventListener("guest:lapsing", (event) => {
+      const data = JSON.parse(event.data) as ReservationEvent;
+      callbacksRef.current.onGuestLapsing?.(data.data as LapsingGuest[]);
     });
   }, [venueId]);
 

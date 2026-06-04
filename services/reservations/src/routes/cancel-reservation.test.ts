@@ -71,6 +71,7 @@ function createStubNotificationPort(): NotificationPort & {
     sendBookingReminder: vi.fn().mockResolvedValue(undefined),
     sendBookingModified: vi.fn().mockResolvedValue(undefined),
     sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+    sendWinBack: vi.fn().mockResolvedValue(undefined),
   };
 }
 

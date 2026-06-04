@@ -4,19 +4,14 @@ import type { JobType, JobPayloadMap } from "./job-types.js";
 
 const DEFAULT_QUEUE_NAME = "mbe-notifications";
 
-export interface NotificationHandlerInput<T extends JobType = JobType> {
-  jobType: T;
-  payload: JobPayloadMap[T];
-}
-
-export interface JobHandlers {
-  onNotification: (input: NotificationHandlerInput) => Promise<void>;
-}
+export type JobHandlerMap = {
+  [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+};
 
 export interface JobWorkerConfig {
   redisUrl: string;
   queueName?: string;
-  handlers: JobHandlers;
+  handlers: JobHandlerMap;
 }
 
 export class JobWorker {
@@ -31,11 +26,10 @@ export class JobWorker {
     this.worker = new Worker(
       config.queueName ?? DEFAULT_QUEUE_NAME,
       async (job) => {
-        const jobType = job.name as JobType;
-        await config.handlers.onNotification({
-          jobType,
-          payload: job.data as JobPayloadMap[typeof jobType],
-        });
+        const handler = (config.handlers as Record<JobType, (data: unknown) => Promise<void>>)[
+          job.name as JobType
+        ];
+        await handler(job.data);
       },
       { connection: this.redis }
     );

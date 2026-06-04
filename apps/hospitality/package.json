@@ -38,6 +38,8 @@
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
+    "@stripe/react-stripe-js": "^6.4.0",
+    "@stripe/stripe-js": "^9.6.0",
     "@tanstack/react-query": "^5.100.14",
     "konva": "^10.3.0",
     "react": "catalog:",

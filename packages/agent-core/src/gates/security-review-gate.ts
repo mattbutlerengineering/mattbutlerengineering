@@ -7,21 +7,17 @@ const tracer = trace.getTracer("@mbe/agent-core");
 /**
  * Wraps the AI security reviewer as a QualityGate.
  *
- * shouldSkip: returns true when runSecurityReview=false in the context.
- * Note: the previous quality-gates.ts also skipped security review when
- * static analysis had errors (checked via result.staticAnalysisClean).
- * That coupling is now expressed via gate ordering — callers should place
- * StaticAnalysisGate before SecurityReviewGate and use shouldSkip to
- * implement cross-gate dependencies if needed. The default behavior here
- * mirrors the pre-refactor behavior by relying on GateRunner running gates
- * in order; post-commit-gateway.ts recreates the skip via the existing
- * runQualityGates wrapper until it migrates to GateRunner directly.
+ * Accepts an optional `skipWhen` callback for cross-gate dependencies
+ * (e.g. skip when static analysis failed).
  */
 export class SecurityReviewGate implements QualityGate {
   readonly name = "security-review";
 
+  constructor(private readonly opts?: { skipWhen?: () => boolean }) {}
+
   shouldSkip(context: GateContext): boolean {
-    return context.runSecurityReview === false;
+    if (context.runSecurityReview === false) return true;
+    return this.opts?.skipWhen?.() ?? false;
   }
 
   async evaluate(context: GateContext): Promise<GateResult> {

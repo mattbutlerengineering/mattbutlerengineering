@@ -22,9 +22,11 @@ import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
+import { publicDepositRoutes } from "./routes/public-deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { createNotificationPort } from "./notifications.js";
+import { scheduleLapsedGuestCron } from "./services/lapsed-guest-cron.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationPort;
@@ -84,7 +86,13 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Deposit routes
   await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+  await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(stripeWebhookRoutes);
+
+  // Schedule daily lapsed guest scan (skip in test mode)
+  if (process.env.NODE_ENV !== "test") {
+    scheduleLapsedGuestCron(fastify.log);
+  }
 
   return fastify;
 }

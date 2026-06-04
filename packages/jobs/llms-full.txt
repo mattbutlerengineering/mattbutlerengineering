@@ -109,12 +109,13 @@
     }
   </file>
   <file path="src/worker.ts">
-    export interface NotificationHandlerInput<T extends JobType = JobType> {
-      jobType: T;
-      payload: JobPayloadMap[T];
-    }
-    export interface JobHandlers {
-      onNotification: (input: NotificationHandlerInput) => Promise<void>;
+    export type JobHandlerMap = {
+      [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+    };
+    export interface JobWorkerConfig {
+      redisUrl: string;
+      queueName?: string;
+      handlers: JobHandlerMap;
     }
   </file>
   </section>
