@@ -14,6 +14,7 @@ const tracer = trace.getTracer("@mbe/agent-core");
  */
 export class StaticAnalysisGate implements QualityGate {
   readonly name = "static-analysis";
+  lastResult?: GateResult;
 
   shouldSkip(context: GateContext): boolean {
     return context.runStaticAnalysis === false;
@@ -34,25 +35,31 @@ export class StaticAnalysisGate implements QualityGate {
         const formatted = errorViolations
           .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
           .join("; ");
-        return {
+        const result: GateResult = {
           passed: false,
           gateName: this.name,
           severity: "error",
           details: `Static analysis errors: ${formatted}`,
         };
+        this.lastResult = result;
+        return result;
       }
 
       if (!analysisResult.clean) {
         const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
-        return {
+        const result: GateResult = {
           passed: true,
           gateName: this.name,
           severity: "warning",
           details: `${warnCount} warning(s) (non-blocking)`,
         };
+        this.lastResult = result;
+        return result;
       }
 
-      return { passed: true, gateName: this.name, severity: "error" };
+      const result: GateResult = { passed: true, gateName: this.name, severity: "error" };
+      this.lastResult = result;
+      return result;
     } finally {
       span.end();
     }
