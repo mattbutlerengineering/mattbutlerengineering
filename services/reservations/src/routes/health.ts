@@ -17,6 +17,8 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
     getPoolMetrics,
     latencyTracker,
     checkAuth0,
+    rateLimitMonitor: fastify.rateLimitMonitor,
+    getErrorRates: () => fastify.getErrorRates(),
     routes: [
       { path: "/health", operationId: "getHealth" },
       { path: "/api/health", operationId: "getHealthApi" },

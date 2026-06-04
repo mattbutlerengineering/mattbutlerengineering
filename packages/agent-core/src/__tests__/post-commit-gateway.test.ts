@@ -1,23 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock orchestrateVerification
 vi.mock("../verification-orchestrator.js", () => ({
   orchestrateVerification: vi.fn(),
 }));
 
-// Mock runQualityGates
-vi.mock("../quality-gates.js", () => ({
-  runQualityGates: vi.fn(),
+vi.mock("../diff-static-analyzer.js", () => ({
+  analyzeDiff: vi.fn(),
 }));
 
-// Mock isTrivialDepBump
+vi.mock("../success-evaluator.js", () => ({
+  evaluateSuccess: vi.fn(),
+  shouldEvaluate: vi.fn(),
+}));
+
+vi.mock("../diff-reviewer.js", () => ({
+  reviewDiff: vi.fn(),
+}));
+
 vi.mock("../dep-bump-merger.js", () => ({
   isTrivialDepBump: vi.fn(),
   mergeDirectly: vi.fn(),
 }));
 
+vi.mock("../utils.js", () => ({
+  emitEvent: vi.fn(),
+}));
+
 import { orchestrateVerification } from "../verification-orchestrator.js";
-import { runQualityGates } from "../quality-gates.js";
+import { analyzeDiff } from "../diff-static-analyzer.js";
+import { evaluateSuccess, shouldEvaluate } from "../success-evaluator.js";
+import { reviewDiff } from "../diff-reviewer.js";
 import { isTrivialDepBump } from "../dep-bump-merger.js";
 import { runPostCommitGateway } from "../post-commit-gateway.js";
 
@@ -37,14 +49,16 @@ describe("runPostCommitGateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default: all gates pass
     vi.mocked(orchestrateVerification).mockResolvedValue({ passed: true });
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [] });
+    vi.mocked(shouldEvaluate).mockReturnValue(true);
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: true,
+      confidence: 0.9,
+      reasoning: "Good",
+      issues: [],
     });
+    vi.mocked(reviewDiff).mockResolvedValue({ approved: true, issues: [] });
     vi.mocked(isTrivialDepBump).mockReturnValue({ isTrivial: false });
   });
 
@@ -64,8 +78,6 @@ describe("runPostCommitGateway", () => {
   // ── Outcome: create-pr ─────────────────────────────────────────────
 
   it("returns create-pr outcome when all gates pass and diff is not trivial", async () => {
-    vi.mocked(isTrivialDepBump).mockReturnValue({ isTrivial: false });
-
     const verdict = await runPostCommitGateway(VALID_INPUT);
 
     expect(verdict.outcome).toBe("create-pr");
@@ -79,17 +91,12 @@ describe("runPostCommitGateway", () => {
       ...VALID_INPUT,
       config: { ...VALID_INPUT.config, evaluateSuccess: false },
     };
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
-      securityReview: { approved: true, issues: [] },
-      // No evaluation result since it was skipped
-    });
 
     const verdict = await runPostCommitGateway(input);
 
     expect(verdict.outcome).toBe("create-pr");
     expect(verdict.passed).toBe(true);
+    expect(evaluateSuccess).not.toHaveBeenCalled();
   });
 
   // ── Outcome: create-draft-pr ───────────────────────────────────────
@@ -108,11 +115,17 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when static analysis fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: false,
-      errors: ["Static analysis errors: src/foo.ts:10 [no-console] console.log detected"],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(analyzeDiff).mockReturnValue({
+      clean: false,
+      violations: [
+        {
+          file: "src/foo.ts",
+          line: 10,
+          rule: "no-console",
+          message: "console.log detected",
+          severity: "error",
+        },
+      ],
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -123,11 +136,11 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when LLM evaluation fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Evaluation failed: Task not addressed"],
-      evaluation: { passed: false, confidence: 0.3, reasoning: "Task not addressed", issues: [] },
-      securityReview: { approved: true, issues: [] },
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: false,
+      confidence: 0.3,
+      reasoning: "Task not addressed",
+      issues: [],
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -138,11 +151,9 @@ describe("runPostCommitGateway", () => {
   });
 
   it("returns create-draft-pr when security review fails", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Security review failed: Hardcoded secret detected"],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: false, issues: ["Hardcoded secret detected"] },
+    vi.mocked(reviewDiff).mockResolvedValue({
+      approved: false,
+      issues: ["Hardcoded secret detected"],
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -152,37 +163,39 @@ describe("runPostCommitGateway", () => {
     expect(verdict.gateFailures).toContain("security-review");
   });
 
-  // ── gateFailures combinations ──────────────────────────────────────
+  // ── Cross-gate dependencies ────────────────────────────────────────
 
-  it("collects multiple gate failures when verification and static analysis both fail", async () => {
-    vi.mocked(orchestrateVerification).mockResolvedValue({
-      passed: false,
-      error: "Lint failed",
+  it("skips security review when static analysis fails", async () => {
+    vi.mocked(analyzeDiff).mockReturnValue({
+      clean: false,
+      violations: [
+        {
+          file: "src/foo.ts",
+          line: 10,
+          rule: "no-console",
+          message: "console.log detected",
+          severity: "error",
+        },
+      ],
     });
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: false,
-      errors: ["Static analysis errors: ..."],
-      evaluation: { passed: true, confidence: 0.9, reasoning: "Good", issues: [] },
-      securityReview: { approved: true, issues: [] },
-    });
 
-    const verdict = await runPostCommitGateway(VALID_INPUT);
+    await runPostCommitGateway(VALID_INPUT);
 
-    expect(verdict.outcome).toBe("create-draft-pr");
-    expect(verdict.passed).toBe(false);
-    // Verification failed → quality gates not run; only verification in gateFailures
-    expect(verdict.gateFailures).toContain("verification");
+    expect(reviewDiff).not.toHaveBeenCalled();
   });
 
+  // ── gateFailures combinations ──────────────────────────────────────
+
   it("collects evaluation and security-review failures when both fail", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [
-        "Evaluation failed: Not addressed",
-        "Security review failed: SQL injection detected",
-      ],
-      evaluation: { passed: false, confidence: 0.2, reasoning: "Not addressed", issues: [] },
-      securityReview: { approved: false, issues: ["SQL injection detected"] },
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: false,
+      confidence: 0.2,
+      reasoning: "Not addressed",
+      issues: [],
+    });
+    vi.mocked(reviewDiff).mockResolvedValue({
+      approved: false,
+      issues: ["SQL injection detected"],
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
@@ -206,49 +219,49 @@ describe("runPostCommitGateway", () => {
     expect(verdict.errors).toContain("Verification failed: tests: 2 failing");
   });
 
-  it("propagates quality gate errors into verdict errors", async () => {
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: ["Evaluation failed: diff does not address task"],
-      evaluation: { passed: false, confidence: 0.2, reasoning: "...", issues: [] },
-      securityReview: { approved: true, issues: [] },
+  it("propagates gate error details into verdict errors", async () => {
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: false,
+      confidence: 0.2,
+      reasoning: "diff does not address task",
+      issues: [],
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
 
-    expect(verdict.errors).toContain("Evaluation failed: diff does not address task");
+    expect(verdict.errors.some((e) => e.includes("diff does not address task"))).toBe(true);
   });
 
-  // ── Config passthrough ─────────────────────────────────────────────
+  // ── evaluation result passthrough ──────────────────────────────────
 
-  it("passes config options to runQualityGates", async () => {
-    const input = {
-      ...VALID_INPUT,
-      config: {
-        evaluateSuccess: false,
-        runSecurityReview: false,
-        runStaticAnalysis: true,
-      },
-    };
-    vi.mocked(runQualityGates).mockResolvedValue({
-      staticAnalysisClean: true,
-      errors: [],
+  it("includes evaluation result in verdict when evaluation runs", async () => {
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: true,
+      confidence: 0.95,
+      reasoning: "Good work",
+      issues: [],
     });
 
-    await runPostCommitGateway(input);
+    const verdict = await runPostCommitGateway(VALID_INPUT);
 
-    expect(runQualityGates).toHaveBeenCalledWith(
-      input.taskDescription,
-      input.diff,
-      input.commitMsg,
-      expect.objectContaining({
-        evaluateSuccess: false,
-        runSecurityReview: false,
-        runStaticAnalysis: true,
-      }),
-      undefined // no onEvent
-    );
+    expect(verdict.evaluation).toEqual({
+      passed: true,
+      confidence: 0.95,
+      reasoning: "Good work",
+      issues: [],
+    });
   });
+
+  it("evaluation is undefined when evaluation is skipped", async () => {
+    vi.mocked(shouldEvaluate).mockReturnValue(false);
+
+    const verdict = await runPostCommitGateway(VALID_INPUT);
+
+    expect(verdict.evaluation).toBeUndefined();
+    expect(evaluateSuccess).not.toHaveBeenCalled();
+  });
+
+  // ── Config gating ─────────────────────────────────────────────────
 
   it("skips quality gates when verification fails", async () => {
     vi.mocked(orchestrateVerification).mockResolvedValue({
@@ -258,31 +271,44 @@ describe("runPostCommitGateway", () => {
 
     await runPostCommitGateway(VALID_INPUT);
 
-    // Quality gates should NOT be called if verification failed
-    expect(runQualityGates).not.toHaveBeenCalled();
+    expect(analyzeDiff).not.toHaveBeenCalled();
+    expect(evaluateSuccess).not.toHaveBeenCalled();
+    expect(reviewDiff).not.toHaveBeenCalled();
+  });
+
+  it("skips static analysis when config disables it", async () => {
+    const input = {
+      ...VALID_INPUT,
+      config: { ...VALID_INPUT.config, runStaticAnalysis: false },
+    };
+
+    await runPostCommitGateway(input);
+
+    expect(analyzeDiff).not.toHaveBeenCalled();
+  });
+
+  it("skips security review when config disables it", async () => {
+    const input = {
+      ...VALID_INPUT,
+      config: { ...VALID_INPUT.config, runSecurityReview: false },
+    };
+
+    await runPostCommitGateway(input);
+
+    expect(reviewDiff).not.toHaveBeenCalled();
   });
 
   it("passes worktreePath to orchestrateVerification", async () => {
     await runPostCommitGateway(VALID_INPUT);
 
-    expect(orchestrateVerification).toHaveBeenCalledWith(
-      VALID_INPUT.worktreePath,
-      undefined // no onEvent
-    );
+    expect(orchestrateVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath, undefined);
   });
 
-  it("passes onEvent callback to orchestrateVerification and runQualityGates", async () => {
+  it("passes onEvent callback to orchestrateVerification", async () => {
     const onEvent = vi.fn();
 
     await runPostCommitGateway(VALID_INPUT, onEvent);
 
     expect(orchestrateVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath, onEvent);
-    expect(runQualityGates).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.any(String),
-      expect.any(Object),
-      onEvent
-    );
   });
 });

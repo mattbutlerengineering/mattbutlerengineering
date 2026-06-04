@@ -12,7 +12,6 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
-import { runLapsedGuestScan } from "../services/lapsed-guest-scan.js";
 import { sendWinBack } from "../services/win-back.js";
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
@@ -533,7 +532,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           .code(400)
           .send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
-      const lapsing = await runLapsedGuestScan(venueId);
+      const lapsing = await guestService.scanLapsedGuests(venueId);
       return { data: lapsing };
     }
   );
