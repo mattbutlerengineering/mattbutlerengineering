@@ -9,6 +9,7 @@ import type {
 import type { StuckPattern } from "../stuck-detector.js";
 import type { EvaluationResult } from "../success-evaluator.js";
 import type { GatewayVerdict } from "../post-commit-gateway.js";
+import type { TaskSignals } from "../task-signal-registry.js";
 
 // ── Phase result ────────────────────────────────────────────────────
 
@@ -34,6 +35,12 @@ export interface PipelineContext {
   // WorktreePhase outputs
   readonly worktree?: WorktreeInfo;
   readonly systemPrompt?: string;
+  /**
+   * Task signals (tier/domains/context bundles) classified once from the task
+   * description by the shared TaskSignalRegistry, so downstream consumers do
+   * not re-scan the description.
+   */
+  readonly taskSignals?: TaskSignals;
 
   // QueryPhase outputs
   readonly resultMessage?: SDKResultMessage;

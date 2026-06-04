@@ -624,6 +624,14 @@
       export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription">;
     </item>
   </file>
+  <file path="src/task-signal-registry.ts">
+    <item priority="low">
+      type TaskTier = "trivial" | "simple" | "standard" | "complex";
+    </item>
+    <item priority="low">
+      type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
+    </item>
+  </file>
   <file path="src/tool-permissions.ts">
     <item priority="high">
       export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
