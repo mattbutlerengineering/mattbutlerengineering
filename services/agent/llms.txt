@@ -134,10 +134,18 @@
   </file>
   <file path="src/services/liveness-monitor.ts">
     <item priority="low">
-      async function checkStaleSessions(): Promise<void> { /* ... */ }
+      interface LivenessMonitorConfig {
+        inactivityThresholdMs: number;
+        checkIntervalMs: number;
+        sessionService: {
+          findStaleSessions(ms: number): Promise<Array<{ id: ...;
+        cancelSession: (id: string) => Promise<boolean>;
+      }
     </item>
-    <item priority="high">
-      export function startLivenessMonitor(logger: FastifyBaseLogger): void { /* ... */ }
+    <item priority="low">
+      interface LivenessMonitor {
+        
+      }
     </item>
   </file>
   <file path="src/services/remediation-circuit-breaker.ts">

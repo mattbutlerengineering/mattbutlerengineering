@@ -50,7 +50,9 @@ import {
   scheduleBookingNotifications,
   cancelBookingReminders,
   rescheduleBookingReminders,
+  createBookingNotifier,
 } from "./booking-notifications.js";
+import type { BookingNotifierDeps } from "./booking-notifications.js";
 import { venueService } from "./venue.js";
 
 const mockVenue = {
@@ -265,7 +267,181 @@ describe("rescheduleBookingReminders", () => {
     expect(mockCancel).toHaveBeenCalledWith("day-of-reminder:res-1");
 
     // Should schedule new jobs
-    expect(mockSchedule).toHaveBeenCalledWith("booking-reminder", expect.any(Object), expect.any(Number));
-    expect(mockSchedule).toHaveBeenCalledWith("day-of-reminder", expect.any(Object), expect.any(Number));
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
+    expect(mockSchedule).toHaveBeenCalledWith(
+      "day-of-reminder",
+      expect.any(Object),
+      expect.any(Number)
+    );
+  });
+});
+
+// ─── createBookingNotifier factory tests ─────────────────────────────────────────────────
+// No vi.mock for @mbe/notifications or ./venue.js — deps injected directly.
+
+describe("createBookingNotifier", () => {
+  function makeDeps(overrides: Partial<BookingNotifierDeps> = {}): BookingNotifierDeps {
+    const scheduleStub = vi.fn().mockResolvedValue(undefined);
+    const cancelStub = vi.fn().mockResolvedValue(undefined);
+    const sendConfirmStub = vi.fn().mockResolvedValue(undefined);
+    const getVenueStub = vi.fn().mockResolvedValue(mockVenue);
+
+    return {
+      notificationAdapter: {
+        sendBookingConfirmation: sendConfirmStub,
+        sendBookingReminder: vi.fn().mockResolvedValue(undefined),
+        sendBookingModified: vi.fn().mockResolvedValue(undefined),
+        sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+        sendWinBack: vi.fn().mockResolvedValue(undefined),
+      },
+      scheduler: {
+        schedule: scheduleStub,
+        cancel: cancelStub,
+      },
+      getVenue: getVenueStub,
+      ...overrides,
+    };
+  }
+
+  it("createBookingNotifier returns object with correct methods", () => {
+    const notifier = createBookingNotifier(makeDeps());
+    expect(typeof notifier.scheduleBookingNotifications).toBe("function");
+    expect(typeof notifier.cancelBookingReminders).toBe("function");
+    expect(typeof notifier.rescheduleBookingReminders).toBe("function");
+  });
+
+  it("scheduleBookingNotifications calls notificationAdapter with correct payload", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
+
+    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reservationId: "res-1",
+        guestEmail: "jane@example.com",
+        venueName: "The Oak Table",
+        manageToken: "token-xyz",
+      })
+    );
+  });
+
+  it("scheduleBookingNotifications calls getVenue with venueId", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token");
+
+    expect(deps.getVenue).toHaveBeenCalledWith("venue-1");
+  });
+
+  it("scheduleBookingNotifications skips confirmation when getVenue returns null", async () => {
+    const deps = makeDeps({
+      getVenue: vi.fn().mockResolvedValue(null),
+    });
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token");
+
+    expect(deps.notificationAdapter.sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("scheduleBookingNotifications schedules both reminders for future booking", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const startMs = Date.now() + 30 * 60 * 60 * 1000;
+    const reservation = makeReservation({ startTime: new Date(startMs).toISOString() });
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token");
+
+    expect(deps.scheduler.schedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.objectContaining({ reservationId: "res-1" }),
+      expect.any(Number)
+    );
+    expect(deps.scheduler.schedule).toHaveBeenCalledWith(
+      "day-of-reminder",
+      expect.objectContaining({ reservationId: "res-1" }),
+      expect.any(Number)
+    );
+  });
+
+  it("cancelBookingReminders cancels both reminder jobs", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+
+    await notifier.cancelBookingReminders("res-99");
+
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-99");
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("day-of-reminder:res-99");
+  });
+
+  it("cancelBookingReminders does not throw when cancel rejects", async () => {
+    const deps = makeDeps({
+      scheduler: {
+        schedule: vi.fn(),
+        cancel: vi.fn().mockRejectedValue(new Error("not found")),
+      },
+    });
+    const notifier = createBookingNotifier(deps);
+
+    await expect(notifier.cancelBookingReminders("res-99")).resolves.not.toThrow();
+  });
+
+  it("rescheduleBookingReminders cancels then re-schedules", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.rescheduleBookingReminders(reservation as never, "token");
+
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-1");
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("day-of-reminder:res-1");
+    expect(deps.scheduler.schedule).toHaveBeenCalled();
+  });
+
+  it("resolveChannel prefers communicationPreference=email over data availability", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    // Reservation has both email and phone but pref = email
+    const startMs = Date.now() + 30 * 60 * 60 * 1000;
+    const reservation = {
+      ...makeReservation({ startTime: new Date(startMs).toISOString() }),
+      communicationPreference: "email",
+    };
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token");
+
+    expect(deps.scheduler.schedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.objectContaining({ channel: "email" }),
+      expect.any(Number)
+    );
+  });
+
+  it("resolveChannel falls back to data availability when communicationPreference is null", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const startMs = Date.now() + 30 * 60 * 60 * 1000;
+    const reservation = {
+      ...makeReservation({ startTime: new Date(startMs).toISOString() }),
+      communicationPreference: null,
+    };
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token");
+
+    // email + phone -> both
+    expect(deps.scheduler.schedule).toHaveBeenCalledWith(
+      "booking-reminder",
+      expect.objectContaining({ channel: "both" }),
+      expect.any(Number)
+    );
   });
 });

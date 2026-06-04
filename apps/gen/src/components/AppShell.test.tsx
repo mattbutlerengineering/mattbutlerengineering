@@ -1,4 +1,4 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
+ 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AppShell } from "./AppShell.js";
@@ -51,6 +51,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Badge: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => (
+    <span {...(props as React.HTMLAttributes<HTMLSpanElement>)}>{children}</span>
+  ),
 }));
 
 vi.mock("@mbe/auth/react", () => ({
@@ -77,6 +80,7 @@ vi.mock("./AppShell.module.css", () => ({
     panelToggleActive: "panelToggleActive",
     actions: "actions",
     content: "content",
+    skipLink: "skipLink",
   },
 }));
 
