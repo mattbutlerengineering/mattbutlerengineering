@@ -230,10 +230,14 @@
   </file>
   <file path="src/services/booking-notifications.ts">
     <item priority="medium">
-      function getScheduler(): JobScheduler { /* ... */ }
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+      function resolveChannel(
+        guestEmail: string | null,
+        guestPhone: string | null,
+        communicationPreference: string | null = null
+      ): "email" | "sms" | "both" { /* ... */ }
     </item>
   </file>
   <file path="src/services/confirm-hold.ts">
