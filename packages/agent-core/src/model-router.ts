@@ -1,3 +1,6 @@
+import { classifyTask } from "./task-signal-registry.js";
+import type { TaskSignals } from "./task-signal-registry.js";
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export type ModelTier = "haiku" | "sonnet" | "opus";
@@ -19,6 +22,12 @@ export interface RoutingContext {
   readonly sourceFilePaths?: readonly string[];
   /** Model tier that was used when a similar task previously failed. Used for escalation. */
   readonly pastFailureTier?: ModelTier;
+  /**
+   * Pre-computed task signals from the shared TaskSignalRegistry. When omitted,
+   * routing computes them from the issue title/body so existing callers are
+   * unaffected. Passing this avoids re-scanning the description.
+   */
+  readonly taskSignals?: TaskSignals;
 }
 
 export interface ModelRoutingResult {
@@ -42,43 +51,11 @@ const OPUS_MIN_BUDGET_USD = 0.3;
 const LARGE_CHANGE_FILE_THRESHOLD = 15;
 
 /**
- * Title prefixes that indicate a lightweight, automatable change.
- * Covers dependency bumps, security patches, docs, tests, and style fixes.
- */
-const HAIKU_TITLE_PATTERNS: readonly RegExp[] = [
-  /^chore\(deps[\w-]*\):/i,
-  /^fix\(security\):/i,
-  /^chore\(deps\):/i,
-  /^docs:/i,
-  /^test:/i,
-  /^chore\(lint\):/i,
-  /^chore\(style\):/i,
-];
-
-/**
  * Path patterns that identify test or documentation files.
  * Used to detect tasks that only touch test/docs paths (≤2 files → haiku).
  */
 const TEST_OR_DOCS_PATH =
   /(?:__tests__|\/tests?\/|\/docs\/|\.test\.[tj]sx?$|\.spec\.[tj]sx?$|README|CHANGELOG|\.md$)/i;
-
-/**
- * Keywords in the issue body or title that signal architectural complexity,
- * requiring deeper reasoning from Opus.
- */
-const OPUS_COMPLEXITY_KEYWORDS: readonly RegExp[] = [
-  /\barchitect(ure|ural)?\b/i,
-  /\brefactor\b/i,
-  /\bdesign system\b/i,
-  /\bmigrat(e|ion)\b/i,
-  /\binfrastructure\b/i,
-  /\bbreaking change\b/i,
-  /\bapi design\b/i,
-  /\bsystem design\b/i,
-  /\bschema change\b/i,
-  /\bmulti.?service\b/i,
-  /\bcross.?cutting\b/i,
-];
 
 // ── Tier downgrade map (used by feedback loop) ───────────────────────
 
@@ -118,17 +95,15 @@ export function routeModel(issue: IssueInput, ctx?: RoutingContext): ModelTier {
  */
 export function routeModelWithReason(issue: IssueInput, ctx?: RoutingContext): ModelRoutingResult {
   const labels = issue.labels.map((l) => l.toLowerCase());
-  const titleLower = issue.title.toLowerCase();
-  const bodyLower = issue.body.toLowerCase();
 
-  // 1. Dependency bumps, security, docs, tests, lint, style → haiku (~30s)
-  for (const pattern of HAIKU_TITLE_PATTERNS) {
-    if (pattern.test(issue.title)) {
-      return applyContextAdjustments(
-        buildResult("haiku", `Title matches lightweight pattern: ${pattern.source}`),
-        ctx
-      );
-    }
+  // Shared task signals: prefer a pre-computed value, otherwise derive from the
+  // issue (title prefix drives the lightweight "trivial" signal; combined
+  // title+body drives the complexity tier).
+  const signals = ctx?.taskSignals ?? classifyTask(`${issue.title} ${issue.body}`, issue.title);
+
+  // 1. Lightweight title prefixes (deps/security/docs/test/lint/style) → haiku (~30s)
+  if (signals.tier === "trivial") {
+    return applyContextAdjustments(buildResult("haiku", "Title matches lightweight pattern"), ctx);
   }
 
   // 2. Task touches only test or docs files (≤2 paths) → haiku
@@ -146,14 +121,11 @@ export function routeModelWithReason(issue: IssueInput, ctx?: RoutingContext): M
 
   // 4. Feature with architectural/complex keywords → opus (~5-10 min)
   if (labels.includes("feature")) {
-    const combinedText = `${titleLower} ${bodyLower}`;
-    for (const keyword of OPUS_COMPLEXITY_KEYWORDS) {
-      if (keyword.test(combinedText)) {
-        return applyContextAdjustments(
-          buildResult("opus", `Feature with complexity keyword: ${keyword.source}`),
-          ctx
-        );
-      }
+    if (signals.tier === "complex") {
+      return applyContextAdjustments(
+        buildResult("opus", "Feature with complexity keyword from task signals"),
+        ctx
+      );
     }
 
     // 5. Feature touching many files → opus

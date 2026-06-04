@@ -4,6 +4,7 @@ import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "../promp
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { withRetry } from "../retry.js";
 import { emitEvent } from "../utils.js";
+import { classifyTask } from "../task-signal-registry.js";
 import type { PipelineContext, PipelinePhase, PhaseResult } from "./pipeline-types.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
@@ -13,6 +14,10 @@ export class WorktreePhase implements PipelinePhase {
 
   async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
     const { config, onEvent } = ctx;
+
+    // Classify the task once so downstream consumers reuse the result instead
+    // of re-scanning the description.
+    const taskSignals = classifyTask(config.taskDescription);
 
     emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
 
@@ -69,7 +74,7 @@ export class WorktreePhase implements PipelinePhase {
 
       return {
         result: { phase: this.name, status: "success", errors: [] },
-        ctx: { ...ctx, worktree, systemPrompt },
+        ctx: { ...ctx, worktree, systemPrompt, taskSignals },
       };
     } catch (error) {
       wtSpan.end();

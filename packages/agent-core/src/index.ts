@@ -182,6 +182,10 @@ export type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.j
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
 
+// Task signal registry (unified keyword classification: tier/domains/bundles)
+export { classifyTask } from "./task-signal-registry.js";
+export type { TaskTier, TaskDomain, TaskSignals } from "./task-signal-registry.js";
+
 // Source file resolution (parses task descriptions for file paths)
 export { resolveSourceFiles, classifyTaskContexts } from "./source-resolver.js";
 

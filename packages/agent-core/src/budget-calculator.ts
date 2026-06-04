@@ -1,11 +1,14 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { resolveModelId } from "./model-router.js";
+import { classifyTask } from "./task-signal-registry.js";
 
 const execFileAsync = promisify(execFile);
 
 // ── Dynamic Budget ──────────────────────────────────────────────────
 // Scale budget based on task complexity signals in the description.
+// Tier classification is delegated to the shared TaskSignalRegistry; this
+// module only maps a tier → budget config.
 
 interface BudgetConfig {
   readonly budgetUsd: number;
@@ -13,32 +16,20 @@ interface BudgetConfig {
   readonly reason: string;
 }
 
-const COMPLEXITY_SIGNALS = {
-  simple: {
-    patterns: [/lint/i, /typo/i, /rename/i, /bump/i, /update dep/i, /fix import/i],
-    budget: { budgetUsd: 0.5, maxTurns: 30, reason: "simple fix" },
-  },
-  standard: {
-    patterns: [/fix/i, /add test/i, /update/i, /refactor/i, /ci-fix/i],
-    budget: { budgetUsd: 1.0, maxTurns: 50, reason: "standard task" },
-  },
-  complex: {
-    patterns: [/feat/i, /implement/i, /design/i, /architect/i, /new service/i, /migration/i],
-    budget: { budgetUsd: 2.0, maxTurns: 75, reason: "complex feature" },
-  },
+const BUDGET_BY_TIER = {
+  simple: { budgetUsd: 0.5, maxTurns: 30, reason: "simple fix" },
+  standard: { budgetUsd: 1.0, maxTurns: 50, reason: "standard task" },
+  complex: { budgetUsd: 2.0, maxTurns: 75, reason: "complex feature" },
 } as const;
 
 /**
- * Classify task complexity from description. Single canonical priority: complex > simple > standard.
+ * Classify task complexity from description. Delegates to the shared
+ * TaskSignalRegistry (`classifyTask`). Without a title prefix the registry
+ * never returns "trivial", so the budget tiers remain simple/standard/complex.
  */
 export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" {
-  for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-    if (signal.test(description)) return "complex";
-  }
-  for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-    if (signal.test(description)) return "simple";
-  }
-  return "standard";
+  const { tier } = classifyTask(description);
+  return tier === "trivial" ? "simple" : tier;
 }
 
 /**
@@ -46,7 +37,7 @@ export function classifyTaskComplexity(description: string): "simple" | "standar
  * Returns higher budget for complex tasks, lower for simple fixes.
  */
 export function resolveBudget(taskDescription: string): BudgetConfig {
-  return COMPLEXITY_SIGNALS[classifyTaskComplexity(taskDescription)].budget;
+  return BUDGET_BY_TIER[classifyTaskComplexity(taskDescription)];
 }
 
 // ── Model Selection ─────────────────────────────────────────────────
