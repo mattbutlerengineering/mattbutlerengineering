@@ -531,6 +531,8 @@
         getPoolMetrics,
         latencyTracker,
         checkAuth0,
+        rateLimitMonitor: fastify.rateLimitMonitor,
+        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getAgentHealth" },
           { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
