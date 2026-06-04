@@ -48,75 +48,6 @@ function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
   };
 }
 
-interface RawStaleSessionRow {
-  readonly id: string;
-  readonly status: string;
-  readonly task_description: string;
-  readonly branch_name: string | null;
-  readonly base_branch: string;
-  readonly model: string;
-  readonly max_turns: number;
-  readonly max_budget_usd: number;
-  readonly pr_url: string | null;
-  readonly pr_number: number | null;
-  readonly result_text: string | null;
-  readonly cost_usd: number | null;
-  readonly input_tokens: number | null;
-  readonly output_tokens: number | null;
-  readonly num_turns: number | null;
-  readonly duration_ms: number | null;
-  readonly parent_id: string | null;
-  readonly errors: unknown;
-  readonly sdk_session_id: string | null;
-  readonly create_pr: boolean;
-  readonly failure_category: string | null;
-  readonly started_at: Date | null;
-  readonly completed_at: Date | null;
-  readonly created_at: Date;
-  readonly updated_at: Date;
-  readonly last_activity: Date;
-}
-
-function mapRawStaleRow(row: RawStaleSessionRow): AgentSession {
-  const parseErrors = (raw: unknown): string[] => {
-    if (Array.isArray(raw)) return raw as string[];
-    if (typeof raw === "string") {
-      try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  };
-
-  return {
-    id: row.id,
-    status: row.status.toLowerCase() as AgentSession["status"],
-    taskDescription: row.task_description,
-    branchName: row.branch_name,
-    baseBranch: row.base_branch,
-    model: row.model,
-    maxTurns: row.max_turns,
-    maxBudgetUsd: row.max_budget_usd,
-    prUrl: row.pr_url,
-    prNumber: row.pr_number,
-    resultText: row.result_text,
-    costUsd: row.cost_usd,
-    inputTokens: row.input_tokens,
-    outputTokens: row.output_tokens,
-    numTurns: row.num_turns,
-    durationMs: row.duration_ms,
-    parentId: row.parent_id,
-    errors: parseErrors(row.errors),
-    startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
-    completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
-    createdAt: new Date(row.created_at).toISOString(),
-    updatedAt: new Date(row.updated_at).toISOString(),
-  };
-}
-
 interface ListOptions {
   readonly page: number;
   readonly limit: number;
@@ -240,14 +171,10 @@ export const sessionService = {
     }
   },
 
-  async findStaleSessions(thresholdMs: number): Promise<AgentSession[]> {
+  async findStaleSessions(thresholdMs: number): Promise<string[]> {
     const thresholdSeconds = Math.floor(thresholdMs / 1000);
-    const rows = await prisma.$queryRaw<RawStaleSessionRow[]>`
-      SELECT s.*,
-             COALESCE(
-               (SELECT MAX(e.created_at) FROM session_events e WHERE e.session_id = s.id),
-               s.updated_at
-             ) AS last_activity
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT s.id
         FROM sessions s
        WHERE s.status = 'RUNNING'
          AND COALESCE(
@@ -256,7 +183,7 @@ export const sessionService = {
              ) < NOW() - INTERVAL '1 second' * ${thresholdSeconds}
        ORDER BY s.updated_at ASC
     `;
-    return rows.map(mapRawStaleRow);
+    return rows.map((r) => r.id);
   },
 
   async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
