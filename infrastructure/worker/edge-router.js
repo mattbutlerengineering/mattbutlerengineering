@@ -274,7 +274,7 @@ function brandedErrorPage(statusCode, message, requestId, nonce = "") {
 // status is read from KV (written by GitHub Actions).
 
 const HEALTH_TIMEOUT_MS = 5_000;
-const STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1_000; // 24 hours
+const STALENESS_THRESHOLD_MS = 72 * 60 * 60 * 1_000; // 72 hours — deploys are change-driven, not daily
 
 const SERVICE_ENDPOINTS = {
   users: "/health",
