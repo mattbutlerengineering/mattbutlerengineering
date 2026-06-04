@@ -19,8 +19,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "bullmq": "^5.53.0",
-    "ioredis": "^5.6.1"
+    "bullmq": "^5.78.0",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",

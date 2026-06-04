@@ -24,7 +24,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "twilio": "^5.7.1"
+    "twilio": "^6.0.2"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
