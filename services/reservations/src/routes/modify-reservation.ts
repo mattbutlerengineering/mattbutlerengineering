@@ -139,33 +139,23 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if (updated.guestEmail && venue) {
-        const preference =
-          (updated.guest?.communicationPreference as
-            | "email_only"
-            | "sms_only"
-            | "both"
-            | "transactional_only"
-            | null) ?? "email_only";
         try {
-          await fastify.notificationPort.sendBookingModified(
-            {
-              reservationId: updated.id,
-              date: updated.date,
-              startTime: updated.startTime,
-              endTime: updated.endTime,
-              partySize: updated.partySize,
-              guestName: updated.guestName,
-              guestEmail: updated.guestEmail,
-              guestPhone: updated.guestPhone ?? null,
-              specialRequests: updated.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-              sequence: 2,
-            },
-            preference
-          );
+          await fastify.notificationPort.sendBookingModified({
+            reservationId: updated.id,
+            date: updated.date,
+            startTime: updated.startTime,
+            endTime: updated.endTime,
+            partySize: updated.partySize,
+            guestName: updated.guestName,
+            guestEmail: updated.guestEmail,
+            guestPhone: updated.guestPhone ?? null,
+            specialRequests: updated.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken: token,
+            sequence: 2,
+          });
         } catch {
           request.log.error("Failed to send booking modified notification");
         }

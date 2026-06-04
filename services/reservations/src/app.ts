@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServiceApp, type AppOptions } from "@mbe/database";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationPort } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
 import { readinessRoutes } from "./routes/ready.js";
@@ -32,7 +32,7 @@ import { emitLapsingGuests } from "./services/events.js";
 import { prisma } from "./services/database.js";
 
 export interface ReservationsAppOptions extends AppOptions {
-  notificationPort?: NotificationDispatcher;
+  notificationPort?: NotificationPort;
 }
 
 /**
@@ -127,6 +127,6 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
 declare module "fastify" {
   interface FastifyInstance {
-    notificationPort: NotificationDispatcher;
+    notificationPort: NotificationPort;
   }
 }

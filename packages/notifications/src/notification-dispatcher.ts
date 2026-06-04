@@ -1,8 +1,4 @@
-import type {
-  NotificationPort,
-  BookingNotificationInput,
-  WinBackNotificationInput,
-} from "./port.js";
+import type { NotificationPort, BookingNotificationInput } from "./port.js";
 import type { SmsPort, SmsNotificationInput } from "./sms-port.js";
 
 /**
@@ -94,17 +90,6 @@ export class NotificationDispatcher {
   ): Promise<void> {
     if (this.shouldSendEmail(preference) || preference === "sms_only") {
       await this.emailAdapter.sendBookingCancelled(emailInput);
-    }
-  }
-
-  /** Win-back — marketing, skipped for transactional_only guests. */
-  async sendWinBack(
-    input: WinBackNotificationInput,
-    preference: CommunicationPreference
-  ): Promise<void> {
-    if (preference === "transactional_only") return;
-    if (this.shouldSendEmail(preference)) {
-      await this.emailAdapter.sendWinBack(input);
     }
   }
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
-import type { NotificationDispatcher } from "@mbe/notifications";
+import type { NotificationPort } from "@mbe/notifications";
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -49,7 +49,6 @@ const mockReservation = {
   userId: null,
   tableId: "table_1",
   table: null,
-  guest: { visitCount: 3, communicationPreference: "email_only" },
   createdAt: "2026-06-01T00:00:00Z",
   updatedAt: "2026-06-01T00:00:00Z",
 };
@@ -62,19 +61,11 @@ const mockVenue = {
   address: "123 Oak St, Portland OR",
 };
 
-function createStubNotificationDispatcher(): Pick<
-  NotificationDispatcher,
-  | "sendBookingConfirmation"
-  | "sendBookingReminder"
-  | "sendBookingModified"
-  | "sendBookingCancelled"
-  | "sendWinBack"
-> & {
+function createStubNotificationPort(): NotificationPort & {
   sendBookingConfirmation: ReturnType<typeof vi.fn>;
   sendBookingReminder: ReturnType<typeof vi.fn>;
   sendBookingModified: ReturnType<typeof vi.fn>;
   sendBookingCancelled: ReturnType<typeof vi.fn>;
-  sendWinBack: ReturnType<typeof vi.fn>;
 } {
   return {
     sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
@@ -87,12 +78,12 @@ function createStubNotificationDispatcher(): Pick<
 
 describe("PATCH /public/v1/reservations/manage", () => {
   let app: FastifyInstance;
-  let stubNotifications: ReturnType<typeof createStubNotificationDispatcher>;
+  let stubNotifications: ReturnType<typeof createStubNotificationPort>;
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    stubNotifications = createStubNotificationDispatcher();
-    app = await buildApp({ logger: false, notificationPort: stubNotifications as never });
+    stubNotifications = createStubNotificationPort();
+    app = await buildApp({ logger: false, notificationPort: stubNotifications });
     await app.ready();
   });
 
@@ -132,7 +123,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     expect(body.data.reservation.startTime).toBe("20:00");
   });
 
-  it("sends modified notification with guest communication preference", async () => {
+  it("sends modified email with iCal sequence number", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
     const updatedReservation = { ...mockReservation, partySize: 2 };
 
@@ -155,8 +146,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
         sequence: 2,
-      }),
-      "email_only"
+      })
     );
   });
 

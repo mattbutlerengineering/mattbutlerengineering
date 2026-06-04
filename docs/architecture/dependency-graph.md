@@ -149,9 +149,9 @@ flowchart TD
 
 ## Legend
 
-| Color  | Category                        |
-| ------ | ------------------------------- |
-| Blue   | Frontend Apps (`apps/*`)        |
-| Amber  | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`)  |
-| Green  | Developer Tools (`tools/*`)     |
+| Color | Category |
+|-------|----------|
+| Blue | Frontend Apps (`apps/*`) |
+| Amber | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`) |
+| Green | Developer Tools (`tools/*`) |

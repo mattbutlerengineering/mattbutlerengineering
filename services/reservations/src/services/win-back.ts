@@ -1,5 +1,5 @@
 import type { Guest } from "@mbe/types";
-import type { NotificationDispatcher, CommunicationPreference } from "@mbe/notifications";
+import type { NotificationPort } from "@mbe/notifications";
 
 /**
  * Send a win-back message to a lapsing guest.
@@ -9,11 +9,9 @@ import type { NotificationDispatcher, CommunicationPreference } from "@mbe/notif
  */
 export async function sendWinBack(
   guest: Guest,
-  notificationPort: NotificationDispatcher
+  notificationPort: NotificationPort
 ): Promise<boolean> {
-  const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
-
-  if (preference === "transactional_only") {
+  if (guest.communicationPreference === "transactional_only") {
     return false;
   }
 
@@ -21,14 +19,11 @@ export async function sendWinBack(
     return false;
   }
 
-  await notificationPort.sendWinBack(
-    {
-      guestName: guest.name,
-      guestEmail: guest.email,
-      venueName: "your favourite restaurant",
-    },
-    preference
-  );
+  await notificationPort.sendWinBack({
+    guestName: guest.name,
+    guestEmail: guest.email,
+    venueName: "your favourite restaurant",
+  });
 
   return true;
 }

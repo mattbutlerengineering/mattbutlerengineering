@@ -63,7 +63,7 @@ export interface Reservation {
   seatingPreference: SeatingPreference | null;
   tableId: string;
   table?: Table;
-  guest?: { visitCount: number; communicationPreference: string | null } | null;
+  guest?: { visitCount: number } | null;
   venueId: string | null;
   createdAt: string;
   updatedAt: string;

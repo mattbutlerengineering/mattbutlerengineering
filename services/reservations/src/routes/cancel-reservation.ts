@@ -91,32 +91,22 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
       cancelBookingReminders(reservation.id).catch(() => {});
 
       if (reservation.guestEmail && venue) {
-        const preference =
-          (reservation.guest?.communicationPreference as
-            | "email_only"
-            | "sms_only"
-            | "both"
-            | "transactional_only"
-            | null) ?? "email_only";
         try {
-          await fastify.notificationPort.sendBookingCancelled(
-            {
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-            },
-            preference
-          );
+          await fastify.notificationPort.sendBookingCancelled({
+            reservationId: reservation.id,
+            date: reservation.date,
+            startTime: reservation.startTime,
+            endTime: reservation.endTime,
+            partySize: reservation.partySize,
+            guestName: reservation.guestName,
+            guestEmail: reservation.guestEmail,
+            guestPhone: reservation.guestPhone ?? null,
+            specialRequests: reservation.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken: token,
+          });
         } catch {
           request.log.error("Failed to send booking cancelled notification");
         }
