@@ -48,6 +48,7 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
+        lastEvaluation: EvaluationResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -66,6 +67,7 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
+        lastResult: GateResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -151,7 +153,7 @@
       }
     </item>
     <item priority="high">
-      export function resolveBudget(taskDescription: string): BudgetConfig { /* ... */ }
+      export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
     </item>
   </file>
   <file path="src/bundle-size-tracker.ts">
@@ -489,29 +491,6 @@
         lastTunedAt: string;
         thresholds: QaTuningThresholds;
       }
-    </item>
-  </file>
-  <file path="src/quality-gates.ts">
-    <item priority="low">
-      interface QualityGatesResult {
-        evaluation?: EvaluationResult;
-        securityReview?: ReviewResult;
-        staticAnalysisClean: boolean;
-        errors: string[];
-      }
-    </item>
-    <item priority="high">
-      export async function runQualityGates(
-        taskDescription: string,
-        diff: string,
-        commitMsg: string,
-        options: {
-          evaluateSuccess?: boolean;
-          runSecurityReview?: boolean;
-          runStaticAnalysis?: boolean;
-        },
-        onEvent?: SessionEventCallback
-      ): Promise<QualityGatesResult> { /* ... */ }
     </item>
   </file>
   <file path="src/rate-limit-detector.ts">

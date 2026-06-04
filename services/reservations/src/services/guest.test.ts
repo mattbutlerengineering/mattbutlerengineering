@@ -429,5 +429,32 @@ describe("guestService", () => {
       expect(segments[0].count).toBe(100);
       expect(segments[1].count).toBe(10);
     });
+
+    it("all segment count queries include venueId for index utilisation", async () => {
+      vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+
+      await guestService.getSegments("venue-1");
+
+      // Every count call must pass venueId so the DB uses guests_venue_id_visit_count_idx
+      // and guests_venue_id_last_visit_idx instead of sequential scans
+      const calls = vi.mocked(prisma.guest.count).mock.calls;
+      expect(calls).toHaveLength(6);
+      for (const [args] of calls) {
+        expect((args as { where: { venueId: string } }).where.venueId).toBe("venue-1");
+      }
+    });
+
+    it("VIP segment uses visitCount filter that benefits from index", async () => {
+      vi.mocked(prisma.guest.count).mockResolvedValue(0 as never);
+
+      await guestService.getSegments("venue-1");
+
+      const calls = vi.mocked(prisma.guest.count).mock.calls;
+      // VIP = index 1, New = index 5
+      const vipCall = calls[1][0] as { where: { venueId: string; visitCount: { gte: number } } };
+      const newCall = calls[5][0] as { where: { venueId: string; visitCount: number } };
+      expect(vipCall.where.visitCount).toEqual({ gte: 5 });
+      expect(newCall.where.visitCount).toBe(0);
+    });
   });
 });

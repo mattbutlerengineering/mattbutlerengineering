@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  classifyTaskComplexity,
   resolveBudget,
   resolveModel,
   formatPrExamples,
@@ -13,6 +14,27 @@ vi.mock("node:child_process", () => ({
 }));
 
 describe("budget-calculator", () => {
+  describe("classifyTaskComplexity", () => {
+    it("returns 'complex' for complex-signaling descriptions", () => {
+      expect(classifyTaskComplexity("implement new feature")).toBe("complex");
+      expect(classifyTaskComplexity("architect the new microservice")).toBe("complex");
+    });
+
+    it("returns 'simple' for simple-signaling descriptions", () => {
+      expect(classifyTaskComplexity("fix lint errors")).toBe("simple");
+      expect(classifyTaskComplexity("bump lodash version")).toBe("simple");
+    });
+
+    it("returns 'standard' for unmatched descriptions", () => {
+      expect(classifyTaskComplexity("random task")).toBe("standard");
+    });
+
+    it("complex beats simple when both signals present", () => {
+      // "feat" (complex) + "rename" (simple) — complex checked first
+      expect(classifyTaskComplexity("feat: rename old file to new system")).toBe("complex");
+    });
+  });
+
   describe("resolveBudget", () => {
     it("returns simple budget for lint tasks", () => {
       const budget = resolveBudget("fix lint errors");

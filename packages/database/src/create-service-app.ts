@@ -53,7 +53,7 @@ export interface AppOptions {
  * Accepts *.mattbutlerengineering.com in all environments and localhost
  * origins only in development. Returns only the origins that pass validation.
  */
-function validateCorsOrigins(origins: string[]): string[] {
+export function validateCorsOrigins(origins: string[]): string[] {
   const validPatterns = [
     /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
     ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),

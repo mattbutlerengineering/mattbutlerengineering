@@ -26,14 +26,14 @@
   </file>
   <file path="src/worker.ts">
     <item priority="low">
-      interface NotificationHandlerInput {
-        jobType: T;
-        payload: JobPayloadMap[T];
-      }
+      type JobHandlerMap = {
+        [K in JobType]: (payload: JobPayloadMap[K]) => Promis...;
     </item>
     <item priority="low">
-      interface JobHandlers {
-        onNotification: (input: NotificationHandlerInput) => Promise<void>;
+      interface JobWorkerConfig {
+        redisUrl: string;
+        queueName?: string;
+        handlers: JobHandlerMap;
       }
     </item>
   </file>

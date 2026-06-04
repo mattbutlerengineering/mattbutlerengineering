@@ -1,6 +1,7 @@
 import type {
   Guest,
   StaffNote,
+  CommunicationPreference,
   CreateGuestRequest,
   UpdateGuestRequest,
   GuestSearchParams,
@@ -30,6 +31,7 @@ function mapPrismaGuest(guest: {
   lifetimeSpend: Prisma.Decimal | null;
   lastVisit: Date | null;
   tags: unknown;
+  communicationPreference: string;
   dietaryRestrictions: unknown;
   staffNotes: unknown;
   createdAt: Date;
@@ -54,6 +56,7 @@ function mapPrismaGuest(guest: {
     lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
     lastVisit: guest.lastVisit?.toISOString() ?? null,
     tags: guest.tags as string[] | null,
+    communicationPreference: guest.communicationPreference as CommunicationPreference,
     dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
     staffNotes,
     createdAt: guest.createdAt.toISOString(),

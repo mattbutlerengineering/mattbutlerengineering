@@ -29,22 +29,24 @@ const COMPLEXITY_SIGNALS = {
 } as const;
 
 /**
+ * Classify task complexity from description. Single canonical priority: complex > simple > standard.
+ */
+export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" {
+  for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
+    if (signal.test(description)) return "complex";
+  }
+  for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
+    if (signal.test(description)) return "simple";
+  }
+  return "standard";
+}
+
+/**
  * Determine budget based on task description complexity.
  * Returns higher budget for complex tasks, lower for simple fixes.
  */
 export function resolveBudget(taskDescription: string): BudgetConfig {
-  // Check complex first (most specific)
-  for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-    if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.complex.budget;
-  }
-
-  // Check simple
-  for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-    if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.simple.budget;
-  }
-
-  // Default to standard
-  return COMPLEXITY_SIGNALS.standard.budget;
+  return COMPLEXITY_SIGNALS[classifyTaskComplexity(taskDescription)].budget;
 }
 
 // ── Model Selection ─────────────────────────────────────────────────
@@ -61,13 +63,7 @@ const MODEL_MAP = {
  * Haiku for simple fixes (fast, cheap), Sonnet for everything else.
  */
 export function resolveModel(taskDescription: string): string {
-  for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-    if (signal.test(taskDescription)) return MODEL_MAP.simple;
-  }
-  for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-    if (signal.test(taskDescription)) return MODEL_MAP.complex;
-  }
-  return MODEL_MAP.standard;
+  return MODEL_MAP[classifyTaskComplexity(taskDescription)];
 }
 
 // ── Example PR Context ──────────────────────────────────────────────
