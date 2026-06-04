@@ -1548,7 +1548,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const lapsing = await runLapsedGuestScan(venueId);
+          const lapsing = await guestService.scanLapsedGuests(venueId);
           return { data: lapsing };
         }
       );
@@ -4727,14 +4727,21 @@
     }
   </file>
   <file path="src/services/booking-notifications.ts">
-    function getScheduler(): JobScheduler {
-      if (!_scheduler) {
-        _scheduler = new JobScheduler({ redisUrl: REDIS_URL });
-      }
-      return _scheduler;
-    }
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
+    }
+    function resolveChannel(
+      guestEmail: string | null,
+      guestPhone: string | null,
+      communicationPreference: string | null = null
+    ): "email" | "sms" | "both" {
+      if (communicationPreference === "email") return "email";
+      if (communicationPreference === "sms") return "sms";
+      if (communicationPreference === "both") return "both";
+      // Fall back to data availability
+      if (guestEmail && guestPhone) return "both";
+      if (guestPhone) return "sms";
+      return "email";
     }
   </file>
   <file path="src/services/confirm-hold.ts">
@@ -4933,75 +4940,29 @@
     }
   </file>
   <file path="src/services/lapsed-guest-cron.ts">
-    export function scheduleLapsedGuestCron(log: FastifyBaseLogger): void {
-      const scan = async () => {
-        try {
-          const venues = await prisma.venue.findMany({ select: { id: true } });
-          for (const venue of venues) {
-            const lapsing = await runLapsedGuestScan(venue.id);
-            if (lapsing.length > 0) {
-              log.info(
-                { venueId: venue.id, count: lapsing.length },
-                "lapsed guest scan: found lapsing guests"
-              );
-            }
-          }
-        } catch (err) {
-          log.error({ err }, "lapsed guest scan: error");
-        }
-      };
-    
-      // Run first scan after 1 minute (let service fully start), then daily
-      setTimeout(() => {
-        void scan();
-        setInterval(() => void scan(), DAILY_MS);
-      }, 60_000);
+    export interface LapsedGuestMonitorConfig {
+      getVenueIds: () => Promise<string[]>;
+      runScan: (venueId: string) => Promise<LapsingGuest[]>;
+      startupDelayMs?: number;
+      intervalMs?: number;
+    }
+    export interface LapsedGuestMonitor {
+      start(log: FastifyBaseLogger): void;
+      stop(): void;
     }
   </file>
   <file path="src/services/lapsed-guest-scan.ts">
-    export async function runLapsedGuestScan(venueId: string): Promise<LapsingGuest[]> {
-      // Fetch guests with 3+ visits and a lastVisit date
-      const guests = await prisma.guest.findMany({
-        where: { venueId, visitCount: { gte: MIN_VISITS }, lastVisit: { not: null } },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          communicationPreference: true,
-          reservations: {
-            where: { status: "COMPLETED" },
-            select: { startTime: true },
-            orderBy: { startTime: "asc" },
-          },
-        },
-      });
-    
-      const lapsing: LapsingGuest[] = [];
-    
-      for (const guest of guests) {
-        const visitDates = guest.reservations.map((r) => r.startTime.toISOString());
-        const { avgFrequencyDays, daysSinceLastVisit, isLapsing } = detectLapse(visitDates);
-    
-        if (!isLapsing) continue;
-    
-        lapsing.push({
-          guestId: guest.id,
-          name: guest.name,
-          email: guest.email,
-          phone: guest.phone,
-          communicationPreference: guest.communicationPreference as CommunicationPreference,
-          avgFrequencyDays,
-          daysSinceLastVisit,
-          daysOverdue: daysSinceLastVisit - avgFrequencyDays * 2,
-        });
-      }
-    
-      if (lapsing.length > 0) {
-        emitLapsingGuests(venueId, lapsing);
-      }
-    
-      return lapsing;
+    interface GuestForScan {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      communicationPreference: string | null;
+      reservations: { startTime: Date }[];
+    }
+    export interface LapsedGuestScanDeps {
+      findGuestsForScan: (venueId: string) => Promise<GuestForScan[]>;
+      emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
     }
   </file>
   <file path="src/services/reminder.ts">
@@ -5253,9 +5214,34 @@
       await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(stripeWebhookRoutes);
     
-      // Schedule daily lapsed guest scan (skip in test mode)
+      // Wire lapsed-guest monitor with lifecycle hooks
+      const lapsedGuestMonitor = createLapsedGuestMonitor({
+        getVenueIds: () =>
+          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+        runScan: (venueId) =>
+          runLapsedGuestScan(venueId, {
+            findGuestsForScan: (vid) =>
+              prisma.guest.findMany({
+                where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  phone: true,
+                  communicationPreference: true,
+                  reservations: {
+                    where: { status: "COMPLETED" },
+                    select: { startTime: true },
+                    orderBy: { startTime: "asc" },
+                  },
+                },
+              }),
+            emitLapsingGuests,
+          }),
+      });
       if (process.env.NODE_ENV !== "test") {
-        scheduleLapsedGuestCron(fastify.log);
+        fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
+        fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
       }
     
       return fastify;

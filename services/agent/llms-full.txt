@@ -963,34 +963,18 @@
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="src/services/liveness-monitor.ts">
-    async function checkStaleSessions(): Promise<void> {
-      try {
-        const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
-    
-        for (const session of staleSessions) {
-          activeLogger?.warn(
-            `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
-          );
-    
-          const cancelled = await cancelSession(session.id);
-          if (cancelled) {
-            await sessionService.addEvent(session.id, "session:error", {
-              message: `Auto-cancelled: exceeded inactivity threshold (${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-              reason: "liveness_timeout",
-            });
-          }
-        }
-      } catch (error) {
-        activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
-      }
+    export interface LivenessMonitorConfig {
+      inactivityThresholdMs: number;
+      checkIntervalMs: number;
+      sessionService: {
+        findStaleSessions(ms: number): Promise<Array<{ id: string }>>;
+        addEvent(id: string, type: string, payload: Record<string, unknown>): Promise<unknown>;
+      };
+      cancelSession: (id: string) => Promise<boolean>;
     }
-    export function startLivenessMonitor(logger: FastifyBaseLogger): void {
-      if (intervalHandle) return;
-      activeLogger = logger;
-      intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-      logger.info(
-        `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
-      );
+    export interface LivenessMonitor {
+      start(logger: FastifyBaseLogger): void;
+      stop(): void;
     }
   </file>
   <file path="src/services/remediation-circuit-breaker.ts">

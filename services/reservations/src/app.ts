@@ -26,7 +26,10 @@ import { publicDepositRoutes } from "./routes/public-deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { createNotificationPort } from "./notifications.js";
-import { scheduleLapsedGuestCron } from "./services/lapsed-guest-cron.js";
+import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import { runLapsedGuestScan } from "./services/lapsed-guest-scan.js";
+import { emitLapsingGuests } from "./services/events.js";
+import { prisma } from "./services/database.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationPort;
@@ -89,9 +92,34 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(stripeWebhookRoutes);
 
-  // Schedule daily lapsed guest scan (skip in test mode)
+  // Wire lapsed-guest monitor with lifecycle hooks
+  const lapsedGuestMonitor = createLapsedGuestMonitor({
+    getVenueIds: () =>
+      prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+    runScan: (venueId) =>
+      runLapsedGuestScan(venueId, {
+        findGuestsForScan: (vid) =>
+          prisma.guest.findMany({
+            where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              communicationPreference: true,
+              reservations: {
+                where: { status: "COMPLETED" },
+                select: { startTime: true },
+                orderBy: { startTime: "asc" },
+              },
+            },
+          }),
+        emitLapsingGuests,
+      }),
+  });
   if (process.env.NODE_ENV !== "test") {
-    scheduleLapsedGuestCron(fastify.log);
+    fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
+    fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
   }
 
   return fastify;
