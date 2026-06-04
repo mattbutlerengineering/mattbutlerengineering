@@ -518,7 +518,7 @@
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
-        notificationPort: NotificationPort
+        notificationPort: NotificationDispatcher
       ): Promise<boolean> { /* ... */ }
     </item>
   </file>
@@ -527,7 +527,7 @@
   <file path="src/app.ts">
     <item priority="low">
       interface ReservationsAppOptions {
-        notificationPort?: NotificationPort;
+        notificationPort?: NotificationDispatcher;
       }
     </item>
     <item priority="high">
@@ -536,7 +536,7 @@
   </file>
   <file path="src/notifications.ts">
     <item priority="high">
-      export function createNotificationPort(): NotificationPort { /* ... */ }
+      export function createNotificationPort(): NotificationDispatcher { /* ... */ }
     </item>
   </file>
   </section>
