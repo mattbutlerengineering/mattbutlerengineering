@@ -69,17 +69,23 @@ export type {
 } from "./stuck-detector.js";
 
 // Success evaluation
-export {
-  evaluateSuccess,
-  getGitDiff,
-  shouldEvaluate,
-  DEFAULT_EVALUATION_CONFIG,
-} from "./success-evaluator.js";
+export { evaluateSuccess, getGitDiff, DEFAULT_EVALUATION_CONFIG } from "./success-evaluator.js";
 export type {
   EvaluationResult,
   EvaluationConfig,
-  ShouldEvaluateConfig,
+  EvaluateSuccessConfig,
 } from "./success-evaluator.js";
+
+// Evaluation skip policy (pure)
+export { evaluationSkipDecision, countDiffLines } from "./evaluation-skip-policy.js";
+export type { SkipPolicyInput, SkipReason, SkipDecision } from "./evaluation-skip-policy.js";
+
+// Evaluation prompt builder (pure)
+export {
+  buildEvaluationPrompt,
+  extractAcceptanceCriteria,
+  extractExpectedFiles,
+} from "./evaluation-prompt-builder.js";
 
 // Diff review (AI code review before auto-merge)
 export { reviewDiff, DEFAULT_REVIEW_CONFIG } from "./diff-reviewer.js";

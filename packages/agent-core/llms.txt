@@ -281,6 +281,26 @@
       }
     </item>
   </file>
+  <file path="src/evaluation-prompt-builder.ts">
+    <item priority="medium">
+      function extractMarkdownSection(text: string, headingPattern: RegExp): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractAcceptanceCriteria(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/evaluation-skip-policy.ts">
+    <item priority="low">
+      interface SkipPolicyInput {
+        diff: string;
+        testsPassed?: boolean;
+        commitTitle?: string;
+      }
+    </item>
+    <item priority="low">
+      type SkipReason = "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
+    </item>
+  </file>
   <file path="src/event-mapper.ts">
     <item priority="low">
       interface ToolUseEvent {
@@ -587,6 +607,7 @@
         confidence: number;
         reasoning: string;
         issues: readonly string[];
+        skipped?: boolean;
       }
     </item>
     <item priority="low">

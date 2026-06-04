@@ -296,18 +296,22 @@
       lastEvaluation?: EvaluationResult;
     
       shouldSkip(context: GateContext): boolean {
-        if (context.evaluateSuccess === false) return true;
-        return !shouldEvaluate(context.diff, { commitTitle: context.commitMsg });
+        return context.evaluateSuccess === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
         const span = tracer.startSpan("agent_core.llm_evaluation_gate");
         try {
-          const evalResult = await evaluateSuccess(context.taskDescription, context.diff);
+          const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
+            commitTitle: context.commitMsg,
+          });
           this.lastEvaluation = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
+          if (evalResult.skipped) {
+            span.setAttribute("evaluation.skipped", true);
+          }
     
           if (!evalResult.passed) {
             return {
@@ -1231,6 +1235,61 @@
       readonly durationMs: number;
     }
   </file>
+  <file path="src/evaluation-prompt-builder.ts">
+    function extractMarkdownSection(text: string, headingPattern: RegExp): string | null {
+      // Find the heading line-by-line to avoid ReDoS on the full text
+      const lines = text.split("\n");
+      let startIdx = -1;
+      let charOffset = 0;
+    
+      for (let i = 0; i < lines.length; i++) {
+        if (headingPattern.test(lines[i])) {
+          // Start capturing from the line after the heading
+          startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+          break;
+        }
+        charOffset += lines[i].length + 1;
+      }
+    
+      if (startIdx === -1 || startIdx >= text.length) return null;
+    
+      const body = text.slice(startIdx);
+    
+      // Find the next section boundary: "\n##" or "\n---"
+      let endIdx = body.length;
+      const nextHeading = body.indexOf("\n##");
+      const nextHr = body.indexOf("\n---");
+    
+      if (nextHeading !== -1 && nextHeading < endIdx) endIdx = nextHeading;
+      if (nextHr !== -1 && nextHr < endIdx) endIdx = nextHr;
+    
+      return body.slice(0, endIdx);
+    }
+    export function extractAcceptanceCriteria(taskDescription: string): readonly string[] {
+      const sectionBody = extractMarkdownSection(taskDescription, /^##\s*Acceptance\s*Criteria\s*$/i);
+      if (!sectionBody) return [];
+    
+      return sectionBody
+        .split("\n")
+        .filter((line) => /^\s*-\s*\[[ x]\]/.test(line))
+        .map((line) => line.replace(/^\s*-\s*\[[ x]\]\s*/, "").trim())
+        .filter(Boolean);
+    }
+  </file>
+  <file path="src/evaluation-skip-policy.ts">
+    export interface SkipPolicyInput {
+      readonly diff: string;
+      /** Whether tests passed during the agent run */
+      readonly testsPassed?: boolean;
+      /** Commit title, used for dependency-bump detection */
+      readonly commitTitle?: string;
+    }
+    export type SkipReason =
+      | "empty_diff"
+      | "trivial_commit"
+      | "test_only_changes"
+      | "small_diff_tests_passed";
+  </file>
   <file path="src/event-mapper.ts">
     export interface ToolUseEvent {
       readonly type: "session:tool_use";
@@ -1548,7 +1607,11 @@
       gateFailures: string[];
       /** Human-readable failure messages collected from verification + quality gates */
       errors: string[];
-      /** LLM evaluation result — undefined when evaluation was skipped or not run */
+      /**
+       * LLM evaluation result. Undefined when the evaluation gate did not run
+       * (e.g. `evaluateSuccess` disabled or verification failed). When the skip
+       * policy fires, this is present with `skipped: true`.
+       */
       evaluation?: EvaluationResult;
     }
   </file>
@@ -2076,6 +2139,10 @@
       readonly confidence: number;
       readonly reasoning: string;
       readonly issues: readonly string[];
+      /** True when the skip policy fired and no LLM call was made. */
+      readonly skipped?: boolean;
+      /** Which skip condition fired, when `skipped` is true. */
+      readonly skipReason?: SkipReason;
     }
     export interface EvaluationConfig {
       readonly model: string;
