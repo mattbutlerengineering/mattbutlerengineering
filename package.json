@@ -94,7 +94,8 @@
       "@babel/plugin-transform-modules-systemjs@<7.29.4": "^7.29.4",
       "@opentelemetry/sdk-node@<0.217.0": "^0.217.0",
       "@opentelemetry/exporter-prometheus@<0.217.0": "^0.217.0",
-      "qs@<=6.15.1": "^6.15.2"
+      "qs@<=6.15.1": "^6.15.2",
+      "ioredis": "^5.11.0"
     }
   },
   "license": "MIT"
