@@ -102,4 +102,43 @@ describe("ResendNotificationAdapter", () => {
     expect(call.subject).toContain("Reminder");
     expect(call.attachments).toBeUndefined();
   });
+
+  it("sendWinBack emails the guest with a win-back message", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: mockResend as never,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+    });
+
+    await adapter.sendWinBack({
+      guestName: "Jane Doe",
+      guestEmail: "jane@example.com",
+      venueName: "The Oak Table",
+    });
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const call = mockSend.mock.calls[0][0];
+    expect(call.from).toBe("bookings@mbe.dev");
+    expect(call.to).toBe("jane@example.com");
+    expect(call.subject).toContain("Jane Doe");
+    expect(call.html).toContain("The Oak Table");
+  });
+
+  it("sendWinBack no-ops gracefully when resend is null (missing API key)", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: null,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+    });
+
+    await expect(
+      adapter.sendWinBack({
+        guestName: "Jane Doe",
+        guestEmail: "jane@example.com",
+        venueName: "The Oak Table",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
 });

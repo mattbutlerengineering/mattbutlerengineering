@@ -367,22 +367,32 @@
           cancelBookingReminders(reservation.id).catch(() => {});
     
           if (reservation.guestEmail && venue) {
+            const preference =
+              (reservation.guest?.communicationPreference as
+                | "email_only"
+                | "sms_only"
+                | "both"
+                | "transactional_only"
+                | null) ?? "email_only";
             try {
-              await fastify.notificationPort.sendBookingCancelled({
-                reservationId: reservation.id,
-                date: reservation.date,
-                startTime: reservation.startTime,
-                endTime: reservation.endTime,
-                partySize: reservation.partySize,
-                guestName: reservation.guestName,
-                guestEmail: reservation.guestEmail,
-                guestPhone: reservation.guestPhone ?? null,
-                specialRequests: reservation.notes ?? null,
-                venueName: venue.name,
-                venueTimezone: venue.ianaTimezone,
-                venueAddress: null,
-                manageToken: token,
-              });
+              await fastify.notificationPort.sendBookingCancelled(
+                {
+                  reservationId: reservation.id,
+                  date: reservation.date,
+                  startTime: reservation.startTime,
+                  endTime: reservation.endTime,
+                  partySize: reservation.partySize,
+                  guestName: reservation.guestName,
+                  guestEmail: reservation.guestEmail,
+                  guestPhone: reservation.guestPhone ?? null,
+                  specialRequests: reservation.notes ?? null,
+                  venueName: venue.name,
+                  venueTimezone: venue.ianaTimezone,
+                  venueAddress: null,
+                  manageToken: token,
+                },
+                preference
+              );
             } catch {
               request.log.error("Failed to send booking cancelled notification");
             }
@@ -2189,23 +2199,33 @@
           }
     
           if (updated.guestEmail && venue) {
+            const preference =
+              (updated.guest?.communicationPreference as
+                | "email_only"
+                | "sms_only"
+                | "both"
+                | "transactional_only"
+                | null) ?? "email_only";
             try {
-              await fastify.notificationPort.sendBookingModified({
-                reservationId: updated.id,
-                date: updated.date,
-                startTime: updated.startTime,
-                endTime: updated.endTime,
-                partySize: updated.partySize,
-                guestName: updated.guestName,
-                guestEmail: updated.guestEmail,
-                guestPhone: updated.guestPhone ?? null,
-                specialRequests: updated.notes ?? null,
-                venueName: venue.name,
-                venueTimezone: venue.ianaTimezone,
-                venueAddress: null,
-                manageToken: token,
-                sequence: 2,
-              });
+              await fastify.notificationPort.sendBookingModified(
+                {
+                  reservationId: updated.id,
+                  date: updated.date,
+                  startTime: updated.startTime,
+                  endTime: updated.endTime,
+                  partySize: updated.partySize,
+                  guestName: updated.guestName,
+                  guestEmail: updated.guestEmail,
+                  guestPhone: updated.guestPhone ?? null,
+                  specialRequests: updated.notes ?? null,
+                  venueName: venue.name,
+                  venueTimezone: venue.ianaTimezone,
+                  venueAddress: null,
+                  manageToken: token,
+                  sequence: 2,
+                },
+                preference
+              );
             } catch {
               request.log.error("Failed to send booking modified notification");
             }
@@ -4996,7 +5016,7 @@
     }
     type PrismaReservationWithTable = PrismaReservation & {
       table?: PrismaTable;
-      guest?: { visitCount: number } | null;
+      guest?: { visitCount: number; communicationPreference: string | null } | null;
     };
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -5135,9 +5155,11 @@
   <file path="src/services/win-back.ts">
     export async function sendWinBack(
       guest: Guest,
-      notificationPort: NotificationPort
+      notificationPort: NotificationDispatcher
     ): Promise<boolean> {
-      if (guest.communicationPreference === "transactional_only") {
+      const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
+    
+      if (preference === "transactional_only") {
         return false;
       }
     
@@ -5145,11 +5167,14 @@
         return false;
       }
     
-      await notificationPort.sendWinBack({
-        guestName: guest.name,
-        guestEmail: guest.email,
-        venueName: "your favourite restaurant",
-      });
+      await notificationPort.sendWinBack(
+        {
+          guestName: guest.name,
+          guestEmail: guest.email,
+          venueName: "your favourite restaurant",
+        },
+        preference
+      );
     
       return true;
     }
@@ -5158,7 +5183,7 @@
   <section priority="medium" role="src">
   <file path="src/app.ts">
     export interface ReservationsAppOptions extends AppOptions {
-      notificationPort?: NotificationPort;
+      notificationPort?: NotificationDispatcher;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       const fastify = await createServiceApp(
@@ -5248,7 +5273,7 @@
     }
   </file>
   <file path="src/notifications.ts">
-    export function createNotificationPort(): NotificationPort {
+    export function createNotificationPort(): NotificationDispatcher {
       const resendClient = process.env.RESEND_API_KEY
         ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
             emails: {
@@ -5257,11 +5282,27 @@
           })
         : null;
     
-      return new ResendNotificationAdapter({
+      const emailAdapter = new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
       });
+    
+      const smsAdapter =
+        process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_FROM_NUMBER
+          ? new TwilioSmsAdapter({
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              client: require("twilio")(
+                process.env.TWILIO_ACCOUNT_SID,
+                process.env.TWILIO_AUTH_TOKEN
+              ) as never,
+              fromNumber: process.env.TWILIO_FROM_NUMBER,
+            })
+          : null;
+    
+      return new NotificationDispatcher({ emailAdapter, smsAdapter });
     }
   </file>
   </section>
