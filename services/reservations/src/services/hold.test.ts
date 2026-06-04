@@ -25,6 +25,9 @@ vi.mock("./availability.js", () => ({
   availabilityService: {
     checkConflict: vi.fn(),
     checkPacing: vi.fn(),
+    fetchConflictData: vi.fn(),
+    checkTableConflict: vi.fn(),
+    checkPacingForSlot: vi.fn(),
     estimateDuration: vi.fn(),
     findBestTable: vi.fn(),
   },
@@ -79,6 +82,14 @@ describe("holdService", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+    // Default: empty pre-fetched slices; individual tests override the pure
+    // rule results (checkTableConflict / checkPacingForSlot) as needed.
+    vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
+      reservations: [],
+      holds: [],
+    });
+    vi.mocked(availabilityService.checkTableConflict).mockReturnValue(false);
+    vi.mocked(availabilityService.checkPacingForSlot).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -176,14 +187,8 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
+      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(true);
 
       const hold = makePrismaHold();
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -212,7 +217,8 @@ describe("holdService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(availabilityService.checkConflict).toHaveBeenCalled();
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
+      expect(availabilityService.checkTableConflict).toHaveBeenCalled();
     });
 
     it("returns error when specified table has conflict", async () => {
@@ -221,9 +227,7 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: true,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(true);
 
       const result = await holdService.create(
         {
@@ -246,14 +250,8 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: false,
-        currentCovers: 10,
-        maxCovers: 10,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
+      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(false);
 
       const result = await holdService.create(
         {

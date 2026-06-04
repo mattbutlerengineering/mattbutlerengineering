@@ -143,10 +143,7 @@ export async function generateTimeSlots(
   }
 
   // Get existing reservations and holds for the date
-  const [reservations, holds] = await Promise.all([
-    getReservationsForDate(venueId, date),
-    getHoldsForDate(venueId, date),
-  ]);
+  const { reservations, holds } = await fetchConflictData(venueId, date);
 
   // Generate slots
   const slots: TimeSlot[] = [];
@@ -173,14 +170,7 @@ export async function generateTimeSlots(
     }
 
     // Check pacing limits
-    const pacingOk = await checkPacingForSlot(
-      venueId,
-      slotStart,
-      partySize,
-      settings,
-      reservations,
-      holds
-    );
+    const pacingOk = checkPacingForSlot(slotStart, partySize, settings, reservations, holds);
 
     slots.push({
       time: slotStart.toISOString(),
@@ -332,10 +322,7 @@ export async function findBestTable(
   });
 
   // Get existing reservations and holds
-  const [reservations, holds] = await Promise.all([
-    getReservationsForDate(venueId, date),
-    getHoldsForDate(venueId, date),
-  ]);
+  const { reservations, holds } = await fetchConflictData(venueId, date);
 
   // Find first table without conflicts
   for (const table of tables) {
@@ -351,6 +338,10 @@ export async function findBestTable(
 
 /**
  * Checks if there's a conflict for a specific table and time range.
+ *
+ * @deprecated Fires its own DB query each call. Callers in the same request
+ * flow should call {@link fetchConflictData} once and delegate to the pure
+ * {@link checkTableConflict} instead, to avoid redundant round-trips.
  */
 export async function checkConflict(
   tableId: string,
@@ -360,11 +351,13 @@ export async function checkConflict(
   excludeReservationId?: string,
   excludeHoldId?: string
 ): Promise<ConflictCheckResult> {
+  const venueDate = new Date(date);
+
   // Check for conflicting reservations
   const conflictingReservation = await prisma.reservation.findFirst({
     where: {
       tableId,
-      date: new Date(date),
+      date: venueDate,
       status: { notIn: ["CANCELLED", "NO_SHOW"] },
       id: excludeReservationId ? { not: excludeReservationId } : undefined,
       AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
@@ -383,7 +376,7 @@ export async function checkConflict(
   const conflictingHold = await prisma.reservationHold.findFirst({
     where: {
       tableId,
-      date: new Date(date),
+      date: venueDate,
       expiresAt: { gt: new Date() },
       id: excludeHoldId ? { not: excludeHoldId } : undefined,
       AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
@@ -403,6 +396,10 @@ export async function checkConflict(
 
 /**
  * Checks if adding a reservation would exceed pacing limits.
+ *
+ * @deprecated Fires two aggregate DB queries each call. Callers in the same
+ * request flow should call {@link fetchConflictData} once and delegate to the
+ * pure {@link checkPacingForSlot} instead, to avoid redundant round-trips.
  */
 export async function checkPacing(
   venueId: string,
@@ -473,7 +470,10 @@ async function findSuitableTables(venueId: string, partySize: number): Promise<T
   });
 }
 
-interface ReservationSlim {
+/**
+ * Pre-fetched reservation data that crosses the rule-evaluation / DB-fetch seam.
+ */
+export interface ReservationSlim {
   id: string;
   tableId: string;
   startTime: Date;
@@ -481,7 +481,10 @@ interface ReservationSlim {
   partySize: number;
 }
 
-interface HoldSlim {
+/**
+ * Pre-fetched hold data that crosses the rule-evaluation / DB-fetch seam.
+ */
+export interface HoldSlim {
   id: string;
   tableId: string;
   startTime: Date;
@@ -490,42 +493,56 @@ interface HoldSlim {
   expiresAt: Date;
 }
 
-async function getReservationsForDate(venueId: string, date: string): Promise<ReservationSlim[]> {
-  return prisma.reservation.findMany({
-    where: {
-      venueId,
-      date: new Date(date),
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
-    },
-    select: {
-      id: true,
-      tableId: true,
-      startTime: true,
-      endTime: true,
-      partySize: true,
-    },
-  });
+/**
+ * Fetches the reservation and hold slices needed to evaluate conflict and
+ * pacing rules for a venue on a given date — the single DB-fetch point at the
+ * seam. Callers fetch once and pass the slices to the pure rule functions
+ * (`checkTableConflict`, `checkPacingForSlot`).
+ */
+export async function fetchConflictData(
+  venueId: string,
+  date: string
+): Promise<{ reservations: ReservationSlim[]; holds: HoldSlim[] }> {
+  const [reservations, holds] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        venueId,
+        date: new Date(date),
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      select: {
+        id: true,
+        tableId: true,
+        startTime: true,
+        endTime: true,
+        partySize: true,
+      },
+    }),
+    prisma.reservationHold.findMany({
+      where: {
+        venueId,
+        date: new Date(date),
+        expiresAt: { gt: new Date() }, // Only active holds
+      },
+      select: {
+        id: true,
+        tableId: true,
+        startTime: true,
+        endTime: true,
+        partySize: true,
+        expiresAt: true,
+      },
+    }),
+  ]);
+
+  return { reservations, holds };
 }
 
-async function getHoldsForDate(venueId: string, date: string): Promise<HoldSlim[]> {
-  return prisma.reservationHold.findMany({
-    where: {
-      venueId,
-      date: new Date(date),
-      expiresAt: { gt: new Date() }, // Only active holds
-    },
-    select: {
-      id: true,
-      tableId: true,
-      startTime: true,
-      endTime: true,
-      partySize: true,
-      expiresAt: true,
-    },
-  });
-}
-
-function checkTableConflict(
+/**
+ * Pure rule: does the given table have a time conflict with any pre-fetched
+ * reservation or active hold? No DB access — operates over supplied slices.
+ */
+export function checkTableConflict(
   tableId: string,
   startTime: Date,
   endTime: Date,
@@ -551,8 +568,11 @@ function checkTableConflict(
   return hasHoldConflict;
 }
 
-function checkPacingForSlot(
-  _venueId: string,
+/**
+ * Pure rule: would adding `partySize` covers at `startTime` keep the slot
+ * within the venue's pacing limit? No DB access — operates over supplied slices.
+ */
+export function checkPacingForSlot(
   startTime: Date,
   partySize: number,
   settings: VenueSettings | null | undefined,
@@ -632,5 +652,8 @@ export const availabilityService = {
   findBestTable,
   checkConflict,
   checkPacing,
+  fetchConflictData,
+  checkTableConflict,
+  checkPacingForSlot,
   estimateDuration,
 };

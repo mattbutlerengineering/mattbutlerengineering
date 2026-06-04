@@ -232,44 +232,67 @@ export const reservationService = {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
 
-    // Check for conflicts
-    const conflict = await availabilityService.checkConflict(
-      data.tableId,
-      data.date,
-      startTime,
-      endTime
-    );
-
-    if (conflict.hasConflict) {
-      return {
-        success: false,
-        error: "Time slot has a conflict with an existing reservation or hold",
-        conflict,
-      };
-    }
-
-    // Check pacing limits if venue is specified
     if (data.venueId) {
+      // Fetch reservations + holds once, then evaluate conflict + pacing rules.
+      const { reservations, holds } = await availabilityService.fetchConflictData(
+        data.venueId,
+        data.date
+      );
+
+      const hasConflict = availabilityService.checkTableConflict(
+        data.tableId,
+        startTime,
+        endTime,
+        reservations,
+        holds
+      );
+
+      if (hasConflict) {
+        return {
+          success: false,
+          error: "Time slot has a conflict with an existing reservation or hold",
+          conflict: { hasConflict: true },
+        };
+      }
+
       const venue = await prisma.venue.findUnique({
         where: { id: data.venueId },
       });
 
       if (venue) {
         const settings = venue.settings as VenueSettings | null;
-        const pacing = await availabilityService.checkPacing(
-          data.venueId,
+        const pacingOk = availabilityService.checkPacingForSlot(
           startTime,
           data.partySize,
-          settings
+          settings,
+          reservations,
+          holds
         );
 
-        if (!pacing.withinLimit) {
+        if (!pacingOk) {
+          const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
           return {
             success: false,
-            error: `Pacing limit exceeded. Maximum ${pacing.maxCovers} covers allowed per time window.`,
-            pacing,
+            error: `Pacing limit exceeded. Maximum ${maxCovers} covers allowed per time window.`,
+            pacing: { withinLimit: false, currentCovers: 0, maxCovers },
           };
         }
+      }
+    } else {
+      // No venue scope — fall back to the table/date-scoped conflict check.
+      const conflict = await availabilityService.checkConflict(
+        data.tableId,
+        data.date,
+        startTime,
+        endTime
+      );
+
+      if (conflict.hasConflict) {
+        return {
+          success: false,
+          error: "Time slot has a conflict with an existing reservation or hold",
+          conflict,
+        };
       }
     }
 
@@ -370,15 +393,40 @@ export const reservationService = {
 
     const dateStr = toDateString(dateOnly);
 
-    // Conflict check + creation inside a transaction to prevent TOCTOU races
-    const conflict = await availabilityService.checkConflict(data.tableId, dateStr, now, endTime);
+    // Pre-check for conflicts before the transaction (which re-checks to prevent
+    // TOCTOU races). When the venue is known, fetch the slices once and use the
+    // pure rule; otherwise fall back to the table/date-scoped query.
+    if (data.venueId) {
+      const { reservations, holds } = await availabilityService.fetchConflictData(
+        data.venueId,
+        dateStr
+      );
 
-    if (conflict.hasConflict) {
-      return {
-        success: false,
-        error: "Table is not available",
-        conflict,
-      };
+      const hasConflict = availabilityService.checkTableConflict(
+        data.tableId,
+        now,
+        endTime,
+        reservations,
+        holds
+      );
+
+      if (hasConflict) {
+        return {
+          success: false,
+          error: "Table is not available",
+          conflict: { hasConflict: true },
+        };
+      }
+    } else {
+      const conflict = await availabilityService.checkConflict(data.tableId, dateStr, now, endTime);
+
+      if (conflict.hasConflict) {
+        return {
+          success: false,
+          error: "Table is not available",
+          conflict,
+        };
+      }
     }
 
     const reservation = await prisma.$transaction(async (tx) => {

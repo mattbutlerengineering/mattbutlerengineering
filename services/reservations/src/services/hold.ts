@@ -59,6 +59,9 @@ export const holdService = {
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
     const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
 
+    // Fetch reservations + holds once for both the conflict and pacing pre-checks.
+    const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
+
     // Find or validate table (pre-check outside transaction for auto-assign)
     let selectedTableId = tableId;
     if (!selectedTableId) {
@@ -77,30 +80,33 @@ export const holdService = {
       selectedTableId = table.id;
     } else {
       // Pre-check: verify provided table is available
-      const conflict = await availabilityService.checkConflict(
-        selectedTableId!,
-        date,
+      const hasConflict = availabilityService.checkTableConflict(
+        selectedTableId,
         startTime,
-        endTime
+        endTime,
+        reservations,
+        holds
       );
 
-      if (conflict.hasConflict) {
+      if (hasConflict) {
         return { success: false, error: "Table is not available for this time slot" };
       }
     }
 
     // Check pacing limits (pre-check)
-    const pacingCheck = await availabilityService.checkPacing(
-      venueId,
+    const pacingOk = availabilityService.checkPacingForSlot(
       startTime,
       partySize,
-      settings
+      settings,
+      reservations,
+      holds
     );
 
-    if (!pacingCheck.withinLimit) {
+    if (!pacingOk) {
+      const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot;
       return {
         success: false,
-        error: `Pacing limit reached. Maximum ${pacingCheck.maxCovers} covers per time window.`,
+        error: `Pacing limit reached. Maximum ${maxCovers} covers per time window.`,
       };
     }
 
