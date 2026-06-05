@@ -10,7 +10,6 @@ vi.mock("../diff-static-analyzer.js", () => ({
 
 vi.mock("../success-evaluator.js", () => ({
   evaluateSuccess: vi.fn(),
-  shouldEvaluate: vi.fn(),
 }));
 
 vi.mock("../diff-reviewer.js", () => ({
@@ -28,7 +27,7 @@ vi.mock("../utils.js", () => ({
 
 import { orchestrateVerification } from "../verification-orchestrator.js";
 import { analyzeDiff } from "../diff-static-analyzer.js";
-import { evaluateSuccess, shouldEvaluate } from "../success-evaluator.js";
+import { evaluateSuccess } from "../success-evaluator.js";
 import { reviewDiff } from "../diff-reviewer.js";
 import { isTrivialDepBump } from "../dep-bump-merger.js";
 import { runPostCommitGateway } from "../post-commit-gateway.js";
@@ -51,7 +50,6 @@ describe("runPostCommitGateway", () => {
 
     vi.mocked(orchestrateVerification).mockResolvedValue({ passed: true });
     vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [] });
-    vi.mocked(shouldEvaluate).mockReturnValue(true);
     vi.mocked(evaluateSuccess).mockResolvedValue({
       passed: true,
       confidence: 0.9,
@@ -252,13 +250,23 @@ describe("runPostCommitGateway", () => {
     });
   });
 
-  it("evaluation is undefined when evaluation is skipped", async () => {
-    vi.mocked(shouldEvaluate).mockReturnValue(false);
+  it("carries the skipped evaluation result when the skip policy fires", async () => {
+    // evaluateSuccess now absorbs the skip decision internally and returns
+    // an inconclusive result marked `skipped` rather than being bypassed.
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: true,
+      confidence: 0,
+      reasoning: "Evaluation unavailable — defaulting to pass",
+      issues: [],
+      skipped: true,
+      skipReason: "small_diff_tests_passed",
+    });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
 
-    expect(verdict.evaluation).toBeUndefined();
-    expect(evaluateSuccess).not.toHaveBeenCalled();
+    expect(verdict.passed).toBe(true);
+    expect(verdict.evaluation?.skipped).toBe(true);
+    expect(evaluateSuccess).toHaveBeenCalled();
   });
 
   // ── Config gating ─────────────────────────────────────────────────

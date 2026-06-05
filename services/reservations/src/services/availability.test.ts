@@ -21,7 +21,15 @@ vi.mock("./database.js", () => ({
   },
 }));
 
-import { availabilityService, estimateDuration } from "./availability.js";
+import {
+  availabilityService,
+  estimateDuration,
+  checkTableConflict,
+  checkPacingForSlot,
+  fetchConflictData,
+  type ReservationSlim,
+  type HoldSlim,
+} from "./availability.js";
 import { prisma } from "./database.js";
 
 const VENUE_ID = "venue-1";
@@ -685,5 +693,229 @@ describe("availabilityService.checkPacing", () => {
     };
     const windowEnd = reservationCall.where.startTime.lt;
     expect(windowEnd.getTime() - new Date("2026-05-05T18:00:00Z").getTime()).toBe(30 * 60 * 1000);
+  });
+});
+
+describe("checkTableConflict (pure)", () => {
+  const start = new Date("2026-05-05T18:00:00Z");
+  const end = new Date("2026-05-05T19:15:00Z");
+  const future = new Date(Date.now() + 300_000);
+
+  function makeReservation(overrides: Partial<ReservationSlim> = {}): ReservationSlim {
+    return {
+      id: "res-1",
+      tableId: "table-1",
+      startTime: new Date("2026-05-05T18:30:00Z"),
+      endTime: new Date("2026-05-05T20:00:00Z"),
+      partySize: 2,
+      ...overrides,
+    };
+  }
+
+  function makeHold(overrides: Partial<HoldSlim> = {}): HoldSlim {
+    return {
+      id: "hold-1",
+      tableId: "table-1",
+      startTime: new Date("2026-05-05T18:30:00Z"),
+      endTime: new Date("2026-05-05T20:00:00Z"),
+      partySize: 2,
+      expiresAt: future,
+      ...overrides,
+    };
+  }
+
+  it("returns false when no reservations or holds", () => {
+    expect(checkTableConflict("table-1", start, end, [], [])).toBe(false);
+  });
+
+  it("returns true for an overlapping reservation on the same table", () => {
+    expect(checkTableConflict("table-1", start, end, [makeReservation()], [])).toBe(true);
+  });
+
+  it("ignores reservations on a different table", () => {
+    expect(
+      checkTableConflict("table-1", start, end, [makeReservation({ tableId: "table-2" })], [])
+    ).toBe(false);
+  });
+
+  it("treats abutting reservation that ends exactly at start as no conflict (boundary)", () => {
+    const res = makeReservation({
+      startTime: new Date("2026-05-05T16:00:00Z"),
+      endTime: start, // ends exactly when the requested slot starts
+    });
+    expect(checkTableConflict("table-1", start, end, [res], [])).toBe(false);
+  });
+
+  it("treats reservation that starts exactly at end as no conflict (boundary)", () => {
+    const res = makeReservation({
+      startTime: end, // starts exactly when the requested slot ends
+      endTime: new Date("2026-05-05T21:00:00Z"),
+    });
+    expect(checkTableConflict("table-1", start, end, [res], [])).toBe(false);
+  });
+
+  it("returns true for an overlapping active hold", () => {
+    expect(checkTableConflict("table-1", start, end, [], [makeHold()])).toBe(true);
+  });
+
+  it("ignores an expired hold even when it overlaps", () => {
+    const expired = makeHold({ expiresAt: new Date(Date.now() - 1000) });
+    expect(checkTableConflict("table-1", start, end, [], [expired])).toBe(false);
+  });
+
+  it("ignores a hold on a different table", () => {
+    expect(checkTableConflict("table-1", start, end, [], [makeHold({ tableId: "table-2" })])).toBe(
+      false
+    );
+  });
+});
+
+describe("checkPacingForSlot (pure)", () => {
+  const start = new Date("2026-05-05T18:00:00Z");
+  const future = new Date(Date.now() + 300_000);
+
+  function makeReservation(overrides: Partial<ReservationSlim> = {}): ReservationSlim {
+    return {
+      id: "res-1",
+      tableId: "table-1",
+      startTime: start,
+      endTime: new Date("2026-05-05T19:30:00Z"),
+      partySize: 4,
+      ...overrides,
+    };
+  }
+
+  function makeHold(overrides: Partial<HoldSlim> = {}): HoldSlim {
+    return {
+      id: "hold-1",
+      tableId: "table-2",
+      startTime: start,
+      endTime: new Date("2026-05-05T19:30:00Z"),
+      partySize: 2,
+      expiresAt: future,
+      ...overrides,
+    };
+  }
+
+  it("returns true when no pacing rules configured", () => {
+    expect(checkPacingForSlot(start, 4, null, [makeReservation()], [])).toBe(true);
+    expect(checkPacingForSlot(start, 4, undefined, [makeReservation()], [])).toBe(true);
+    expect(checkPacingForSlot(start, 4, { pacingRules: [] }, [makeReservation()], [])).toBe(true);
+  });
+
+  it("returns true when covers within limit", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 10 }] };
+    // existing 4 + new 2 = 6 <= 10
+    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [])).toBe(true);
+  });
+
+  it("returns false when covers exceed limit", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 4 }] };
+    // existing 4 + new 2 = 6 > 4
+    expect(checkPacingForSlot(start, 2, settings, [makeReservation()], [])).toBe(false);
+  });
+
+  it("counts active holds toward the pacing total", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 5 }] };
+    // reservation 4 + hold 2 + new 0... use party 1: 4 + 2 + 1 = 7 > 5
+    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [makeHold()])).toBe(false);
+  });
+
+  it("excludes expired holds from the pacing total", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 5 }] };
+    const expired = makeHold({ expiresAt: new Date(Date.now() - 1000), partySize: 4 });
+    // reservation 4 + new 1 = 5 <= 5 (expired hold ignored)
+    expect(checkPacingForSlot(start, 1, settings, [makeReservation()], [expired])).toBe(true);
+  });
+
+  it("only counts reservations starting within the time window", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] };
+    // This reservation starts 30 min after window start — outside the 15-min window
+    const outside = makeReservation({
+      startTime: new Date("2026-05-05T18:30:00Z"),
+      partySize: 4,
+    });
+    expect(checkPacingForSlot(start, 2, settings, [outside], [])).toBe(true);
+  });
+
+  it("counts a reservation starting exactly at window start (inclusive lower bound)", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] };
+    const atStart = makeReservation({ startTime: start, partySize: 4 });
+    // 4 + new 1 = 5 > 4
+    expect(checkPacingForSlot(start, 1, settings, [atStart], [])).toBe(false);
+  });
+
+  it("excludes a reservation starting exactly at window end (exclusive upper bound)", () => {
+    const settings = { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] };
+    const atEnd = makeReservation({
+      startTime: new Date(start.getTime() + 15 * 60 * 1000),
+      partySize: 4,
+    });
+    expect(checkPacingForSlot(start, 2, settings, [atEnd], [])).toBe(true);
+  });
+});
+
+describe("fetchConflictData", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns reservations and holds for the date", async () => {
+    const reservations = [
+      {
+        id: "res-1",
+        tableId: "table-1",
+        startTime: new Date("2026-05-05T18:00:00Z"),
+        endTime: new Date("2026-05-05T19:30:00Z"),
+        partySize: 2,
+      },
+    ];
+    const holds = [
+      {
+        id: "hold-1",
+        tableId: "table-2",
+        startTime: new Date("2026-05-05T18:00:00Z"),
+        endTime: new Date("2026-05-05T19:30:00Z"),
+        partySize: 4,
+        expiresAt: new Date(Date.now() + 300_000),
+      },
+    ];
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce(reservations as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce(holds as never);
+
+    const result = await fetchConflictData(VENUE_ID, "2026-05-05");
+
+    expect(result.reservations).toEqual(reservations);
+    expect(result.holds).toEqual(holds);
+  });
+
+  it("filters reservations by venue, date and active status", async () => {
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    await fetchConflictData(VENUE_ID, "2026-05-05");
+
+    expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          venueId: VENUE_ID,
+          date: new Date("2026-05-05"),
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        }),
+      })
+    );
+  });
+
+  it("filters holds to only active (non-expired) ones", async () => {
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    await fetchConflictData(VENUE_ID, "2026-05-05");
+
+    const holdCall = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
+      where: { venueId: string; expiresAt: { gt: Date } };
+    };
+    expect(holdCall.where.venueId).toBe(VENUE_ID);
+    expect(holdCall.where.expiresAt.gt).toBeInstanceOf(Date);
   });
 });

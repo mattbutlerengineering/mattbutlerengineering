@@ -22,6 +22,9 @@ vi.mock("./availability.js", () => ({
   availabilityService: {
     checkConflict: vi.fn(),
     checkPacing: vi.fn(),
+    fetchConflictData: vi.fn(),
+    checkTableConflict: vi.fn(),
+    checkPacingForSlot: vi.fn(),
     estimateDuration: vi.fn(),
     findBestTable: vi.fn(),
   },
@@ -81,6 +84,14 @@ function makePrismaReservation(overrides: Record<string, unknown> = {}) {
 describe("reservationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: empty pre-fetched slices; individual tests override the pure
+    // rule results (checkTableConflict / checkPacingForSlot) as needed.
+    vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
+      reservations: [],
+      holds: [],
+    });
+    vi.mocked(availabilityService.checkTableConflict).mockReturnValue(false);
+    vi.mocked(availabilityService.checkPacingForSlot).mockReturnValue(true);
   });
 
   describe("list", () => {
@@ -266,18 +277,12 @@ describe("reservationService", () => {
 
   describe("createWithConflictCheck", () => {
     it("returns success when no conflicts and pacing ok", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
+      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(true);
       vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
         makePrismaReservation({ status: "PENDING" }) as never
       );
@@ -299,10 +304,7 @@ describe("reservationService", () => {
     });
 
     it("returns failure when conflict detected", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: true,
-        conflictingReservationId: "res-other",
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(true);
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -316,21 +318,16 @@ describe("reservationService", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("conflict");
       expect(result.conflict?.hasConflict).toBe(true);
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
     });
 
     it("returns failure when pacing limit exceeded", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
         settings: { pacingRules: [{ maxCoversPerSlot: 10 }] },
       } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: false,
-        currentCovers: 9,
-        maxCovers: 10,
-      } as never);
+      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(false);
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -534,9 +531,7 @@ describe("reservationService", () => {
 
   describe("createWalkIn", () => {
     it("creates walk-in with CONFIRMED status", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
 
       const walkInReservation = makePrismaReservation({
         status: "CONFIRMED",
@@ -565,9 +560,7 @@ describe("reservationService", () => {
     });
 
     it("uses default 90 minute duration", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -595,9 +588,7 @@ describe("reservationService", () => {
     });
 
     it("uses custom duration when provided", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -626,10 +617,7 @@ describe("reservationService", () => {
     });
 
     it("returns failure when table has conflict", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: true,
-        conflictingReservationId: "res-other",
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(true);
 
       const result = await reservationService.createWalkIn({
         partySize: 2,
@@ -639,12 +627,11 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Table is not available");
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
     });
 
     it("returns failure when conflicting reservation found in transaction", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -669,9 +656,7 @@ describe("reservationService", () => {
     });
 
     it("defaults guestName to Walk-in", async () => {
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {

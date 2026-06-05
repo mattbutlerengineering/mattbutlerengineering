@@ -69,17 +69,23 @@ export type {
 } from "./stuck-detector.js";
 
 // Success evaluation
-export {
-  evaluateSuccess,
-  getGitDiff,
-  shouldEvaluate,
-  DEFAULT_EVALUATION_CONFIG,
-} from "./success-evaluator.js";
+export { evaluateSuccess, getGitDiff, DEFAULT_EVALUATION_CONFIG } from "./success-evaluator.js";
 export type {
   EvaluationResult,
   EvaluationConfig,
-  ShouldEvaluateConfig,
+  EvaluateSuccessConfig,
 } from "./success-evaluator.js";
+
+// Evaluation skip policy (pure)
+export { evaluationSkipDecision, countDiffLines } from "./evaluation-skip-policy.js";
+export type { SkipPolicyInput, SkipReason, SkipDecision } from "./evaluation-skip-policy.js";
+
+// Evaluation prompt builder (pure)
+export {
+  buildEvaluationPrompt,
+  extractAcceptanceCriteria,
+  extractExpectedFiles,
+} from "./evaluation-prompt-builder.js";
 
 // Diff review (AI code review before auto-merge)
 export { reviewDiff, DEFAULT_REVIEW_CONFIG } from "./diff-reviewer.js";
@@ -181,6 +187,10 @@ export { buildOrchestratorPrompt } from "./task-decomposer.js";
 export type { OrchestratorConfig, OrchestratorResult } from "./task-decomposer.js";
 
 export { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
+
+// Task signal registry (unified keyword classification: tier/domains/bundles)
+export { classifyTask } from "./task-signal-registry.js";
+export type { TaskTier, TaskDomain, TaskSignals } from "./task-signal-registry.js";
 
 // Source file resolution (parses task descriptions for file paths)
 export { resolveSourceFiles, classifyTaskContexts } from "./source-resolver.js";

@@ -20,7 +20,11 @@ export interface GatewayVerdict {
   gateFailures: string[];
   /** Human-readable failure messages collected from verification + quality gates */
   errors: string[];
-  /** LLM evaluation result — undefined when evaluation was skipped or not run */
+  /**
+   * LLM evaluation result. Undefined when the evaluation gate did not run
+   * (e.g. `evaluateSuccess` disabled or verification failed). When the skip
+   * policy fires, this is present with `skipped: true`.
+   */
   evaluation?: EvaluationResult;
 }
 
