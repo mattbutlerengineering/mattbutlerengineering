@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
+import { agentEvalCommand } from "./agent-eval.js";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -175,6 +176,9 @@ export const checkModelCommand = new Command("check-model")
   });
 
 export const agentCommand = new Command("agent").description("Run autonomous coding agents");
+
+// ── Golden-task eval harness: mbe agent eval ─────────────────────────────
+agentCommand.addCommand(agentEvalCommand);
 
 // ── Local execution: mbe agent run ───────────────────────────────────────
 
