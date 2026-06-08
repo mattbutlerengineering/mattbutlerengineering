@@ -35,7 +35,7 @@ jobs:
         uses: grafana/setup-k6-action@98db1bcacc2d06234a3cade8629ebc97e0130ec2 # v1
 
       - name: Run load tests
-        uses: grafana/k6-action@55845c6c2e400af4356c84e5b514aeabb1bfdbd4 # v0.2.0
+        uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
         with:
           filename: .github/workflows/load-test.js
           flags: --tag "scenario=${{ inputs.scenario || 'load' }}"
