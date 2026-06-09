@@ -45,7 +45,7 @@
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "fastify": "catalog:",
-    "fastify-plugin": "^5.0.0",
+    "fastify-plugin": "^6.0.0",
     "langfuse": "^3.38.20"
   },
   "devDependencies": {

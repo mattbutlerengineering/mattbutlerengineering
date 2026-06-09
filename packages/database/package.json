@@ -19,16 +19,16 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/rate-limit": "^11.0.0",
     "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^5.2.6",
+    "@fastify/swagger-ui": "^6.0.0",
     "@mbe/auth": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
-    "@scalar/fastify-api-reference": "^1.59.0",
+    "@scalar/fastify-api-reference": "^1.59.2",
     "fastify": "catalog:",
-    "fastify-plugin": "^5.0.0",
+    "fastify-plugin": "^6.0.0",
     "pg": "^8.21.0"
   },
   "devDependencies": {
