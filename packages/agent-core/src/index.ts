@@ -298,3 +298,22 @@ export type { GateContext, GateResult, GateRunResult, QualityGate } from "./gate
 export { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
 export { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
 export { SecurityReviewGate } from "./gates/security-review-gate.js";
+
+// Golden-task eval harness — run fixed benchmark tasks through the agent and score them
+export { loadSuite } from "./eval/golden-task-set.js";
+export { scoreTask } from "./eval/task-scorer.js";
+export { runEvalSuite } from "./eval/eval-harness.js";
+export type { RunEvalSuiteOptions } from "./eval/eval-harness.js";
+export { taskSchema, rubricSchema, taskBudgetSchema, TASK_CATEGORIES } from "./eval/types.js";
+export type {
+  Task,
+  TaskCategory,
+  Rubric,
+  TaskBudget,
+  DeterministicChecks,
+  TaskRunResult,
+  TaskScore,
+  TaskRunner,
+  EvalAggregate,
+  EvalReport,
+} from "./eval/types.js";
