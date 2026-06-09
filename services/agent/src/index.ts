@@ -1,7 +1,7 @@
 // OTel SDK must initialize before any other imports — it monkey-patches
 // Node's HTTP stack during registration. startServiceServer uses dynamic
 // imports internally to guarantee correct ordering.
-import { startServiceServer } from "@mbe/database";
+import { startServiceServer } from "@mbe/service-bootstrap";
 
 const PORT = parseInt(process.env.PORT ?? "3003", 10);
 
