@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
+import { agentEvalCommand } from "./agent-eval.js";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -1026,3 +1027,8 @@ async function streamEvents(sessionId: string): Promise<void> {
     reader.releaseLock();
   }
 }
+
+// ── Golden-task eval harness: mbe agent eval ─────────────────────────────
+// Registered last so `agentCommand.commands[0]` remains the `run` command,
+// which tests address positionally.
+agentCommand.addCommand(agentEvalCommand);
