@@ -1,0 +1,19 @@
+{
+  "id": "example-bugfix",
+  "category": "bugfix",
+  "prompt": "A reservation cancellation email is sent even when the guest opted out of notifications. Fix the bug so opted-out guests receive no cancellation email, and add a regression test.",
+  "fixtureRef": "services/reservations",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "The fix gates the cancellation email on the guest's notification opt-in",
+      "A regression test covers the opted-out path"
+    ]
+  },
+  "budget": {
+    "maxTurns": 40,
+    "maxCostUsd": 1.0
+  }
+}
