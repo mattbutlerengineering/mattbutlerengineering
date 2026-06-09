@@ -177,9 +177,6 @@ export const checkModelCommand = new Command("check-model")
 
 export const agentCommand = new Command("agent").description("Run autonomous coding agents");
 
-// ── Golden-task eval harness: mbe agent eval ─────────────────────────────
-agentCommand.addCommand(agentEvalCommand);
-
 // ── Local execution: mbe agent run ───────────────────────────────────────
 
 agentCommand
@@ -1030,3 +1027,8 @@ async function streamEvents(sessionId: string): Promise<void> {
     reader.releaseLock();
   }
 }
+
+// ── Golden-task eval harness: mbe agent eval ─────────────────────────────
+// Registered last so `agentCommand.commands[0]` remains the `run` command,
+// which tests address positionally.
+agentCommand.addCommand(agentEvalCommand);
