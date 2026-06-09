@@ -26,7 +26,7 @@
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@prisma/adapter-pg": "^7.8.0",
-    "@scalar/fastify-api-reference": "^1.58.0",
+    "@scalar/fastify-api-reference": "^1.59.0",
     "fastify": "catalog:",
     "fastify-plugin": "^5.0.0",
     "pg": "^8.21.0"
