@@ -4,6 +4,11 @@ import type * as AgentCore from "@mbe/agent-core";
 const mockLoadSuite = vi.fn();
 const mockRunSession = vi.fn();
 
+// Static import keeps the heavy module load (real @mbe/agent-core via
+// importOriginal) in file setup, outside the per-test timeout window.
+// vi.mock factories below are hoisted above this import by vitest.
+import { agentEvalCommand } from "./agent-eval.js";
+
 // Keep the real harness/scorer/types; stub only the suite loader + agent run.
 vi.mock("@mbe/agent-core", async (orig) => {
   const actual = await orig<typeof AgentCore>();
@@ -70,7 +75,6 @@ describe("agent eval command", () => {
   it("runs the suite and prints a report", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunSession.mockResolvedValue(fakeSession());
-    const { agentEvalCommand } = await import("./agent-eval.js");
 
     await agentEvalCommand.parseAsync(["--task", "t1"], { from: "user" });
 
@@ -84,7 +88,6 @@ describe("agent eval command", () => {
   it("emits JSON with --json", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunSession.mockResolvedValue(fakeSession());
-    const { agentEvalCommand } = await import("./agent-eval.js");
 
     await agentEvalCommand.parseAsync(["--json"], { from: "user" });
 
@@ -96,7 +99,6 @@ describe("agent eval command", () => {
 
   it("exits 1 when the suite directory cannot be loaded", async () => {
     mockLoadSuite.mockRejectedValue(new Error("no suite dir"));
-    const { agentEvalCommand } = await import("./agent-eval.js");
 
     await agentEvalCommand.parseAsync([], { from: "user" });
 
@@ -108,7 +110,6 @@ describe("agent eval command", () => {
     mockLoadSuite.mockResolvedValue([task]);
     // Over budget → withinBudget false → task fails → pass rate 0
     mockRunSession.mockResolvedValue(fakeSession({ costUsd: 99 }));
-    const { agentEvalCommand } = await import("./agent-eval.js");
 
     await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
