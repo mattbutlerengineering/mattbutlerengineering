@@ -162,8 +162,6 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 
 ## AI Observability (Langfuse)
 
-<!-- TODO: Verify onboarding benchmark results are being correctly tracked -->
-
 Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.
 
 ### What's traced
