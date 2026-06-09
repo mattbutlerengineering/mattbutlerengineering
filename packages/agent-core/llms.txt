@@ -43,6 +43,44 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="eval">
+  <file path="src/eval/eval-harness.ts">
+    <item priority="low">
+      interface RunEvalSuiteOptions {
+        runTask: TaskRunner;
+        runId: string;
+        only?: string;
+      }
+    </item>
+    <item priority="high">
+      export async function runEvalSuite(
+        tasks: readonly Task[],
+        opts: RunEvalSuiteOptions,
+      ): Promise<EvalReport> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/eval/golden-task-set.ts">
+    <item priority="high">
+      export async function loadSuite(dir: string): Promise<Task[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/eval/task-scorer.ts">
+    <item priority="high">
+      export function scoreTask(run: TaskRunResult): TaskScore { /* ... */ }
+    </item>
+  </file>
+  <file path="src/eval/types.ts">
+    <item priority="high">
+      export const TASK_CATEGORIES: unknown;
+    </item>
+    <item priority="low">
+      type TaskCategory = (typeof TASK_CATEGORIES)[number];
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="gates">
   <file path="src/gates/llm-evaluation-gate.ts">
     <item priority="high">
