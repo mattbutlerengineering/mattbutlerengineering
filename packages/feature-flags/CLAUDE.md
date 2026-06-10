@@ -6,7 +6,8 @@ Lightweight feature flag evaluation library. Flags are stored in Cloudflare KV (
 
 ```
 src/
-└── index.ts   # Types, evaluation functions, header parsing
+├── index.ts    # Types, FeatureContext factory, evaluation helpers (private)
+└── plugin.ts   # Fastify plugin — decorates request.features
 ```
 
 ## API
@@ -19,32 +20,45 @@ interface FeatureFlag {
   percentage: number; // 0-100 rollout percentage
 }
 
-type FeatureFlagMap = Record<string, FeatureFlag>;
+interface FeatureContext {
+  check(flagName: string): boolean; // 100% rollout only
+  checkForUser(flagName: string, userId: string): boolean; // percentage rollout
+}
 ```
 
-### Functions
+### Exports
 
-| Function            | Signature                            | Purpose                                                             |
-| ------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `isEnabled`         | `(flags, flagName) => boolean`       | Check if flag is enabled (100% rollout only)                        |
-| `isEnabledForSeed`  | `(flags, flagName, seed) => boolean` | Check with percentage rollout using consistent hashing              |
-| `parseFeatureFlags` | `(header) => FeatureFlagMap`         | Parse `X-Feature-Flags` JSON header (safe, returns `{}` on failure) |
+| Export                     | Signature                          | Purpose                                                              |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `createFeatureFlagsPlugin` | `() => FastifyPluginAsync`         | Fastify plugin: parses the header once per request, sets `request.features` |
+| `createFeatureContext`     | `(header) => FeatureContext`       | Build a context from a raw header value (tests, non-Fastify callers) |
+| `FEATURE_FLAGS_HEADER`     | `"x-feature-flags"`                | Header name constant                                                  |
+
+Parsing is safe — missing, invalid, or repeated headers all evaluate to "flags disabled", never a throw.
 
 ### Percentage Rollout
 
-Uses a deterministic hash of the seed string (typically user IP or ID) to decide inclusion. The same seed always gets the same result for a given percentage, ensuring consistent user experience.
+`checkForUser` uses a deterministic hash of the seed string (typically user ID) to decide inclusion. The same seed always gets the same result for a given percentage, ensuring consistent user experience.
 
 ## Usage
 
 ### In Fastify services
 
-```typescript
-import { parseFeatureFlags, isEnabled } from "@mbe/feature-flags";
+The plugin is registered automatically by `createServiceApp` (`@mbe/service-bootstrap`) — routes need no imports:
 
-const flags = parseFeatureFlags(request.headers["x-feature-flags"]);
-if (isEnabled(flags, "new-booking-flow")) {
+```typescript
+if (request.features.check("new-booking-flow")) {
   // New behavior
 }
+```
+
+For non-Fastify callers or unit tests, build a context directly:
+
+```typescript
+import { createFeatureContext } from "@mbe/feature-flags";
+
+const features = createFeatureContext('{"new-booking-flow":{"enabled":true,"percentage":100}}');
+features.check("new-booking-flow"); // true
 ```
 
 ### Flag lifecycle
@@ -52,7 +66,7 @@ if (isEnabled(flags, "new-booking-flow")) {
 1. **Create/update**: `PUT /api/flags/<name>` on the edge router (requires `ADMIN_TOKEN`)
 2. **Storage**: Cloudflare KV (`HEALTH_STATE` namespace, key `flags/all`)
 3. **Distribution**: Edge router reads KV, evaluates per-request, sets `X-Feature-Flags` header
-4. **Consumption**: Services parse header with `parseFeatureFlags()`
+4. **Consumption**: `createServiceApp` registers the plugin; routes read `request.features`
 
 ## Commands
 
@@ -60,4 +74,5 @@ if (isEnabled(flags, "new-booking-flow")) {
 pnpm build       # Compile TypeScript
 pnpm lint        # ESLint
 pnpm typecheck   # Type check
+pnpm test        # Vitest
 ```
