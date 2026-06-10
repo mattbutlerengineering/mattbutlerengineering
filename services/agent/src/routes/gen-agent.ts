@@ -9,6 +9,7 @@ import { createApiClient } from "@mbe/api-client";
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import { z } from "zod";
 import { createAgentTools, WRITE_TOOLS } from "./gen-agent-tools.js";
+import { GEN_MODEL_ID, buildGenMessages, logGenCost, applyStreamHeaders } from "./gen-stream.js";
 
 const SYSTEM_PROMPT = catalog.prompt();
 
@@ -61,47 +62,21 @@ export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
       });
       const agentTools = createAgentTools(request.log, api);
 
-      const MODEL_ID = "claude-haiku-4.5";
       const result = streamText({
-        model: anthropic(MODEL_ID),
-        messages: [
-          {
-            role: "system" as const,
-            content: SYSTEM_PROMPT,
-            providerOptions: {
-              anthropic: { cacheControl: { type: "ephemeral" } },
-            },
-          },
-          ...messages,
-        ],
+        model: anthropic(GEN_MODEL_ID),
+        messages: buildGenMessages(SYSTEM_PROMPT, messages),
         tools: agentTools,
         stopWhen: stepCountIs(5),
-        onFinish: async ({ usage, providerMetadata }) => {
-          const anthropicMeta = providerMetadata?.anthropic as
-            | {
-                cacheCreationInputTokens?: number;
-                cacheReadInputTokens?: number;
-              }
-            | undefined;
-          request.log.info(
-            {
-              userId: request.user?.id,
-              modelId: MODEL_ID,
-              inputTokens: usage.inputTokens,
-              outputTokens: usage.outputTokens,
-              cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-              cacheCreationInputTokens:
-                anthropicMeta?.cacheCreationInputTokens ?? 0,
-            },
-            "gen-agent cost log"
-          );
-        },
+        onFinish: async ({ usage, providerMetadata }) =>
+          logGenCost(request.log, {
+            userId: request.user?.id,
+            usage,
+            providerMetadata,
+            label: "gen-agent cost log",
+          }),
       });
 
-      reply.header("Content-Type", "application/x-ndjson; charset=utf-8");
-      reply.header("Cache-Control", "no-cache");
-      reply.header("Connection", "keep-alive");
-      reply.header("X-Accel-Buffering", "no");
+      applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
 
       const encoder = new TextEncoder();
       const ndjsonStream = new ReadableStream({
