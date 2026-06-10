@@ -37,6 +37,14 @@
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/gen-stream.ts">
+    <item priority="high">
+      export const GEN_MODEL_ID: unknown;
+    </item>
+    <item priority="high">
+      type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
+    </item>
+  </file>
   <file path="src/routes/health.ts">
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;

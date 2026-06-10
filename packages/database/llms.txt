@@ -1,53 +1,5 @@
 <codebase path="packages/database">
   <section priority="medium" role="src">
-  <file path="src/create-service-app.ts">
-    <item priority="low">
-      interface SwaggerConfig {
-        title: string;
-        description: string;
-        serverUrl: string;
-        version?: string;
-      }
-    </item>
-    <item priority="low">
-      interface ApiVersioningConfig {
-        currentVersion: string;
-        successorVersion: string;
-        sunsetMonthsFromNow: number;
-      }
-    </item>
-  </file>
-  <file path="src/health-routes.ts">
-    <item priority="low">
-      interface HealthRouteConfig {
-        path: string;
-        operationId: string;
-      }
-    </item>
-    <item priority="low">
-      interface HealthRoutesOptions {
-        prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
-        getSlowQueryStats: () => SlowQueryStats;
-        getServiceStatus: () => ServiceStatus;
-        getPoolMetrics: () => PoolMetrics;
-        latencyTracker: LatencyTracker;
-      }
-    </item>
-  </file>
-  <file path="src/health.ts">
-    <item priority="low">
-      interface LatencyAnomalyResult {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      }
-    </item>
-    <item priority="low">
-      interface LatencyTracker {
-        record: (ms: number) => void;
-        checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
-      }
-    </item>
-  </file>
   <file path="src/index.ts">
     <item priority="high">
       interface SlowQuery {
@@ -73,19 +25,6 @@
     </item>
     <item priority="high">
       export function createListResponseSchema(entityRef: string) { /* ... */ }
-    </item>
-  </file>
-  <file path="src/start-service-server.ts">
-    <item priority="low">
-      interface StartServiceServerOptions {
-        serviceName: string;
-        port: number;
-        buildApp: () => Promise<FastifyInstance>;
-        beforeShutdown?: () => void | Promise<void>;
-      }
-    </item>
-    <item priority="high">
-      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
     </item>
   </file>
   </section>

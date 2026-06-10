@@ -16,6 +16,7 @@ COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/users/package.json ./services/users/
 
 # Install all dependencies
@@ -29,6 +30,7 @@ COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
 COPY services/users/tsconfig.json ./services/users/
 
 # Copy Prisma schema (needed for db:generate)
@@ -41,6 +43,7 @@ COPY packages/api-client/src ./packages/api-client/src
 COPY packages/observability/src ./packages/observability/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
+COPY packages/service-bootstrap/src ./packages/service-bootstrap/src
 COPY services/users/src ./services/users/src
 
 # Build workspace packages and service in a single layer
@@ -50,6 +53,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/observability build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/users-service db:generate && \
     pnpm --filter @mbe/users-service build
 
@@ -75,6 +79,7 @@ COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/users/package.json ./services/users/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -88,6 +93,7 @@ COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/service-bootstrap/dist ./packages/service-bootstrap/dist
 
 # Copy built users service
 COPY --from=builder /app/services/users/dist ./services/users/dist

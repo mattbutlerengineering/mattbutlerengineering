@@ -19,6 +19,7 @@ COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/agent/package.json ./services/agent/
 
 # Install all dependencies
@@ -35,6 +36,7 @@ COPY packages/rialto/tsconfig.json packages/rialto/tsconfig.lib.json ./packages/
 COPY packages/rialto-catalog/tsconfig.json packages/rialto-catalog/tsconfig.build.json ./packages/rialto-catalog/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
 COPY services/agent/tsconfig.json ./services/agent/
 
 # Copy Prisma schema (needed for db:generate)
@@ -52,6 +54,7 @@ COPY packages/rialto/vite.config.lib.ts ./packages/rialto/vite.config.lib.ts
 COPY packages/rialto-catalog/src ./packages/rialto-catalog/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
+COPY packages/service-bootstrap/src ./packages/service-bootstrap/src
 COPY services/agent/src ./services/agent/src
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
@@ -63,6 +66,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/rialto-catalog build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/agent-service db:generate && \
     pnpm --filter @mbe/agent-service build
 
@@ -91,6 +95,7 @@ COPY packages/rialto/package.json ./packages/rialto/
 COPY packages/rialto-catalog/package.json ./packages/rialto-catalog/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/agent/package.json ./services/agent/
 
 # Install production dependencies only (Prisma client is copied from builder)
@@ -107,6 +112,7 @@ COPY --from=builder /app/packages/rialto/dist ./packages/rialto/dist
 COPY --from=builder /app/packages/rialto-catalog/dist ./packages/rialto-catalog/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/service-bootstrap/dist ./packages/service-bootstrap/dist
 
 # Copy built agent service
 COPY --from=builder /app/services/agent/dist ./services/agent/dist

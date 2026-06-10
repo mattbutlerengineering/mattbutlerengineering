@@ -111,6 +111,11 @@
       "path": "packages/sentry"
     },
     {
+      "name": "@mbe/service-bootstrap",
+      "type": "package",
+      "path": "packages/service-bootstrap"
+    },
+    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
@@ -244,6 +249,11 @@
     },
     {
       "from": "@mbe/agent-service",
+      "to": "@mbe/service-bootstrap",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -280,6 +290,11 @@
     {
       "from": "@mbe/reservations-service",
       "to": "@mbe/database",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/service-bootstrap",
       "type": "dependency"
     },
     {
@@ -344,6 +359,11 @@
     },
     {
       "from": "@mbe/users-service",
+      "to": "@mbe/service-bootstrap",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -399,27 +419,7 @@
     },
     {
       "from": "@mbe/database",
-      "to": "@mbe/auth",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/database",
-      "to": "@mbe/observability",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/database",
-      "to": "@mbe/sentry",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/database",
       "to": "@mbe/config",
-      "type": "devDependency"
-    },
-    {
-      "from": "@mbe/database",
-      "to": "@mbe/types",
       "type": "devDependency"
     },
     {
@@ -485,6 +485,36 @@
     {
       "from": "@mbe/sentry",
       "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/database",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/types",
       "type": "devDependency"
     },
     {
