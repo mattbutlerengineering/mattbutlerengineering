@@ -74,6 +74,26 @@ export function validateCorsOrigins(origins: string[]): string[] {
 }
 
 /**
+ * Resolves the OpenAPI server URL for Swagger "Try it out".
+ * In production, API_BASE_URL (set on every DO service) overrides the
+ * configured serverUrl. Routes register their full public path prefix
+ * (e.g. /api/v1/users), so only the URL's origin is used — API_BASE_URL
+ * carries an /api path suffix that would double up if used verbatim.
+ * Production-only because the agent service sets API_BASE_URL to a
+ * different port in local dev (gen-app links, not this service's origin).
+ */
+function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string {
+  const base = process.env.API_BASE_URL;
+  if (process.env.NODE_ENV !== "production" || !base) return fallbackUrl;
+  try {
+    return new URL(base).origin;
+  } catch {
+    log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
+    return fallbackUrl;
+  }
+}
+
+/**
  * Creates a Fastify application with all shared plugins pre-registered:
  * CORS, request-ID, error-rate tracking, rate-limiting, Swagger/Scalar,
  * Auth0, Sentry, and API versioning.
@@ -166,7 +186,7 @@ export async function createServiceApp(
         description: config.swagger.description,
         version: swaggerVersion,
       },
-      servers: [{ url: config.swagger.serverUrl }],
+      servers: [{ url: resolveSwaggerServerUrl(config.swagger.serverUrl, fastify.log) }],
       components: {
         securitySchemes: {
           bearerAuth: {
