@@ -64,6 +64,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/notifications build && \
     pnpm --filter @mbe/jobs build && \
     pnpm --filter @mbe/reservations-service db:generate && \

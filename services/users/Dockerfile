@@ -53,6 +53,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/observability build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/users-service db:generate && \
     pnpm --filter @mbe/users-service build
 
