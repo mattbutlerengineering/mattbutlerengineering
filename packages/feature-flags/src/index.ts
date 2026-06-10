@@ -58,3 +58,4 @@ export function createFeatureContext(header: string | null | undefined): Feature
     },
   };
 }
+export { createFeatureFlagsPlugin, FEATURE_FLAGS_HEADER } from "./plugin.js";

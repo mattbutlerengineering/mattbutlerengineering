@@ -387,3 +387,48 @@ describe("validateCorsOrigins", () => {
     expect(result).toEqual([]);
   });
 });
+
+describe("feature flags plugin", () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    if (app) await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("decorates request.features so routes can check flags without header parsing", async () => {
+    app = await createServiceApp({
+      swagger: {
+        title: "Test API",
+        description: "Test API description",
+        serverUrl: "http://localhost:9999",
+      },
+    });
+    app.get("/flag-check", async (request) => ({
+      enabled: request.features.check("enhanced-validation"),
+    }));
+    const res = await app.inject({
+      method: "GET",
+      url: "/flag-check",
+      headers: {
+        "x-feature-flags": '{"enhanced-validation":{"enabled":true,"percentage":100}}',
+      },
+    });
+    expect(res.json()).toEqual({ enabled: true });
+  });
+
+  it("request.features reports flags disabled when no header is sent", async () => {
+    app = await createServiceApp({
+      swagger: {
+        title: "Test API",
+        description: "Test API description",
+        serverUrl: "http://localhost:9999",
+      },
+    });
+    app.get("/flag-check", async (request) => ({
+      enabled: request.features.check("enhanced-validation"),
+    }));
+    const res = await app.inject({ method: "GET", url: "/flag-check" });
+    expect(res.json()).toEqual({ enabled: false });
+  });
+});

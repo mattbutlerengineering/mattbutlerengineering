@@ -723,6 +723,13 @@ importers:
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.2)(@vitest/browser-playwright@4.1.8)(@vitest/coverage-v8@4.1.8)(jsdom@29.1.1)(vite@8.0.16(@types/node@25.9.2)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/feature-flags:
+    dependencies:
+      fastify:
+        specifier: 'catalog:'
+        version: 5.8.5
+      fastify-plugin:
+        specifier: ^6.0.0
+        version: 6.0.0
     devDependencies:
       '@mbe/config':
         specifier: workspace:*
@@ -1115,6 +1122,9 @@ importers:
       '@mbe/database':
         specifier: workspace:*
         version: link:../database
+      '@mbe/feature-flags':
+        specifier: workspace:*
+        version: link:../feature-flags
       '@mbe/observability':
         specifier: workspace:*
         version: link:../observability
@@ -1286,9 +1296,6 @@ importers:
       '@mbe/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@mbe/feature-flags':
-        specifier: workspace:*
-        version: link:../../packages/feature-flags
       '@mbe/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs
@@ -15602,7 +15609,7 @@ snapshots:
       process-warning: 5.0.0
       rfdc: 1.4.1
       secure-json-parse: 4.1.0
-      semver: 7.8.0
+      semver: 7.8.2
       toad-cache: 3.7.0
 
   fastq@1.20.1:

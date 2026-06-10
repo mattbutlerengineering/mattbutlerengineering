@@ -30,7 +30,6 @@
     "@mbe/database": "workspace:*",
     "@mbe/service-bootstrap": "workspace:*",
     "@mbe/jobs": "workspace:*",
-    "@mbe/feature-flags": "workspace:*",
     "@mbe/notifications": "workspace:^",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",

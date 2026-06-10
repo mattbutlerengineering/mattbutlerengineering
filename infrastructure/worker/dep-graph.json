@@ -304,11 +304,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/feature-flags",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/notifications",
       "type": "dependency"
     },
@@ -495,6 +490,11 @@
     {
       "from": "@mbe/service-bootstrap",
       "to": "@mbe/database",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/service-bootstrap",
+      "to": "@mbe/feature-flags",
       "type": "dependency"
     },
     {

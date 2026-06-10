@@ -10,5 +10,24 @@
       checkForUser(flagName: string, userId: string): boolean;
     }
   </file>
+  <file path="src/plugin.ts">
+    export const FEATURE_FLAGS_HEADER = "x-feature-flags";
+    export function createFeatureFlagsPlugin(): FastifyPluginAsync {
+      return fp(
+        async function featureFlagsPlugin(fastify) {
+          fastify.decorateRequest("features");
+          fastify.addHook("onRequest", async (request) => {
+            const raw = request.headers[FEATURE_FLAGS_HEADER];
+            // Headers are typed string | string[]; Node joins repeated headers
+            // into one comma-separated string (invalid JSON → flags disabled),
+            // the array branch only guards exotic clients
+            const header = Array.isArray(raw) ? raw[0] : raw;
+            request.features = createFeatureContext(header);
+          });
+        },
+        { name: "feature-flags" }
+      );
+    }
+  </file>
   </section>
 </codebase>

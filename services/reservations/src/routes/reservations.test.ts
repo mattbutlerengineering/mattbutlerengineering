@@ -304,6 +304,50 @@ describe("Reservation Routes", () => {
       expect(body.data.id).toBe(mockReservation.id);
     });
 
+    it("rejects party size over 20 when enhanced-validation flag is enabled", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        headers: {
+          "x-feature-flags": '{"enhanced-validation":{"enabled":true,"percentage":100}}',
+        },
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 25,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      // NOTE: the Error schema serializes {error,message,statusCode} while the
+      // route sends ProblemDetails — the detail text is stripped (pre-existing),
+      // so only the status code is asserted here
+      expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+    });
+
+    it("allows party size over 20 when enhanced-validation flag is absent", async () => {
+      vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ partySize: 25 }),
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations",
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 25,
+          tableId: "table-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+    });
+
     it("creates a guest reservation without auth", async () => {
       vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
         success: true,

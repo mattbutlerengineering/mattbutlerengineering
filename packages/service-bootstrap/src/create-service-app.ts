@@ -5,6 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import { createFeatureFlagsPlugin } from "@mbe/feature-flags";
 import {
   createRequestIdMiddleware,
   errorRatePlugin_,
@@ -137,6 +138,9 @@ export async function createServiceApp(
 
   // Track per-endpoint error rates (exposed via health check)
   await fastify.register(errorRatePlugin_);
+
+  // Parse x-feature-flags once per request; routes use request.features
+  await fastify.register(createFeatureFlagsPlugin());
 
   const rateLimitMonitor = createRateLimitMonitor();
   fastify.decorate("rateLimitMonitor", rateLimitMonitor);

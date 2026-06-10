@@ -3026,10 +3026,7 @@
         async (request, reply) => {
           const userId = request.user?.id;
     
-          const features = createFeatureContext(
-            request.headers["x-feature-flags"] as string | undefined
-          );
-          const useEnhancedValidation = features.check("enhanced-validation");
+          const useEnhancedValidation = request.features.check("enhanced-validation");
     
           if (useEnhancedValidation && request.body.partySize > 20) {
             return reply
