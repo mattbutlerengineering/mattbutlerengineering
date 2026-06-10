@@ -28,7 +28,7 @@ jobs:
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
         with:
           fetch-depth: 0
 
@@ -59,7 +59,7 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -70,7 +70,7 @@ jobs:
 
       - name: Cache node_modules
         id: cache-node-modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -86,7 +86,7 @@ jobs:
 
       - name: Cache Prisma clients
         id: cache-prisma
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             services/users/src/generated
@@ -114,7 +114,7 @@ jobs:
     needs: [prepare]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -134,7 +134,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
@@ -166,7 +166,7 @@ jobs:
           - { path: "infrastructure/migrate/Dockerfile", name: "migrate" }
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
@@ -183,7 +183,7 @@ jobs:
     needs: [prepare]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -193,7 +193,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -218,7 +218,7 @@ jobs:
     needs: [prepare]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -228,7 +228,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -242,7 +242,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             services/users/src/generated
@@ -262,7 +262,7 @@ jobs:
     needs: [prepare]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -272,7 +272,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -301,7 +301,7 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -311,7 +311,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -356,7 +356,7 @@ jobs:
     needs: [lint, typecheck, architecture-audit]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -366,7 +366,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -380,7 +380,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             services/users/src/generated
@@ -424,7 +424,7 @@ jobs:
     if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent-') || startsWith(github.head_ref, 'worktree-agent-'))
     needs: [prepare]
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -434,7 +434,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -468,7 +468,7 @@ jobs:
         node-version: [20, 22]
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -478,7 +478,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -492,7 +492,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             services/users/src/generated
@@ -507,7 +507,7 @@ jobs:
         run: pnpm turbo test:coverage
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/feature-flags/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json
@@ -563,7 +563,7 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
 
@@ -573,7 +573,7 @@ jobs:
           cache: "pnpm"
 
       - name: Restore node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             node_modules
@@ -587,7 +587,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Restore Prisma clients
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             services/users/src/generated
@@ -675,7 +675,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4/v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
         with:
           fetch-depth: 0
 
