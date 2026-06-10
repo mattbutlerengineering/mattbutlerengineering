@@ -285,16 +285,26 @@ jobs:
           GH_SHA: ${{ github.sha }}
           VERIFY_RESULT: ${{ needs.verify.result }}
           ROLLBACK_RESULT: ${{ needs.rollback.result }}
+          MARKETING_RESULT: ${{ needs.deploy-marketing.result }}
+          HOSPITALITY_RESULT: ${{ needs.deploy-hospitality.result }}
+          RIALTO_RESULT: ${{ needs.deploy-rialto-web.result }}
           MARKETING_DEPLOYED: ${{ needs.detect-changes.outputs.marketing }}
           HOSPITALITY_DEPLOYED: ${{ needs.detect-changes.outputs.hospitality }}
           RIALTO_DEPLOYED: ${{ needs.detect-changes.outputs.rialto-web }}
         run: |
+          # No deploy attempted (circuit-blocked or no app changes) — leave the
+          # previous deploy/static KV state in place instead of poisoning it
+          # with a "cancelled" that the health worker reads as unhealthy
+          if [ "$MARKETING_RESULT" = "skipped" ] && [ "$HOSPITALITY_RESULT" = "skipped" ] && [ "$RIALTO_RESULT" = "skipped" ]; then
+            echo "No static deploy attempted; preserving previous deploy/static status"
+            exit 0
+          fi
           CONCLUSION="success"
           if [ "$ROLLBACK_RESULT" = "success" ]; then
             CONCLUSION="rolled_back"
-          elif [ "$VERIFY_RESULT" = "failure" ]; then
+          elif [ "$MARKETING_RESULT" = "failure" ] || [ "$HOSPITALITY_RESULT" = "failure" ] || [ "$RIALTO_RESULT" = "failure" ] || [ "$VERIFY_RESULT" = "failure" ]; then
             CONCLUSION="failure"
-          elif [ "$VERIFY_RESULT" = "cancelled" ] || [ "$VERIFY_RESULT" = "skipped" ]; then
+          elif [ "$VERIFY_RESULT" = "cancelled" ]; then
             CONCLUSION="cancelled"
           fi
           PAYLOAD=$(jq -n \

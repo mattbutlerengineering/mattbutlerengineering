@@ -140,10 +140,17 @@ jobs:
           GH_SHA: ${{ github.sha }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
+          # No deploy attempted (job skipped) — leave the previous
+          # deploy/infrastructure KV state in place instead of writing a
+          # "cancelled" that the health worker reads as unhealthy
+          if [ "$DEPLOY_RESULT" = "skipped" ]; then
+            echo "No infrastructure deploy attempted; preserving previous deploy/infrastructure status"
+            exit 0
+          fi
           CONCLUSION="success"
           if [ "$DEPLOY_RESULT" = "failure" ]; then
             CONCLUSION="failure"
-          elif [ "$DEPLOY_RESULT" = "cancelled" ] || [ "$DEPLOY_RESULT" = "skipped" ]; then
+          elif [ "$DEPLOY_RESULT" = "cancelled" ]; then
             CONCLUSION="cancelled"
           fi
           PAYLOAD=$(jq -n \

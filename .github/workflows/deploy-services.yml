@@ -172,6 +172,13 @@ jobs:
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           VERIFY_RESULT: ${{ needs.verify.result }}
         run: |
+          # No deploy attempted (circuit-blocked) — leave the previous
+          # deploy/services KV state in place rather than writing a false
+          # "success" for a run that deployed nothing
+          if [ "$DEPLOY_RESULT" = "skipped" ]; then
+            echo "No service deploy attempted; preserving previous deploy/services status"
+            exit 0
+          fi
           CONCLUSION="success"
           if [ "$DEPLOY_RESULT" = "failure" ] || [ "$VERIFY_RESULT" = "failure" ]; then
             CONCLUSION="failure"
