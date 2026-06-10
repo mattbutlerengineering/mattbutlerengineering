@@ -4,7 +4,6 @@ import {
   type AvailableTable,
   type DateAvailability,
   type ConflictCheckResult,
-  type PacingCheckResult,
   type VenueSettings,
   type OperatingHours,
   type DaySchedule,
@@ -394,68 +393,6 @@ export async function checkConflict(
   return { hasConflict: false };
 }
 
-/**
- * Checks if adding a reservation would exceed pacing limits.
- *
- * @deprecated Fires two aggregate DB queries each call. Callers in the same
- * request flow should call {@link fetchConflictData} once and delegate to the
- * pure {@link checkPacingForSlot} instead, to avoid redundant round-trips.
- */
-export async function checkPacing(
-  venueId: string,
-  startTime: Date,
-  partySize: number,
-  settings?: VenueSettings | null
-): Promise<PacingCheckResult> {
-  const pacingRules = settings?.pacingRules;
-
-  if (!pacingRules || pacingRules.length === 0) {
-    // No pacing rules configured
-    return { withinLimit: true, currentCovers: 0, maxCovers: Infinity };
-  }
-
-  // Use the first pacing rule (could extend to support multiple rules)
-  const rule = pacingRules[0];
-  const windowMinutes =
-    rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-
-  // Define the time window
-  const windowStart = startTime;
-  const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-  const dateStr = toDateString(startTime);
-
-  // Count covers in reservations starting in this window
-  const reservationCovers = await prisma.reservation.aggregate({
-    where: {
-      venueId,
-      date: new Date(dateStr),
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      startTime: { gte: windowStart, lt: windowEnd },
-    },
-    _sum: { partySize: true },
-  });
-
-  // Count covers in active holds starting in this window
-  const holdCovers = await prisma.reservationHold.aggregate({
-    where: {
-      venueId,
-      date: new Date(dateStr),
-      expiresAt: { gt: new Date() },
-      startTime: { gte: windowStart, lt: windowEnd },
-    },
-    _sum: { partySize: true },
-  });
-
-  const currentCovers = (reservationCovers._sum.partySize ?? 0) + (holdCovers._sum.partySize ?? 0);
-  const totalAfterBooking = currentCovers + partySize;
-
-  return {
-    withinLimit: totalAfterBooking <= rule.maxCoversPerSlot,
-    currentCovers,
-    maxCovers: rule.maxCoversPerSlot,
-  };
-}
-
 // --- Helper functions ---
 
 async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
@@ -651,7 +588,6 @@ export const availabilityService = {
   getAvailableDates,
   findBestTable,
   checkConflict,
-  checkPacing,
   fetchConflictData,
   checkTableConflict,
   checkPacingForSlot,
