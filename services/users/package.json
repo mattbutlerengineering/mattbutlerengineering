@@ -38,7 +38,8 @@
     "jose": "^6.2.3",
     "pg": "^8.21.0",
     "zod": "catalog:",
-    "@mbe/database": "workspace:*"
+    "@mbe/database": "workspace:*",
+    "@mbe/service-bootstrap": "workspace:*"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

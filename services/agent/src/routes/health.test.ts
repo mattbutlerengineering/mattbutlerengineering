@@ -19,8 +19,8 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
-// Mock @mbe/database health exports (createLatencyTracker, checkAuth0, registerHealthRoutes)
-vi.mock("@mbe/database", async (importOriginal) => {
+// Mock @mbe/service-bootstrap health exports (createLatencyTracker, checkAuth0, registerHealthRoutes)
+vi.mock("@mbe/service-bootstrap", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,

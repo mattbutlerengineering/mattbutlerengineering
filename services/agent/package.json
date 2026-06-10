@@ -31,6 +31,7 @@
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
     "@mbe/database": "workspace:*",
+    "@mbe/service-bootstrap": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
     "@mbe/sentry": "workspace:*",

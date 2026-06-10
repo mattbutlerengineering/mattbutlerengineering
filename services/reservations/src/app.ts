@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, type AppOptions } from "@mbe/database";
+import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
