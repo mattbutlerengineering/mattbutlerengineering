@@ -76,6 +76,7 @@ describe("createServiceApp", () => {
     delete process.env.AUTH_AUDIENCE;
     delete process.env.CORS_ORIGINS;
     delete process.env.NODE_ENV;
+    delete process.env.API_BASE_URL;
   });
 
   afterEach(async () => {
@@ -150,6 +151,67 @@ describe("createServiceApp", () => {
     expect(openapi.info.title).toBe("My Custom API");
     expect(openapi.info.description).toBe("Custom description");
     expect(openapi.servers).toEqual([{ url: "http://localhost:4000" }]);
+  });
+
+  it("uses the origin of API_BASE_URL as the swagger server URL in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_AUTHORITY = "https://auth.example.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    process.env.API_BASE_URL = "https://api.example.com/api";
+    const swagger = await import("@fastify/swagger");
+    app = await createServiceApp(
+      createTestConfig({
+        swagger: {
+          title: "My Custom API",
+          description: "Custom description",
+          serverUrl: "http://localhost:4000",
+        },
+      })
+    );
+    const opts = getPluginOpts(vi.mocked(swagger.default)) as {
+      openapi: { servers: { url: string }[] };
+    };
+    expect(opts.openapi.servers).toEqual([{ url: "https://api.example.com" }]);
+  });
+
+  it("ignores API_BASE_URL outside production (agent service sets it to another port in dev)", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.API_BASE_URL = "http://localhost:3000";
+    const swagger = await import("@fastify/swagger");
+    app = await createServiceApp(
+      createTestConfig({
+        swagger: {
+          title: "My Custom API",
+          description: "Custom description",
+          serverUrl: "http://localhost:4000",
+        },
+      })
+    );
+    const opts = getPluginOpts(vi.mocked(swagger.default)) as {
+      openapi: { servers: { url: string }[] };
+    };
+    expect(opts.openapi.servers).toEqual([{ url: "http://localhost:4000" }]);
+  });
+
+  it("falls back to the configured serverUrl when API_BASE_URL is malformed", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_AUTHORITY = "https://auth.example.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    process.env.API_BASE_URL = "not-a-valid-url";
+    const swagger = await import("@fastify/swagger");
+    app = await createServiceApp(
+      createTestConfig({
+        swagger: {
+          title: "My Custom API",
+          description: "Custom description",
+          serverUrl: "http://localhost:4000",
+        },
+      })
+    );
+    const opts = getPluginOpts(vi.mocked(swagger.default)) as {
+      openapi: { servers: { url: string }[] };
+    };
+    expect(opts.openapi.servers).toEqual([{ url: "http://localhost:4000" }]);
   });
 
   it("registers swagger-ui at /docs", async () => {
