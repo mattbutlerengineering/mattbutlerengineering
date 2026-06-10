@@ -21,7 +21,6 @@ vi.mock("./database.js", () => ({
 vi.mock("./availability.js", () => ({
   availabilityService: {
     checkConflict: vi.fn(),
-    checkPacing: vi.fn(),
     fetchConflictData: vi.fn(),
     checkTableConflict: vi.fn(),
     checkPacingForSlot: vi.fn(),

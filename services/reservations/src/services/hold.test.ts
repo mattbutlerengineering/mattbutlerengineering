@@ -24,7 +24,6 @@ vi.mock("./database.js", () => ({
 vi.mock("./availability.js", () => ({
   availabilityService: {
     checkConflict: vi.fn(),
-    checkPacing: vi.fn(),
     fetchConflictData: vi.fn(),
     checkTableConflict: vi.fn(),
     checkPacingForSlot: vi.fn(),
@@ -123,11 +122,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.findBestTable).mockResolvedValueOnce(
         makePrismaTable() as never
       );
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
 
       const hold = makePrismaHold();
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -277,11 +271,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
       } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -323,11 +312,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
       } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -367,11 +351,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
-      } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
       } as never);
 
       const deleteManyMock = vi.fn().mockResolvedValue({ count: 1 });
@@ -413,11 +392,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
-      } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
       } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
@@ -462,11 +436,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
       } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
-      } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -507,11 +476,6 @@ describe("holdService", () => {
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
       vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
         hasConflict: false,
-      } as never);
-      vi.mocked(availabilityService.checkPacing).mockResolvedValueOnce({
-        withinLimit: true,
-        currentCovers: 0,
-        maxCovers: 20,
       } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
