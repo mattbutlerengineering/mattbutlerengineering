@@ -1,5 +1,5 @@
 {
-  "name": "@mbe/database",
+  "name": "@mbe/service-bootstrap",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -18,13 +18,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "pg": "^8.21.0"
+    "@fastify/cors": "^11.2.0",
+    "@fastify/rate-limit": "^11.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^6.0.0",
+    "@mbe/auth": "workspace:*",
+    "@mbe/database": "workspace:*",
+    "@mbe/observability": "workspace:*",
+    "@mbe/sentry": "workspace:*",
+    "@scalar/fastify-api-reference": "^1.59.2",
+    "fastify": "catalog:",
+    "fastify-plugin": "^6.0.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@mbe/types": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
