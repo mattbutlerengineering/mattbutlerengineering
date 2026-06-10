@@ -22,7 +22,7 @@ jobs:
   instruction-evals:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
       - uses: pnpm/action-setup@v3
         with:
           version: 9

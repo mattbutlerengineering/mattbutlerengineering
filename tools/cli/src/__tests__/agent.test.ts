@@ -13,6 +13,8 @@ vi.mock("@mbe/agent-core", () => ({
     allowedTools: [],
   },
   DEFAULT_FEEDBACK_LOOP_CONFIG: {},
+  loadSuite: vi.fn(),
+  runEvalSuite: vi.fn(),
   resolveBudget: vi.fn(() => ({ budgetUsd: 1.0, maxTurns: 50 })),
   resolveModel: vi.fn(() => "claude-sonnet-4-6"),
   routeModelWithReason: vi.fn(() => ({
