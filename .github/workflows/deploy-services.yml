@@ -68,6 +68,10 @@ jobs:
           check-name: "Build"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
+          # CI's Build job is gated behind Prepare/Detect Changes and can take
+          # >60s to appear on the merge commit; the 60s default discovery
+          # timeout caused 5 straight "check was never run" deploy failures
+          checks-discovery-timeout: 600
 
   blocked:
     needs: [circuit-check]
