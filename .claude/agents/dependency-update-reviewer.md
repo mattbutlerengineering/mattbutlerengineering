@@ -24,6 +24,9 @@ Review a proposed dependency bump and report whether it is safe to merge.
 6. **Build verification**: `pnpm build --filter='...[HEAD]'` to catch compile errors
 7. **Test verification**: `pnpm test --filter='...[HEAD]'` to catch runtime regressions
 8. **Migration steps**: If the changelog mentions required migrations (config changes, API renames), list them explicitly
+9. **Cross-package version mismatch**: For every dependency touched by the bump, compare its version spec across ALL workspace package.json files (`grep -rn '"<dep>"' --include=package.json apps packages services tools`). Flag any dependency that lands at different specs in different packages (e.g. `twilio` at `^5.7.1` in services/reservations but `^6.0.2` in packages/notifications) — the `check-deps` integrity audit fails on these even when install and build succeed. Recommendation: align every consumer to one spec in the same PR, or move the version to the pnpm catalog.
+10. **Duplicated runtime libraries (dedupe risk)**: After install, check whether the bump leaves a runtime library resolved at two versions with shared type identity (`pnpm why <lib>` / `grep -c "<lib>@" pnpm-lock.yaml`). The classic case: a transitive pin (e.g. `ioredis@5.10.1` under bullmq) coexisting with a direct dep (`ioredis@5.11.0`) — instances type-check against different declarations and produce TS2322 errors that look unrelated to the bump. Recommendation: a scoped `pnpm.overrides` dedupe entry (see item 3 for the required pattern).
+11. **Coverage / test-tooling threshold risk**: Treat bumps to coverage and test tooling (`@vitest/coverage-v8`, `vitest`, istanbul/v8 instrumenters) as threshold risks even with zero code changes — a new coverage engine can re-measure branch coverage *downward* below a package's configured `thresholds`, breaking the Coverage gate. Run `pnpm test:coverage` in the lowest-margin packages (check `vitest.config.ts` thresholds vs last known coverage) and call out any package within ~2% of its threshold in the verdict.
 
 ## Output Format
 
@@ -41,6 +44,12 @@ Review a proposed dependency bump and report whether it is safe to merge.
 **Build**: PASS / FAIL (details)
 
 **Tests**: PASS / FAIL (details)
+
+**Cross-package version alignment**: ALIGNED / MISMATCH (dep, specs, packages)
+
+**Duplicate runtime libs**: NONE / DEDUPE NEEDED (lib, versions, suggested pnpm.override)
+
+**Coverage-tooling threshold risk**: N/A / AT RISK (packages within margin)
 
 **Recommendation**: [merge / merge with follow-up / block]
 ```
