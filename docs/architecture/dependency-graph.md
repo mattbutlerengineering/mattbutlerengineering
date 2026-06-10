@@ -75,7 +75,6 @@ flowchart TD
   reservations_service --> database
   reservations_service --> service_bootstrap
   reservations_service --> jobs
-  reservations_service --> feature_flags
   reservations_service --> notifications
   reservations_service --> observability
   reservations_service --> sentry
@@ -114,6 +113,7 @@ flowchart TD
   sentry --> config
   service_bootstrap --> auth
   service_bootstrap --> database
+  service_bootstrap --> feature_flags
   service_bootstrap --> observability
   service_bootstrap --> sentry
   service_bootstrap --> config
