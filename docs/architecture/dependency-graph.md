@@ -34,6 +34,7 @@ flowchart TD
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
+    service_bootstrap["service-bootstrap"]
     types["types"]
   end
   subgraph tools["Developer Tools"]
@@ -63,6 +64,7 @@ flowchart TD
   agent_service --> api_client
   agent_service --> auth
   agent_service --> database
+  agent_service --> service_bootstrap
   agent_service --> observability
   agent_service --> rialto_catalog
   agent_service --> sentry
@@ -71,6 +73,7 @@ flowchart TD
   agent_service --> config
   reservations_service --> auth
   reservations_service --> database
+  reservations_service --> service_bootstrap
   reservations_service --> jobs
   reservations_service --> feature_flags
   reservations_service --> notifications
@@ -83,6 +86,7 @@ flowchart TD
   users_service --> sentry
   users_service --> types
   users_service --> database
+  users_service --> service_bootstrap
   users_service --> config
   agent_core --> api_client
   agent_core --> types
@@ -94,11 +98,7 @@ flowchart TD
   api_client --> config
   auth --> types
   auth --> config
-  database --> auth
-  database --> observability
-  database --> sentry
   database --> config
-  database --> types
   feature_flags --> config
   jobs --> config
   mcp_server --> config
@@ -112,6 +112,12 @@ flowchart TD
   sentry --> api_client
   sentry --> types
   sentry --> config
+  service_bootstrap --> auth
+  service_bootstrap --> database
+  service_bootstrap --> observability
+  service_bootstrap --> sentry
+  service_bootstrap --> config
+  service_bootstrap --> types
   types --> config
   cli --> agent_core
   cli --> types
@@ -143,6 +149,7 @@ flowchart TD
   class rialto_catalog shared
   class rialto_plugin shared
   class sentry shared
+  class service_bootstrap shared
   class types shared
   class cli tooling
 ```

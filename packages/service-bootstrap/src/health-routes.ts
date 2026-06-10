@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastif
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
 import type { RateLimitMonitor, ErrorRateSnapshot } from "@mbe/observability";
-import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "./index.js";
+import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
 import type { LatencyTracker, Auth0CheckResult } from "./health.js";
 
 export interface HealthRouteConfig {
