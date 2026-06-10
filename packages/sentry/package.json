@@ -42,9 +42,9 @@
   "dependencies": {
     "@mbe/api-client": "workspace:^",
     "@mbe/types": "workspace:^",
-    "@sentry/node": "^10.56.0",
-    "@sentry/react": "^10.56.0",
-    "fastify-plugin": "^5.0.0"
+    "@sentry/node": "^10.57.0",
+    "@sentry/react": "^10.57.0",
+    "fastify-plugin": "^6.0.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
