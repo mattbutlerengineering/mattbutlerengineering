@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { BookingNotifier } from "../services/booking-notifications.js";
 import { generateManageToken, verifyManageToken } from "./public-reservations.js";
 
 vi.mock("../services/venue.js", () => ({
@@ -197,6 +198,39 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     });
 
     expect(response.statusCode).toBe(409);
+  });
+});
+
+describe("bookingNotifier injection", () => {
+  it("calls injected bookingNotifier.scheduleBookingNotifications with reservation and manage token", async () => {
+    const stubNotifier: BookingNotifier = {
+      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+    };
+    const stubApp = await buildApp({ logger: false, bookingNotifier: stubNotifier });
+    await stubApp.ready();
+
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    const response = await stubApp.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      payload: { holdId: "hold_1", guestName: "Jane Doe", guestEmail: "jane@example.com" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const { manageToken } = response.json().data;
+    expect(stubNotifier.scheduleBookingNotifications).toHaveBeenCalledWith(
+      mockReservation,
+      manageToken
+    );
+
+    await stubApp.close();
   });
 });
 

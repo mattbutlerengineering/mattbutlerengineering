@@ -26,6 +26,10 @@ import { publicDepositRoutes } from "./routes/public-deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { createNotificationPort } from "./notifications.js";
+import {
+  createDefaultBookingNotifier,
+  type BookingNotifier,
+} from "./services/booking-notifications.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { runLapsedGuestScan } from "./services/lapsed-guest-scan.js";
 import { emitLapsingGuests } from "./services/events.js";
@@ -33,6 +37,7 @@ import { prisma } from "./services/database.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
+  bookingNotifier?: BookingNotifier;
 }
 
 /**
@@ -54,6 +59,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire notification port (injected or default Resend-backed)
   const notificationPort = options.notificationPort ?? createNotificationPort();
   fastify.decorate("notificationPort", notificationPort);
+
+  // Wire booking notifier (injected or default Resend + BullMQ backed)
+  const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier();
+  fastify.decorate("bookingNotifier", bookingNotifier);
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -128,5 +137,6 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
+    bookingNotifier: BookingNotifier;
   }
 }
