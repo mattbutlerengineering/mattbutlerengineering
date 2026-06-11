@@ -82,6 +82,7 @@ mbe agent logs <id>                               # Stream SSE events
 mbe agent cancel <id>                             # Cancel running session
 mbe agent delete <id>                             # Delete session + cleanup
 mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
+mbe agent frontmatter                             # stdin issue body → mbe agent run flags (yaml agent block)
 
 # Development
 mbe stats                                         # Agent performance metrics

@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
 import { agentEvalCommand } from "./agent-eval.js";
+import { frontmatterCommand } from "./agent-frontmatter.js";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -208,7 +209,8 @@ agentCommand
         adapter: string;
         pr: boolean;
         verbose: boolean;
-      }
+      },
+      command: Command
     ) => {
       const repoPath = resolve(process.cwd());
       const adapterType = options.adapter;
@@ -225,9 +227,12 @@ agentCommand
       const smartBudget = resolveBudget(task);
       const smartModel = resolveModel(task);
 
-      const isDefaultModel = options.model === DEFAULT_SESSION_CONFIG.model;
-      const isDefaultBudget = options.maxBudget === String(DEFAULT_SESSION_CONFIG.maxBudgetUsd);
-      const isDefaultTurns = options.maxTurns === String(DEFAULT_SESSION_CONFIG.maxTurns);
+      // Detect overrides by option SOURCE, not value-equality with defaults:
+      // an explicit --model equal to the default (e.g. from issue frontmatter,
+      // #2021) must pin the model instead of falling through to the router.
+      const isDefaultModel = command.getOptionValueSource("model") !== "cli";
+      const isDefaultBudget = command.getOptionValueSource("maxBudget") !== "cli";
+      const isDefaultTurns = command.getOptionValueSource("maxTurns") !== "cli";
 
       const resolvedModel = isDefaultModel ? smartModel : options.model;
       const resolvedMaxTurns = isDefaultTurns
@@ -1032,3 +1037,6 @@ async function streamEvents(sessionId: string): Promise<void> {
 // Registered last so `agentCommand.commands[0]` remains the `run` command,
 // which tests address positionally.
 agentCommand.addCommand(agentEvalCommand);
+
+// ── Issue frontmatter: mbe agent frontmatter (#2021) ─────────────────────
+agentCommand.addCommand(frontmatterCommand);
