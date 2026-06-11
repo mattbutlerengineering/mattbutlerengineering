@@ -64,15 +64,6 @@
       "dependsOn": ["^build"],
       "inputs": ["src/**", "package.json", "vitest.config.ts"]
     },
-    "test:contract": {
-      "dependsOn": ["^build"],
-      "inputs": [
-        "src/**",
-        "package.json",
-        "vitest.config.ts",
-        "../../packages/types/src/schemas/**"
-      ]
-    },
     "test:coverage": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
