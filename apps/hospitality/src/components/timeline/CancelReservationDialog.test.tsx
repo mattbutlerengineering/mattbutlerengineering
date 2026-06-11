@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import "@testing-library/jest-dom";
 import { CancelReservationDialog } from "./CancelReservationDialog.js";
 
 // Mock scrollIntoView for JSDOM

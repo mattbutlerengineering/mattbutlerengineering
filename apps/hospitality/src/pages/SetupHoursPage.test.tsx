@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -86,7 +85,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><SetupHoursPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <SetupHoursPage />
+    </Wrapper>
+  );
 }
 
 describe("SetupHoursPage", () => {
