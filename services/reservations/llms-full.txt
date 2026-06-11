@@ -364,7 +364,9 @@
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           // Cancel any pending reminder jobs for this reservation
-          cancelBookingReminders(reservation.id).catch(() => {});
+          fastify.bookingNotifier
+            .cancelBookingReminders(reservation.id)
+            .catch((err) => fastify.log.error({ err }, "Failed to cancel booking reminders"));
     
           if (reservation.guestEmail && venue) {
             const preference =
@@ -2195,7 +2197,9 @@
           // Reschedule reminder jobs if time changed
           const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
           if (timeChanged) {
-            rescheduleBookingReminders(updated, token).catch(() => {});
+            fastify.bookingNotifier
+              .rescheduleBookingReminders(updated, token)
+              .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
           }
     
           if (updated.guestEmail && venue) {
@@ -5181,6 +5185,7 @@
   <file path="src/app.ts">
     export interface ReservationsAppOptions extends AppOptions {
       notificationPort?: NotificationDispatcher;
+      bookingNotifier?: BookingNotifier;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       const fastify = await createServiceApp(
@@ -5198,6 +5203,10 @@
       // Wire notification port (injected or default Resend-backed)
       const notificationPort = options.notificationPort ?? createNotificationPort();
       fastify.decorate("notificationPort", notificationPort);
+    
+      // Wire booking notifier (injected or default Resend + BullMQ backed)
+      const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier();
+      fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Register routes
       await fastify.register(healthRoutes);

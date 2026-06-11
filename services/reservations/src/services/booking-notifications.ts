@@ -121,70 +121,47 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
   return { scheduleBookingNotifications, cancelBookingReminders, rescheduleBookingReminders };
 }
 
-// ─── Module-level singletons (kept for backward compat with existing routes) ─
+// ─── Default notifier (env-backed deps, constructed per app instance) ────────
 
-// Lazy scheduler
-let _scheduler: JobScheduler | null = null;
-function getScheduler(): JobScheduler {
-  if (!_scheduler) {
-    _scheduler = new JobScheduler({ redisUrl: REDIS_URL });
+/**
+ * Creates the production BookingNotifier backed by Resend + BullMQ.
+ * Dep construction is deferred to first use: JobScheduler opens a Redis
+ * connection in its constructor, and buildApp() must stay side-effect-free
+ * for tests that don't inject a stub.
+ */
+export function createDefaultBookingNotifier(): BookingNotifier {
+  let notifier: BookingNotifier | null = null;
+
+  function getNotifier(): BookingNotifier {
+    if (!notifier) {
+      const resendClient = process.env.RESEND_API_KEY
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+            emails: {
+              send(payload: Record<string, unknown>): Promise<{ id: string }>;
+            };
+          })
+        : null;
+
+      const notificationAdapter: NotificationPort = new ResendNotificationAdapter({
+        resend: resendClient,
+        fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        manageBaseUrl: MANAGE_BASE_URL,
+      });
+
+      notifier = createBookingNotifier({
+        notificationAdapter,
+        scheduler: new JobScheduler({ redisUrl: REDIS_URL }),
+        getVenue: (venueId) => venueService.getById(venueId),
+      });
+    }
+    return notifier;
   }
-  return _scheduler;
-}
 
-function createDefaultNotificationAdapter(): NotificationPort {
-  const resendClient = process.env.RESEND_API_KEY
-    ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-        emails: {
-          send(payload: Record<string, unknown>): Promise<{ id: string }>;
-        };
-      })
-    : null;
-
-  return new ResendNotificationAdapter({
-    resend: resendClient,
-    fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-    manageBaseUrl: MANAGE_BASE_URL,
-  });
-}
-
-let _defaultNotifier: BookingNotifier | null = null;
-
-function getDefaultNotifier(): BookingNotifier {
-  if (!_defaultNotifier) {
-    _defaultNotifier = createBookingNotifier({
-      notificationAdapter: createDefaultNotificationAdapter(),
-      scheduler: getScheduler(),
-      getVenue: (venueId) => venueService.getById(venueId),
-    });
-  }
-  return _defaultNotifier;
-}
-
-/**
- * Send booking confirmation and schedule day-before + day-of reminder jobs.
- * Walk-ins (startTime in the past) skip reminders.
- */
-export async function scheduleBookingNotifications(
-  reservation: Reservation,
-  manageToken: string
-): Promise<void> {
-  return getDefaultNotifier().scheduleBookingNotifications(reservation, manageToken);
-}
-
-/**
- * Cancel pending reminder jobs for a reservation (on cancellation).
- */
-export async function cancelBookingReminders(reservationId: string): Promise<void> {
-  return getDefaultNotifier().cancelBookingReminders(reservationId);
-}
-
-/**
- * Cancel existing reminders and reschedule to new times (on rescheduling).
- */
-export async function rescheduleBookingReminders(
-  reservation: Reservation,
-  manageToken: string
-): Promise<void> {
-  return getDefaultNotifier().rescheduleBookingReminders(reservation, manageToken);
+  return {
+    scheduleBookingNotifications: (reservation, manageToken) =>
+      getNotifier().scheduleBookingNotifications(reservation, manageToken),
+    cancelBookingReminders: (reservationId) => getNotifier().cancelBookingReminders(reservationId),
+    rescheduleBookingReminders: (reservation, manageToken) =>
+      getNotifier().rescheduleBookingReminders(reservation, manageToken),
+  };
 }
