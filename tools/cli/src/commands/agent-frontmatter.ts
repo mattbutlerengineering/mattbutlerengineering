@@ -14,7 +14,7 @@ import { parseAgentFrontmatter, flagsFromOverrides } from "../issue-frontmatter.
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
-    chunks.push(chunk as Buffer);
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
   }
   return Buffer.concat(chunks).toString("utf-8");
 }
@@ -25,6 +25,14 @@ export const frontmatterCommand = new Command("frontmatter")
   )
   .option("--body-file <path>", "Read the issue body from a file instead of stdin")
   .action(async (options: { bodyFile?: string }) => {
+    if (!options.bodyFile && process.stdin.isTTY) {
+      console.warn(
+        "frontmatter: stdin is a terminal and no --body-file given; pipe an issue body in"
+      );
+      console.log("");
+      return;
+    }
+
     let body: string;
     try {
       body = options.bodyFile ? readFileSync(options.bodyFile, "utf-8") : await readStdin();

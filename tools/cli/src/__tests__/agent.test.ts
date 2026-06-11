@@ -17,6 +17,14 @@ vi.mock("@mbe/agent-core", () => ({
   runEvalSuite: vi.fn(),
   resolveBudget: vi.fn(() => ({ budgetUsd: 1.0, maxTurns: 50 })),
   resolveModel: vi.fn(() => "claude-sonnet-4-6"),
+  resolveModelId: vi.fn(
+    (tier: string) =>
+      ({
+        haiku: "claude-haiku-4-5-20251001",
+        sonnet: "claude-sonnet-4-6",
+        opus: "claude-opus-4-6",
+      })[tier]
+  ),
   routeModelWithReason: vi.fn(() => ({
     tier: "standard",
     modelId: "claude-sonnet-4-6",
@@ -168,6 +176,33 @@ describe("agent command", () => {
       const config = (core.runSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(config.maxBudgetUsd).toBe(1.0);
       expect(config.maxTurns).toBe(50);
+    });
+
+    it("honors an explicit --model even when it equals the default (frontmatter override, #2021)", async () => {
+      // Smart router would pick haiku; an explicit --model must pin the model
+      // even when the value matches DEFAULT_SESSION_CONFIG.model.
+      vi.mocked(core.resolveModel as ReturnType<typeof vi.fn>).mockReturnValue(
+        "claude-haiku-4-5-20251001"
+      );
+      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "succeeded",
+        branchName: "b",
+        durationMs: 100,
+        costUsd: 0,
+        numTurns: 1,
+        tokenUsage: { inputTokens: 1, outputTokens: 1 },
+        prUrl: null,
+        errors: [],
+        resultText: null,
+      });
+
+      const { agentCommand } = await import("../commands/agent.js");
+      await agentCommand.parseAsync(["run", "Pinned task", "--model", "claude-sonnet-4-6"], {
+        from: "user",
+      });
+
+      const config = (core.runSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(config.model).toBe("claude-sonnet-4-6");
     });
 
     it("prints verbose agent events when --verbose flag is set", async () => {

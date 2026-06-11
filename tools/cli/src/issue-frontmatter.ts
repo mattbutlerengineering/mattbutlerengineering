@@ -67,55 +67,56 @@ export function parseAgentFrontmatter(issueBody: string): ParseResult {
   };
 }
 
-function validateField(
-  key: string,
-  value: unknown
-): { fields: AgentOverrides; warnings: string[] } {
+type FieldResult = { fields: AgentOverrides; warnings: string[] };
+
+const invalid = (warning: string): FieldResult => ({ fields: {}, warnings: [warning] });
+
+function validateModel(value: unknown): FieldResult {
+  if (typeof value === "string" && MODEL_TIERS.includes(value)) {
+    return { fields: { model: value as ModelTier }, warnings: [] };
+  }
+  return invalid(`invalid model "${String(value)}"; expected one of: ${MODEL_TIERS.join(", ")}`);
+}
+
+function validateBudget(value: unknown): FieldResult {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return invalid(`invalid budget "${String(value)}"; expected a positive number (USD)`);
+  }
+  if (value > MAX_BUDGET_USD) {
+    return {
+      fields: { budget: MAX_BUDGET_USD },
+      warnings: [`budget ${value} capped at ${MAX_BUDGET_USD} USD`],
+    };
+  }
+  return { fields: { budget: value }, warnings: [] };
+}
+
+function validateMaxTurns(value: unknown): FieldResult {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return invalid(`invalid max_turns "${String(value)}"; expected a positive integer`);
+  }
+  return { fields: { maxTurns: value }, warnings: [] };
+}
+
+function validateAdapter(value: unknown): FieldResult {
+  if (typeof value === "string" && ADAPTERS.includes(value)) {
+    return { fields: { adapter: value as AdapterType }, warnings: [] };
+  }
+  return invalid(`invalid adapter "${String(value)}"; expected one of: ${ADAPTERS.join(", ")}`);
+}
+
+function validateField(key: string, value: unknown): FieldResult {
   switch (key) {
     case "model":
-      if (typeof value === "string" && MODEL_TIERS.includes(value)) {
-        return { fields: { model: value as ModelTier }, warnings: [] };
-      }
-      return {
-        fields: {},
-        warnings: [`invalid model "${String(value)}"; expected one of: ${MODEL_TIERS.join(", ")}`],
-      };
-    case "budget": {
-      if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-        return {
-          fields: {},
-          warnings: [`invalid budget "${String(value)}"; expected a positive number (USD)`],
-        };
-      }
-      if (value > MAX_BUDGET_USD) {
-        return {
-          fields: { budget: MAX_BUDGET_USD },
-          warnings: [`budget ${value} capped at ${MAX_BUDGET_USD} USD`],
-        };
-      }
-      return { fields: { budget: value }, warnings: [] };
-    }
+      return validateModel(value);
+    case "budget":
+      return validateBudget(value);
     case "max_turns":
-      if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-        return {
-          fields: {},
-          warnings: [`invalid max_turns "${String(value)}"; expected a positive integer`],
-        };
-      }
-      return { fields: { maxTurns: value }, warnings: [] };
+      return validateMaxTurns(value);
     case "adapter":
-      if (typeof value === "string" && ADAPTERS.includes(value)) {
-        return { fields: { adapter: value as AdapterType }, warnings: [] };
-      }
-      return {
-        fields: {},
-        warnings: [`invalid adapter "${String(value)}"; expected one of: ${ADAPTERS.join(", ")}`],
-      };
+      return validateAdapter(value);
     default:
-      return {
-        fields: {},
-        warnings: [`unknown key "${key}" ignored (known: ${KNOWN_KEYS.join(", ")})`],
-      };
+      return invalid(`unknown key "${key}" ignored (known: ${KNOWN_KEYS.join(", ")})`);
   }
 }
 

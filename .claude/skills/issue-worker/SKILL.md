@@ -126,10 +126,12 @@ The command prints `mbe agent run` flags (e.g. `--model claude-haiku-4-5-2025100
 Run the implementation in an isolated worktree:
 
 ```bash
-mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b> --adapter auto $FRONTMATTER_FLAGS
+eval "mbe agent run \"\$TASK_DESCRIPTION\" --max-budget <budget from step 3b> --adapter auto $FRONTMATTER_FLAGS"
 ```
 
 `$FRONTMATTER_FLAGS` goes last — later flags win, so issue frontmatter overrides the step 3b budget heuristic and the default adapter.
+
+The `eval` is required: this shell is zsh, which does NOT word-split an unquoted `$FRONTMATTER_FLAGS` — without eval the whole flag string is passed as one unknown option and commander exits 1. The eval is safe because `mbe agent frontmatter` only ever emits validated enum/numeric values, never raw issue text.
 
 The `mbe agent run` command will:
 

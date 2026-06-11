@@ -60,6 +60,35 @@ describe("agent frontmatter subcommand", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it("reads the issue body from piped stdin", async () => {
+    const { Readable } = await import("node:stream");
+    const fake = Readable.from(["```yaml agent\nmodel: opus\n```\n"]);
+    Object.defineProperty(fake, "isTTY", { value: false });
+    const original = Object.getOwnPropertyDescriptor(process, "stdin")!;
+    Object.defineProperty(process, "stdin", { value: fake, configurable: true });
+    try {
+      await frontmatterCommand.parseAsync([], { from: "user" });
+    } finally {
+      Object.defineProperty(process, "stdin", original);
+    }
+    expect(logSpy).toHaveBeenCalledWith("--model claude-opus-4-6");
+  });
+
+  it("warns and prints empty flags instead of hanging when stdin is a TTY", async () => {
+    const { Readable } = await import("node:stream");
+    const fake = Readable.from([]);
+    Object.defineProperty(fake, "isTTY", { value: true });
+    const original = Object.getOwnPropertyDescriptor(process, "stdin")!;
+    Object.defineProperty(process, "stdin", { value: fake, configurable: true });
+    try {
+      await frontmatterCommand.parseAsync([], { from: "user" });
+    } finally {
+      Object.defineProperty(process, "stdin", original);
+    }
+    expect(logSpy).toHaveBeenCalledWith("");
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
   it("warns and prints empty flags for an unreadable body file", async () => {
     await frontmatterCommand.parseAsync(["--body-file", join(tmpDir, "missing.md")], {
       from: "user",
