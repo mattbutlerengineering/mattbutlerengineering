@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
-import { rescheduleBookingReminders } from "../services/booking-notifications.js";
 
 interface ModifyBody {
   date?: string;
@@ -135,7 +134,9 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       // Reschedule reminder jobs if time changed
       const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
       if (timeChanged) {
-        rescheduleBookingReminders(updated, token).catch(() => {});
+        fastify.bookingNotifier
+          .rescheduleBookingReminders(updated, token)
+          .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
       }
 
       if (updated.guestEmail && venue) {
