@@ -58,6 +58,15 @@ mbe agent cancel <id>      # Cancel running session
 mbe agent orchestrate "task"  # Decompose → parallel sessions → PRs
 ```
 
+### Issue frontmatter
+
+````bash
+gh issue view <n> --json body -q .body | mbe agent frontmatter
+# Parses the ```yaml agent block from an issue body into mbe agent run flags.
+# Empty output = no usable overrides (fall back to model router).
+# Warnings → stderr, always exits 0. Schema: docs/agents/issue-tracker.md
+````
+
 ### Context Management
 
 ```bash

@@ -111,13 +111,25 @@ Use the issue labels and description to set the right budget:
 - `feature` or standard issues: `--max-budget 1.50`
 - Complex issues (multi-file, new service, architecture): `--max-budget 2.00`
 
+### Step 3c: Parse Agent Frontmatter
+
+Check the issue body for per-issue agent overrides (see `docs/agents/issue-tracker.md` → "Agent frontmatter"):
+
+```bash
+FRONTMATTER_FLAGS=$(gh issue view <NUMBER> --json body -q .body | mbe agent frontmatter)
+```
+
+The command prints `mbe agent run` flags (e.g. `--model claude-haiku-4-5-20251001 --max-budget 0.5`) or an empty line when the issue has no usable agent block. Warnings go to stderr; the command always exits 0, so this step can never break the loop.
+
 ### Step 4: Delegate to Agent
 
 Run the implementation in an isolated worktree:
 
 ```bash
-mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b> --adapter auto
+mbe agent run "<task description synthesized from issue>" --max-budget <budget from step 3b> --adapter auto $FRONTMATTER_FLAGS
 ```
+
+`$FRONTMATTER_FLAGS` goes last — later flags win, so issue frontmatter overrides the step 3b budget heuristic and the default adapter.
 
 The `mbe agent run` command will:
 

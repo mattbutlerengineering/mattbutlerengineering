@@ -1,0 +1,42 @@
+/**
+ * `mbe agent frontmatter` — parse the yaml agent block from an issue body
+ * into `mbe agent run` flags (#2021).
+ *
+ * Reads the body from --body-file or stdin. Prints the flag string to
+ * stdout (empty when there are no usable overrides) and warnings to
+ * stderr. Always exits 0: the issue-worker loop falls back to the model
+ * router on empty output, so failure here must never crash the loop.
+ */
+import { Command } from "commander";
+import { readFileSync } from "node:fs";
+import { parseAgentFrontmatter, flagsFromOverrides } from "../issue-frontmatter.js";
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks).toString("utf-8");
+}
+
+export const frontmatterCommand = new Command("frontmatter")
+  .description(
+    "Parse the yaml agent block from an issue body (stdin or --body-file) into mbe agent run flags"
+  )
+  .option("--body-file <path>", "Read the issue body from a file instead of stdin")
+  .action(async (options: { bodyFile?: string }) => {
+    let body: string;
+    try {
+      body = options.bodyFile ? readFileSync(options.bodyFile, "utf-8") : await readStdin();
+    } catch (err) {
+      console.warn(`frontmatter: cannot read issue body: ${(err as Error).message}`);
+      console.log("");
+      return;
+    }
+
+    const { overrides, warnings } = parseAgentFrontmatter(body);
+    for (const warning of warnings) {
+      console.warn(`frontmatter: ${warning}`);
+    }
+    console.log(flagsFromOverrides(overrides).join(" "));
+  });

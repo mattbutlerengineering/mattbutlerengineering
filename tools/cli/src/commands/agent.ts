@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
 import { agentEvalCommand } from "./agent-eval.js";
+import { frontmatterCommand } from "./agent-frontmatter.js";
 import {
   runSession,
   DEFAULT_SESSION_CONFIG,
@@ -1032,3 +1033,6 @@ async function streamEvents(sessionId: string): Promise<void> {
 // Registered last so `agentCommand.commands[0]` remains the `run` command,
 // which tests address positionally.
 agentCommand.addCommand(agentEvalCommand);
+
+// ── Issue frontmatter: mbe agent frontmatter (#2021) ─────────────────────
+agentCommand.addCommand(frontmatterCommand);
