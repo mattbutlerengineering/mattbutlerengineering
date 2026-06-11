@@ -2,10 +2,14 @@
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
     <item priority="medium">
-      function detectRateLimitInError(message: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      class ClaudeAdapter {
+        name: unknown;
+        async isAvailable(): Promise<unknown>;
+        async run(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
@@ -193,6 +197,22 @@
         status: string;
         prohibited_patterns?: string[];
       }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent-eval.ts">
+    <item priority="high">
+      export const agentEvalCommand: unknown;
+    </item>
+    <item priority="medium">
+      function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent-frontmatter.ts">
+    <item priority="low">
+      async function readStdin(): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const frontmatterCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/agent.ts">
@@ -520,7 +540,7 @@
     </item>
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
-    <item priority="high">
+    <item priority="low">
       interface Auth0Config {
         domain: string;
         clientId: string;
@@ -529,13 +549,53 @@
         password: string;
       }
     </item>
-    <item priority="medium">
-      function getAuth0Config(): Auth0Config { /* ... */ }
+    <item priority="high">
+      export function validateAuth0Config(
+        env: Record<string, string | undefined> = process.env
+      ): Auth0Config { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
     <item priority="high">
       export const test: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="eval">
+  <file path="packages/agent-core/src/eval/eval-harness.ts">
+    <item priority="low">
+      interface RunEvalSuiteOptions {
+        runTask: TaskRunner;
+        runId: string;
+        only?: string;
+      }
+    </item>
+    <item priority="high">
+      export async function runEvalSuite(
+        tasks: readonly Task[],
+        opts: RunEvalSuiteOptions
+      ): Promise<EvalReport> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/golden-task-set.ts">
+    <item priority="high">
+      export async function loadSuite(dir: string): Promise<Task[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/task-scorer.ts">
+    <item priority="high">
+      export function scoreTask(run: TaskRunResult): TaskScore { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/types.ts">
+    <item priority="high">
+      export const TASK_CATEGORIES: unknown;
+    </item>
+    <item priority="low">
+      type TaskCategory = (typeof TASK_CATEGORIES)[number];
     </item>
   </file>
   </section>
@@ -596,6 +656,7 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
+        lastEvaluation: EvaluationResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -614,6 +675,7 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
+        lastResult: GateResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -691,22 +753,6 @@
       export const ThemeContext: unknown;
     </item>
   </file>
-  <file path="apps/hospitality/src/hooks/useApiCall.ts">
-    <item priority="low">
-      interface UseApiCallOptions {
-        timeout?: number;
-      }
-    </item>
-    <item priority="low">
-      interface UseApiCallResult {
-        data: T | null;
-        isLoading: boolean;
-        error: string | null;
-        retry: () => void;
-        execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | ...;
-      }
-    </item>
-  </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
@@ -732,20 +778,59 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
+    <item priority="low">
+      interface DashboardStats {
+        totalReservations: number;
+        expectedCovers: number;
+        upcomingCount: number;
+        cancellationRate: number;
+        cancellationTrend: "up" | "down" | "neutral";
+      }
+    </item>
+    <item priority="low">
+      interface UseDashboardStatsQueryResult {
+        reservations: readonly Reservation[];
+        stats: DashboardStats;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
+    <item priority="high">
+      export const FLOOR_PLANS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useGuests.ts">
+    <item priority="high">
+      export const GUESTS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_SEGMENTS_QUERY_KEY: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useReservationEvents.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "guest:lapsing";
     </item>
     <item priority="low">
       interface ReservationEvent {
         type: ReservationEventType;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold;
+        data: Reservation | Table | ReservationHold | LapsingGuest[];
       }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useReservationQuerySync.ts">
+    <item priority="medium">
+      function canShowToast(): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function useReservationQuerySync() { /* ... */ }
     </item>
@@ -760,6 +845,22 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useSSEEventFeed.ts">
+    <item priority="high">
+      type EventFeedListener = (event: ReservationEvent) => void;
+    </item>
+    <item priority="high">
+      export function broadcastSSEEvent(event: ReservationEvent): void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useSSEStatus.ts">
+    <item priority="high">
+      type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
+    </item>
+    <item priority="high">
+      export function notifySSEStatus(isConnected: boolean, error: Error | null): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -768,6 +869,14 @@
       interface UseTablesParams {
         enabled?: boolean;
       }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useUsers.ts">
+    <item priority="high">
+      export const CURRENT_USER_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const USERS_QUERY_KEY: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
@@ -781,6 +890,14 @@
         nextStep: SetupStep | null;
         progress: number;
       }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenues.ts">
+    <item priority="high">
+      export const VENUES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
@@ -1032,6 +1149,14 @@
       export const genSpecsRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-stream.ts">
+    <item priority="high">
+      export const GEN_MODEL_ID: unknown;
+    </item>
+    <item priority="high">
+      type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
+    </item>
+  </file>
   <file path="services/agent/src/routes/health.ts">
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;
@@ -1122,6 +1247,16 @@
       export const confirmAttendanceRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/deposits.ts">
+    <item priority="high">
+      interface ApiResponse {
+        data: T;
+      }
+    </item>
+    <item priority="high">
+      export const depositRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/events.ts">
     <item priority="medium">
       class EventBuffer {
@@ -1182,6 +1317,23 @@
       export const publicAvailabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/public-deposits.ts">
+    <item priority="high">
+      interface CreatePublicPaymentIntentBody {
+        reservationId: string;
+        guestEmail?: string;
+        guestName?: string;
+      }
+    </item>
+    <item priority="high">
+      interface PublicPaymentIntentResponse {
+        clientSecret: string;
+        depositId: string;
+        amountCents: number;
+        currency: string;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/public-guest-recognition.ts">
     <item priority="high">
       export const publicGuestRecognitionRoutes: FastifyPluginAsync;
@@ -1229,6 +1381,14 @@
       export const reservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/stripe-webhook.ts">
+    <item priority="high">
+      export const stripeWebhookRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="low">
+      async function handleStripeEvent(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/tables.ts">
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
@@ -1237,6 +1397,11 @@
   <file path="services/reservations/src/routes/venues.ts">
     <item priority="high">
       export const venueRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/waitlist.ts">
+    <item priority="high">
+      export const waitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/health.ts">
@@ -1287,10 +1452,10 @@
   </file>
   <file path="packages/types/src/schemas/guest.ts">
     <item priority="high">
-      export const GuestSchema: unknown;
+      export const StaffNoteSchema: unknown;
     </item>
     <item priority="high">
-      export const GuestSegmentSchema: unknown;
+      export const GuestSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/json-schema.ts">
@@ -1306,7 +1471,7 @@
       export const ReservationStatusSchema: unknown;
     </item>
     <item priority="high">
-      export const ReservationSchema: unknown;
+      export const OccasionSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/user.ts">
@@ -1480,10 +1645,19 @@
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
     <item priority="low">
-      async function checkStaleSessions(): Promise<void> { /* ... */ }
+      interface LivenessMonitorConfig {
+        inactivityThresholdMs: number;
+        checkIntervalMs: number;
+        sessionService: {
+          findStaleSessions(ms: number): Promise<string[]>;
+       ...;
+        cancelSession: (id: string) => Promise<boolean>;
+      }
     </item>
-    <item priority="high">
-      export function startLivenessMonitor(): void { /* ... */ }
+    <item priority="low">
+      interface LivenessMonitor {
+        
+      }
     </item>
   </file>
   <file path="services/agent/src/services/remediation-circuit-breaker.ts">
@@ -1554,6 +1728,18 @@
       export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/booking-notifications.ts">
+    <item priority="medium">
+      function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveChannel(
+        guestEmail: string | null,
+        guestPhone: string | null,
+        communicationPreference: string | null = null
+      ): "email" | "sms" | "both" { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
@@ -1575,16 +1761,38 @@
       export const getSlowQueryStats: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/deposit-state-machine.ts">
+    <item priority="high">
+      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/deposit.ts">
+    <item priority="high">
+      class DepositNotFoundError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface CreateDepositOptions {
+        reservationId: string;
+        amountCents: number;
+        currency?: string;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing";
     </item>
     <item priority="low">
       interface ReservationEvent {
         type: ReservationEventType;
         venueId: string;
         timestamp: string;
-        data: Reservation | Table | ReservationHold | FloorPlan;
+        data: Reservation | Table | ReservationHold | FloorPlan | Lapsi...;
       }
     </item>
   </file>
@@ -1630,6 +1838,9 @@
         lifetimeSpend: Prisma.Decimal | null;
         lastVisit: Date | null;
         tags: unknown;
+        communicationPreference: string;
+        dietaryRestrictions: unknown;
+        staffNotes: unknown;
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
@@ -1647,6 +1858,50 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/lapse-detector.ts">
+    <item priority="low">
+      interface LapseResult {
+        avgFrequencyDays: number;
+        daysSinceLastVisit: number;
+        isLapsing: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function detectLapse(visitDates: string[]): LapseResult { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/lapsed-guest-cron.ts">
+    <item priority="low">
+      interface LapsedGuestMonitorConfig {
+        getVenueIds: () => Promise<string[]>;
+        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+        startupDelayMs?: number;
+        intervalMs?: number;
+      }
+    </item>
+    <item priority="low">
+      interface LapsedGuestMonitor {
+        
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/lapsed-guest-scan.ts">
+    <item priority="high">
+      interface GuestForScan {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        communicationPreference: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface LapsedGuestScanDeps {
+        findGuestsForScan: (venueId: string) => Promise<GuestForScan[]>;
+        emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reminder.ts">
     <item priority="high">
       export async function findReservationsNeedingReminder() { /* ... */ }
@@ -1659,7 +1914,7 @@
     <item priority="high">
       type PrismaReservationWithTable = PrismaReservation & {
         table?: PrismaTable;
-      };
+        guest?: { ...;
     </item>
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
@@ -1673,6 +1928,24 @@
     </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/stripe.ts">
+    <item priority="low">
+      interface CreatePaymentIntentOptions {
+        amountCents: number;
+        currency: string;
+        customerId?: string;
+        reservationId: string;
+        metadata?: Record<string, string>;
+      }
+    </item>
+    <item priority="low">
+      interface PaymentIntentResult {
+        id: string;
+        status: string;
+        clientSecret: string | null;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
@@ -1711,6 +1984,42 @@
         settings: unknown;
         createdAt: Date;
       }): VenueGroup { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/waitlist-utils.ts">
+    <item priority="high">
+      export function calculatePosition(existingCount: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/waitlist.ts">
+    <item priority="low">
+      interface WaitlistEntryData {
+        id: string;
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="low">
+      interface CreateWaitlistEntryInput {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+        avgTurnTimeMinutes?: number;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/win-back.ts">
+    <item priority="high">
+      export async function sendWinBack(
+        guest: Guest,
+        notificationPort: NotificationDispatcher
+      ): Promise<boolean> { /* ... */ }
     </item>
   </file>
   <file path="services/users/src/services/database.ts">
@@ -1834,7 +2143,7 @@
       }
     </item>
     <item priority="high">
-      export function resolveBudget(taskDescription: string): BudgetConfig { /* ... */ }
+      export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/bundle-size-tracker.ts">
@@ -1962,6 +2271,26 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/evaluation-prompt-builder.ts">
+    <item priority="medium">
+      function extractMarkdownSection(text: string, headingPattern: RegExp): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractAcceptanceCriteria(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/evaluation-skip-policy.ts">
+    <item priority="low">
+      interface SkipPolicyInput {
+        diff: string;
+        testsPassed?: boolean;
+        commitTitle?: string;
+      }
+    </item>
+    <item priority="low">
+      type SkipReason = "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
+    </item>
+  </file>
   <file path="packages/agent-core/src/event-mapper.ts">
     <item priority="low">
       interface ToolUseEvent {
@@ -2087,19 +2416,11 @@
     </item>
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
-    <item priority="high">
-      interface SessionApiResponse {
-        data: T;
-      }
+    <item priority="medium">
+      function createSessionTools(config: OrchestratorConfig) { /* ... */ }
     </item>
-    <item priority="high">
-      interface SessionSummary {
-        id: string;
-        status: string;
-        taskDescription: string;
-        branchName: string | null;
-        prUrl: string | null;
-      }
+    <item priority="medium">
+      function extractSessionIds(obj: unknown): string[] { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/post-commit-gateway.ts">
@@ -2182,29 +2503,6 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/quality-gates.ts">
-    <item priority="low">
-      interface QualityGatesResult {
-        evaluation?: EvaluationResult;
-        securityReview?: ReviewResult;
-        staticAnalysisClean: boolean;
-        errors: string[];
-      }
-    </item>
-    <item priority="high">
-      export async function runQualityGates(
-        taskDescription: string,
-        diff: string,
-        commitMsg: string,
-        options: {
-          evaluateSuccess?: boolean;
-          runSecurityReview?: boolean;
-          runStaticAnalysis?: boolean;
-        },
-        onEvent?: SessionEventCallback
-      ): Promise<QualityGatesResult> { /* ... */ }
-    </item>
-  </file>
   <file path="packages/agent-core/src/rate-limit-detector.ts">
     <item priority="high">
       export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
@@ -2277,11 +2575,11 @@
     </item>
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">
+    <item priority="high">
+      export function classifyTaskContexts(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
     <item priority="medium">
       function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function resolveSourceFiles(taskDescription: string): readonly string[] { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/stuck-detector.ts">
@@ -2299,6 +2597,7 @@
         confidence: number;
         reasoning: string;
         issues: readonly string[];
+        skipped?: boolean;
       }
     </item>
     <item priority="low">
@@ -2327,13 +2626,21 @@
       interface OrchestratorConfig {
         taskDescription: string;
         apiBaseUrl: string;
+        sessionClient?: AgentSessionClient;
         model: string;
         sessionModel: string;
-        maxBudgetPerSession: number;
       }
     </item>
     <item priority="high">
       export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription">;
+    </item>
+  </file>
+  <file path="packages/agent-core/src/task-signal-registry.ts">
+    <item priority="low">
+      type TaskTier = "trivial" | "simple" | "standard" | "complex";
+    </item>
+    <item priority="low">
+      type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
     </item>
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">
@@ -2450,6 +2757,26 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/agent-sessions.ts">
+    <item priority="low">
+      interface SessionSummary {
+        id: string;
+        status: string;
+        taskDescription: string;
+        branchName: string | null;
+        prUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface PaginatedSessions {
+        data: readonly SessionSummary[];
+        pagination: {
+          readonly page: number;
+          readonly total: number;
+      ...;
+      }
+    </item>
+  </file>
   <file path="packages/api-client/src/availability.ts">
     <item priority="low">
       interface GetTimeSlotsParams {
@@ -2501,6 +2828,7 @@
         email?: string;
         phone?: string;
         name: string;
+        dietaryRestrictions?: string[];
       }
     </item>
     <item priority="low">
@@ -2618,54 +2946,6 @@
       }
     </item>
   </file>
-  <file path="packages/database/src/create-service-app.ts">
-    <item priority="low">
-      interface SwaggerConfig {
-        title: string;
-        description: string;
-        serverUrl: string;
-        version?: string;
-      }
-    </item>
-    <item priority="low">
-      interface ApiVersioningConfig {
-        currentVersion: string;
-        successorVersion: string;
-        sunsetMonthsFromNow: number;
-      }
-    </item>
-  </file>
-  <file path="packages/database/src/health-routes.ts">
-    <item priority="low">
-      interface HealthRouteConfig {
-        path: string;
-        operationId: string;
-      }
-    </item>
-    <item priority="low">
-      interface HealthRoutesOptions {
-        prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
-        getSlowQueryStats: () => SlowQueryStats;
-        getServiceStatus: () => ServiceStatus;
-        getPoolMetrics: () => PoolMetrics;
-        latencyTracker: LatencyTracker;
-      }
-    </item>
-  </file>
-  <file path="packages/database/src/health.ts">
-    <item priority="low">
-      interface LatencyAnomalyResult {
-        isAnomaly: boolean;
-        rollingAvg: number;
-      }
-    </item>
-    <item priority="low">
-      interface LatencyTracker {
-        record: (ms: number) => void;
-        checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
-      }
-    </item>
-  </file>
   <file path="packages/database/src/index.ts">
     <item priority="high">
       interface SlowQuery {
@@ -2693,19 +2973,6 @@
       export function createListResponseSchema(entityRef: string) { /* ... */ }
     </item>
   </file>
-  <file path="packages/database/src/start-service-server.ts">
-    <item priority="low">
-      interface StartServiceServerOptions {
-        serviceName: string;
-        port: number;
-        buildApp: () => Promise<FastifyInstance>;
-        beforeShutdown?: () => void | Promise<void>;
-      }
-    </item>
-    <item priority="high">
-      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
-    </item>
-  </file>
   <file path="packages/feature-flags/src/index.ts">
     <item priority="low">
       interface FeatureFlag {
@@ -2716,6 +2983,51 @@
     <item priority="low">
       interface FeatureContext {
         
+      }
+    </item>
+  </file>
+  <file path="packages/feature-flags/src/plugin.ts">
+    <item priority="high">
+      export const FEATURE_FLAGS_HEADER: unknown;
+    </item>
+    <item priority="high">
+      export function createFeatureFlagsPlugin(): FastifyPluginAsync { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/jobs/src/job-types.ts">
+    <item priority="high">
+      export const JOB_TYPES: unknown;
+    </item>
+    <item priority="low">
+      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    </item>
+  </file>
+  <file path="packages/jobs/src/scheduler.ts">
+    <item priority="low">
+      interface JobSchedulerConfig {
+        redisUrl: string;
+        queueName?: string;
+      }
+    </item>
+    <item priority="high">
+      class JobScheduler {
+        queue: Queue;
+        redis: Redis;
+        async schedule(): Promise<unknown>;
+        async scheduleCron(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/jobs/src/worker.ts">
+    <item priority="low">
+      type JobHandlerMap = {
+        [K in JobType]: (payload: JobPayloadMap[K]) => Promis...;
+    </item>
+    <item priority="low">
+      interface JobWorkerConfig {
+        redisUrl: string;
+        queueName?: string;
+        handlers: JobHandlerMap;
       }
     </item>
   </file>
@@ -2751,6 +3063,17 @@
       type IcalMethod = "REQUEST" | "CANCEL";
     </item>
   </file>
+  <file path="packages/notifications/src/notification-dispatcher.ts">
+    <item priority="low">
+      type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+    </item>
+    <item priority="low">
+      interface NotificationDispatcherConfig {
+        emailAdapter: NotificationPort;
+        smsAdapter: SmsPort | null;
+      }
+    </item>
+  </file>
   <file path="packages/notifications/src/port.ts">
     <item priority="low">
       interface BookingNotificationInput {
@@ -2762,8 +3085,10 @@
       }
     </item>
     <item priority="low">
-      interface NotificationPort {
-        
+      interface WinBackNotificationInput {
+        guestName: string;
+        guestEmail: string;
+        venueName: string;
       }
     </item>
   </file>
@@ -2779,6 +3104,38 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
+      }
+    </item>
+  </file>
+  <file path="packages/notifications/src/sms-port.ts">
+    <item priority="low">
+      interface SmsNotificationInput {
+        reservationId: string;
+        date: string;
+        startTime: string;
+        partySize: number;
+        guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistUpdateInput {
+        guestName: string | null;
+        guestPhone: string;
+        venueName: string;
+        date: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  <file path="packages/notifications/src/twilio-sms-adapter.ts">
+    <item priority="high">
+      interface TwilioMessages {
+        
+      }
+    </item>
+    <item priority="high">
+      interface TwilioClient {
+        messages: TwilioMessages;
       }
     </item>
   </file>
@@ -2921,6 +3278,67 @@
       export function initSentry(options: InitOptions): void { /* ... */ }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/create-service-app.ts">
+    <item priority="low">
+      interface SwaggerConfig {
+        title: string;
+        description: string;
+        serverUrl: string;
+        version?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ApiVersioningConfig {
+        currentVersion: string;
+        successorVersion: string;
+        sunsetMonthsFromNow: number;
+      }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/health-routes.ts">
+    <item priority="low">
+      interface HealthRouteConfig {
+        path: string;
+        operationId: string;
+      }
+    </item>
+    <item priority="low">
+      interface HealthRoutesOptions {
+        prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+        getSlowQueryStats: () => SlowQueryStats;
+        getServiceStatus: () => ServiceStatus;
+        getPoolMetrics: () => PoolMetrics;
+        latencyTracker: LatencyTracker;
+      }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/health.ts">
+    <item priority="low">
+      interface LatencyAnomalyResult {
+        isAnomaly: boolean;
+        rollingAvg: number;
+      }
+    </item>
+    <item priority="low">
+      interface LatencyTracker {
+        record: (ms: number) => void;
+        checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+      }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/start-service-server.ts">
+    <item priority="low">
+      interface StartServiceServerOptions {
+        serviceName: string;
+        port: number;
+        buildApp: () => Promise<FastifyInstance>;
+        beforeShutdown?: () => void | Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/types/src/agent.ts">
     <item priority="low">
       type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
@@ -2994,21 +3412,13 @@
   </file>
   <file path="packages/types/src/guest.ts">
     <item priority="low">
-      interface Guest {
-        id: string;
-        venueId: string;
-        venue?: Venue;
-        email: string | null;
-        phone: string | null;
-      }
+      type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
     </item>
     <item priority="low">
-      interface CreateGuestRequest {
-        venueId: string;
-        email?: string;
-        phone?: string;
-        name: string;
-        notes?: string;
+      interface StaffNote {
+        text: string;
+        createdBy: string;
+        createdAt: string;
       }
     </item>
   </file>
@@ -3017,7 +3427,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
     </item>
   </file>
   <file path="packages/types/src/schema-compat.ts">
@@ -3083,8 +3493,19 @@
     </item>
   </file>
   <file path="services/reservations/src/app.ts">
+    <item priority="low">
+      interface ReservationsAppOptions {
+        notificationPort?: NotificationDispatcher;
+        bookingNotifier?: BookingNotifier;
+      }
+    </item>
     <item priority="high">
-      export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+      export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications.ts">
+    <item priority="high">
+      export function createNotificationPort(): NotificationDispatcher { /* ... */ }
     </item>
   </file>
   <file path="services/users/src/app.ts">
@@ -3115,6 +3536,19 @@
     </item>
     <item priority="high">
       export const config: unknown;
+    </item>
+  </file>
+  <file path="tools/cli/src/issue-frontmatter.ts">
+    <item priority="low">
+      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    </item>
+    <item priority="low">
+      interface AgentOverrides {
+        model?: ModelTier;
+        budget?: number;
+        maxTurns?: number;
+        adapter?: AdapterType;
+      }
     </item>
   </file>
   </section>
@@ -3321,6 +3755,11 @@
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/ordinal.ts">
+    <item priority="high">
+      export function ordinalVisit(n: number): string { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/utils/feedback.ts">

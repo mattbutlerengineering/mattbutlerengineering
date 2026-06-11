@@ -1,15 +1,71 @@
 <codebase path=".">
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
-    function detectRateLimitInError(message: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(message));
-    }
     function deriveHasChanges(result: SessionResult): boolean {
       if (result.prUrl !== null) return true;
       // If the session succeeded and produced a branch, there were likely changes
       // even if the PR wasn't created (createPr: false path).
       if (result.status === "succeeded" && result.branchName.length > 0) return true;
       return false;
+    }
+    export class ClaudeAdapter implements AgentAdapter {
+      readonly name = "claude";
+    
+      /**
+       * The Claude SDK adapter is available when the ANTHROPIC_API_KEY env var is set.
+       */
+      async isAvailable(): Promise<boolean> {
+        return (
+          typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
+          process.env["ANTHROPIC_API_KEY"].length > 0
+        );
+      }
+    
+      /**
+       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
+       * result back to AdapterResult.
+       */
+      async run(config: AdapterConfig): Promise<AdapterResult> {
+        const startTime = Date.now();
+    
+        try {
+          const sessionResult = await runSession({
+            taskDescription: config.taskDescription,
+            repoPath: config.repoPath,
+            baseBranch: config.baseBranch,
+            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
+            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
+            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+            createPr: false, // Worktree lifecycle is managed by the caller / router
+          });
+    
+          const durationMs = Date.now() - startTime;
+          const rateLimited = sessionResult.failureCategory === "rate_limited";
+          const success = sessionResult.status === "succeeded";
+          const hasChanges = deriveHasChanges(sessionResult);
+    
+          return {
+            success,
+            hasChanges,
+            rateLimited,
+            durationMs,
+            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
+          };
+        } catch (err: unknown) {
+          const durationMs = Date.now() - startTime;
+          const message = err instanceof Error ? err.message : String(err);
+          const rateLimited = scanForRateLimitPatterns(message);
+    
+          return {
+            success: false,
+            hasChanges: false,
+            rateLimited,
+            durationMs,
+            error: message,
+          };
+        }
+      }
     }
   </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
@@ -116,9 +172,10 @@
     
       /**
        * Scan combined CLI output for rate-limit indicators.
+       * Delegates to the shared scanForRateLimitPatterns utility in rate-limit-detector.ts.
        */
       protected detectRateLimiting(output: string): boolean {
-        return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+        return scanForRateLimitPatterns(output);
       }
     
       /**
@@ -620,6 +677,132 @@
       status: string;
       prohibited_patterns?: string[];
     }
+  </file>
+  <file path="tools/cli/src/commands/agent-eval.ts">
+    export const agentEvalCommand = new Command("eval")
+      .description("Run the golden-task eval suite through the agent and score the results")
+      .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
+      .option("--task <id>", "Run only the task with this id")
+      .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
+      .option("--json", "Emit the EvalReport as JSON", false)
+      .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+      .action(
+        async (options: {
+          suite: string;
+          task?: string;
+          model: string;
+          json: boolean;
+          threshold?: string;
+        }) => {
+          const repoPath = resolve(process.cwd());
+          const suiteDir = resolve(repoPath, options.suite);
+    
+          let tasks: Task[];
+          try {
+            tasks = await loadSuite(suiteDir);
+          } catch (err) {
+            console.error(err instanceof Error ? err.message : String(err));
+            process.exitCode = 1;
+            return;
+          }
+    
+          const runTask = makeAgentTaskRunner(repoPath, options.model);
+          const report = await runEvalSuite(tasks, {
+            runId: `eval-${process.pid}`,
+            only: options.task,
+            runTask,
+          });
+    
+          if (options.json) {
+            console.log(JSON.stringify(report, null, 2));
+          } else {
+            printReport(report);
+          }
+    
+          if (options.threshold !== undefined) {
+            const threshold = Number(options.threshold) / 100;
+            if (report.aggregate.passRate < threshold) {
+              console.error(
+                `\nPass rate ${(report.aggregate.passRate * 100).toFixed(1)}% is below threshold ${options.threshold}%`
+              );
+              process.exitCode = 1;
+            }
+          }
+        }
+      );
+    function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
+      return async (task: Task): Promise<TaskRunResult> => {
+        const config: SessionConfig = {
+          taskDescription: task.prompt,
+          repoPath,
+          baseBranch: DEFAULT_SESSION_CONFIG.baseBranch,
+          model,
+          maxTurns: task.budget.maxTurns,
+          maxBudgetUsd: task.budget.maxCostUsd,
+          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+          createPr: false,
+          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
+        };
+    
+        const session = await runSession(config, () => {});
+    
+        const withinBudget =
+          session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
+    
+        const checks: DeterministicChecks = {
+          withinBudget,
+          testsPass: task.rubric.testsMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
+            : true,
+          typecheckPass: task.rubric.typecheckMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
+            : true,
+          lintPass: task.rubric.lintMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
+            : true,
+        };
+    
+        return { task, session, checks };
+      };
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent-frontmatter.ts">
+    async function readStdin(): Promise<string> {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      }
+      return Buffer.concat(chunks).toString("utf-8");
+    }
+    export const frontmatterCommand = new Command("frontmatter")
+      .description(
+        "Parse the yaml agent block from an issue body (stdin or --body-file) into mbe agent run flags"
+      )
+      .option("--body-file <path>", "Read the issue body from a file instead of stdin")
+      .action(async (options: { bodyFile?: string }) => {
+        if (!options.bodyFile && process.stdin.isTTY) {
+          console.warn(
+            "frontmatter: stdin is a terminal and no --body-file given; pipe an issue body in"
+          );
+          console.log("");
+          return;
+        }
+    
+        let body: string;
+        try {
+          body = options.bodyFile ? readFileSync(options.bodyFile, "utf-8") : await readStdin();
+        } catch (err) {
+          console.warn(`frontmatter: cannot read issue body: ${(err as Error).message}`);
+          console.log("");
+          return;
+        }
+    
+        const { overrides, warnings } = parseAgentFrontmatter(body);
+        for (const warning of warnings) {
+          console.warn(`frontmatter: ${warning}`);
+        }
+        console.log(flagsFromOverrides(overrides).join(" "));
+      });
   </file>
   <file path="tools/cli/src/commands/agent.ts">
     function formatDuration(ms: number): string {
@@ -1566,23 +1749,33 @@
     }
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
-    interface Auth0Config {
+    export interface Auth0Config {
       domain: string;
       clientId: string;
       audience: string;
       email: string;
       password: string;
     }
-    function getAuth0Config(): Auth0Config {
-      const domain = process.env.E2E_AUTH0_DOMAIN;
-      const clientId = process.env.E2E_AUTH0_CLIENT_ID;
-      const audience = process.env.E2E_AUTH0_AUDIENCE;
-      const email = process.env.E2E_AUTH_EMAIL;
-      const password = process.env.E2E_AUTH_PASSWORD;
+    export function validateAuth0Config(
+      env: Record<string, string | undefined> = process.env
+    ): Auth0Config {
+      const domain = env["E2E_AUTH0_DOMAIN"];
+      const clientId = env["E2E_AUTH0_CLIENT_ID"];
+      const audience = env["E2E_AUTH0_AUDIENCE"];
+      const email = env["E2E_AUTH_EMAIL"];
+      const password = env["E2E_AUTH_PASSWORD"];
     
-      if (!domain || !clientId || !audience || !email || !password) {
+      const missing: string[] = [];
+      if (!domain) missing.push("E2E_AUTH0_DOMAIN");
+      if (!clientId) missing.push("E2E_AUTH0_CLIENT_ID");
+      if (!audience) missing.push("E2E_AUTH0_AUDIENCE");
+      if (!email) missing.push("E2E_AUTH_EMAIL");
+      if (!password) missing.push("E2E_AUTH_PASSWORD");
+    
+      if (missing.length > 0) {
         throw new Error(
-          "Missing required E2E auth env vars. Required:\n" +
+          `Missing required E2E auth env vars: ${missing.join(", ")}\n\n` +
+            "Required vars:\n" +
             "  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n" +
             "  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n" +
             "  E2E_AUTH0_AUDIENCE    — API audience identifier\n" +
@@ -1592,21 +1785,142 @@
         );
       }
     
-      return { domain, clientId, audience, email, password };
+      return {
+        domain: domain!,
+        clientId: clientId!,
+        audience: audience!,
+        email: email!,
+        password: password!,
+      };
     }
   </file>
   <file path="apps/hospitality/e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
       authPage: async ({ page }, use) => {
-        await injectAuth0Session(page);
+        // storageState (from auth.setup.ts) already provides the OIDC session.
+        // Navigate so the React OIDC provider picks up the stored session.
+        await page.goto("");
         await use(page);
       },
       mockedPage: async ({ page }, use) => {
+        // Route API calls to fixtures first so no real network calls happen.
         await mockApi(page);
-        await injectAuth0Session(page);
+        // storageState provides auth — navigate to trigger OIDC session pickup.
+        await page.goto("");
         await use(page);
       },
     });
+  </file>
+  </section>
+  <section priority="medium" role="eval">
+  <file path="packages/agent-core/src/eval/eval-harness.ts">
+    export interface RunEvalSuiteOptions {
+      /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */
+      readonly runTask: TaskRunner;
+      /** Stable id for this run (callers pass a timestamp/uuid — kept injectable for determinism in tests). */
+      readonly runId: string;
+      /** When set, run only the task with this id. */
+      readonly only?: string;
+    }
+    export async function runEvalSuite(
+      tasks: readonly Task[],
+      opts: RunEvalSuiteOptions
+    ): Promise<EvalReport> {
+      const selected = opts.only ? tasks.filter((t) => t.id === opts.only) : tasks;
+    
+      const scores: TaskScore[] = [];
+      for (const task of selected) {
+        try {
+          const runResult = await opts.runTask(task);
+          scores.push(scoreTask(runResult));
+        } catch (err) {
+          scores.push(failedScore(task, err));
+        }
+      }
+    
+      return { runId: opts.runId, tasks: scores, aggregate: aggregate(scores) };
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/golden-task-set.ts">
+    export async function loadSuite(dir: string): Promise<Task[]> {
+      let entries: string[];
+      try {
+        entries = (await readdir(dir)).filter((f) => f.endsWith(".json")).sort();
+      } catch (err) {
+        throw new Error(
+          `Could not read eval suite directory "${dir}": ${err instanceof Error ? err.message : String(err)}`,
+          { cause: err }
+        );
+      }
+    
+      const tasks: Task[] = [];
+      const seen = new Set<string>();
+      for (const file of entries) {
+        const path = join(dir, file);
+        const task = await loadTaskFile(path);
+        if (seen.has(task.id)) {
+          throw new Error(`Duplicate task id "${task.id}" in eval suite (${file})`);
+        }
+        seen.add(task.id);
+        tasks.push(task);
+      }
+      return tasks;
+    }
+    async function loadTaskFile(path: string): Promise<Task> {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(await readFile(path, "utf8"));
+      } catch (err) {
+        throw new Error(
+          `Invalid JSON in eval task "${path}": ${err instanceof Error ? err.message : String(err)}`,
+          { cause: err }
+        );
+      }
+    
+      const parsed = taskSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new Error(`Invalid eval task "${path}": ${parsed.error.message}`);
+      }
+      return parsed.data;
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/task-scorer.ts">
+    export function scoreTask(run: TaskRunResult): TaskScore {
+      const { task, session, checks } = run;
+      const { rubric } = task;
+    
+      const signals: boolean[] = [];
+      if (rubric.testsMustPass) signals.push(checks.testsPass);
+      if (rubric.typecheckMustPass) signals.push(checks.typecheckPass);
+      if (rubric.lintMustPass) signals.push(checks.lintPass);
+      // Budget is always an applicable signal.
+      signals.push(checks.withinBudget);
+    
+      const satisfied = signals.filter(Boolean).length;
+      const score = signals.length === 0 ? 0 : satisfied / signals.length;
+      const passed = signals.every(Boolean);
+    
+      return {
+        taskId: task.id,
+        category: task.category,
+        passed,
+        score,
+        deterministic: checks,
+        selfEvaluation: session.evaluation,
+        costUsd: session.costUsd,
+        turns: session.numTurns,
+      };
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/types.ts">
+    export const TASK_CATEGORIES = [
+      "bugfix",
+      "refactor",
+      "new-route",
+      "dep-bump",
+      "test-writing",
+    ] as const;
+    export type TaskCategory = (typeof TASK_CATEGORIES)[number];
   </file>
   </section>
   <section priority="medium" role="fastify">
@@ -1796,19 +2110,25 @@
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
+      lastEvaluation?: EvaluationResult;
     
       shouldSkip(context: GateContext): boolean {
-        if (context.evaluateSuccess === false) return true;
-        return !shouldEvaluate(context.diff, { commitTitle: context.commitMsg });
+        return context.evaluateSuccess === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
         const span = tracer.startSpan("agent_core.llm_evaluation_gate");
         try {
-          const evalResult = await evaluateSuccess(context.taskDescription, context.diff);
+          const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
+            commitTitle: context.commitMsg,
+          });
+          this.lastEvaluation = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
+          if (evalResult.skipped) {
+            span.setAttribute("evaluation.skipped", true);
+          }
     
           if (!evalResult.passed) {
             return {
@@ -1835,8 +2155,11 @@
     export class SecurityReviewGate implements QualityGate {
       readonly name = "security-review";
     
+      constructor(private readonly opts?: { skipWhen?: () => boolean }) {}
+    
       shouldSkip(context: GateContext): boolean {
-        return context.runSecurityReview === false;
+        if (context.runSecurityReview === false) return true;
+        return this.opts?.skipWhen?.() ?? false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -1866,6 +2189,7 @@
   <file path="packages/agent-core/src/gates/static-analysis-gate.ts">
     export class StaticAnalysisGate implements QualityGate {
       readonly name = "static-analysis";
+      lastResult?: GateResult;
     
       shouldSkip(context: GateContext): boolean {
         return context.runStaticAnalysis === false;
@@ -1886,25 +2210,31 @@
             const formatted = errorViolations
               .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
               .join("; ");
-            return {
+            const result: GateResult = {
               passed: false,
               gateName: this.name,
               severity: "error",
               details: `Static analysis errors: ${formatted}`,
             };
+            this.lastResult = result;
+            return result;
           }
     
           if (!analysisResult.clean) {
             const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
-            return {
+            const result: GateResult = {
               passed: true,
               gateName: this.name,
               severity: "warning",
               details: `${warnCount} warning(s) (non-blocking)`,
             };
+            this.lastResult = result;
+            return result;
           }
     
-          return { passed: true, gateName: this.name, severity: "error" };
+          const result: GateResult = { passed: true, gateName: this.name, severity: "error" };
+          this.lastResult = result;
+          return result;
         } finally {
           span.end();
         }
@@ -1967,25 +2297,6 @@
       setTheme: () => {},
     });
   </file>
-  <file path="apps/hospitality/src/hooks/useApiCall.ts">
-    export interface UseApiCallOptions {
-      /** Timeout in milliseconds (default: 10000) */
-      timeout?: number;
-    }
-    export interface UseApiCallResult<T> {
-      data: T | null;
-      isLoading: boolean;
-      error: string | null;
-      /** Re-execute the last call */
-      retry: () => void;
-      /** Execute a new call */
-      execute: (fn: (signal: AbortSignal) => Promise<T>) => Promise<T | null>;
-      /** Milliseconds since last successful fetch, or null if never fetched */
-      staleness: number | null;
-      /** Clear error state */
-      clearError: () => void;
-    }
-  </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     export function useApiClient() {
       const { accessToken } = useAuth();
@@ -2017,6 +2328,30 @@
       refetch: () => Promise<void>;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
+    export interface DashboardStats {
+      totalReservations: number;
+      expectedCovers: number;
+      upcomingCount: number;
+      cancellationRate: number;
+      cancellationTrend: "up" | "down" | "neutral";
+    }
+    export interface UseDashboardStatsQueryResult {
+      reservations: readonly Reservation[];
+      stats: DashboardStats;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
+    export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
+    export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+  </file>
+  <file path="apps/hospitality/src/hooks/useGuests.ts">
+    export const GUESTS_QUERY_KEY = "guests" as const;
+    export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+  </file>
   <file path="apps/hospitality/src/hooks/useReservationEvents.ts">
     export type ReservationEventType =
       | "reservation:created"
@@ -2025,18 +2360,37 @@
       | "hold:created"
       | "hold:released"
       | "hold:confirmed"
-      | "table:updated";
+      | "table:updated"
+      | "guest:lapsing";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold;
+      data: Reservation | Table | ReservationHold | LapsingGuest[];
     }
   </file>
   <file path="apps/hospitality/src/hooks/useReservationQuerySync.ts">
+    function canShowToast(): boolean {
+      const now = Date.now();
+      _toastTimestamps = _toastTimestamps.filter((t) => now - t < TOAST_WINDOW_MS);
+      if (_toastTimestamps.length >= TOAST_MAX) return false;
+      _toastTimestamps.push(now);
+      return true;
+    }
     export function useReservationQuerySync() {
       const queryClient = useQueryClient();
       const { selectedVenueId } = useVenue();
+      const { toast } = useToast();
+    
+      const makeEvent = (
+        type: ReservationEvent["type"],
+        data: ReservationEvent["data"]
+      ): ReservationEvent => ({
+        type,
+        venueId: selectedVenueId ?? "",
+        timestamp: new Date().toISOString(),
+        data,
+      });
     
       const invalidateReservations = () => {
         queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
@@ -2046,14 +2400,58 @@
         queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
       };
     
-      return useReservationEvents({
+      const result = useReservationEvents({
         venueId: selectedVenueId ?? undefined,
-        onReservationCreated: invalidateReservations,
-        onReservationUpdated: invalidateReservations,
-        onReservationCancelled: invalidateReservations,
-        onHoldConfirmed: invalidateReservations,
-        onTableUpdated: invalidateTables,
+        onReservationCreated: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:created", reservation));
+          if (canShowToast()) {
+            toast({
+              title: "New reservation",
+              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              variant: "accent",
+              duration: 5000,
+            });
+          }
+        },
+        onReservationUpdated: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:updated", reservation));
+        },
+        onReservationCancelled: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("reservation:cancelled", reservation));
+          if (canShowToast()) {
+            toast({
+              title: "Reservation cancelled",
+              description: `${reservation.guestName ?? "Guest"}'s reservation was cancelled`,
+              variant: "error",
+              duration: 5000,
+            });
+          }
+        },
+        onHoldCreated: (hold) => {
+          broadcastSSEEvent(makeEvent("hold:created", hold));
+        },
+        onHoldReleased: (hold) => {
+          broadcastSSEEvent(makeEvent("hold:released", hold));
+        },
+        onHoldConfirmed: (reservation: Reservation) => {
+          invalidateReservations();
+          broadcastSSEEvent(makeEvent("hold:confirmed", reservation));
+        },
+        onTableUpdated: (table) => {
+          invalidateTables();
+          broadcastSSEEvent(makeEvent("table:updated", table));
+        },
       });
+    
+      // Broadcast connection status changes to any subscribers (e.g. ActivityFeed, HomePage)
+      useEffect(() => {
+        notifySSEStatus(result.isConnected, result.error);
+      }, [result.isConnected, result.error]);
+    
+      return result;
     }
   </file>
   <file path="apps/hospitality/src/hooks/useReservations.ts">
@@ -2062,11 +2460,33 @@
       enabled?: boolean;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useSSEEventFeed.ts">
+    type EventFeedListener = (event: ReservationEvent) => void;
+    export function broadcastSSEEvent(event: ReservationEvent): void {
+      for (const listener of _feedListeners) {
+        listener(event);
+      }
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useSSEStatus.ts">
+    type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
+    export function notifySSEStatus(isConnected: boolean, error: Error | null): void {
+      _isConnected = isConnected;
+      _error = error;
+      for (const listener of _listeners) {
+        listener(isConnected, error);
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
+  </file>
+  <file path="apps/hospitality/src/hooks/useUsers.ts">
+    export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
+    export const USERS_QUERY_KEY = "users" as const;
   </file>
   <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
@@ -2076,6 +2496,10 @@
       nextStep: SetupStep | null;
       progress: number; // 0–100
     }
+  </file>
+  <file path="apps/hospitality/src/hooks/useVenues.ts">
+    export const VENUES_QUERY_KEY = "venues" as const;
+    export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     export function useBoop(): {
@@ -2848,6 +3272,10 @@
       async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
         const { config, onEvent } = ctx;
     
+        // Classify the task once so downstream consumers reuse the result instead
+        // of re-scanning the description.
+        const taskSignals = classifyTask(config.taskDescription);
+    
         emitEvent(onEvent, "session:start", { message: "Creating worktree..." });
     
         const wtSpan = tracer.startSpan("agent_core.create_worktree");
@@ -2903,7 +3331,7 @@
     
           return {
             result: { phase: this.name, status: "success", errors: [] },
-            ctx: { ...ctx, worktree, systemPrompt },
+            ctx: { ...ctx, worktree, systemPrompt, taskSignals },
           };
         } catch (error) {
           wtSpan.end();
@@ -3349,41 +3777,20 @@
           const agentTools = createAgentTools(request.log, api);
     
           const result = streamText({
-            model: "anthropic/claude-haiku-4.5",
-            messages: [
-              {
-                role: "system" as const,
-                content: SYSTEM_PROMPT,
-                providerOptions: {
-                  anthropic: { cacheControl: { type: "ephemeral" } },
-                },
-              },
-              ...messages,
-            ],
+            model: anthropic(GEN_MODEL_ID),
+            messages: buildGenMessages(SYSTEM_PROMPT, messages),
             tools: agentTools,
             stopWhen: stepCountIs(5),
-            onFinish: async ({ usage, providerMetadata }) => {
-              const anthropicMeta = providerMetadata?.anthropic as
-                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
-                | undefined;
-              request.log.info(
-                {
-                  userId: request.user?.id,
-                  modelId: "anthropic/claude-haiku-4.5",
-                  inputTokens: usage.inputTokens,
-                  outputTokens: usage.outputTokens,
-                  cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
-                },
-                "gen-agent cost log"
-              );
-            },
+            onFinish: async ({ usage, providerMetadata }) =>
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage,
+                providerMetadata,
+                label: "gen-agent cost log",
+              }),
           });
     
-          reply.header("Content-Type", "application/x-ndjson; charset=utf-8");
-          reply.header("Cache-Control", "no-cache");
-          reply.header("Connection", "keep-alive");
-          reply.header("X-Accel-Buffering", "no");
+          applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
     
           const encoder = new TextEncoder();
           const ndjsonStream = new ReadableStream({
@@ -3391,7 +3798,10 @@
               try {
                 for await (const event of result.fullStream) {
                   if (event.type === "text-delta") {
-                    const line = JSON.stringify({ type: "text", content: event.text });
+                    const line = JSON.stringify({
+                      type: "text",
+                      content: event.text,
+                    });
                     controller.enqueue(encoder.encode(line + "\n"));
                   } else if (event.type === "tool-call") {
                     if (event.toolName === "render_component") {
@@ -3468,47 +3878,23 @@
     
           const { messages } = parseResult.data;
     
-          // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
-          const modelId = "anthropic/claude-haiku-4.5";
-    
           const result = streamText({
-            model: modelId, // AI SDK resolves "provider/model" via AI_GATEWAY_API_KEY
+            // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
+            model: anthropic(GEN_MODEL_ID),
             // GEN-05: prompt caching via providerOptions on the system message
-            // CRITICAL: must use messages array (not top-level system:) to support providerOptions
-            messages: [
-              {
-                role: "system",
-                content: SYSTEM_PROMPT,
-                providerOptions: {
-                  anthropic: { cacheControl: { type: "ephemeral" } },
-                },
-              },
-              ...messages,
-            ],
+            messages: buildGenMessages(SYSTEM_PROMPT, messages),
             // GEN-06: cost logging in onFinish
-            onFinish: async ({ usage, providerMetadata }) => {
-              const anthropicMeta = providerMetadata?.anthropic as
-                | { cacheCreationInputTokens?: number; cacheReadInputTokens?: number }
-                | undefined;
-              request.log.info(
-                {
-                  userId: request.user?.id,
-                  modelId,
-                  inputTokens: usage.inputTokens,
-                  outputTokens: usage.outputTokens,
-                  cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
-                  cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
-                },
-                "gen-chat cost log"
-              );
-            },
+            onFinish: async ({ usage, providerMetadata }) =>
+              logGenCost(request.log, {
+                userId: request.user?.id,
+                usage,
+                providerMetadata,
+                label: "gen-chat cost log",
+              }),
           });
     
           // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
-          reply.header("Content-Type", "text/plain; charset=utf-8");
-          reply.header("Cache-Control", "no-cache");
-          reply.header("Connection", "keep-alive");
-          reply.header("X-Accel-Buffering", "no");
+          applyStreamHeaders(reply, "text/plain; charset=utf-8");
     
           // Sanitize AI output to prevent XSS (OWASP LLM02)
           return reply.send(createSanitizedStream(result.textStream));
@@ -3618,6 +4004,10 @@
       );
     };
   </file>
+  <file path="services/agent/src/routes/gen-stream.ts">
+    export const GEN_MODEL_ID = "claude-haiku-4.5";
+    type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
+  </file>
   <file path="services/agent/src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
@@ -3627,6 +4017,8 @@
         getPoolMetrics,
         latencyTracker,
         checkAuth0,
+        rateLimitMonitor: fastify.rateLimitMonitor,
+        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getAgentHealth" },
           { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
@@ -4362,22 +4754,41 @@
     
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
+          // Cancel any pending reminder jobs for this reservation
+          fastify.bookingNotifier
+            .cancelBookingReminders(reservation.id)
+            .catch((err) => fastify.log.error({ err }, "Failed to cancel booking reminders"));
+    
           if (reservation.guestEmail && venue) {
-            await notificationAdapter.sendBookingCancelled({
-              reservationId: reservation.id,
-              date: reservation.date,
-              startTime: reservation.startTime,
-              endTime: reservation.endTime,
-              partySize: reservation.partySize,
-              guestName: reservation.guestName,
-              guestEmail: reservation.guestEmail,
-              guestPhone: reservation.guestPhone ?? null,
-              specialRequests: reservation.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-            });
+            const preference =
+              (reservation.guest?.communicationPreference as
+                | "email_only"
+                | "sms_only"
+                | "both"
+                | "transactional_only"
+                | null) ?? "email_only";
+            try {
+              await fastify.notificationPort.sendBookingCancelled(
+                {
+                  reservationId: reservation.id,
+                  date: reservation.date,
+                  startTime: reservation.startTime,
+                  endTime: reservation.endTime,
+                  partySize: reservation.partySize,
+                  guestName: reservation.guestName,
+                  guestEmail: reservation.guestEmail,
+                  guestPhone: reservation.guestPhone ?? null,
+                  specialRequests: reservation.notes ?? null,
+                  venueName: venue.name,
+                  venueTimezone: venue.ianaTimezone,
+                  venueAddress: null,
+                  manageToken: token,
+                },
+                preference
+              );
+            } catch {
+              request.log.error("Failed to send booking cancelled notification");
+            }
           }
     
           return reply.status(200).send({
@@ -4418,6 +4829,251 @@
           }
     
           return reply.status(200).type("text/html").send(successHtml);
+        }
+      );
+    };
+  </file>
+  <file path="services/reservations/src/routes/deposits.ts">
+    interface ApiResponse<T> {
+      data: T;
+    }
+    export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /api/v1/deposits — create a deposit
+      fastify.post<{
+        Body: { reservationId: string; amountCents: number; currency?: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Create a deposit",
+            operationId: "createDeposit",
+            description: "Create a new deposit in pending state for a reservation.",
+            tags: ["Deposits"],
+            body: {
+              type: "object",
+              required: ["reservationId", "amountCents"],
+              properties: {
+                reservationId: { type: "string", description: "ID of the reservation" },
+                amountCents: { type: "integer", minimum: 1, description: "Deposit amount in cents" },
+                currency: { type: "string", default: "usd", description: "ISO currency code" },
+              },
+            },
+            response: {
+              201: {
+                description: "Deposit created",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              400: { description: "Bad request", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.create({
+            reservationId: request.body.reservationId,
+            amountCents: request.body.amountCents,
+            currency: request.body.currency,
+          });
+          return reply.code(201).send({ data: deposit });
+        }
+      );
+    
+      // GET /api/v1/deposits/:id — get deposit by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get deposit by ID",
+            operationId: "getDepositById",
+            description: "Retrieve a deposit by its unique identifier.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit found",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.getById(request.params.id);
+          if (!deposit) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+          return { data: deposit };
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/capture — apply (capture) a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/capture",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Capture (apply) a deposit",
+            operationId: "captureDeposit",
+            description:
+              "Capture a held deposit — transitions state from held → applied and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit applied",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.apply(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/refund — refund a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/refund",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Refund a deposit",
+            operationId: "refundDeposit",
+            description:
+              "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit refunded",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.refund(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/forfeit",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Forfeit a deposit",
+            operationId: "forfeitDeposit",
+            description:
+              "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit forfeited",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const existing = await depositService.getById(request.params.id);
+          if (!existing) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          try {
+            const deposit = await depositService.forfeit(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
         }
       );
     };
@@ -4792,15 +5448,8 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to list guests for",
-                },
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
+                venueId: { type: "string", description: "Venue ID to list guests for" },
+                page: { type: "string", default: "1", description: "Page number (1-indexed)" },
                 limit: {
                   type: "string",
                   default: "20",
@@ -4813,17 +5462,11 @@
                 description: "Successful response with paginated guest list",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Guest#" },
-                  },
+                  data: { type: "array", items: { $ref: "Guest#" } },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -4842,12 +5485,7 @@
     
       // Search guests
       fastify.get<{
-        Querystring: {
-          venueId: string;
-          query?: string;
-          tags?: string;
-          hasNotVisitedInDays?: string;
-        };
+        Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
         Reply: PaginatedResponse<Guest> | ApiError;
       }>(
         "/search",
@@ -4863,18 +5501,9 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to search within",
-                },
-                query: {
-                  type: "string",
-                  description: "Search term (matches name, email, or phone)",
-                },
-                tags: {
-                  type: "string",
-                  description: "Comma-separated tags to filter by",
-                },
+                venueId: { type: "string", description: "Venue ID to search within" },
+                query: { type: "string", description: "Search term (matches name, email, or phone)" },
+                tags: { type: "string", description: "Comma-separated tags to filter by" },
                 hasNotVisitedInDays: {
                   type: "string",
                   description: "Filter guests who haven't visited in X days",
@@ -4886,17 +5515,11 @@
                 description: "Search results",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Guest#" },
-                  },
+                  data: { type: "array", items: { $ref: "Guest#" } },
                   pagination: { $ref: "Pagination#" },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -4934,10 +5557,7 @@
               type: "object",
               required: ["venueId"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to get segments for",
-                },
+                venueId: { type: "string", description: "Venue ID to get segments for" },
               },
             },
             response: {
@@ -4945,16 +5565,10 @@
                 description: "Guest segments",
                 type: "object",
                 properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "GuestSegment#" },
-                  },
+                  data: { type: "array", items: { $ref: "GuestSegment#" } },
                 },
               },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -4986,26 +5600,16 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
+              properties: { id: { type: "string", description: "Guest ID" } },
               required: ["id"],
             },
             response: {
               200: {
                 description: "Guest found",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
+              404: { description: "Guest not found", $ref: "Error#" },
             },
           },
         },
@@ -5036,31 +5640,20 @@
               type: "object",
               required: ["venueId", "name"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
-                },
-                email: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email",
-                },
-                phone: {
-                  type: "string",
-                  description: "Guest phone",
-                },
-                name: {
-                  type: "string",
-                  description: "Guest name",
-                },
-                notes: {
-                  type: "string",
-                  description: "Internal notes",
-                },
+                venueId: { type: "string", description: "Venue ID" },
+                email: { type: "string", format: "email", description: "Guest email" },
+                phone: { type: "string", description: "Guest phone" },
+                name: { type: "string", description: "Guest name" },
+                notes: { type: "string", description: "Internal notes" },
                 tags: {
                   type: "array",
                   items: { type: "string" },
                   description: "Tags for categorization",
+                },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
                 },
               },
             },
@@ -5068,18 +5661,10 @@
               201: {
                 description: "Guest created",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              400: {
-                description: "Invalid request or duplicate email/phone",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              400: { description: "Invalid request or duplicate email/phone", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
@@ -5106,7 +5691,13 @@
     
       // Find or create guest (identity resolution)
       fastify.post<{
-        Body: { venueId: string; email?: string; phone?: string; name: string };
+        Body: {
+          venueId: string;
+          email?: string;
+          phone?: string;
+          name: string;
+          dietaryRestrictions?: string[];
+        };
         Reply: ApiResponse<Guest> | ApiError;
       }>(
         "/find-or-create",
@@ -5123,10 +5714,7 @@
               type: "object",
               required: ["venueId", "name"],
               properties: {
-                venueId: {
-                  type: "string",
-                  description: "Venue ID",
-                },
+                venueId: { type: "string", description: "Venue ID" },
                 email: {
                   type: "string",
                   format: "email",
@@ -5136,9 +5724,11 @@
                   type: "string",
                   description: "Guest phone (used for matching if email not found)",
                 },
-                name: {
-                  type: "string",
-                  description: "Guest name",
+                name: { type: "string", description: "Guest name" },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Dietary restrictions to merge with existing guest profile",
                 },
               },
             },
@@ -5146,29 +5736,26 @@
               200: {
                 description: "Guest found or created",
                 type: "object",
-                properties: {
-                  data: { $ref: "Guest#" },
-                },
+                properties: { data: { $ref: "Guest#" } },
               },
-              400: {
-                description: "Invalid request",
-                $ref: "Error#",
-              },
-              401: {
-                description: "Authentication required",
-                $ref: "Error#",
-              },
+              400: { description: "Invalid request", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
             },
           },
         },
         async (request, reply) => {
-          const { venueId, email, phone, name } = request.body;
+          const { venueId, email, phone, name, dietaryRestrictions } = request.body;
           if (!email && !phone) {
             return reply
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "Either email or phone is required"));
           }
-          const guest = await guestService.findOrCreate(venueId, { email, phone, name });
+          const guest = await guestService.findOrCreate(venueId, {
+            email,
+            phone,
+            name,
+            dietaryRestrictions,
+          });
           return { data: guest };
         }
       );
@@ -5190,6 +5777,62 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
+              properties: { id: { type: "string", description: "Guest ID" } },
+              required: ["id"],
+            },
+            body: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email", nullable: true },
+                phone: { type: "string", nullable: true },
+                name: { type: "string" },
+                notes: { type: "string", nullable: true },
+                tags: { type: "array", items: { type: "string" }, nullable: true },
+                dietaryRestrictions: {
+                  type: "array",
+                  items: { type: "string" },
+                  nullable: true,
+                  description: "Dietary restrictions (replaces existing list)",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Guest updated",
+                type: "object",
+                properties: { data: { $ref: "Guest#" } },
+              },
+              404: { description: "Guest not found", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const guest = await guestService.update(request.params.id, request.body);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          }
+          return { data: guest };
+        }
+      );
+    
+      // Add staff note to guest
+      fastify.post<{
+        Params: { id: string };
+        Body: { text: string };
+        Reply: ApiResponse<Guest> | ApiError;
+      }>(
+        "/:id/notes",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add a staff note to a guest",
+            operationId: "addGuestNote",
+            description:
+              "Append a staff note to a guest profile. Notes include the authenticated user's identity and a timestamp. Staff notes are only visible on authenticated endpoints.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
               properties: {
                 id: {
                   type: "string",
@@ -5200,25 +5843,30 @@
             },
             body: {
               type: "object",
+              required: ["text"],
               properties: {
-                email: { type: "string", format: "email", nullable: true },
-                phone: { type: "string", nullable: true },
-                name: { type: "string" },
-                notes: { type: "string", nullable: true },
-                tags: {
-                  type: "array",
-                  items: { type: "string" },
-                  nullable: true,
+                text: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Note text",
                 },
               },
             },
             response: {
-              200: {
-                description: "Guest updated",
+              201: {
+                description: "Note appended; returns updated guest",
                 type: "object",
                 properties: {
                   data: { $ref: "Guest#" },
                 },
+              },
+              400: {
+                description: "Invalid request",
+                $ref: "Error#",
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
               },
               404: {
                 description: "Guest not found",
@@ -5228,11 +5876,128 @@
           },
         },
         async (request, reply) => {
-          const guest = await guestService.update(request.params.id, request.body);
+          const { text } = request.body;
+          if (!text || text.trim().length === 0) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", "text is required"));
+          }
+          const createdBy = request.user?.id ?? "unknown";
+          const guest = await guestService.addNote(request.params.id, text, createdBy);
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
-          return { data: guest };
+          return reply.code(201).send({ data: guest });
+        }
+      );
+    
+      // Get lapsing guests for a venue (on-demand scan)
+      fastify.get<{
+        Querystring: { venueId: string };
+        Reply: ApiResponse<LapsingGuest[]> | ApiError;
+      }>(
+        "/lapsing",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get lapsing guests",
+            operationId: "getLapsingGuests",
+            description:
+              "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: { type: "string", description: "Venue ID to scan" },
+              },
+            },
+            response: {
+              200: {
+                description: "Lapsing guests list",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        guestId: { type: "string" },
+                        name: { type: "string" },
+                        email: { type: "string", nullable: true },
+                        phone: { type: "string", nullable: true },
+                        communicationPreference: { type: "string" },
+                        avgFrequencyDays: { type: "number" },
+                        daysSinceLastVisit: { type: "number" },
+                        daysOverdue: { type: "number" },
+                      },
+                    },
+                  },
+                },
+              },
+              400: { $ref: "Error#" },
+              401: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId is required"));
+          }
+          const lapsing = await guestService.scanLapsedGuests(venueId);
+          return { data: lapsing };
+        }
+      );
+    
+      // Send win-back message to a guest
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<{ sent: boolean }> | ApiError;
+      }>(
+        "/:id/win-back",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Send win-back message",
+            operationId: "sendGuestWinBack",
+            description:
+              "Send a personalized win-back message to a lapsing guest. Skipped if communicationPreference is transactional_only.",
+            tags: ["Guests"],
+            security: [{ bearerAuth: [] }],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id: { type: "string", description: "Guest ID" },
+              },
+            },
+            response: {
+              200: {
+                description: "Win-back result",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "object",
+                    properties: {
+                      sent: { type: "boolean" },
+                    },
+                  },
+                },
+              },
+              404: { $ref: "Error#" },
+              401: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const guest = await guestService.getById(request.params.id);
+          if (!guest) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
+          }
+          const sent = await sendWinBack(guest, fastify.notificationPort);
+          return { data: { sent } };
         }
       );
     
@@ -5251,27 +6016,13 @@
             security: [{ bearerAuth: [] }],
             params: {
               type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Guest ID",
-                },
-              },
+              properties: { id: { type: "string", description: "Guest ID" } },
               required: ["id"],
             },
             response: {
-              204: {
-                description: "Guest deleted",
-                type: "null",
-              },
-              404: {
-                description: "Guest not found",
-                $ref: "Error#",
-              },
-              409: {
-                description: "Guest has reservations",
-                $ref: "Error#",
-              },
+              204: { description: "Guest deleted", type: "null" },
+              404: { description: "Guest not found", $ref: "Error#" },
+              409: { description: "Guest has reservations", $ref: "Error#" },
             },
           },
         },
@@ -5294,6 +6045,8 @@
         getPoolMetrics,
         latencyTracker,
         checkAuth0,
+        rateLimitMonitor: fastify.rateLimitMonitor,
+        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/health", operationId: "getHealthApi" },
@@ -5827,23 +6580,45 @@
           const updated = updateResult.reservation!;
           const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
     
+          // Reschedule reminder jobs if time changed
+          const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
+          if (timeChanged) {
+            fastify.bookingNotifier
+              .rescheduleBookingReminders(updated, token)
+              .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
+          }
+    
           if (updated.guestEmail && venue) {
-            await notificationAdapter.sendBookingModified({
-              reservationId: updated.id,
-              date: updated.date,
-              startTime: updated.startTime,
-              endTime: updated.endTime,
-              partySize: updated.partySize,
-              guestName: updated.guestName,
-              guestEmail: updated.guestEmail,
-              guestPhone: updated.guestPhone ?? null,
-              specialRequests: updated.notes ?? null,
-              venueName: venue.name,
-              venueTimezone: venue.ianaTimezone,
-              venueAddress: null,
-              manageToken: token,
-              sequence: 2,
-            });
+            const preference =
+              (updated.guest?.communicationPreference as
+                | "email_only"
+                | "sms_only"
+                | "both"
+                | "transactional_only"
+                | null) ?? "email_only";
+            try {
+              await fastify.notificationPort.sendBookingModified(
+                {
+                  reservationId: updated.id,
+                  date: updated.date,
+                  startTime: updated.startTime,
+                  endTime: updated.endTime,
+                  partySize: updated.partySize,
+                  guestName: updated.guestName,
+                  guestEmail: updated.guestEmail,
+                  guestPhone: updated.guestPhone ?? null,
+                  specialRequests: updated.notes ?? null,
+                  venueName: venue.name,
+                  venueTimezone: venue.ianaTimezone,
+                  venueAddress: null,
+                  manageToken: token,
+                  sequence: 2,
+                },
+                preference
+              );
+            } catch {
+              request.log.error("Failed to send booking modified notification");
+            }
           }
     
           return reply.status(200).send({
@@ -5924,6 +6699,19 @@
         }
       );
     };
+  </file>
+  <file path="services/reservations/src/routes/public-deposits.ts">
+    interface CreatePublicPaymentIntentBody {
+      reservationId: string;
+      guestEmail?: string;
+      guestName?: string;
+    }
+    interface PublicPaymentIntentResponse {
+      clientSecret: string;
+      depositId: string;
+      amountCents: number;
+      currency: string;
+    }
   </file>
   <file path="services/reservations/src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -6115,6 +6903,14 @@
         maxAdvanceBooking?: number;
         slotIntervalMinutes?: number;
       };
+      deposit: {
+        enabled: boolean;
+        depositType: string | null;
+        amountCents: number | null;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      };
     }
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
@@ -6146,6 +6942,9 @@
             } as never);
           }
     
+          // Fetch deposit-specific fields (not on the mapped Venue type) via service
+          const rawVenue = await venueService.getRawBySlug(slug);
+    
           const publicVenue: PublicVenueResponse = {
             name: venue.name,
             slug: venue.slug,
@@ -6157,6 +6956,14 @@
               maxPartySize: venue.settings?.maxPartySize,
               maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
               slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+            },
+            deposit: {
+              enabled: rawVenue?.depositEnabled ?? false,
+              depositType: rawVenue?.depositType ?? null,
+              amountCents: rawVenue?.depositAmountCents ?? null,
+              freeCancellationHours: rawVenue?.freeCancellationHours ?? null,
+              lateCancellationFeePercent: rawVenue?.lateCancellationFeePercent ?? null,
+              noShowFeePercent: rawVenue?.noShowFeePercent ?? null,
             },
           };
     
@@ -6264,20 +7071,7 @@
             },
           },
         },
-        async (request, reply) => {
-          const adminAccess = hasPermission(request.user, "admin");
-    
-          if (!adminAccess) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "Admin access required to list all reservations"
-              ) as never
-            );
-          }
-    
+        async (request, _reply) => {
           const { page, limit } = parseListQuery(request.query);
           return reservationService.list({
             page,
@@ -6395,6 +7189,16 @@
                   type: "integer",
                   minimum: 1,
                   description: "Expected duration in minutes (defaults to 90)",
+                },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
                 },
               },
               required: ["partySize", "tableId", "venueId"],
@@ -6573,6 +7377,16 @@
                   type: "string",
                   description: "ID of the venue for this reservation",
                 },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
+                },
               },
               required: ["date", "startTime", "endTime", "partySize", "tableId"],
             },
@@ -6602,10 +7416,7 @@
         async (request, reply) => {
           const userId = request.user?.id;
     
-          const features = createFeatureContext(
-            request.headers["x-feature-flags"] as string | undefined
-          );
-          const useEnhancedValidation = features.check("enhanced-validation");
+          const useEnhancedValidation = request.features.check("enhanced-validation");
     
           if (useEnhancedValidation && request.body.partySize > 20) {
             return reply
@@ -6703,6 +7514,16 @@
                 cancellationNote: {
                   type: "string",
                   description: "Additional cancellation notes (used when status is CANCELLED)",
+                },
+                occasion: {
+                  type: "string",
+                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
+                  description: "Occasion for the reservation",
+                },
+                seatingPreference: {
+                  type: "string",
+                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
+                  description: "Guest seating preference",
                 },
               },
             },
@@ -6880,6 +7701,112 @@
         }
       );
     };
+  </file>
+  <file path="services/reservations/src/routes/stripe-webhook.ts">
+    export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.post(
+        "/api/v1/stripe/webhook",
+        {
+          config: {
+            // Disable body parsing — we need the raw body for Stripe signature verification
+            rawBody: true,
+          },
+        },
+        async (request, reply) => {
+          const signature = request.headers["stripe-signature"];
+    
+          if (!signature || typeof signature !== "string") {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Missing stripe-signature header"));
+          }
+    
+          // Get raw body buffer
+          const rawBody =
+            (request as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(request.body));
+    
+          let event: Stripe.Event;
+          try {
+            event = stripeService.constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Invalid webhook signature";
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
+          }
+    
+          try {
+            await handleStripeEvent(event);
+          } catch (err) {
+            // Log but don't fail — return 200 to prevent Stripe retrying
+            fastify.log.error({ err, eventType: event.type }, "Error handling Stripe webhook event");
+          }
+    
+          return reply.code(200).send({ received: true });
+        }
+      );
+    };
+    async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+      switch (event.type) {
+        case "payment_intent.succeeded": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const paymentIntentId = paymentIntent.id;
+    
+          // Find the deposit associated with this PaymentIntent
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) {
+            // No deposit linked — nothing to do
+            return;
+          }
+    
+          // Only transition from pending to held if not already transitioned
+          if (deposit.status === "pending") {
+            await depositService.hold(deposit.id, paymentIntentId);
+          }
+          break;
+        }
+    
+        case "payment_intent.canceled": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const paymentIntentId = paymentIntent.id;
+    
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) return;
+    
+          // If pending, can't directly refund (no transition pending → refunded)
+          // If held, we can refund
+          if (deposit.status === "held") {
+            await depositService.refund(deposit.id);
+          }
+          break;
+        }
+    
+        case "charge.refunded": {
+          const charge = event.data.object as Stripe.Charge;
+          // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
+          const paymentIntentId =
+            typeof charge.payment_intent === "string"
+              ? charge.payment_intent
+              : charge.payment_intent?.id;
+    
+          if (!paymentIntentId) return;
+    
+          const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+    
+          if (!deposit) return;
+    
+          // Only transition if currently held
+          if (deposit.status === "held") {
+            await depositService.refund(deposit.id);
+          }
+          break;
+        }
+    
+        default:
+          // Unknown event type — ignore gracefully
+          break;
+      }
+    }
   </file>
   <file path="services/reservations/src/routes/tables.ts">
     export const tableRoutes: FastifyPluginAsync = async (fastify) => {
@@ -7940,6 +8867,232 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/waitlist.ts">
+    export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST / — create waitlist entry
+      fastify.post<{
+        Body: {
+          venueId: string;
+          partySize: number;
+          guestName: string;
+          guestPhone: string;
+          avgTurnTimeMinutes?: number;
+        };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Add to waitlist",
+            operationId: "createWaitlistEntry",
+            tags: ["Waitlist"],
+            body: {
+              type: "object",
+              required: ["venueId", "partySize", "guestName", "guestPhone"],
+              properties: {
+                venueId: { type: "string" },
+                partySize: { type: "integer", minimum: 1 },
+                guestName: { type: "string" },
+                guestPhone: { type: "string" },
+                avgTurnTimeMinutes: { type: "integer", minimum: 1 },
+              },
+            },
+            response: {
+              201: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              400: { $ref: "Error#" },
+              500: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.create(request.body);
+          return reply.code(201).send({ data: entry });
+        }
+      );
+    
+      // GET / — list waiting entries for venue
+      fastify.get<{
+        Querystring: { venueId: string };
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "List waitlist entries",
+            operationId: "listWaitlistEntries",
+            tags: ["Waitlist"],
+            querystring: {
+              type: "object",
+              required: ["venueId"],
+              properties: {
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: {
+                  data: { type: "array", items: WaitlistEntrySchema },
+                },
+              },
+              400: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entries = await waitlistService.listWaiting(request.query.venueId);
+          return reply.send({ data: entries });
+        }
+      );
+    
+      // GET /:id — get single entry
+      fastify.get<{
+        Params: { id: string };
+      }>(
+        "/:id",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get waitlist entry",
+            operationId: "getWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.getById(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/seat — mark seated, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/seat",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark guest as seated",
+            operationId: "seatWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.seat(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/cancel — mark cancelled, recalculate remaining
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/cancel",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Cancel waitlist entry",
+            operationId: "cancelWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.cancel(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    
+      // PUT /:id/expire — mark expired
+      fastify.put<{
+        Params: { id: string };
+      }>(
+        "/:id/expire",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Mark waitlist entry as expired",
+            operationId: "expireWaitlistEntry",
+            tags: ["Waitlist"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: WaitlistEntrySchema },
+              },
+              404: { $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const entry = await waitlistService.expire(request.params.id);
+          if (!entry) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+          }
+          return reply.send({ data: entry });
+        }
+      );
+    };
+  </file>
   <file path="services/users/src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
@@ -7949,6 +9102,8 @@
         getPoolMetrics,
         latencyTracker,
         checkAuth0,
+        rateLimitMonitor: fastify.rateLimitMonitor,
+        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
@@ -8538,6 +9693,11 @@
     });
   </file>
   <file path="packages/types/src/schemas/guest.ts">
+    export const StaffNoteSchema = z.object({
+      text: z.string(),
+      createdBy: z.string(),
+      createdAt: z.string(),
+    });
     export const GuestSchema = z.object({
       id: z.string(),
       venueId: z.string(),
@@ -8549,13 +9709,10 @@
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
+      dietaryRestrictions: z.array(z.string()).nullable(),
+      staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
-    });
-    export const GuestSegmentSchema = z.object({
-      name: z.string(),
-      description: z.string(),
-      count: z.number(),
     });
   </file>
   <file path="packages/types/src/schemas/json-schema.ts">
@@ -8595,27 +9752,14 @@
       "COMPLETED",
       "NO_SHOW",
     ]);
-    export const ReservationSchema = z.object({
-      id: z.string(),
-      date: z.string(),
-      startTime: z.string(),
-      endTime: z.string(),
-      partySize: z.number(),
-      status: ReservationStatusSchema,
-      notes: z.string().nullable(),
-      cancellationReason: z.string().nullable(),
-      cancellationNote: z.string().nullable(),
-      guestName: z.string().nullable(),
-      guestEmail: z.string().nullable(),
-      guestPhone: z.string().nullable(),
-      guestId: z.string().nullable(),
-      userId: z.string().nullable(),
-      tableId: z.string(),
-      table: TableSchema.optional(),
-      venueId: z.string().nullable(),
-      createdAt: z.string(),
-      updatedAt: z.string(),
-    });
+    export const OccasionSchema = z.enum([
+      "birthday",
+      "anniversary",
+      "business",
+      "date_night",
+      "other",
+      "none",
+    ]);
   </file>
   <file path="packages/types/src/schemas/user.ts">
     export const UserPreferencesSchema = z.object({
@@ -9082,33 +10226,18 @@
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
-    async function checkStaleSessions(): Promise<void> {
-      try {
-        const staleSessions = await sessionService.findStaleSessions(INACTIVITY_THRESHOLD_MS);
-    
-        for (const session of staleSessions) {
-          console.warn(
-            `[liveness] Session ${session.id} exceeded inactivity threshold — auto-cancelling`
-          );
-    
-          const cancelled = await cancelSession(session.id);
-          if (cancelled) {
-            await sessionService.addEvent(session.id, "session:error", {
-              message: `Auto-cancelled: exceeded inactivity threshold (${INACTIVITY_THRESHOLD_MS / 1000}s)`,
-              reason: "liveness_timeout",
-            });
-          }
-        }
-      } catch (error) {
-        console.error("[liveness] Error checking stale sessions:", error);
-      }
+    export interface LivenessMonitorConfig {
+      inactivityThresholdMs: number;
+      checkIntervalMs: number;
+      sessionService: {
+        findStaleSessions(ms: number): Promise<string[]>;
+        addEvent(id: string, type: string, payload: Record<string, unknown>): Promise<unknown>;
+      };
+      cancelSession: (id: string) => Promise<boolean>;
     }
-    export function startLivenessMonitor(): void {
-      if (intervalHandle) return;
-      intervalHandle = setInterval(checkStaleSessions, CHECK_INTERVAL_MS);
-      console.log(
-        `[liveness] Monitor started (check every ${CHECK_INTERVAL_MS / 1000}s, timeout ${INACTIVITY_THRESHOLD_MS / 1000}s)`
-      );
+    export interface LivenessMonitor {
+      start(logger: FastifyBaseLogger): void;
+      stop(): void;
     }
   </file>
   <file path="services/agent/src/services/remediation-circuit-breaker.ts">
@@ -9239,6 +10368,24 @@
       return largestRule.durationMinutes + extraTime;
     }
   </file>
+  <file path="services/reservations/src/services/booking-notifications.ts">
+    function reminderJobId(jobType: string, reservationId: string): string {
+      return `${jobType}:${reservationId}`;
+    }
+    function resolveChannel(
+      guestEmail: string | null,
+      guestPhone: string | null,
+      communicationPreference: string | null = null
+    ): "email" | "sms" | "both" {
+      if (communicationPreference === "email") return "email";
+      if (communicationPreference === "sms") return "sms";
+      if (communicationPreference === "both") return "both";
+      // Fall back to data availability
+      if (guestEmail && guestPhone) return "both";
+      if (guestPhone) return "sms";
+      return "email";
+    }
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
     export interface ConfirmHoldInput {
@@ -9252,6 +10399,31 @@
     export const prisma = db.prisma as unknown as PrismaClient;
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
+  <file path="services/reservations/src/services/deposit-state-machine.ts">
+    export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
+      pending: ["held"],
+      held: ["applied", "refunded", "forfeited"],
+      applied: [],
+      refunded: [],
+      forfeited: [],
+    };
+    export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
+      return VALID_TRANSITIONS[from].includes(to);
+    }
+  </file>
+  <file path="services/reservations/src/services/deposit.ts">
+    export class DepositNotFoundError extends Error {
+      constructor(id: string) {
+        super(`Deposit not found: ${id}`);
+        this.name = "DepositNotFoundError";
+      }
+    }
+    export interface CreateDepositOptions {
+      reservationId: string;
+      amountCents: number;
+      currency?: string;
+    }
+  </file>
   <file path="services/reservations/src/services/events.ts">
     export type ReservationEventType =
       | "reservation:created"
@@ -9261,12 +10433,13 @@
       | "hold:released"
       | "hold:confirmed"
       | "table:updated"
-      | "floor-plan:created";
+      | "floor-plan:created"
+      | "guest:lapsing";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan;
+      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
     }
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
@@ -9322,9 +10495,20 @@
       lifetimeSpend: Prisma.Decimal | null;
       lastVisit: Date | null;
       tags: unknown;
+      communicationPreference: string;
+      dietaryRestrictions: unknown;
+      staffNotes: unknown;
       createdAt: Date;
       updatedAt: Date;
     }): Guest {
+      const rawNotes = guest.staffNotes as StaffNote[] | null;
+      // Return notes in reverse chronological order (newest first)
+      const staffNotes = rawNotes
+        ? [...rawNotes].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+        : [];
+    
       return {
         id: guest.id,
         venueId: guest.venueId,
@@ -9336,6 +10520,9 @@
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
+        communicationPreference: guest.communicationPreference as CommunicationPreference,
+        dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
+        staffNotes,
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
@@ -9360,6 +10547,64 @@
       success: boolean;
       hold?: ReservationHold;
       error?: string;
+    }
+  </file>
+  <file path="services/reservations/src/services/lapse-detector.ts">
+    export interface LapseResult {
+      /** Average days between visits (0 if fewer than 2 visits). */
+      avgFrequencyDays: number;
+      /** Days since the most recent visit. */
+      daysSinceLastVisit: number;
+      /** True when daysSinceLastVisit > avgFrequencyDays * 2 and visitCount >= 3. */
+      isLapsing: boolean;
+    }
+    export function detectLapse(visitDates: string[]): LapseResult {
+      const LAPSE_MIN_VISITS = 3;
+    
+      if (visitDates.length < LAPSE_MIN_VISITS) {
+        return { avgFrequencyDays: 0, daysSinceLastVisit: 0, isLapsing: false };
+      }
+    
+      const sorted = [...visitDates].map((d) => new Date(d).getTime()).sort((a, b) => a - b);
+    
+      // Average gap between consecutive visits
+      let totalGap = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        totalGap += sorted[i] - sorted[i - 1];
+      }
+      const avgFrequencyDays = totalGap / (sorted.length - 1) / DAY_MS;
+    
+      const daysSinceLastVisit = (Date.now() - sorted[sorted.length - 1]) / DAY_MS;
+    
+      const isLapsing = daysSinceLastVisit > avgFrequencyDays * 2;
+    
+      return { avgFrequencyDays, daysSinceLastVisit, isLapsing };
+    }
+  </file>
+  <file path="services/reservations/src/services/lapsed-guest-cron.ts">
+    export interface LapsedGuestMonitorConfig {
+      getVenueIds: () => Promise<string[]>;
+      runScan: (venueId: string) => Promise<LapsingGuest[]>;
+      startupDelayMs?: number;
+      intervalMs?: number;
+    }
+    export interface LapsedGuestMonitor {
+      start(log: FastifyBaseLogger): void;
+      stop(): void;
+    }
+  </file>
+  <file path="services/reservations/src/services/lapsed-guest-scan.ts">
+    interface GuestForScan {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      communicationPreference: string | null;
+      reservations: { startTime: Date }[];
+    }
+    export interface LapsedGuestScanDeps {
+      findGuestsForScan: (venueId: string) => Promise<GuestForScan[]>;
+      emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
     }
   </file>
   <file path="services/reservations/src/services/reminder.ts">
@@ -9393,6 +10638,7 @@
     }
     type PrismaReservationWithTable = PrismaReservation & {
       table?: PrismaTable;
+      guest?: { visitCount: number; communicationPreference: string | null } | null;
     };
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
@@ -9412,6 +10658,20 @@
       maxEventBufferSize: 100,
       heartbeatIntervalMs: 30_000, // 30 seconds
     });
+  </file>
+  <file path="services/reservations/src/services/stripe.ts">
+    export interface CreatePaymentIntentOptions {
+      amountCents: number;
+      currency: string;
+      customerId?: string;
+      reservationId: string;
+      metadata?: Record<string, string>;
+    }
+    export interface PaymentIntentResult {
+      id: string;
+      status: string;
+      clientSecret: string | null;
+    }
   </file>
   <file path="services/reservations/src/services/table.ts">
     function isPrismaNotFound(err: unknown): boolean {
@@ -9481,6 +10741,64 @@
         settings: group.settings as Record<string, unknown> | null,
         createdAt: group.createdAt.toISOString(),
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/waitlist-utils.ts">
+    export function calculatePosition(existingCount: number): number {
+      return existingCount + 1;
+    }
+    export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number {
+      return position * avgTurnTimeMinutes;
+    }
+  </file>
+  <file path="services/reservations/src/services/waitlist.ts">
+    export interface WaitlistEntryData {
+      id: string;
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
+      notifiedAt: Date | null;
+      expiresAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    export interface CreateWaitlistEntryInput {
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      avgTurnTimeMinutes?: number;
+    }
+  </file>
+  <file path="services/reservations/src/services/win-back.ts">
+    export async function sendWinBack(
+      guest: Guest,
+      notificationPort: NotificationDispatcher
+    ): Promise<boolean> {
+      const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
+    
+      if (preference === "transactional_only") {
+        return false;
+      }
+    
+      if (!guest.email) {
+        return false;
+      }
+    
+      await notificationPort.sendWinBack(
+        {
+          guestName: guest.name,
+          guestEmail: guest.email,
+          venueName: "your favourite restaurant",
+        },
+        preference
+      );
+    
+      return true;
     }
   </file>
   <file path="services/users/src/services/database.ts">
@@ -9612,19 +10930,9 @@
       readonly maxTurns: number;
       readonly reason: string;
     }
-    export function resolveBudget(taskDescription: string): BudgetConfig {
-      // Check complex first (most specific)
-      for (const signal of COMPLEXITY_SIGNALS.complex.patterns) {
-        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.complex.budget;
-      }
-    
-      // Check simple
-      for (const signal of COMPLEXITY_SIGNALS.simple.patterns) {
-        if (signal.test(taskDescription)) return COMPLEXITY_SIGNALS.simple.budget;
-      }
-    
-      // Default to standard
-      return COMPLEXITY_SIGNALS.standard.budget;
+    export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" {
+      const { tier } = classifyTask(description);
+      return tier === "trivial" ? "simple" : tier;
     }
   </file>
   <file path="packages/agent-core/src/bundle-size-tracker.ts">
@@ -9761,6 +11069,61 @@
       readonly durationMs: number;
     }
   </file>
+  <file path="packages/agent-core/src/evaluation-prompt-builder.ts">
+    function extractMarkdownSection(text: string, headingPattern: RegExp): string | null {
+      // Find the heading line-by-line to avoid ReDoS on the full text
+      const lines = text.split("\n");
+      let startIdx = -1;
+      let charOffset = 0;
+    
+      for (let i = 0; i < lines.length; i++) {
+        if (headingPattern.test(lines[i])) {
+          // Start capturing from the line after the heading
+          startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+          break;
+        }
+        charOffset += lines[i].length + 1;
+      }
+    
+      if (startIdx === -1 || startIdx >= text.length) return null;
+    
+      const body = text.slice(startIdx);
+    
+      // Find the next section boundary: "\n##" or "\n---"
+      let endIdx = body.length;
+      const nextHeading = body.indexOf("\n##");
+      const nextHr = body.indexOf("\n---");
+    
+      if (nextHeading !== -1 && nextHeading < endIdx) endIdx = nextHeading;
+      if (nextHr !== -1 && nextHr < endIdx) endIdx = nextHr;
+    
+      return body.slice(0, endIdx);
+    }
+    export function extractAcceptanceCriteria(taskDescription: string): readonly string[] {
+      const sectionBody = extractMarkdownSection(taskDescription, /^##\s*Acceptance\s*Criteria\s*$/i);
+      if (!sectionBody) return [];
+    
+      return sectionBody
+        .split("\n")
+        .filter((line) => /^\s*-\s*\[[ x]\]/.test(line))
+        .map((line) => line.replace(/^\s*-\s*\[[ x]\]\s*/, "").trim())
+        .filter(Boolean);
+    }
+  </file>
+  <file path="packages/agent-core/src/evaluation-skip-policy.ts">
+    export interface SkipPolicyInput {
+      readonly diff: string;
+      /** Whether tests passed during the agent run */
+      readonly testsPassed?: boolean;
+      /** Commit title, used for dependency-bump detection */
+      readonly commitTitle?: string;
+    }
+    export type SkipReason =
+      | "empty_diff"
+      | "trivial_commit"
+      | "test_only_changes"
+      | "small_diff_tests_passed";
+  </file>
   <file path="packages/agent-core/src/event-mapper.ts">
     export interface ToolUseEvent {
       readonly type: "session:tool_use";
@@ -9879,17 +11242,194 @@
     }
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
-    interface SessionApiResponse<T> {
-      readonly data: T;
+    function createSessionTools(config: OrchestratorConfig) {
+      const client =
+        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+    
+      const createSessionTool = tool(
+        "create_session",
+        "Create a new coding agent session for a sub-task. Returns the session ID and initial status.",
+        {
+          taskDescription: z
+            .string()
+            .describe("Clear, self-contained description of what the agent should do"),
+          model: z.string().optional().describe("Model to use (defaults to configured session model)"),
+          maxBudgetUsd: z
+            .number()
+            .optional()
+            .describe("Budget cap in USD (defaults to configured limit)"),
+          maxTurns: z
+            .number()
+            .optional()
+            .describe("Max conversation turns (defaults to configured limit)"),
+          baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
+        },
+        async (args) => {
+          const session = await client.createSession({
+            taskDescription: args.taskDescription,
+            model: args.model ?? config.sessionModel,
+            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+            baseBranch: args.baseBranch ?? config.baseBranch,
+            ...(config.parentSessionId && { parentId: config.parentSessionId }),
+          });
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessionId: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const checkSessionTool = tool(
+        "check_session",
+        "Check the current status of a session. Returns full session details including status, PR URL, cost, and errors.",
+        {
+          sessionId: z.string().describe("The session ID to check"),
+        },
+        async (args) => {
+          const session = await client.getSession(args.sessionId);
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  id: session.id,
+                  status: session.status,
+                  taskDescription: session.taskDescription,
+                  branchName: session.branchName,
+                  prUrl: session.prUrl,
+                  costUsd: session.costUsd,
+                  errors: session.errors,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const listSessionsTool = tool(
+        "list_sessions",
+        "List all sessions. Use to check overall progress.",
+        {
+          status: z
+            .enum(["pending", "running", "succeeded", "failed", "cancelled"])
+            .optional()
+            .describe("Filter by status"),
+          page: z.number().optional().describe("Page number (default 1)"),
+          limit: z.number().optional().describe("Items per page (default 20)"),
+        },
+        async (args) => {
+          const result = await client.listSessions({
+            status: args.status,
+            page: args.page,
+            limit: args.limit ?? 20,
+          });
+    
+          const summary = result.data.map((s) => ({
+            id: s.id,
+            status: s.status,
+            task: s.taskDescription.slice(0, 80),
+            prUrl: s.prUrl,
+            costUsd: s.costUsd,
+          }));
+    
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  sessions: summary,
+                  total: result.pagination.total,
+                  page: result.pagination.page,
+                  totalPages: result.pagination.totalPages,
+                }),
+              },
+            ],
+          };
+        }
+      );
+    
+      const cancelSessionTool = tool(
+        "cancel_session",
+        "Cancel a running session. Use if a session is stuck or no longer needed.",
+        {
+          sessionId: z.string().describe("The session ID to cancel"),
+        },
+        async (args) => {
+          try {
+            const session = await client.cancelSession(args.sessionId);
+    
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    id: session.id,
+                    status: session.status,
+                    message: "Session cancelled successfully",
+                  }),
+                },
+              ],
+            };
+          } catch (error) {
+            const message =
+              error instanceof ApiClientError
+                ? (error.response.detail ??
+                  error.response.message ??
+                  String(error.response.status ?? error.response.statusCode ?? ""))
+                : error instanceof Error
+                  ? error.message
+                  : String(error);
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({ error: message }),
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+      );
+    
+      return [createSessionTool, checkSessionTool, listSessionsTool, cancelSessionTool];
     }
-    interface SessionSummary {
-      readonly id: string;
-      readonly status: string;
-      readonly taskDescription: string;
-      readonly branchName: string | null;
-      readonly prUrl: string | null;
-      readonly costUsd: number | null;
-      readonly errors: readonly string[];
+    function extractSessionIds(obj: unknown): string[] {
+      const ids: string[] = [];
+    
+      if (typeof obj === "string") {
+        try {
+          const parsed: unknown = JSON.parse(obj);
+          ids.push(...extractSessionIds(parsed));
+        } catch {
+          // Not JSON — skip
+        }
+      } else if (Array.isArray(obj)) {
+        for (const item of obj) {
+          ids.push(...extractSessionIds(item));
+        }
+      } else if (typeof obj === "object" && obj !== null) {
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === "sessionId" && typeof value === "string") {
+            ids.push(value);
+          } else {
+            ids.push(...extractSessionIds(value));
+          }
+        }
+      }
+    
+      return ids;
     }
   </file>
   <file path="packages/agent-core/src/post-commit-gateway.ts">
@@ -9901,7 +11441,11 @@
       gateFailures: string[];
       /** Human-readable failure messages collected from verification + quality gates */
       errors: string[];
-      /** LLM evaluation result — undefined when evaluation was skipped or not run */
+      /**
+       * LLM evaluation result. Undefined when the evaluation gate did not run
+       * (e.g. `evaluateSuccess` disabled or verification failed). When the skip
+       * policy fires, this is present with `skipped: true`.
+       */
       evaluation?: EvaluationResult;
     }
   </file>
@@ -9991,101 +11535,6 @@
       readonly version: number;
       readonly lastTunedAt: string;
       readonly thresholds: QaTuningThresholds;
-    }
-  </file>
-  <file path="packages/agent-core/src/quality-gates.ts">
-    export interface QualityGatesResult {
-      evaluation?: EvaluationResult;
-      securityReview?: ReviewResult;
-      staticAnalysisClean: boolean;
-      errors: string[];
-    }
-    export async function runQualityGates(
-      taskDescription: string,
-      diff: string,
-      commitMsg: string,
-      options: {
-        evaluateSuccess?: boolean;
-        runSecurityReview?: boolean;
-        runStaticAnalysis?: boolean;
-      },
-      onEvent?: SessionEventCallback
-    ): Promise<QualityGatesResult> {
-      const result: QualityGatesResult = {
-        staticAnalysisClean: true,
-        errors: [],
-      };
-    
-      // 1. Static analysis (fast, local)
-      if (options.runStaticAnalysis !== false) {
-        const staticResult = analyzeDiff(diff);
-        result.staticAnalysisClean = staticResult.clean;
-    
-        const errorViolations = staticResult.violations.filter((v) => v.severity === "error");
-        if (errorViolations.length > 0) {
-          const formatted = errorViolations
-            .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
-            .join("; ");
-          result.errors.push(`Static analysis errors: ${formatted}`);
-          emitEvent(onEvent, "session:verification", {
-            message: `Static analysis: ${errorViolations.length} error(s) — ${formatted}`,
-          });
-        } else if (!staticResult.clean) {
-          emitEvent(onEvent, "session:verification", {
-            message: `Static analysis: ${staticResult.violations.length} warning(s) (non-blocking)`,
-          });
-        }
-      }
-    
-      // 2. LLM Success Evaluation
-      if (options.evaluateSuccess !== false) {
-        if (!shouldEvaluate(diff, { commitTitle: commitMsg })) {
-          emitEvent(onEvent, "session:evaluation", {
-            message: "Evaluation skipped — trivial diff",
-          });
-        } else {
-          const evalSpan = tracer.startSpan("agent_core.evaluate_success");
-          try {
-            result.evaluation = await evaluateSuccess(taskDescription, diff);
-            evalSpan.setAttribute("evaluation.passed", result.evaluation.passed);
-            evalSpan.setAttribute("evaluation.confidence", result.evaluation.confidence);
-          } finally {
-            evalSpan.end();
-          }
-    
-          emitEvent(onEvent, "session:evaluation", {
-            message: `Evaluation: ${result.evaluation.passed ? "PASS" : "FAIL"} (confidence: ${result.evaluation.confidence.toFixed(2)})`,
-          });
-    
-          if (!result.evaluation.passed) {
-            result.errors.push(`Evaluation failed: ${result.evaluation.reasoning}`);
-          }
-        }
-      }
-    
-      // 3. AI Security Review
-      if (options.runSecurityReview !== false && result.staticAnalysisClean) {
-        const reviewSpan = tracer.startSpan("agent_core.security_review");
-        try {
-          result.securityReview = await reviewDiff(diff);
-          reviewSpan.setAttribute("review.approved", result.securityReview.approved);
-          reviewSpan.setAttribute("review.issues_count", result.securityReview.issues.length);
-    
-          emitEvent(onEvent, "session:review", {
-            message: result.securityReview.approved
-              ? "Security review: APPROVED"
-              : `Security review: BLOCKED — ${result.securityReview.issues.join("; ")}`,
-          });
-    
-          if (!result.securityReview.approved) {
-            result.errors.push(`Security review failed: ${result.securityReview.issues.join("; ")}`);
-          }
-        } finally {
-          reviewSpan.end();
-        }
-      }
-    
-      return result;
     }
   </file>
   <file path="packages/agent-core/src/rate-limit-detector.ts">
@@ -10499,56 +11948,11 @@
     }
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">
-    function detectTaskContexts(taskDescription: string): string[] {
-      const contexts: string[] = [];
-      for (const [taskType, keywords] of Object.entries(TASK_KEYWORDS)) {
-        for (const keyword of keywords) {
-          if (keyword.test(taskDescription)) {
-            const contextFiles = TASK_CONTEXT_PATTERNS[taskType] ?? [];
-            for (const file of contextFiles) {
-              if (existsSync(file)) {
-                contexts.push(file);
-              }
-            }
-            break;
-          }
-        }
-      }
-      return contexts;
+    export function classifyTaskContexts(taskDescription: string): readonly string[] {
+      return classifyTask(taskDescription).contextBundles;
     }
-    export function resolveSourceFiles(taskDescription: string): readonly string[] {
-      const files = new Set<string>();
-    
-      // Extract explicit file paths
-      for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-        files.add(match[1]);
-      }
-    
-      // Extract directory references and add key files
-      for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
-        const dir = match[1];
-        // If a service or app directory is mentioned, add its CLAUDE.md
-        if (dir.startsWith("services/") || dir.startsWith("apps/")) {
-          files.add(`${dir}CLAUDE.md`);
-        }
-      }
-    
-      // For each source file, also include its test file
-      const withTests = new Set(files);
-      for (const file of files) {
-        if (!file.includes(".test.") && !file.includes(".spec.")) {
-          const testFile = file.replace(/\.(\w+)$/, ".test.$1");
-          withTests.add(testFile);
-        }
-      }
-    
-      // Add task-specific context bundles
-      const contexts = detectTaskContexts(taskDescription);
-      for (const ctx of contexts) {
-        withTests.add(ctx);
-      }
-    
-      return [...withTests];
+    function detectTaskContexts(taskDescription: string): string[] {
+      return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
     }
   </file>
   <file path="packages/agent-core/src/stuck-detector.ts">
@@ -10569,6 +11973,10 @@
       readonly confidence: number;
       readonly reasoning: string;
       readonly issues: readonly string[];
+      /** True when the skip policy fired and no LLM call was made. */
+      readonly skipped?: boolean;
+      /** Which skip condition fired, when `skipped` is true. */
+      readonly skipReason?: SkipReason;
     }
     export interface EvaluationConfig {
       readonly model: string;
@@ -10590,6 +11998,7 @@
     export interface OrchestratorConfig {
       readonly taskDescription: string;
       readonly apiBaseUrl: string;
+      readonly sessionClient?: AgentSessionClient;
       readonly model: string;
       readonly sessionModel: string;
       readonly maxBudgetPerSession: number;
@@ -10607,6 +12016,10 @@
       baseBranch: "main",
       maxConcurrentSessions: 3,
     };
+  </file>
+  <file path="packages/agent-core/src/task-signal-registry.ts">
+    export type TaskTier = "trivial" | "simple" | "standard" | "complex";
+    export type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">
     export function normalizeBashCommand(command: string): readonly string[] {
@@ -10841,6 +12254,25 @@
       readonly status?: "modified" | "added" | "deleted" | "conflicted";
     }
   </file>
+  <file path="packages/api-client/src/agent-sessions.ts">
+    export interface SessionSummary {
+      readonly id: string;
+      readonly status: string;
+      readonly taskDescription: string;
+      readonly branchName: string | null;
+      readonly prUrl: string | null;
+      readonly costUsd: number | null;
+      readonly errors: readonly string[];
+    }
+    export interface PaginatedSessions {
+      readonly data: readonly SessionSummary[];
+      readonly pagination: {
+        readonly page: number;
+        readonly total: number;
+        readonly totalPages: number;
+      };
+    }
+  </file>
   <file path="packages/api-client/src/availability.ts">
     export interface GetTimeSlotsParams {
       venueId: string;
@@ -10940,6 +12372,7 @@
       email?: string;
       phone?: string;
       name: string;
+      dietaryRestrictions?: string[];
     }
     export interface ListGuestsParams {
       page?: number;
@@ -11397,51 +12830,6 @@
       }
     }
   </file>
-  <file path="packages/database/src/create-service-app.ts">
-    export interface SwaggerConfig {
-      readonly title: string;
-      readonly description: string;
-      readonly serverUrl: string;
-      readonly version?: string;
-    }
-    export interface ApiVersioningConfig {
-      readonly currentVersion: string;
-      readonly successorVersion: string;
-      readonly sunsetMonthsFromNow: number;
-    }
-  </file>
-  <file path="packages/database/src/health-routes.ts">
-    export interface HealthRouteConfig {
-      readonly path: string;
-      readonly operationId: string;
-    }
-    export interface HealthRoutesOptions {
-      /** Prisma client instance — must support $queryRaw */
-      readonly prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
-      /** Returns slow query stats from the database module */
-      readonly getSlowQueryStats: () => SlowQueryStats;
-      /** Returns overall service status from the database module */
-      readonly getServiceStatus: () => ServiceStatus;
-      /** Returns pool metrics from the database module */
-      readonly getPoolMetrics: () => PoolMetrics;
-      /** Latency tracker instance for DB ping anomaly detection */
-      readonly latencyTracker: LatencyTracker;
-      /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
-      readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
-      /** Routes to register — each gets the same health handler */
-      readonly routes: readonly HealthRouteConfig[];
-    }
-  </file>
-  <file path="packages/database/src/health.ts">
-    export interface LatencyAnomalyResult {
-      readonly isAnomaly: boolean;
-      readonly rollingAvg: number;
-    }
-    export interface LatencyTracker {
-      readonly record: (ms: number) => void;
-      readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
-    }
-  </file>
   <file path="packages/database/src/index.ts">
     interface SlowQuery {
       model: string;
@@ -11482,44 +12870,6 @@
       };
     }
   </file>
-  <file path="packages/database/src/start-service-server.ts">
-    export interface StartServiceServerOptions {
-      serviceName: string;
-      port: number;
-      buildApp: () => Promise<FastifyInstance>;
-      beforeShutdown?: () => void | Promise<void>;
-    }
-    export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
-      const { initTelemetry } = await import("@mbe/observability");
-      const { initSentry } = await import("@mbe/sentry/node");
-    
-      const sdk = initTelemetry({ serviceName: options.serviceName });
-      sdk.start();
-      initSentry({ serviceName: options.serviceName });
-    
-      const host = process.env.HOST ?? "0.0.0.0";
-    
-      try {
-        const fastify = await options.buildApp();
-        await fastify.listen({ port: options.port, host });
-        fastify.log.info(`Server running at http://${host}:${options.port}`);
-        fastify.log.info(`API docs at http://${host}:${options.port}/docs`);
-    
-        const shutdown = async () => {
-          await options.beforeShutdown?.();
-          await sdk.shutdown();
-          await fastify.close();
-        };
-    
-        process.on("SIGTERM", () => {
-          shutdown().then(() => process.exit(0));
-        });
-      } catch (err) {
-        console.error(err);
-        process.exit(1);
-      }
-    }
-  </file>
   <file path="packages/feature-flags/src/index.ts">
     export interface FeatureFlag {
       enabled: boolean;
@@ -11528,6 +12878,143 @@
     export interface FeatureContext {
       check(flagName: string): boolean;
       checkForUser(flagName: string, userId: string): boolean;
+    }
+  </file>
+  <file path="packages/feature-flags/src/plugin.ts">
+    export const FEATURE_FLAGS_HEADER = "x-feature-flags";
+    export function createFeatureFlagsPlugin(): FastifyPluginAsync {
+      return fp(
+        async function featureFlagsPlugin(fastify) {
+          fastify.decorateRequest("features");
+          fastify.addHook("onRequest", async (request) => {
+            const raw = request.headers[FEATURE_FLAGS_HEADER];
+            // Headers are typed string | string[]; Node joins repeated headers
+            // into one comma-separated string (invalid JSON → flags disabled),
+            // the array branch only guards exotic clients
+            const header = Array.isArray(raw) ? raw[0] : raw;
+            request.features = createFeatureContext(header);
+          });
+        },
+        { name: "feature-flags" }
+      );
+    }
+  </file>
+  <file path="packages/jobs/src/job-types.ts">
+    export const JOB_TYPES = {
+      BOOKING_REMINDER: "booking-reminder",
+      DAY_OF_REMINDER: "day-of-reminder",
+      POST_VISIT_FOLLOWUP: "post-visit-followup",
+      PRE_ARRIVAL_BRIEFING: "pre-arrival-briefing",
+      LAPSED_GUEST_SCAN: "lapsed-guest-scan",
+      WAITLIST_EXPIRY: "waitlist-expiry",
+    } as const;
+    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+  </file>
+  <file path="packages/jobs/src/scheduler.ts">
+    export interface JobSchedulerConfig {
+      redisUrl: string;
+      queueName?: string;
+    }
+    export class JobScheduler {
+      private readonly queue: Queue;
+      private readonly redis: Redis;
+    
+      constructor(config: JobSchedulerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+        });
+    
+        this.queue = new Queue(config.queueName ?? DEFAULT_QUEUE_NAME, {
+          connection: this.redis,
+        });
+      }
+    
+      /**
+       * Schedule a one-time delayed job.
+       * @param jobType  The type of job to run.
+       * @param payload  Typed payload for the job.
+       * @param delayMs  Milliseconds to delay before processing (0 = immediate).
+       * @returns The created job ID.
+       */
+      async schedule<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        delayMs: number
+      ): Promise<string> {
+        const job = await this.queue.add(jobType, payload, {
+          delay: delayMs,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 1000,
+          },
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 50 },
+        });
+        return job.id as string;
+      }
+    
+      /**
+       * Schedule a recurring cron job.
+       * @param jobType        The type of job to run.
+       * @param payload        Typed payload for the job.
+       * @param cronExpression Cron expression (e.g. "0 9 * * *").
+       */
+      async scheduleCron<T extends JobType>(
+        jobType: T,
+        payload: JobPayloadMap[T],
+        cronExpression: string
+      ): Promise<void> {
+        const schedulerId = `${jobType}:cron`;
+        await this.queue.upsertJobScheduler(
+          schedulerId,
+          {
+            pattern: cronExpression,
+          },
+          {
+            name: jobType,
+            data: payload,
+            opts: {
+              attempts: 3,
+              backoff: {
+                type: "exponential",
+                delay: 1000,
+              },
+            },
+          }
+        );
+      }
+    
+      /**
+       * Cancel a scheduled job by its job ID.
+       * Silently succeeds if the job does not exist.
+       * @param jobId The job ID to cancel.
+       */
+      async cancel(jobId: string): Promise<void> {
+        try {
+          await this.queue.remove(jobId);
+        } catch {
+          // Job may already be processed or not exist — treat as success
+        }
+      }
+    
+      /**
+       * Gracefully close BullMQ queue and Redis connections.
+       */
+      async close(): Promise<void> {
+        await this.queue.close();
+        await this.redis.quit();
+      }
+    }
+  </file>
+  <file path="packages/jobs/src/worker.ts">
+    export type JobHandlerMap = {
+      [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+    };
+    export interface JobWorkerConfig {
+      redisUrl: string;
+      queueName?: string;
+      handlers: JobHandlerMap;
     }
   </file>
   <file path="packages/mcp-server/src/index.ts">
@@ -11561,6 +13048,13 @@
     }
     export type IcalMethod = "REQUEST" | "CANCEL";
   </file>
+  <file path="packages/notifications/src/notification-dispatcher.ts">
+    export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+    export interface NotificationDispatcherConfig {
+      emailAdapter: NotificationPort;
+      smsAdapter: SmsPort | null;
+    }
+  </file>
   <file path="packages/notifications/src/port.ts">
     export interface BookingNotificationInput {
       reservationId: string;
@@ -11578,11 +13072,10 @@
       manageToken: string;
       sequence?: number;
     }
-    export interface NotificationPort {
-      sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
-      sendBookingReminder(input: BookingNotificationInput): Promise<void>;
-      sendBookingModified(input: BookingNotificationInput): Promise<void>;
-      sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
+    export interface WinBackNotificationInput {
+      guestName: string;
+      guestEmail: string;
+      venueName: string;
     }
   </file>
   <file path="packages/notifications/src/resend-adapter.ts">
@@ -11595,6 +13088,40 @@
       resend: ResendClient | null;
       fromAddress: string;
       manageBaseUrl: string;
+    }
+  </file>
+  <file path="packages/notifications/src/sms-port.ts">
+    export interface SmsNotificationInput {
+      reservationId: string;
+      date: string;
+      startTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      manageToken: string;
+      manageBaseUrl: string;
+    }
+    export interface WaitlistUpdateInput {
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      date: string;
+      partySize: number;
+      manageToken: string;
+      manageBaseUrl: string;
+    }
+  </file>
+  <file path="packages/notifications/src/twilio-sms-adapter.ts">
+    interface TwilioMessages {
+      create(params: {
+        to: string;
+        from: string;
+        body: string;
+      }): Promise<{ sid: string; status: string }>;
+    }
+    interface TwilioClient {
+      messages: TwilioMessages;
     }
   </file>
   <file path="packages/observability/src/baggage.ts">
@@ -11997,7 +13524,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -12072,6 +13610,93 @@
       });
     
       Sentry.setTag("app", options.appName);
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/create-service-app.ts">
+    export interface SwaggerConfig {
+      readonly title: string;
+      readonly description: string;
+      readonly serverUrl: string;
+      readonly version?: string;
+    }
+    export interface ApiVersioningConfig {
+      readonly currentVersion: string;
+      readonly successorVersion: string;
+      readonly sunsetMonthsFromNow: number;
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/health-routes.ts">
+    export interface HealthRouteConfig {
+      readonly path: string;
+      readonly operationId: string;
+    }
+    export interface HealthRoutesOptions {
+      /** Prisma client instance — must support $queryRaw */
+      readonly prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+      /** Returns slow query stats from the database module */
+      readonly getSlowQueryStats: () => SlowQueryStats;
+      /** Returns overall service status from the database module */
+      readonly getServiceStatus: () => ServiceStatus;
+      /** Returns pool metrics from the database module */
+      readonly getPoolMetrics: () => PoolMetrics;
+      /** Latency tracker instance for DB ping anomaly detection */
+      readonly latencyTracker: LatencyTracker;
+      /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
+      readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
+      /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
+      readonly rateLimitMonitor: RateLimitMonitor;
+      /** Error rate snapshot getter — from errorRatePlugin_ decoration */
+      readonly getErrorRates: () => ErrorRateSnapshot;
+      /** Routes to register — each gets the same health handler */
+      readonly routes: readonly HealthRouteConfig[];
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/health.ts">
+    export interface LatencyAnomalyResult {
+      readonly isAnomaly: boolean;
+      readonly rollingAvg: number;
+    }
+    export interface LatencyTracker {
+      readonly record: (ms: number) => void;
+      readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/start-service-server.ts">
+    export interface StartServiceServerOptions {
+      serviceName: string;
+      port: number;
+      buildApp: () => Promise<FastifyInstance>;
+      beforeShutdown?: () => void | Promise<void>;
+    }
+    export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
+      const { initTelemetry } = await import("@mbe/observability");
+      const { initSentry } = await import("@mbe/sentry/node");
+    
+      const sdk = initTelemetry({ serviceName: options.serviceName });
+      sdk.start();
+      initSentry({ serviceName: options.serviceName });
+    
+      const host = process.env.HOST ?? "0.0.0.0";
+    
+      try {
+        const fastify = await options.buildApp();
+        await fastify.listen({ port: options.port, host });
+        fastify.log.info(`Server running at http://${host}:${options.port}`);
+        fastify.log.info(`API docs at http://${host}:${options.port}/docs`);
+    
+        const shutdown = async () => {
+          await options.beforeShutdown?.();
+          await sdk.shutdown();
+          await fastify.close();
+        };
+    
+        process.on("SIGTERM", () => {
+          shutdown().then(() => process.exit(0));
+        });
+      } catch (err) {
+        console.error(err);
+        process.exit(1);
+      }
     }
   </file>
   <file path="packages/types/src/agent.ts">
@@ -12150,34 +13775,16 @@
     }
   </file>
   <file path="packages/types/src/guest.ts">
-    export interface Guest {
-      id: string;
-      venueId: string;
-      venue?: Venue;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: string | null; // Decimal as string for precision
-      lastVisit: string | null;
-      tags: string[] | null;
-      reservations?: Reservation[];
+    export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+    export interface StaffNote {
+      text: string;
+      createdBy: string;
       createdAt: string;
-      updatedAt: string;
-    }
-    export interface CreateGuestRequest {
-      venueId: string;
-      email?: string;
-      phone?: string;
-      name: string;
-      notes?: string;
-      tags?: string[];
     }
   </file>
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
-    export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    export type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
   </file>
   <file path="packages/types/src/schema-compat.ts">
     interface JsonSchemaProperty {
@@ -12265,7 +13872,11 @@
     }
   </file>
   <file path="services/reservations/src/app.ts">
-    export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+    export interface ReservationsAppOptions extends AppOptions {
+      notificationPort?: NotificationDispatcher;
+      bookingNotifier?: BookingNotifier;
+    }
+    export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       const fastify = await createServiceApp(
         {
           swagger: {
@@ -12277,6 +13888,14 @@
         },
         options
       );
+    
+      // Wire notification port (injected or default Resend-backed)
+      const notificationPort = options.notificationPort ?? createNotificationPort();
+      fastify.decorate("notificationPort", notificationPort);
+    
+      // Wire booking notifier (injected or default Resend + BullMQ backed)
+      const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier();
+      fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Register routes
       await fastify.register(healthRoutes);
@@ -12291,6 +13910,7 @@
       await fastify.register(eventRoutes, { prefix: "/api/v1/events" });
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+      await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -12309,7 +13929,75 @@
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
     
+      // Deposit routes
+      await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
+      await fastify.register(publicDepositRoutes, { prefix: "/public/v1/venues" });
+      await fastify.register(stripeWebhookRoutes);
+    
+      // Wire lapsed-guest monitor with lifecycle hooks
+      const lapsedGuestMonitor = createLapsedGuestMonitor({
+        getVenueIds: () =>
+          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+        runScan: (venueId) =>
+          runLapsedGuestScan(venueId, {
+            findGuestsForScan: (vid) =>
+              prisma.guest.findMany({
+                where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  phone: true,
+                  communicationPreference: true,
+                  reservations: {
+                    where: { status: "COMPLETED" },
+                    select: { startTime: true },
+                    orderBy: { startTime: "asc" },
+                  },
+                },
+              }),
+            emitLapsingGuests,
+          }),
+      });
+      if (process.env.NODE_ENV !== "test") {
+        fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
+        fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
+      }
+    
       return fastify;
+    }
+  </file>
+  <file path="services/reservations/src/notifications.ts">
+    export function createNotificationPort(): NotificationDispatcher {
+      const resendClient = process.env.RESEND_API_KEY
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
+            emails: {
+              send(payload: Record<string, unknown>): Promise<{ id: string }>;
+            };
+          })
+        : null;
+    
+      const emailAdapter = new ResendNotificationAdapter({
+        resend: resendClient,
+        fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+      });
+    
+      const smsAdapter =
+        process.env.TWILIO_ACCOUNT_SID &&
+        process.env.TWILIO_AUTH_TOKEN &&
+        process.env.TWILIO_FROM_NUMBER
+          ? new TwilioSmsAdapter({
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              client: require("twilio")(
+                process.env.TWILIO_ACCOUNT_SID,
+                process.env.TWILIO_AUTH_TOKEN
+              ) as never,
+              fromNumber: process.env.TWILIO_FROM_NUMBER,
+            })
+          : null;
+    
+      return new NotificationDispatcher({ emailAdapter, smsAdapter });
     }
   </file>
   <file path="services/users/src/app.ts">
@@ -12365,6 +14053,15 @@
         apiUrl: { type: "string", default: "http://localhost:3001" },
       },
     });
+  </file>
+  <file path="tools/cli/src/issue-frontmatter.ts">
+    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export interface AgentOverrides {
+      model?: ModelTier;
+      budget?: number;
+      maxTurns?: number;
+      adapter?: AdapterType;
+    }
   </file>
   </section>
   <section priority="medium" role="TapeChart">
@@ -12645,6 +14342,8 @@
       readonly notes: string | null;
       readonly cancellationReason: string | null;
       readonly cancellationNote: string | null;
+      readonly occasion: Occasion | null;
+      readonly seatingPreference: SeatingPreference | null;
       readonly guestName: string;
       readonly guestEmail: string | null;
       readonly guestPhone: string | null;
@@ -12988,6 +14687,13 @@
       if (Math.abs(diffMins) < 60) return rtf.format(diffMins, "minute");
       const diffHours = Math.round(diffMins / 60);
       return rtf.format(diffHours, "hour");
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/ordinal.ts">
+    export function ordinalVisit(n: number): string {
+      const suffix = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]} visit`;
     }
   </file>
   <file path="packages/rialto/src/utils/feedback.ts">
