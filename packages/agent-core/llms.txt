@@ -55,7 +55,7 @@
     <item priority="high">
       export async function runEvalSuite(
         tasks: readonly Task[],
-        opts: RunEvalSuiteOptions,
+        opts: RunEvalSuiteOptions
       ): Promise<EvalReport> { /* ... */ }
     </item>
   </file>

@@ -33,8 +33,7 @@ export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
         rateLimit: {
           max: 50,
           timeWindow: "1 hour",
-          keyGenerator: (request: FastifyRequest) =>
-            request.user?.id ?? request.ip,
+          keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
         },
       },
     },

@@ -29,7 +29,10 @@ export function useReservationQuerySync() {
   const { selectedVenueId } = useVenue();
   const { toast } = useToast();
 
-  const makeEvent = (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
+  const makeEvent = (
+    type: ReservationEvent["type"],
+    data: ReservationEvent["data"]
+  ): ReservationEvent => ({
     type,
     venueId: selectedVenueId ?? "",
     timestamp: new Date().toISOString(),

@@ -145,7 +145,9 @@ function printReport(report: EvalReport): void {
   for (const t of report.tasks) {
     const mark = t.passed ? "✓" : "✗";
     const detail = t.error ? `error: ${t.error}` : `score ${(t.score * 100).toFixed(0)}%`;
-    console.log(`${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`);
+    console.log(
+      `${mark} ${t.taskId} [${t.category}] — ${detail} (${t.turns} turns, $${t.costUsd.toFixed(2)})`
+    );
   }
   console.log("");
   console.log(`Tasks:       ${a.total}`);

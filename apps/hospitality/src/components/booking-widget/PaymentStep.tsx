@@ -77,9 +77,7 @@ function CardForm({
 
       if (!resp.ok) {
         const errBody = await resp.json().catch(() => ({}));
-        throw new Error(
-          (errBody as { detail?: string }).detail ?? "Failed to initiate deposit"
-        );
+        throw new Error((errBody as { detail?: string }).detail ?? "Failed to initiate deposit");
       }
 
       const { data } = (await resp.json()) as {
@@ -181,11 +179,7 @@ function CardForm({
         </div>
       </div>
 
-      <Button
-        variant="primary"
-        onClick={handleSubmit}
-        disabled={!stripe || isProcessing}
-      >
+      <Button variant="primary" onClick={handleSubmit} disabled={!stripe || isProcessing}>
         {isProcessing ? "Processing..." : `Authorize ${displayAmount}`}
       </Button>
     </div>

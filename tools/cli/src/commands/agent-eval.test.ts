@@ -25,7 +25,7 @@ vi.mock("node:child_process", () => ({
     _cmd: string,
     _args: string[],
     optsOrCb: unknown,
-    cb?: (err: unknown, res: { stdout: string; stderr: string }) => void,
+    cb?: (err: unknown, res: { stdout: string; stderr: string }) => void
   ) => {
     const callback = typeof optsOrCb === "function" ? optsOrCb : cb;
     (callback as (e: unknown, r: { stdout: string; stderr: string }) => void)(null, {

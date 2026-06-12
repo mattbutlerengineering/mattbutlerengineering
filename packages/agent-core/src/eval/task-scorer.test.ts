@@ -9,7 +9,12 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     category: "bugfix",
     prompt: "fix it",
     fixtureRef: "fixtures/t1",
-    rubric: { testsMustPass: true, typecheckMustPass: true, lintMustPass: false, judgeCriteria: [] },
+    rubric: {
+      testsMustPass: true,
+      typecheckMustPass: true,
+      lintMustPass: false,
+      judgeCriteria: [],
+    },
     budget: { maxTurns: 50, maxCostUsd: 1 },
     ...overrides,
   };
@@ -31,7 +36,11 @@ function makeSession(overrides: Partial<SessionResult> = {}): SessionResult {
   };
 }
 
-function makeRun(checks: DeterministicChecks, task = makeTask(), session = makeSession()): TaskRunResult {
+function makeRun(
+  checks: DeterministicChecks,
+  task = makeTask(),
+  session = makeSession()
+): TaskRunResult {
   return { task, session, checks };
 }
 
@@ -64,7 +73,12 @@ describe("scoreTask", () => {
 
   it("counts lint when rubric.lintMustPass is true", () => {
     const task = makeTask({
-      rubric: { testsMustPass: true, typecheckMustPass: true, lintMustPass: true, judgeCriteria: [] },
+      rubric: {
+        testsMustPass: true,
+        typecheckMustPass: true,
+        lintMustPass: true,
+        judgeCriteria: [],
+      },
     });
     const score = scoreTask(makeRun({ ...ALL_PASS, lintPass: false }, task));
     expect(score.passed).toBe(false);

@@ -145,7 +145,13 @@ export function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
-  const { data: users = [], pagination, isLoading, error, refetch } = useUsers({ page: currentPage, limit: 10 });
+  const {
+    data: users = [],
+    pagination,
+    isLoading,
+    error,
+    refetch,
+  } = useUsers({ page: currentPage, limit: 10 });
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -191,10 +197,7 @@ export function AdminPage() {
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <ErrorRetryBanner
-          error={error.message}
-          onRetry={refetch}
-        />
+        <ErrorRetryBanner error={error.message} onRetry={refetch} />
       </div>
     );
   }
@@ -300,7 +303,7 @@ export function AdminPage() {
                 </Fragment>
               ))}
             </tbody>
-          {/* eslint-disable-next-line mbe-local/prefer-rialto-components */}
+            {/* eslint-disable-next-line mbe-local/prefer-rialto-components */}
           </table>
         </div>
 

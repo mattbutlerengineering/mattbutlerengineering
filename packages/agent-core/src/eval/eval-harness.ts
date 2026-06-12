@@ -18,7 +18,7 @@ export interface RunEvalSuiteOptions {
  */
 export async function runEvalSuite(
   tasks: readonly Task[],
-  opts: RunEvalSuiteOptions,
+  opts: RunEvalSuiteOptions
 ): Promise<EvalReport> {
   const selected = opts.only ? tasks.filter((t) => t.id === opts.only) : tasks;
 
@@ -58,7 +58,8 @@ function aggregate(scores: readonly TaskScore[]): EvalAggregate {
   if (total === 0) {
     return { total: 0, passRate: 0, meanScore: 0, meanCostUsd: 0, meanTurns: 0, stuckCount: 0 };
   }
-  const sum = (pick: (s: TaskScore) => number): number => scores.reduce((acc, s) => acc + pick(s), 0);
+  const sum = (pick: (s: TaskScore) => number): number =>
+    scores.reduce((acc, s) => acc + pick(s), 0);
   return {
     total,
     passRate: scores.filter((s) => s.passed).length / total,
