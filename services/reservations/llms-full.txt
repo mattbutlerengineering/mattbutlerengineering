@@ -4762,8 +4762,11 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
-    export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
-      return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
+    export interface ConfirmHoldInput {
+      holdId: string;
+      sessionId?: string;
+      guestDetails: ConfirmHoldRequest;
+      userId?: string;
     }
   </file>
   <file path="src/services/database.ts">

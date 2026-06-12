@@ -6,28 +6,10 @@ import {
   type Table,
   type TableShapeMetadata,
 } from "@mbe/types";
-import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
 
 type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
-
-/**
- * Builds a transaction-scoped advisory lock statement keyed on the table id.
- *
- * Serializes every conflict-checked write for a given table so that concurrent
- * confirmations (or a confirm racing a walk-in create) cannot both pass their
- * conflict checks under read-committed isolation and both commit a reservation
- * (write-skew double-booking). `hashtext` maps the table id to an int4 which is
- * cast to bigint for the single-key `pg_advisory_xact_lock` overload.
- *
- * The table id is bound as a parameter (never string-interpolated) to prevent
- * SQL injection. The lock auto-releases when the transaction commits or rolls
- * back.
- */
-export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
-  return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
-}
 
 export interface ConfirmHoldInput {
   holdId: string;
@@ -127,16 +109,11 @@ function mapReservationResult(result: {
  *
  * Steps:
  * 1. Look up hold by ID
- * 2. If sessionId provided, validate it matches
- * 3. Transaction: advisory lock -> expiry check -> conflict check -> create
- *    reservation -> delete hold
- * 4. Emit hold:confirmed event
- * 5. Return reservation
- *
- * The advisory lock and expiry check live inside the transaction so two
- * concurrent confirmations (or a confirm racing a walk-in create) on the same
- * table serialize on the lock key and cannot both pass their conflict checks
- * and commit (write-skew double-booking).
+ * 2. Check expiry (+ cleanup expired hold)
+ * 3. If sessionId provided, validate it matches
+ * 4. Transaction: conflict check -> create reservation -> delete hold
+ * 5. Emit hold:confirmed event
+ * 6. Return reservation
  */
 export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
   const { holdId, sessionId, guestDetails, userId } = input;
@@ -150,7 +127,13 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
   }
 
-  // Step 2: Session validation (only when sessionId is provided — internal path)
+  // Step 2: Check expiry
+  if (hold.expiresAt < new Date()) {
+    await prisma.reservationHold.delete({ where: { id: holdId } }).catch(() => {});
+    return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
+  }
+
+  // Step 3: Session validation (only when sessionId is provided — internal path)
   if (sessionId !== undefined && hold.sessionId !== sessionId) {
     return {
       success: false,
@@ -159,21 +142,8 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
-  // Step 3: Transaction — advisory lock + expiry check + conflict check +
-  // create reservation + delete hold
+  // Step 4: Transaction — conflict check + create reservation + delete hold
   const txResult = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
-    // Serialize conflict-checked writes per table BEFORE any conflict check so
-    // concurrent confirmations cannot both pass and double-book. The lock is
-    // released automatically when the transaction ends.
-    await tx.$executeRaw(tableAdvisoryLockSql(hold.tableId));
-
-    // Re-check expiry inside the transaction so an expired hold never produces a
-    // reservation, even if it expired between the lookup and acquiring the lock.
-    if (hold.expiresAt < new Date()) {
-      await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "expired" as const };
-    }
-
     // Check for conflicting reservations
     const conflictingReservation = await tx.reservation.findFirst({
       where: {
@@ -187,7 +157,7 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 
     if (conflictingReservation) {
       await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "conflict" as const };
+      return { conflict: true as const };
     }
 
     // Check for conflicting holds
@@ -204,7 +174,7 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 
     if (conflictingHold) {
       await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "conflict" as const };
+      return { conflict: true as const };
     }
 
     // Create the reservation
@@ -230,14 +200,10 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     // Delete the hold
     await tx.reservationHold.delete({ where: { id: holdId } });
 
-    return { outcome: "created" as const, reservation };
+    return { conflict: false as const, reservation };
   });
 
-  if (txResult.outcome === "expired") {
-    return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-  }
-
-  if (txResult.outcome === "conflict") {
+  if (txResult.conflict) {
     return {
       success: false,
       error: "Time slot is no longer available",
@@ -245,10 +211,10 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
-  // Step 4: Map to domain type
+  // Step 5: Map to domain type
   const reservation = mapReservationResult(txResult.reservation);
 
-  // Step 5: Emit event
+  // Step 6: Emit event
   emitHoldConfirmed(reservation);
 
   return { success: true, reservation };
@@ -256,7 +222,6 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 
 // Transaction client type — matches the subset used in the transaction callback
 type PrismaTransactionClient = {
-  $executeRaw: typeof prisma.$executeRaw;
   reservation: {
     findFirst: typeof prisma.reservation.findFirst;
     create: typeof prisma.reservation.create;
