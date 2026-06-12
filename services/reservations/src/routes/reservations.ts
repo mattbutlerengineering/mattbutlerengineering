@@ -18,7 +18,6 @@ import {
   emitReservationCreated,
   emitTableUpdated,
 } from "../services/events.js";
-import { tableService } from "../services/table.js";
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -251,16 +250,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
+      // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
+      // a single transaction. If the table update fails the whole thing rolls
+      // back and rejects, so we only reach the SSE emits below after a
+      // committed, consistent state.
       const result = await reservationService.createWalkIn(request.body, userId);
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
           .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
       }
-      const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
+      // Emit only after the transaction has committed.
       emitReservationCreated(result.reservation);
-      if (updatedTable) {
-        emitTableUpdated(updatedTable);
+      if (result.table) {
+        emitTableUpdated(result.table);
       }
       return reply.code(201).send({ data: result.reservation });
     }
