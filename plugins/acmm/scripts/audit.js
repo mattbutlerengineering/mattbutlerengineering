@@ -17,7 +17,8 @@
  */
 
 import { ALL_CRITERIA, SOURCES } from "./sources/index.js";
-import { detectAll, detect } from "./detection.js";
+import { evaluate, verdictCounts } from "./evaluate.js";
+import { substanceCheckers } from "./substance.js";
 import { computeLevel } from "./computeLevel.js";
 import { loadState, saveState, recordHistory } from "./state.js";
 import { writeReport } from "./outputs/report.js";
@@ -26,7 +27,6 @@ import { applyIssuesForFailures, ensureAcmmLabel } from "./outputs/issues.js";
 import { measureFlakeRate } from "./flake-rate.js";
 import { measurePrOutcomes } from "./pr-outcomes.js";
 import { measureEvals } from "./evals.js";
-import { runSubstanceChecks } from "./substance.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -117,14 +117,15 @@ if (TREND) {
 const startedAt = Date.now();
 const prior = loadState(cwd);
 
-// Modified detectAll logic to support inheritance
+// Evaluate all criteria through the verdict seam, with inheritance support
+const criterionVerdicts = new Map(); // id → { verdict, evidence }
 const detectedIds = new Set();
 for (const c of ALL_CRITERIA) {
   // Try local first
-  let passed = detect(cwd, c);
+  let result = evaluate(c, cwd);
 
-  // If failed and inheritance enabled, try root for allowed global paths
-  if (!passed && acmmConfig.inherit) {
+  // If not counted and inheritance enabled, try root for allowed global paths
+  if (!verdictCounts(result.verdict) && acmmConfig.inherit) {
     const patterns = Array.isArray(c.detection.pattern)
       ? c.detection.pattern
       : [c.detection.pattern];
@@ -139,12 +140,13 @@ for (const c of ALL_CRITERIA) {
         acmmConfig.globalPaths.some((gp) => p.startsWith(gp) || p === gp)
       );
       if (isGlobal) {
-        passed = detect(repoRoot, c);
+        result = evaluate(c, repoRoot);
       }
     }
   }
 
-  if (passed) detectedIds.add(c.id);
+  criterionVerdicts.set(c.id, result);
+  if (verdictCounts(result.verdict)) detectedIds.add(c.id);
 }
 
 const detectedCount = detectedIds.size;
@@ -206,54 +208,34 @@ const diff = isFirstRun
       priorCount: priorIds.size,
     };
 
-/* ── Build per-criterion results map (id → {passed, evidence}) ── */
+/* ── Build per-criterion results map from verdicts (id → {passed, evidence, ...}) ── */
 const results = {};
 for (const c of ALL_CRITERIA) {
-  const passed = detectedIds.has(c.id);
-  const { type, pattern } = c.detection;
-  const patterns = Array.isArray(pattern) ? pattern : [pattern];
+  const { verdict, evidence, substanceEvidence: subEv } = criterionVerdicts.get(c.id);
+  const passed = verdictCounts(verdict);
+  const entry = { passed, evidence, verdict };
 
-  const formatPattern = (p) =>
-    typeof p === "string" ? p : p.file ? `${p.file} (contains: ${p.contains})` : JSON.stringify(p);
-
-  // Handle `github:` prefixed patterns — delegate evidence to the criterion's check function
-  const isGithubPattern =
-    type === "active" &&
-    patterns.length === 1 &&
-    typeof patterns[0] === "string" &&
-    patterns[0].startsWith("github:") &&
-    typeof c.check === "function";
-
-  let evidence;
-  if (isGithubPattern) {
-    const checkResult = c.check(cwd);
-    evidence = checkResult.evidence;
-  } else if (passed) {
-    evidence = `detected at one of: ${patterns.map(formatPattern).join(", ")}`;
-  } else if (type === "active") {
-    const filePath = typeof patterns[0] === "string" ? patterns[0] : patterns[0].file;
-    const fileExists = fs.existsSync(path.join(cwd, filePath));
-    if (fileExists) {
-      evidence = `file present but no recent successful run: ${filePath}`;
-    } else {
-      evidence = `file not found: ${filePath}`;
-    }
+  // Propagate substance info using the separate substanceEvidence field from evaluate()
+  if (verdict === "hollow") {
+    entry.substantive = false;
+    entry.substanceEvidence = subEv ?? null;
+  } else if (passed && Object.prototype.hasOwnProperty.call(substanceCheckers, c.id)) {
+    // Substance checker registered and criterion passed → substance passed
+    entry.substantive = true;
+    entry.substanceEvidence = null;
   } else {
-    evidence = `none of: ${patterns.map(formatPattern).join(", ")}`;
+    entry.substantive = null;
+    entry.substanceEvidence = null;
   }
 
-  results[c.id] = { passed, evidence };
+  results[c.id] = entry;
 }
 
-/* ── Tier 2: Substance checks (additive — only for detected criteria) ── */
-const substanceResults = runSubstanceChecks(detectedIds, ALL_CRITERIA, cwd);
-for (const [id, sub] of Object.entries(substanceResults)) {
-  if (results[id]) {
-    results[id] = {
-      ...results[id],
-      substantive: sub.substantive,
-      substanceEvidence: sub.substanceEvidence,
-    };
+// Derive substanceResults shape for console reporting (mirrors prior runSubstanceChecks output)
+const substanceResults = {};
+for (const [id, r] of Object.entries(results)) {
+  if (r.substantive !== null) {
+    substanceResults[id] = { substantive: r.substantive, substanceEvidence: r.substanceEvidence };
   }
 }
 
