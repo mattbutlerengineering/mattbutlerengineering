@@ -33,6 +33,17 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
+  // Prominent startup warning when the test auth bypass is enabled. The bypass
+  // grants a hardcoded admin identity with no JWT validation, so it must never
+  // be active in production (enforced by the NODE_ENV guard in the onRequest hook).
+  if (process.env.AUTH_BYPASS_IN_TESTS === "true") {
+    fastify.log.warn(
+      "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Requests with 'x-auth-bypass: true' " +
+        "skip JWT validation and receive a hardcoded admin identity. This is structurally " +
+        "disabled when NODE_ENV=production. NEVER set AUTH_BYPASS_IN_TESTS in production."
+    );
+  }
+
   // Warn if rate limiting has not been registered by the consuming service.
   // The auth plugin delegates rate limiting to consumers (e.g., @fastify/rate-limit).
   fastify.addHook("onReady", async () => {
@@ -49,7 +60,10 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
+    // Structurally unreachable in production: the NODE_ENV guard ensures one bad
+    // deploy config cannot grant a hardcoded admin identity on a live service.
     if (
+      process.env.NODE_ENV !== "production" &&
       process.env.AUTH_BYPASS_IN_TESTS === "true" &&
       request.headers["x-auth-bypass"] === "true"
     ) {
@@ -158,7 +172,9 @@ export function hasPermission(user: AuthUser | undefined, permission: string): b
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const isBypassed =
-    process.env.AUTH_BYPASS_IN_TESTS === "true" && request.headers["x-auth-bypass"] === "true";
+    process.env.NODE_ENV !== "production" &&
+    process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+    request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
     return reply
       .code(401)
