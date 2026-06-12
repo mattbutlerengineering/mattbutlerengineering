@@ -6,6 +6,7 @@ export interface AgentSession {
   id: string;
   status: AgentSessionStatus;
   taskDescription: string;
+  userId: string | null;
   branchName: string | null;
   baseBranch: string;
   model: string;

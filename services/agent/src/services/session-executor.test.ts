@@ -29,6 +29,7 @@ const makeSession = (overrides: Partial<AgentSession> = {}): AgentSession => ({
   id: "test-session-1",
   status: "pending",
   taskDescription: "Fix the login bug",
+  userId: null,
   branchName: null,
   baseBranch: "main",
   model: "claude-sonnet-4-6",

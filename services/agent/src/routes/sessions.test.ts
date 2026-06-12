@@ -44,6 +44,7 @@ const mockSession = {
   id: "session-123",
   status: "pending" as const,
   taskDescription: "Fix the login bug",
+  userId: "auth0|user-123",
   branchName: null,
   baseBranch: "main",
   model: "claude-sonnet-4-6",
@@ -93,6 +94,26 @@ describe("Session Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data.id).toBe("session-123");
       expect(body.data.taskDescription).toBe("Fix the login bug");
+    });
+
+    it("stamps the authenticated user's id onto the created session", async () => {
+      vi.mocked(sessionService.create).mockResolvedValueOnce(mockSession);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/sessions",
+        headers: { "x-auth-bypass": "true" },
+        payload: { taskDescription: "Fix the login bug" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      // Create path persists the creator's id (auth-bypass identity).
+      expect(sessionService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "auth0|user-123" })
+      );
+      // Response serializer exposes userId.
+      const body = JSON.parse(response.body);
+      expect(body.data.userId).toBe("auth0|user-123");
     });
 
     it("returns 429 when max concurrent sessions reached", async () => {

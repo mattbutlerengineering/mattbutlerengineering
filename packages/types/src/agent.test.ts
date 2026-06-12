@@ -36,6 +36,7 @@ describe("AgentSessionSchema", () => {
     id: "session-456",
     status: "RUNNING",
     taskDescription: "Running task",
+    userId: null,
     branchName: null,
     baseBranch: "main",
     model: "claude-sonnet-4-6",

@@ -57,7 +57,13 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const session = await sessionService.create(request.body);
+      // Stamp the authenticated creator's id. Sourced exclusively from the
+      // verified auth context (requireAuth preHandler) — never from the
+      // client-supplied request body — so callers cannot spoof ownership.
+      const session = await sessionService.create({
+        ...request.body,
+        userId: request.user?.id,
+      });
 
       // Fire-and-forget: execution happens in the background
       executeSession(session).catch((err) => {
