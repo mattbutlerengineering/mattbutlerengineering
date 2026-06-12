@@ -18,6 +18,7 @@ import type {
 } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { tableAdvisoryLockSql } from "./confirm-hold.js";
 
 function isPrismaNotFound(err: unknown): boolean {
   return (
@@ -430,6 +431,12 @@ export const reservationService = {
     }
 
     const reservation = await prisma.$transaction(async (tx) => {
+      // Serialize conflict-checked writes per table BEFORE the conflict check so
+      // a walk-in create and a concurrent hold confirmation on the same table
+      // cannot both pass and double-book. Shares the same lock key as
+      // confirmHold. Released automatically when the transaction ends.
+      await tx.$executeRaw(tableAdvisoryLockSql(data.tableId));
+
       // Re-check for conflicting reservations inside the transaction
       const conflicting = await tx.reservation.findFirst({
         where: {

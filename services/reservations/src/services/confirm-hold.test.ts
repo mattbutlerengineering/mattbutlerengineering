@@ -110,6 +110,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(reservation),
@@ -159,11 +160,30 @@ describe("confirmHold", () => {
   });
 
   describe("Slice 3: Hold expired", () => {
-    it("returns EXPIRED and cleans up expired hold", async () => {
+    it("returns EXPIRED and deletes expired hold inside the transaction (no reservation created)", async () => {
       vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(
         makePrismaHold({ expiresAt: FIVE_MIN_AGO }) as never
       );
-      vi.mocked(prisma.reservationHold.delete).mockResolvedValueOnce(undefined as never);
+
+      const holdDelete = vi.fn().mockResolvedValue(undefined);
+      const reservationCreate = vi.fn();
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: reservationCreate,
+            },
+            reservationHold: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              delete: holdDelete,
+            },
+          };
+          return fn(tx);
+        }
+      );
 
       const result = await confirmHold({
         holdId: "hold-1",
@@ -176,9 +196,67 @@ describe("confirmHold", () => {
         expect(result.error).toContain("expired");
       }
 
-      expect(prisma.reservationHold.delete).toHaveBeenCalledWith({
-        where: { id: "hold-1" },
+      // Expired hold deleted, but NO reservation created and no event emitted.
+      expect(holdDelete).toHaveBeenCalledWith({ where: { id: "hold-1" } });
+      expect(reservationCreate).not.toHaveBeenCalled();
+      expect(emitHoldConfirmed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Slice 8: Advisory lock serializes conflict-checked writes", () => {
+    it("acquires the table advisory lock BEFORE any conflict check", async () => {
+      const hold = makePrismaHold();
+      const reservation = makeReservationResult(hold);
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+
+      const callOrder: string[] = [];
+      const executeRaw = vi.fn().mockImplementation((sql: any) => {
+        callOrder.push("lock");
+        // The SQL must take the advisory lock keyed on the table id, and must
+        // bind tableId as a parameter (never string-interpolated).
+        expect(sql.sql ?? String(sql)).toContain("pg_advisory_xact_lock");
+        expect(sql.values).toContain("table-1");
+        return Promise.resolve(0);
       });
+      const reservationFindFirst = vi.fn().mockImplementation(() => {
+        callOrder.push("reservation.findFirst");
+        return Promise.resolve(null);
+      });
+      const holdFindFirst = vi.fn().mockImplementation(() => {
+        callOrder.push("hold.findFirst");
+        return Promise.resolve(null);
+      });
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: executeRaw,
+            reservation: {
+              findFirst: reservationFindFirst,
+              create: vi.fn().mockResolvedValue(reservation),
+            },
+            reservationHold: {
+              findFirst: holdFindFirst,
+              delete: vi.fn().mockResolvedValue(undefined),
+            },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+      });
+
+      expect(result.success).toBe(true);
+      // Lock acquired first, before BOTH conflict checks.
+      expect(executeRaw).toHaveBeenCalledTimes(1);
+      expect(callOrder[0]).toBe("lock");
+      expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("reservation.findFirst"));
+      expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("hold.findFirst"));
     });
   });
 
@@ -208,6 +286,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict-res" }),
               create: vi.fn(),
@@ -243,6 +322,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn(),
@@ -279,6 +359,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(reservation),
@@ -314,6 +395,7 @@ describe("confirmHold", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             reservation: {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(reservation),
