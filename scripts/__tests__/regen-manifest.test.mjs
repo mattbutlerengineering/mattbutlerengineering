@@ -1,0 +1,92 @@
+import { describe, it, expect } from "vitest";
+import { FAMILIES, llmsPackages } from "../regen-manifest.mjs";
+
+describe("regen-manifest", () => {
+  it("exports an array of families", () => {
+    expect(Array.isArray(FAMILIES)).toBe(true);
+    expect(FAMILIES.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("each family has required fields", () => {
+    for (const f of FAMILIES) {
+      expect(typeof f.id, `${f.id}.id`).toBe("string");
+      expect(typeof f.label, `${f.id}.label`).toBe("string");
+      expect(typeof f.command, `${f.id}.command`).toBe("string");
+      expect(Array.isArray(f.outputs), `${f.id}.outputs`).toBe(true);
+      expect(f.outputs.length, `${f.id}.outputs length`).toBeGreaterThan(0);
+    }
+  });
+
+  it("family ids are unique", () => {
+    const ids = FAMILIES.map((f) => f.id);
+    const unique = new Set(ids);
+    expect(unique.size).toBe(ids.length);
+  });
+
+  it("contains the 5 required families", () => {
+    const ids = new Set(FAMILIES.map((f) => f.id));
+    expect(ids.has("llms-txt")).toBe(true);
+    expect(ids.has("rialto-registry")).toBe(true);
+    expect(ids.has("rialto-catalog-schemas")).toBe(true);
+    expect(ids.has("dep-graph-md")).toBe(true);
+    expect(ids.has("dep-graph-json")).toBe(true);
+  });
+
+  it("llms-txt outputs include the root llms.txt", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    expect(llms.outputs).toContain("llms.txt");
+  });
+
+  it("llms-txt outputs include all workspace packages with llms.txt", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    const workspaceOutputs = llms.outputs.filter((o) => o !== "llms.txt");
+    // At least the main app and service packages
+    const expected = [
+      "apps/hospitality/llms.txt",
+      "services/agent/llms.txt",
+      "packages/rialto/llms.txt",
+    ];
+    for (const e of expected) {
+      expect(llms.outputs, `expected ${e}`).toContain(e);
+    }
+    // All workspace outputs end with /llms.txt
+    for (const o of workspaceOutputs) {
+      expect(o).toMatch(/\/llms\.txt$/);
+    }
+  });
+
+  it("llmsPackages() returns directory paths (not llms.txt paths)", () => {
+    const pkgs = llmsPackages();
+    expect(Array.isArray(pkgs)).toBe(true);
+    // Root is represented as "."
+    expect(pkgs).toContain(".");
+    // No entry ends with llms.txt
+    for (const p of pkgs) {
+      expect(p).not.toMatch(/llms\.txt$/);
+    }
+  });
+
+  it("llmsPackages() length matches llms-txt outputs", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    const pkgs = llmsPackages();
+    expect(pkgs.length).toBe(llms.outputs.length);
+  });
+
+  it("rialto-registry command references the correct filter", () => {
+    const f = FAMILIES.find((f) => f.id === "rialto-registry");
+    expect(f.command).toContain("@mattbutlerengineering/rialto");
+  });
+
+  it("rialto-catalog-schemas command references the correct filter", () => {
+    const f = FAMILIES.find((f) => f.id === "rialto-catalog-schemas");
+    expect(f.command).toContain("@mbe/rialto-catalog");
+  });
+
+  it("dep-graph families map to distinct output paths", () => {
+    const md = FAMILIES.find((f) => f.id === "dep-graph-md");
+    const json = FAMILIES.find((f) => f.id === "dep-graph-json");
+    expect(md.outputs[0]).toContain(".md");
+    expect(json.outputs[0]).toContain(".json");
+    expect(md.outputs[0]).not.toBe(json.outputs[0]);
+  });
+});
