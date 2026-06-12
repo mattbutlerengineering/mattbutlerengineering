@@ -343,6 +343,109 @@ describe("Auth Plugin", () => {
     });
   });
 
+  describe("AUTH_BYPASS_IN_TESTS production guard", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it("grants bypass identity in non-production when env var + header are set", async () => {
+      process.env.NODE_ENV = "test";
+      process.env.AUTH_BYPASS_IN_TESTS = "true";
+
+      const bypassApp = Fastify({ logger: false });
+      await bypassApp.register(testRoutesPlugin, { excludePaths: ["/health"] });
+      await bypassApp.ready();
+
+      const response = await bypassApp.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.user?.id).toBe("auth0|user-123");
+      expect(mockJwtVerify).not.toHaveBeenCalled();
+
+      await bypassApp.close();
+    });
+
+    it("does NOT bypass in production: requireAuth route 401s without a token", async () => {
+      process.env.NODE_ENV = "production";
+      process.env.AUTH_BYPASS_IN_TESTS = "true";
+
+      const prodApp = Fastify({ logger: false });
+      const prodRoutesPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+        });
+        fastify.get("/guarded", { preHandler: requireAuth }, async (request) => {
+          return { user: request.user };
+        });
+      };
+
+      await prodApp.register(prodRoutesPlugin);
+      await prodApp.ready();
+
+      const response = await prodApp.inject({
+        method: "GET",
+        url: "/guarded",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.title).toBe("Unauthorized");
+      expect(mockJwtVerify).not.toHaveBeenCalled();
+
+      await prodApp.close();
+    });
+
+    it("logs a prominent warning at registration when AUTH_BYPASS_IN_TESTS=true", async () => {
+      process.env.NODE_ENV = "test";
+      process.env.AUTH_BYPASS_IN_TESTS = "true";
+
+      const warnSpy = vi.fn();
+      const warnApp = Fastify({ logger: { level: "warn" } });
+      warnApp.log.warn = warnSpy;
+
+      await warnApp.register(testRoutesPlugin);
+      await warnApp.ready();
+
+      const bypassWarnings = warnSpy.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === "string" && call[0].includes("AUTH_BYPASS_IN_TESTS")
+      );
+      expect(bypassWarnings.length).toBeGreaterThan(0);
+
+      await warnApp.close();
+    });
+
+    it("does not log the bypass warning when AUTH_BYPASS_IN_TESTS is unset", async () => {
+      delete process.env.AUTH_BYPASS_IN_TESTS;
+
+      const warnSpy = vi.fn();
+      const warnApp = Fastify({ logger: { level: "warn" } });
+      warnApp.log.warn = warnSpy;
+
+      await warnApp.register(testRoutesPlugin);
+      await warnApp.ready();
+
+      const bypassWarnings = warnSpy.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === "string" && call[0].includes("AUTH_BYPASS_IN_TESTS")
+      );
+      expect(bypassWarnings).toHaveLength(0);
+
+      await warnApp.close();
+    });
+  });
+
   describe("hasPermission", () => {
     it("returns false when user is undefined", async () => {
       const { hasPermission } = await import("./plugin.js");
