@@ -1,4 +1,3 @@
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -138,10 +137,9 @@ describe("useGuestSearch", () => {
   });
 
   it("does not search when query is empty", () => {
-    const { result } = renderHook(
-      () => useGuestSearch({ venueId: "venue-1", query: "" }),
-      { wrapper: createWrapper() }
-    );
+    const { result } = renderHook(() => useGuestSearch({ venueId: "venue-1", query: "" }), {
+      wrapper: createWrapper(),
+    });
     expect(result.current.isLoading).toBe(false);
     expect(mockSearch).not.toHaveBeenCalled();
   });
@@ -150,10 +148,9 @@ describe("useGuestSearch", () => {
     const guests = [makeGuest({ name: "John" })];
     mockSearch.mockResolvedValue({ data: guests, pagination: {} });
 
-    const { result } = renderHook(
-      () => useGuestSearch({ venueId: "venue-1", query: "John" }),
-      { wrapper: createWrapper() }
-    );
+    const { result } = renderHook(() => useGuestSearch({ venueId: "venue-1", query: "John" }), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual(guests);

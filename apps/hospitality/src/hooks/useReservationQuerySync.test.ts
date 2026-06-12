@@ -1,4 +1,3 @@
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";

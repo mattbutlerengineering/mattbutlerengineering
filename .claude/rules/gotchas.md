@@ -12,7 +12,6 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 - **Vitest does NOT typecheck** — tests can pass with completely wrong types. Pre-push hook now runs `turbo typecheck` before `turbo test`. If you add test mocks, they must match the actual interface shape (e.g. `SessionResult` needs `status`/`sessionId`/`branchName`, not `success`/`stuck`/`outputs`)
 - **Worktree agents must run `pnpm typecheck` before declaring done.** Agents that only run `pnpm test` will miss type errors that break CI. This is the #2 recurring CI failure pattern after the missing `pnpm install` pattern
-- **Hospitality tests need `import "@testing-library/jest-dom"` per file** — no global setup file registers the matchers. Without the import, `toBeInTheDocument()` throws `Invalid Chai property`. Other packages (rialto) have a setup.ts that handles this globally
 
 ## Build / pnpm / turbo
 

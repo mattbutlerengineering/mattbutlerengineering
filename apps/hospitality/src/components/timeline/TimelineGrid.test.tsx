@@ -1,7 +1,6 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
+ 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
 import { TimelineGrid } from "./TimelineGrid.js";
 import type { Table, Reservation } from "@mbe/types";
 
@@ -26,7 +25,7 @@ vi.mock("./TimelineGrid.module.css", () => ({
   },
 }));
 
-/* eslint-disable mbe-local/prefer-rialto-components */
+ 
 vi.mock("./ReservationBlock", () => ({
   ReservationBlock: ({
     reservation,

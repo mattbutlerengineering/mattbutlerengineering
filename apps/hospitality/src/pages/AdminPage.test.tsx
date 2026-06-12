@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AdminPage } from "./AdminPage.js";
@@ -66,7 +65,9 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
     <div data-testid="error-retry-banner">
       <span>{error}</span>
-      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+      <button data-testid="retry-button" onClick={onRetry}>
+        Retry
+      </button>
     </div>
   ),
 }));
@@ -82,7 +83,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><AdminPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <AdminPage />
+    </Wrapper>
+  );
 }
 
 const defaultUsers = [
@@ -170,12 +175,10 @@ describe("AdminPage", () => {
   });
 
   it("retries fetch when retry button is clicked after error", async () => {
-    mockApiClient.users.list
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockResolvedValue({
-        data: defaultUsers,
-        pagination: { total: 2, totalPages: 1, page: 1, limit: 10, hasNext: false },
-      });
+    mockApiClient.users.list.mockRejectedValueOnce(new Error("Network error")).mockResolvedValue({
+      data: defaultUsers,
+      pagination: { total: 2, totalPages: 1, page: 1, limit: 10, hasNext: false },
+    });
 
     renderPage();
 
