@@ -1183,6 +1183,7 @@ export namespace Prisma {
     id: string | null;
     status: $Enums.SessionStatus | null;
     taskDescription: string | null;
+    userId: string | null;
     branchName: string | null;
     baseBranch: string | null;
     model: string | null;
@@ -1210,6 +1211,7 @@ export namespace Prisma {
     id: string | null;
     status: $Enums.SessionStatus | null;
     taskDescription: string | null;
+    userId: string | null;
     branchName: string | null;
     baseBranch: string | null;
     model: string | null;
@@ -1237,6 +1239,7 @@ export namespace Prisma {
     id: number;
     status: number;
     taskDescription: number;
+    userId: number;
     branchName: number;
     baseBranch: number;
     model: number;
@@ -1288,6 +1291,7 @@ export namespace Prisma {
     id?: true;
     status?: true;
     taskDescription?: true;
+    userId?: true;
     branchName?: true;
     baseBranch?: true;
     model?: true;
@@ -1315,6 +1319,7 @@ export namespace Prisma {
     id?: true;
     status?: true;
     taskDescription?: true;
+    userId?: true;
     branchName?: true;
     baseBranch?: true;
     model?: true;
@@ -1342,6 +1347,7 @@ export namespace Prisma {
     id?: true;
     status?: true;
     taskDescription?: true;
+    userId?: true;
     branchName?: true;
     baseBranch?: true;
     model?: true;
@@ -1458,6 +1464,7 @@ export namespace Prisma {
     id: string;
     status: $Enums.SessionStatus;
     taskDescription: string;
+    userId: string | null;
     branchName: string | null;
     baseBranch: string;
     model: string;
@@ -1505,6 +1512,7 @@ export namespace Prisma {
         id?: boolean;
         status?: boolean;
         taskDescription?: boolean;
+        userId?: boolean;
         branchName?: boolean;
         baseBranch?: boolean;
         model?: boolean;
@@ -1542,6 +1550,7 @@ export namespace Prisma {
       id?: boolean;
       status?: boolean;
       taskDescription?: boolean;
+      userId?: boolean;
       branchName?: boolean;
       baseBranch?: boolean;
       model?: boolean;
@@ -1576,6 +1585,7 @@ export namespace Prisma {
       id?: boolean;
       status?: boolean;
       taskDescription?: boolean;
+      userId?: boolean;
       branchName?: boolean;
       baseBranch?: boolean;
       model?: boolean;
@@ -1607,6 +1617,7 @@ export namespace Prisma {
     id?: boolean;
     status?: boolean;
     taskDescription?: boolean;
+    userId?: boolean;
     branchName?: boolean;
     baseBranch?: boolean;
     model?: boolean;
@@ -1636,6 +1647,7 @@ export namespace Prisma {
       | "id"
       | "status"
       | "taskDescription"
+      | "userId"
       | "branchName"
       | "baseBranch"
       | "model"
@@ -1690,6 +1702,7 @@ export namespace Prisma {
           id: string;
           status: $Enums.SessionStatus;
           taskDescription: string;
+          userId: string | null;
           branchName: string | null;
           baseBranch: string;
           model: string;
@@ -2256,6 +2269,7 @@ export namespace Prisma {
     readonly id: FieldRef<"Session", "String">;
     readonly status: FieldRef<"Session", "SessionStatus">;
     readonly taskDescription: FieldRef<"Session", "String">;
+    readonly userId: FieldRef<"Session", "String">;
     readonly branchName: FieldRef<"Session", "String">;
     readonly baseBranch: FieldRef<"Session", "String">;
     readonly model: FieldRef<"Session", "String">;
@@ -5450,6 +5464,7 @@ export namespace Prisma {
     id: "id";
     status: "status";
     taskDescription: "taskDescription";
+    userId: "userId";
     branchName: "branchName";
     baseBranch: "baseBranch";
     model: "model";
@@ -5639,6 +5654,7 @@ export namespace Prisma {
     id?: StringFilter<"Session"> | string;
     status?: EnumSessionStatusFilter<"Session"> | $Enums.SessionStatus;
     taskDescription?: StringFilter<"Session"> | string;
+    userId?: StringNullableFilter<"Session"> | string | null;
     branchName?: StringNullableFilter<"Session"> | string | null;
     baseBranch?: StringFilter<"Session"> | string;
     model?: StringFilter<"Session"> | string;
@@ -5670,6 +5686,7 @@ export namespace Prisma {
     id?: SortOrder;
     status?: SortOrder;
     taskDescription?: SortOrder;
+    userId?: SortOrderInput | SortOrder;
     branchName?: SortOrderInput | SortOrder;
     baseBranch?: SortOrder;
     model?: SortOrder;
@@ -5705,6 +5722,7 @@ export namespace Prisma {
       NOT?: SessionWhereInput | SessionWhereInput[];
       status?: EnumSessionStatusFilter<"Session"> | $Enums.SessionStatus;
       taskDescription?: StringFilter<"Session"> | string;
+      userId?: StringNullableFilter<"Session"> | string | null;
       branchName?: StringNullableFilter<"Session"> | string | null;
       baseBranch?: StringFilter<"Session"> | string;
       model?: StringFilter<"Session"> | string;
@@ -5738,6 +5756,7 @@ export namespace Prisma {
     id?: SortOrder;
     status?: SortOrder;
     taskDescription?: SortOrder;
+    userId?: SortOrderInput | SortOrder;
     branchName?: SortOrderInput | SortOrder;
     baseBranch?: SortOrder;
     model?: SortOrder;
@@ -5774,6 +5793,7 @@ export namespace Prisma {
     id?: StringWithAggregatesFilter<"Session"> | string;
     status?: EnumSessionStatusWithAggregatesFilter<"Session"> | $Enums.SessionStatus;
     taskDescription?: StringWithAggregatesFilter<"Session"> | string;
+    userId?: StringNullableWithAggregatesFilter<"Session"> | string | null;
     branchName?: StringNullableWithAggregatesFilter<"Session"> | string | null;
     baseBranch?: StringWithAggregatesFilter<"Session"> | string;
     model?: StringWithAggregatesFilter<"Session"> | string;
@@ -5982,6 +6002,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -6012,6 +6033,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -6042,6 +6064,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -6072,6 +6095,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -6102,6 +6126,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -6130,6 +6155,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -6157,6 +6183,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -6551,6 +6578,7 @@ export namespace Prisma {
     id?: SortOrder;
     status?: SortOrder;
     taskDescription?: SortOrder;
+    userId?: SortOrder;
     branchName?: SortOrder;
     baseBranch?: SortOrder;
     model?: SortOrder;
@@ -6590,6 +6618,7 @@ export namespace Prisma {
     id?: SortOrder;
     status?: SortOrder;
     taskDescription?: SortOrder;
+    userId?: SortOrder;
     branchName?: SortOrder;
     baseBranch?: SortOrder;
     model?: SortOrder;
@@ -6617,6 +6646,7 @@ export namespace Prisma {
     id?: SortOrder;
     status?: SortOrder;
     taskDescription?: SortOrder;
+    userId?: SortOrder;
     branchName?: SortOrder;
     baseBranch?: SortOrder;
     model?: SortOrder;
@@ -7480,6 +7510,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7509,6 +7540,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7543,6 +7575,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7572,6 +7605,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7669,6 +7703,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -7698,6 +7733,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -7746,6 +7782,7 @@ export namespace Prisma {
     id?: StringFilter<"Session"> | string;
     status?: EnumSessionStatusFilter<"Session"> | $Enums.SessionStatus;
     taskDescription?: StringFilter<"Session"> | string;
+    userId?: StringNullableFilter<"Session"> | string | null;
     branchName?: StringNullableFilter<"Session"> | string | null;
     baseBranch?: StringFilter<"Session"> | string;
     model?: StringFilter<"Session"> | string;
@@ -7823,6 +7860,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7852,6 +7890,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7897,6 +7936,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -7926,6 +7966,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -7955,6 +7996,7 @@ export namespace Prisma {
     id?: string;
     status?: $Enums.SessionStatus;
     taskDescription: string;
+    userId?: string | null;
     branchName?: string | null;
     baseBranch?: string;
     model?: string;
@@ -7999,6 +8041,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -8028,6 +8071,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;
@@ -8057,6 +8101,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string;
     status?: EnumSessionStatusFieldUpdateOperationsInput | $Enums.SessionStatus;
     taskDescription?: StringFieldUpdateOperationsInput | string;
+    userId?: NullableStringFieldUpdateOperationsInput | string | null;
     branchName?: NullableStringFieldUpdateOperationsInput | string | null;
     baseBranch?: StringFieldUpdateOperationsInput | string;
     model?: StringFieldUpdateOperationsInput | string;

@@ -16,6 +16,7 @@ function mapPrismaSession(session: Session): AgentSession {
     id: session.id,
     status: session.status.toLowerCase() as AgentSession["status"],
     taskDescription: session.taskDescription,
+    userId: session.userId,
     branchName: session.branchName,
     baseBranch: session.baseBranch,
     model: session.model,
@@ -93,6 +94,7 @@ export const sessionService = {
 
   async create(data: {
     taskDescription: string;
+    userId?: string;
     model?: string;
     maxTurns?: number;
     maxBudgetUsd?: number;
@@ -103,6 +105,7 @@ export const sessionService = {
     const session = await prisma.session.create({
       data: {
         taskDescription: data.taskDescription,
+        ...(data.userId !== undefined && { userId: data.userId }),
         ...(data.model !== undefined && { model: data.model }),
         ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
         ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),

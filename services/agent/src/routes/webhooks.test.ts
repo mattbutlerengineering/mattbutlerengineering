@@ -51,6 +51,7 @@ const mockSession = {
   id: "session-from-webhook",
   status: "pending" as const,
   taskDescription: "Test task",
+  userId: null,
   branchName: null,
   baseBranch: "main",
   model: "claude-sonnet-4-6",

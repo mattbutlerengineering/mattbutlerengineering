@@ -120,6 +120,7 @@ exports.Prisma.SessionScalarFieldEnum = {
   id: "id",
   status: "status",
   taskDescription: "taskDescription",
+  userId: "userId",
   branchName: "branchName",
   baseBranch: "baseBranch",
   model: "model",

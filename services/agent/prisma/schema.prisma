@@ -19,6 +19,7 @@ model Session {
   id              String        @id @default(cuid())
   status          SessionStatus @default(PENDING)
   taskDescription String        @map("task_description")
+  userId          String?       @map("user_id")
   branchName      String?       @map("branch_name")
   baseBranch      String        @default("main") @map("base_branch")
   model           String        @default("claude-sonnet-4-6")
