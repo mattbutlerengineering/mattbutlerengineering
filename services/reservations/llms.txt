@@ -244,13 +244,8 @@
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
     </item>
-    <item priority="low">
-      interface ConfirmHoldInput {
-        holdId: string;
-        sessionId?: string;
-        guestDetails: ConfirmHoldRequest;
-        userId?: string;
-      }
+    <item priority="high">
+      export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
   </file>
   <file path="src/services/database.ts">
