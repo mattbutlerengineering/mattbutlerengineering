@@ -6,7 +6,7 @@ Hard boundaries for AI coding agents in this monorepo. These rules **cannot be o
 
 ## Scope
 
-Applies to every Claude Code agent, ship-loop runner, RemoteTrigger, MCP-invoked tool, and human-issued `!` shell command running with this repo as the working directory.
+Applies to every Claude Code agent, implement-queue runner, RemoteTrigger, MCP-invoked tool, and human-issued `!` shell command running with this repo as the working directory.
 
 Out of scope: Claude.ai web UI sessions where the user is composing prompts (those run in cloud sandboxes with no repo access).
 

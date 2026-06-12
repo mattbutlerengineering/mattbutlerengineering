@@ -93,7 +93,7 @@ The `adr-compliance-reviewer` agent runs on every PR touching `services/`, `pack
 
 ## How AI agents fit in
 
-This repo is run partly by AI coding agents — the `ship-loop`, `issue-worker`, and `acmm-audit` flows under [`.claude/skills/`](./.claude/skills/) automate parts of the maintenance loop. Agents pick up issues labeled `ready`, work in isolated `git worktree` directories, and open PRs back to `main`.
+This repo is run partly by AI coding agents — the `implement-queue`, `issue-worker`, and `acmm-audit` flows under [`.claude/skills/`](./.claude/skills/) automate parts of the maintenance loop. Agents pick up issues labeled `ready`, work in isolated `git worktree` directories, and open PRs back to `main`.
 
 **Your contribution is reviewed against the same rubric whether you're a human or an agent.** See [`docs/review-criteria.md`](./docs/review-criteria.md) — the "agent-authored PRs get the same scrutiny" rule is deliberate. Don't expect a lower bar because you used Cursor or Claude Code; don't expect a higher bar because you didn't.
 

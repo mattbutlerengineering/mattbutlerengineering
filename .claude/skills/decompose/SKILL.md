@@ -1,12 +1,12 @@
 ---
 name: decompose
-description: Break a feature into ordered, agent-sized GitHub issues that the ship-loop can work through sequentially. Takes a feature description, analyzes the codebase, creates a dependency chain of issues. Invoke with /decompose.
+description: Break a feature into ordered, agent-sized GitHub issues that the implement-queue can work through sequentially. Takes a feature description, analyzes the codebase, creates a dependency chain of issues. Invoke with /decompose.
 user-invocable: true
 ---
 
 # Decompose
 
-Break a feature request into a chain of ordered GitHub issues that `/ship-loop` (or the scheduled issue-worker) can implement autonomously.
+Break a feature request into a chain of ordered GitHub issues that `/implement-queue` (or the scheduled issue-worker) can implement autonomously.
 
 ## When to Use
 
@@ -64,9 +64,9 @@ Target **medium** size. Split large items. Combine tiny items.
 
 #### Dependency Ordering
 
-Issues are numbered with a `[N/total]` prefix in the title. The ship-loop works them in order (oldest first via `--sort created`), so create them in dependency order.
+Issues are numbered with a `[N/total]` prefix in the title. The implement-queue works them in order (oldest first via `--sort created`), so create them in dependency order.
 
-For parallel-safe issues (no dependencies between them), note it in the body so the ship-loop can batch them.
+For parallel-safe issues (no dependencies between them), note it in the body so the implement-queue can batch them.
 
 ### Step 4: Create GitHub Issues
 
@@ -184,11 +184,11 @@ gh label create tracking --color "C5DEF5" --description "Tracking issue for mult
 
 ## Dependency Handling
 
-The ship-loop picks the **oldest ready issue** first. Since we create issues in order, dependencies are naturally respected. For explicit dependencies:
+The implement-queue picks the **oldest ready issue** first. Since we create issues in order, dependencies are naturally respected. For explicit dependencies:
 
 1. Only the first issue (and parallel-safe issues) get the `ready` label immediately
 2. Dependent issues get created with `ready` label too, but include "Depends on: #N" in the body
-3. The ship-loop worker should check: if an issue says "Depends on: #N", verify #N is closed before starting work. If not, skip and try the next issue.
+3. The implement-queue worker should check: if an issue says "Depends on: #N", verify #N is closed before starting work. If not, skip and try the next issue.
 
 ## Example Decomposition
 

@@ -38,28 +38,28 @@ These guidelines are adapted from [Karpathy's CLAUDE.md](https://github.com/mult
 - **Match Style:** Rigorously adhere to the existing codebase patterns and idiomatic style.
 - **Orphan Cleanup:** Only remove code (imports, variables, functions) that your changes made redundant.
 
-## Continuous Improvement Loop (Ship Loop)
+## Continuous Improvement Loop
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.
 
 ### Two Modes
 
-| Mode                         | How                           | Pushes to        | Best for                   |
-| ---------------------------- | ----------------------------- | ---------------- | -------------------------- |
-| **Scheduled** (conservative) | RemoteTriggers on claude.ai   | PRs for review   | Background maintenance     |
-| **Ship Loop** (aggressive)   | `/loop 5m /ship-loop` locally | Directly to main | Active development sprints |
+| Mode                             | How                                  | Pushes to             | Best for                   |
+| -------------------------------- | ------------------------------------ | --------------------- | -------------------------- |
+| **Scheduled** (conservative)     | RemoteTriggers on claude.ai          | PRs for review        | Background maintenance     |
+| **Implement Queue** (aggressive) | `/loop 30m /implement-queue` locally | Auto-merges green PRs | Active development sprints |
 
 ### Skills
 
 | Skill               | Purpose                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/ship-loop`        | Full cycle: audit → fix → push → CI → E2E → deploy verify → close                                                                                                 |
+| `/implement-queue`  | Drain ready backlog: claim batch → parallel TDD worktree agents → PRs → serial merge train                                                                        |
 | `/site-audit`       | Crawl live site with Playwright + Lighthouse, create issues                                                                                                       |
 | `/issue-worker`     | Pick up ready issues, implement via `mbe agent run`, create PRs                                                                                                   |
 | `/ci-monitor`       | Check CI health, auto-fix simple failures, escalate complex ones                                                                                                  |
 | `/progress-tracker` | Metrics, self-tuning circuit breaker, trend analysis                                                                                                              |
 | `/learning-loop`    | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune                                                        |
-| `/sentry-triage`    | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for ship-loop                                                 |
+| `/sentry-triage`    | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for implement-queue                                           |
 | `/acmm-audit`       | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
 
 ## mbe CLI Commands

@@ -39,7 +39,7 @@ How AI agents autonomously find, fix, and verify issues in this repository.
 | -------------- | ----------------------------- | ---------------- | ------------------------------ |
 | `ready`        | Available for pickup          | Discovery skills | issue-worker (claim)           |
 | `in-progress`  | Agent working                 | issue-worker     | issue-worker (complete/fail)   |
-| `has-pr`       | PR created, awaiting CI/merge | issue-worker     | ship-loop (merge)              |
+| `has-pr`       | PR created, awaiting CI/merge | issue-worker     | implement-queue (merge)        |
 | `agent-failed` | Agent could not complete      | issue-worker     | issue-worker (retry) or manual |
 | `agent-skip`   | Max retries exhausted         | issue-worker     | Manual only                    |
 
@@ -80,24 +80,25 @@ Built-in resilience:
 - **Draft PRs on failure** -- partial work preserved for inspection
 - **Failure memory** -- past failure context injected on retry
 
-## Ship Loop (`/ship-loop`)
+## Implement Queue (`/implement-queue`)
 
-Full autonomous cycle with parallel dispatch. Invoked locally via `/loop 5m /ship-loop` or scheduled via RemoteTriggers.
+Drains the `ready` backlog with the implement-issue quality pipeline (TDD, gates, review) per issue. Invoked locally via `/loop 30m /implement-queue`. Replaces the former `/ship-loop`.
 
-**Priority: Security > Availability > New features.**
+**Priority: Security > CI fixes > Features > Audit findings.**
 
-| Phase        | What happens                                                                    | Parallelism            |
-| ------------ | ------------------------------------------------------------------------------- | ---------------------- |
-| A. Discover  | Health check, Dependabot alerts, smoke audit, check previous PRs, Sentry triage | All parallel           |
-| B. Implement | Claim up to 5 issues, launch one worktree agent per issue                       | Up to 5 parallel       |
-| C. Verify    | Check CI on previous batch's PRs, merge passing PRs, health-check deploys       | Pipelined with Phase A |
-| D. Loop/Stop | Continue if budget remains; circuit breaker after 3 consecutive failures        | --                     |
+| Phase          | What happens                                                                | Parallelism      |
+| -------------- | --------------------------------------------------------------------------- | ---------------- |
+| 0. Pre-flight  | Main CI health check, triage open PRs (merge/fix before new work)           | --               |
+| 1. Claim       | Claim up to 3 independent `ready` issues (dependency + zone filtered)       | --               |
+| 2. Implement   | One TDD worktree subagent per issue → branch + PR (no merge)                | Up to 3 parallel |
+| 3. Merge train | Merge green PRs one at a time, oldest first, rebase-aware lockfile handling | Serial           |
+| 4. Loop/Stop   | Continue if budget remains; circuit breaker after 3 consecutive failures    | --               |
 
 Key behavior:
 
-- Phase C checks the **previous** iteration's PRs while Phase B works the current batch
-- Low-risk PRs (tests, docs, config) are merged immediately on CI pass
+- Low-risk PRs (tests, docs, config, deps) are merged immediately on CI pass
 - Security issues always get a batch slot regardless of size
+- Discovery (Dependabot, site audit, Sentry) stays in `/ci-monitor`, `/site-audit`, `/sentry-triage` — they feed the queue, this skill drains it
 
 ## Issue Worker (`/issue-worker`)
 

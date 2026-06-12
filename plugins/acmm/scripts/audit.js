@@ -479,7 +479,7 @@ if (APPLY && applyResult) {
 if (!APPLY && computation.missingForNextLevel.length > 0) {
   console.log("");
   console.log(
-    "Run with --apply to file GitHub issues for the next-level gaps (ship-loop will pick them up)."
+    "Run with --apply to file GitHub issues for the next-level gaps (implement-queue will pick them up)."
   );
 }
 
