@@ -301,7 +301,7 @@
     }
     export async function runEvalSuite(
       tasks: readonly Task[],
-      opts: RunEvalSuiteOptions,
+      opts: RunEvalSuiteOptions
     ): Promise<EvalReport> {
       const selected = opts.only ? tasks.filter((t) => t.id === opts.only) : tasks;
     
@@ -326,7 +326,7 @@
       } catch (err) {
         throw new Error(
           `Could not read eval suite directory "${dir}": ${err instanceof Error ? err.message : String(err)}`,
-          { cause: err },
+          { cause: err }
         );
       }
     
@@ -350,7 +350,7 @@
       } catch (err) {
         throw new Error(
           `Invalid JSON in eval task "${path}": ${err instanceof Error ? err.message : String(err)}`,
-          { cause: err },
+          { cause: err }
         );
       }
     

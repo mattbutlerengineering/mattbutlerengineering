@@ -20,7 +20,11 @@ export function PublicBookingPage() {
 
   const activeHoldIdRef = useRef<string | null>(null);
 
-  const { data: venue, isLoading, error } = useQuery({
+  const {
+    data: venue,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["publicVenueBySlug", venueSlug],
     queryFn: async () => {
       if (!venueSlug) throw new Error("No venue specified.");

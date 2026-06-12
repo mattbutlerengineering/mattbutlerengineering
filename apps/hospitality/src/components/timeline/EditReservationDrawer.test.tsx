@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import "@testing-library/jest-dom";
 import { EditReservationDrawer } from "./EditReservationDrawer.js";
 import type { Reservation, Table } from "@mbe/types";
 

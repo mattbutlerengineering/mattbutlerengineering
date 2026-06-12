@@ -26,4 +26,4 @@ jobs:
             echo "No changes to review"
             exit 0
           fi
-          echo "Review complete — suggestions applied via ship-loop /ci-monitor"
+          echo "Review complete — suggestions applied via /ci-monitor"

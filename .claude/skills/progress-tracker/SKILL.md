@@ -192,11 +192,11 @@ The progress tracker doesn't just observe — it **acts** on what it finds.
 If agent failure rate exceeds 50% over the last 3 days:
 
 ```bash
-# Disable the ship-loop CronCreate job if running locally
+# Disable the implement-queue CronCreate job if running locally
 # For RemoteTriggers, disable the issue-worker:
 # (Manual step — create an issue alerting the user)
 gh issue create \
-  --title "[Alert] Ship loop paused — agent failure rate > 50%" \
+  --title "[Alert] Implement queue paused — agent failure rate > 50%" \
   --label "meta-improvement" \
   --body "Agent success rate has dropped below 50% over the last 3 days. The loop should be paused until the failure patterns are addressed.
 
@@ -226,7 +226,7 @@ done
 
 If queue depth > 10 and agent success rate > 70%:
 
-- Suggest running `/loop 3m /ship-loop` instead of 5m (faster cadence)
+- Suggest running `/loop 15m /implement-queue` instead of 30m (faster cadence)
 
 If queue depth is 0 for 3 consecutive days:
 

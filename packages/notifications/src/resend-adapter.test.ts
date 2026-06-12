@@ -136,7 +136,7 @@ describe("ResendNotificationAdapter", () => {
         guestName: "Jane Doe",
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
-      }),
+      })
     ).resolves.toBeUndefined();
 
     expect(mockSend).not.toHaveBeenCalled();

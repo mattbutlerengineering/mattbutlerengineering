@@ -119,7 +119,9 @@ export function FloorPlanEditorPage() {
       // Rollback to previous table positions on failure
       setTables(previousTablesRef.current);
       setPendingUpdates(new Map());
-      setSaveError(err instanceof Error ? err.message : "Failed to save changes — positions reverted");
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save changes — positions reverted"
+      );
     } finally {
       setIsSaving(false);
     }
@@ -221,10 +223,7 @@ export function FloorPlanEditorPage() {
   if (displayError || !floorPlan) {
     return (
       <div className={styles.errorContainer}>
-        <ErrorRetryBanner
-          error={displayError ?? "Floor plan not found"}
-          onRetry={refetch}
-        />
+        <ErrorRetryBanner error={displayError ?? "Floor plan not found"} onRetry={refetch} />
         <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
           Back to Floor Plans
         </Button>

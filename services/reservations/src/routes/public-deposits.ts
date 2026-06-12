@@ -72,7 +72,11 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .status(422)
           .send(
-            createProblemDetails(422, "Unprocessable Entity", "Deposits are not enabled for this venue.")
+            createProblemDetails(
+              422,
+              "Unprocessable Entity",
+              "Deposits are not enabled for this venue."
+            )
           );
       }
 
@@ -89,7 +93,9 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
       if (existingDeposit) {
         return reply
           .status(409)
-          .send(createProblemDetails(409, "Conflict", "A deposit already exists for this reservation."));
+          .send(
+            createProblemDetails(409, "Conflict", "A deposit already exists for this reservation.")
+          );
       }
 
       // Calculate deposit amount

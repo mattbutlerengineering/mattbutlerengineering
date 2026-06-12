@@ -256,7 +256,7 @@ If auth credentials are not available, skip auth-protected surfaces and note the
 - Always deduplicate before creating
 - If the site is completely down (5xx on all surfaces), create a single high-priority `ci-fix` issue and stop
 - Access-restricted surfaces (403) are **not** "site down" — log them and continue auditing
-- Regressions (smoke mode) get `ci-fix` label for ship-loop priority handling
+- Regressions (smoke mode) get `ci-fix` label for implement-queue priority handling
 
 ## Access Restrictions
 

@@ -16,7 +16,7 @@ The criterion catalog is **ported verbatim** from [kubestellar/console](https://
 # Dry run — scores the repo, writes report, creates nothing
 node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js
 
-# Create deduplicated GitHub issues for next-level gaps (fed to ship-loop)
+# Create deduplicated GitHub issues for next-level gaps (fed to implement-queue)
 node ${CLAUDE_PLUGIN_ROOT}/scripts/audit.js --apply
 
 # Rewrite README badge between <!-- acmm:begin -->/<!-- acmm:end -->
@@ -75,7 +75,7 @@ Criteria carry one of: `feedback-loop`, `readiness`, `autonomy`, `observability`
 ## Integration
 
 - **GitHub label:** `acmm` (color `#d4a030` — matches `--rialto-accent` gold). Created on first `--apply` via `gh label create acmm --force`.
-- **Ship-loop:** `acmm` issues carry `ready` + `audit`, so `/ship-loop`'s Phase-B dispatcher picks them up with the same prioritization as site-audit findings.
+- **Implement-queue:** `acmm` issues carry `ready` + `audit`, so `/implement-queue`'s batch dispatcher picks them up with the same prioritization as site-audit findings.
 - **Progress-tracker:** reads `.claude/acmm/state.json` history to surface level-over-time in its daily metrics log.
 
 ## Testing

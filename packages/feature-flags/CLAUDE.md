@@ -28,11 +28,11 @@ interface FeatureContext {
 
 ### Exports
 
-| Export                     | Signature                          | Purpose                                                              |
-| -------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
-| `createFeatureFlagsPlugin` | `() => FastifyPluginAsync`         | Fastify plugin: parses the header once per request, sets `request.features` |
-| `createFeatureContext`     | `(header) => FeatureContext`       | Build a context from a raw header value (tests, non-Fastify callers) |
-| `FEATURE_FLAGS_HEADER`     | `"x-feature-flags"`                | Header name constant                                                  |
+| Export                     | Signature                    | Purpose                                                                     |
+| -------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `createFeatureFlagsPlugin` | `() => FastifyPluginAsync`   | Fastify plugin: parses the header once per request, sets `request.features` |
+| `createFeatureContext`     | `(header) => FeatureContext` | Build a context from a raw header value (tests, non-Fastify callers)        |
+| `FEATURE_FLAGS_HEADER`     | `"x-feature-flags"`          | Header name constant                                                        |
 
 Parsing is safe — missing, invalid, or repeated headers all evaluate to "flags disabled", never a throw.
 

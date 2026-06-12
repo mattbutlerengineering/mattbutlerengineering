@@ -1,12 +1,12 @@
 ---
 name: sentry-triage
-description: Query Sentry for production errors, filter by severity/frequency, deduplicate against existing GitHub issues, and create actionable issues for the ship-loop. Invoke with /sentry-triage.
+description: Query Sentry for production errors, filter by severity/frequency, deduplicate against existing GitHub issues, and create actionable issues for the implement-queue. Invoke with /sentry-triage.
 user-invocable: true
 ---
 
 # Sentry Triage
 
-Automated production error to GitHub issue pipeline. Queries Sentry MCP for actionable errors and creates deduplicated issues for the ship-loop.
+Automated production error to GitHub issue pipeline. Queries Sentry MCP for actionable errors and creates deduplicated issues for the implement-queue.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ Check existing GitHub issues by Sentry ID and title.
 
 ### Step 4: Create Issues
 
-Create `ready,sentry,bug` issues for ship-loop pickup.
+Create `ready,sentry,bug` issues for implement-queue pickup.
 
 ## Current Status
 

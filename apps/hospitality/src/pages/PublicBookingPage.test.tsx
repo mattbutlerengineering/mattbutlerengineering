@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
@@ -75,7 +74,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><PublicBookingPage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <PublicBookingPage />
+    </Wrapper>
+  );
 }
 
 beforeEach(() => {

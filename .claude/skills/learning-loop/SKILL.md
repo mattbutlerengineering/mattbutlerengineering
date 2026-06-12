@@ -138,6 +138,6 @@ Or invoke manually: `/learning-loop`
 - Max 3 regression issues per run (avoid noise)
 - Max 2 skill proposals per run
 - Deduplication: always check open issues before creating
-- Reopened issues get `ready` label for ship-loop pickup
+- Reopened issues get `ready` label for implement-queue pickup
 - Session log analysis only on Fridays (configurable)
 - Verification runs on 48h-old closures (configurable via `--hours`)

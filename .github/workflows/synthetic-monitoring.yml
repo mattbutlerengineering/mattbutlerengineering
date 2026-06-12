@@ -282,7 +282,7 @@ jobs:
               echo
             fi
             echo "---"
-            echo "*This issue was auto-created by synthetic monitoring. It will be picked up by the ship-loop or issue-worker.*"
+            echo "*This issue was auto-created by synthetic monitoring. It will be picked up by the implement-queue or issue-worker.*"
           } > /tmp/health-body.md
 
           gh issue create \

@@ -35,7 +35,10 @@ export function SetupHoursPage() {
     setError(null);
 
     try {
-      await updateVenueMutation.mutateAsync({ venueId: selectedVenueId, data: { operatingHours: hours } });
+      await updateVenueMutation.mutateAsync({
+        venueId: selectedVenueId,
+        data: { operatingHours: hours },
+      });
       navigate("/setup");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save operating hours.");

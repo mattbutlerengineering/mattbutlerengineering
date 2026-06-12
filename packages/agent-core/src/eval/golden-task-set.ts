@@ -15,7 +15,7 @@ export async function loadSuite(dir: string): Promise<Task[]> {
   } catch (err) {
     throw new Error(
       `Could not read eval suite directory "${dir}": ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
+      { cause: err }
     );
   }
 
@@ -40,7 +40,7 @@ async function loadTaskFile(path: string): Promise<Task> {
   } catch (err) {
     throw new Error(
       `Invalid JSON in eval task "${path}": ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
+      { cause: err }
     );
   }
 

@@ -54,7 +54,9 @@ describe("loadSuite", () => {
   });
 
   it("throws a clear error when the directory does not exist", async () => {
-    await expect(loadSuite(join(dir, "missing"))).rejects.toThrow(/Could not read eval suite directory/);
+    await expect(loadSuite(join(dir, "missing"))).rejects.toThrow(
+      /Could not read eval suite directory/
+    );
   });
 
   it("ignores non-JSON files", async () => {

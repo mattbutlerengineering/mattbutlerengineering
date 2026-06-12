@@ -18,10 +18,7 @@ type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: s
  * message followed by the conversation. Caching must go through the messages
  * array (not top-level `system:`) so `providerOptions` is honored.
  */
-export function buildGenMessages(
-  systemPrompt: string,
-  messages: ReadonlyArray<GenChatMessage>,
-) {
+export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
   return [
     {
       role: "system" as const,
@@ -48,7 +45,7 @@ export function logGenCost(
     readonly usage: GenUsage;
     readonly providerMetadata?: unknown;
     readonly label: string;
-  },
+  }
 ): void {
   const anthropicMeta = (
     opts.providerMetadata as
@@ -65,7 +62,7 @@ export function logGenCost(
       cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
       cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
     },
-    opts.label,
+    opts.label
   );
 }
 

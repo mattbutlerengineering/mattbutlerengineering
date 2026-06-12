@@ -10,5 +10,5 @@ Showcase site for the Rialto design system.
 
 See root `.claude/skills/` for cross-cutting skills inherited via `package.json` acmm.inherit.
 
-- `/ship-loop` — full local cycle (audit → fix → push → CI → deploy)
+- `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit` — crawl live site with smoke/sweep/scout modes

@@ -12,7 +12,7 @@ Pre-deploy smoke test that runs `pnpm test:e2e` for the auth flow.
 
 For full automation, use the root-level skills:
 
-- `/ship-loop` — full local cycle (audit → fix → push → CI → deploy)
+- `/implement-queue` — drain ready backlog (claim batch → parallel TDD worktree agents → PRs → serial merge train)
 - `/site-audit [smoke|sweep|scout]` — crawl live site
 - `/issue-worker` — pick up oldest `ready` issue and PR a fix
 - `/ci-monitor` — auto-fix simple CI failures

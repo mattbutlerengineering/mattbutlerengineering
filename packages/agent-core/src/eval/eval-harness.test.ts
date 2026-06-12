@@ -9,7 +9,12 @@ function makeTask(id: string, overrides: Partial<Task> = {}): Task {
     category: "bugfix",
     prompt: `do ${id}`,
     fixtureRef: `fixtures/${id}`,
-    rubric: { testsMustPass: true, typecheckMustPass: true, lintMustPass: false, judgeCriteria: [] },
+    rubric: {
+      testsMustPass: true,
+      typecheckMustPass: true,
+      lintMustPass: false,
+      judgeCriteria: [],
+    },
     budget: { maxTurns: 50, maxCostUsd: 1 },
     ...overrides,
   };
@@ -31,10 +36,22 @@ function session(overrides: Partial<SessionResult> = {}): SessionResult {
   };
 }
 
-const PASS: DeterministicChecks = { testsPass: true, typecheckPass: true, lintPass: true, withinBudget: true };
-const FAIL: DeterministicChecks = { testsPass: false, typecheckPass: true, lintPass: true, withinBudget: true };
+const PASS: DeterministicChecks = {
+  testsPass: true,
+  typecheckPass: true,
+  lintPass: true,
+  withinBudget: true,
+};
+const FAIL: DeterministicChecks = {
+  testsPass: false,
+  typecheckPass: true,
+  lintPass: true,
+  withinBudget: true,
+};
 
-function runnerFrom(map: Record<string, { checks: DeterministicChecks; session?: SessionResult }>): TaskRunner {
+function runnerFrom(
+  map: Record<string, { checks: DeterministicChecks; session?: SessionResult }>
+): TaskRunner {
   return async (task: Task): Promise<TaskRunResult> => {
     const entry = map[task.id];
     return { task, session: entry.session ?? session(), checks: entry.checks };

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
-import "@testing-library/jest-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -42,7 +41,9 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
     <div data-testid="error-retry-banner">
       <span>{error}</span>
-      <button data-testid="retry-button" onClick={onRetry}>Retry</button>
+      <button data-testid="retry-button" onClick={onRetry}>
+        Retry
+      </button>
     </div>
   ),
 }));
@@ -139,7 +140,11 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(<Wrapper><ProfilePage /></Wrapper>);
+  return render(
+    <Wrapper>
+      <ProfilePage />
+    </Wrapper>
+  );
 }
 
 const mockUser = {
