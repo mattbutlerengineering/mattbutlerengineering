@@ -59,11 +59,21 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps
    # Generated-artifact drift — regenerate, then check if anything changed
    pnpm graph && pnpm generate:dep-graph     # only if you touched package.json / pnpm-workspace.yaml / pnpm-lock.yaml
-   pnpm pack-changed                          # regenerates llms.txt for changed packages
+   pnpm pack-changed                          # regenerates per-package llms.txt for changed packages
+   node scripts/detect-instruction-rot.mjs    # CI runs this; catches stale refs pack-changed misses
    git status --short                         # surfaces any regenerated artifacts
    ```
 
    If `check-adr`/`check-deps` fail, fix the violation. If regeneration changed artifacts (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`), stage **those specific files** alongside your change (never `git add -A`) — CI's Integrity check fails on uncommitted drift.
+
+   **If you ADDED or DELETED a package** (new or removed `package.json`), the **root** `llms.txt`/`llms-full.txt` also drift — and `pnpm pack-changed` does NOT cover root, so the drift slips past the Integrity *sync* step and fails the *instruction-rot* step instead (`[ROT] llms.txt: Reference to deleted package …`). Regenerate root explicitly and re-verify:
+
+   ```bash
+   pnpm --filter @mbe/cli start pack .        # regenerate the root (workspace-aggregate) llms.txt
+   node scripts/detect-instruction-rot.mjs    # must print "✓ No instruction rot detected"
+   ```
+
+   Stage the root `llms.txt`/`llms-full.txt` alongside the dep-graph regen.
 
 5. **Simplify** — Review your changes. Remove unnecessary complexity. If you added more than 20 lines, look for opportunities to simplify, then re-run gates.
 
