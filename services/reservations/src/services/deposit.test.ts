@@ -44,7 +44,7 @@ vi.mock("stripe", () => {
   return { default: MockStripe };
 });
 
-import { DepositService } from "./deposit.js";
+import { DepositService, calculateDepositAmount } from "./deposit.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
@@ -275,5 +275,37 @@ describe("DepositService", () => {
         /invalid.*transition|cannot transition/i
       );
     });
+  });
+});
+
+describe("calculateDepositAmount", () => {
+  it("multiplies depositAmountCents by partySize for per_person type", () => {
+    const venue = { depositType: "per_person", depositAmountCents: 1000 };
+    expect(calculateDepositAmount(venue, 4)).toBe(4000);
+  });
+
+  it("returns depositAmountCents unchanged for fixed type", () => {
+    const venue = { depositType: "fixed", depositAmountCents: 5000 };
+    expect(calculateDepositAmount(venue, 4)).toBe(5000);
+  });
+
+  it("returns zero when depositAmountCents is null", () => {
+    const venue = { depositType: "fixed", depositAmountCents: null };
+    expect(calculateDepositAmount(venue, 3)).toBe(0);
+  });
+
+  it("returns zero when depositAmountCents is null and type is per_person", () => {
+    const venue = { depositType: "per_person", depositAmountCents: null };
+    expect(calculateDepositAmount(venue, 3)).toBe(0);
+  });
+
+  it("returns zero for per_person with zero party size", () => {
+    const venue = { depositType: "per_person", depositAmountCents: 1000 };
+    expect(calculateDepositAmount(venue, 0)).toBe(0);
+  });
+
+  it("handles large party sizes correctly for per_person", () => {
+    const venue = { depositType: "per_person", depositAmountCents: 500 };
+    expect(calculateDepositAmount(venue, 100)).toBe(50000);
   });
 });

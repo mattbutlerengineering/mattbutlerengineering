@@ -203,3 +203,22 @@ export const depositService = new DepositService(
 
 // Re-export error class from state machine for convenience
 export { DepositTransitionError };
+
+/**
+ * Pure function: calculates the deposit amount in cents for a reservation.
+ *
+ * Rules:
+ * - "per_person": amount × partySize
+ * - "fixed" (or any other type): amount as-is
+ * - null depositAmountCents: zero
+ */
+export function calculateDepositAmount(
+  venue: { depositType: string | null; depositAmountCents: number | null },
+  partySize: number
+): number {
+  const amount = venue.depositAmountCents ?? 0;
+  if (venue.depositType === "per_person") {
+    return amount * partySize;
+  }
+  return amount;
+}

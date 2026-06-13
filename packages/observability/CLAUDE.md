@@ -1,6 +1,6 @@
 # @mbe/observability
 
-OpenTelemetry SDK wrapper for Node.js services. Provides tracing, metrics, request ID propagation, and agent baggage context.
+OpenTelemetry SDK wrapper for Node.js services. Provides tracing, metrics, and request ID propagation.
 
 ## SDK Initialization
 
@@ -23,29 +23,6 @@ Resource attributes: service name, version, deployment environment, `deploy.sha`
 
 Helpers: `getRequestId(request)` extracts the ID; `logWithRequestId(logger, id, msg, ctx)` adds it to structured logs.
 
-## Baggage Context
-
-Propagates agent metadata through the OTel W3C Baggage format across service boundaries.
-
-```typescript
-import {
-  createBaggageContext,
-  extractAgentBaggage,
-  BAGGAGE_KEYS,
-} from "@mbe/observability/baggage";
-
-// Attach baggage to outbound requests
-const ctx = createBaggageContext({ sessionId: "abc", prNumber: "42" });
-context.with(ctx, () => {
-  /* HTTP calls carry baggage headers */
-});
-
-// Extract baggage in receiving service
-const bag = extractAgentBaggage(); // { sessionId, prNumber, issueNumber, deploySha }
-```
-
-Baggage keys: `agent.session_id`, `agent.pr_number`, `agent.issue_number`, `deploy.sha`.
-
 ## Environment Variables
 
 | Variable                      | Purpose                                             |
@@ -60,8 +37,7 @@ Baggage keys: `agent.session_id`, `agent.pr_number`, `agent.issue_number`, `depl
 
 ## Package Exports
 
-- `@mbe/observability` — main entry (initTelemetry, request ID, baggage)
-- `@mbe/observability/baggage` — baggage utilities only (lighter import for non-Node contexts)
+- `@mbe/observability` — main entry (initTelemetry, request ID middleware, readiness, error-rate monitor, rate-limit monitor)
 
 ## Service Integration Pattern
 

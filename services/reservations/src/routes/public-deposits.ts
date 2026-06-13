@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 import { venueService } from "../services/venue.js";
-import { depositService } from "../services/deposit.js";
+import { depositService, calculateDepositAmount } from "../services/deposit.js";
 import { stripeService } from "../services/stripe.js";
 import { reservationService } from "../services/reservation.js";
 
@@ -144,14 +144,3 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 };
-
-function calculateDepositAmount(
-  venue: { depositType: string | null; depositAmountCents: number | null },
-  partySize: number
-): number {
-  const amount = venue.depositAmountCents ?? 0;
-  if (venue.depositType === "per_person") {
-    return amount * partySize;
-  }
-  return amount;
-}
