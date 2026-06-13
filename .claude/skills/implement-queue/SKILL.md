@@ -64,7 +64,15 @@ gh issue edit <N> --add-label "in-progress" --remove-label "ready"
 
 ## Phase 2: Implement in Parallel
 
-Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"` and `isolation: "worktree"`.
+**Resolve each issue's model first.** Per-issue routing beats a one-size model — trivial deps/docs run on haiku, complex refactors on opus-4.8:
+
+```bash
+mbe check-model --issue <N>   # prints the model ID on stdout (tier/reason on stderr)
+```
+
+It honors an explicit `model:` in the issue's ```yaml agent block, otherwise routes by labels + title + body via `model-router.ts` (single source of truth — no inline copy of the rules here).
+
+Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved ID from `check-model`. (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
 
 Each agent prompt MUST include:
 
@@ -93,9 +101,17 @@ For each green PR:
 
 1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
 2. Wait for CI (`gh pr checks <N> --watch` or poll).
-3. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+3. **Diff-matched review gate (non-low-risk PRs only).** Compute the reviewers for the diff:
 
-**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check.)
+   ```bash
+   gh pr diff <N> --name-only   # → reviewersForDiff() in @mbe/agent-core maps these to reviewer agents
+   ```
+
+   For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
+
+4. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+
+**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
 
 If CI fails on a PR: one fix attempt in the main session (small fixes) or create a `ci-fix` issue and label the original `agent-failed`. Counts toward the circuit breaker.
 

@@ -7,9 +7,11 @@ tools:
   - Edit
   - Glob
   - Grep
-  - Agent
+  - Skill
 model: sonnet
 ---
+
+> **Model:** `sonnet` is the fallback. `/implement-queue` resolves a per-issue model via `mbe check-model --issue <N>` and passes it as `model:` when dispatching — that override wins over this frontmatter. The fallback applies only when no override is passed.
 
 # Implement Queue Worker
 
@@ -24,6 +26,8 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 1. **Understand the issue** — Read the issue description carefully. Identify which files and code areas are affected. If the issue says `Depends on: #N` and #N is open, stop and report.
 
 2. **Find the code** — Use Grep/Glob to locate the relevant files. Read them to understand the current implementation and existing patterns.
+
+   **If the issue touches a Prisma schema or migration**, invoke the `/prisma-migrations` skill first for the house migration workflow (dev vs. prod, baselining, destructive-change rules) before writing the migration.
 
 3. **TDD implementation** — Work in vertical slices. For each slice:
    - Write ONE failing test (RED), run it, confirm it fails
@@ -46,6 +50,19 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    ```
 
    Vitest does NOT typecheck — tests can pass with wrong types. `pnpm typecheck` is mandatory before declaring done. Fix any failures; do not skip or disable tests.
+
+   **Then run the two CI gates `pnpm test` does not cover** — these are the recurring main-breakers, so catch them here, from the repo root:
+
+   ```bash
+   # Architecture audit (ADR + dependency constraints)
+   pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps
+   # Generated-artifact drift — regenerate, then check if anything changed
+   pnpm graph && pnpm generate:dep-graph     # only if you touched package.json / pnpm-workspace.yaml / pnpm-lock.yaml
+   pnpm pack-changed                          # regenerates llms.txt for changed packages
+   git status --short                         # surfaces any regenerated artifacts
+   ```
+
+   If `check-adr`/`check-deps` fail, fix the violation. If regeneration changed artifacts (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`), stage **those specific files** alongside your change (never `git add -A`) — CI's Integrity check fails on uncommitted drift.
 
 5. **Simplify** — Review your changes. Remove unnecessary complexity. If you added more than 20 lines, look for opportunities to simplify, then re-run gates.
 

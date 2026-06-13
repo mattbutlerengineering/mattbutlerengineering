@@ -92,7 +92,7 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 | ------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | haiku  | `chore(deps):` or `fix(security):` title patterns                                                                     | claude-haiku-4-5  |
 | sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-4-6 |
-| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-6   |
+| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-8   |
 
 ## Multi-CLI Adapters
 
