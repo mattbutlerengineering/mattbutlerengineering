@@ -1,10 +1,12 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
 import { type ApiError, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { executeSession } from "../services/session-executor.js";
+import {
+  createRawBodyCaptureHook,
+  createVerifiedBodyPreHandler,
+} from "../lib/verified-webhook.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const REQUIRED_PERMISSION = "write";
@@ -69,18 +71,6 @@ interface GitHubCheckRunEvent {
   };
 }
 
-// ── Signature verification ───────────────────────────────────────────
-
-function verifySignature(payload: Buffer, signature: string | undefined, secret: string): boolean {
-  if (!signature) return false;
-
-  const expected = `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
-
-  if (expected.length !== signature.length) return false;
-
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-}
-
 // ── Constants ────────────────────────────────────────────────────────
 
 const GITHUB_REPO_RE = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
@@ -139,18 +129,12 @@ async function checkCollaboratorPermission(
 // ── Routes ───────────────────────────────────────────────────────────
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
-  // Capture raw request body before Fastify parses JSON.
-  // GitHub signs the original bytes; re-serializing via JSON.stringify
-  // can produce a different byte sequence and break HMAC verification.
-  fastify.addHook("preParsing", async (request, _reply, payload) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of payload) {
-      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
-    }
-    const rawBody = Buffer.concat(chunks);
-    (request as unknown as Record<string, unknown>).rawBody = rawBody;
-    return Readable.from(rawBody);
-  });
+  fastify.addHook("preParsing", createRawBodyCaptureHook());
+  fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+    header: "x-hub-signature-256",
+    secretEnv: "GITHUB_WEBHOOK_SECRET",
+    format: "sha256=",
+  }));
 
   // POST /v1/webhooks/github — Handle GitHub webhook events
   // github[js/missing-rate-limiting] — restrictive limit for high-impact webhook
@@ -178,24 +162,6 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
-      const secret = process.env.GITHUB_WEBHOOK_SECRET;
-      if (!secret) {
-        fastify.log.warn("GITHUB_WEBHOOK_SECRET not configured — rejecting webhook");
-        return reply
-          .code(401)
-          .send(createProblemDetails(401, "Unauthorized", "Webhook secret not configured"));
-      }
-
-      // Verify signature against the original raw bytes (not re-serialized JSON)
-      const signature = request.headers["x-hub-signature-256"] as string | undefined;
-      const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
-
-      if (!verifySignature(rawBody, signature, secret)) {
-        return reply
-          .code(401)
-          .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
-      }
-
       const githubToken = process.env.GITHUB_TOKEN;
       if (!githubToken) {
         fastify.log.warn("GITHUB_TOKEN not configured — cannot verify collaborator permissions");

@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createHmac } from "node:crypto";
