@@ -8,11 +8,6 @@
       "types": "./src/index.ts",
       "production": "./dist/index.js",
       "default": "./src/index.ts"
-    },
-    "./baggage": {
-      "types": "./src/baggage.ts",
-      "production": "./dist/baggage.js",
-      "default": "./src/baggage.ts"
     }
   },
   "scripts": {

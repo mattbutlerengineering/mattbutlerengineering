@@ -1,18 +1,5 @@
 <codebase path="packages/observability">
   <section priority="medium" role="src">
-  <file path="src/baggage.ts">
-    <item priority="high">
-      export const BAGGAGE_KEYS: unknown;
-    </item>
-    <item priority="low">
-      interface AgentBaggage {
-        sessionId?: string;
-        prNumber?: string;
-        issueNumber?: string;
-        deploySha?: string;
-      }
-    </item>
-  </file>
   <file path="src/error-rates.ts">
     <item priority="high">
       interface RequestRecord {
