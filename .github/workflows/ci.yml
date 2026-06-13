@@ -218,31 +218,16 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      - name: Build CLI
-        run: pnpm build --filter @mbe/cli --force
-
-      - name: Check instruction sync (llms.txt)
-        run: |
-          for pkg in packages/* apps/* services/*; do
-            if [ -f "$pkg/llms.txt" ]; then
-              echo "Regenerating $pkg..."
-              node tools/cli/dist/index.js pack "$pkg"
-            fi
-          done
-          git diff --exit-code -- '*/llms.txt' '*/llms-full.txt' || \
-            (echo "ERROR: llms.txt files are out of sync. Run 'pnpm pack-changed' locally and commit." && exit 1)
+      # Generated-artifact staleness (llms.txt, registry.json, dep-graph.json,
+      # generated-schemas.ts, dependency-graph.md) is now verified in one
+      # manifest-driven step in the `build` job ("Verify generated artifacts are
+      # in sync"). This job keeps the non-regenerated doc validators below.
 
       - name: Check for instruction rot
         run: node scripts/detect-instruction-rot.mjs
 
       - name: Check doc freshness
         run: node scripts/check-doc-freshness.mjs
-
-      - name: Check component registry integrity
-        run: |
-          pnpm --filter @mattbutlerengineering/rialto build:registry
-          git diff --exit-code packages/rialto/registry.json || \
-            (echo "ERROR: registry.json is stale. Run 'pnpm --filter @mattbutlerengineering/rialto build:registry' locally and commit the result." && exit 1)
 
   build:
     name: Build
@@ -272,23 +257,17 @@ jobs:
       - name: Run Full Repository Audit
         run: pnpm repo-audit
 
-      - name: Regenerate dependency graph
+      - name: Verify generated artifacts are in sync
+        # Single manifest-driven staleness check (scripts/regen-manifest.mjs is
+        # the source of truth), replacing five separate regenerate+git-diff
+        # stanzas: llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+        # and dependency-graph.md. `pnpm regen` regenerates every committed
+        # artifact; `pnpm regen --check` then fails if any drifted, naming the
+        # stale artifact and the exact fix command. Add new artifacts to the
+        # manifest, not here.
         run: |
-          node scripts/generate-dep-graph.mjs
-          git diff --exit-code infrastructure/worker/dep-graph.json || \
-            (echo "ERROR: dep-graph.json is stale. Run 'pnpm generate:dep-graph' locally and commit the result." && exit 1)
-
-      - name: Check catalog drift
-        run: |
-          pnpm --filter @mbe/rialto-catalog generate
-          git diff --exit-code packages/rialto-catalog/src/generated-schemas.ts || \
-            (echo "ERROR: generated-schemas.ts is stale. Run 'pnpm --filter @mbe/rialto-catalog generate' locally and commit the result." && exit 1)
-
-      - name: Check dependency graph drift
-        run: |
-          pnpm graph
-          git diff --exit-code docs/architecture/dependency-graph.md || \
-            (echo "ERROR: dependency-graph.md is stale. Run 'pnpm graph' locally and commit the result." && exit 1)
+          pnpm regen
+          pnpm regen --check
 
       - name: Check bundle size budgets
         run: pnpm size:check
