@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { AppShell } from "./AppShell.js";
+import { AppShell, useAppShellPanels } from "./AppShell.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   AppBar: ({ logo, actions }: { logo: React.ReactNode; actions: React.ReactNode }) => (
@@ -67,6 +67,22 @@ vi.mock("../contexts/ThemeContext.js", () => ({
   useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
 }));
 
+const mockToggleHistory = vi.fn();
+const mockToggleInspector = vi.fn();
+const mockCloseOverlays = vi.fn();
+let panelLayoutState = {
+  historyVisible: true,
+  inspectorVisible: true,
+  breakpoint: "desktop" as "mobile" | "tablet" | "desktop",
+  toggleHistory: mockToggleHistory,
+  toggleInspector: mockToggleInspector,
+  closeOverlays: mockCloseOverlays,
+};
+
+vi.mock("../hooks/usePanelLayout.js", () => ({
+  usePanelLayout: () => panelLayoutState,
+}));
+
 vi.mock("./AppShell.module.css", () => ({
   default: {
     shell: "shell",
@@ -80,16 +96,29 @@ vi.mock("./AppShell.module.css", () => ({
     actions: "actions",
     content: "content",
     skipLink: "skipLink",
+    sidePanel: "sidePanel",
+    overlayPanel: "overlayPanel",
+    overlayStart: "overlayStart",
+    overlayEnd: "overlayEnd",
+    backdrop: "backdrop",
   },
 }));
 
 const child = <div data-testid="child-content">Content</div>;
 
-describe("AppShell", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+  panelLayoutState = {
+    historyVisible: true,
+    inspectorVisible: true,
+    breakpoint: "desktop",
+    toggleHistory: mockToggleHistory,
+    toggleInspector: mockToggleInspector,
+    closeOverlays: mockCloseOverlays,
+  };
+});
 
+describe("AppShell", () => {
   it("renders children inside the content area", () => {
     render(<AppShell>{child}</AppShell>);
     expect(screen.getByTestId("child-content")).toBeDefined();
@@ -113,38 +142,19 @@ describe("AppShell", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
-  it("shows panel toggle for history when onToggleHistory is provided", () => {
-    const onToggleHistory = vi.fn();
-    render(<AppShell onToggleHistory={onToggleHistory}>{child}</AppShell>);
-    expect(screen.getByRole("button", { name: /toggle history panel/i })).toBeDefined();
-  });
-
-  it("hides history panel toggle when onToggleHistory is not provided", () => {
+  it("renders avatar with user name", () => {
     render(<AppShell>{child}</AppShell>);
-    expect(screen.queryByRole("button", { name: /toggle history panel/i })).toBeNull();
+    expect(screen.getByTestId("avatar")).toBeDefined();
+    expect(screen.getByText("Test User")).toBeDefined();
   });
 
-  it("calls onToggleHistory when history toggle is clicked", () => {
-    const onToggleHistory = vi.fn();
-    render(<AppShell onToggleHistory={onToggleHistory}>{child}</AppShell>);
-    fireEvent.click(screen.getByRole("button", { name: /toggle history panel/i }));
-    expect(onToggleHistory).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows inspector panel toggle when onToggleInspector is provided", () => {
-    const onToggleInspector = vi.fn();
-    render(<AppShell onToggleInspector={onToggleInspector}>{child}</AppShell>);
-    expect(screen.getByRole("button", { name: /toggle json inspector/i })).toBeDefined();
-  });
-
-  it("hides inspector panel toggle when onToggleInspector is not provided", () => {
+  it("renders the theme toggle", () => {
     render(<AppShell>{child}</AppShell>);
-    expect(screen.queryByRole("button", { name: /toggle json inspector/i })).toBeNull();
+    expect(screen.getByTestId("theme-toggle")).toBeDefined();
   });
 
   it("shows Templates button when onTemplatesOpen is provided", () => {
-    const onTemplatesOpen = vi.fn();
-    render(<AppShell onTemplatesOpen={onTemplatesOpen}>{child}</AppShell>);
+    render(<AppShell onTemplatesOpen={vi.fn()}>{child}</AppShell>);
     expect(screen.getByRole("button", { name: /templates/i })).toBeDefined();
   });
 
@@ -160,29 +170,180 @@ describe("AppShell", () => {
     expect(onTemplatesOpen).toHaveBeenCalledTimes(1);
   });
 
-  it("renders avatar with user name", () => {
+  it("calls onLogoClick when the logo is clicked", () => {
+    const onLogoClick = vi.fn();
+    render(<AppShell onLogoClick={onLogoClick}>{child}</AppShell>);
+    fireEvent.click(screen.getByRole("button", { name: /return to empty state/i }));
+    expect(onLogoClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AppShell — shell-owned panel toggle state", () => {
+  it("always renders the history toggle (shell owns the state, no callback needed)", () => {
     render(<AppShell>{child}</AppShell>);
-    expect(screen.getByTestId("avatar")).toBeDefined();
-    expect(screen.getByText("Test User")).toBeDefined();
+    expect(screen.getByRole("button", { name: /toggle history panel/i })).toBeDefined();
   });
 
-  it("renders the theme toggle", () => {
+  it("always renders the inspector toggle (shell owns the state, no callback needed)", () => {
     render(<AppShell>{child}</AppShell>);
-    expect(screen.getByTestId("theme-toggle")).toBeDefined();
+    expect(screen.getByRole("button", { name: /toggle json inspector/i })).toBeDefined();
   });
 
-  it("renders CommandPalette when paletteOpen and commandItems are provided", () => {
-    const onPaletteOpenChange = vi.fn();
+  it("toggles history visibility through the shell-owned state", () => {
+    render(<AppShell>{child}</AppShell>);
+    fireEvent.click(screen.getByRole("button", { name: /toggle history panel/i }));
+    expect(mockToggleHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles inspector visibility through the shell-owned state", () => {
+    render(<AppShell>{child}</AppShell>);
+    fireEvent.click(screen.getByRole("button", { name: /toggle json inspector/i }));
+    expect(mockToggleInspector).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects history visibility in aria-pressed", () => {
+    render(<AppShell>{child}</AppShell>);
+    expect(
+      screen.getByRole("button", { name: /toggle history panel/i }).getAttribute("aria-pressed")
+    ).toBe("true");
+  });
+});
+
+describe("AppShell.HistoryRegion", () => {
+  it("renders panel content when history is visible", () => {
     render(
-      <AppShell paletteOpen={true} onPaletteOpenChange={onPaletteOpenChange} commandItems={[]}>
-        {child}
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <div data-testid="history-content">history</div>
+        </AppShell.HistoryRegion>
+      </AppShell>
+    );
+    expect(screen.getByTestId("history-content")).toBeDefined();
+  });
+
+  it("renders nothing when history is hidden", () => {
+    panelLayoutState = { ...panelLayoutState, historyVisible: false };
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <div data-testid="history-content">history</div>
+        </AppShell.HistoryRegion>
+      </AppShell>
+    );
+    expect(screen.queryByTestId("history-content")).toBeNull();
+  });
+
+  it("renders nothing when fullscreen even if history is visible", () => {
+    render(
+      <AppShell isFullscreen>
+        <AppShell.HistoryRegion>
+          <div data-testid="history-content">history</div>
+        </AppShell.HistoryRegion>
+      </AppShell>
+    );
+    expect(screen.queryByTestId("history-content")).toBeNull();
+  });
+});
+
+describe("AppShell.InspectorRegion", () => {
+  it("renders panel content when inspector is visible", () => {
+    render(
+      <AppShell>
+        <AppShell.InspectorRegion>
+          <div data-testid="inspector-content">inspector</div>
+        </AppShell.InspectorRegion>
+      </AppShell>
+    );
+    expect(screen.getByTestId("inspector-content")).toBeDefined();
+  });
+
+  it("renders nothing when inspector is hidden", () => {
+    panelLayoutState = { ...panelLayoutState, inspectorVisible: false };
+    render(
+      <AppShell>
+        <AppShell.InspectorRegion>
+          <div data-testid="inspector-content">inspector</div>
+        </AppShell.InspectorRegion>
+      </AppShell>
+    );
+    expect(screen.queryByTestId("inspector-content")).toBeNull();
+  });
+});
+
+describe("AppShell.CommandPalette", () => {
+  it("renders the command palette as a composable child", () => {
+    render(
+      <AppShell>
+        <AppShell.CommandPalette items={[]} />
       </AppShell>
     );
     expect(screen.getByTestId("command-palette")).toBeDefined();
   });
 
-  it("does not render CommandPalette when paletteOpen is undefined", () => {
+  it("does not render a command palette when the child is not composed", () => {
     render(<AppShell>{child}</AppShell>);
     expect(screen.queryByTestId("command-palette")).toBeNull();
+  });
+});
+
+describe("useAppShellPanels", () => {
+  function Probe() {
+    const panels = useAppShellPanels();
+    return (
+      <div>
+        <span data-testid="history-visible">{String(panels.historyVisible)}</span>
+        <span data-testid="inspector-visible">{String(panels.inspectorVisible)}</span>
+        <span data-testid="breakpoint">{panels.breakpoint}</span>
+        <button type="button" onClick={() => panels.openPalette()}>
+          open palette
+        </button>
+        <button type="button" onClick={() => panels.closeOverlays()}>
+          close overlays
+        </button>
+      </div>
+    );
+  }
+
+  it("exposes the shell-owned panel state to the page body", () => {
+    render(
+      <AppShell>
+        <Probe />
+      </AppShell>
+    );
+    expect(screen.getByTestId("history-visible").textContent).toBe("true");
+    expect(screen.getByTestId("inspector-visible").textContent).toBe("true");
+    expect(screen.getByTestId("breakpoint").textContent).toBe("desktop");
+  });
+
+  it("opens the command palette through the exposed control", () => {
+    render(
+      <AppShell>
+        <AppShell.CommandPalette items={[]} />
+        <Probe />
+      </AppShell>
+    );
+    expect(screen.getByTestId("command-palette").getAttribute("data-open")).toBe("false");
+    fireEvent.click(screen.getByText("open palette"));
+    expect(screen.getByTestId("command-palette").getAttribute("data-open")).toBe("true");
+  });
+
+  it("delegates closeOverlays to the panel layout", () => {
+    render(
+      <AppShell>
+        <Probe />
+      </AppShell>
+    );
+    fireEvent.click(screen.getByText("close overlays"));
+    expect(mockCloseOverlays).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws when used outside an AppShell", () => {
+    function Orphan() {
+      useAppShellPanels();
+      return null;
+    }
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<Orphan />)).toThrow(/AppShell/);
+    spy.mockRestore();
   });
 });
