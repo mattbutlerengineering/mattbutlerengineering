@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
 import { createApiClient } from "@mbe/api-client";
 import type { Deposit } from "@mbe/types";
+import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./StaffDepositSection.module.css";
 
 interface StaffDepositSectionProps {
@@ -9,13 +10,6 @@ interface StaffDepositSectionProps {
   existingDeposit?: Deposit | null;
   apiBaseUrl?: string;
   getAccessToken: () => string | null | Promise<string | null>;
-}
-
-function formatAmount(amountCents: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amountCents / 100);
 }
 
 function depositStatusLabel(status: string): string {
@@ -76,7 +70,7 @@ export function StaffDepositSection({
         </Text>
         <div className={styles.statusRow}>
           <Text variant="caption" color="secondary">
-            {formatAmount(deposit.amountCents, deposit.currency)} —{" "}
+            {formatCurrencyFromCents(deposit.amountCents, deposit.currency)} —{" "}
             {depositStatusLabel(deposit.status)}
           </Text>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useReducer, useRef } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
+import { formatLongDate, formatTime } from "../../utils/format.js";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -75,18 +76,8 @@ export function GuestDetailsForm({
 
   const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
 
-  // Format date and time for display
-  const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
-  const formattedTime = new Date(slot.time).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const formattedDate = formatLongDate(date);
+  const formattedTime = formatTime(slot.time);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {

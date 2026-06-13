@@ -1,5 +1,6 @@
 import type { TimeSlot } from "@mbe/types";
 import { Button, Alert, Skeleton, SkeletonGroup, EmptyState } from "@mattbutlerengineering/rialto";
+import { formatLongDate, formatTime } from "../../utils/format.js";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotPickerProps {
@@ -25,22 +26,7 @@ export function TimeSlotPicker({
   date,
   partySize,
 }: TimeSlotPickerProps) {
-  // Format date for display
-  const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
-  // Format ISO datetime for display
-  const formatTime = (isoTime: string) => {
-    const d = new Date(isoTime);
-    return d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
+  const formattedDate = formatLongDate(date);
 
   // Get hour from ISO datetime for grouping
   const getHour = (isoTime: string) => {
@@ -129,14 +115,14 @@ export function TimeSlotPicker({
 
             return (
               <div key={period}>
-                <h3 className={styles.periodLabel}>{periodLabels[period]}</h3>
+                <Heading className={styles.periodLabel}>{periodLabels[period]}</Heading>
                 <div
                   className={styles.slotGrid}
                   role="listbox"
                   aria-label={`Available ${periodLabels[period].toLowerCase()} times`}
                 >
                   {periodSlots.map((slot) => (
-                    <button
+                    <Button
                       key={slot.time}
                       role="option"
                       aria-selected={selectedSlot?.time === slot.time}
@@ -147,7 +133,7 @@ export function TimeSlotPicker({
                       ].join(" ")}
                     >
                       {formatTime(slot.time)}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -158,16 +144,16 @@ export function TimeSlotPicker({
 
       {selectedSlot && (
         <div className={styles.selectedSummary}>
-          <p className={styles.selectedSummaryText}>
+          <Text className={styles.selectedSummaryText}>
             Selected: <strong>{formatTime(selectedSlot.time)}</strong>
             {selectedSlot.tables && selectedSlot.tables.length > 0 && (
-              <span className={styles.selectedSummaryNote}>
+              <Text className={styles.selectedSummaryNote}>
                 {" "}
                 - {selectedSlot.tables.length} table{selectedSlot.tables.length > 1 ? "s" : ""}{" "}
                 available
-              </span>
+              </Text>
             )}
-          </p>
+          </Text>
         </div>
       )}
     </div>
