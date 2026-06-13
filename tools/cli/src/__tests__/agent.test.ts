@@ -41,6 +41,20 @@ vi.mock("@mbe/agent-core", () => ({
   removeWorktree: vi.fn(),
 }));
 
+// Controllable stdout for the `gh issue view` call inside fetchIssueForRouting.
+const ghState = vi.hoisted(() => ({ stdout: "" }));
+
+// Mock node:child_process so check-model --issue does not actually shell out.
+// promisify(execFile) honours the custom-promisify symbol, so we supply one
+// that resolves to the { stdout, stderr } shape the command destructures.
+vi.mock("node:child_process", () => {
+  const PROMISIFY_CUSTOM = Symbol.for("nodejs.util.promisify.custom");
+  const execFile = Object.assign(vi.fn(), {
+    [PROMISIFY_CUSTOM]: () => Promise.resolve({ stdout: ghState.stdout, stderr: "" }),
+  });
+  return { execFile };
+});
+
 describe("agent command", () => {
   const originalFetch = globalThis.fetch;
 
@@ -88,6 +102,31 @@ describe("agent command", () => {
       expect(allOutput).toContain("PREMIUM");
       expect(allOutput).toContain("claude-opus-4");
       expect(allOutput).toContain("Complex task detected");
+    });
+
+    it("issue mode prints the resolved tier (not the full model ID) to stdout for Agent(model:)", async () => {
+      // The Agent/Task tool's `model` parameter is a tier-only enum
+      // (sonnet|opus|haiku|fable). check-model --issue must emit the tier so
+      // /implement-queue can pass it straight into Agent(model:); a full ID
+      // like "claude-opus-4-8" is out-of-enum and would be rejected.
+      ghState.stdout = JSON.stringify({
+        title: "refactor: extract the listbox state machine",
+        body: "",
+        labels: [{ name: "feature" }],
+      });
+      vi.mocked(core.routeModelWithReason as ReturnType<typeof vi.fn>).mockReturnValue({
+        tier: "opus",
+        modelId: "claude-opus-4-8",
+        reason: "Feature with complexity keyword",
+      });
+
+      const { checkModelCommand } = await import("../commands/agent.js");
+      await checkModelCommand.parseAsync(["--issue", "123"], { from: "user" });
+
+      // stdout is the machine-readable channel consumed by the skill.
+      const stdout = logSpy.mock.calls.flat().join("\n").trim();
+      expect(stdout).toBe("opus");
+      expect(stdout).not.toContain("claude-opus");
     });
   });
 

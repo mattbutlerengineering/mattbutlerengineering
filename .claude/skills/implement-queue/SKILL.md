@@ -67,12 +67,12 @@ gh issue edit <N> --add-label "in-progress" --remove-label "ready"
 **Resolve each issue's model first.** Per-issue routing beats a one-size model — trivial deps/docs run on haiku, complex refactors on opus-4.8:
 
 ```bash
-mbe check-model --issue <N>   # prints the model ID on stdout (tier/reason on stderr)
+mbe check-model --issue <N>   # prints the tier on stdout (model ID/reason on stderr)
 ```
 
 It honors an explicit `model:` in the issue's ```yaml agent block, otherwise routes by labels + title + body via `model-router.ts` (single source of truth — no inline copy of the rules here).
 
-Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved ID from `check-model`. (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
+Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
 
 Each agent prompt MUST include:
 
