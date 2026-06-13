@@ -1,4 +1,5 @@
 ---
+name: implement-queue-worker
 description: Implements a single GitHub issue in an isolated worktree via TDD. Installs deps, writes a failing test first, implements, runs lint/typecheck/test gates, commits, pushes, and opens a PR targeting main. Designed to be spawned by /implement-queue with isolation: worktree.
 tools:
   - Bash
