@@ -41,6 +41,10 @@ export type {
   VerificationResult as PrePushVerification,
 } from "./worktree-manager.js";
 
+// Worktree cleanup-failure reaper
+export { scheduleWorktreeReap } from "./worktree-reaper.js";
+export type { ScheduleWorktreeReapOptions, ReapOutcome, ReaperLogger } from "./worktree-reaper.js";
+
 // PR creation
 export { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "./pr-creator.js";
 
