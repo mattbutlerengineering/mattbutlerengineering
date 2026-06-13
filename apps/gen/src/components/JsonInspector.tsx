@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
-import { Button } from "@mattbutlerengineering/rialto";
+import { Button, Input, Text } from "@mattbutlerengineering/rialto";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
 import styles from "./JsonInspector.module.css";
