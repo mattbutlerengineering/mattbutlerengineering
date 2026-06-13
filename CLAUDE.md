@@ -53,6 +53,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 
 | Skill               | Purpose                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/improve`          | **Front of funnel.** Audit codebase as a senior advisor → prioritized, self-contained plans (+ GitHub issues via `--issues`). Read-only — never edits code. Ingests `docs/adr/` + `AGENTS.md`; warns before posting sensitive findings (repo is public). Feeds the `ready` backlog that `/implement-queue` drains. |
 | `/implement-queue`  | Drain ready backlog: claim batch → parallel TDD worktree agents → PRs → serial merge train                                                                        |
 | `/site-audit`       | Crawl live site with Playwright + Lighthouse, create issues                                                                                                       |
 | `/issue-worker`     | Pick up ready issues, implement via `mbe agent run`, create PRs                                                                                                   |
@@ -61,6 +62,23 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/learning-loop`    | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune                                                        |
 | `/sentry-triage`    | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for implement-queue                                           |
 | `/acmm-audit`       | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
+
+### The funnel
+
+`/improve` generates the backlog; the rest of the loop drains it:
+
+```
+/improve [deep|security|next] --issues   →  prioritized issues (+ plans/)
+   →  triage / label `ready`
+   →  /implement-queue   (parallel TDD worktrees → PRs → merge train)   ← execution lives here
+   →  /ci-monitor · /learning-loop · /site-audit · /sentry-triage   feed regressions back as issues
+   →  /improve reconcile   refreshes the backlog against what shipped
+```
+
+Prefer `/improve --issues` + `/implement-queue` over `/improve execute`: implement-queue owns
+the green-main merge train and CI gates this repo requires, whereas `execute` only reviews a
+diff (never merges/pushes). The vendored skill lives at `.agents/skills/improve/` (symlinked
+into `.claude/skills/improve/`) so every clone — devs and agents — gets it.
 
 ## mbe CLI Commands
 
