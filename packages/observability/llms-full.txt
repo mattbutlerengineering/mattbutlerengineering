@@ -1,19 +1,5 @@
 <codebase path="packages/observability">
   <section priority="medium" role="src">
-  <file path="src/baggage.ts">
-    export const BAGGAGE_KEYS = {
-      SESSION_ID: "agent.session_id",
-      PR_NUMBER: "agent.pr_number",
-      ISSUE_NUMBER: "agent.issue_number",
-      DEPLOY_SHA: "deploy.sha",
-    } as const;
-    export interface AgentBaggage {
-      readonly sessionId?: string;
-      readonly prNumber?: string;
-      readonly issueNumber?: string;
-      readonly deploySha?: string;
-    }
-  </file>
   <file path="src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
