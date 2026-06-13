@@ -197,8 +197,11 @@ export const checkModelCommand = new Command("check-model")
     "Resolve the model for a GitHub issue (fetched via gh), honoring its agent frontmatter; prints the model ID to stdout"
   )
   .action(async (directive: string | undefined, options: { issue?: string }) => {
-    // Issue mode: machine-readable. Model ID on stdout, context on stderr, so
-    // the implement-queue skill can capture stdout directly into Agent(model:).
+    // Issue mode: machine-readable. Tier on stdout, context on stderr, so the
+    // implement-queue skill can capture stdout directly into Agent(model:).
+    // The Agent/Task tool's `model` parameter is a tier-only enum
+    // (sonnet|opus|haiku|fable) — emit the tier, not the full model ID, which
+    // would be out-of-enum and rejected by the dispatch.
     if (options.issue) {
       let issue: FetchedIssue;
       try {
@@ -212,9 +215,9 @@ export const checkModelCommand = new Command("check-model")
       }
       const result = resolveIssueModel(issue);
       console.error(
-        `check-model: #${options.issue} → ${result.tier} (${result.source}): ${result.reason}`
+        `check-model: #${options.issue} → ${result.tier} (${result.source}, ${result.modelId}): ${result.reason}`
       );
-      console.log(result.modelId);
+      console.log(result.tier);
       return;
     }
 
