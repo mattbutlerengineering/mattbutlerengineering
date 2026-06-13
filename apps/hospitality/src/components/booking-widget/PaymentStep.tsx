@@ -4,6 +4,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import type { Stripe } from "@stripe/stripe-js";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { DepositConfig } from "@mbe/types";
+import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./PaymentStep.module.css";
 
 export interface PaymentStepProps {
@@ -14,13 +15,6 @@ export interface PaymentStepProps {
   stripePublishableKey: string;
   onSuccess: (paymentIntentId: string) => void;
   onBack: () => void;
-}
-
-function formatAmount(amountCents: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(amountCents / 100);
 }
 
 function calculateAmount(config: DepositConfig, partySize: number): number {
@@ -55,7 +49,7 @@ function CardForm({
 
   const amountCents = calculateAmount(depositConfig, partySize);
   const currency = depositConfig.currency ?? "usd";
-  const displayAmount = formatAmount(amountCents, currency);
+  const displayAmount = formatCurrencyFromCents(amountCents, currency);
 
   const handleSubmit = useCallback(async () => {
     if (!stripe || !elements) return;
@@ -119,7 +113,7 @@ function CardForm({
           {depositConfig.depositType === "per_person" && (
             <Text variant="caption" color="secondary">
               ({partySize} {partySize === 1 ? "guest" : "guests"} ×{" "}
-              {formatAmount(depositConfig.amountCents ?? 0, currency)})
+              {formatCurrencyFromCents(depositConfig.amountCents ?? 0, currency)})
             </Text>
           )}
         </div>

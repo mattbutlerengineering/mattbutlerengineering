@@ -1,5 +1,6 @@
 import { Button, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
+import { formatLongDateWithYear, formatTime, formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
@@ -19,20 +20,8 @@ export function ConfirmationView({
   depositAmountCents,
   depositCurrency,
 }: ConfirmationViewProps) {
-  // Format date for display
-  const formattedDate = new Date(reservation.date + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-  // Format time for display
-  const formattedTime = new Date(reservation.startTime).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const formattedDate = formatLongDateWithYear(reservation.date);
+  const formattedTime = formatTime(reservation.startTime);
 
   return (
     <div className={styles.container}>
@@ -139,11 +128,8 @@ export function ConfirmationView({
           </Text>
           <Text variant="caption" color="secondary">
             Your card has been authorized for{" "}
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: (depositCurrency ?? "usd").toUpperCase(),
-            }).format(depositAmountCents / 100)}
-            . The hold will be released or captured based on your cancellation timeline.
+            {formatCurrencyFromCents(depositAmountCents, depositCurrency ?? "usd")}. The hold will
+            be released or captured based on your cancellation timeline.
           </Text>
         </div>
       )}

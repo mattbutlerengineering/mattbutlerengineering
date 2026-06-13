@@ -266,6 +266,14 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/format.ts">
+    <item priority="high">
+      export function formatLongDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }

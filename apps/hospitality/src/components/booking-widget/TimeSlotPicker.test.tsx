@@ -6,11 +6,13 @@ import type { TimeSlot } from "@mbe/types";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({ children, onClick, size, variant }: any) => (
-    <button onClick={onClick} data-size={size} data-variant={variant}>
+  Button: ({ children, size, variant, ...props }: any) => (
+    <button data-size={size} data-variant={variant} {...props}>
       {children}
     </button>
   ),
+  Heading: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
+  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Alert: ({ children, variant, actions }: any) => (
     <div data-testid="alert" data-variant={variant}>
       {children}

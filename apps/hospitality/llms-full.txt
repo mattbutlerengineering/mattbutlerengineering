@@ -375,6 +375,23 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/format.ts">
+    export function formatLongDate(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+    export function formatLongDateWithYear(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  </file>
   <file path="src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];

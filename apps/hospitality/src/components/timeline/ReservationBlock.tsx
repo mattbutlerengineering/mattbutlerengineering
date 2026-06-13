@@ -1,5 +1,6 @@
 import type { Reservation, ReservationStatus } from "@mbe/types";
 import { ordinalVisit } from "../../utils/ordinal.js";
+import { formatTime } from "../../utils/format.js";
 import styles from "./ReservationBlock.module.css";
 
 export interface ReservationBlockProps {
@@ -26,14 +27,6 @@ export function ReservationBlock({
   onClick,
 }: ReservationBlockProps) {
   const statusClass = STATUS_CLASS[reservation.status];
-
-  const formatTime = (isoTime: string) => {
-    return new Date(isoTime).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
 
   const startTime = formatTime(reservation.startTime);
   const guestName = reservation.guestName || "Guest";

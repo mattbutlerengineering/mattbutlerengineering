@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
 import { Button, Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
+import { formatTime } from "../../utils/format.js";
 import styles from "./TimelineMobileView.module.css";
 
 export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
@@ -11,14 +12,6 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "PENDING", label: "Upcoming" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
-
-function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
 function formatSlotLabel(isoString: string): string {
   const d = new Date(isoString);
