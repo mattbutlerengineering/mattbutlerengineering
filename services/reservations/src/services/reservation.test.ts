@@ -544,6 +544,9 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue(null),
               create: vi.fn().mockResolvedValue(walkInReservation),
             },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
           };
           return fn(tx);
         }
@@ -576,6 +579,9 @@ describe("reservationService", () => {
                 return makePrismaReservation({ status: "CONFIRMED" });
               }),
             },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
           };
           return fn(tx);
         }
@@ -604,6 +610,9 @@ describe("reservationService", () => {
                 expect(durationMs).toBe(60 * 60 * 1000);
                 return makePrismaReservation({ status: "CONFIRMED" });
               }),
+            },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
           return fn(tx);
@@ -643,6 +652,9 @@ describe("reservationService", () => {
               findFirst: vi.fn().mockResolvedValue({ id: "conflict" }),
               create: vi.fn(),
             },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
           };
           return fn(tx);
         }
@@ -674,6 +686,9 @@ describe("reservationService", () => {
                   guestName: "Walk-in",
                 });
               }),
+            },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
             },
           };
           return fn(tx);
@@ -710,6 +725,9 @@ describe("reservationService", () => {
               }),
               create: vi.fn().mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" })),
             },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
           };
           return fn(tx);
         }
@@ -725,6 +743,82 @@ describe("reservationService", () => {
       expect(executeRaw).toHaveBeenCalledTimes(1);
       expect(callOrder[0]).toBe("lock");
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("reservation.findFirst"));
+    });
+
+    it("updates the table to OCCUPIED inside the same transaction and returns it", async () => {
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
+
+      const tableUpdate = vi.fn().mockResolvedValue(makePrismaTable());
+      const reservationCreate = vi
+        .fn()
+        .mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" }));
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: reservationCreate,
+            },
+            table: { update: tableUpdate },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(tableUpdate).toHaveBeenCalledWith({
+        where: { id: "table-1" },
+        data: { status: "OCCUPIED" },
+      });
+      expect(result.table).toBeDefined();
+      expect(result.table!.id).toBe("table-1");
+    });
+
+    it("rolls back the reservation when the in-transaction table update fails", async () => {
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
+
+      const reservationCreate = vi
+        .fn()
+        .mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" }));
+      const tableUpdate = vi.fn().mockRejectedValue(new Error("table update failed"));
+
+      // Real Prisma rolls back the whole transaction when the callback throws.
+      // Model that here: if the callback throws, $transaction rejects and NO
+      // reservation row is persisted (the create call is part of the same
+      // aborted transaction).
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: reservationCreate,
+            },
+            table: { update: tableUpdate },
+          };
+          return fn(tx);
+        }
+      );
+
+      await expect(
+        reservationService.createWalkIn({
+          partySize: 2,
+          tableId: "table-1",
+          venueId: "venue-1",
+        })
+      ).rejects.toThrow("table update failed");
+
+      // create was attempted inside the transaction, but because the callback
+      // threw afterwards the whole transaction aborts — no committed row.
+      expect(tableUpdate).toHaveBeenCalledTimes(1);
     });
   });
 

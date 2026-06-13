@@ -7,6 +7,7 @@ on:
       - "apps/hospitality/**"
       - "packages/rialto/**"
       - "services/reservations/**"
+      - "services/users/**"
       - "packages/database/**"
   workflow_dispatch:
 
@@ -22,6 +23,27 @@ jobs:
     name: Hospitality E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    # Postgres backs the reservations + users APIs the hospitality app proxies to.
+    # Without a live backend, the Vite dev-server proxy returns ECONNREFUSED for
+    # every /api/v1/* request and the SPA never finishes booting (see issue #2123).
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -43,6 +65,67 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
+      # Apply migrations so the services boot against a real, up-to-date schema.
+      - name: Apply migrations (users)
+        run: pnpm --filter @mbe/users-service db:migrate:deploy
+
+      - name: Apply migrations (reservations)
+        run: pnpm --filter @mbe/reservations-service db:migrate:deploy
+
+      # The `dev` script loads config via `tsx watch --env-file=.env`, so each
+      # service needs a .env on disk. NODE_ENV stays unset (development), which
+      # keeps AUTH_AUTHORITY/AUTH_AUDIENCE optional — the services boot without
+      # real Auth0 config. DB liveness is what the readiness gate below verifies.
+      - name: Write service env files
+        run: |
+          cat > services/users/.env <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          PORT=3001
+          HOST=0.0.0.0
+          LOG_LEVEL=warn
+          CORS_ORIGINS=http://localhost:3002
+          EOF
+          cat > services/reservations/.env <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          PORT=3004
+          HOST=0.0.0.0
+          LOG_LEVEL=warn
+          CORS_ORIGINS=http://localhost:3002
+          EOF
+
+      - name: Start backend services
+        run: |
+          pnpm --filter @mbe/users-service dev > /tmp/users-api.log 2>&1 &
+          pnpm --filter @mbe/reservations-service dev > /tmp/reservations-api.log 2>&1 &
+
+      # Gate on the DB-backed health endpoints (NOT /health, which is liveness
+      # only). A 200 here means the process is listening AND Prisma can reach
+      # Postgres — the real readiness the Vite proxy needs before Playwright runs.
+      - name: Wait for backend health
+        run: |
+          wait_for_health() {
+            name="$1"
+            url="$2"
+            for i in $(seq 1 60); do
+              # `|| true` keeps the loop alive under `set -e` when curl exits
+              # non-zero (e.g. connection refused while the service is booting).
+              http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || true)
+              if [ "$http_code" = "200" ]; then
+                echo "$name healthy ($url)"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "::error::$name never became healthy ($url, last code: $http_code)"
+            return 1
+          }
+          wait_for_health "users-api" "http://localhost:3001/api/v1/users/health" || {
+            echo "----- users-api log -----"; cat /tmp/users-api.log || true; exit 1;
+          }
+          wait_for_health "reservations-api" "http://localhost:3004/api/v1/reservations/health" || {
+            echo "----- reservations-api log -----"; cat /tmp/reservations-api.log || true; exit 1;
+          }
+
       - name: Run E2E tests
         run: pnpm --dir apps/hospitality test:e2e
         env:
@@ -56,6 +139,12 @@ jobs:
           E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
           E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: |
+          echo "----- users-api log -----"; cat /tmp/users-api.log || true
+          echo "----- reservations-api log -----"; cat /tmp/reservations-api.log || true
 
       - name: Upload failure artifacts
         if: failure()

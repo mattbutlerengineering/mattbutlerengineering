@@ -12,6 +12,7 @@
       id: z.string(),
       status: AgentSessionStatusSchema,
       taskDescription: z.string(),
+      userId: z.string().nullable(),
       branchName: z.string().nullable(),
       baseBranch: z.string(),
       model: z.string(),
@@ -186,6 +187,7 @@
       id: string;
       status: AgentSessionStatus;
       taskDescription: string;
+      userId: string | null;
       branchName: string | null;
       baseBranch: string;
       model: string;

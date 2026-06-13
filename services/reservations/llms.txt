@@ -447,8 +447,8 @@
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
-    <item priority="medium">
-      function mapPrismaTable(table: {
+    <item priority="high">
+      export function mapPrismaTable(table: {
         id: string;
         name: string;
         tableNumber: string | null;

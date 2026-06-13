@@ -12,6 +12,7 @@ export const AgentSessionSchema = z.object({
   id: z.string(),
   status: AgentSessionStatusSchema,
   taskDescription: z.string(),
+  userId: z.string().nullable(),
   branchName: z.string().nullable(),
   baseBranch: z.string(),
   model: z.string(),

@@ -1939,6 +1939,17 @@
       const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
       const JWKS = createRemoteJWKSet(new URL(jwksUri));
     
+      // Prominent startup warning when the test auth bypass is enabled. The bypass
+      // grants a hardcoded admin identity with no JWT validation, so it must never
+      // be active in production (enforced by the NODE_ENV guard in the onRequest hook).
+      if (process.env.AUTH_BYPASS_IN_TESTS === "true") {
+        fastify.log.warn(
+          "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Requests with 'x-auth-bypass: true' " +
+            "skip JWT validation and receive a hardcoded admin identity. This is structurally " +
+            "disabled when NODE_ENV=production. NEVER set AUTH_BYPASS_IN_TESTS in production."
+        );
+      }
+    
       // Warn if rate limiting has not been registered by the consuming service.
       // The auth plugin delegates rate limiting to consumers (e.g., @fastify/rate-limit).
       fastify.addHook("onReady", async () => {
@@ -1955,7 +1966,10 @@
       fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
         // 1. Explicit Test Bypass
         // Check if bypass mode is enabled AND the request opted in via header.
+        // Structurally unreachable in production: the NODE_ENV guard ensures one bad
+        // deploy config cannot grant a hardcoded admin identity on a live service.
         if (
+          process.env.NODE_ENV !== "production" &&
           process.env.AUTH_BYPASS_IN_TESTS === "true" &&
           request.headers["x-auth-bypass"] === "true"
         ) {
@@ -2525,6 +2539,24 @@
       }
     
       return { style: { scale: springScale }, onMouseEnter, onMouseLeave };
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/useCombobox.ts">
+    export interface ComboboxItem {
+      value: string;
+      label: string;
+      disabled?: boolean;
+    }
+    export interface UseComboboxOptions {
+      items: ComboboxItem[];
+      /** Currently selected value — drives the initial focused index on open. */
+      value?: string;
+      /** Invoked when an item is committed (click, Enter, or closed type-ahead). */
+      onSelect?: (value: string) => void;
+      /** Wrapper element used to detect outside mousedown. */
+      containerRef?: RefObject<HTMLElement | null>;
+      /** Called after close/select so the consumer can return focus to its trigger. */
+      onRequestTriggerFocus?: () => void;
     }
   </file>
   <file path="packages/rialto/src/hooks/useDirection.ts">
@@ -4099,7 +4131,8 @@
             operationId: "streamSessionEvents",
             description:
               "Server-Sent Events stream for real-time session updates. " +
-              "Sends existing events immediately, then polls for new events until the session completes.",
+              "Replays existing events from the database on connect, then streams " +
+              "new events live via an in-process subscription until the session completes.",
             tags: ["Events"],
             params: {
               type: "object",
@@ -4128,12 +4161,8 @@
             "X-Accel-Buffering": "no",
           });
     
-          let lastEventId: string | undefined;
           let isOpen = true;
-    
-          request.raw.on("close", () => {
-            isOpen = false;
-          });
+          const sentEventIds = new Set<string>();
     
           const sendEvent = (type: string, data: unknown) => {
             if (!isOpen) return;
@@ -4141,52 +4170,70 @@
             reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
           };
     
-          // Send existing events first
-          const existingEvents = await sessionService.listEvents(session.id);
-          for (const event of existingEvents) {
-            sendEvent(event.type, event);
-            lastEventId = event.id;
-          }
-    
-          // If session is already terminal, close the stream
-          const terminalStatuses = new Set(["succeeded", "failed", "cancelled"]);
-          if (terminalStatuses.has(session.status)) {
-            sendEvent("stream:end", { reason: "session_complete" });
-            reply.raw.end();
-            return;
-          }
-    
-          // Poll for new events until session completes
-          const poll = async () => {
-            while (isOpen) {
-              await new Promise((resolve) => setTimeout(resolve, SSE_POLL_INTERVAL_MS));
-    
-              if (!isOpen) break;
-    
-              const newEvents = await sessionService.listEvents(session.id, lastEventId);
-              for (const event of newEvents) {
-                sendEvent(event.type, event);
-                lastEventId = event.id;
-              }
-    
-              // Check if session has completed
-              const current = await sessionService.getById(session.id);
-              if (current && terminalStatuses.has(current.status)) {
-                sendEvent("stream:end", { reason: "session_complete", status: current.status });
-                break;
-              }
-            }
-    
+          const closeStream = (reason: string, status?: string) => {
+            if (!isOpen) return;
+            sendEvent("stream:end", status ? { reason, status } : { reason });
+            isOpen = false;
             reply.raw.end();
           };
     
-          poll().catch((err) => {
-            fastify.log.error({ sessionId: session.id, err }, "SSE polling error");
-            if (isOpen) {
-              sendEvent("stream:error", { message: "Internal polling error" });
-              reply.raw.end();
+          const deliver = (event: AgentSessionEvent) => {
+            if (!isOpen || sentEventIds.has(event.id)) return;
+            sentEventIds.add(event.id);
+            sendEvent(event.type, event);
+            if (TERMINAL_EVENT_TYPES.has(event.type)) {
+              closeStream("session_complete", session.status);
+            }
+          };
+    
+          // Subscribe before the catch-up read so events added during catch-up are
+          // buffered, not lost. Buffered events flush (deduped by id) after replay.
+          const liveBuffer: AgentSessionEvent[] = [];
+          let replayed = false;
+          let unsubscribe: () => void = () => {};
+          unsubscribe = getSessionEventEmitter().subscribe(session.id, (event) => {
+            if (replayed) {
+              deliver(event);
+            } else {
+              liveBuffer.push(event);
             }
           });
+    
+          request.raw.on("close", () => {
+            isOpen = false;
+            unsubscribe();
+          });
+    
+          try {
+            // Catch-up: read persisted events once on connect (the only DB event read).
+            const existingEvents = await sessionService.listEvents(session.id);
+            for (const event of existingEvents) {
+              deliver(event);
+            }
+    
+            // Flush anything that arrived live during catch-up, then go fully live.
+            replayed = true;
+            for (const event of liveBuffer) {
+              deliver(event);
+            }
+    
+            // If the session was already terminal on connect, close after replay.
+            if (isOpen && TERMINAL_STATUSES.has(session.status)) {
+              closeStream("session_complete", session.status);
+            }
+          } catch (err) {
+            fastify.log.error({ sessionId: session.id, err }, "SSE catch-up error");
+            if (isOpen) {
+              sendEvent("stream:error", { message: "Internal stream error" });
+              isOpen = false;
+              reply.raw.end();
+            }
+            unsubscribe();
+          }
+    
+          if (!isOpen) {
+            unsubscribe();
+          }
         }
       );
     };
@@ -4232,7 +4279,13 @@
               );
           }
     
-          const session = await sessionService.create(request.body);
+          // Stamp the authenticated creator's id. Sourced exclusively from the
+          // verified auth context (requireAuth preHandler) — never from the
+          // client-supplied request body — so callers cannot spoof ownership.
+          const session = await sessionService.create({
+            ...request.body,
+            userId: request.user?.id,
+          });
     
           // Fire-and-forget: execution happens in the background
           executeSession(session).catch((err) => {
@@ -7228,16 +7281,20 @@
         },
         async (request, reply) => {
           const userId = request.user?.id;
+          // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
+          // a single transaction. If the table update fails the whole thing rolls
+          // back and rejects, so we only reach the SSE emits below after a
+          // committed, consistent state.
           const result = await reservationService.createWalkIn(request.body, userId);
           if (!result.success || !result.reservation) {
             return reply
               .code(409)
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
-          const updatedTable = await tableService.updateStatus(request.body.tableId, "OCCUPIED");
+          // Emit only after the transaction has committed.
           emitReservationCreated(result.reservation);
-          if (updatedTable) {
-            emitTableUpdated(updatedTable);
+          if (result.table) {
+            emitTableUpdated(result.table);
           }
           return reply.code(201).send({ data: result.reservation });
         }
@@ -9626,6 +9683,7 @@
       id: z.string(),
       status: AgentSessionStatusSchema,
       taskDescription: z.string(),
+      userId: z.string().nullable(),
       branchName: z.string().nullable(),
       baseBranch: z.string(),
       model: z.string(),
@@ -10268,6 +10326,18 @@
         .join("\n");
     }
   </file>
+  <file path="services/agent/src/services/session-event-emitter.ts">
+    export type SessionEventListener = (event: AgentSessionEvent) => void;
+    export interface SessionEventEmitter {
+      /** Publish a persisted event to all subscribers of its session. */
+      publish(event: AgentSessionEvent): void;
+      /**
+       * Subscribe to live events for a session.
+       * @returns an unsubscribe function.
+       */
+      subscribe(sessionId: string, listener: SessionEventListener): () => void;
+    }
+  </file>
   <file path="services/agent/src/services/session-executor.ts">
     function getRepoPath(): string {
       return resolve(process.env.REPO_PATH ?? process.cwd());
@@ -10290,6 +10360,7 @@
         id: session.id,
         status: session.status.toLowerCase() as AgentSession["status"],
         taskDescription: session.taskDescription,
+        userId: session.userId,
         branchName: session.branchName,
         baseBranch: session.baseBranch,
         model: session.model,
@@ -10388,11 +10459,8 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
-    export interface ConfirmHoldInput {
-      holdId: string;
-      sessionId?: string;
-      guestDetails: ConfirmHoldRequest;
-      userId?: string;
+    export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
+      return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
   </file>
   <file path="services/reservations/src/services/database.ts">
@@ -10682,7 +10750,7 @@
         (err as { code: string }).code === "P2025"
       );
     }
-    function mapPrismaTable(table: {
+    export function mapPrismaTable(table: {
       id: string;
       name: string;
       tableNumber: string | null;
@@ -11810,10 +11878,19 @@
                   } catch (cleanupErr) {
                     const cleanupMsg =
                       cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+                    // Record the error in the result (unchanged behavior)
                     cleanupErrors.push(cleanupMsg);
                     console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
                     emitEvent(onEvent, "session:cleanup_warning", {
                       message: `Worktree cleanup failed: ${cleanupMsg}`,
+                    });
+                    // Schedule a bounded retry so the worktree is reclaimed instead of
+                    // persisting until a human notices. Reap exhaustion logs at error
+                    // level (never silent) and is not treated as a session failure.
+                    await scheduleWorktreeReap({
+                      repoPath: effectiveConfig.repoPath,
+                      worktreePath: ctx.worktree.path,
+                      mode: ctx.worktree.mode,
                     });
                   }
                 }
@@ -12182,6 +12259,29 @@
           `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
         );
       }
+    }
+  </file>
+  <file path="packages/agent-core/src/worktree-reaper.ts">
+    export interface ReaperLogger {
+      readonly error: (message: string) => void;
+    }
+    export interface ScheduleWorktreeReapOptions {
+      readonly repoPath: string;
+      readonly worktreePath: string;
+      /** Worktree isolation mode — passed through to removal. Defaults to 'full'. */
+      readonly mode?: WorktreeMode;
+      /** Max retry attempts after the initial failure. Default: 3. */
+      readonly maxRetries?: number;
+      /** Base backoff delay in ms. Default: 1000. */
+      readonly baseDelayMs?: number;
+      /** Removal function (injectable for testing). Defaults to worktree-manager.removeWorktree. */
+      readonly removeFn?: (
+        repoPath: string,
+        worktreePath: string,
+        mode?: WorktreeMode
+      ) => Promise<void>;
+      /** Error-level logger (injectable for testing). Defaults to console.error. */
+      readonly logger?: ReaperLogger;
     }
   </file>
   <file path="packages/agent-test-utils/src/cost-estimator.ts">
@@ -12870,35 +12970,6 @@
       };
     }
   </file>
-  <file path="packages/feature-flags/src/index.ts">
-    export interface FeatureFlag {
-      enabled: boolean;
-      percentage: number;
-    }
-    export interface FeatureContext {
-      check(flagName: string): boolean;
-      checkForUser(flagName: string, userId: string): boolean;
-    }
-  </file>
-  <file path="packages/feature-flags/src/plugin.ts">
-    export const FEATURE_FLAGS_HEADER = "x-feature-flags";
-    export function createFeatureFlagsPlugin(): FastifyPluginAsync {
-      return fp(
-        async function featureFlagsPlugin(fastify) {
-          fastify.decorateRequest("features");
-          fastify.addHook("onRequest", async (request) => {
-            const raw = request.headers[FEATURE_FLAGS_HEADER];
-            // Headers are typed string | string[]; Node joins repeated headers
-            // into one comma-separated string (invalid JSON → flags disabled),
-            // the array branch only guards exotic clients
-            const header = Array.isArray(raw) ? raw[0] : raw;
-            request.features = createFeatureContext(header);
-          });
-        },
-        { name: "feature-flags" }
-      );
-    }
-  </file>
   <file path="packages/jobs/src/job-types.ts">
     export const JOB_TYPES = {
       BOOKING_REMINDER: "booking-reminder",
@@ -13524,18 +13595,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -13625,6 +13685,16 @@
       readonly sunsetMonthsFromNow: number;
     }
   </file>
+  <file path="packages/service-bootstrap/src/feature-flags.ts">
+    export interface FeatureFlag {
+      enabled: boolean;
+      percentage: number;
+    }
+    export interface FeatureContext {
+      check(flagName: string): boolean;
+      checkForUser(flagName: string, userId: string): boolean;
+    }
+  </file>
   <file path="packages/service-bootstrap/src/health-routes.ts">
     export interface HealthRouteConfig {
       readonly path: string;
@@ -13705,6 +13775,7 @@
       id: string;
       status: AgentSessionStatus;
       taskDescription: string;
+      userId: string | null;
       branchName: string | null;
       baseBranch: string;
       model: string;

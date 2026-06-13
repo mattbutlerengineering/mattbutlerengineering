@@ -116,6 +116,24 @@
       return { style: { scale: springScale }, onMouseEnter, onMouseLeave };
     }
   </file>
+  <file path="src/hooks/useCombobox.ts">
+    export interface ComboboxItem {
+      value: string;
+      label: string;
+      disabled?: boolean;
+    }
+    export interface UseComboboxOptions {
+      items: ComboboxItem[];
+      /** Currently selected value — drives the initial focused index on open. */
+      value?: string;
+      /** Invoked when an item is committed (click, Enter, or closed type-ahead). */
+      onSelect?: (value: string) => void;
+      /** Wrapper element used to detect outside mousedown. */
+      containerRef?: RefObject<HTMLElement | null>;
+      /** Called after close/select so the consumer can return focus to its trigger. */
+      onRequestTriggerFocus?: () => void;
+    }
+  </file>
   <file path="src/hooks/useDirection.ts">
     type Direction = "ltr" | "rtl";
     export function useDirection(ref: RefObject<HTMLElement | null>): Direction {

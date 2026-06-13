@@ -18,6 +18,7 @@ import type {
 } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { mapPrismaTable } from "./table.js";
 import { tableAdvisoryLockSql } from "./confirm-hold.js";
 
 function isPrismaNotFound(err: unknown): boolean {
@@ -91,6 +92,13 @@ export interface ListReservationsOptions {
 export interface CreateReservationResult {
   success: boolean;
   reservation?: Reservation;
+  /**
+   * The table whose status was changed as part of creating the reservation.
+   * Set by {@link reservationService.createWalkIn} when it flips the table to
+   * OCCUPIED in the same transaction as the reservation insert, so the route
+   * can emit the `table:updated` SSE event only after the commit succeeds.
+   */
+  table?: Table;
   error?: string;
   conflict?: ConflictCheckResult;
   pacing?: PacingCheckResult;
@@ -430,7 +438,7 @@ export const reservationService = {
       }
     }
 
-    const reservation = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Serialize conflict-checked writes per table BEFORE the conflict check so
       // a walk-in create and a concurrent hold confirmation on the same table
       // cannot both pass and double-book. Shares the same lock key as
@@ -452,7 +460,11 @@ export const reservationService = {
         return null;
       }
 
-      return tx.reservation.create({
+      // Create the reservation AND flip the table to OCCUPIED in the SAME
+      // transaction so the two writes commit or roll back together. If the
+      // table update throws, the reservation insert is aborted with it — no
+      // orphaned reservation row, no table left showing AVAILABLE.
+      const createdReservation = await tx.reservation.create({
         data: {
           date: dateOnly,
           startTime: now,
@@ -470,16 +482,27 @@ export const reservationService = {
         },
         include: { table: true },
       });
+
+      const occupiedTable = await tx.table.update({
+        where: { id: data.tableId },
+        data: { status: "OCCUPIED" },
+      });
+
+      return { reservation: createdReservation, table: occupiedTable };
     });
 
-    if (!reservation) {
+    if (!result) {
       return {
         success: false,
         error: "Table is not available",
       };
     }
 
-    return { success: true, reservation: mapPrismaReservation(reservation) };
+    return {
+      success: true,
+      reservation: mapPrismaReservation(result.reservation),
+      table: mapPrismaTable(result.table),
+    };
   },
 
   async cancel(id: string, reason?: string, note?: string): Promise<Reservation | null> {

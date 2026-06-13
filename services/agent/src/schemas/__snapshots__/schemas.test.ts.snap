@@ -303,11 +303,22 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
     "updatedAt": {
       "type": "string",
     },
+    "userId": {
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
   },
   "required": [
     "id",
     "status",
     "taskDescription",
+    "userId",
     "branchName",
     "baseBranch",
     "model",

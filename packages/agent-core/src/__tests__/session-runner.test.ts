@@ -77,6 +77,10 @@ vi.mock("@langfuse/tracing", () => ({
   updateActiveObservation: vi.fn(),
 }));
 
+vi.mock("../worktree-reaper.js", () => ({
+  scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 2 }),
+}));
+
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
   return {
@@ -105,6 +109,7 @@ import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-m
 import { buildSystemPrompt } from "../prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { withRetry } from "../retry.js";
+import { scheduleWorktreeReap } from "../worktree-reaper.js";
 import {
   startActiveObservation,
   startObservation,
@@ -164,6 +169,9 @@ describe("runSession", () => {
       const value = await fn();
       return { value, attempts: 1 };
     });
+
+    // Reset reaper to default success
+    vi.mocked(scheduleWorktreeReap).mockResolvedValue({ succeeded: true, attempts: 2 });
 
     vi.mocked(createWorktree).mockResolvedValue({
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
@@ -393,6 +401,58 @@ describe("runSession", () => {
 
     expect(result.status).toBe("succeeded");
     expect(result.cleanupErrors).toBeUndefined();
+  });
+
+  it("schedules a worktree reap retry when removeWorktree fails", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await runSession(BASE_CONFIG);
+
+    // Error is still recorded in the result (unchanged behavior)
+    expect(result.cleanupErrors).toEqual(["fatal: worktree is locked"]);
+    // And a follow-up reap retry is scheduled for the same worktree
+    expect(scheduleWorktreeReap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repoPath: "/repo",
+        worktreePath: "/repo/.agent-worktrees/agent-fix-bug-abc123",
+      })
+    );
+
+    vi.restoreAllMocks();
+  });
+
+  it("does not schedule a reap when removeWorktree succeeds first try", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(hasChanges).mockResolvedValue(true);
+    vi.mocked(commitChanges).mockResolvedValue("abc123");
+    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(buildPrBody).mockReturnValue("body");
+    vi.mocked(createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/1",
+      number: 1,
+    });
+    vi.mocked(removeWorktree).mockResolvedValue(undefined);
+
+    const result = await runSession(BASE_CONFIG);
+
+    expect(result.status).toBe("succeeded");
+    expect(scheduleWorktreeReap).not.toHaveBeenCalled();
   });
 
   it("handles createWorktree failure gracefully", async () => {

@@ -1,16 +1,9 @@
-import {
-  forwardRef,
-  useId,
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  type KeyboardEvent,
-} from "react";
+import { forwardRef, useId, useRef, useEffect, type KeyboardEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { springGentle } from "../../tokens/motion";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import { useCombobox } from "../../hooks/useCombobox";
 import styles from "./Select.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -55,7 +48,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       options,
       value,
       onChange,
-      placeholder = "Select\u2026",
+      placeholder = "Select…",
       label,
       disabled,
       disabledReason,
@@ -68,146 +61,20 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const listboxId = `${baseId}-listbox`;
     const optionId = (index: number) => `${baseId}-option-${index}`;
 
-    const [open, setOpen] = useState(false);
-    const [focusedIndex, setFocusedIndex] = useState(-1);
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
-    const typeaheadRef = useRef("");
-    const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const shouldReduceMotion = useReducedMotion();
 
+    const { open, focusedIndex, toggle, select, setFocusedIndex, handleKeyDown } = useCombobox({
+      items: options,
+      value,
+      onSelect: onChange,
+      containerRef: wrapperRef,
+      onRequestTriggerFocus: () => triggerRef.current?.focus(),
+    });
+
     const selectedOption = options.find((o) => o.value === value);
-
-    // Close on outside click
-    useEffect(() => {
-      if (!open) return;
-      const handler = (e: MouseEvent) => {
-        const wrapper =
-          (ref as React.RefObject<HTMLDivElement>)?.current ?? triggerRef.current?.parentElement;
-        if (wrapper && !wrapper.contains(e.target as Node)) {
-          setOpen(false);
-        }
-      };
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
-    }, [open, ref]);
-
-    // Compute the initial focused index for when the dropdown opens
-    const openWithFocus = useCallback(() => {
-      const idx = value ? options.findIndex((o) => o.value === value) : 0;
-      setFocusedIndex(idx >= 0 ? idx : 0);
-      setOpen(true);
-    }, [value, options]);
-
-    const select = useCallback(
-      (optionValue: string) => {
-        onChange?.(optionValue);
-        setOpen(false);
-        triggerRef.current?.focus();
-      },
-      [onChange]
-    );
-
-    // Type-ahead: match option labels by typed characters
-    const handleTypeahead = useCallback(
-      (char: string) => {
-        clearTimeout(typeaheadTimerRef.current);
-        typeaheadRef.current += char.toLowerCase();
-        typeaheadTimerRef.current = setTimeout(() => (typeaheadRef.current = ""), 500);
-
-        const query = typeaheadRef.current;
-        const startIndex = open ? focusedIndex + 1 : 0;
-
-        // Search from current position, then wrap around
-        for (let i = 0; i < options.length; i++) {
-          const idx = (startIndex + i) % options.length;
-          const opt = options[idx];
-          if (opt && !opt.disabled && opt.label.toLowerCase().startsWith(query)) {
-            if (open) {
-              setFocusedIndex(idx);
-            } else {
-              // When closed, type-ahead selects directly
-              select(opt.value);
-            }
-            return;
-          }
-        }
-      },
-      [open, focusedIndex, options, select]
-    );
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Type-ahead for printable single characters
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        handleTypeahead(e.key);
-        if (!open) openWithFocus();
-        return;
-      }
-
-      if (!open) {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openWithFocus();
-          return;
-        }
-        return;
-      }
-
-      switch (e.key) {
-        case "ArrowDown": {
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            let next = prev + 1;
-            while (next < options.length && options[next]?.disabled) next++;
-            return next < options.length ? next : prev;
-          });
-          break;
-        }
-        case "ArrowUp": {
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            let next = prev - 1;
-            while (next >= 0 && options[next]?.disabled) next--;
-            return next >= 0 ? next : prev;
-          });
-          break;
-        }
-        case "Home": {
-          e.preventDefault();
-          const first = options.findIndex((o) => !o.disabled);
-          if (first >= 0) setFocusedIndex(first);
-          break;
-        }
-        case "End": {
-          e.preventDefault();
-          for (let i = options.length - 1; i >= 0; i--) {
-            if (!options[i]?.disabled) {
-              setFocusedIndex(i);
-              break;
-            }
-          }
-          break;
-        }
-        case "Enter":
-        case " ": {
-          e.preventDefault();
-          const focused = options[focusedIndex];
-          if (focused && !focused.disabled) {
-            select(focused.value);
-          }
-          break;
-        }
-        case "Tab":
-          setOpen(false);
-          break;
-        case "Escape":
-          e.preventDefault();
-          setOpen(false);
-          triggerRef.current?.focus();
-          break;
-      }
-    };
 
     // Scroll focused option into view
     useEffect(() => {
@@ -218,16 +85,18 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       el?.scrollIntoView({ block: "nearest" });
     }, [open, focusedIndex]);
 
-    // Clean up typeahead timer
-    useEffect(() => {
-      const timer = typeaheadTimerRef;
-      return () => clearTimeout(timer.current);
-    }, []);
+    const onTriggerKeyDown = (e: KeyboardEvent) => handleKeyDown(e);
 
     const focusedOption = focusedIndex >= 0 ? options[focusedIndex] : undefined;
 
+    const mergeRef = (node: HTMLDivElement | null) => {
+      wrapperRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    };
+
     return (
-      <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
+      <div ref={mergeRef} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
         {label && (
           <label htmlFor={triggerId} className={styles.label}>
             {label}
@@ -237,7 +106,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <button
             ref={triggerRef}
             id={triggerId}
-            onKeyDown={disabled ? undefined : handleKeyDown}
+            onKeyDown={disabled ? undefined : onTriggerKeyDown}
             className={styles.trigger}
             type="button"
             role="combobox"
@@ -247,9 +116,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-activedescendant={open && focusedOption ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
             data-open={open}
-            onClick={
-              disabled ? (e) => e.preventDefault() : () => (open ? setOpen(false) : openWithFocus())
-            }
+            onClick={disabled ? (e) => e.preventDefault() : () => toggle()}
           >
             <span className={`${styles.triggerText} ${!selectedOption ? styles.placeholder : ""}`}>
               {selectedOption?.label ?? placeholder}
@@ -301,7 +168,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                   data-focused={index === focusedIndex}
                   data-disabled={option.disabled || undefined}
                   onClick={option.disabled ? undefined : () => select(option.value)}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={onTriggerKeyDown}
                   onMouseEnter={() => setFocusedIndex(index)}
                 >
                   <svg

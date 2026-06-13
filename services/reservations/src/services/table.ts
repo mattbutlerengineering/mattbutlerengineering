@@ -20,7 +20,7 @@ function isPrismaNotFound(err: unknown): boolean {
 
 const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
-function mapPrismaTable(table: {
+export function mapPrismaTable(table: {
   id: string;
   name: string;
   tableNumber: string | null;

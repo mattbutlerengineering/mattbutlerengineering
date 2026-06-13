@@ -1,6 +1,7 @@
 import type { Prisma, Session, SessionEvent, SessionStatus } from "../generated/prisma/index.js";
 import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
 import { prisma } from "./database.js";
+import { getSessionEventEmitter } from "./session-event-emitter.js";
 
 function isPrismaNotFound(err: unknown): boolean {
   return (
@@ -16,6 +17,7 @@ function mapPrismaSession(session: Session): AgentSession {
     id: session.id,
     status: session.status.toLowerCase() as AgentSession["status"],
     taskDescription: session.taskDescription,
+    userId: session.userId,
     branchName: session.branchName,
     baseBranch: session.baseBranch,
     model: session.model,
@@ -93,6 +95,7 @@ export const sessionService = {
 
   async create(data: {
     taskDescription: string;
+    userId?: string;
     model?: string;
     maxTurns?: number;
     maxBudgetUsd?: number;
@@ -103,6 +106,7 @@ export const sessionService = {
     const session = await prisma.session.create({
       data: {
         taskDescription: data.taskDescription,
+        ...(data.userId !== undefined && { userId: data.userId }),
         ...(data.model !== undefined && { model: data.model }),
         ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
         ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),
@@ -210,7 +214,10 @@ export const sessionService = {
     const event = await prisma.sessionEvent.create({
       data: { sessionId, type, data: data as Prisma.InputJsonValue },
     });
-    return mapPrismaEvent(event);
+    const mapped = mapPrismaEvent(event);
+    // Publish on the seam so SSE subscribers receive it live, without polling.
+    getSessionEventEmitter().publish(mapped);
+    return mapped;
   },
 
   async listEvents(sessionId: string, afterId?: string): Promise<AgentSessionEvent[]> {

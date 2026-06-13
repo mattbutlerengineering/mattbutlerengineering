@@ -58,6 +58,7 @@ const mockParentSession = {
   id: "parent-session-1",
   status: "pending" as const,
   taskDescription: "[Orchestrator] Build a notification system",
+  userId: null,
   branchName: null,
   baseBranch: "main",
   model: "claude-sonnet-4-6",

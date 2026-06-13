@@ -61,7 +61,6 @@ mattbutlerengineering/
 │   ├── api-client/           # Typed fetch client for frontend apps
 │   ├── auth/                 # Auth utilities (React hooks + Fastify plugin)
 │   ├── config/               # Shared ESLint, TypeScript, Prettier configs
-│   ├── feature-flags/        # Feature flag evaluation library
 │   ├── mcp-server/           # Infrastructure MCP server for Claude Code
 │   ├── notifications/        # Email/SMS notification adapters
 │   ├── observability/        # OpenTelemetry SDK wrapper

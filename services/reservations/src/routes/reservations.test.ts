@@ -122,8 +122,7 @@ vi.mock("jose", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
-import { tableService } from "../services/table.js";
-import { emitReservationCreated } from "../services/events.js";
+import { emitReservationCreated, emitTableUpdated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 describe("Reservation Routes", () => {
@@ -697,9 +696,28 @@ describe("Reservation Routes", () => {
         guestName: "Walk-in Guest",
       });
 
+      const occupiedTable = {
+        id: "table-123",
+        name: "Table 123",
+        tableNumber: "123",
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: 6,
+        location: null,
+        isActive: true,
+        priority: 0,
+        status: "OCCUPIED" as const,
+        venueId: "venue-123",
+        floorPlanId: null,
+        shapeMetadata: null,
+        createdAt: "2026-05-05T18:00:00.000Z",
+        updatedAt: "2026-05-05T18:00:00.000Z",
+      };
+
       vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
         success: true,
         reservation: walkInReservation,
+        table: occupiedTable,
       });
 
       const response = await app.inject({
@@ -718,8 +736,42 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.data.id).toBe("res-walkin");
-      expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
+      // The route no longer issues a separate table status update; the service
+      // flips the table inside the same transaction and returns it. The route
+      // emits both SSE events only after that committed result comes back.
       expect(emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
+      expect(emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
+    });
+
+    it("does not emit SSE events when createWalkIn fails (rolled back)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // Simulated table-status-update failure inside the transaction surfaces
+      // as a rejected promise — no reservation committed, error response, and
+      // crucially NO SSE events emitted.
+      vi.mocked(reservationService.createWalkIn).mockRejectedValueOnce(
+        new Error("table update failed")
+      );
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: {
+          authorization: "Bearer valid-token",
+        },
+        payload: {
+          tableId: "table-123",
+          partySize: 2,
+          venueId: "venue-123",
+        },
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(emitReservationCreated).not.toHaveBeenCalled();
+      expect(emitTableUpdated).not.toHaveBeenCalled();
     });
 
     it("creates walk-in with custom guest name and duration", async () => {
