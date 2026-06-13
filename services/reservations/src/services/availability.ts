@@ -299,6 +299,36 @@ export async function getAvailableDates(
 }
 
 /**
+ * Minimal table shape required to apply the selection rule.
+ * Separates the pure policy from Prisma's full Table model.
+ */
+export interface TableCandidate {
+  id: string;
+  capacity: number;
+  priority: number;
+}
+
+/**
+ * Pure table-selection rule: given pre-fetched, pre-sorted candidate tables
+ * (priority descending, capacity ascending) and conflict data, returns the
+ * first conflict-free table or null. No DB access.
+ */
+export function selectBestTable(
+  candidates: TableCandidate[],
+  startTime: Date,
+  endTime: Date,
+  reservations: ReservationSlim[],
+  holds: HoldSlim[]
+): TableCandidate | null {
+  for (const table of candidates) {
+    if (!checkTableConflict(table.id, startTime, endTime, reservations, holds)) {
+      return table;
+    }
+  }
+  return null;
+}
+
+/**
  * Finds the best available table for a reservation.
  * Uses best-fit algorithm: highest priority first, then smallest capacity that fits.
  */
@@ -323,16 +353,8 @@ export async function findBestTable(
   // Get existing reservations and holds
   const { reservations, holds } = await fetchConflictData(venueId, date);
 
-  // Find first table without conflicts
-  for (const table of tables) {
-    const hasConflict = checkTableConflict(table.id, startTime, endTime, reservations, holds);
-
-    if (!hasConflict) {
-      return table;
-    }
-  }
-
-  return null;
+  // Apply the pure selection rule; tables satisfies TableCandidate so the return is the full Table
+  return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
 }
 
 /**
@@ -591,5 +613,6 @@ export const availabilityService = {
   fetchConflictData,
   checkTableConflict,
   checkPacingForSlot,
+  selectBestTable,
   estimateDuration,
 };
