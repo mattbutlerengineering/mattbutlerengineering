@@ -40,6 +40,36 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/useCopyToClipboard.ts">
+    export function useCopyToClipboard() {
+      const [copied, setCopied] = useState(false);
+      const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+      const copy = useCallback(async (text: string) => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+        }
+    
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            window.prompt("Copy to clipboard:", text);
+          }
+        } catch {
+          window.prompt("Copy to clipboard:", text);
+        }
+    
+        setCopied(true);
+        timerRef.current = setTimeout(() => {
+          setCopied(false);
+          timerRef.current = null;
+        }, 2000);
+      }, []);
+    
+      return { copied, copy };
+    }
+  </file>
   <file path="src/hooks/useGenStream.ts">
     type FlatElement = Parameters<typeof flatToTree>[0][number];
     export interface UseGenStreamOptions {
@@ -104,6 +134,22 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/downloadJson.ts">
+    function defaultFilename(): string {
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      return `gen-spec-${ts}.json`;
+    }
+    export function downloadJson(data: unknown, filename?: string): void {
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename ?? defaultFilename();
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </file>
   <file path="src/utils/relative-time.ts">
     export function relativeTime(date: Date): string {
       const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
