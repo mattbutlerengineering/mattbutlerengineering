@@ -40,12 +40,14 @@ flowchart TD
     cli["cli"]
   end
 
+  gen --> @mattbutlerengineering/rialto
   gen --> api_client
   gen --> auth
   gen --> observability
   gen --> rialto_catalog
   gen --> sentry
   gen --> config
+  hospitality --> @mattbutlerengineering/rialto
   hospitality --> api_client
   hospitality --> auth
   hospitality --> observability
@@ -53,9 +55,11 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
+  marketing --> @mattbutlerengineering/rialto
   marketing --> observability
   marketing --> sentry
   marketing --> config
+  rialto_web --> @mattbutlerengineering/rialto
   rialto_web --> observability
   rialto_web --> sentry
   rialto_web --> config
@@ -104,7 +108,9 @@ flowchart TD
   observability --> config
   @mattbutlerengineering/rialto --> api_client
   @mattbutlerengineering/rialto --> config
+  rialto_catalog --> @mattbutlerengineering/rialto
   rialto_catalog --> config
+  rialto_plugin --> @mattbutlerengineering/rialto
   rialto_plugin --> config
   sentry --> api_client
   sentry --> types
