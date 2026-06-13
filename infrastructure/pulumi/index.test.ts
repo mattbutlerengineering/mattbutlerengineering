@@ -640,6 +640,164 @@ describe("Configuration Validation", () => {
   });
 });
 
+// ── Helper: cast factory output to a plain-object shape for assertions ──
+// Pulumi's input types mark optional fields as possibly Output-wrapped, but
+// the factory returns plain objects so we can safely assert on known fields.
+interface PlainServiceSpec {
+  name: string;
+  httpPort: number;
+  dockerfilePath: string;
+  github: { repo: string; branch: string; deployOnPush: boolean };
+  sourceDir: string;
+  instanceSizeSlug: string;
+  instanceCount: number;
+  healthCheck: {
+    httpPath: string;
+    initialDelaySeconds: number;
+    periodSeconds: number;
+    timeoutSeconds: number;
+    successThreshold: number;
+    failureThreshold: number;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  envs: any[];
+}
+
+function makeService(args: {
+  name: string;
+  port: number;
+  dockerfile: string;
+  extraEnvs?: Array<{ key: string; value?: string; type?: string }>;
+}): PlainServiceSpec {
+  return infra.apiService(args) as unknown as PlainServiceSpec;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API SERVICE FACTORY
+// ═══════════════════════════════════════════════════════════════════════════
+describe("apiService factory", () => {
+  it("produces a service spec with the given name, port, and dockerfile", () => {
+    const service = makeService({
+      name: "test-service",
+      port: 3001,
+      dockerfile: "services/test/Dockerfile",
+    });
+
+    expect(service.name).toBe("test-service");
+    expect(service.httpPort).toBe(3001);
+    expect(service.dockerfilePath).toBe("services/test/Dockerfile");
+  });
+
+  it("sets common spec fields (github, sourceDir, instanceSize)", () => {
+    const service = makeService({
+      name: "users-api",
+      port: 3001,
+      dockerfile: "services/users/Dockerfile",
+    });
+
+    expect(service.github.repo).toBe("mattbutlerengineering/mattbutlerengineering");
+    expect(service.github.branch).toBe("main");
+    expect(service.github.deployOnPush).toBe(false);
+    expect(service.sourceDir).toBe("/");
+    expect(service.instanceSizeSlug).toBe("apps-s-1vcpu-0.5gb");
+    expect(service.instanceCount).toBe(1);
+  });
+
+  it("includes the canonical health check", () => {
+    const service = makeService({
+      name: "users-api",
+      port: 3001,
+      dockerfile: "services/users/Dockerfile",
+    });
+
+    expect(service.healthCheck).toBeDefined();
+    expect(service.healthCheck.httpPath).toBe("/ready");
+    expect(service.healthCheck.initialDelaySeconds).toBe(10);
+    expect(service.healthCheck.periodSeconds).toBe(10);
+    expect(service.healthCheck.timeoutSeconds).toBe(5);
+    expect(service.healthCheck.successThreshold).toBe(1);
+    expect(service.healthCheck.failureThreshold).toBe(3);
+  });
+
+  it("includes shared environment variables (NODE_ENV, PORT, CORS_ORIGIN, etc.)", () => {
+    const service = makeService({
+      name: "users-api",
+      port: 3001,
+      dockerfile: "services/users/Dockerfile",
+    });
+
+    const envs = service.envs as Array<{ key: string; value?: string; type?: string }>;
+
+    expect(envs.find((e) => e.key === "NODE_ENV")?.value).toBe("production");
+    expect(envs.find((e) => e.key === "PORT")?.value).toBe("3001");
+    expect(envs.find((e) => e.key === "CORS_ORIGIN")?.value).toBe(`https://${TEST_DOMAIN}`);
+    expect(envs.find((e) => e.key === "API_BASE_URL")?.value).toBe(`https://api.${TEST_DOMAIN}/api`);
+    expect(envs.find((e) => e.key === "AUTH_AUTHORITY")?.value).toMatch(/^https:\/\/.+\.auth0\.com$/);
+    expect(envs.find((e) => e.key === "AUTH_AUDIENCE")?.value).toBe(`https://api.${TEST_DOMAIN}`);
+    expect(envs.find((e) => e.key === "DATABASE_URL")?.type).toBe("SECRET");
+  });
+
+  it("merges extraEnvs into the env list", () => {
+    const service = makeService({
+      name: "agent-api",
+      port: 3003,
+      dockerfile: "services/agent/Dockerfile",
+      extraEnvs: [
+        { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+      ],
+    });
+
+    const envs = service.envs as Array<{ key: string; value?: string; type?: string }>;
+    expect(envs.find((e) => e.key === "DEFAULT_MODEL")?.value).toBe("anthropic/claude-haiku-4.5");
+  });
+
+  it("produces correct spec for each of the three API services", () => {
+    const usersSpec = makeService({
+      name: "users-api",
+      port: 3001,
+      dockerfile: "services/users/Dockerfile",
+    });
+    const reservationsSpec = makeService({
+      name: "reservations-api",
+      port: 3004,
+      dockerfile: "services/reservations/Dockerfile",
+    });
+    const agentSpec = makeService({
+      name: "agent-api",
+      port: 3003,
+      dockerfile: "services/agent/Dockerfile",
+      extraEnvs: [
+        { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+      ],
+    });
+
+    expect(usersSpec.name).toBe("users-api");
+    expect(usersSpec.httpPort).toBe(3001);
+
+    expect(reservationsSpec.name).toBe("reservations-api");
+    expect(reservationsSpec.httpPort).toBe(3004);
+
+    expect(agentSpec.name).toBe("agent-api");
+    expect(agentSpec.httpPort).toBe(3003);
+  });
+
+  it("uses the same AUTH_AUTHORITY value for all services (defined once)", () => {
+    const s1 = makeService({ name: "s1", port: 3001, dockerfile: "d" });
+    const s2 = makeService({ name: "s2", port: 3002, dockerfile: "d" });
+
+    const auth1 = (s1.envs as Array<{ key: string; value?: string }>).find(
+      (e) => e.key === "AUTH_AUTHORITY"
+    )?.value;
+    const auth2 = (s2.envs as Array<{ key: string; value?: string }>).find(
+      (e) => e.key === "AUTH_AUTHORITY"
+    )?.value;
+
+    expect(auth1).toBe(auth2);
+    // Same reference means same constant
+    expect(auth1).toBe("https://dev-ytbgmz5ls3wh4xdx.us.auth0.com");
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORTED OUTPUTS
 // ═══════════════════════════════════════════════════════════════════════════
