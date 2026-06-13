@@ -1,5 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { Readable } from "node:stream";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { type ApiError, createProblemDetails } from "@mbe/types";
@@ -9,6 +7,10 @@ import {
   checkCircuitBreaker,
   recordRemediationOutcome,
 } from "../services/remediation-circuit-breaker.js";
+import {
+  createRawBodyCaptureHook,
+  createVerifiedBodyPreHandler,
+} from "../lib/verified-webhook.js";
 
 // ── Alert payload schema ─────────────────────────────────────────────
 
@@ -24,36 +26,15 @@ const AlertPayloadSchema = z.object({
 
 type AlertPayload = z.infer<typeof AlertPayloadSchema>;
 
-// ── Signature verification ───────────────────────────────────────────
-
-function verifyRemediationSignature(
-  payload: Buffer,
-  signature: string | undefined,
-  secret: string
-): boolean {
-  if (!signature) return false;
-
-  const expected = createHmac("sha256", secret).update(payload).digest("hex");
-  if (expected.length !== signature.length) return false;
-
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-}
-
 // ── Route ────────────────────────────────────────────────────────────
 
 export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
-  // Capture raw request body before Fastify parses JSON.
-  // Webhook senders sign the original bytes; re-serializing via JSON.stringify
-  // can produce a different byte sequence and break HMAC verification.
-  fastify.addHook("preParsing", async (request, _reply, payload) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of payload) {
-      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
-    }
-    const rawBody = Buffer.concat(chunks);
-    (request as unknown as Record<string, unknown>).rawBody = rawBody;
-    return Readable.from(rawBody);
-  });
+  fastify.addHook("preParsing", createRawBodyCaptureHook());
+  fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+    header: "x-remediation-signature",
+    secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+    format: "raw",
+  }));
 
   // github[js/missing-rate-limiting] — strict limit to prevent alert storms
   fastify.post<{
@@ -82,28 +63,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
-      // 1. Verify webhook secret
-      const secret = process.env.REMEDIATION_WEBHOOK_SECRET;
-      if (!secret) {
-        fastify.log.warn("REMEDIATION_WEBHOOK_SECRET not configured — rejecting");
-        return reply
-          .code(401)
-          .send(
-            createProblemDetails(401, "Unauthorized", "Remediation webhook secret not configured")
-          );
-      }
-
-      // Verify signature against the original raw bytes (not re-serialized JSON)
-      const signature = request.headers["x-remediation-signature"] as string | undefined;
-      const rawBody = (request as unknown as Record<string, unknown>).rawBody as Buffer;
-
-      if (!verifyRemediationSignature(rawBody, signature, secret)) {
-        return reply
-          .code(401)
-          .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
-      }
-
-      // 2. Validate payload
+      // 1. Validate payload
       const parseResult = AlertPayloadSchema.safeParse(request.body);
       if (!parseResult.success) {
         return reply
