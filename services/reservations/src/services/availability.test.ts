@@ -27,8 +27,10 @@ import {
   checkTableConflict,
   checkPacingForSlot,
   fetchConflictData,
+  selectBestTable,
   type ReservationSlim,
   type HoldSlim,
+  type TableCandidate,
 } from "./availability.js";
 import { prisma } from "./database.js";
 
@@ -741,6 +743,110 @@ describe("checkPacingForSlot (pure)", () => {
       partySize: 4,
     });
     expect(checkPacingForSlot(start, 2, settings, [atEnd], [])).toBe(true);
+  });
+});
+
+describe("selectBestTable (pure)", () => {
+  const start = new Date("2026-05-05T18:00:00Z");
+  const end = new Date("2026-05-05T19:15:00Z");
+  const future = new Date(Date.now() + 300_000);
+
+  function makeCandidate(overrides: Partial<TableCandidate> = {}): TableCandidate {
+    return {
+      id: "table-1",
+      capacity: 4,
+      priority: 5,
+      ...overrides,
+    };
+  }
+
+  function makeHold(overrides: Partial<HoldSlim> = {}): HoldSlim {
+    return {
+      id: "hold-1",
+      tableId: "table-1",
+      startTime: start,
+      endTime: end,
+      partySize: 2,
+      expiresAt: future,
+      ...overrides,
+    };
+  }
+
+  function makeReservation(overrides: Partial<ReservationSlim> = {}): ReservationSlim {
+    return {
+      id: "res-1",
+      tableId: "table-1",
+      startTime: start,
+      endTime: end,
+      partySize: 2,
+      ...overrides,
+    };
+  }
+
+  it("returns null when no candidates provided", () => {
+    expect(selectBestTable([], start, end, [], [])).toBeNull();
+  });
+
+  it("returns the single candidate when it has no conflicts", () => {
+    const table = makeCandidate({ id: "t-1" });
+    expect(selectBestTable([table], start, end, [], [])).toBe(table);
+  });
+
+  it("returns null when only candidate has a conflicting reservation", () => {
+    const table = makeCandidate({ id: "table-1" });
+    const res = makeReservation({ tableId: "table-1" });
+    expect(selectBestTable([table], start, end, [res], [])).toBeNull();
+  });
+
+  it("returns null when only candidate has a conflicting active hold", () => {
+    const table = makeCandidate({ id: "table-1" });
+    const hold = makeHold({ tableId: "table-1" });
+    expect(selectBestTable([table], start, end, [], [hold])).toBeNull();
+  });
+
+  it("exact-fit: returns the single exact-capacity table when it fits", () => {
+    // party size is implicit from the conflict data — the function just picks first conflict-free
+    const table = makeCandidate({ id: "t-exact", capacity: 2 });
+    expect(selectBestTable([table], start, end, [], [])).toBe(table);
+  });
+
+  it("priority tie: when two tables have same priority, selects smaller capacity first", () => {
+    // Caller must pass tables pre-sorted (priority desc, capacity asc) — pure fn just takes first free
+    const small = makeCandidate({ id: "t-small", capacity: 2, priority: 5 });
+    const large = makeCandidate({ id: "t-large", capacity: 8, priority: 5 });
+    // pre-sorted: small first (capacity asc when priority equal)
+    const result = selectBestTable([small, large], start, end, [], []);
+    expect(result!.id).toBe("t-small");
+  });
+
+  it("capacity tie: when two tables have same capacity, selects higher priority first", () => {
+    const high = makeCandidate({ id: "t-high", capacity: 4, priority: 10 });
+    const low = makeCandidate({ id: "t-low", capacity: 4, priority: 3 });
+    // pre-sorted: high priority first
+    const result = selectBestTable([high, low], start, end, [], []);
+    expect(result!.id).toBe("t-high");
+  });
+
+  it("skips booked tables and returns the next conflict-free one", () => {
+    const booked = makeCandidate({ id: "table-1", priority: 10 });
+    const free = makeCandidate({ id: "t-free", priority: 5 });
+    const res = makeReservation({ tableId: "table-1" });
+    const result = selectBestTable([booked, free], start, end, [res], []);
+    expect(result!.id).toBe("t-free");
+  });
+
+  it("no-fit: returns null when all candidates conflict", () => {
+    const t1 = makeCandidate({ id: "table-1" });
+    const t2 = makeCandidate({ id: "table-2" });
+    const res1 = makeReservation({ tableId: "table-1" });
+    const res2 = makeReservation({ id: "res-2", tableId: "table-2" });
+    expect(selectBestTable([t1, t2], start, end, [res1, res2], [])).toBeNull();
+  });
+
+  it("ignores expired holds — expired-hold table is still selectable", () => {
+    const table = makeCandidate({ id: "table-1" });
+    const expiredHold = makeHold({ expiresAt: new Date(Date.now() - 1000) });
+    expect(selectBestTable([table], start, end, [], [expiredHold])).toBe(table);
   });
 });
 
