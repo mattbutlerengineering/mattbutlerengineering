@@ -748,5 +748,21 @@
       export function validatePath(path: string, label: string): void { /* ... */ }
     </item>
   </file>
+  <file path="src/worktree-reaper.ts">
+    <item priority="low">
+      interface ReaperLogger {
+        error: (message: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface ScheduleWorktreeReapOptions {
+        repoPath: string;
+        worktreePath: string;
+        mode?: WorktreeMode;
+        maxRetries?: number;
+        baseDelayMs?: number;
+      }
+    </item>
+  </file>
   </section>
 </codebase>

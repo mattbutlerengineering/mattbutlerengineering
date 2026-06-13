@@ -2,6 +2,7 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 import type { SessionConfig, SessionResult, SessionEventCallback } from "./types.js";
 import { buildSessionResult } from "./cost-tracker.js";
 import { hasChanges, commitChanges, pushBranch, removeWorktree } from "./worktree-manager.js";
+import { scheduleWorktreeReap } from "./worktree-reaper.js";
 import { createPullRequest, buildFailurePrBody } from "./pr-creator.js";
 import { recordFailure } from "./failure-memory.js";
 import { withRetry } from "./retry.js";
@@ -158,10 +159,19 @@ export async function runSession(
               } catch (cleanupErr) {
                 const cleanupMsg =
                   cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+                // Record the error in the result (unchanged behavior)
                 cleanupErrors.push(cleanupMsg);
                 console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
                 emitEvent(onEvent, "session:cleanup_warning", {
                   message: `Worktree cleanup failed: ${cleanupMsg}`,
+                });
+                // Schedule a bounded retry so the worktree is reclaimed instead of
+                // persisting until a human notices. Reap exhaustion logs at error
+                // level (never silent) and is not treated as a session failure.
+                await scheduleWorktreeReap({
+                  repoPath: effectiveConfig.repoPath,
+                  worktreePath: ctx.worktree.path,
+                  mode: ctx.worktree.mode,
                 });
               }
             }

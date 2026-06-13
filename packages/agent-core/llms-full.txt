@@ -2087,10 +2087,19 @@
                   } catch (cleanupErr) {
                     const cleanupMsg =
                       cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+                    // Record the error in the result (unchanged behavior)
                     cleanupErrors.push(cleanupMsg);
                     console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
                     emitEvent(onEvent, "session:cleanup_warning", {
                       message: `Worktree cleanup failed: ${cleanupMsg}`,
+                    });
+                    // Schedule a bounded retry so the worktree is reclaimed instead of
+                    // persisting until a human notices. Reap exhaustion logs at error
+                    // level (never silent) and is not treated as a session failure.
+                    await scheduleWorktreeReap({
+                      repoPath: effectiveConfig.repoPath,
+                      worktreePath: ctx.worktree.path,
+                      mode: ctx.worktree.mode,
                     });
                   }
                 }
@@ -2459,6 +2468,29 @@
           `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
         );
       }
+    }
+  </file>
+  <file path="src/worktree-reaper.ts">
+    export interface ReaperLogger {
+      readonly error: (message: string) => void;
+    }
+    export interface ScheduleWorktreeReapOptions {
+      readonly repoPath: string;
+      readonly worktreePath: string;
+      /** Worktree isolation mode — passed through to removal. Defaults to 'full'. */
+      readonly mode?: WorktreeMode;
+      /** Max retry attempts after the initial failure. Default: 3. */
+      readonly maxRetries?: number;
+      /** Base backoff delay in ms. Default: 1000. */
+      readonly baseDelayMs?: number;
+      /** Removal function (injectable for testing). Defaults to worktree-manager.removeWorktree. */
+      readonly removeFn?: (
+        repoPath: string,
+        worktreePath: string,
+        mode?: WorktreeMode
+      ) => Promise<void>;
+      /** Error-level logger (injectable for testing). Defaults to console.error. */
+      readonly logger?: ReaperLogger;
     }
   </file>
   </section>
