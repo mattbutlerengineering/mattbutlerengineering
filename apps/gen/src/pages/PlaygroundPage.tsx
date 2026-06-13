@@ -5,15 +5,15 @@ import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
-import { usePanelLayout } from "../hooks/usePanelLayout.js";
 import { useTheme } from "../contexts/ThemeContext.js";
-import { AppShell } from "../components/AppShell.js";
+import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
 import { PreviewPane } from "../components/PreviewPane.js";
 import { JsonInspector } from "../components/JsonInspector.js";
 import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
+import type { StoredSpec } from "../types.js";
 import styles from "./PlaygroundPage.module.css";
 
 /**
@@ -22,6 +22,11 @@ import styles from "./PlaygroundPage.module.css";
  * History is database-backed via useSpecsApi — survives page refresh.
  * Three-column layout: HistoryPanel | PreviewPane | JsonInspector
  * with AppShell wrapping the top bar and PromptBar at the bottom.
+ *
+ * Panel open/close state (history / inspector / command palette) is owned by
+ * AppShell; this page reads it through useAppShellPanels and composes the
+ * AppShell.HistoryRegion / AppShell.InspectorRegion / AppShell.CommandPalette
+ * compound children instead of threading toggle callbacks and paired flags.
  *
  * Responsive behavior:
  * - Desktop (>1024px): 3-column grid
@@ -37,20 +42,11 @@ export function PlaygroundPage() {
   const { toast } = useToast();
   const { toggleTheme } = useTheme();
   const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
-  const {
-    historyVisible,
-    inspectorVisible,
-    breakpoint,
-    toggleHistory,
-    toggleInspector,
-    closeOverlays,
-  } = usePanelLayout();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [mode, setMode] = useState<"generate" | "refine">("generate");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
@@ -84,6 +80,160 @@ export function PlaygroundPage() {
     }
   }, [error, toast]);
 
+  function handleSignOut() {
+    setActiveId(null);
+    setMode("generate");
+    void signOut();
+  }
+
+  const handleLogoClick = useCallback(() => {
+    setActiveId(null);
+    setMode("generate");
+  }, []);
+
+  function handleTemplatesOpen() {
+    setGalleryOpen(true);
+  }
+
+  // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
+        e.preventDefault();
+        setGalleryOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "?") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      e.preventDefault();
+      setShortcutsOpen((prev) => !prev);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  return (
+    <AppShell
+      isFullscreen={isFullscreen}
+      onSignOut={handleSignOut}
+      onLogoClick={handleLogoClick}
+      onTemplatesOpen={handleTemplatesOpen}
+    >
+      <PlaygroundBody
+        specs={specs}
+        isLoading={isLoading}
+        activeId={activeId}
+        setActiveId={setActiveId}
+        filter={filter}
+        setFilter={setFilter}
+        mode={mode}
+        setMode={setMode}
+        isFullscreen={isFullscreen}
+        setIsFullscreen={setIsFullscreen}
+        galleryOpen={galleryOpen}
+        setGalleryOpen={setGalleryOpen}
+        shortcutsOpen={shortcutsOpen}
+        setShortcutsOpen={setShortcutsOpen}
+        promptRef={promptRef}
+        spec={spec}
+        isStreaming={isStreaming}
+        error={error}
+        rawLines={rawLines}
+        send={send}
+        stop={stop}
+        toggleFavorite={toggleFavorite}
+        deleteSpec={deleteSpec}
+        toggleTheme={toggleTheme}
+        onSignOut={handleSignOut}
+        toast={toast}
+      />
+    </AppShell>
+  );
+}
+
+interface PlaygroundBodyProps {
+  specs: StoredSpec[];
+  isLoading: boolean;
+  activeId: string | null;
+  setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
+  filter: "all" | "favorites";
+  setFilter: React.Dispatch<React.SetStateAction<"all" | "favorites">>;
+  mode: "generate" | "refine";
+  setMode: React.Dispatch<React.SetStateAction<"generate" | "refine">>;
+  isFullscreen: boolean;
+  setIsFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
+  galleryOpen: boolean;
+  setGalleryOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  shortcutsOpen: boolean;
+  setShortcutsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  promptRef: React.MutableRefObject<string>;
+  spec: Spec | null;
+  isStreaming: boolean;
+  error: Error | null;
+  rawLines: string[];
+  send: (prompt: string) => Promise<void> | void;
+  stop: () => void;
+  toggleFavorite: (id: string) => Promise<void>;
+  deleteSpec: (id: string) => Promise<void>;
+  toggleTheme: () => void;
+  onSignOut: () => void;
+  toast: ReturnType<typeof useToast>["toast"];
+}
+
+/**
+ * The playground content rendered inside AppShell. Reads shell-owned panel
+ * state (history / inspector visibility, breakpoint, palette controls) via
+ * useAppShellPanels and composes the AppShell panel regions + command palette.
+ */
+function PlaygroundBody({
+  specs,
+  isLoading,
+  activeId,
+  setActiveId,
+  filter,
+  setFilter,
+  mode,
+  setMode,
+  isFullscreen,
+  setIsFullscreen,
+  galleryOpen,
+  setGalleryOpen,
+  shortcutsOpen,
+  setShortcutsOpen,
+  promptRef,
+  spec,
+  isStreaming,
+  error,
+  rawLines,
+  send,
+  stop,
+  toggleFavorite,
+  deleteSpec,
+  toggleTheme,
+  onSignOut,
+  toast,
+}: PlaygroundBodyProps) {
+  const {
+    historyVisible,
+    inspectorVisible,
+    breakpoint,
+    toggleHistory,
+    toggleInspector,
+    closeOverlays,
+    closePalette,
+  } = useAppShellPanels();
+
+  const isMobileOrTablet = breakpoint !== "desktop";
+
   // ---------------------------------------------------------------------------
   // Display logic — live streaming vs. history review mode
   // ---------------------------------------------------------------------------
@@ -102,8 +252,6 @@ export function PlaygroundPage() {
 
   // activeSpecId for Share/Refine: only set when viewing a non-streaming saved entry
   const activeSpecId = !isStreaming && activeId ? activeId : null;
-
-  const isMobileOrTablet = breakpoint !== "desktop";
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -175,12 +323,6 @@ export function PlaygroundPage() {
     void send(retryPrompt);
   }
 
-  function handleSignOut() {
-    setActiveId(null);
-    setMode("generate");
-    void signOut();
-  }
-
   function handleEnterRefinement() {
     setMode("refine");
   }
@@ -197,49 +339,14 @@ export function PlaygroundPage() {
     // onShare is called after clipboard write in PreviewPane; no additional action needed here
   }
 
-  const handleLogoClick = useCallback(() => {
-    setActiveId(null);
-    setMode("generate");
-  }, []);
-
   function handleTemplateSelect(prompt: string) {
     toast({ title: "Generating from template...", variant: "accent", duration: 2000 });
     handleSubmit(prompt);
   }
 
-  function handleTemplatesOpen() {
-    setGalleryOpen(true);
-  }
-
   function handleGalleryClose() {
     setGalleryOpen(false);
   }
-
-  // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
-        e.preventDefault();
-        setGalleryOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
-
-  // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "?") return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.target as HTMLElement)?.isContentEditable) return;
-      e.preventDefault();
-      setShortcutsOpen((prev) => !prev);
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Command palette items
@@ -249,9 +356,9 @@ export function PlaygroundPage() {
       id: "new-generation",
       label: "New Generation",
       group: "Actions",
-      shortcut: ["\u2318", "N"],
+      shortcut: ["⌘", "N"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         setActiveId(null);
         setMode("generate");
       },
@@ -260,9 +367,9 @@ export function PlaygroundPage() {
       id: "toggle-fullscreen",
       label: "Toggle Fullscreen",
       group: "Actions",
-      shortcut: ["\u2318", "F"],
+      shortcut: ["⌘", "F"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         setIsFullscreen((prev) => !prev);
       },
     },
@@ -274,7 +381,7 @@ export function PlaygroundPage() {
             group: "Actions",
             shortcut: ["Esc"],
             onSelect: () => {
-              setPaletteOpen(false);
+              closePalette();
               stop();
             },
           },
@@ -284,9 +391,9 @@ export function PlaygroundPage() {
       id: "open-templates",
       label: "Browse Templates",
       group: "Actions",
-      shortcut: ["\u2318", "T"],
+      shortcut: ["⌘", "T"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         setGalleryOpen(true);
       },
     },
@@ -297,7 +404,7 @@ export function PlaygroundPage() {
             label: "Download Spec as JSON",
             group: "Export",
             onSelect: () => {
-              setPaletteOpen(false);
+              closePalette();
               const json = JSON.stringify(displaySpec, null, 2);
               const blob = new Blob([json], { type: "application/json" });
               const url = URL.createObjectURL(blob);
@@ -313,7 +420,7 @@ export function PlaygroundPage() {
             label: "Copy Spec JSON",
             group: "Export",
             onSelect: () => {
-              setPaletteOpen(false);
+              closePalette();
               const json = JSON.stringify(displaySpec, null, 2);
               void navigator.clipboard.writeText(json);
             },
@@ -324,9 +431,9 @@ export function PlaygroundPage() {
       id: "toggle-history",
       label: "Toggle History Panel",
       group: "Panels",
-      shortcut: ["\u2318", "1"],
+      shortcut: ["⌘", "1"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         toggleHistory();
       },
     },
@@ -334,9 +441,9 @@ export function PlaygroundPage() {
       id: "toggle-inspector",
       label: "Toggle JSON Inspector",
       group: "Panels",
-      shortcut: ["\u2318", "2"],
+      shortcut: ["⌘", "2"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         toggleInspector();
       },
     },
@@ -346,7 +453,7 @@ export function PlaygroundPage() {
       group: "Settings",
       shortcut: ["?"],
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         setShortcutsOpen(true);
       },
     },
@@ -355,7 +462,7 @@ export function PlaygroundPage() {
       label: "Toggle Theme",
       group: "Settings",
       onSelect: () => {
-        setPaletteOpen(false);
+        closePalette();
         toggleTheme();
       },
     },
@@ -364,63 +471,40 @@ export function PlaygroundPage() {
       label: "Sign Out",
       group: "Settings",
       onSelect: () => {
-        setPaletteOpen(false);
-        handleSignOut();
+        closePalette();
+        onSignOut();
       },
     },
   ];
 
   // Build layout data attributes for CSS-driven responsive grid
   const layoutClassName = isFullscreen ? styles.layoutFullscreen : styles.layout;
-  const showHistoryPanel = !isFullscreen && historyVisible;
-  const showInspectorPanel = !isFullscreen && inspectorVisible;
 
   return (
-    <AppShell
-      onSignOut={handleSignOut}
-      historyVisible={historyVisible}
-      inspectorVisible={inspectorVisible}
-      onToggleHistory={toggleHistory}
-      onToggleInspector={toggleInspector}
-      onLogoClick={handleLogoClick}
-      onTemplatesOpen={handleTemplatesOpen}
-      paletteOpen={paletteOpen}
-      onPaletteOpenChange={setPaletteOpen}
-      commandItems={commandItems}
-    >
+    <>
       <div
         className={layoutClassName}
         data-history={historyVisible}
         data-inspector={inspectorVisible}
       >
-        {/* Backdrop for mobile/tablet overlays */}
-        {isMobileOrTablet && (showHistoryPanel || showInspectorPanel) && (
-          <div className={styles.backdrop} onClick={closeOverlays} aria-hidden="true" />
-        )}
-
-        {showHistoryPanel && (
-          <div
-            className={
-              isMobileOrTablet ? `${styles.overlayPanel} ${styles.overlayStart}` : styles.sidePanel
-            }
-          >
-            <HistoryPanel
-              entries={specs}
-              activeId={activeId}
-              filter={filter}
-              isLoading={isLoading}
-              onSelect={handleSelectHistory}
-              onReplay={handleReplay}
-              onToggleFavorite={handleToggleFavorite}
-              onDelete={handleDelete}
-              onFilterChange={setFilter}
-            />
-          </div>
-        )}
+        <AppShell.HistoryRegion>
+          <HistoryPanel
+            entries={specs}
+            activeId={activeId}
+            filter={filter}
+            isLoading={isLoading}
+            onSelect={handleSelectHistory}
+            onReplay={handleReplay}
+            onToggleFavorite={handleToggleFavorite}
+            onDelete={handleDelete}
+            onFilterChange={setFilter}
+          />
+        </AppShell.HistoryRegion>
 
         <ErrorBoundary
           fallback={
             <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
+              {/* eslint-disable mbe-local/prefer-rialto-components -- rialto unavailable inside an ErrorBoundary fallback */}
               <p>Preview failed to render.</p>
               <button
                 type="button"
@@ -437,6 +521,7 @@ export function PlaygroundPage() {
               >
                 Retry
               </button>
+              {/* eslint-enable mbe-local/prefer-rialto-components */}
             </div>
           }
         >
@@ -455,38 +540,34 @@ export function PlaygroundPage() {
           />
         </ErrorBoundary>
 
-        {showInspectorPanel && (
-          <div
-            className={
-              isMobileOrTablet ? `${styles.overlayPanel} ${styles.overlayEnd}` : styles.sidePanel
+        <AppShell.InspectorRegion>
+          <ErrorBoundary
+            fallback={
+              <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
+                {/* eslint-disable mbe-local/prefer-rialto-components -- rialto unavailable inside an ErrorBoundary fallback */}
+                <p>Inspector failed to render.</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  style={{
+                    marginBlockStart: "var(--rialto-space-sm)",
+                    padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
+                    borderRadius: "var(--rialto-radius-default)",
+                    border: "1px solid var(--rialto-border)",
+                    background: "var(--rialto-surface-elevated)",
+                    color: "var(--rialto-text-primary)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Retry
+                </button>
+                {/* eslint-enable mbe-local/prefer-rialto-components */}
+              </div>
             }
           >
-            <ErrorBoundary
-              fallback={
-                <div style={{ padding: "var(--rialto-space-lg)", textAlign: "center" }}>
-                  <p>Inspector failed to render.</p>
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginBlockStart: "var(--rialto-space-sm)",
-                      padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
-                      borderRadius: "var(--rialto-radius-default)",
-                      border: "1px solid var(--rialto-border)",
-                      background: "var(--rialto-surface-elevated)",
-                      color: "var(--rialto-text-primary)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Retry
-                  </button>
-                </div>
-              }
-            >
-              <JsonInspector rawLines={displayRawLines} isStreaming={isStreaming} />
-            </ErrorBoundary>
-          </div>
-        )}
+            <JsonInspector rawLines={displayRawLines} isStreaming={isStreaming} />
+          </ErrorBoundary>
+        </AppShell.InspectorRegion>
       </div>
       <PromptBar
         onSubmit={handleSubmit}
@@ -503,6 +584,7 @@ export function PlaygroundPage() {
       />
       <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <HelpButton onClick={() => setShortcutsOpen(true)} />
-    </AppShell>
+      <AppShell.CommandPalette items={commandItems} />
+    </>
   );
 }

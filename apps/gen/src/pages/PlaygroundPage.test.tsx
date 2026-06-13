@@ -1,4 +1,3 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
@@ -61,23 +60,14 @@ vi.mock("../hooks/useSpecsApi.js", () => ({
   }),
 }));
 
-vi.mock("../hooks/usePanelLayout.js", () => ({
-  usePanelLayout: () => ({
-    historyVisible: true,
-    inspectorVisible: true,
-    breakpoint: "desktop",
-    toggleHistory: mockToggleHistory,
-    toggleInspector: mockToggleInspector,
-    closeOverlays: mockCloseOverlays,
-  }),
-}));
-
 vi.mock("../contexts/ThemeContext.js", () => ({
   useTheme: () => ({ theme: "light", toggleTheme: mockToggleTheme }),
 }));
 
-vi.mock("../components/AppShell.js", () => ({
-  AppShell: ({
+// AppShell now owns panel toggle state and exposes it via context. The mock
+// provides the compound children and the useAppShellPanels hook the page reads.
+vi.mock("../components/AppShell.js", () => {
+  function AppShell({
     children,
     onSignOut,
     onLogoClick,
@@ -87,15 +77,43 @@ vi.mock("../components/AppShell.js", () => ({
     onSignOut?: () => void;
     onLogoClick?: () => void;
     onTemplatesOpen?: () => void;
-  }) => (
-    <div data-testid="app-shell">
-      {onSignOut && <button onClick={onSignOut}>Sign Out</button>}
-      {onLogoClick && <button onClick={onLogoClick}>Logo</button>}
-      {onTemplatesOpen && <button onClick={onTemplatesOpen}>Templates</button>}
-      {children}
-    </div>
-  ),
-}));
+  }) {
+    return (
+      <div data-testid="app-shell">
+        {onSignOut && <button onClick={onSignOut}>Sign Out</button>}
+        {onLogoClick && <button onClick={onLogoClick}>Logo</button>}
+        {onTemplatesOpen && <button onClick={onTemplatesOpen}>Templates</button>}
+        {children}
+      </div>
+    );
+  }
+  function HistoryRegion({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  }
+  function InspectorRegion({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  }
+  function CommandPalette() {
+    return null;
+  }
+  AppShell.HistoryRegion = HistoryRegion;
+  AppShell.InspectorRegion = InspectorRegion;
+  AppShell.CommandPalette = CommandPalette;
+  return {
+    AppShell,
+    useAppShellPanels: () => ({
+      historyVisible: true,
+      inspectorVisible: true,
+      breakpoint: "desktop",
+      isFullscreen: false,
+      toggleHistory: mockToggleHistory,
+      toggleInspector: mockToggleInspector,
+      closeOverlays: mockCloseOverlays,
+      openPalette: vi.fn(),
+      closePalette: vi.fn(),
+    }),
+  };
+});
 
 vi.mock("../components/HistoryPanel.js", () => ({
   HistoryPanel: ({

@@ -30,76 +30,6 @@
   overflow: hidden;
 }
 
-/* ── Side panel wrapper (desktop) ─────────────── */
-
-.sidePanel {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-inline-size: 0;
-}
-
-/* ── Overlay backdrop (mobile/tablet) ─────────── */
-
-.backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  background-color: var(--rialto-overlay);
-  animation: fadeIn 200ms var(--rialto-ease-smooth);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* ── Overlay panels (mobile/tablet) ───────────── */
-
-.overlayPanel {
-  position: absolute;
-  inset-block: 0;
-  z-index: 11;
-  inline-size: min(320px, 85vw);
-  background-color: var(--rialto-surface-default);
-  box-shadow: var(--rialto-shadow-lg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.overlayStart {
-  inset-inline-start: 0;
-  animation: slideInStart 250ms var(--rialto-ease-smooth);
-}
-
-.overlayEnd {
-  inset-inline-end: 0;
-  animation: slideInEnd 250ms var(--rialto-ease-smooth);
-}
-
-@keyframes slideInStart {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInEnd {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
 /* ── Tablet: 2-column default ─────────────────── */
 
 @media (min-width: 768px) and (max-width: 1024px) {
@@ -132,17 +62,5 @@
   .layout[data-inspector="true"],
   .layout[data-history="true"][data-inspector="true"] {
     grid-template-columns: 1fr;
-  }
-}
-
-/* ── Reduced motion ──────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .backdrop {
-    animation: none;
-  }
-
-  .overlayStart,
-  .overlayEnd {
-    animation: none;
   }
 }
