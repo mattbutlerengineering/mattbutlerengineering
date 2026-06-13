@@ -1783,6 +1783,9 @@
     
       return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
     }
+    export function reviewersForDiff(files: readonly string[]): string[] {
+      return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
+    }
   </file>
   <file path="src/prompt-builder.ts">
     export interface SourceFileEntry {

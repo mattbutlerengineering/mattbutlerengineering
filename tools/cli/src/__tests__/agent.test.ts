@@ -22,7 +22,7 @@ vi.mock("@mbe/agent-core", () => ({
       ({
         haiku: "claude-haiku-4-5-20251001",
         sonnet: "claude-sonnet-4-6",
-        opus: "claude-opus-4-6",
+        opus: "claude-opus-4-8",
       })[tier]
   ),
   routeModelWithReason: vi.fn(() => ({

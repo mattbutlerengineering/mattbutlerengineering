@@ -221,7 +221,7 @@ export {
 export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
 // PR risk classification
-export { isLowRiskPR } from "./pr-risk-classifier.js";
+export { isLowRiskPR, reviewersForDiff } from "./pr-risk-classifier.js";
 
 // Change-type classification (ship-loop phase gating)
 export {

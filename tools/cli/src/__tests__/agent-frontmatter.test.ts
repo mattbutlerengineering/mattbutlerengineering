@@ -71,7 +71,7 @@ describe("agent frontmatter subcommand", () => {
     } finally {
       Object.defineProperty(process, "stdin", original);
     }
-    expect(logSpy).toHaveBeenCalledWith("--model claude-opus-4-6");
+    expect(logSpy).toHaveBeenCalledWith("--model claude-opus-4-8");
   });
 
   it("warns and prints empty flags instead of hanging when stdin is a TTY", async () => {

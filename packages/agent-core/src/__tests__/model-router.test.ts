@@ -213,7 +213,7 @@ describe("resolveModelId", () => {
   const cases: Array<[ModelTier, string]> = [
     ["haiku", "claude-haiku-4-5-20251001"],
     ["sonnet", "claude-sonnet-4-6"],
-    ["opus", "claude-opus-4-6"],
+    ["opus", "claude-opus-4-8"],
   ];
 
   for (const [tier, expectedId] of cases) {
@@ -439,7 +439,7 @@ describe("RoutingContext — budget-aware downgrade", () => {
 
 describe("getFeedbackLoopModel", () => {
   it("downgrades opus parent to sonnet", () => {
-    expect(getFeedbackLoopModel("claude-opus-4-6")).toBe("claude-sonnet-4-6");
+    expect(getFeedbackLoopModel("claude-opus-4-8")).toBe("claude-sonnet-4-6");
   });
 
   it("downgrades sonnet parent to haiku", () => {
