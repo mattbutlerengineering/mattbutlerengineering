@@ -1,5 +1,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
-import { Button } from "@mattbutlerengineering/rialto";
+import { Button, Input, Text } from "@mattbutlerengineering/rialto";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
+import { downloadJson } from "../utils/downloadJson.js";
 import styles from "./JsonInspector.module.css";
 
 export interface JsonInspectorProps {
@@ -86,9 +88,9 @@ function highlightJson(json: string, search: string): ReactNode[] {
 
     if (className) {
       parts.push(
-        <span key={keyIndex} className={className}>
+        <Text key={keyIndex} className={className}>
           {wrapMatches(token, search, keyIndex)}
-        </span>
+        </Text>
       );
     } else {
       parts.push(...wrapMatches(token, search, keyIndex));
@@ -136,7 +138,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
 
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -179,21 +181,12 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
   }
 
   function handleCopy() {
-    void navigator.clipboard.writeText(buildFullJson());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    void copy(buildFullJson());
   }
 
   function handleDownload() {
     const json = buildFullJson();
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gen-spec-${timestamp}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson(JSON.parse(json));
   }
 
   function toggleCollapsed(index: number) {
@@ -211,9 +204,9 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
   return (
     <aside className={styles.inspector}>
       <div className={styles.toolbar}>
-        <span className={styles.label}>JSON</span>
+        <Text className={styles.label}>JSON</Text>
         <div className={styles.searchGroup}>
-          <input
+          <Input
             type="text"
             className={styles.searchInput}
             placeholder="Search..."
@@ -222,9 +215,9 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
             aria-label="Search JSON"
           />
           {search && (
-            <span className={styles.matchCount}>
+            <Text className={styles.matchCount}>
               {matchCount} {matchCount === 1 ? "match" : "matches"}
-            </span>
+            </Text>
           )}
         </div>
         <Button
@@ -247,7 +240,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
 
       <div className={styles.scrollArea} ref={scrollContainerRef} onScroll={handleScroll}>
         {rawLines.length === 0 ? (
-          <p className={styles.empty}>No data yet</p>
+          <Text className={styles.empty}>No data yet</Text>
         ) : (
           blocks.map((block, i) => {
             const isCollapsed = collapsed.has(i);
@@ -257,23 +250,23 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
 
             return (
               <div key={i} className={styles.block}>
-                <button
+                <Button
                   type="button"
                   className={styles.collapseToggle}
                   onClick={() => toggleCollapsed(i)}
                   aria-expanded={!isCollapsed}
                   aria-label={isCollapsed ? "Expand block" : "Collapse block"}
                 >
-                  <span className={styles.arrow}>{isCollapsed ? "\u25B6" : "\u25BC"}</span>
-                </button>
+                  <Text className={styles.arrow}>{isCollapsed ? "\u25B6" : "\u25BC"}</Text>
+                </Button>
 
                 {isCollapsed ? (
                   <div className={styles.collapsedRow}>
-                    <span className={styles.lineNumber}>{block.startLine}</span>
+                    <Text className={styles.lineNumber}>{block.startLine}</Text>
                     <pre className={styles.pre}>
                       <code className={styles.collapsedCode}>
                         {highlightJson(truncated, search)}
-                        {lines.length > 1 && <span className={styles.ellipsis}> ...</span>}
+                        {lines.length > 1 && <Text className={styles.ellipsis}> ...</Text>}
                       </code>
                     </pre>
                   </div>
@@ -281,7 +274,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
                   <div className={styles.expandedBlock}>
                     {lines.map((line, li) => (
                       <div key={li} className={styles.lineRow}>
-                        <span className={styles.lineNumber}>{block.startLine + li}</span>
+                        <Text className={styles.lineNumber}>{block.startLine + li}</Text>
                         <pre className={styles.pre}>
                           <code>{highlightJson(line, search)}</code>
                         </pre>

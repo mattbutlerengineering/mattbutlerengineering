@@ -2,11 +2,12 @@
   "extends": "@mbe/config/typescript/react",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "..",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@gen/*": ["../gen/src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../gen/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
