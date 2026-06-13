@@ -909,6 +909,24 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useCombobox.ts">
+    <item priority="low">
+      interface ComboboxItem {
+        value: string;
+        label: string;
+        disabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseComboboxOptions {
+        items: ComboboxItem[];
+        value?: string;
+        onSelect?: (value: string) => void;
+        containerRef?: RefObject<HTMLElement | null>;
+        onRequestTriggerFocus?: () => void;
+      }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useDirection.ts">
     <item priority="high">
       type Direction = "ltr" | "rtl";
@@ -1684,6 +1702,16 @@
       function extractText(content: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/services/session-event-emitter.ts">
+    <item priority="low">
+      type SessionEventListener = (event: AgentSessionEvent) => void;
+    </item>
+    <item priority="low">
+      interface SessionEventEmitter {
+        
+      }
+    </item>
+  </file>
   <file path="services/agent/src/services/session-executor.ts">
     <item priority="medium">
       function getRepoPath(): string { /* ... */ }
@@ -1744,13 +1772,8 @@
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
     </item>
-    <item priority="low">
-      interface ConfirmHoldInput {
-        holdId: string;
-        sessionId?: string;
-        guestDetails: ConfirmHoldRequest;
-        userId?: string;
-      }
+    <item priority="high">
+      export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/database.ts">
@@ -1952,8 +1975,8 @@
     <item priority="medium">
       function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
-    <item priority="medium">
-      function mapPrismaTable(table: {
+    <item priority="high">
+      export function mapPrismaTable(table: {
         id: string;
         name: string;
         tableNumber: string | null;
@@ -2700,6 +2723,22 @@
       export function validatePath(path: string, label: string): void { /* ... */ }
     </item>
   </file>
+  <file path="packages/agent-core/src/worktree-reaper.ts">
+    <item priority="low">
+      interface ReaperLogger {
+        error: (message: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface ScheduleWorktreeReapOptions {
+        repoPath: string;
+        worktreePath: string;
+        mode?: WorktreeMode;
+        maxRetries?: number;
+        baseDelayMs?: number;
+      }
+    </item>
+  </file>
   <file path="packages/agent-test-utils/src/cost-estimator.ts">
     <item priority="low">
       interface ModelPricing {
@@ -2971,27 +3010,6 @@
     </item>
     <item priority="high">
       export function createListResponseSchema(entityRef: string) { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/feature-flags/src/index.ts">
-    <item priority="low">
-      interface FeatureFlag {
-        enabled: boolean;
-        percentage: number;
-      }
-    </item>
-    <item priority="low">
-      interface FeatureContext {
-        
-      }
-    </item>
-  </file>
-  <file path="packages/feature-flags/src/plugin.ts">
-    <item priority="high">
-      export const FEATURE_FLAGS_HEADER: unknown;
-    </item>
-    <item priority="high">
-      export function createFeatureFlagsPlugin(): FastifyPluginAsync { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/job-types.ts">
@@ -3295,6 +3313,19 @@
       }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/feature-flags.ts">
+    <item priority="low">
+      interface FeatureFlag {
+        enabled: boolean;
+        percentage: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeatureContext {
+        
+      }
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/health-routes.ts">
     <item priority="low">
       interface HealthRouteConfig {
@@ -3348,8 +3379,8 @@
         id: string;
         status: AgentSessionStatus;
         taskDescription: string;
+        userId: string | null;
         branchName: string | null;
-        baseBranch: string;
       }
     </item>
   </file>
