@@ -85,6 +85,24 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useCombobox.ts">
+    <item priority="low">
+      interface ComboboxItem {
+        value: string;
+        label: string;
+        disabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseComboboxOptions {
+        items: ComboboxItem[];
+        value?: string;
+        onSelect?: (value: string) => void;
+        containerRef?: RefObject<HTMLElement | null>;
+        onRequestTriggerFocus?: () => void;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useDirection.ts">
     <item priority="high">
       type Direction = "ltr" | "rtl";
