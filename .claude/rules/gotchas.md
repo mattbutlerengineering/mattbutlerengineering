@@ -2,6 +2,8 @@
 
 Project-specific traps that have bitten me before. Read these before diving into pre-commit, release, or deploy work.
 
+> **Adding entries:** after an autonomous loop (`/implement-queue`, `/ship-loop`), run `/gotcha-harvest` to mine the session for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here (and cross-repo facts to memory) with human review. `/reflect` only captures *human corrections*, so loop-discovered gotchas land here via `/gotcha-harvest`, not `/reflect`.
+
 ## Pre-commit / lint
 
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
