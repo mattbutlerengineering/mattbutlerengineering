@@ -17,6 +17,19 @@
       }
     </item>
   </file>
+  <file path="src/feature-flags.ts">
+    <item priority="low">
+      interface FeatureFlag {
+        enabled: boolean;
+        percentage: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeatureContext {
+        
+      }
+    </item>
+  </file>
   <file path="src/health-routes.ts">
     <item priority="low">
       interface HealthRouteConfig {

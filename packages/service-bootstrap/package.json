@@ -24,7 +24,6 @@
     "@fastify/swagger-ui": "^6.0.0",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
-    "@mbe/feature-flags": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@scalar/fastify-api-reference": "^1.59.2",

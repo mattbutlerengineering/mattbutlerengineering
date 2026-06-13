@@ -13,6 +13,16 @@
       readonly sunsetMonthsFromNow: number;
     }
   </file>
+  <file path="src/feature-flags.ts">
+    export interface FeatureFlag {
+      enabled: boolean;
+      percentage: number;
+    }
+    export interface FeatureContext {
+      check(flagName: string): boolean;
+      checkForUser(flagName: string, userId: string): boolean;
+    }
+  </file>
   <file path="src/health-routes.ts">
     export interface HealthRouteConfig {
       readonly path: string;

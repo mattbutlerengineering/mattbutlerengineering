@@ -25,7 +25,6 @@ flowchart TD
     auth["auth"]
     config["config"]
     database["database"]
-    feature_flags["feature-flags"]
     jobs["jobs"]
     mcp_server["mcp-server"]
     notifications["notifications"]
@@ -98,7 +97,6 @@ flowchart TD
   auth --> types
   auth --> config
   database --> config
-  feature_flags --> config
   jobs --> config
   mcp_server --> config
   notifications --> config
@@ -113,7 +111,6 @@ flowchart TD
   sentry --> config
   service_bootstrap --> auth
   service_bootstrap --> database
-  service_bootstrap --> feature_flags
   service_bootstrap --> observability
   service_bootstrap --> sentry
   service_bootstrap --> config
@@ -140,7 +137,6 @@ flowchart TD
   class auth shared
   class config shared
   class database shared
-  class feature_flags shared
   class jobs shared
   class mcp_server shared
   class notifications shared
@@ -156,9 +152,9 @@ flowchart TD
 
 ## Legend
 
-| Color | Category |
-|-------|----------|
-| Blue | Frontend Apps (`apps/*`) |
-| Amber | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`) |
-| Green | Developer Tools (`tools/*`) |
+| Color  | Category                        |
+| ------ | ------------------------------- |
+| Blue   | Frontend Apps (`apps/*`)        |
+| Amber  | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`)  |
+| Green  | Developer Tools (`tools/*`)     |

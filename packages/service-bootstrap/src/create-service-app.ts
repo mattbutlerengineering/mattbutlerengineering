@@ -5,7 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
-import { createFeatureFlagsPlugin } from "@mbe/feature-flags";
+import { createFeatureFlagsPlugin } from "./feature-flags.js";
 import {
   createRequestIdMiddleware,
   errorRatePlugin_,
