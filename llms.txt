@@ -2490,6 +2490,9 @@
     <item priority="high">
       export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
     </item>
+    <item priority="high">
+      export function reviewersForDiff(files: readonly string[]): string[] { /* ... */ }
+    </item>
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
     <item priority="low">
@@ -3157,19 +3160,6 @@
       }
     </item>
   </file>
-  <file path="packages/observability/src/baggage.ts">
-    <item priority="high">
-      export const BAGGAGE_KEYS: unknown;
-    </item>
-    <item priority="low">
-      interface AgentBaggage {
-        sessionId?: string;
-        prNumber?: string;
-        issueNumber?: string;
-        deploySha?: string;
-      }
-    </item>
-  </file>
   <file path="packages/observability/src/error-rates.ts">
     <item priority="high">
       interface RequestRecord {
@@ -3582,6 +3572,23 @@
       }
     </item>
   </file>
+  <file path="tools/cli/src/resolve-issue-model.ts">
+    <item priority="low">
+      interface IssueModelInput {
+        title: string;
+        labels: string[];
+        body: string;
+      }
+    </item>
+    <item priority="low">
+      interface IssueModelResult {
+        tier: ModelTier;
+        modelId: string;
+        reason: string;
+        source: "frontmatter" | "router";
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="TapeChart">
   <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
@@ -3786,6 +3793,14 @@
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/format.ts">
+    <item priority="high">
+      export function formatLongDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">

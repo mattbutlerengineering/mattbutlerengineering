@@ -11574,6 +11574,9 @@
     
       return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
     }
+    export function reviewersForDiff(files: readonly string[]): string[] {
+      return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
+    }
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
     export interface SourceFileEntry {
@@ -13195,20 +13198,6 @@
       messages: TwilioMessages;
     }
   </file>
-  <file path="packages/observability/src/baggage.ts">
-    export const BAGGAGE_KEYS = {
-      SESSION_ID: "agent.session_id",
-      PR_NUMBER: "agent.pr_number",
-      ISSUE_NUMBER: "agent.issue_number",
-      DEPLOY_SHA: "deploy.sha",
-    } as const;
-    export interface AgentBaggage {
-      readonly sessionId?: string;
-      readonly prNumber?: string;
-      readonly issueNumber?: string;
-      readonly deploySha?: string;
-    }
-  </file>
   <file path="packages/observability/src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
@@ -13595,7 +13584,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -14132,6 +14132,20 @@
       budget?: number;
       maxTurns?: number;
       adapter?: AdapterType;
+    }
+  </file>
+  <file path="tools/cli/src/resolve-issue-model.ts">
+    export interface IssueModelInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
+    }
+    export interface IssueModelResult {
+      readonly tier: ModelTier;
+      readonly modelId: string;
+      readonly reason: string;
+      /** Where the decision came from: an explicit issue override vs. the router. */
+      readonly source: "frontmatter" | "router";
     }
   </file>
   </section>
@@ -14758,6 +14772,23 @@
       if (Math.abs(diffMins) < 60) return rtf.format(diffMins, "minute");
       const diffHours = Math.round(diffMins / 60);
       return rtf.format(diffHours, "hour");
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/format.ts">
+    export function formatLongDate(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+    export function formatLongDateWithYear(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
     }
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
