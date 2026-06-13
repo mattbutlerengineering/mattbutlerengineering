@@ -57,8 +57,8 @@ export default [
               message: "Backend-only package. Cannot import in frontend apps.",
             },
             {
-              group: ["@mbe/observability/baggage", "@mbe/observability/sentry/node"],
-              message: "Backend-only package or entrypoint. Cannot import in frontend apps.",
+              group: ["@mbe/observability/sentry/node"],
+              message: "Backend entrypoint. Cannot import in frontend apps.",
             },
           ],
         },
