@@ -217,6 +217,32 @@ npx claude-mem install
 
 claude-mem automatically records observations during sessions — code patterns discovered, architecture decisions made, debugging outcomes. These are searchable in future sessions via `/mem-search`.
 
+## Knowledge Graph (graphify)
+
+[graphify](https://github.com/safishamsi/graphify) turns the repo (or any folder/PDF/image/video) into a persistent, queryable knowledge graph: nodes are concepts/files/symbols, edges are tagged `EXTRACTED` / `INFERRED` / `AMBIGUOUS` (honest audit trail), and community detection surfaces cross-file connections you wouldn't think to ask about. The skill is vendored at `.claude/skills/graphify/SKILL.md` (v0.8.39) and self-bootstraps the `graphifyy` PyPI package on first run (needs Python 3.10+; uses `uv tool` or `pip`). Graph artifacts land in `graphify-out/` (gitignored).
+
+### Where it fits in our process
+
+| Use case | How graphify helps |
+| --- | --- |
+| **Onboarding a subsystem** | `/graphify packages/<pkg>` then `/graphify query "how does X work"` — concept-level map of an unfamiliar package before touching it. Goes deeper than `docs/architecture/dependency-graph.md`, which is package-level only. |
+| **Architecture audits** | Feed graphify's community clusters + cross-file edges into `/improve-codebase-architecture` to spot coupling and deepening opportunities. |
+| **Agent context priming** | Once `graphify-out/graph.json` exists, codebase questions are answered from the graph (BFS/DFS traversal, token-budgeted) instead of re-reading files — cheaper context for `implement-queue` workers. `--mcp` exposes the graph to agents over MCP. |
+| **PR / change review** | `/graphify path "ModuleA" "ModuleB"` traces the shortest dependency path between two concepts to reason about blast radius. |
+
+### Boundaries (avoid tool overlap)
+
+- **vs `dependency-graph.md`** — that artifact stays the source of truth for *package*-level deps and is CI-enforced. graphify is for *concept/symbol*-level exploration; its output is gitignored and never gates CI.
+- **vs claude-mem (`/smart-explore`, `/mem-search`)** — claude-mem is session memory + AST search. graphify is a durable graph you query. Reach for graphify when you want a navigable map of how things connect; reach for claude-mem when recalling what happened in past sessions.
+
+### Quick start
+
+```bash
+/graphify packages/rialto                 # build graph for one package (scoped; fast)
+/graphify query "how does the booking widget reach the reservations service"
+/graphify .                                # full monorepo graph (slow — LLM extraction over all packages)
+```
+
 ## Feedback Loop Log
 
 Completed sensor → issue → fix → verify cycles:
