@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 import { type ApiError, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
-import { executeSession } from "../services/session-executor.js";
 import {
   createRawBodyCaptureHook,
   createVerifiedBodyPreHandler,
@@ -255,14 +254,17 @@ async function handleIssueEvent(
     );
   }
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "Webhook-triggered session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn(
+      { issueNumber: event.issue.number },
+      "Concurrency cap reached — session not created"
+    );
+  }
 }
 
 async function handleIssueCommentEvent(
@@ -310,18 +312,21 @@ async function handleIssueCommentEvent(
     "Creating session from PR comment"
   );
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "PR comment-triggered session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn(
+      { prNumber: event.issue.number },
+      "Concurrency cap reached — session not created"
+    );
+  }
 }
 
 async function handleCheckRunEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: { log: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
   event: GitHubCheckRunEvent
 ): Promise<void> {
   if (event.action !== "completed") return;
@@ -350,12 +355,15 @@ async function handleCheckRunEvent(
 
   fastify.log.info({ branch, attempt: retries.length + 1 }, "Creating CI retry session");
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "CI retry session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn(
+      { branch },
+      "Concurrency cap reached — CI retry session not created"
+    );
+  }
 }

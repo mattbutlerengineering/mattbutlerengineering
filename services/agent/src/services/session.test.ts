@@ -20,8 +20,14 @@ vi.mock("./database.js", () => ({
   },
 }));
 
+vi.mock("./session-executor.js", () => ({
+  executeSession: vi.fn().mockResolvedValue(undefined),
+  getActiveSessionCount: vi.fn().mockReturnValue(0),
+}));
+
 import { prisma } from "./database.js";
 import { sessionService } from "./session.js";
+import { executeSession, getActiveSessionCount } from "./session-executor.js";
 
 const baseDate = new Date("2026-03-01T12:00:00Z");
 
@@ -242,6 +248,134 @@ describe("sessionService", () => {
       expect(prisma.session.create).toHaveBeenCalledWith({
         data: { taskDescription: "Simple task" },
       });
+    });
+  });
+
+  describe("triggerSession", () => {
+    beforeEach(() => {
+      vi.mocked(getActiveSessionCount).mockReturnValue(0);
+    });
+
+    it("creates session, dispatches execution, returns accepted=true", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+
+      const result = await sessionService.triggerSession({
+        taskDescription: "Fix the bug",
+        baseBranch: "main",
+      });
+
+      expect(result.accepted).toBe(true);
+      expect(result.session).not.toBeNull();
+      expect(result.session!.id).toBe("sess-1");
+      expect(prisma.session.create).toHaveBeenCalled();
+      expect(executeSession).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "sess-1" })
+      );
+    });
+
+    it("wraps task description in <task> tags", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+
+      await sessionService.triggerSession({
+        taskDescription: "Fix the bug",
+        baseBranch: "main",
+      });
+
+      const callData = vi.mocked(prisma.session.create).mock.calls[0][0].data;
+      expect(callData.taskDescription).toContain("<task>\nFix the bug\n</task>");
+    });
+
+    it("returns accepted=false when concurrency cap is hit", async () => {
+      vi.mocked(getActiveSessionCount).mockReturnValue(5);
+
+      const result = await sessionService.triggerSession({
+        taskDescription: "Another task",
+      });
+
+      expect(result.accepted).toBe(false);
+      expect(result.session).toBeNull();
+      expect(prisma.session.create).not.toHaveBeenCalled();
+      expect(executeSession).not.toHaveBeenCalled();
+    });
+
+    it("passes optional fields through to session create", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(
+        makePrismaSession({ model: "claude-opus-4-6", maxTurns: 100 })
+      );
+
+      await sessionService.triggerSession({
+        taskDescription: "Big task",
+        model: "claude-opus-4-6",
+        maxTurns: 100,
+        maxBudgetUsd: 5.0,
+        baseBranch: "develop",
+        createPr: false,
+        parentId: "parent-1",
+      });
+
+      expect(prisma.session.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          taskDescription: expect.stringContaining("Big task"),
+          model: "claude-opus-4-6",
+          maxTurns: 100,
+          maxBudgetUsd: 5.0,
+          baseBranch: "develop",
+          createPr: false,
+          parentId: "parent-1",
+        }),
+      });
+    });
+
+    it("passes userId through to session create", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+
+      await sessionService.triggerSession({
+        taskDescription: "Auth task",
+        userId: "auth0|user-1",
+      });
+
+      expect(prisma.session.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: "auth0|user-1",
+        }),
+      });
+    });
+
+    it("calls onSettled(true) when execution succeeds", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+      vi.mocked(executeSession).mockResolvedValueOnce(undefined);
+      const onSettled = vi.fn();
+
+      await sessionService.triggerSession({
+        taskDescription: "Fix the bug",
+        onSettled,
+      });
+
+      await vi.waitFor(() => expect(onSettled).toHaveBeenCalledWith(true));
+    });
+
+    it("calls onSettled(false) when execution fails", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+      vi.mocked(executeSession).mockRejectedValueOnce(new Error("SDK crash"));
+      const onSettled = vi.fn();
+
+      await sessionService.triggerSession({
+        taskDescription: "Fix the bug",
+        onSettled,
+      });
+
+      await vi.waitFor(() => expect(onSettled).toHaveBeenCalledWith(false));
+    });
+
+    it("does not call onSettled when execution succeeds if not provided", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+      vi.mocked(executeSession).mockResolvedValueOnce(undefined);
+
+      await expect(
+        sessionService.triggerSession({
+          taskDescription: "Fix the bug",
+        })
+      ).resolves.toBeDefined();
     });
   });
 

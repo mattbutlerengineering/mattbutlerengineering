@@ -11,11 +11,7 @@ import {
 import { requireAuth } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { sessionService } from "../services/session.js";
-import {
-  executeSession,
-  cancelSession,
-  getActiveSessionCount,
-} from "../services/session-executor.js";
+import { cancelSession } from "../services/session-executor.js";
 
 export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
@@ -44,8 +40,16 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
-      if (getActiveSessionCount() >= maxConcurrent) {
+      // Stamp the authenticated creator's id. Sourced exclusively from the
+      // verified auth context (requireAuth preHandler) — never from the
+      // client-supplied request body — so callers cannot spoof ownership.
+      const result = await sessionService.triggerSession({
+        ...request.body,
+        userId: request.user?.id,
+      });
+
+      if (!result.accepted) {
+        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
         return reply
           .code(429)
           .send(
@@ -57,20 +61,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      // Stamp the authenticated creator's id. Sourced exclusively from the
-      // verified auth context (requireAuth preHandler) — never from the
-      // client-supplied request body — so callers cannot spoof ownership.
-      const session = await sessionService.create({
-        ...request.body,
-        userId: request.user?.id,
-      });
-
-      // Fire-and-forget: execution happens in the background
-      executeSession(session).catch((err) => {
-        fastify.log.error({ sessionId: session.id, err }, "Session execution failed");
-      });
-
-      return reply.code(201).send({ data: session });
+      return reply.code(201).send({ data: result.session! });
     }
   );
 
