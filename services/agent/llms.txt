@@ -181,6 +181,16 @@
       function extractText(content: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="src/services/session-event-emitter.ts">
+    <item priority="low">
+      type SessionEventListener = (event: AgentSessionEvent) => void;
+    </item>
+    <item priority="low">
+      interface SessionEventEmitter {
+        
+      }
+    </item>
+  </file>
   <file path="src/services/session-executor.ts">
     <item priority="medium">
       function getRepoPath(): string { /* ... */ }
