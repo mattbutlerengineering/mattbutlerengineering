@@ -397,4 +397,21 @@ function main() {
   persistEntry(entry);
 }
 
-main();
+/* ── Exports (pure metric functions, testable) ───────────── */
+
+export {
+  parseArgs,
+  filterByWindow,
+  countPrsPerReviewer,
+  meanReviewTimePerReviewer,
+  rubberStampRatio,
+  buildEntry,
+};
+
+/* Only run the collector when invoked directly, not when imported by tests. */
+const isMain =
+  process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+
+if (isMain) {
+  main();
+}

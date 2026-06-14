@@ -1,7 +1,13 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-export { parseListQuery, createListResponseSchema } from "./list-utils.js";
+export {
+  parseListQuery,
+  paginate,
+  toPaginationMeta,
+  createListResponseSchema,
+} from "./list-utils.js";
+export type { PaginationMeta } from "./list-utils.js";
 
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;

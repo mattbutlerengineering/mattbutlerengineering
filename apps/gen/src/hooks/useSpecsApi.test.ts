@@ -187,4 +187,38 @@ describe("useSpecsApi — deleteSpec", () => {
     expect(result.current.specs).toHaveLength(1);
     expect(result.current.specs[0]!.id).toBe("spec-1");
   });
+
+  it("concurrent deletes: A fails, B succeeds — B stays deleted, A is restored", async () => {
+    const specA = makeSpec({ id: "spec-a", prompt: "Spec A" });
+    const specB = makeSpec({ id: "spec-b", prompt: "Spec B" });
+    mockGet.mockResolvedValueOnce({ data: [specA, specB] });
+
+    const { result } = renderHook(() => useSpecsApi());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Delete B resolves immediately (success), A rejects after a delay (failure)
+    let rejectDeleteA!: (e: unknown) => void;
+    const deleteAPromise = new Promise((_resolve, reject) => {
+      rejectDeleteA = reject;
+    });
+
+    mockDelete
+      .mockReturnValueOnce(deleteAPromise) // A — will fail
+      .mockResolvedValueOnce({}); // B — succeeds immediately
+
+    await act(async () => {
+      // Fire both deletes without awaiting them individually
+      const pendingA = result.current.deleteSpec("spec-a");
+      const pendingB = result.current.deleteSpec("spec-b");
+
+      // Let B succeed, then fail A
+      rejectDeleteA(new Error("Server Error"));
+      await Promise.allSettled([pendingA, pendingB]);
+    });
+
+    const ids = result.current.specs.map((s) => s.id);
+    // A must be restored (its delete failed), B must stay gone (its delete succeeded)
+    expect(ids).toContain("spec-a");
+    expect(ids).not.toContain("spec-b");
+  });
 });

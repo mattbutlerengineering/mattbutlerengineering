@@ -12,6 +12,7 @@ import {
   type TableShapeMetadata,
   type VenueSettings,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import type {
   Reservation as PrismaReservation,
   Table as PrismaTable,
@@ -114,7 +115,6 @@ export interface UpdateReservationResult {
 export const reservationService = {
   async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
     const { page, limit, date, status, tableId, venueId } = options;
-    const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
     if (date) {
@@ -133,8 +133,7 @@ export const reservationService = {
     const [reservations, total] = await Promise.all([
       prisma.reservation.findMany({
         where,
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: {
           table: true,
@@ -144,18 +143,9 @@ export const reservationService = {
       prisma.reservation.count({ where }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: reservations.map(mapPrismaReservation),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
@@ -164,13 +154,10 @@ export const reservationService = {
     page: number,
     limit: number
   ): Promise<PaginatedResponse<Reservation>> {
-    const skip = (page - 1) * limit;
-
     const [reservations, total] = await Promise.all([
       prisma.reservation.findMany({
         where: { userId },
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: [{ date: "desc" }, { startTime: "desc" }],
         include: {
           table: true,
@@ -180,18 +167,9 @@ export const reservationService = {
       prisma.reservation.count({ where: { userId } }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: reservations.map(mapPrismaReservation),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
