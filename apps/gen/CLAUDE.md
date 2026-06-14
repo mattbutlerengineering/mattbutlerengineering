@@ -48,5 +48,7 @@ pnpm build        # Production build
 pnpm lint         # ESLint
 pnpm typecheck    # TypeScript check
 pnpm test         # Vitest unit tests
-pnpm test:e2e     # Playwright E2E tests
+pnpm test:a11y    # a11y tests (Playwright + axe-core)
+pnpm size         # Bundle size check
+pnpm size:check   # Bundle size check
 ```
