@@ -14,7 +14,7 @@ export interface FindOrCreateGuestRequest {
   name: string;
   dietaryRestrictions?: string[];
 }
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListGuestsParams {
   page?: number;
@@ -35,27 +35,19 @@ export class GuestsClient {
    * List guests for a venue
    */
   async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
-    const searchParams = new URLSearchParams();
-    searchParams.set("venueId", params.venueId);
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-
-    return this.client.get<PaginatedResponse<Guest>>(`/api/v1/guests?${searchParams.toString()}`);
+    return this.client.get<PaginatedResponse<Guest>>(
+      "/api/v1/guests",
+      params as unknown as QueryParams
+    );
   }
 
   /**
    * Search guests
    */
   async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
-    const searchParams = new URLSearchParams();
-    searchParams.set("venueId", params.venueId);
-    if (params.query) searchParams.set("query", params.query);
-    if (params.hasNotVisitedInDays) {
-      searchParams.set("hasNotVisitedInDays", String(params.hasNotVisitedInDays));
-    }
-
     return this.client.get<PaginatedResponse<Guest>>(
-      `/api/v1/guests/search?${searchParams.toString()}`
+      "/api/v1/guests/search",
+      params as unknown as QueryParams
     );
   }
 

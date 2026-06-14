@@ -5,7 +5,7 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
 } from "@mbe/types";
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
   page?: number;
@@ -24,18 +24,9 @@ export class ReservationsClient {
    * List reservations with optional filters
    */
   async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
-    const searchParams = new URLSearchParams();
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-    if (params.date) searchParams.set("date", params.date);
-    if (params.status) searchParams.set("status", params.status);
-    if (params.tableId) searchParams.set("tableId", params.tableId);
-    if (params.venueId) searchParams.set("venueId", params.venueId);
-    if (params.guestId) searchParams.set("guestId", params.guestId);
-
-    const query = searchParams.toString();
     return this.client.get<PaginatedResponse<Reservation>>(
-      `/api/v1/reservations${query ? `?${query}` : ""}`
+      "/api/v1/reservations",
+      params as QueryParams
     );
   }
 

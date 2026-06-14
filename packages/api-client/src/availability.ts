@@ -6,7 +6,7 @@ import type {
   ConfirmHoldRequest,
   Reservation,
 } from "@mbe/types";
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
   venueId: string;
@@ -29,27 +29,18 @@ export class AvailabilityClient {
    * Get available time slots for a venue on a specific date
    */
   async getTimeSlots(params: GetTimeSlotsParams): Promise<TimeSlot[]> {
-    const searchParams = new URLSearchParams();
-    searchParams.set("date", params.date);
-    searchParams.set("partySize", String(params.partySize));
-    if (params.duration) searchParams.set("duration", String(params.duration));
-
-    return this.client.getOne<TimeSlot[]>(
-      `/api/v1/availability/${params.venueId}?${searchParams.toString()}`
-    );
+    const { venueId, ...query } = params;
+    return this.client.getOne<TimeSlot[]>(`/api/v1/availability/${venueId}`, query as QueryParams);
   }
 
   /**
    * Get dates with availability in a range
    */
   async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
-    const searchParams = new URLSearchParams();
-    searchParams.set("startDate", params.startDate);
-    searchParams.set("endDate", params.endDate);
-    searchParams.set("partySize", String(params.partySize));
-
+    const { venueId, ...query } = params;
     return this.client.getOne<DateAvailability[]>(
-      `/api/v1/availability/${params.venueId}/dates?${searchParams.toString()}`
+      `/api/v1/availability/${venueId}/dates`,
+      query as QueryParams
     );
   }
 }
