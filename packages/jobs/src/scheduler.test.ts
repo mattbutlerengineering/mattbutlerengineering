@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Use vi.hoisted so mocks are available before vi.mock hoisting
 const mocks = vi.hoisted(() => ({
   add: vi.fn().mockResolvedValue({ id: "job_123" }),
+  remove: vi.fn().mockResolvedValue(undefined),
   upsertJobScheduler: vi.fn().mockResolvedValue({ id: "sched_123" }),
   close: vi.fn().mockResolvedValue(undefined),
   redisQuit: vi.fn().mockResolvedValue("OK"),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("bullmq", () => {
   class MockQueue {
     add = mocks.add;
+    remove = mocks.remove;
     upsertJobScheduler = mocks.upsertJobScheduler;
     close = mocks.close;
     constructor(_name: string, _opts?: unknown) {
@@ -51,6 +53,7 @@ const lapsedPayload: LapsedGuestScanPayload = {
 describe("JobScheduler", () => {
   beforeEach(() => {
     mocks.add.mockClear();
+    mocks.remove.mockClear();
     mocks.upsertJobScheduler.mockClear();
     mocks.close.mockClear();
     mocks.redisQuit.mockClear();
@@ -115,5 +118,41 @@ describe("JobScheduler", () => {
     const result = await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 5000);
 
     expect(result).toBe("job_456");
+  });
+
+  it("schedule() passes jobId as opts.jobId when provided", async () => {
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+    const knownId = "booking-reminder:res_abc";
+
+    await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000, knownId);
+
+    const [, , opts] = mocks.add.mock.calls[0];
+    expect(opts).toMatchObject({ jobId: knownId });
+  });
+
+  it("schedule() returns the provided jobId when one is given", async () => {
+    const knownId = "booking-reminder:res_abc";
+    mocks.add.mockResolvedValueOnce({ id: knownId });
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    const result = await scheduler.schedule(
+      JOB_TYPES.BOOKING_REMINDER,
+      bookingPayload,
+      3600000,
+      knownId
+    );
+
+    expect(result).toBe(knownId);
+  });
+
+  it("cancel() round-trip: schedule with known id → cancel calls queue.remove with that id", async () => {
+    const knownId = "booking-reminder:res_abc";
+    mocks.add.mockResolvedValueOnce({ id: knownId });
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000, knownId);
+    await scheduler.cancel(knownId);
+
+    expect(mocks.remove).toHaveBeenCalledWith(knownId);
   });
 });
