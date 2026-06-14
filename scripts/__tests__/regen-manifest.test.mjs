@@ -39,7 +39,6 @@ describe("regen-manifest", () => {
 
   it("llms-txt outputs include all workspace packages with llms.txt", () => {
     const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    const workspaceOutputs = llms.outputs.filter((o) => o !== "llms.txt");
     // At least the main app and service packages
     const expected = [
       "apps/hospitality/llms.txt",
@@ -49,9 +48,10 @@ describe("regen-manifest", () => {
     for (const e of expected) {
       expect(llms.outputs, `expected ${e}`).toContain(e);
     }
-    // All workspace outputs end with /llms.txt
+    // All workspace outputs end with /llms.txt or /llms-full.txt
+    const workspaceOutputs = llms.outputs.filter((o) => o !== "llms.txt" && o !== "llms-full.txt");
     for (const o of workspaceOutputs) {
-      expect(o).toMatch(/\/llms\.txt$/);
+      expect(o).toMatch(/\/llms(?:-full)?\.txt$/);
     }
   });
 
@@ -66,10 +66,11 @@ describe("regen-manifest", () => {
     }
   });
 
-  it("llmsPackages() length matches llms-txt outputs", () => {
+  it("llmsPackages() length matches llms-txt llms.txt entries (not llms-full.txt)", () => {
     const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    const txtCount = llms.outputs.filter((o) => o === "llms.txt" || o.endsWith("/llms.txt")).length;
     const pkgs = llmsPackages();
-    expect(pkgs.length).toBe(llms.outputs.length);
+    expect(pkgs.length).toBe(txtCount);
   });
 
   it("rialto-registry command references the correct filter", () => {
@@ -88,5 +89,21 @@ describe("regen-manifest", () => {
     expect(md.outputs[0]).toContain(".md");
     expect(json.outputs[0]).toContain(".json");
     expect(md.outputs[0]).not.toBe(json.outputs[0]);
+  });
+
+  it("llms-txt outputs do NOT include deleted packages/feature-flags", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    expect(llms.outputs).not.toContain("packages/feature-flags/llms.txt");
+    expect(llms.outputs).not.toContain("packages/feature-flags/llms-full.txt");
+  });
+
+  it("llms-txt outputs include llms-full.txt alongside every llms.txt", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    const txts = llms.outputs.filter((o) => o.endsWith("/llms.txt") || o === "llms.txt");
+    for (const txt of txts) {
+      const fullTxt =
+        txt === "llms.txt" ? "llms-full.txt" : txt.replace(/\/llms\.txt$/, "/llms-full.txt");
+      expect(llms.outputs, `expected ${fullTxt} alongside ${txt}`).toContain(fullTxt);
+    }
   });
 });
