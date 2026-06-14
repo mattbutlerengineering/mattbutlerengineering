@@ -2669,6 +2669,26 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/reviewer-contract.ts">
+    <item priority="low">
+      interface ReviewInput {
+        diff: string;
+        verificationOutput: string;
+        taskDescription: string;
+        acceptanceCriteria: readonly string[];
+        changedFiles: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface ReviewIssue {
+        category: ReviewIssueCategory;
+        description: string;
+        filePath?: string;
+        lineNumber?: number;
+        suggestion?: string;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/sanitize-output.ts">
     <item priority="high">
       export function escapeHtml(text: string): string { /* ... */ }

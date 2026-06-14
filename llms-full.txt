@@ -12122,6 +12122,43 @@
       revertedAt: string;
     }
   </file>
+  <file path="packages/agent-core/src/reviewer-contract.ts">
+    export interface ReviewInput {
+      /** The git diff produced by the implement-queue worker's commit(s). */
+      readonly diff: string;
+    
+      /** Trimmed stdout+stderr from the verification run (lint / typecheck / test). */
+      readonly verificationOutput: string;
+    
+      /** The original task description that drove the worker session. */
+      readonly taskDescription: string;
+    
+      /** Structured acceptance criteria extracted from the issue body or PRD. */
+      readonly acceptanceCriteria: readonly string[];
+    
+      /** Files touched by the diff (output of `gh pr diff --name-only`). */
+      readonly changedFiles: readonly string[];
+    
+      /** The commit message written by the worker after completing its changes. */
+      readonly commitMessage: string;
+    }
+    export interface ReviewIssue {
+      /** Short human-readable label (e.g. "hallucination", "regression", "test_failure"). */
+      readonly category: ReviewIssueCategory;
+    
+      /** Concise description of the problem. */
+      readonly description: string;
+    
+      /** File path where the issue manifests, if applicable. */
+      readonly filePath?: string;
+    
+      /** Line number where the issue manifests, if applicable. */
+      readonly lineNumber?: number;
+    
+      /** Optional suggested fix (could be a code snippet or natural-language guidance). */
+      readonly suggestion?: string;
+    }
+  </file>
   <file path="packages/agent-core/src/sanitize-output.ts">
     export function escapeHtml(text: string): string {
       if (text.length === 0) return text;
