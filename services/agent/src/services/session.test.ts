@@ -268,9 +268,7 @@ describe("sessionService", () => {
       expect(result.session).not.toBeNull();
       expect(result.session!.id).toBe("sess-1");
       expect(prisma.session.create).toHaveBeenCalled();
-      expect(executeSession).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "sess-1" })
-      );
+      expect(executeSession).toHaveBeenCalledWith(expect.objectContaining({ id: "sess-1" }));
     });
 
     it("wraps task description in <task> tags", async () => {
@@ -648,6 +646,60 @@ describe("sessionService", () => {
 
       const result = await sessionService.listEvents("sess-1");
       expect(result[0].createdAt).toBe("2026-03-01T12:00:00.000Z");
+    });
+  });
+
+  describe("countCiRetries", () => {
+    it("counts sessions matching branch and CI Retry prefix", async () => {
+      vi.mocked(prisma.session.count).mockResolvedValueOnce(2);
+
+      const result = await sessionService.countCiRetries("agent/fix-login-bug");
+
+      expect(prisma.session.count).toHaveBeenCalledWith({
+        where: {
+          branchName: "agent/fix-login-bug",
+          taskDescription: { contains: "[CI Retry" },
+        },
+      });
+      expect(result).toBe(2);
+    });
+
+    it("returns 0 when no retries exist for the branch", async () => {
+      vi.mocked(prisma.session.count).mockResolvedValueOnce(0);
+
+      const result = await sessionService.countCiRetries("agent/other-branch");
+
+      expect(result).toBe(0);
+    });
+
+    it("excludes sessions from other branches", async () => {
+      vi.mocked(prisma.session.count).mockResolvedValueOnce(0);
+
+      await sessionService.countCiRetries("agent/branch-a");
+
+      expect(prisma.session.count).toHaveBeenCalledWith({
+        where: {
+          branchName: "agent/branch-a",
+          taskDescription: { contains: "[CI Retry" },
+        },
+      });
+    });
+
+    it("excludes sessions without the CI Retry prefix", async () => {
+      // The Prisma query filters by taskDescription contains — only retry sessions match
+      vi.mocked(prisma.session.count).mockResolvedValueOnce(1);
+
+      const result = await sessionService.countCiRetries("agent/fix-login-bug");
+
+      // Count query is scoped to branchName + CI Retry prefix — non-retry sessions excluded
+      expect(prisma.session.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            taskDescription: { contains: "[CI Retry" },
+          }),
+        })
+      );
+      expect(result).toBe(1);
     });
   });
 
