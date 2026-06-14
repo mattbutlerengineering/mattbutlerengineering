@@ -10,6 +10,17 @@ const AUTO_SPLIT_THRESHOLD_KB = 25;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
+/**
+ * Byte-order (codepoint) string comparator. Unlike `String.prototype.sort`'s
+ * default lexicographic-but-locale-influenced behavior and `localeCompare`,
+ * this is deterministic across platforms: macOS (en-US) and Linux CI (C/POSIX)
+ * produce identical ordering. Used for every sort that feeds llms.txt output so
+ * the committed artifacts match what CI regenerates.
+ */
+export function byteOrder(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function findMonorepoRoot(startDir: string): string {
   let dir = startDir;
   const maxDepth = 10;
@@ -153,7 +164,7 @@ function getSectionName(file: string): string {
   return parts[0];
 }
 
-async function packDirectory(
+export async function packDirectory(
   targetPath: string,
   root: string,
   forceFull = false,
@@ -181,7 +192,7 @@ async function packDirectory(
         "**/vitest.config.ts",
       ],
     })
-  ).sort();
+  ).sort(byteOrder);
 
   let skeletonOutput = `<codebase path="${targetPath}">\n`;
   let fullOutput = `<codebase path="${targetPath}">\n`;
@@ -234,7 +245,7 @@ async function packDirectory(
     }
   }
 
-  for (const [section, content] of [...sections.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [section, content] of [...sections.entries()].sort(([a], [b]) => byteOrder(a, b))) {
     skeletonOutput += `  <section priority="medium" role="${section}">\n${content.skeleton}  </section>\n`;
     fullOutput += `  <section priority="medium" role="${section}">\n${content.full}  </section>\n`;
   }
