@@ -9,6 +9,7 @@ vi.mock("../services/session.js", () => ({
     getById: vi.fn(),
     create: vi.fn(),
     triggerSession: vi.fn(),
+    countCiRetries: vi.fn(),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
@@ -86,7 +87,10 @@ describe("Webhook Routes", () => {
     process.env.GITHUB_TOKEN = "test-github-token";
     app = await buildApp({ logger: false });
     await app.ready();
-    vi.mocked(sessionService.triggerSession).mockResolvedValue({ session: mockSession, accepted: true });
+    vi.mocked(sessionService.triggerSession).mockResolvedValue({
+      session: mockSession,
+      accepted: true,
+    });
   });
 
   afterEach(async () => {
@@ -477,18 +481,8 @@ describe("Webhook Routes", () => {
         },
       };
 
-      it("creates a retry session for failed CI on agent branch", async () => {
-        vi.mocked(sessionService.list).mockResolvedValueOnce({
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        });
+      it("creates a retry session for failed CI on agent branch (below limit)", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(0);
 
         const payloadStr = JSON.stringify(checkRunPayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
@@ -504,6 +498,9 @@ describe("Webhook Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
+        expect(vi.mocked(sessionService.countCiRetries)).toHaveBeenCalledWith(
+          "agent/fix-login-bug"
+        );
         expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
           expect.objectContaining({
             taskDescription: expect.stringContaining("[CI Retry 1/3]"),
@@ -511,25 +508,27 @@ describe("Webhook Routes", () => {
         );
       });
 
-      it("skips retry when max retries reached", async () => {
-        const retries = Array.from({ length: 3 }, (_, i) => ({
-          ...mockSession,
-          id: `retry-${i}`,
-          branchName: "agent/fix-login-bug",
-          taskDescription: `[CI Retry ${i + 1}/3] Fix CI failure`,
-        }));
+      it("skips retry when at max retries limit", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(3);
 
-        vi.mocked(sessionService.list).mockResolvedValueOnce({
-          data: retries,
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 3,
-            totalPages: 1,
-            hasNext: false,
-            hasPrev: false,
+        const payloadStr = JSON.stringify(checkRunPayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: checkRunPayload,
+          headers: {
+            "x-github-event": "check_run",
+            "x-hub-signature-256": signature,
           },
         });
+
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
+      });
+
+      it("skips retry when above max retries limit", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(5);
 
         const payloadStr = JSON.stringify(checkRunPayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
