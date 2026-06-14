@@ -70,6 +70,42 @@ describe("useCopyToClipboard", () => {
     promptSpy.mockRestore();
   });
 
+  it("returns true when clipboard write succeeds", async () => {
+    const { result } = renderHook(() => useCopyToClipboard());
+    let returnValue: boolean | undefined;
+    await act(async () => {
+      returnValue = await result.current.copy("success text");
+    });
+    expect(returnValue).toBe(true);
+  });
+
+  it("returns false when clipboard write fails (fallback to prompt)", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.assign(navigator, { clipboard: { writeText } });
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+
+    const { result } = renderHook(() => useCopyToClipboard());
+    let returnValue: boolean | undefined;
+    await act(async () => {
+      returnValue = await result.current.copy("fail text");
+    });
+    expect(returnValue).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it("returns false when clipboard API is missing (fallback to prompt)", async () => {
+    Object.assign(navigator, { clipboard: {} });
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+
+    const { result } = renderHook(() => useCopyToClipboard());
+    let returnValue: boolean | undefined;
+    await act(async () => {
+      returnValue = await result.current.copy("no api text");
+    });
+    expect(returnValue).toBe(false);
+    vi.restoreAllMocks();
+  });
+
   it("clears previous timeout when copy is called multiple times", async () => {
     const { result } = renderHook(() => useCopyToClipboard());
     await act(async () => {
