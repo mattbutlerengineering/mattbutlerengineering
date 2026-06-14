@@ -96,6 +96,44 @@ describe("reviewersForDiff — generated-artifact-determinism-reviewer", () => {
   });
 });
 
+describe("reviewersForDiff — stripe-flow-reviewer", () => {
+  it("fires for a payment-route source file", () => {
+    expect(reviewersForDiff(["services/reservations/src/routes/payments.ts"])).toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+
+  it("fires for a webhook handler", () => {
+    expect(reviewersForDiff(["services/reservations/src/lib/webhook-handler.ts"])).toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+
+  it("fires for a deposit-related file", () => {
+    expect(reviewersForDiff(["services/reservations/src/routes/deposit.ts"])).toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+
+  it("fires when a file name contains 'stripe'", () => {
+    expect(reviewersForDiff(["services/reservations/src/lib/stripe-client.ts"])).toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+
+  it("does NOT fire for an unrelated service source file", () => {
+    expect(reviewersForDiff(["services/users/src/routes/users.ts"])).not.toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+
+  it("does NOT fire for a rialto component", () => {
+    expect(reviewersForDiff(["packages/rialto/src/components/AppBar/AppBar.tsx"])).not.toContain(
+      "stripe-flow-reviewer"
+    );
+  });
+});
+
 describe("reviewersForDiff — no match / dedupe / order", () => {
   it("returns no reviewers for a plain library source file", () => {
     expect(reviewersForDiff(["packages/observability/src/error-rates.ts"])).toEqual([]);
