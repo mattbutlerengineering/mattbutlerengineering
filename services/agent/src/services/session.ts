@@ -126,12 +126,8 @@ export const sessionService = {
     return mapPrismaSession(session);
   },
 
-  async triggerSession(
-    opts: TriggerSessionOptions
-  ): Promise<TriggerSessionResult> {
-    const { executeSession, getActiveSessionCount } = await import(
-      "./session-executor.js"
-    );
+  async triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> {
+    const { executeSession, getActiveSessionCount } = await import("./session-executor.js");
 
     if (getActiveSessionCount() >= MAX_CONCURRENT) {
       return { session: null, accepted: false };
@@ -230,6 +226,12 @@ export const sessionService = {
        ORDER BY s.updated_at ASC
     `;
     return rows.map((r) => r.id);
+  },
+
+  async countCiRetries(branchName: string): Promise<number> {
+    return prisma.session.count({
+      where: { branchName, taskDescription: { contains: "[CI Retry" } },
+    });
   },
 
   async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
