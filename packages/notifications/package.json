@@ -24,6 +24,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mbe/api-client": "workspace:*",
     "twilio": "^6.0.2"
   },
   "devDependencies": {
