@@ -10,7 +10,9 @@ src/
 ├── api.ts             # API client for agent service (localhost:3003)
 ├── config.ts          # CLI configuration (auth tokens, API URLs)
 ├── commands/
-│   ├── agent.ts       # agent run/start/list/status/logs/cancel/delete/orchestrate
+│   ├── agent.ts       # agent run/start/list/status/logs/cancel/delete/orchestrate/cost
+│   ├── agent-eval.ts  # agent eval — run golden-task eval suite
+│   ├── agent-frontmatter.ts  # agent frontmatter — parse yaml agent block from issue body
 │   ├── adr.ts         # check-adr — validate Architecture Decision Records
 │   ├── check-deps.ts  # check-deps — dependency version enforcement
 │   ├── cleanup-worktrees.ts  # cleanup-worktrees — remove stale git worktrees
@@ -20,6 +22,7 @@ src/
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
+│   ├── mcp.ts         # mcp — MCP server management
 │   ├── new.ts         # new — scaffold new packages/services
 │   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
 │   ├── prime.ts       # prime — prepare repo context for AI agents
@@ -53,6 +56,7 @@ mbe agent run "Fix the login bug"    # Create worktree, run Claude, get PR
 mbe agent start "task"     # Create session via API
 mbe agent list             # List all sessions
 mbe agent status <id>      # Get session details
+mbe agent cost [id]        # Show per-turn cost breakdown or summary
 mbe agent logs <id>        # Stream SSE events
 mbe agent cancel <id>      # Cancel running session
 mbe agent orchestrate "task"  # Decompose → parallel sessions → PRs
@@ -93,6 +97,13 @@ mbe cleanup-worktrees      # Remove stale agent worktrees
 mbe stats                  # Agent performance metrics
 mbe log-session            # Log a session for tracking
 mbe audit-perf             # Audit agent performance trends
+```
+
+### Model Governance
+
+```bash
+mbe check-model "<directive>"  # Verify recommended model tier for task complexity
+  --issue <number>             # Fetch issue body as the directive
 ```
 
 ## Deterministic `mbe pack` output

@@ -8,7 +8,7 @@ Fastify + Prisma service for user management. Port **3001**.
 
 ```typescript
 interface User {
-  id: string; // UUID, primary key
+  id: string; // cuid, primary key
   email: string; // Unique, used for login
   name: string | null; // Display name
   picture: string | null; // Avatar URL
@@ -34,14 +34,14 @@ interface UserPreferences {
 
 ```prisma
 model User {
-  id            String          @id @default(uuid())
-  email         String          @unique
+  id            String   @id @default(cuid())
+  email         String   @unique
   name          String?
   picture       String?
-  emailVerified  Boolean         @default(false)
-  preferences   Json            @default("{}")
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  emailVerified Boolean  @default(false) @map("email_verified")
+  preferences   Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -63,6 +63,7 @@ src/
 ├── index.ts        # Entry point (starts server)
 ├── routes/
 │   ├── health.ts   # GET /health, GET /api/v1/users/health
+│   ├── ready.ts    # GET /ready (readiness probe)
 │   └── users.ts    # User CRUD endpoints
 ├── schemas/
 │   └── index.ts    # JSON Schema definitions with $id refs
@@ -78,9 +79,10 @@ src/
 | Method | Path                   | Description                             |
 | ------ | ---------------------- | --------------------------------------- |
 | GET    | `/health`              | Internal health check (DO App Platform) |
+| GET    | `/ready`               | Readiness probe (database + auth JWKS)  |
 | GET    | `/api/v1/users/health` | Public health endpoint                  |
 
-**Response:**
+**Health Response:**
 
 ```json
 {
@@ -92,6 +94,21 @@ src/
   "checks": {
     "database": { "status": "ok", "latency": 5 }
   }
+}
+```
+
+**Readiness Response (`/ready`):**
+
+Returns 200 when all checks pass, 503 while starting or when a dependency is unavailable.
+
+```json
+{
+  "ready": true,
+  "timestamp": "2026-04-04T00:00:00.000Z",
+  "checks": [
+    { "name": "database", "status": "ok" },
+    { "name": "auth", "status": "ok" }
+  ]
 }
 ```
 
@@ -149,17 +166,19 @@ Auth0 ──(ROPC/PKCE)──> Hospitality UI ──(JWT)──> Users Service
 ### JWT Verification
 
 ```typescript
+import { requireAuth } from "@mbe/auth/fastify";
+
 // Route handler with auth
 fastify.get(
   "/api/v1/users/me",
   {
-    preHandler: [fastify.requireAuth],
+    preHandler: requireAuth,
     schema: {
       /* ... */
     },
   },
   async (request) => {
-    const userId = request.user.sub; // From verified JWT
+    const userId = request.user!.id; // From verified JWT (AuthUser.id = JWT sub)
     const user = await prisma.user.findUnique({ where: { id: userId } });
     return { data: user };
   }
@@ -308,27 +327,32 @@ vi.mock("@mbe/auth/fastify", () => ({
 ## Commands
 
 ```bash
-pnpm dev              # Hot-reload dev server (port 3001)
-pnpm build            # Compile TypeScript
-pnpm test             # Run all tests
-pnpm test:watch       # Watch mode
-pnpm test:coverage    # Coverage report
-pnpm lint             # ESLint
-pnpm typecheck        # TypeScript type check
-pnpm db:generate      # Generate Prisma client
-pnpm db:push          # Push schema (dev only)
-pnpm db:migrate       # Create + apply migrations
-pnpm db:studio        # Open Prisma Studio
+pnpm dev                # Hot-reload dev server (port 3001)
+pnpm build              # Compile TypeScript
+pnpm start              # Run compiled server (node dist/index.js)
+pnpm build:openapi      # Emit openapi.json to stdout
+pnpm test               # Run all tests
+pnpm test:contract      # Run contract tests only
+pnpm test:watch         # Watch mode
+pnpm test:coverage      # Coverage report
+pnpm lint               # ESLint
+pnpm typecheck          # TypeScript type check
+pnpm db:generate        # Generate Prisma client
+pnpm db:push            # Push schema (dev only)
+pnpm db:migrate         # Create + apply migrations
+pnpm db:migrate:status  # Show pending/applied migration status
+pnpm db:studio          # Open Prisma Studio
 ```
 
 ## Health Check
 
-The service exposes two health endpoints:
+The service exposes three health/readiness endpoints:
 
 1. **Internal** (`/health`): Used by DO App Platform for container health checks
 2. **Public** (`/api/v1/users/health`): For external monitoring and synthetic checks
+3. **Readiness** (`/ready`): Kubernetes-style readiness probe — returns 200 only when the database is reachable and the Auth0 JWKS endpoint responds. Returns 503 during startup or when a dependency is unavailable.
 
-Both return the same structure including database connectivity status.
+The health endpoints return a status object including database connectivity status. The readiness endpoint returns a `ready` boolean plus per-check results.
 
 ## Related Documentation
 

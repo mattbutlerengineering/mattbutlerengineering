@@ -1,4 +1,24 @@
 <codebase path="services/agent">
+  <section priority="medium" role="lib">
+  <file path="src/lib/verified-webhook.ts">
+    export interface VerifiedWebhookOptions {
+      header: string;
+      secretEnv: string;
+      format: "raw" | "sha256=";
+    }
+    export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
+      return async (request, _reply, payload) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of payload) {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+        }
+        const rawBody = Buffer.concat(chunks);
+        (request as unknown as Record<string | symbol, unknown>)[kRawBody] = rawBody;
+        return Readable.from(rawBody);
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     async function main() {
@@ -531,18 +551,119 @@
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
-    function verifyRemediationSignature(
-      payload: Buffer,
-      signature: string | undefined,
-      secret: string
-    ): boolean {
-      if (!signature) return false;
+    export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addHook("preParsing", createRawBodyCaptureHook());
+      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+        header: "x-remediation-signature",
+        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+        format: "raw",
+      }));
     
-      const expected = createHmac("sha256", secret).update(payload).digest("hex");
-      if (expected.length !== signature.length) return false;
+      // github[js/missing-rate-limiting] — strict limit to prevent alert storms
+      fastify.post<{
+        Body: unknown;
+        Reply: { sessionId: string } | ApiError;
+      }>(
+        "/remediation",
+        {
+          schema: {
+            summary: "Remediation webhook receiver",
+            operationId: "handleRemediationWebhook",
+            description:
+              "Receives monitoring alerts (Grafana, PagerDuty, etc.) and triggers " +
+              "agent investigation sessions. Circuit breaker prevents alert storms.",
+            tags: ["Webhooks"],
+            response: {
+              200: {
+                type: "object",
+                properties: { sessionId: { type: "string" } },
+              },
+              400: { $ref: "AgentError#" },
+              401: { $ref: "AgentError#" },
+              503: { $ref: "AgentError#" },
+            },
+          },
+          config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          // 1. Validate payload
+          const parseResult = AlertPayloadSchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  `Invalid alert payload: ${parseResult.error.message}`
+                )
+              );
+          }
     
-      return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-    }
+          const payload: AlertPayload = parseResult.data;
+    
+          // 3. Skip info-level alerts (log only)
+          if (payload.severity === "info") {
+            fastify.log.info(
+              { alertName: payload.alertName, source: payload.source },
+              "Info-level alert received — no action taken"
+            );
+            return reply.code(200).send({ sessionId: "" });
+          }
+    
+          // 4. Check circuit breaker
+          const circuitCheck = checkCircuitBreaker();
+          if (!circuitCheck.allowed) {
+            fastify.log.warn(
+              { alertName: payload.alertName, reason: circuitCheck.reason },
+              "Remediation circuit breaker is open"
+            );
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  circuitCheck.reason ?? "Circuit breaker open"
+                )
+              );
+          }
+    
+          // 5. Build investigation task
+          const taskDescription =
+            `[PRODUCTION ALERT — ${payload.severity.toUpperCase()}] ${payload.alertName}\n\n` +
+            `Alert summary: ${payload.summary}\n\n` +
+            `Source: ${payload.source}\n` +
+            (payload.generatorURL ? `Dashboard: ${payload.generatorURL}\n` : "") +
+            (payload.labels ? `Labels: ${JSON.stringify(payload.labels)}\n` : "") +
+            `\nInvestigate the production issue described above. ` +
+            `Check recent deployments (git log --oneline -10), error logs, and the affected code paths. ` +
+            `If the root cause is identifiable from the codebase, create a fix PR. ` +
+            `If it requires infrastructure or environment changes outside the codebase, ` +
+            `create a draft PR documenting the investigation findings and recommended action.`;
+    
+          fastify.log.info(
+            { alertName: payload.alertName, severity: payload.severity, source: payload.source },
+            "Creating remediation session"
+          );
+    
+          const session = await sessionService.create({
+            taskDescription,
+            baseBranch: "main",
+          });
+    
+          // Fire and forget — record outcome when complete
+          executeSession(session)
+            .then(() => recordRemediationOutcome(true))
+            .catch((err) => {
+              recordRemediationOutcome(false);
+              fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
+            });
+    
+          return { sessionId: session.id };
+        }
+      );
+    };
   </file>
   <file path="src/routes/session-events.ts">
     export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {

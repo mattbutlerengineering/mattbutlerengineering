@@ -15,6 +15,7 @@ import {
   Divider,
 } from "@mattbutlerengineering/rialto";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import styles from "./SharedSpecPage.module.css";
 
 interface StoredSpec {
@@ -99,7 +100,7 @@ export function SharedSpecPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(
     id ? null : "No spec ID provided."
   );
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   useEffect(() => {
     if (!id) return;
@@ -143,16 +144,9 @@ export function SharedSpecPage() {
     };
   }, [id]);
 
-  const handleCopyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      const timer = setTimeout(() => setCopied(false), 2000);
-      return () => clearTimeout(timer);
-    } catch {
-      // Clipboard API may not be available in all contexts
-    }
-  }, []);
+  const handleCopyLink = useCallback(() => {
+    void copy(window.location.href);
+  }, [copy]);
 
   return (
     <div className={styles.page}>
@@ -216,19 +210,19 @@ export function SharedSpecPage() {
                     {formatDate(storedSpec.createdAt)}
                   </Text>
                   <Badge variant="accent" size="sm">
-                    <span className={styles.badgeContent}>
+                    <Text className={styles.badgeContent}>
                       <SparkleIcon />
                       Generated with AI
-                    </span>
+                    </Text>
                   </Badge>
                 </div>
 
                 <div className={styles.actions}>
                   <Button variant="ghost" size="sm" onClick={handleCopyLink}>
-                    <span className={styles.buttonContent}>
+                    <Text className={styles.buttonContent}>
                       <LinkIcon />
                       {copied ? "Copied!" : "Copy Link"}
-                    </span>
+                    </Text>
                   </Button>
                   <Link to="/gen/">
                     <Button variant="secondary" size="sm">

@@ -13,6 +13,8 @@ import { JsonInspector } from "../components/JsonInspector.js";
 import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
+import { downloadJson } from "../utils/downloadJson.js";
 import type { StoredSpec } from "../types.js";
 import styles from "./PlaygroundPage.module.css";
 
@@ -232,6 +234,7 @@ function PlaygroundBody({
     closePalette,
   } = useAppShellPanels();
 
+  const { copy } = useCopyToClipboard();
   const isMobileOrTablet = breakpoint !== "desktop";
 
   // ---------------------------------------------------------------------------
@@ -405,14 +408,7 @@ function PlaygroundBody({
             group: "Export",
             onSelect: () => {
               closePalette();
-              const json = JSON.stringify(displaySpec, null, 2);
-              const blob = new Blob([json], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `gen-spec-${Date.now()}.json`;
-              a.click();
-              URL.revokeObjectURL(url);
+              downloadJson(displaySpec);
             },
           },
           {
@@ -421,8 +417,7 @@ function PlaygroundBody({
             group: "Export",
             onSelect: () => {
               closePalette();
-              const json = JSON.stringify(displaySpec, null, 2);
-              void navigator.clipboard.writeText(json);
+              void copy(JSON.stringify(displaySpec, null, 2));
             },
           },
         ]

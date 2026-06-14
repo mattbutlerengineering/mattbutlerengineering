@@ -1,4 +1,18 @@
 <codebase path="services/agent">
+  <section priority="medium" role="lib">
+  <file path="src/lib/verified-webhook.ts">
+    <item priority="low">
+      interface VerifiedWebhookOptions {
+        header: string;
+        secretEnv: string;
+        format: "raw" | "sha256=";
+      }
+    </item>
+    <item priority="high">
+      export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
     <item priority="low">
@@ -79,12 +93,8 @@
     <item priority="high">
       type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     </item>
-    <item priority="medium">
-      function verifyRemediationSignature(
-        payload: Buffer,
-        signature: string | undefined,
-        secret: string
-      ): boolean { /* ... */ }
+    <item priority="high">
+      export const remediationRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/session-events.ts">

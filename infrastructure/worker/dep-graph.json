@@ -129,6 +129,11 @@
   "edges": [
     {
       "from": "@mbe/gen",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
       "to": "@mbe/api-client",
       "type": "dependency"
     },
@@ -156,6 +161,11 @@
       "from": "@mbe/gen",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/hospitality",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
     },
     {
       "from": "@mbe/hospitality",
@@ -194,6 +204,11 @@
     },
     {
       "from": "@mbe/marketing",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/marketing",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -206,6 +221,11 @@
       "from": "@mbe/marketing",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
     },
     {
       "from": "@mbe/rialto-web",
@@ -449,8 +469,18 @@
     },
     {
       "from": "@mbe/rialto-catalog",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-catalog",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/rialto-plugin",
+      "to": "@mattbutlerengineering/rialto",
+      "type": "dependency"
     },
     {
       "from": "@mbe/rialto-plugin",

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Stack,
   useScrollReveal,
@@ -8,6 +7,7 @@ import {
   Heading,
 } from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
+import { useCopyToClipboard } from "@gen/hooks/useCopyToClipboard.js";
 import styles from "../pages/HomePage.module.css";
 
 const EMAIL = "mattbutlerengineering+webapp@gmail.com";
@@ -21,21 +21,11 @@ export function ContactSection() {
   const { ref, controls } = useScrollReveal();
   const shouldReduceMotion = useReducedMotion();
   const { toast } = useToast();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   const handleCopyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(EMAIL);
-      toast({ title: "Email copied!", variant: "success", duration: 2000 });
-    } catch {
-      toast({
-        title: "Could not copy — try selecting the address manually",
-        variant: "error",
-        duration: 3000,
-      });
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    await copy(EMAIL);
+    toast({ title: "Email copied!", variant: "success", duration: 2000 });
   };
 
   const hoverEffect = shouldReduceMotion ? undefined : { scale: boop.scale };

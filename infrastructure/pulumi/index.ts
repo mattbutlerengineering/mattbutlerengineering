@@ -47,6 +47,58 @@ const cacheKv = new cloudflare.WorkersKvNamespace("mattbutlerengineering-cache",
 export const sessionsKvNamespaceId = sessionsKv.id;
 export const cacheKvNamespaceId = cacheKv.id;
 
+// ── Shared Constants ──────────────────────────────────────────────────
+// AUTH_AUTHORITY is defined once and shared by all API services.
+const AUTH_AUTHORITY = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+
+export interface ApiServiceArgs {
+  name: string;
+  port: number;
+  dockerfile: string;
+  extraEnvs?: digitalocean.types.input.AppSpecServiceEnv[];
+}
+
+function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] {
+  return [
+    { key: "NODE_ENV", value: "production" },
+    { key: "PORT", value: String(port) },
+    { key: "CORS_ORIGIN", value: `https://${domain}` },
+    { key: "API_BASE_URL", value: `https://api.${domain}/api` },
+    { key: "AUTH_AUTHORITY", value: AUTH_AUTHORITY },
+    { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
+    { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+  ];
+}
+
+export function apiService(args: ApiServiceArgs): digitalocean.types.input.AppSpecService {
+  return {
+    name: args.name,
+    github: {
+      repo: "mattbutlerengineering/mattbutlerengineering",
+      branch: "main",
+      deployOnPush: false,
+    },
+    sourceDir: "/",
+    dockerfilePath: args.dockerfile,
+    instanceCount: 1,
+    instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+    httpPort: args.port,
+    envs: [
+      ...sharedEnvs(args.port),
+      ...(args.extraEnvs ?? []),
+      ...otelEnvs,
+    ],
+    healthCheck: {
+      httpPath: "/ready",
+      initialDelaySeconds: 10,
+      periodSeconds: 10,
+      timeoutSeconds: 5,
+      successThreshold: 1,
+      failureThreshold: 3,
+    },
+  };
+}
+
 // ── Per-Service Migration Jobs ──────────────────────────────────────
 // Each service gets its own pre-deploy job so a failure in one service's
 // migrations does not block unrelated services from deploying.
@@ -126,88 +178,21 @@ const apiApp = new digitalocean.App(
       jobs: migrationJobs,
 
       services: [
-        {
+        apiService({
           name: "users-api",
-          github: {
-            repo: "mattbutlerengineering/mattbutlerengineering",
-            branch: "main",
-            deployOnPush: false,
-          },
-          sourceDir: "/",
-          dockerfilePath: "services/users/Dockerfile",
-          instanceCount: 1,
-          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-          httpPort: 3001,
-          envs: [
-            { key: "NODE_ENV", value: "production" },
-            { key: "PORT", value: "3001" },
-            { key: "CORS_ORIGIN", value: `https://${domain}` },
-            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-            ...otelEnvs,
-          ],
-          healthCheck: {
-            httpPath: "/ready",
-            initialDelaySeconds: 10,
-            periodSeconds: 10,
-            timeoutSeconds: 5,
-            successThreshold: 1,
-            failureThreshold: 3,
-          },
-        },
-        {
+          port: 3001,
+          dockerfile: "services/users/Dockerfile",
+        }),
+        apiService({
           name: "reservations-api",
-          github: {
-            repo: "mattbutlerengineering/mattbutlerengineering",
-            branch: "main",
-            deployOnPush: false,
-          },
-          sourceDir: "/",
-          dockerfilePath: "services/reservations/Dockerfile",
-          instanceCount: 1,
-          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-          httpPort: 3004,
-          envs: [
-            { key: "NODE_ENV", value: "production" },
-            { key: "PORT", value: "3004" },
-            { key: "CORS_ORIGIN", value: `https://${domain}` },
-            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
-            ...otelEnvs,
-          ],
-          healthCheck: {
-            httpPath: "/ready",
-            initialDelaySeconds: 10,
-            periodSeconds: 10,
-            timeoutSeconds: 5,
-            successThreshold: 1,
-            failureThreshold: 3,
-          },
-        },
-        {
+          port: 3004,
+          dockerfile: "services/reservations/Dockerfile",
+        }),
+        apiService({
           name: "agent-api",
-          github: {
-            repo: "mattbutlerengineering/mattbutlerengineering",
-            branch: "main",
-            deployOnPush: false,
-          },
-          sourceDir: "/",
-          dockerfilePath: "services/agent/Dockerfile",
-          instanceCount: 1,
-          instanceSizeSlug: "apps-s-1vcpu-0.5gb",
-          httpPort: 3003,
-          envs: [
-            { key: "NODE_ENV", value: "production" },
-            { key: "PORT", value: "3003" },
-            { key: "CORS_ORIGIN", value: `https://${domain}` },
-            { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-            { key: "AUTH_AUTHORITY", value: "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com" },
-            { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-            { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+          port: 3003,
+          dockerfile: "services/agent/Dockerfile",
+          extraEnvs: [
             ...(aiGatewayApiKey
               ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
               : []),
@@ -221,17 +206,8 @@ const apiApp = new digitalocean.App(
                   },
                 ]
               : []),
-            ...otelEnvs,
           ],
-          healthCheck: {
-            httpPath: "/ready",
-            initialDelaySeconds: 10,
-            periodSeconds: 10,
-            timeoutSeconds: 5,
-            successThreshold: 1,
-            failureThreshold: 3,
-          },
-        },
+        }),
       ],
     },
   },

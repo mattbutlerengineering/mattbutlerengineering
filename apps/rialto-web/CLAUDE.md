@@ -60,4 +60,12 @@ Visual regression diffs ARE the feedback loop. New components require a new visu
 
 ## Evidence-Based Rules
 
-1. **Visual regression IS verification** — PR #nnn (2026-04-27): agent claimed UI fix worked, but didn't run `pnpm test:visual`, screenshot showed broken layout. Rule: always attach screenshot diff to UI claims.
+1. **Visual regression IS verification** — Observed 2026-04-27: agent claimed UI fix worked, but didn't run `pnpm test:visual`, screenshot showed broken layout. Rule: always attach screenshot diff to UI claims.
+
+## Root-only scripts
+
+The following commands must be run from the monorepo root, **not** inside `apps/rialto-web/`:
+
+```bash
+pnpm test:visual   # Visual regression (Playwright)
+```

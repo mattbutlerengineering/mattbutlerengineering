@@ -8,6 +8,7 @@ Shared TypeScript type definitions and Zod schemas for the workspace.
 src/
 ├── index.ts            # Barrel export
 ├── agent.ts            # Agent session and event types
+├── schemas.test.ts     # Schema validation tests
 ├── api.ts              # API request/response and error types (RFC 9457)
 ├── availability.ts     # Time slot and availability types
 ├── date.ts             # Date/time utility types

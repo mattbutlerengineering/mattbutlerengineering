@@ -54,7 +54,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 ## Tooling artifacts
 
-- **`graphify-out/` is not gitignored** and accumulates wherever `/graphify` was invoked (repo root or package subdirs). Either `rm -rf graphify-out/` after use or add `graphify-out/` to `.gitignore`
+- **`graphify-out/` is gitignored** (`graphify-out/` + `graphify-out-*/`) — graphify's graph/report/cache artifacts won't pollute `git status`. The skill is vendored at `.claude/skills/graphify/SKILL.md` and self-bootstraps the `graphifyy` package on first run; if invoked from a package subdir, the `graphify-out/` lands there and is still ignored by the root pattern
 
 ## Auth0 / E2E
 
