@@ -1,4 +1,3 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -68,8 +67,41 @@ vi.mock("../contexts/ThemeContext.js", () => ({
   useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
 }));
 
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+// Mock @mbe/api-client — ApiClient must be a class (constructable) in the mock
+const mockRequest = vi.fn();
+
+vi.mock("@mbe/api-client", () => {
+  class MockApiClient {
+    request = mockRequest;
+    get = mockRequest;
+  }
+  class MockApiClientError extends Error {
+    statusCode: number;
+    category: string;
+    constructor(statusCode: number, message: string) {
+      super(message);
+      this.name = "ApiClientError";
+      this.statusCode = statusCode;
+      this.category = statusCode === 404 ? "notFound" : "serverError";
+    }
+  }
+  return {
+    ApiClient: MockApiClient,
+    ApiClientError: MockApiClientError,
+  };
+});
+
+// Import MockApiClientError for use in tests — must match the class used in the mock
+class MockApiClientError extends Error {
+  statusCode: number;
+  category: string;
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = "ApiClientError";
+    this.statusCode = statusCode;
+    this.category = statusCode === 404 ? "notFound" : "serverError";
+  }
+}
 
 import { SharedSpecPage } from "./SharedSpecPage.js";
 
@@ -98,20 +130,33 @@ const MOCK_SPEC = {
 describe("SharedSpecPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
   });
 
   it("shows loading skeletons initially", () => {
-    mockFetch.mockReturnValue(new Promise(() => {}));
+    mockRequest.mockReturnValue(new Promise(() => {}));
     renderWithRoute("abc-123");
     expect(screen.getByTestId("skeleton-group")).toBeDefined();
   });
 
-  it("shows spec after successful fetch", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ data: MOCK_SPEC }),
+  it("uses @mbe/api-client (not raw fetch) to load the spec", async () => {
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
+    renderWithRoute("abc-123");
+    await waitFor(() => {
+      expect(screen.getByText("Build a dashboard")).toBeDefined();
     });
+    expect(mockRequest).toHaveBeenCalledWith(
+      "/api/gen/specs/abc-123",
+      expect.objectContaining({ method: "GET", signal: expect.any(AbortSignal) })
+    );
+  });
+
+  it("shows spec after successful fetch via api-client", async () => {
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
     renderWithRoute("abc-123");
     await waitFor(() => {
       expect(screen.getByText("Build a dashboard")).toBeDefined();
@@ -119,12 +164,8 @@ describe("SharedSpecPage", () => {
     expect(screen.getByTestId("renderer")).toBeDefined();
   });
 
-  it("shows error state when spec not found (404)", async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 404,
-      statusText: "Not Found",
-    });
+  it("shows error state when spec not found (404) via api-client", async () => {
+    mockRequest.mockRejectedValue(new MockApiClientError(404, "Not Found"));
     renderWithRoute("nonexistent");
     await waitFor(() => {
       expect(screen.getByTestId("empty-state")).toBeDefined();
@@ -132,8 +173,8 @@ describe("SharedSpecPage", () => {
     expect(screen.getByText("Spec not found")).toBeDefined();
   });
 
-  it("shows error state when fetch fails", async () => {
-    mockFetch.mockRejectedValue(new Error("Network error"));
+  it("shows error state when fetch fails (network error)", async () => {
+    mockRequest.mockRejectedValue(new Error("Network error"));
     renderWithRoute("abc-123");
     await waitFor(() => {
       expect(screen.getByTestId("empty-state")).toBeDefined();
@@ -141,27 +182,19 @@ describe("SharedSpecPage", () => {
     expect(screen.getByText("Network error")).toBeDefined();
   });
 
-  it("shows error when non-ok response", async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: "Internal Server Error",
-    });
+  it("shows error when api-client throws non-404 error", async () => {
+    mockRequest.mockRejectedValue(new MockApiClientError(500, "Internal Server Error"));
     renderWithRoute("abc-123");
     await waitFor(() => {
       expect(screen.getByTestId("empty-state")).toBeDefined();
     });
   });
 
-  it("renders copy link button and copies to clipboard", async () => {
+  it("renders copy link button and copies to clipboard (success)", async () => {
     const mockWriteText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: mockWriteText } });
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ data: MOCK_SPEC }),
-    });
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
     renderWithRoute("abc-123");
 
     await waitFor(() => {
@@ -173,22 +206,32 @@ describe("SharedSpecPage", () => {
     });
   });
 
-  it("renders theme toggle", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ data: MOCK_SPEC }),
+  it("shows clipboard failure feedback when copy returns false", async () => {
+    const mockWriteText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.assign(navigator, { clipboard: { writeText: mockWriteText } });
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
+    renderWithRoute("abc-123");
+
+    await waitFor(() => {
+      expect(screen.getByText("Copy Link")).toBeDefined();
     });
+    fireEvent.click(screen.getByText("Copy Link"));
+    await waitFor(() => {
+      expect(screen.getByText("Copy failed")).toBeDefined();
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders theme toggle", async () => {
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
     renderWithRoute("abc-123");
     expect(screen.getByTestId("theme-toggle")).toBeDefined();
   });
 
   it("renders Generated with AI badge on success", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ data: MOCK_SPEC }),
-    });
+    mockRequest.mockResolvedValue({ data: MOCK_SPEC });
     renderWithRoute("abc-123");
     await waitFor(() => {
       expect(screen.getByTestId("badge")).toBeDefined();

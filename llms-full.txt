@@ -2535,14 +2535,16 @@
       const [copied, setCopied] = useState(false);
       const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-      const copy = useCallback(async (text: string) => {
+      const copy = useCallback(async (text: string): Promise<boolean> => {
         if (timerRef.current) {
           clearTimeout(timerRef.current);
         }
     
+        let succeeded = false;
         try {
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
+            succeeded = true;
           } else {
             window.prompt("Copy to clipboard:", text);
           }
@@ -2555,6 +2557,8 @@
           setCopied(false);
           timerRef.current = null;
         }, 2000);
+    
+        return succeeded;
       }, []);
     
       return { copied, copy };
@@ -4428,14 +4432,11 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook(
-        "preHandler",
-        createVerifiedBodyPreHandler({
-          header: "x-remediation-signature",
-          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-          format: "raw",
-        })
-      );
+      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+        header: "x-remediation-signature",
+        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+        format: "raw",
+      }));
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
