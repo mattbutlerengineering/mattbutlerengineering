@@ -1,0 +1,25 @@
+[
+  {
+    "timestamp": "2026-06-14T04:52:03.798Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 73,
+    "reviewers": [
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 2.07,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 1,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0
+    }
+  }
+]

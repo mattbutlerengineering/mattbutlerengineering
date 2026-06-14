@@ -6,6 +6,7 @@ import type {
   UpdatePreferencesRequest,
   PaginatedResponse,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import { prisma } from "./database.js";
 
 function isPrismaNotFound(err: unknown): boolean {
@@ -41,29 +42,17 @@ function mapPrismaUser(user: {
 
 export const userService = {
   async list(page: number, limit: number): Promise<PaginatedResponse<User>> {
-    const skip = (page - 1) * limit;
-
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { createdAt: "desc" },
       }),
       prisma.user.count(),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: users.map(mapPrismaUser),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 

@@ -2535,14 +2535,16 @@
       const [copied, setCopied] = useState(false);
       const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-      const copy = useCallback(async (text: string) => {
+      const copy = useCallback(async (text: string): Promise<boolean> => {
         if (timerRef.current) {
           clearTimeout(timerRef.current);
         }
     
+        let succeeded = false;
         try {
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
+            succeeded = true;
           } else {
             window.prompt("Copy to clipboard:", text);
           }
@@ -2555,6 +2557,8 @@
           setCopied(false);
           timerRef.current = null;
         }, 2000);
+    
+        return succeeded;
       }, []);
     
       return { copied, copy };
@@ -12975,7 +12979,6 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
-        health: new HealthClient(client),
       };
     }
   </file>
@@ -13406,21 +13409,8 @@
       const limit = Math.max(1, Math.min(100, isNaN(rawLimit) ? 10 : rawLimit));
       return { page, limit };
     }
-    export function createListResponseSchema(entityRef: string) {
-      return {
-        type: "object" as const,
-        properties: {
-          data: { type: "array" as const, items: { $ref: entityRef } },
-          pagination: {
-            type: "object" as const,
-            properties: {
-              page: { type: "number" as const },
-              limit: { type: "number" as const },
-              total: { type: "number" as const },
-            },
-          },
-        },
-      };
+    export function paginate(query: { page: number; limit: number }): { skip: number; take: number } {
+      return { skip: (query.page - 1) * query.limit, take: query.limit };
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
@@ -13463,7 +13453,8 @@
       async schedule<T extends JobType>(
         jobType: T,
         payload: JobPayloadMap[T],
-        delayMs: number
+        delayMs: number,
+        jobId?: string
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
@@ -13474,6 +13465,7 @@
           },
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
+          ...(jobId !== undefined ? { jobId } : {}),
         });
         return job.id as string;
       }
@@ -13540,6 +13532,13 @@
       queueName?: string;
       handlers: JobHandlerMap;
     }
+  </file>
+  <file path="packages/mcp-server/src/dispatcher.ts">
+    type McpContent = { type: "text"; text: string };
+    type McpResult = {
+      content: McpContent[];
+      isError?: boolean;
+    };
   </file>
   <file path="packages/mcp-server/src/index.ts">
     async function main() {

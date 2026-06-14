@@ -1,5 +1,16 @@
 <codebase path="packages/mcp-server">
   <section priority="medium" role="src">
+  <file path="src/dispatcher.ts">
+    <item priority="high">
+      type McpContent = { type: "text"; text: string };
+    </item>
+    <item priority="high">
+      type McpResult = {
+        content: McpContent[];
+        isError?: boolean;
+      };
+    </item>
+  </file>
   <file path="src/index.ts">
     <item priority="low">
       async function main() { /* ... */ }
