@@ -23,26 +23,33 @@ Entry point: `runSession(config, onEvent?)` in `session-runner.ts`.
 
 ## Key Modules
 
-| Module                    | Responsibility                                                              |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `session-runner.ts`       | Main pipeline — orchestrates all stages, emits `SessionEvent`s              |
-| `prompt-builder.ts`       | Assembles system prompt with quality checklist, source files, PR examples   |
-| `worktree-manager.ts`     | Git worktree/clone lifecycle, commit, push, lockfile sync, verification     |
-| `stuck-detector.ts`       | Detects agent loops via fingerprinting (actions, observations, text)        |
-| `success-evaluator.ts`    | LLM-as-judge evaluation with acceptance criteria extraction                 |
-| `model-router.ts`         | Routes issues to haiku/sonnet/opus based on labels + complexity keywords    |
-| `feedback-loop.ts`        | Polls PR for review comments and CI failures, dispatches fix sessions       |
-| `tool-permissions.ts`     | Sandboxes agent — blocks dangerous bash, restricts file writes to worktree  |
-| `orchestrator.ts`         | Meta-agent that decomposes tasks into parallel child sessions via MCP tools |
-| `task-decomposer.ts`      | Builds orchestrator prompt with decomposition guidelines                    |
-| `diff-reviewer.ts`        | AI security review of the git diff                                          |
-| `diff-static-analyzer.ts` | Fast regex-based static analysis (no LLM cost)                              |
-| `cost-tracker.ts`         | Extracts cost/token/duration from SDK result messages                       |
-| `failure-memory.ts`       | Persists past failures for context in future sessions                       |
-| `task-intelligence.ts`    | Auto-resolves source files from task description, fetches PR examples       |
-| `retry.ts`                | Generic retry with backoff; detects `ContextWindowExhaustedError`           |
-| `pr-creator.ts`           | Builds PR title/body, calls `gh pr create`                                  |
-| `dep-bump-merger.ts`      | Fast-path: direct-merges trivial dependency bumps that pass all gates       |
+| Module                    | Responsibility                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `session-runner.ts`       | Main pipeline — orchestrates all stages, emits `SessionEvent`s                       |
+| `prompt-builder.ts`       | Assembles system prompt with quality checklist, source files, PR examples            |
+| `worktree-manager.ts`     | Git worktree/clone lifecycle, commit, push, lockfile sync, verification              |
+| `stuck-detector.ts`       | Detects agent loops via fingerprinting (actions, observations, text)                 |
+| `success-evaluator.ts`    | LLM-as-judge evaluation with acceptance criteria extraction                          |
+| `model-router.ts`         | Routes issues to haiku/sonnet/opus based on labels + complexity keywords             |
+| `feedback-loop.ts`        | Polls PR for review comments and CI failures, dispatches fix sessions                |
+| `tool-permissions.ts`     | Sandboxes agent — blocks dangerous bash, restricts file writes to worktree           |
+| `orchestrator.ts`         | Meta-agent that decomposes tasks into parallel child sessions via MCP tools          |
+| `task-decomposer.ts`      | Builds orchestrator prompt with decomposition guidelines                             |
+| `diff-reviewer.ts`        | AI security review of the git diff                                                   |
+| `diff-static-analyzer.ts` | Fast regex-based static analysis (no LLM cost)                                       |
+| `cost-tracker.ts`         | Extracts cost/token/duration from SDK result messages                                |
+| `failure-memory.ts`       | Persists past failures for context in future sessions                                |
+| `source-resolver.ts`      | Auto-resolves source files from task description (successor to task-intelligence.ts) |
+| `task-signal-registry.ts` | Registry of task signals used to route and enrich agent prompts                      |
+| `gate-runner.ts`          | Runs quality gates in sequence; aggregates pass/fail results                         |
+| `circuit-breaker.ts`      | Stops cascading failures by tracking error rates and tripping open                   |
+| `deploy-verifier.ts`      | Verifies a deployment reached a healthy state after PR merge                         |
+| `revert-detector.ts`      | Detects whether a commit reverts a prior change                                      |
+| `pr-risk-classifier.ts`   | Classifies PR risk level (low/medium/high) to gate auto-merge decisions              |
+| `budget-calculator.ts`    | Computes per-session cost budgets from model, turn count, and token limits           |
+| `retry.ts`                | Generic retry with backoff; detects `ContextWindowExhaustedError`                    |
+| `pr-creator.ts`           | Builds PR title/body, calls `gh pr create`                                           |
+| `dep-bump-merger.ts`      | Fast-path: direct-merges trivial dependency bumps that pass all gates                |
 
 ## SessionConfig
 
@@ -71,6 +78,20 @@ All gates must pass for a non-draft PR. Failure at any gate produces a draft PR.
 2. **Static analysis** — Regex-based diff scan for error-severity violations (milliseconds, no AI)
 3. **LLM evaluation** — Haiku judges whether the diff addresses the task (skipped for <50-line diffs with passing tests, dep bumps, or test-only changes)
 4. **Security review** — AI scans diff for hardcoded secrets, XSS, SQLi, a11y issues
+
+Gate implementation lives in `src/gates/` (individual gate modules) and `src/phases/` (pipeline phase orchestration). Key gate/phase modules:
+
+| Module                          | Responsibility                                     |
+| ------------------------------- | -------------------------------------------------- |
+| `gate-runner.ts`                | Runs all gates in sequence; aggregates results     |
+| `gates/llm-evaluation-gate.ts`  | LLM-as-judge gate implementation                   |
+| `gates/security-review-gate.ts` | AI security review gate implementation             |
+| `gates/static-analysis-gate.ts` | Fast regex static analysis gate implementation     |
+| `phases/verification-phase.ts`  | Turborepo lint/typecheck/test verification phase   |
+| `phases/feedback-phase.ts`      | Post-merge CI polling and auto-fix phase           |
+| `phases/publish-phase.ts`       | PR creation and publish phase                      |
+| `phases/query-phase.ts`         | Claude SDK query phase with stuck detection        |
+| `phases/worktree-phase.ts`      | Worktree lifecycle (create, commit, push, cleanup) |
 
 ## Tool Permissions
 
@@ -122,6 +143,7 @@ AdapterConfig (task + worktree + model)
 | Module                         | Responsibility                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------ |
 | `cli-adapter.ts`               | `AgentAdapter` interface, `AdapterConfig`, `AdapterResult` types               |
+| `adapters/cli-adapter-base.ts` | Shared template-method base class for subprocess-based CLI adapters            |
 | `adapters/claude-adapter.ts`   | Wraps `runSession()` as an adapter                                             |
 | `adapters/gemini-adapter.ts`   | Subprocess dispatch to Gemini CLI                                              |
 | `adapters/opencode-adapter.ts` | Subprocess dispatch to OpenCode CLI                                            |
