@@ -23,6 +23,10 @@ test.describe("CF-3: Walk-in creation", () => {
   test("creates walk-in and verifies timeline update", async ({ mockedPage }) => {
     await mockedPage.goto("timeline");
 
+    // Capture reservation count before walk-in creation
+    const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
+    const initialCount = await reservationBlocks.count();
+
     // Click "Walk-In" button
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
@@ -34,7 +38,8 @@ test.describe("CF-3: Walk-in creation", () => {
 
     // Optionally enter guest name
     const guestNameInput = dialog.getByLabel(/guest name/i);
-    if (await guestNameInput.isVisible()) {
+    const hasGuestNameInput = await guestNameInput.isVisible();
+    if (hasGuestNameInput) {
       await guestNameInput.fill("Test Guest");
     }
 
@@ -44,9 +49,15 @@ test.describe("CF-3: Walk-in creation", () => {
     // Dialog closes
     await expect(dialog).not.toBeVisible();
 
-    // New reservation appears on timeline
-    const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
-    await expect(reservationBlocks).toHaveCount(await reservationBlocks.count());
+    // New reservation block appears on timeline (count increased by 1)
+    await expect(reservationBlocks).toHaveCount(initialCount + 1);
+
+    // When guest name was entered, verify the walk-in block shows the guest name
+    if (hasGuestNameInput) {
+      await expect(
+        mockedPage.getByTestId(/^reservation-block-/).filter({ hasText: "Test Guest" })
+      ).toBeVisible();
+    }
   });
 
   test("cancels walk-in dialog", async ({ mockedPage }) => {
