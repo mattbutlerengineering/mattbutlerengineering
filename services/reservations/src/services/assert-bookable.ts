@@ -37,8 +37,9 @@ export interface AssertBookableOptions {
  * undefined if the slot is bookable.
  *
  * Pure function — no DB access. Callers fetch slices once and pass them in.
- * Used by hold create, confirm-hold, walk-in create, and slot generation so
- * the four write paths cannot diverge.
+ * Currently used by confirm-hold (closing the pacing gap on hold confirmation).
+ * Intended to absorb hold-create, walk-in-create, and slot generation next so
+ * those write paths share one conflict+pacing rule and cannot diverge.
  */
 export function assertBookable(opts: AssertBookableOptions): BookableError | undefined {
   const {
