@@ -12,6 +12,21 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Verify committed generated artifacts aren't stale before they reach CI.
+# Manifest-driven (scripts/regen-manifest.mjs) and fast: --check only runs
+# `git diff` on the tracked outputs, it does NOT regenerate. This catches the
+# common case where a generator ran (pre-commit pack-changed, a PostToolUse
+# hook, etc.) but the regenerated output was never staged/committed.
+# CI runs the full regenerate-then-verify; this is the cheap local backstop.
+if ! pnpm regen --check; then
+  echo ""
+  echo "ERROR: generated artifacts are out of sync (stale artifact + fix command shown above)."
+  echo "Run the printed 'fix:' command (or 'pnpm regen' to regenerate everything), then commit."
+  echo "Emergency bypass: git push --no-verify"
+  echo ""
+  exit 1
+fi
+
 # Run tests for packages affected by the current changes.
 # Uses turbo's --filter='...[ref]' to test only changed packages + dependents.
 # Turbo caching means repeated pushes of unchanged code are near-instant.
