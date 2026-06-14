@@ -33,7 +33,8 @@ export class JobScheduler {
   async schedule<T extends JobType>(
     jobType: T,
     payload: JobPayloadMap[T],
-    delayMs: number
+    delayMs: number,
+    jobId?: string
   ): Promise<string> {
     const job = await this.queue.add(jobType, payload, {
       delay: delayMs,
@@ -44,6 +45,7 @@ export class JobScheduler {
       },
       removeOnComplete: { count: 100 },
       removeOnFail: { count: 50 },
+      ...(jobId !== undefined ? { jobId } : {}),
     });
     return job.id as string;
   }

@@ -197,12 +197,14 @@ describe("createBookingNotifier", () => {
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "booking-reminder",
       expect.objectContaining({ reservationId: "res-1" }),
-      expect.closeTo(dayBeforeDelayMs, -2) // within 1s
+      expect.closeTo(dayBeforeDelayMs, -2), // within 1s
+      "booking-reminder:res-1"
     );
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "day-of-reminder",
       expect.objectContaining({ reservationId: "res-1" }),
-      expect.closeTo(dayOfDelayMs, -2)
+      expect.closeTo(dayOfDelayMs, -2),
+      "day-of-reminder:res-1"
     );
   });
 
@@ -255,7 +257,8 @@ describe("createBookingNotifier", () => {
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "booking-reminder",
       expect.objectContaining({ channel: "email" }),
-      expect.any(Number)
+      expect.any(Number),
+      "booking-reminder:res-1"
     );
   });
 
@@ -274,7 +277,8 @@ describe("createBookingNotifier", () => {
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "booking-reminder",
       expect.objectContaining({ channel: "both" }),
-      expect.any(Number)
+      expect.any(Number),
+      "booking-reminder:res-1"
     );
   });
 });
