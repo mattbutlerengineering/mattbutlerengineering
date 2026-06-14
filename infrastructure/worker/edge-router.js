@@ -39,6 +39,11 @@ function isAuditRequest(request, env) {
   return token !== null && token === env.AUDIT_TOKEN;
 }
 
+// ── Auth0 Tenant ──────────────────────────────────────────────────────
+// Single source of truth for the Auth0 tenant origin used in the CSP
+// connect-src directive. Must match AUTH_AUTHORITY in Pulumi and docker-compose.
+export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+
 // ── CORS Origin Allowlist ──────────────────────────────────────────────
 // Only these production origins may receive Access-Control-Allow-Origin.
 // If a request's Origin header does not match, the header is omitted entirely.
@@ -75,7 +80,7 @@ function buildSecurityHeaders(nonce) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com",
+      `connect-src 'self' ${AUTH0_ORIGIN} https://api.mattbutlerengineering.com`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
