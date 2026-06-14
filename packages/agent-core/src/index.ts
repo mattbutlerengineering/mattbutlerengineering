@@ -321,3 +321,17 @@ export type {
   EvalAggregate,
   EvalReport,
 } from "./eval/types.js";
+
+// Reviewer contract (multi-agent quality gates)
+export type {
+  ReviewInput,
+  ReviewIssue,
+  ReviewIssueCategory,
+  ReviewScore,
+  ReviewVerdict,
+  ReviewOutcome,
+  ReviewRetryAction,
+  ReviewRetryPolicy,
+} from "./reviewer-contract.js";
+
+export { PASS_THRESHOLD, DEFAULT_REVIEW_RETRY_POLICY } from "./reviewer-contract.js";
