@@ -7,9 +7,10 @@ Shared configuration presets for the workspace. Centralizes ESLint, TypeScript, 
 ```
 .
 ├── eslint/
-│   ├── base.js    # Shared linting rules
-│   ├── node.js    # Node-specific rules
-│   └── react.js   # React-specific rules
+│   ├── base.js         # Shared linting rules
+│   ├── local-rules.js  # Custom architectural lint rules (import restrictions, etc.)
+│   ├── node.js         # Node-specific rules
+│   └── react.js        # React-specific rules
 ├── prettier/
 │   └── index.js   # Shared formatting rules
 └── typescript/
@@ -32,8 +33,6 @@ Shared configuration presets for the workspace. Centralizes ESLint, TypeScript, 
 
 ## Commands
 
-No build required (pure config files).
+No per-package scripts (pure config files). Lint rules are consumed by `pnpm lint` in workspace packages that extend from `@mbe/config/eslint/*`.
 
-```bash
-pnpm lint         # Run linting on this package
-```
+Custom architectural rules live in `eslint/local-rules.js` — they enforce import boundaries, prevent cross-package coupling violations, and ensure monorepo structure compliance.
