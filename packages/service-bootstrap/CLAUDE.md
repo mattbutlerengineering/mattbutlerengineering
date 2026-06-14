@@ -32,7 +32,8 @@ Registers all shared plugins in order:
 8. **Scalar API Reference** — `/reference`
 9. **Auth** — Auth0 JWT verification (`@mbe/auth`)
 10. **Sentry** — error handler (`@mbe/sentry/node`)
-11. **API versioning** — `API-Version` / `Link` / `Sunset` headers
+11. **Error handler** — maps thrown errors (incl. Prisma `P2025`/`P2002`/`P2003`) to RFC 7807 problem-details bodies (`error-handler.ts`)
+12. **API versioning** — `API-Version` / `Link` / `Sunset` headers
 
 ```typescript
 import { createServiceApp, startServiceServer } from "@mbe/service-bootstrap";
@@ -57,8 +58,8 @@ startServiceServer({
 Inlined from the former `@mbe/feature-flags` package. Read from `x-feature-flags` header set by edge router:
 
 ```typescript
-request.features.check("flag-name");                     // 100% rollout
-request.features.checkForUser("flag-name", userId);      // percentage rollout
+request.features.check("flag-name"); // 100% rollout
+request.features.checkForUser("flag-name", userId); // percentage rollout
 ```
 
 ## Health

@@ -26,13 +26,13 @@
     "@mbe/database": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
+    "@mbe/types": "workspace:*",
     "@scalar/fastify-api-reference": "^1.59.2",
     "fastify": "catalog:",
     "fastify-plugin": "^6.0.0"
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
-    "@mbe/types": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",

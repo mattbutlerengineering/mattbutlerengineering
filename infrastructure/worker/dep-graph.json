@@ -524,12 +524,12 @@
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/config",
-      "type": "devDependency"
+      "to": "@mbe/types",
+      "type": "dependency"
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/types",
+      "to": "@mbe/config",
       "type": "devDependency"
     },
     {
