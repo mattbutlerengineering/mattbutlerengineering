@@ -1,4 +1,5 @@
 import type { ApiError } from "@mbe/types";
+import { ApiErrorSchema } from "@mbe/types";
 import type { z } from "zod";
 
 /**
@@ -76,7 +77,7 @@ export class ApiClient {
     const response = await fetchWithRetry(url, fetchOptions, this.maxRetries);
 
     if (!response.ok) {
-      const error = (await response.json().catch(() => ({
+      const fallback: ApiError = {
         error: "Error",
         message: response.statusText,
         statusCode: response.status,
@@ -84,7 +85,10 @@ export class ApiClient {
         title: "Error",
         status: response.status,
         detail: response.statusText,
-      }))) as ApiError;
+      };
+      const raw = await response.json().catch(() => fallback);
+      const parsed = ApiErrorSchema.safeParse(raw);
+      const error: ApiError = parsed.success ? parsed.data : fallback;
       const clientError = new ApiClientError(error, method, path);
       this.config.onError?.(clientError);
       throw clientError;
