@@ -4432,11 +4432,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -13093,6 +13096,27 @@
       }): Promise<Reservation> {
         return this.client.postOne<Reservation>("/api/v1/reservations/walk-in", data);
       }
+    }
+  </file>
+  <file path="packages/api-client/src/retry.ts">
+    export interface RetryOptions {
+      /** Maximum number of additional attempts after the first failure. */
+      maxRetries: number;
+      /** Base delay in ms for attempt 0; doubles each subsequent attempt. */
+      baseDelayMs: number;
+      /**
+       * Whether to apply ±20% jitter to prevent thundering herd.
+       * Defaults to true.
+       */
+      jitter?: boolean;
+      /**
+       * Predicate to decide whether an error is retryable.
+       * Defaults to always-retry (all errors are retried).
+       */
+      isRetryable?: (error: unknown) => boolean;
+    }
+    function sleep(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
     }
   </file>
   <file path="packages/api-client/src/streaming.ts">
