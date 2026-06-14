@@ -101,7 +101,31 @@ For each green PR:
 
 1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
 2. Wait for CI (`gh pr checks <N> --watch` or poll).
-3. **Diff-matched review gate (non-low-risk PRs only).** Compute the reviewers for the diff:
+3. **Reviewer sub-agent (non-low-risk PRs only).** Before the specialized diff-matched reviewers, run the general-purpose Reviewer sub-agent:
+
+   ```bash
+   gh pr diff <N>   # → diff for ReviewInput
+   gh pr diff <N> --name-only   # → changedFiles for ReviewInput
+   ```
+
+   Build a `ReviewInput` from the worker output and dispatch the Reviewer
+   via the Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
+   model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
+
+   The Reviewer's prompt MUST include:
+   - The full [Reviewer Contract](../.claude/skills/implement-queue/REVIEWER_CONTRACT.md)
+   - The serialised `ReviewInput` (diff, verification output, task description,
+     acceptance criteria, changed files, commit message)
+
+   **On `"flag"` verdict:** apply the retry policy (see contract — default:
+   one retry, then file issue). Label the linked issue accordingly and
+   **do not merge this PR** — move to the next PR in the train.
+
+   **On timeout/error:** log warning, proceed to merge (fail-open).
+
+   After the Reviewer passes, proceed to the specialized reviewers.
+
+4. **Diff-matched specialized review gate.** Compute the reviewers for the diff:
 
    ```bash
    gh pr diff <N> --name-only   # → reviewersForDiff() in @mbe/agent-core maps these to reviewer agents
@@ -109,7 +133,7 @@ For each green PR:
 
    For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
 
-4. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+5. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
 
 **Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
 

@@ -7,7 +7,6 @@ Claude Code plugin for the Rialto design system. Enhances agent productivity whe
 ```
 .
 ├── agents/        # Rialto-specialized sub-agents
-├── generated/     # Auto-generated component reference (committed artifact)
 ├── hooks/         # PostToolUse validation hook
 ├── scripts/       # Build scripts
 └── skills/        # Specialized Claude Code skill

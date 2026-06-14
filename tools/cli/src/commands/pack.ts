@@ -181,7 +181,7 @@ async function packDirectory(
         "**/vitest.config.ts",
       ],
     })
-  ).sort();
+  ).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
   let skeletonOutput = `<codebase path="${targetPath}">\n`;
   let fullOutput = `<codebase path="${targetPath}">\n`;
@@ -234,7 +234,9 @@ async function packDirectory(
     }
   }
 
-  for (const [section, content] of [...sections.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [section, content] of [...sections.entries()].sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0
+  )) {
     skeletonOutput += `  <section priority="medium" role="${section}">\n${content.skeleton}  </section>\n`;
     fullOutput += `  <section priority="medium" role="${section}">\n${content.full}  </section>\n`;
   }

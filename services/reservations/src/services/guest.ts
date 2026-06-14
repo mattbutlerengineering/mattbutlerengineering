@@ -9,6 +9,7 @@ import type {
   GuestSegment,
   PaginatedResponse,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
@@ -89,30 +90,18 @@ function mergeDietaryRestrictions(
 
 export const guestService = {
   async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
-    const skip = (page - 1) * limit;
-
     const [guests, total] = await Promise.all([
       prisma.guest.findMany({
         where: { venueId },
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { name: "asc" },
       }),
       prisma.guest.count({ where: { venueId } }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: guests.map(mapPrismaGuest),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
@@ -383,10 +372,11 @@ export const guestService = {
       where.visitCount = { ...(where.visitCount as object), lte: maxVisitCount };
     }
 
+    const SEARCH_LIMIT = 50;
     const [guests, total] = await Promise.all([
       prisma.guest.findMany({
         where,
-        take: 50,
+        ...paginate({ page: 1, limit: SEARCH_LIMIT }),
         orderBy: { lastVisit: "desc" },
       }),
       prisma.guest.count({ where }),
@@ -394,14 +384,7 @@ export const guestService = {
 
     return {
       data: guests.map(mapPrismaGuest),
-      pagination: {
-        page: 1,
-        limit: 50,
-        total,
-        totalPages: Math.ceil(total / 50),
-        hasNext: total > 50,
-        hasPrev: false,
-      },
+      pagination: toPaginationMeta(1, SEARCH_LIMIT, total),
     };
   },
 
