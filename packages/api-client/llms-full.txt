@@ -34,15 +34,14 @@
     }
   </file>
   <file path="src/client.ts">
-    export interface ClientConfig {
-      baseUrl: string;
-      getAccessToken?: () => string | null | Promise<string | null>;
-      timeout?: number;
-      maxRetries?: number;
-      onError?: (error: ApiClientError) => void;
-    }
-    export interface RequestOptions extends RequestInit {
-      signal?: AbortSignal;
+    export type QueryParams = Record<string, string | number | boolean | undefined | null>;
+    export function buildQueryString(params: QueryParams): string {
+      const sp = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) sp.set(key, String(value));
+      }
+      const s = sp.toString();
+      return s ? `?${s}` : "";
     }
   </file>
   <file path="src/floor-plans.ts">
@@ -56,14 +55,9 @@
           limit?: number;
         } = {}
       ): Promise<PaginatedResponse<FloorPlan>> {
-        const searchParams = new URLSearchParams();
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-    
-        const query = searchParams.toString();
         return this.client.get<PaginatedResponse<FloorPlan>>(
-          `/api/v1/floor-plans${query ? `?${query}` : ""}`
+          "/api/v1/floor-plans",
+          params as QueryParams
         );
       }
     
@@ -168,7 +162,6 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
-        health: new HealthClient(client),
       };
     }
   </file>
@@ -189,18 +182,9 @@
        * List reservations with optional filters
        */
       async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.date) searchParams.set("date", params.date);
-        if (params.status) searchParams.set("status", params.status);
-        if (params.tableId) searchParams.set("tableId", params.tableId);
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.guestId) searchParams.set("guestId", params.guestId);
-    
-        const query = searchParams.toString();
         return this.client.get<PaginatedResponse<Reservation>>(
-          `/api/v1/reservations${query ? `?${query}` : ""}`
+          "/api/v1/reservations",
+          params as QueryParams
         );
       }
     
@@ -372,14 +356,7 @@
        * List tables with optional filters
        */
       async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
+        return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
       }
     
       /**
@@ -484,13 +461,7 @@
       async list(
         params: { page?: number; limit?: number; venueGroupId?: string } = {}
       ): Promise<PaginatedResponse<Venue>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
+        return this.client.get<PaginatedResponse<Venue>>("/api/v1/venues", params as QueryParams);
       }
     
       /**

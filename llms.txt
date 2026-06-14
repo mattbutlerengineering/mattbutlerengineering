@@ -1843,6 +1843,20 @@
       export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/assert-bookable.ts">
+    <item priority="low">
+      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+    </item>
+    <item priority="low">
+      interface AssertBookableOptions {
+        tableId: string;
+        window: { startTime: Date; endTime: Date };
+        partySize: number;
+        settings: VenueSettings | null | undefined;
+        reservations: ReservationSlim[];
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/availability.ts">
     <item priority="high">
       interface VenueWithSettings {
@@ -1871,7 +1885,7 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
-      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     </item>
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
@@ -2950,18 +2964,10 @@
   </file>
   <file path="packages/api-client/src/client.ts">
     <item priority="low">
-      interface ClientConfig {
-        baseUrl: string;
-        getAccessToken?: () => string | null | Promise<string | null>;
-        timeout?: number;
-        maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
-      }
+      type QueryParams = Record<string, string | number | boolean | undefined | null>;
     </item>
-    <item priority="low">
-      interface RequestOptions {
-        signal?: AbortSignal;
-      }
+    <item priority="high">
+      export function buildQueryString(params: QueryParams): string { /* ... */ }
     </item>
   </file>
   <file path="packages/api-client/src/floor-plans.ts">
@@ -3123,7 +3129,7 @@
       } { /* ... */ }
     </item>
     <item priority="high">
-      export function createListResponseSchema(entityRef: string) { /* ... */ }
+      export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/job-types.ts">
@@ -3161,6 +3167,17 @@
         queueName?: string;
         handlers: JobHandlerMap;
       }
+    </item>
+  </file>
+  <file path="packages/mcp-server/src/dispatcher.ts">
+    <item priority="high">
+      type McpContent = { type: "text"; text: string };
+    </item>
+    <item priority="high">
+      type McpResult = {
+        content: McpContent[];
+        isError?: boolean;
+      };
     </item>
   </file>
   <file path="packages/mcp-server/src/index.ts">

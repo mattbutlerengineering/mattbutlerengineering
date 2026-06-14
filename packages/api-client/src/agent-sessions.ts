@@ -1,5 +1,5 @@
 import { ApiClient } from "./client.js";
-import type { ClientConfig } from "./client.js";
+import type { ClientConfig, QueryParams } from "./client.js";
 
 export interface SessionSummary {
   readonly id: string;
@@ -49,12 +49,7 @@ export class AgentSessionClient extends ApiClient {
   }
 
   async listSessions(params: ListSessionsParams = {}): Promise<PaginatedSessions> {
-    const qs = new URLSearchParams();
-    if (params.status) qs.set("status", params.status);
-    if (params.page !== undefined) qs.set("page", String(params.page));
-    if (params.limit !== undefined) qs.set("limit", String(params.limit));
-    const query = qs.toString();
-    return this.get<PaginatedSessions>(`/v1/sessions${query ? `?${query}` : ""}`);
+    return this.get<PaginatedSessions>("/v1/sessions", params as QueryParams);
   }
 
   async cancelSession(id: string): Promise<SessionSummary> {

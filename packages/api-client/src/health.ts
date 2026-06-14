@@ -1,5 +1,3 @@
-import type { ApiClient } from "./client.js";
-
 export interface ServiceHealth {
   readonly status: string;
   readonly version?: string;
@@ -13,15 +11,4 @@ export interface SystemHealth {
   readonly staticSites?: Record<string, { status: string }>;
   readonly ci?: { status: string };
   readonly deploy?: { status: string };
-}
-
-export class HealthClient {
-  constructor(private client: ApiClient) {}
-
-  /**
-   * Get system-wide health status (admin only)
-   */
-  async getSystemHealth(): Promise<SystemHealth> {
-    return this.client.get<SystemHealth>("/api/health/system");
-  }
 }

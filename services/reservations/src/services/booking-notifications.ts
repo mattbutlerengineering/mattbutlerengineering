@@ -33,7 +33,10 @@ function resolveChannel(
 
 export interface BookingNotifierDeps {
   notificationAdapter: NotificationPort;
-  scheduler: { schedule(...args: unknown[]): Promise<unknown>; cancel(id: string): Promise<void> };
+  scheduler: {
+    schedule(jobType: string, payload: unknown, delayMs: number, jobId?: string): Promise<unknown>;
+    cancel(id: string): Promise<void>;
+  };
   getVenue: (venueId: string) => Promise<Venue | null>;
 }
 
@@ -89,7 +92,8 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
       await scheduler.schedule(
         JOB_TYPES.BOOKING_REMINDER,
         { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
-        dayBeforeDelay
+        dayBeforeDelay,
+        reminderJobId(JOB_TYPES.BOOKING_REMINDER, id)
       );
     }
 
@@ -98,7 +102,8 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
       await scheduler.schedule(
         JOB_TYPES.DAY_OF_REMINDER,
         { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
-        dayOfDelay
+        dayOfDelay,
+        reminderJobId(JOB_TYPES.DAY_OF_REMINDER, id)
       );
     }
   }

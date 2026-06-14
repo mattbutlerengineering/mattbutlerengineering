@@ -76,12 +76,11 @@ function makeAuthResult(overrides: Partial<AuthReturnType> = {}): AuthReturnType
 
 type ApiClientReturnType = ReturnType<typeof useApiClient>;
 
-function makeApiClient(overrides: Record<string, unknown> = {}): ApiClientReturnType {
+function makeApiClient(getOverride?: ReturnType<typeof vi.fn>): ApiClientReturnType {
   return {
-    health: {
-      getSystemHealth: vi.fn(),
+    client: {
+      get: getOverride ?? vi.fn(),
     },
-    ...overrides,
   } as unknown as ApiClientReturnType;
 }
 
@@ -123,20 +122,18 @@ describe("SystemHealthBadge", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGetSystemHealth = vi.fn().mockResolvedValue({
+    const mockGet = vi.fn().mockResolvedValue({
       status: "healthy",
       timestamp: "2026-01-15T12:00:00Z",
     });
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
     });
 
     await waitFor(() => {
-      expect(mockGetSystemHealth).toHaveBeenCalled();
+      expect(mockGet).toHaveBeenCalledWith("/api/health/system");
     });
 
     // Verify useApiClient hook was called (not raw fetch)
@@ -159,10 +156,8 @@ describe("SystemHealthBadge", () => {
       deploy: { status: "healthy" },
     };
 
-    const mockGetSystemHealth = vi.fn().mockResolvedValue(healthData);
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    const mockGet = vi.fn().mockResolvedValue(healthData);
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -188,10 +183,8 @@ describe("SystemHealthBadge", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGetSystemHealth = vi.fn().mockRejectedValue(new Error("Network error"));
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    const mockGet = vi.fn().mockRejectedValue(new Error("Network error"));
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -206,12 +199,10 @@ describe("SystemHealthBadge", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGetSystemHealth = vi
+    const mockGet = vi
       .fn()
       .mockRejectedValue(Object.assign(new Error("500 Service Unavailable"), { statusCode: 500 }));
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -230,10 +221,8 @@ describe("SystemHealthBadge", () => {
       timestamp: "2026-01-15T12:00:00Z",
     };
 
-    const mockGetSystemHealth = vi.fn().mockResolvedValue(healthData);
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    const mockGet = vi.fn().mockResolvedValue(healthData);
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
@@ -263,24 +252,22 @@ describe("SystemHealthBadge — polling", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGetSystemHealth = vi.fn().mockResolvedValue({
+    const mockGet = vi.fn().mockResolvedValue({
       status: "healthy",
       timestamp: "2026-01-15T12:00:00Z",
     });
-    vi.mocked(useApiClient).mockReturnValue(
-      makeApiClient({ health: { getSystemHealth: mockGetSystemHealth } })
-    );
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
     });
 
-    const initialCalls = mockGetSystemHealth.mock.calls.length;
+    const initialCalls = mockGet.mock.calls.length;
 
     await act(async () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect(mockGetSystemHealth.mock.calls.length).toBeGreaterThan(initialCalls);
+    expect(mockGet.mock.calls.length).toBeGreaterThan(initialCalls);
   });
 });

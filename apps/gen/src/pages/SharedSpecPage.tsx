@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
@@ -14,6 +14,7 @@ import {
   ThemeToggle,
   Divider,
 } from "@mattbutlerengineering/rialto";
+import { ApiClient, ApiClientError } from "@mbe/api-client";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import styles from "./SharedSpecPage.module.css";
@@ -100,37 +101,35 @@ export function SharedSpecPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(
     id ? null : "No spec ID provided."
   );
+  const [copyFailed, setCopyFailed] = useState(false);
   const { copied, copy } = useCopyToClipboard();
+
+  // Public endpoint — no auth token needed
+  const client = useMemo(() => new ApiClient({ baseUrl: "" }), []);
 
   useEffect(() => {
     if (!id) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function fetchSpec() {
       try {
-        const response = await fetch(`/api/gen/specs/${id}`);
-        if (cancelled) return;
+        const json = await client.request<{ data: StoredSpec }>(`/api/gen/specs/${id}`, {
+          method: "GET",
+          signal: controller.signal,
+        });
 
-        if (response.status === 404) {
+        setStoredSpec(json.data);
+        setLoadState("success");
+      } catch (err) {
+        if (controller.signal.aborted) return;
+
+        if (err instanceof ApiClientError && err.category === "notFound") {
           setLoadState("error");
           setErrorMessage("Spec not found.");
           return;
         }
 
-        if (!response.ok) {
-          setLoadState("error");
-          setErrorMessage(`Failed to load spec: ${response.statusText}`);
-          return;
-        }
-
-        const json = (await response.json()) as { data: StoredSpec };
-        if (cancelled) return;
-
-        setStoredSpec(json.data);
-        setLoadState("success");
-      } catch (err) {
-        if (cancelled) return;
         const message = err instanceof Error ? err.message : "Unexpected error loading spec.";
         setLoadState("error");
         setErrorMessage(message);
@@ -140,13 +139,23 @@ export function SharedSpecPage() {
     void fetchSpec();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [id]);
+  }, [id, client]);
 
-  const handleCopyLink = useCallback(() => {
-    void copy(window.location.href);
+  const handleCopyLink = useCallback(async () => {
+    const succeeded = await copy(window.location.href);
+    if (!succeeded) {
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    }
   }, [copy]);
+
+  function copyButtonLabel() {
+    if (copyFailed) return "Copy failed";
+    if (copied) return "Copied!";
+    return "Copy Link";
+  }
 
   return (
     <div className={styles.page}>
@@ -218,10 +227,10 @@ export function SharedSpecPage() {
                 </div>
 
                 <div className={styles.actions}>
-                  <Button variant="ghost" size="sm" onClick={handleCopyLink}>
+                  <Button variant="ghost" size="sm" onClick={() => void handleCopyLink()}>
                     <Text className={styles.buttonContent}>
                       <LinkIcon />
-                      {copied ? "Copied!" : "Copy Link"}
+                      {copyButtonLabel()}
                     </Text>
                   </Button>
                   <Link to="/gen/">

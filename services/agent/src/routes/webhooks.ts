@@ -2,11 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { type ApiError, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
-import { executeSession } from "../services/session-executor.js";
-import {
-  createRawBodyCaptureHook,
-  createVerifiedBodyPreHandler,
-} from "../lib/verified-webhook.js";
+import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const REQUIRED_PERMISSION = "write";
@@ -130,11 +126,14 @@ async function checkCollaboratorPermission(
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook("preParsing", createRawBodyCaptureHook());
-  fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-    header: "x-hub-signature-256",
-    secretEnv: "GITHUB_WEBHOOK_SECRET",
-    format: "sha256=",
-  }));
+  fastify.addHook(
+    "preHandler",
+    createVerifiedBodyPreHandler({
+      header: "x-hub-signature-256",
+      secretEnv: "GITHUB_WEBHOOK_SECRET",
+      format: "sha256=",
+    })
+  );
 
   // POST /v1/webhooks/github — Handle GitHub webhook events
   // github[js/missing-rate-limiting] — restrictive limit for high-impact webhook
@@ -255,14 +254,17 @@ async function handleIssueEvent(
     );
   }
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "Webhook-triggered session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn(
+      { issueNumber: event.issue.number },
+      "Concurrency cap reached — session not created"
+    );
+  }
 }
 
 async function handleIssueCommentEvent(
@@ -310,18 +312,27 @@ async function handleIssueCommentEvent(
     "Creating session from PR comment"
   );
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "PR comment-triggered session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn(
+      { prNumber: event.issue.number },
+      "Concurrency cap reached — session not created"
+    );
+  }
 }
 
 async function handleCheckRunEvent(
-  fastify: { log: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void } },
+  fastify: {
+    log: {
+      info: (...args: unknown[]) => void;
+      warn: (...args: unknown[]) => void;
+      error: (...args: unknown[]) => void;
+    };
+  },
   event: GitHubCheckRunEvent
 ): Promise<void> {
   if (event.action !== "completed") return;
@@ -331,31 +342,27 @@ async function handleCheckRunEvent(
   const branch = event.check_run.check_suite.head_branch;
   if (!branch || !branch.startsWith(AGENT_BRANCH_PREFIX)) return;
 
-  // Check how many retry sessions already exist for this branch
-  const existing = await sessionService.list({ page: 1, limit: 100 });
-  const retries = existing.data.filter(
-    (s) => s.branchName === branch && s.taskDescription.includes("[CI Retry")
-  );
+  const retryCount = await sessionService.countCiRetries(branch);
 
-  if (retries.length >= MAX_CI_RETRIES) {
-    fastify.log.info({ branch, retries: retries.length }, "Max CI retries reached — skipping");
+  if (retryCount >= MAX_CI_RETRIES) {
+    fastify.log.info({ branch, retries: retryCount }, "Max CI retries reached — skipping");
     return;
   }
 
   const taskDescription =
-    `[CI Retry ${retries.length + 1}/${MAX_CI_RETRIES}] ` +
+    `[CI Retry ${retryCount + 1}/${MAX_CI_RETRIES}] ` +
     `Fix CI failure on branch ${branch}.\n\n` +
     `Check run "${event.check_run.name}" failed at commit ${event.check_run.head_sha}.\n` +
     `Review the CI output and fix the failing tests or build errors.`;
 
-  fastify.log.info({ branch, attempt: retries.length + 1 }, "Creating CI retry session");
+  fastify.log.info({ branch, attempt: retryCount + 1 }, "Creating CI retry session");
 
-  const session = await sessionService.create({
-    taskDescription: `<task>\n${taskDescription}\n</task>`,
+  const result = await sessionService.triggerSession({
+    taskDescription,
     baseBranch: event.repository.default_branch,
   });
 
-  executeSession(session).catch((err) => {
-    fastify.log.error({ sessionId: session.id, err }, "CI retry session failed");
-  });
+  if (!result.accepted) {
+    fastify.log.warn({ branch }, "Concurrency cap reached — CI retry session not created");
+  }
 }

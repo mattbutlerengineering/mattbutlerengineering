@@ -1,5 +1,6 @@
 import type { Prisma, Session, SessionEvent, SessionStatus } from "../generated/prisma/index.js";
 import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import { prisma } from "./database.js";
 import { getSessionEventEmitter } from "./session-event-emitter.js";
 
@@ -56,35 +57,42 @@ interface ListOptions {
   readonly status?: SessionStatus;
 }
 
+export interface TriggerSessionOptions {
+  taskDescription: string;
+  baseBranch?: string;
+  userId?: string;
+  model?: string;
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  createPr?: boolean;
+  parentId?: string;
+  onSettled?: (success: boolean) => void | Promise<void>;
+}
+
+export interface TriggerSessionResult {
+  session: AgentSession | null;
+  accepted: boolean;
+}
+
+const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+
 export const sessionService = {
   async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
     const { page, limit, status } = options;
-    const skip = (page - 1) * limit;
-
     const where: Prisma.SessionWhereInput = status ? { status } : {};
 
     const [sessions, total] = await Promise.all([
       prisma.session.findMany({
         where,
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { createdAt: "desc" },
       }),
       prisma.session.count({ where }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: sessions.map(mapPrismaSession),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
@@ -116,6 +124,36 @@ export const sessionService = {
       },
     });
     return mapPrismaSession(session);
+  },
+
+  async triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> {
+    const { executeSession, getActiveSessionCount } = await import("./session-executor.js");
+
+    if (getActiveSessionCount() >= MAX_CONCURRENT) {
+      return { session: null, accepted: false };
+    }
+
+    const wrappedTask = `<task>\n${opts.taskDescription}\n</task>`;
+
+    const session = await this.create({
+      taskDescription: wrappedTask,
+      baseBranch: opts.baseBranch,
+      userId: opts.userId,
+      model: opts.model,
+      maxTurns: opts.maxTurns,
+      maxBudgetUsd: opts.maxBudgetUsd,
+      createPr: opts.createPr,
+      parentId: opts.parentId,
+    });
+
+    executeSession(session)
+      .then(() => opts.onSettled?.(true))
+      .catch((err) => {
+        opts.onSettled?.(false);
+        console.error({ sessionId: session.id, err }, "triggerSession execution failed");
+      });
+
+    return { session, accepted: true };
   },
 
   async updateStatus(
@@ -188,6 +226,12 @@ export const sessionService = {
        ORDER BY s.updated_at ASC
     `;
     return rows.map((r) => r.id);
+  },
+
+  async countCiRetries(branchName: string): Promise<number> {
+    return prisma.session.count({
+      where: { branchName, taskDescription: { contains: "[CI Retry" } },
+    });
   },
 
   async findByStatus(status: SessionStatus): Promise<AgentSession[]> {

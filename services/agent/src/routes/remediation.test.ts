@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 vi.mock("../services/session.js", () => ({
   sessionService: {
     create: vi.fn(),
+    triggerSession: vi.fn(),
   },
 }));
 
@@ -19,7 +20,6 @@ vi.mock("../services/remediation-circuit-breaker.js", () => ({
 }));
 
 import { sessionService } from "../services/session.js";
-import { executeSession } from "../services/session-executor.js";
 import { checkCircuitBreaker } from "../services/remediation-circuit-breaker.js";
 import { buildApp } from "../app.js";
 
@@ -115,7 +115,7 @@ describe("Remediation Webhook Routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().sessionId).toBe("");
-    expect(sessionService.create).not.toHaveBeenCalled();
+    expect(sessionService.triggerSession).not.toHaveBeenCalled();
   });
 
   it("returns 503 if circuit breaker is open", async () => {
@@ -144,7 +144,10 @@ describe("Remediation Webhook Routes", () => {
 
   it("creates and executes a session for critical/warning alerts", async () => {
     const mockSession = { id: "remed-session-123" };
-    vi.mocked(sessionService.create).mockResolvedValueOnce(mockSession as unknown as never);
+    vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      session: mockSession as never,
+      accepted: true,
+    });
 
     const payloadStr = JSON.stringify(validPayload);
     const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
@@ -162,24 +165,24 @@ describe("Remediation Webhook Routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().sessionId).toBe("remed-session-123");
 
-    expect(sessionService.create).toHaveBeenCalledWith(
+    expect(sessionService.triggerSession).toHaveBeenCalledWith(
       expect.objectContaining({
         baseBranch: "main",
+        onSettled: expect.any(Function),
       })
     );
-    expect(executeSession).toHaveBeenCalled();
   });
 
-  it("handles execution success and failure in fire-and-forget", async () => {
-    const mockSession = { id: "remed-session-456" };
-    vi.mocked(sessionService.create).mockResolvedValueOnce(mockSession as unknown as never);
-
-    // Test success path
-    vi.mocked(executeSession).mockResolvedValueOnce(undefined);
+  it("returns 503 when concurrency cap is reached", async () => {
+    vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      session: null,
+      accepted: false,
+    });
 
     const payloadStr = JSON.stringify(validPayload);
     const signature = createHmac("sha256", secret).update(payloadStr).digest("hex");
-    await app.inject({
+
+    const response = await app.inject({
       method: "POST",
       url: "/v1/webhooks/remediation",
       headers: {
@@ -189,9 +192,6 @@ describe("Remediation Webhook Routes", () => {
       payload: payloadStr,
     });
 
-    // We need to wait a bit because it's fire-and-forget
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    expect(executeSession).toHaveBeenCalled();
+    expect(response.statusCode).toBe(503);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ApiClient, ApiClientError } from "./client.js";
+import { ApiClient, ApiClientError, buildQueryString } from "./client.js";
 
 // Mock global fetch
 const mockFetch = vi.fn<typeof fetch>();
@@ -483,6 +483,146 @@ describe("ApiClient", () => {
       const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
 
       await expect(client.getOne("/api/v1/users/999")).rejects.toThrow(ApiClientError);
+    });
+  });
+
+  describe("get() with params", () => {
+    it("should append query string when params are provided", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/reservations", { venueId: "v1", date: "2026-06-01" });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("venueId")).toBe("v1");
+      expect(parsed.searchParams.get("date")).toBe("2026-06-01");
+    });
+
+    it("should omit undefined values from query string", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/reservations", { venueId: "v1", date: undefined });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("venueId")).toBe("v1");
+      expect(parsed.searchParams.has("date")).toBe(false);
+    });
+
+    it("should omit null values from query string", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/reservations", { venueId: "v1", status: null });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("venueId")).toBe("v1");
+      expect(parsed.searchParams.has("status")).toBe(false);
+    });
+
+    it("should stringify number values", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/tables", { page: 2, limit: 10 });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("page")).toBe("2");
+      expect(parsed.searchParams.get("limit")).toBe("10");
+    });
+
+    it("should stringify boolean values", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/tables", { activeOnly: true });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("activeOnly")).toBe("true");
+    });
+
+    it("should produce no query string when params is empty object", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/venues", {});
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/venues");
+    });
+
+    it("should produce no query string when params is omitted", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/venues");
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/venues");
+    });
+
+    it("should join multiple params correctly", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      await client.get("/api/v1/reservations", {
+        venueId: "v1",
+        date: "2026-06-01",
+        status: "CONFIRMED",
+        page: 1,
+        limit: 20,
+      });
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const parsed = new URL(url as string);
+      expect(parsed.searchParams.get("venueId")).toBe("v1");
+      expect(parsed.searchParams.get("date")).toBe("2026-06-01");
+      expect(parsed.searchParams.get("status")).toBe("CONFIRMED");
+      expect(parsed.searchParams.get("page")).toBe("1");
+      expect(parsed.searchParams.get("limit")).toBe("20");
+    });
+  });
+
+  describe("buildQueryString", () => {
+    it("should return empty string for empty params", () => {
+      expect(buildQueryString({})).toBe("");
+    });
+
+    it("should omit undefined values", () => {
+      const result = buildQueryString({ a: "hello", b: undefined });
+      const parsed = new URLSearchParams(result.slice(1));
+      expect(parsed.has("b")).toBe(false);
+      expect(parsed.get("a")).toBe("hello");
+    });
+
+    it("should omit null values", () => {
+      const result = buildQueryString({ a: "hello", b: null });
+      const parsed = new URLSearchParams(result.slice(1));
+      expect(parsed.has("b")).toBe(false);
+    });
+
+    it("should stringify numbers", () => {
+      const result = buildQueryString({ page: 3 });
+      expect(result).toBe("?page=3");
+    });
+
+    it("should stringify booleans", () => {
+      const result = buildQueryString({ activeOnly: false });
+      expect(result).toBe("?activeOnly=false");
+    });
+
+    it("should return empty string when all values are undefined or null", () => {
+      expect(buildQueryString({ a: undefined, b: null })).toBe("");
+    });
+
+    it("should start with ? when any value is present", () => {
+      const result = buildQueryString({ key: "val" });
+      expect(result.startsWith("?")).toBe(true);
     });
   });
 

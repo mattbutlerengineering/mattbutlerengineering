@@ -3,6 +3,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("./database.js", () => ({
   prisma: {
+    venue: {
+      findUnique: vi.fn(),
+    },
     reservationHold: {
       findUnique: vi.fn(),
       delete: vi.fn(),
@@ -20,9 +23,21 @@ vi.mock("./events.js", () => ({
   emitHoldConfirmed: vi.fn(),
 }));
 
+vi.mock("./availability.js", () => ({
+  availabilityService: {
+    fetchConflictData: vi.fn(),
+  },
+}));
+
+vi.mock("./assert-bookable.js", () => ({
+  assertBookable: vi.fn().mockReturnValue(undefined),
+}));
+
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
+import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 const TEN_MIN_FROM_NOW = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -94,6 +109,18 @@ describe("confirmHold", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+
+    // Default: venue with no pacing rules — pacing check passes by default.
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+      id: "venue-1",
+      settings: null,
+    } as never);
+    vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
+      reservations: [],
+      holds: [],
+    });
+    // assertBookable: no booking errors by default (slot is free).
+    vi.mocked(assertBookable).mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -434,6 +461,126 @@ describe("confirmHold", () => {
       });
 
       expect(emitHoldConfirmed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Slice 9: Pacing regression — confirm must enforce pacing", () => {
+    it("rejects hold confirmation when pacing limit would be exceeded", async () => {
+      // Regression: confirm-hold previously skipped pacing entirely.
+      // Confirming a hold that would exceed the venue's maxCoversPerSlot must
+      // return PACING_EXCEEDED, not create a reservation.
+      const hold = makePrismaHold({ partySize: 4 });
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: { pacingRules: [{ maxCoversPerSlot: 4, timeWindowMinutes: 15 }] },
+      } as never);
+      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
+        reservations: [],
+        holds: [],
+      });
+      // assertBookable reports pacing exceeded
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PACING_EXCEEDED",
+        message: "Pacing limit reached. Maximum 4 covers per time window.",
+      });
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errorCode).toBe("PACING_EXCEEDED");
+      }
+      expect(emitHoldConfirmed).not.toHaveBeenCalled();
+    });
+
+    it("allows confirmation when pacing limit is not exceeded", async () => {
+      const hold = makePrismaHold({ partySize: 2 });
+      const reservation = makeReservationResult(hold);
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: { pacingRules: [{ maxCoversPerSlot: 10, timeWindowMinutes: 15 }] },
+      } as never);
+      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
+        reservations: [],
+        holds: [],
+      });
+      // assertBookable: no error (slot is bookable)
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockResolvedValue(reservation),
+            },
+            reservationHold: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              delete: vi.fn().mockResolvedValue(undefined),
+            },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("passes excludeHoldId to assertBookable so the hold does not conflict with itself", async () => {
+      const hold = makePrismaHold();
+
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
+        reservations: [],
+        holds: [],
+      });
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
+            },
+            reservationHold: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              delete: vi.fn().mockResolvedValue(undefined),
+            },
+          };
+          return fn(tx);
+        }
+      );
+
+      await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+      });
+
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({ excludeHoldId: "hold-1" })
+      );
     });
   });
 });

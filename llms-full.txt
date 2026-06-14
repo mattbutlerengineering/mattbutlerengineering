@@ -2535,14 +2535,16 @@
       const [copied, setCopied] = useState(false);
       const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-      const copy = useCallback(async (text: string) => {
+      const copy = useCallback(async (text: string): Promise<boolean> => {
         if (timerRef.current) {
           clearTimeout(timerRef.current);
         }
     
+        let succeeded = false;
         try {
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
+            succeeded = true;
           } else {
             window.prompt("Copy to clipboard:", text);
           }
@@ -2555,6 +2557,8 @@
           setCopied(false);
           timerRef.current = null;
         }, 2000);
+    
+        return succeeded;
       }, []);
     
       return { copied, copy };
@@ -4522,20 +4526,25 @@
             "Creating remediation session"
           );
     
-          const session = await sessionService.create({
+          const result = await sessionService.triggerSession({
             taskDescription,
             baseBranch: "main",
+            onSettled: recordRemediationOutcome,
           });
     
-          // Fire and forget — record outcome when complete
-          executeSession(session)
-            .then(() => recordRemediationOutcome(true))
-            .catch((err) => {
-              recordRemediationOutcome(false);
-              fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
-            });
+          if (!result.accepted) {
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  "Maximum concurrent sessions reached. Try again later."
+                )
+              );
+          }
     
-          return { sessionId: session.id };
+          return { sessionId: result.session!.id };
         }
       );
     };
@@ -4690,8 +4699,16 @@
           },
         },
         async (request, reply) => {
-          const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
-          if (getActiveSessionCount() >= maxConcurrent) {
+          // Stamp the authenticated creator's id. Sourced exclusively from the
+          // verified auth context (requireAuth preHandler) — never from the
+          // client-supplied request body — so callers cannot spoof ownership.
+          const result = await sessionService.triggerSession({
+            ...request.body,
+            userId: request.user?.id,
+          });
+    
+          if (!result.accepted) {
+            const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
             return reply
               .code(429)
               .send(
@@ -4703,20 +4720,7 @@
               );
           }
     
-          // Stamp the authenticated creator's id. Sourced exclusively from the
-          // verified auth context (requireAuth preHandler) — never from the
-          // client-supplied request body — so callers cannot spoof ownership.
-          const session = await sessionService.create({
-            ...request.body,
-            userId: request.user?.id,
-          });
-    
-          // Fire-and-forget: execution happens in the background
-          executeSession(session).catch((err) => {
-            fastify.log.error({ sessionId: session.id, err }, "Session execution failed");
-          });
-    
-          return reply.code(201).send({ data: session });
+          return reply.code(201).send({ data: result.session! });
         }
       );
     
@@ -10831,6 +10835,29 @@
       };
     }
   </file>
+  <file path="services/reservations/src/services/assert-bookable.ts">
+    export type BookableError =
+      | { code: "CONFLICT"; message: string }
+      | { code: "PACING_EXCEEDED"; message: string };
+    export interface AssertBookableOptions {
+      /** Table being checked for conflict. */
+      tableId: string;
+      /** Window to check — [startTime, endTime). */
+      window: { startTime: Date; endTime: Date };
+      /** Party size to add when computing pacing. */
+      partySize: number;
+      /** Venue pacing settings. */
+      settings: VenueSettings | null | undefined;
+      /** Pre-fetched reservation slices for the date. */
+      reservations: ReservationSlim[];
+      /** Pre-fetched hold slices for the date. */
+      holds: HoldSlim[];
+      /** Exclude this hold ID from conflict checks (used during confirmation). */
+      excludeHoldId?: string;
+      /** Exclude this session ID's holds from conflict checks (used during hold create). */
+      excludeSessionId?: string;
+    }
+  </file>
   <file path="services/reservations/src/services/availability.ts">
     interface VenueWithSettings {
       id: string;
@@ -10882,7 +10909,12 @@
     }
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
-    type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+    type ConfirmHoldErrorCode =
+      | "NOT_FOUND"
+      | "EXPIRED"
+      | "SESSION_MISMATCH"
+      | "CONFLICT"
+      | "PACING_EXCEEDED";
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
@@ -12841,15 +12873,14 @@
     }
   </file>
   <file path="packages/api-client/src/client.ts">
-    export interface ClientConfig {
-      baseUrl: string;
-      getAccessToken?: () => string | null | Promise<string | null>;
-      timeout?: number;
-      maxRetries?: number;
-      onError?: (error: ApiClientError) => void;
-    }
-    export interface RequestOptions extends RequestInit {
-      signal?: AbortSignal;
+    export type QueryParams = Record<string, string | number | boolean | undefined | null>;
+    export function buildQueryString(params: QueryParams): string {
+      const sp = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) sp.set(key, String(value));
+      }
+      const s = sp.toString();
+      return s ? `?${s}` : "";
     }
   </file>
   <file path="packages/api-client/src/floor-plans.ts">
@@ -12863,14 +12894,9 @@
           limit?: number;
         } = {}
       ): Promise<PaginatedResponse<FloorPlan>> {
-        const searchParams = new URLSearchParams();
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-    
-        const query = searchParams.toString();
         return this.client.get<PaginatedResponse<FloorPlan>>(
-          `/api/v1/floor-plans${query ? `?${query}` : ""}`
+          "/api/v1/floor-plans",
+          params as QueryParams
         );
       }
     
@@ -12975,7 +13001,6 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
-        health: new HealthClient(client),
       };
     }
   </file>
@@ -12996,18 +13021,9 @@
        * List reservations with optional filters
        */
       async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.date) searchParams.set("date", params.date);
-        if (params.status) searchParams.set("status", params.status);
-        if (params.tableId) searchParams.set("tableId", params.tableId);
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.guestId) searchParams.set("guestId", params.guestId);
-    
-        const query = searchParams.toString();
         return this.client.get<PaginatedResponse<Reservation>>(
-          `/api/v1/reservations${query ? `?${query}` : ""}`
+          "/api/v1/reservations",
+          params as QueryParams
         );
       }
     
@@ -13179,14 +13195,7 @@
        * List tables with optional filters
        */
       async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueId) searchParams.set("venueId", params.venueId);
-        if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
+        return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
       }
     
       /**
@@ -13291,13 +13300,7 @@
       async list(
         params: { page?: number; limit?: number; venueGroupId?: string } = {}
       ): Promise<PaginatedResponse<Venue>> {
-        const searchParams = new URLSearchParams();
-        if (params.page) searchParams.set("page", String(params.page));
-        if (params.limit) searchParams.set("limit", String(params.limit));
-        if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
-    
-        const query = searchParams.toString();
-        return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
+        return this.client.get<PaginatedResponse<Venue>>("/api/v1/venues", params as QueryParams);
       }
     
       /**
@@ -13406,21 +13409,8 @@
       const limit = Math.max(1, Math.min(100, isNaN(rawLimit) ? 10 : rawLimit));
       return { page, limit };
     }
-    export function createListResponseSchema(entityRef: string) {
-      return {
-        type: "object" as const,
-        properties: {
-          data: { type: "array" as const, items: { $ref: entityRef } },
-          pagination: {
-            type: "object" as const,
-            properties: {
-              page: { type: "number" as const },
-              limit: { type: "number" as const },
-              total: { type: "number" as const },
-            },
-          },
-        },
-      };
+    export function paginate(query: { page: number; limit: number }): { skip: number; take: number } {
+      return { skip: (query.page - 1) * query.limit, take: query.limit };
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
@@ -13463,7 +13453,8 @@
       async schedule<T extends JobType>(
         jobType: T,
         payload: JobPayloadMap[T],
-        delayMs: number
+        delayMs: number,
+        jobId?: string
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
@@ -13474,6 +13465,7 @@
           },
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
+          ...(jobId !== undefined ? { jobId } : {}),
         });
         return job.id as string;
       }
@@ -13540,6 +13532,13 @@
       queueName?: string;
       handlers: JobHandlerMap;
     }
+  </file>
+  <file path="packages/mcp-server/src/dispatcher.ts">
+    type McpContent = { type: "text"; text: string };
+    type McpResult = {
+      content: McpContent[];
+      isError?: boolean;
+    };
   </file>
   <file path="packages/mcp-server/src/index.ts">
     async function main() {

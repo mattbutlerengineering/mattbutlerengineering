@@ -8,6 +8,8 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn(),
+    triggerSession: vi.fn(),
+    countCiRetries: vi.fn(),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
@@ -42,7 +44,6 @@ vi.stubGlobal("fetch", vi.fn());
 const mockFetch = vi.mocked(fetch);
 
 import { sessionService } from "../services/session.js";
-import { executeSession } from "../services/session-executor.js";
 import { buildApp } from "../app.js";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
@@ -86,7 +87,10 @@ describe("Webhook Routes", () => {
     process.env.GITHUB_TOKEN = "test-github-token";
     app = await buildApp({ logger: false });
     await app.ready();
-    vi.mocked(sessionService.create).mockResolvedValue(mockSession);
+    vi.mocked(sessionService.triggerSession).mockResolvedValue({
+      session: mockSession,
+      accepted: true,
+    });
   });
 
   afterEach(async () => {
@@ -178,14 +182,12 @@ describe("Webhook Routes", () => {
         expect(response.statusCode).toBe(200);
         expect(JSON.parse(response.body)).toEqual({ received: true });
 
-        expect(vi.mocked(sessionService.create)).toHaveBeenCalledWith(
+        expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
           expect.objectContaining({
             taskDescription: expect.stringContaining("Fix the login bug"),
             baseBranch: "main",
           })
         );
-
-        expect(vi.mocked(executeSession)).toHaveBeenCalledWith(mockSession);
       });
 
       it("ignores non-agent labels", async () => {
@@ -203,7 +205,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("ignores non-labeled actions", async () => {
@@ -221,7 +223,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
     });
 
@@ -260,7 +262,7 @@ describe("Webhook Routes", () => {
 
         // Permission check should fail (returns false), so no session created
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("rejects repository with query string injection (evil.com/foo?)", async () => {
@@ -279,7 +281,7 @@ describe("Webhook Routes", () => {
         });
 
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("rejects username with path traversal (../evil)", async () => {
@@ -298,7 +300,7 @@ describe("Webhook Routes", () => {
         });
 
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("rejects repository with URL scheme injection", async () => {
@@ -317,7 +319,7 @@ describe("Webhook Routes", () => {
         });
 
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("rejects username with encoded characters (%2F)", async () => {
@@ -336,7 +338,7 @@ describe("Webhook Routes", () => {
         });
 
         expect(mockFetch).not.toHaveBeenCalled();
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("allows valid repository and username with hyphens and dots", async () => {
@@ -412,7 +414,7 @@ describe("Webhook Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(vi.mocked(sessionService.create)).toHaveBeenCalledWith(
+        expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
           expect.objectContaining({
             taskDescription: expect.stringContaining("fix the failing test"),
           })
@@ -437,7 +439,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("ignores comments on regular issues (not PRs)", async () => {
@@ -458,7 +460,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
     });
 
@@ -479,18 +481,8 @@ describe("Webhook Routes", () => {
         },
       };
 
-      it("creates a retry session for failed CI on agent branch", async () => {
-        vi.mocked(sessionService.list).mockResolvedValueOnce({
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        });
+      it("creates a retry session for failed CI on agent branch (below limit)", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(0);
 
         const payloadStr = JSON.stringify(checkRunPayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
@@ -506,32 +498,18 @@ describe("Webhook Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(vi.mocked(sessionService.create)).toHaveBeenCalledWith(
+        expect(vi.mocked(sessionService.countCiRetries)).toHaveBeenCalledWith(
+          "agent/fix-login-bug"
+        );
+        expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
           expect.objectContaining({
             taskDescription: expect.stringContaining("[CI Retry 1/3]"),
           })
         );
       });
 
-      it("skips retry when max retries reached", async () => {
-        const retries = Array.from({ length: 3 }, (_, i) => ({
-          ...mockSession,
-          id: `retry-${i}`,
-          branchName: "agent/fix-login-bug",
-          taskDescription: `[CI Retry ${i + 1}/3] Fix CI failure`,
-        }));
-
-        vi.mocked(sessionService.list).mockResolvedValueOnce({
-          data: retries,
-          pagination: {
-            page: 1,
-            limit: 100,
-            total: 3,
-            totalPages: 1,
-            hasNext: false,
-            hasPrev: false,
-          },
-        });
+      it("skips retry when at max retries limit", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(3);
 
         const payloadStr = JSON.stringify(checkRunPayload);
         const signature = signPayload(payloadStr, WEBHOOK_SECRET);
@@ -546,7 +524,26 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
+      });
+
+      it("skips retry when above max retries limit", async () => {
+        vi.mocked(sessionService.countCiRetries).mockResolvedValueOnce(5);
+
+        const payloadStr = JSON.stringify(checkRunPayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: checkRunPayload,
+          headers: {
+            "x-github-event": "check_run",
+            "x-hub-signature-256": signature,
+          },
+        });
+
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("ignores non-agent branches", async () => {
@@ -570,7 +567,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
 
       it("ignores successful check runs", async () => {
@@ -594,7 +591,7 @@ describe("Webhook Routes", () => {
           },
         });
 
-        expect(vi.mocked(sessionService.create)).not.toHaveBeenCalled();
+        expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
       });
     });
 

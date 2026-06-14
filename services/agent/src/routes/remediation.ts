@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { type ApiError, createProblemDetails } from "@mbe/types";
 import { sessionService } from "../services/session.js";
-import { executeSession } from "../services/session-executor.js";
 import {
   checkCircuitBreaker,
   recordRemediationOutcome,
@@ -124,20 +123,25 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         "Creating remediation session"
       );
 
-      const session = await sessionService.create({
+      const result = await sessionService.triggerSession({
         taskDescription,
         baseBranch: "main",
+        onSettled: recordRemediationOutcome,
       });
 
-      // Fire and forget — record outcome when complete
-      executeSession(session)
-        .then(() => recordRemediationOutcome(true))
-        .catch((err) => {
-          recordRemediationOutcome(false);
-          fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
-        });
+      if (!result.accepted) {
+        return reply
+          .code(503)
+          .send(
+            createProblemDetails(
+              503,
+              "Service Unavailable",
+              "Maximum concurrent sessions reached. Try again later."
+            )
+          );
+      }
 
-      return { sessionId: session.id };
+      return { sessionId: result.session!.id };
     }
   );
 };
