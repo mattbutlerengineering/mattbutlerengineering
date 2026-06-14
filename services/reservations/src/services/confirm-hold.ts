@@ -5,12 +5,20 @@ import {
   type ReservationStatus,
   type Table,
   type TableShapeMetadata,
+  type VenueSettings,
 } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
+import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 
-type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+type ConfirmHoldErrorCode =
+  | "NOT_FOUND"
+  | "EXPIRED"
+  | "SESSION_MISMATCH"
+  | "CONFLICT"
+  | "PACING_EXCEEDED";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.
@@ -157,6 +165,35 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
       error: "Session ID does not match the hold",
       errorCode: "SESSION_MISMATCH",
     };
+  }
+
+  // Step 2.5: Pacing pre-check — runs outside the transaction so pacing is
+  // enforced on every confirm path, not just hold create. Fetch venue settings
+  // and conflict slices once; pass to assertBookable (pure rule, no DB access).
+  if (hold.venueId) {
+    const venue = await prisma.venue.findUnique({ where: { id: hold.venueId } });
+    const settings = (venue?.settings ?? null) as VenueSettings | null;
+    const dateStr = hold.date.toISOString().slice(0, 10);
+    const { reservations, holds: holdSlices } = await availabilityService.fetchConflictData(
+      hold.venueId,
+      dateStr
+    );
+
+    const bookingError = assertBookable({
+      tableId: hold.tableId,
+      window: { startTime: hold.startTime, endTime: hold.endTime },
+      partySize: hold.partySize,
+      settings,
+      reservations,
+      holds: holdSlices,
+      excludeHoldId: holdId,
+    });
+
+    if (bookingError?.code === "PACING_EXCEEDED") {
+      return { success: false, error: bookingError.message, errorCode: "PACING_EXCEEDED" };
+    }
+    // CONFLICT from assertBookable is a pre-check only; the transaction re-checks
+    // under the advisory lock, which is the authoritative gate.
   }
 
   // Step 3: Transaction — advisory lock + expiry check + conflict check +

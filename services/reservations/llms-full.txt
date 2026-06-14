@@ -4714,6 +4714,29 @@
   </file>
   </section>
   <section priority="medium" role="services">
+  <file path="src/services/assert-bookable.ts">
+    export type BookableError =
+      | { code: "CONFLICT"; message: string }
+      | { code: "PACING_EXCEEDED"; message: string };
+    export interface AssertBookableOptions {
+      /** Table being checked for conflict. */
+      tableId: string;
+      /** Window to check — [startTime, endTime). */
+      window: { startTime: Date; endTime: Date };
+      /** Party size to add when computing pacing. */
+      partySize: number;
+      /** Venue pacing settings. */
+      settings: VenueSettings | null | undefined;
+      /** Pre-fetched reservation slices for the date. */
+      reservations: ReservationSlim[];
+      /** Pre-fetched hold slices for the date. */
+      holds: HoldSlim[];
+      /** Exclude this hold ID from conflict checks (used during confirmation). */
+      excludeHoldId?: string;
+      /** Exclude this session ID's holds from conflict checks (used during hold create). */
+      excludeSessionId?: string;
+    }
+  </file>
   <file path="src/services/availability.ts">
     interface VenueWithSettings {
       id: string;
@@ -4765,7 +4788,12 @@
     }
   </file>
   <file path="src/services/confirm-hold.ts">
-    type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+    type ConfirmHoldErrorCode =
+      | "NOT_FOUND"
+      | "EXPIRED"
+      | "SESSION_MISMATCH"
+      | "CONFLICT"
+      | "PACING_EXCEEDED";
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
