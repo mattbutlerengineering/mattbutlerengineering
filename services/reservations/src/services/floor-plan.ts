@@ -8,6 +8,7 @@ import type {
   UpdateTablePositionRequest,
   PaginatedResponse,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitFloorPlanCreated } from "./events.js";
@@ -85,32 +86,21 @@ function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
 
 export const floorPlanService = {
   async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
-    const skip = (page - 1) * limit;
     const where = venueId ? { venueId } : {};
 
     const [floorPlans, total] = await Promise.all([
       prisma.floorPlan.findMany({
         where,
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { name: "asc" },
         include: { tables: true },
       }),
       prisma.floorPlan.count({ where }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: floorPlans.map(mapPrismaFloorPlan),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
