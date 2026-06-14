@@ -6,6 +6,7 @@ import type {
   UpdateTableRequest,
   PaginatedResponse,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
@@ -62,31 +63,20 @@ export const tableService = {
     limit: number,
     activeOnly: boolean = false
   ): Promise<PaginatedResponse<Table>> {
-    const skip = (page - 1) * limit;
     const where = activeOnly ? { isActive: true } : {};
 
     const [tables, total] = await Promise.all([
       prisma.table.findMany({
         where,
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { name: "asc" },
       }),
       prisma.table.count({ where }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: tables.map(mapPrismaTable),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 

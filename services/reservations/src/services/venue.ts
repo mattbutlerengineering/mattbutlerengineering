@@ -7,6 +7,7 @@ import type {
   UpdateVenueGroupRequest,
   PaginatedResponse,
 } from "@mbe/types";
+import { paginate, toPaginationMeta } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 
@@ -71,29 +72,17 @@ function mapPrismaVenue(venue: {
 
 export const venueGroupService = {
   async list(page: number, limit: number): Promise<PaginatedResponse<VenueGroup>> {
-    const skip = (page - 1) * limit;
-
     const [groups, total] = await Promise.all([
       prisma.venueGroup.findMany({
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { name: "asc" },
       }),
       prisma.venueGroup.count(),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: groups.map(mapPrismaVenueGroup),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
@@ -153,32 +142,21 @@ export const venueService = {
     limit: number,
     venueGroupId?: string
   ): Promise<PaginatedResponse<Venue>> {
-    const skip = (page - 1) * limit;
     const where = venueGroupId ? { venueGroupId } : {};
 
     const [venues, total] = await Promise.all([
       prisma.venue.findMany({
         where,
-        skip,
-        take: limit,
+        ...paginate({ page, limit }),
         orderBy: { name: "asc" },
         include: { venueGroup: true },
       }),
       prisma.venue.count({ where }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
-
     return {
       data: venues.map(mapPrismaVenue),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      pagination: toPaginationMeta(page, limit, total),
     };
   },
 
