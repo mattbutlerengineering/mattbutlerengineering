@@ -3163,6 +3163,17 @@
       }
     </item>
   </file>
+  <file path="packages/mcp-server/src/dispatcher.ts">
+    <item priority="high">
+      type McpContent = { type: "text"; text: string };
+    </item>
+    <item priority="high">
+      type McpResult = {
+        content: McpContent[];
+        isError?: boolean;
+      };
+    </item>
+  </file>
   <file path="packages/mcp-server/src/index.ts">
     <item priority="low">
       async function main() { /* ... */ }
