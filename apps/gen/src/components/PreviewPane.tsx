@@ -10,6 +10,8 @@ import {
   SegmentedControl,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
+import { downloadJson } from "../utils/downloadJson.js";
 import styles from "./PreviewPane.module.css";
 
 const VIEWPORT_SEGMENTS = [
@@ -133,52 +135,27 @@ export function PreviewPane({
   onToggleFullscreen,
 }: PreviewPaneProps) {
   const { toast } = useToast();
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [copiedJson, setCopiedJson] = useState(false);
+  const { copied: copiedLink, copy: copyLink } = useCopyToClipboard();
+  const { copied: copiedJson, copy: copyJson } = useCopyToClipboard();
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const specStats = useMemo(() => computeSpecStats(spec), [spec]);
 
   function handleShare(id: string) {
     const url = `${window.location.origin}/gen/s/${id}`;
-    navigator.clipboard.writeText(url).then(
-      () => {
-        setCopiedId(id);
-        toast({ title: "Link copied!", variant: "success", duration: 2000 });
-        setTimeout(() => setCopiedId(null), 2000);
-      },
-      () => {
-        // Clipboard API unavailable — fall back to prompt
-        window.prompt("Copy this link:", url);
-      }
-    );
+    void copyLink(url);
+    toast({ title: "Link copied!", variant: "success", duration: 2000 });
     onShare(id);
   }
 
   function handleDownload() {
     if (!spec) return;
-    const json = JSON.stringify(spec, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gen-spec-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson(spec);
   }
 
   function handleCopyJson() {
     if (!spec) return;
-    const json = JSON.stringify(spec, null, 2);
-    navigator.clipboard.writeText(json).then(
-      () => {
-        setCopiedJson(true);
-        toast({ title: "JSON copied to clipboard", variant: "success", duration: 2000 });
-        setTimeout(() => setCopiedJson(false), 2000);
-      },
-      () => {
-        window.prompt("Copy this JSON:", json);
-      }
-    );
+    void copyJson(JSON.stringify(spec, null, 2));
+    toast({ title: "JSON copied to clipboard", variant: "success", duration: 2000 });
   }
 
   const showActionBar = activeSpecId !== null && !isStreaming;
@@ -203,7 +180,7 @@ export function PreviewPane({
       {showActionBar ? (
         <div className={styles.actionBar}>
           <Button variant="ghost" size="sm" onClick={() => handleShare(activeSpecId)}>
-            {copiedId === activeSpecId ? "Copied!" : "Share"}
+            {copiedLink ? "Copied!" : "Share"}
           </Button>
           {isRefinementMode ? (
             <Text variant="label" color="secondary">
@@ -222,7 +199,7 @@ export function PreviewPane({
             {copiedJson ? "Copied!" : "Copy JSON"}
           </Button>
           {specStats && (
-            <span
+            <Text
               className={styles.specStats}
               title={
                 specStats.componentTypes.length > 3
@@ -237,14 +214,14 @@ export function PreviewPane({
                   ? specStats.componentTypes.join(", ")
                   : `${specStats.componentTypes.length} types`}
               </Text>
-            </span>
+            </Text>
           )}
           {onToggleFullscreen && (
-            <span className={styles.actionBarEnd}>
+            <Text className={styles.actionBarEnd}>
               <Button variant="ghost" size="sm" onClick={onToggleFullscreen}>
                 {isFullscreen ? "Collapse" : "Expand"}
               </Button>
-            </span>
+            </Text>
           )}
         </div>
       ) : (spec || isStreaming) && onToggleFullscreen ? (
@@ -268,7 +245,7 @@ export function PreviewPane({
         {error ? (
           <div className={styles.errorState}>
             <Alert variant="error">
-              <span>{error.message}</span>
+              <Text>{error.message}</Text>
             </Alert>
             <Button variant="secondary" size="sm" onClick={onRetry}>
               Try again
@@ -289,21 +266,21 @@ export function PreviewPane({
               </Text>
               <div className={styles.suggestionsGrid}>
                 {PROMPT_SUGGESTIONS.map((suggestion, index) => (
-                  <button
+                  <Button
                     key={suggestion.title}
                     type="button"
                     className={styles.suggestionCard}
                     style={{ animationDelay: `${index * 80}ms` }}
                     onClick={() => onSuggestionClick?.(suggestion.prompt)}
                   >
-                    <span className={styles.suggestionIcon}>{suggestion.icon}</span>
+                    <Text className={styles.suggestionIcon}>{suggestion.icon}</Text>
                     <Text variant="label" className={styles.suggestionTitle}>
                       {suggestion.title}
                     </Text>
                     <Text variant="body" className={styles.suggestionDescription}>
                       {suggestion.description}
                     </Text>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

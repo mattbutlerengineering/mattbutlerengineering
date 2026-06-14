@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@gen": resolve(__dirname, "../gen/src"),
       "@mbe/types": resolve(__dirname, "../../packages/types/src/index.ts"),
     },
   },
