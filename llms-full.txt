@@ -12979,7 +12979,6 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
-        health: new HealthClient(client),
       };
     }
   </file>
