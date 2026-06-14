@@ -46,7 +46,8 @@ describe("users command", () => {
       await runUsersList();
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      const output = logSpy.mock.calls.flat().join("\n");
+      // Auth error now routed through runCommand → console.error
+      const output = errorSpy.mock.calls.flat().join("\n");
       expect(output).toContain("Not logged in");
     });
 
@@ -115,7 +116,8 @@ describe("users command", () => {
       await runUsersGet("user-123");
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      const output = logSpy.mock.calls.flat().join("\n");
+      // Auth error now routed through runCommand → console.error
+      const output = errorSpy.mock.calls.flat().join("\n");
       expect(output).toContain("Not logged in");
     });
 
