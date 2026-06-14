@@ -55,6 +55,47 @@ describe("reviewersForDiff — dependency-update-reviewer", () => {
   });
 });
 
+describe("reviewersForDiff — generated-artifact-determinism-reviewer", () => {
+  it("fires for a change to the pack generator", () => {
+    expect(reviewersForDiff(["tools/cli/src/commands/pack.ts"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+
+  it("fires for a per-package llms.txt change", () => {
+    expect(reviewersForDiff(["packages/agent-core/llms.txt"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+
+  it("fires for the root llms-full.txt", () => {
+    expect(reviewersForDiff(["llms-full.txt"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+
+  it("fires for a generated zod schema bundle", () => {
+    expect(reviewersForDiff(["packages/rialto-catalog/src/generated-schemas.ts"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+
+  it("fires for the dependency-graph artifacts", () => {
+    expect(reviewersForDiff(["infrastructure/worker/dep-graph.json"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+    expect(reviewersForDiff(["docs/architecture/dependency-graph.md"])).toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+
+  it("does NOT fire for a hand-written markdown doc", () => {
+    expect(reviewersForDiff(["docs/adr/0001-rfc7807-errors.md"])).not.toContain(
+      "generated-artifact-determinism-reviewer"
+    );
+  });
+});
+
 describe("reviewersForDiff — no match / dedupe / order", () => {
   it("returns no reviewers for a plain library source file", () => {
     expect(reviewersForDiff(["packages/observability/src/error-rates.ts"])).toEqual([]);
