@@ -2,6 +2,57 @@
 
 Maps AI agent workflows to regulatory and compliance requirements. Covers data access boundaries, audit trails, and risk controls.
 
+## AI Workflow Inventory
+
+This section maps each active AI workflow in this repo to its compliance category, data scope, and audit artifacts.
+
+### Continuous-Improvement Loop
+
+The loop runs autonomously via `/implement-queue` (local sprint mode) or scheduled RemoteTriggers (daily conservative mode). Each cycle follows this chain:
+
+| Workflow             | What it does                                                                                                     | Compliance category                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **implement-queue**  | Claims ready GitHub issues in batch, spawns parallel TDD worktree agents, serializes merge train                 | Change management, traceability         |
+| **site-audit**       | Crawls live Cloudflare Pages site with Playwright + Lighthouse, creates GitHub issues for defects found          | Risk management, continuous monitoring  |
+| **learning-loop**    | Collects sensor metrics, detects regressions, creates fix issues, verifies resolved items, self-tunes thresholds | Feedback integrity, process improvement |
+| **sentry-triage**    | Queries Sentry for production errors, deduplicates, filters by severity, creates GitHub issues                   | Incident management, risk detection     |
+| **ci-monitor**       | Checks GitHub Actions run health, auto-fixes simple CI failures, escalates complex ones                          | Change management, availability         |
+| **progress-tracker** | Aggregates agent performance metrics, manages circuit breaker, surfaces trend data                               | Observability, cost governance          |
+
+### Agent Sessions (`mbe agent run`)
+
+Each `mbe agent run` invocation creates a sandboxed worktree agent session:
+
+- **Isolation**: agent runs in an isolated `git worktree` — no shared file system state with other sessions
+- **Scope**: reads only the issue description, relevant repo files, and CI output; no access to production data
+- **Budget**: `--max-budget` cap limits per-session token spend; enforced by `@mbe/agent-core`
+- **Traceability**: each session is traced to Langfuse with `sessionId`, task description, model, cost, and turn count
+- **Identity**: agent commits carry `Co-Authored-By: Claude ...` trailer; branch names use `agent-*` prefix
+
+### Autonomous Merges
+
+The merge train in `/implement-queue` merges agent PRs without per-PR human approval when:
+
+1. All required CI checks pass (`CI Gate` job: lint, typecheck, test, Integrity, Architecture-Audit)
+2. The PR targets `main` (enforced by branch protection — direct push to `main` is blocked)
+3. Green-main policy is satisfied (if `main` is currently broken, merge train halts)
+
+**Compliance note**: autonomous merges are gated on CI, not on human review. The control is detective (CI catches regressions) rather than preventive (human sign-off). For regulated environments requiring human approval before merge, the `--no-auto-merge` flag on `/implement-queue` disables the train and leaves PRs in `has-pr` state for manual review.
+
+### Review Gate (Diff-Matched)
+
+Before any agent commit is created, the agent performs a self-review pass: it reads the full diff it produced and checks that every changed line is attributable to the stated issue. This diff-matched review is logged in the Langfuse session trace as an `evaluation_confidence` score (0–1). PRs with `evaluation_confidence < 0.7` are labeled `needs-review` and excluded from the autonomous merge train.
+
+### ADR Process (Architecture Decision Records)
+
+Significant architecture decisions are documented as ADRs in `docs/architecture/decisions/`. The CI Architecture-Audit job (`pnpm --filter @mbe/cli start check-adr`) enforces that:
+
+- Each ADR follows the `YYYYMMDD-title.md` filename convention
+- Referenced decisions have not been superseded without a successor ADR
+- New package dependencies comply with the ADR-defined dependency constraints (`check-deps`)
+
+Agents cannot create or modify ADRs autonomously — ADR authorship requires human intent. This is enforced by the `SECURITY-AI.md` write prohibition on `docs/architecture/decisions/`.
+
 ## AI Data Access Map
 
 ### What AI agents CAN access
