@@ -179,11 +179,9 @@ describe("session-executor", () => {
       const sessions = Array.from({ length: 5 }, (_, i) => makeSession({ id: `concurrent-${i}` }));
       const promises = sessions.map((s) => executeSession(s));
 
-      // Wait for all 5 to enter runSession (controllers registered).
-      // Use microtask-yield loop instead of setTimeout to avoid timer-starvation
-      // flakiness under full parallel turbo load (CI environment).
+      // Wait for all 5 to enter runSession (controllers registered)
       while (resolvers.length < 5) {
-        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 5));
       }
 
       expect(getActiveSessionCount()).toBe(5);
@@ -321,9 +319,8 @@ describe("session-executor", () => {
       const session = makeSession({ id: "cancel-target" });
       const execPromise = executeSession(session);
 
-      // Microtask-yield loop — immune to timer starvation under full parallel load.
       while (resolvers.length < 1) {
-        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 5));
       }
 
       const cancelled = await cancelSession("cancel-target");
