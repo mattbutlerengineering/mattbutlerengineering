@@ -44,7 +44,8 @@ describe("whoami command", () => {
     await runWhoami();
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const output = logSpy.mock.calls.flat().join("\n");
+    // Auth error is now routed through runCommand → console.error
+    const output = errorSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Not logged in");
   });
 
