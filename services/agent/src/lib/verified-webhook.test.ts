@@ -7,6 +7,7 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn().mockResolvedValue({ id: "test-session" }),
+    triggerSession: vi.fn().mockResolvedValue({ session: { id: "test-session" }, accepted: true }),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("../services/session.js", () => ({
 vi.mock("../services/session-executor.js", () => ({
   executeSession: vi.fn().mockResolvedValue(undefined),
   cancelSession: vi.fn(),
+  getActiveSessionCount: vi.fn().mockReturnValue(0),
 }));
 
 vi.mock("../services/database.js", () => ({
@@ -68,8 +70,7 @@ describe("verifiedWebhook plugin", () => {
     it("accepts a valid signature", async () => {
       const payload = { test: true };
       const payloadStr = JSON.stringify(payload);
-      const signature =
-        `sha256=${createHmac("sha256", secret).update(payloadStr).digest("hex")}`;
+      const signature = `sha256=${createHmac("sha256", secret).update(payloadStr).digest("hex")}`;
 
       const response = await app.inject({
         method: "POST",

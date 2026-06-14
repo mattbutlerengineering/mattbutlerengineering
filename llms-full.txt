@@ -4526,20 +4526,25 @@
             "Creating remediation session"
           );
     
-          const session = await sessionService.create({
+          const result = await sessionService.triggerSession({
             taskDescription,
             baseBranch: "main",
+            onSettled: recordRemediationOutcome,
           });
     
-          // Fire and forget — record outcome when complete
-          executeSession(session)
-            .then(() => recordRemediationOutcome(true))
-            .catch((err) => {
-              recordRemediationOutcome(false);
-              fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
-            });
+          if (!result.accepted) {
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  "Maximum concurrent sessions reached. Try again later."
+                )
+              );
+          }
     
-          return { sessionId: session.id };
+          return { sessionId: result.session!.id };
         }
       );
     };
@@ -4694,8 +4699,16 @@
           },
         },
         async (request, reply) => {
-          const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
-          if (getActiveSessionCount() >= maxConcurrent) {
+          // Stamp the authenticated creator's id. Sourced exclusively from the
+          // verified auth context (requireAuth preHandler) — never from the
+          // client-supplied request body — so callers cannot spoof ownership.
+          const result = await sessionService.triggerSession({
+            ...request.body,
+            userId: request.user?.id,
+          });
+    
+          if (!result.accepted) {
+            const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
             return reply
               .code(429)
               .send(
@@ -4707,20 +4720,7 @@
               );
           }
     
-          // Stamp the authenticated creator's id. Sourced exclusively from the
-          // verified auth context (requireAuth preHandler) — never from the
-          // client-supplied request body — so callers cannot spoof ownership.
-          const session = await sessionService.create({
-            ...request.body,
-            userId: request.user?.id,
-          });
-    
-          // Fire-and-forget: execution happens in the background
-          executeSession(session).catch((err) => {
-            fastify.log.error({ sessionId: session.id, err }, "Session execution failed");
-          });
-    
-          return reply.code(201).send({ data: session });
+          return reply.code(201).send({ data: result.session! });
         }
       );
     
