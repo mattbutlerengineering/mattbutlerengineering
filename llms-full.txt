@@ -13533,6 +13533,13 @@
       handlers: JobHandlerMap;
     }
   </file>
+  <file path="packages/mcp-server/src/dispatcher.ts">
+    type McpContent = { type: "text"; text: string };
+    type McpResult = {
+      content: McpContent[];
+      isError?: boolean;
+    };
+  </file>
   <file path="packages/mcp-server/src/index.ts">
     async function main() {
       const transport = new StdioServerTransport();
