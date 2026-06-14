@@ -214,6 +214,20 @@
   </file>
   </section>
   <section priority="medium" role="services">
+  <file path="src/services/assert-bookable.ts">
+    <item priority="low">
+      type BookableError = { code: "CONFLICT"; message: s | { code: "PACING_EXCEEDED"; mes;
+    </item>
+    <item priority="low">
+      interface AssertBookableOptions {
+        tableId: string;
+        window: { startTime: Date; endTime: Date };
+        partySize: number;
+        settings: VenueSettings | null | undefined;
+        reservations: ReservationSlim[];
+      }
+    </item>
+  </file>
   <file path="src/services/availability.ts">
     <item priority="high">
       interface VenueWithSettings {
@@ -242,7 +256,7 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
-      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT";
+      type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     </item>
     <item priority="high">
       export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
