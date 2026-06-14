@@ -4432,11 +4432,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -10144,6 +10147,20 @@
         instance: z.string().optional(),
       })
       .catchall(z.unknown());
+    export const ApiErrorSchema = z
+      .object({
+        error: z.string(),
+        message: z.string(),
+        statusCode: z.number(),
+        details: z.record(z.string(), z.unknown()).optional(),
+        // RFC 7807 compatibility (optional on legacy shape)
+        type: z.string().optional(),
+        title: z.string().optional(),
+        status: z.number().optional(),
+        detail: z.string().optional(),
+        instance: z.string().optional(),
+      })
+      .catchall(z.unknown());
   </file>
   <file path="packages/types/src/schemas/common.ts">
     export const PaginationSchema = z.object({
@@ -14033,7 +14050,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
