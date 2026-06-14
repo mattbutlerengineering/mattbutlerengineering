@@ -72,13 +72,17 @@ src/
 ├── index.ts            # Entry point
 ├── routes/
 │   ├── health.ts       # Health check endpoints
-│   ├── sessions.ts     # Session CRUD
-│   ├── session-events.ts # SSE event streaming
-│   ├── orchestrate.ts  # Multi-session orchestration
-│   ├── webhooks.ts    # GitHub webhook handlers
-│   ├── remediation.ts # Auto-remediation endpoints
-│   ├── gen-chat.ts    # Gen chat streaming endpoint
-│   └── gen-specs.ts   # Gen specs streaming endpoint
+│   ├── ready.ts        # Readiness probe (DB + Auth0 check)
+│   ├── sessions.ts     # Session CRUD                → /v1/sessions
+│   ├── session-events.ts # SSE event streaming       → /v1/sessions
+│   ├── orchestrate.ts  # Multi-session orchestration  → /v1/orchestrate
+│   ├── webhooks.ts     # GitHub webhook handlers      → /v1/webhooks/github
+│   ├── remediation.ts  # Alert-based auto-remediation → /v1/webhooks/remediation
+│   ├── gen-chat.ts     # Gen chat streaming           → /api/gen/chat
+│   ├── gen-specs.ts    # Gen specs CRUD + streaming   → /api/gen/specs
+│   ├── gen-agent.ts    # Gen agent streaming (tools)  → /api/gen/agent
+│   ├── gen-stream.ts   # Shared gen streaming infra (not a route)
+│   └── gen-agent-tools.ts # Agent-tool definitions    → used by gen-agent
 ├── schemas/            # JSON Schema definitions
 ├── services/
 │   ├── database.ts    # Prisma client
@@ -87,6 +91,12 @@ src/
 ```
 
 ## API Routes
+
+### Readiness
+
+| Method | Path      | Description                            |
+| ------ | --------- | -------------------------------------- |
+| GET    | `/ready`  | Readiness probe (DB + Auth0 JWKS)      |
 
 ### Sessions
 
@@ -107,16 +117,22 @@ src/
 
 ### Gen AI (Streaming)
 
-| Method | Path             | Description                  |
-| ------ | ---------------- | ---------------------------- |
-| POST   | `/api/gen/chat`  | Stream chat responses (SSE)  |
-| POST   | `/api/gen/specs` | Stream spec generation (SSE) |
+| Method | Path                       | Description                      |
+| ------ | -------------------------- | -------------------------------- |
+| POST   | `/api/gen/chat`            | Stream chat responses (SSE)      |
+| POST   | `/api/gen/agent`           | Stream agent responses (SSE)     |
+| POST   | `/api/gen/specs`           | Create and persist a spec        |
+| GET    | `/api/gen/specs`           | List user's specs                |
+| GET    | `/api/gen/specs/:id`       | Get spec by id (public)          |
+| PATCH  | `/api/gen/specs/:id/favorite` | Toggle spec favorite          |
+| DELETE | `/api/gen/specs/:id`       | Delete a spec                    |
 
 ### Webhooks
 
-| Method | Path                  | Description             |
-| ------ | --------------------- | ----------------------- |
-| POST   | `/v1/webhooks/github` | GitHub webhook receiver |
+| Method | Path                       | Description                         |
+| ------ | -------------------------- | ----------------------------------- |
+| POST   | `/v1/webhooks/github`      | GitHub webhook receiver             |
+| POST   | `/v1/webhooks/remediation` | Alert-based auto-remediation hook   |
 
 ## Session Lifecycle
 
@@ -235,6 +251,23 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
                         └────< SSE /sessions/:id/events ──> CLI
 ```
 
+### StoredSpec Entity
+
+Persisted gen-specs from the `stored_specs` table.
+
+```typescript
+interface StoredSpec {
+  id: string;
+  userId: string;
+  prompt: string;       // The user's original prompt
+  spec: unknown;        // Parsed spec JSON
+  rawLines: string[];   // Raw lines from the AI response
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
 ## Error Handling
 
 ### Error Codes
@@ -268,13 +301,9 @@ CLI (mbe agent run) ──> POST /sessions ──> Agent Core
 
 ```typescript
 vi.mock("@mbe/agent-core", () => ({
-  createSessionRunner: vi.fn().mockReturnValue({
-    run: vi.fn().mockResolvedValue({ status: "SUCCEEDED" }),
-  }),
-  createWorktreeManager: vi.fn().mockReturnValue({
-    create: vi.fn().mockResolvedValue({ path: "/tmp/test", branch: "test" }),
-    cleanup: vi.fn(),
-  }),
+  runSession: vi.fn().mockResolvedValue({ status: "SUCCEEDED" }),
+  createWorktree: vi.fn().mockResolvedValue({ path: "/tmp/test", branch: "test" }),
+  removeWorktree: vi.fn(),
 }));
 
 it("creates session and returns id", async () => {
@@ -323,16 +352,20 @@ it("streams events as they occur", async () => {
 
 ```bash
 pnpm dev              # Hot-reload dev server (port 3003)
+pnpm start            # Run compiled server (node dist/index.js)
 pnpm build            # Compile TypeScript
+pnpm build:openapi    # Generate openapi.json from route schemas
 pnpm test             # Run all tests
 pnpm test:watch       # Watch mode
 pnpm test:coverage    # Coverage report
+pnpm test:contract    # Run contract tests only
 pnpm lint             # ESLint
 pnpm typecheck        # TypeScript type check
 pnpm db:generate      # Generate Prisma client
 pnpm db:push          # Push schema (dev only)
 pnpm db:migrate       # Create + apply migrations
 pnpm db:migrate:deploy # Apply migrations (production)
+pnpm db:migrate:status # Show migration status
 ```
 
 ## Environment Variables
