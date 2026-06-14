@@ -1,4 +1,184 @@
 <codebase path=".">
+  <section priority="medium" role="ChatPanel">
+  <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
+    <item priority="high">
+      export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/ChatPanel/types.ts">
+    <item priority="low">
+      interface DomainContextSchema {
+        name: string;
+        description: string;
+        fields: string;
+      }
+    </item>
+    <item priority="low">
+      interface DomainContext {
+        schemas: DomainContextSchema[];
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/ChatPanel/useChatStream.ts">
+    <item priority="low">
+      interface ChatMessageElement {
+        id: string;
+        type: string;
+        props?: Record<string, unknown>;
+        children?: string[];
+      }
+    </item>
+    <item priority="low">
+      interface ChatMessage {
+        role: "user" | "assistant";
+        content: string;
+        elements?: ChatMessageElement[];
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="CookieConsent">
+  <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
+    <item priority="low">
+      interface CookiePreferences {
+        essential: true;
+        analytics: boolean;
+        functional: boolean;
+        marketing: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface ConsentState {
+        consented: boolean;
+        preferences: CookiePreferences;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="FlipDot">
+  <file path="packages/rialto/src/components/FlipDot/pixel-font.ts">
+    <item priority="medium">
+      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
+    <item priority="low">
+      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
+    </item>
+    <item priority="low">
+      interface UseFlipDotAnimationOptions {
+        text?: string;
+        frames?: readonly (readonly (readonly boolean[])[])[];
+        rows: number;
+        cols: number;
+        mode?: FlipDotAnimationMode;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-sound.ts">
+    <item priority="high">
+      interface UseFlipDotSoundOptions {
+        enabled: boolean;
+        volume?: number;
+      }
+    </item>
+    <item priority="high">
+      interface UseFlipDotSoundReturn {
+        playClick: () => void;
+        playBatchClick: (count: number) => void;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="packages/rialto/src/components/SplitFlap/charset.ts">
+    <item priority="high">
+      export const CHARSETS: unknown;
+    </item>
+    <item priority="low">
+      type CharsetName = keyof typeof CHARSETS;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="TapeChart">
+  <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
+    <item priority="high">
+      export function parseISOMs(iso: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daysBetween(a: string, b: string): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    <item priority="low">
+      type ResolvedStrings = Required<
+        Omit<
+          TapeChartStrings,
+          | "reservatio...;
+    </item>
+    <item priority="high">
+      export const DEFAULT_STRINGS: ResolvedStrings;
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/types.ts">
+    <item priority="low">
+      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
+    </item>
+    <item priority="low">
+      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
+    <item priority="low">
+      interface TapeChartFormatters {
+        dayWeekdayShort: (iso: string) => string;
+        dayNumeric: (iso: string) => string;
+        dayLong: (iso: string) => string;
+        monthYearLong: (iso: string) => string;
+        currency: (minorUnits: number, currencyCode?: string) => string;
+      }
+    </item>
+    <item priority="high">
+      export function useTapeChartI18n(
+        locale?: string,
+        timeZone?: string,
+        defaultCurrency?: string
+      ): TapeChartFormatters { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
+    <item priority="medium">
+      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useTapeChartLayout(
+        reservations: TapeChartReservation[],
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string
+      ): TapeChartLayout { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="packages/rialto/src/components/Toast/ToastContext.ts">
+    <item priority="low">
+      type ToastVariant = "default" | "success" | "error" | "accent";
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string;
+        variant?: ToastVariant;
+        duration?: number;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
     <item priority="medium">
@@ -143,44 +323,6 @@
         status: "ok" | "degraded" | "down";
         error_rates: number | null;
         latency_ms: number | null;
-      }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="ChatPanel">
-  <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
-    <item priority="high">
-      export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/ChatPanel/types.ts">
-    <item priority="low">
-      interface DomainContextSchema {
-        name: string;
-        description: string;
-        fields: string;
-      }
-    </item>
-    <item priority="low">
-      interface DomainContext {
-        schemas: DomainContextSchema[];
-      }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/ChatPanel/useChatStream.ts">
-    <item priority="low">
-      interface ChatMessageElement {
-        id: string;
-        type: string;
-        props?: Record<string, unknown>;
-        children?: string[];
-      }
-    </item>
-    <item priority="low">
-      interface ChatMessage {
-        role: "user" | "assistant";
-        content: string;
-        elements?: ChatMessageElement[];
       }
     </item>
   </file>
@@ -407,24 +549,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="CookieConsent">
-  <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
-    <item priority="low">
-      interface CookiePreferences {
-        essential: true;
-        analytics: boolean;
-        functional: boolean;
-        marketing: boolean;
-      }
-    </item>
-    <item priority="high">
-      interface ConsentState {
-        consented: boolean;
-        preferences: CookiePreferences;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/projects.ts">
     <item priority="low">
@@ -613,44 +737,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="FlipDot">
-  <file path="packages/rialto/src/components/FlipDot/pixel-font.ts">
-    <item priority="medium">
-      function decodeBitmaskRow(mask: number): boolean[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
-    <item priority="low">
-      type FlipDotAnimationMode = "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
-    </item>
-    <item priority="low">
-      interface UseFlipDotAnimationOptions {
-        text?: string;
-        frames?: readonly (readonly (readonly boolean[])[])[];
-        rows: number;
-        cols: number;
-        mode?: FlipDotAnimationMode;
-      }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-sound.ts">
-    <item priority="high">
-      interface UseFlipDotSoundOptions {
-        enabled: boolean;
-        volume?: number;
-      }
-    </item>
-    <item priority="high">
-      interface UseFlipDotSoundReturn {
-        playClick: () => void;
-        playBatchClick: (count: number) => void;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     <item priority="high">
@@ -683,6 +769,11 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
+    <item priority="high">
+      export function useCopyToClipboard() { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useGenStream.ts">
     <item priority="high">
       type FlatElement = Parameters<typeof flatToTree>[0][number];
@@ -973,6 +1064,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="services/agent/src/lib/verified-webhook.ts">
+    <item priority="low">
+      interface VerifiedWebhookOptions {
+        header: string;
+        secretEnv: string;
+        format: "raw" | "sha256=";
+      }
+    </item>
+    <item priority="high">
+      export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="services/reservations/src/middleware/public-rate-limit.ts">
     <item priority="high">
@@ -1209,12 +1314,8 @@
     <item priority="high">
       type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     </item>
-    <item priority="medium">
-      function verifyRemediationSignature(
-        payload: Buffer,
-        signature: string | undefined,
-        secret: string
-      ): boolean { /* ... */ }
+    <item priority="high">
+      export const remediationRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/agent/src/routes/session-events.ts">
@@ -2071,16 +2172,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="SplitFlap">
-  <file path="packages/rialto/src/components/SplitFlap/charset.ts">
-    <item priority="high">
-      export const CHARSETS: unknown;
-    </item>
-    <item priority="low">
-      type CharsetName = keyof typeof CHARSETS;
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="apps/gen/src/types.ts">
     <item priority="low">
@@ -2489,6 +2580,9 @@
   <file path="packages/agent-core/src/pr-risk-classifier.ts">
     <item priority="high">
       export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function reviewersForDiff(files: readonly string[]): string[] { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
@@ -3157,19 +3251,6 @@
       }
     </item>
   </file>
-  <file path="packages/observability/src/baggage.ts">
-    <item priority="high">
-      export const BAGGAGE_KEYS: unknown;
-    </item>
-    <item priority="low">
-      interface AgentBaggage {
-        sessionId?: string;
-        prNumber?: string;
-        issueNumber?: string;
-        deploySha?: string;
-      }
-    </item>
-  </file>
   <file path="packages/observability/src/error-rates.ts">
     <item priority="high">
       interface RequestRecord {
@@ -3582,64 +3663,21 @@
       }
     </item>
   </file>
-  </section>
-  <section priority="medium" role="TapeChart">
-  <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
-    <item priority="high">
-      export function parseISOMs(iso: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function daysBetween(a: string, b: string): number { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+  <file path="tools/cli/src/resolve-issue-model.ts">
     <item priority="low">
-      type ResolvedStrings = Required<
-        Omit<
-          TapeChartStrings,
-          | "reservatio...;
-    </item>
-    <item priority="high">
-      export const DEFAULT_STRINGS: ResolvedStrings;
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/types.ts">
-    <item priority="low">
-      type TapeChartStatus = "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
-    </item>
-    <item priority="low">
-      type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
-    <item priority="low">
-      interface TapeChartFormatters {
-        dayWeekdayShort: (iso: string) => string;
-        dayNumeric: (iso: string) => string;
-        dayLong: (iso: string) => string;
-        monthYearLong: (iso: string) => string;
-        currency: (minorUnits: number, currencyCode?: string) => string;
+      interface IssueModelInput {
+        title: string;
+        labels: string[];
+        body: string;
       }
     </item>
-    <item priority="high">
-      export function useTapeChartI18n(
-        locale?: string,
-        timeZone?: string,
-        defaultCurrency?: string
-      ): TapeChartFormatters { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
-    <item priority="medium">
-      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function useTapeChartLayout(
-        reservations: TapeChartReservation[],
-        rooms: TapeChartRoom[],
-        startDate: string,
-        endDate: string
-      ): TapeChartLayout { /* ... */ }
+    <item priority="low">
+      interface IssueModelResult {
+        tier: ModelTier;
+        modelId: string;
+        reason: string;
+        source: "frontmatter" | "router";
+      }
     </item>
   </file>
   </section>
@@ -3676,22 +3714,6 @@
     </item>
     <item priority="high">
       export const MOCK_USER: UserFixture;
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="packages/rialto/src/components/Toast/ToastContext.ts">
-    <item priority="low">
-      type ToastVariant = "default" | "success" | "error" | "accent";
-    </item>
-    <item priority="low">
-      interface ToastData {
-        id: string;
-        title: string;
-        description?: string;
-        variant?: ToastVariant;
-        duration?: number;
-      }
     </item>
   </file>
   </section>
@@ -3783,9 +3805,25 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="apps/gen/src/utils/downloadJson.ts">
+    <item priority="medium">
+      function defaultFilename(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function downloadJson(data: unknown, filename?: string): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/format.ts">
+    <item priority="high">
+      export function formatLongDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">

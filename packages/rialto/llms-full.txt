@@ -89,6 +89,279 @@
     }
   </file>
   </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="src/components/SplitFlap/charset.ts">
+    export const CHARSETS = {
+      alpha: ALPHA,
+      numeric: NUMERIC,
+      alphanumeric: ALPHANUMERIC,
+      full: FULL,
+    } as const;
+    export type CharsetName = keyof typeof CHARSETS;
+  </file>
+  </section>
+  <section priority="medium" role="TapeChart">
+  <file path="src/components/TapeChart/dateMath.ts">
+    export function parseISOMs(iso: string): number {
+      const parts = iso.split("-");
+      const y = Number(parts[0] ?? "1970");
+      const m = Number(parts[1] ?? "1");
+      const d = Number(parts[2] ?? "1");
+      return Date.UTC(y, m - 1, d);
+    }
+    export function daysBetween(a: string, b: string): number {
+      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
+    }
+  </file>
+  <file path="src/components/TapeChart/defaultStrings.ts">
+    export type ResolvedStrings = Required<
+      Omit<
+        TapeChartStrings,
+        | "reservationAriaTemplate"
+        | "nightsLabel"
+        | "partySizeLabel"
+        | "statusLabels"
+        | "roomStatusLabels"
+      >
+    > & {
+      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
+      nightsLabel: (count: number) => string;
+      partySizeLabel: (count: number) => string;
+      statusLabels: Record<TapeChartStatus, string>;
+      roomStatusLabels: Record<TapeChartRoomStatus, string>;
+    };
+    export const DEFAULT_STRINGS: ResolvedStrings = {
+      regionLabel: "Reservations tape chart",
+      roomsColumnLabel: "Rooms",
+      arrivalsLabel: "Arrivals",
+      departuresLabel: "Departures",
+      inHouseLabel: "In-house",
+      viewModeToggleLabel: "View mode",
+      viewModeGridLabel: "Grid",
+      viewModeListLabel: "List",
+      todayLabel: "Today",
+      emptyTitle: "No rooms configured",
+      emptyBody: "Add a room to start managing reservations.",
+      errorTitle: "Couldn't load reservations",
+      errorRetryLabel: "Try again",
+      loadingLabel: "Loading reservations",
+      moveDialogTitle: "Move reservation",
+      moveConfirmLabel: "Move",
+      moveCancelLabel: "Cancel",
+      conflictWarning: "This move conflicts with another reservation.",
+      statusLabels: STATUS_LABELS_EN,
+      roomStatusLabels: ROOM_STATUS_LABELS_EN,
+      reservationAriaTemplate: defaultReservationAriaTemplate,
+      nightsLabel: defaultNightsLabel,
+      partySizeLabel: defaultPartySizeLabel,
+    };
+  </file>
+  <file path="src/components/TapeChart/types.ts">
+    export type TapeChartStatus =
+      | "tentative"
+      | "confirmed"
+      | "checkedIn"
+      | "checkedOut"
+      | "cancelled"
+      | "noShow";
+    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+  </file>
+  <file path="src/components/TapeChart/useTapeChartI18n.ts">
+    export interface TapeChartFormatters {
+      /** "Fri" */
+      dayWeekdayShort: (iso: string) => string;
+      /** "28" */
+      dayNumeric: (iso: string) => string;
+      /** "Friday, October 28, 2022" — used for aria-labels. */
+      dayLong: (iso: string) => string;
+      /** "October 2022" — month divider in day header. */
+      monthYearLong: (iso: string) => string;
+      /** Currency-formatted rate, e.g. "$1,290.00". Pass minor units. */
+      currency: (minorUnits: number, currencyCode?: string) => string;
+      /** Plain number. */
+      number: (n: number) => string;
+      /** Locale-correct plural category. */
+      pluralCategory: (n: number) => Intl.LDMLPluralRule;
+      /** Collator for sorting room names. */
+      compare: (a: string, b: string) => number;
+      /** Today's ISO date in the chart's time zone. */
+      todayISO: () => string;
+      locale: string;
+      timeZone?: string;
+    }
+    export function useTapeChartI18n(
+      locale?: string,
+      timeZone?: string,
+      defaultCurrency?: string
+    ): TapeChartFormatters {
+      const effectiveLocale =
+        locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+    
+      return useMemo(() => {
+        const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
+          weekday: "short",
+          timeZone,
+        });
+        const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
+          day: "2-digit",
+          timeZone,
+        });
+        const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone,
+        });
+        const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
+          month: "long",
+          year: "numeric",
+          timeZone,
+        });
+        const todayParts = new Intl.DateTimeFormat("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          timeZone,
+        });
+        const numberFmt = new Intl.NumberFormat(effectiveLocale);
+        const plural = new Intl.PluralRules(effectiveLocale);
+        const collator = new Intl.Collator(effectiveLocale, { numeric: true, sensitivity: "base" });
+    
+        const currencyCache = new Map<string, Intl.NumberFormat>();
+        const getCurrency = (code: string) => {
+          let fmt = currencyCache.get(code);
+          if (!fmt) {
+            fmt = new Intl.NumberFormat(effectiveLocale, {
+              style: "currency",
+              currency: code,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            currencyCache.set(code, fmt);
+          }
+          return fmt;
+        };
+    
+        return {
+          dayWeekdayShort: (iso) => weekdayShort.format(parseISODate(iso)),
+          dayNumeric: (iso) => dayNumeric.format(parseISODate(iso)),
+          dayLong: (iso) => dayLong.format(parseISODate(iso)),
+          monthYearLong: (iso) => monthYearLong.format(parseISODate(iso)),
+          currency: (minorUnits, code) => {
+            const c = code ?? defaultCurrency ?? "USD";
+            return getCurrency(c).format(minorUnits / 100);
+          },
+          number: (n) => numberFmt.format(n),
+          pluralCategory: (n) => plural.select(n),
+          compare: (a, b) => collator.compare(a, b),
+          todayISO: () => {
+            // en-CA yields YYYY-MM-DD reliably; we then parse parts to be explicit.
+            const parts = todayParts.formatToParts(new Date());
+            const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+            const m = parts.find((p) => p.type === "month")?.value ?? "01";
+            const d = parts.find((p) => p.type === "day")?.value ?? "01";
+            return `${y}-${m}-${d}`;
+          },
+          locale: effectiveLocale,
+          timeZone,
+        };
+      }, [effectiveLocale, timeZone, defaultCurrency]);
+    }
+  </file>
+  <file path="src/components/TapeChart/useTapeChartLayout.ts">
+    function assignLanes(bars: TapeChartPositionedBar[]): number {
+      const laneEnds: number[] = [];
+      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
+      for (const bar of bars) {
+        let placed = false;
+        for (let i = 0; i < laneEnds.length; i++) {
+          if (laneEnds[i]! <= bar.startOffset) {
+            bar.lane = i;
+            laneEnds[i] = bar.startOffset + bar.span;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          bar.lane = laneEnds.length;
+          laneEnds.push(bar.startOffset + bar.span);
+        }
+      }
+      return laneEnds.length;
+    }
+    export function useTapeChartLayout(
+      reservations: TapeChartReservation[],
+      rooms: TapeChartRoom[],
+      startDate: string,
+      endDate: string
+    ): TapeChartLayout {
+      return useMemo(() => {
+        const dayCount = Math.max(0, daysBetween(startDate, endDate));
+        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
+        for (const room of rooms) barsByRoom.set(room.id, []);
+    
+        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
+          date: addDays(startDate, i),
+          arrivals: 0,
+          departures: 0,
+          inHouse: 0,
+        }));
+    
+        for (const reservation of reservations) {
+          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
+          const rawStart = daysBetween(startDate, reservation.start);
+          const rawEnd = daysBetween(startDate, reservation.end);
+          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
+          if (rawEnd <= 0 || rawStart >= dayCount) continue;
+    
+          const startOffset = Math.max(0, rawStart);
+          const endOffset = Math.min(dayCount, rawEnd);
+          const span = Math.max(1, endOffset - startOffset);
+    
+          const list = barsByRoom.get(reservation.roomId);
+          if (!list) continue;
+          list.push({
+            reservation,
+            startOffset,
+            span,
+            lane: 0,
+            clippedStart: rawStart < 0,
+            clippedEnd: rawEnd > dayCount,
+          });
+    
+          // Daily counts — only count when the arrival/departure lands within view.
+          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
+          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
+          for (let i = startOffset; i < endOffset; i++) {
+            dailyCounts[i]!.inHouse += 1;
+          }
+        }
+    
+        let maxLanes = 1;
+        for (const bars of barsByRoom.values()) {
+          const lanes = assignLanes(bars);
+          if (lanes > maxLanes) maxLanes = lanes;
+        }
+    
+        return { barsByRoom, dayCount, maxLanes, dailyCounts };
+      }, [reservations, rooms, startDate, endDate]);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="src/components/Toast/ToastContext.ts">
+    export type ToastVariant = "default" | "success" | "error" | "accent";
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+    }
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/useBoop.ts">
     export function useBoop(): {
@@ -710,279 +983,6 @@
       }
       entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
       return entries;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="SplitFlap">
-  <file path="src/components/SplitFlap/charset.ts">
-    export const CHARSETS = {
-      alpha: ALPHA,
-      numeric: NUMERIC,
-      alphanumeric: ALPHANUMERIC,
-      full: FULL,
-    } as const;
-    export type CharsetName = keyof typeof CHARSETS;
-  </file>
-  </section>
-  <section priority="medium" role="TapeChart">
-  <file path="src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
-      const parts = iso.split("-");
-      const y = Number(parts[0] ?? "1970");
-      const m = Number(parts[1] ?? "1");
-      const d = Number(parts[2] ?? "1");
-      return Date.UTC(y, m - 1, d);
-    }
-    export function daysBetween(a: string, b: string): number {
-      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
-    }
-  </file>
-  <file path="src/components/TapeChart/defaultStrings.ts">
-    export type ResolvedStrings = Required<
-      Omit<
-        TapeChartStrings,
-        | "reservationAriaTemplate"
-        | "nightsLabel"
-        | "partySizeLabel"
-        | "statusLabels"
-        | "roomStatusLabels"
-      >
-    > & {
-      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
-      nightsLabel: (count: number) => string;
-      partySizeLabel: (count: number) => string;
-      statusLabels: Record<TapeChartStatus, string>;
-      roomStatusLabels: Record<TapeChartRoomStatus, string>;
-    };
-    export const DEFAULT_STRINGS: ResolvedStrings = {
-      regionLabel: "Reservations tape chart",
-      roomsColumnLabel: "Rooms",
-      arrivalsLabel: "Arrivals",
-      departuresLabel: "Departures",
-      inHouseLabel: "In-house",
-      viewModeToggleLabel: "View mode",
-      viewModeGridLabel: "Grid",
-      viewModeListLabel: "List",
-      todayLabel: "Today",
-      emptyTitle: "No rooms configured",
-      emptyBody: "Add a room to start managing reservations.",
-      errorTitle: "Couldn't load reservations",
-      errorRetryLabel: "Try again",
-      loadingLabel: "Loading reservations",
-      moveDialogTitle: "Move reservation",
-      moveConfirmLabel: "Move",
-      moveCancelLabel: "Cancel",
-      conflictWarning: "This move conflicts with another reservation.",
-      statusLabels: STATUS_LABELS_EN,
-      roomStatusLabels: ROOM_STATUS_LABELS_EN,
-      reservationAriaTemplate: defaultReservationAriaTemplate,
-      nightsLabel: defaultNightsLabel,
-      partySizeLabel: defaultPartySizeLabel,
-    };
-  </file>
-  <file path="src/components/TapeChart/types.ts">
-    export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
-    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
-  </file>
-  <file path="src/components/TapeChart/useTapeChartI18n.ts">
-    export interface TapeChartFormatters {
-      /** "Fri" */
-      dayWeekdayShort: (iso: string) => string;
-      /** "28" */
-      dayNumeric: (iso: string) => string;
-      /** "Friday, October 28, 2022" — used for aria-labels. */
-      dayLong: (iso: string) => string;
-      /** "October 2022" — month divider in day header. */
-      monthYearLong: (iso: string) => string;
-      /** Currency-formatted rate, e.g. "$1,290.00". Pass minor units. */
-      currency: (minorUnits: number, currencyCode?: string) => string;
-      /** Plain number. */
-      number: (n: number) => string;
-      /** Locale-correct plural category. */
-      pluralCategory: (n: number) => Intl.LDMLPluralRule;
-      /** Collator for sorting room names. */
-      compare: (a: string, b: string) => number;
-      /** Today's ISO date in the chart's time zone. */
-      todayISO: () => string;
-      locale: string;
-      timeZone?: string;
-    }
-    export function useTapeChartI18n(
-      locale?: string,
-      timeZone?: string,
-      defaultCurrency?: string
-    ): TapeChartFormatters {
-      const effectiveLocale =
-        locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
-    
-      return useMemo(() => {
-        const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
-          weekday: "short",
-          timeZone,
-        });
-        const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
-          day: "2-digit",
-          timeZone,
-        });
-        const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          timeZone,
-        });
-        const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
-          month: "long",
-          year: "numeric",
-          timeZone,
-        });
-        const todayParts = new Intl.DateTimeFormat("en-CA", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          timeZone,
-        });
-        const numberFmt = new Intl.NumberFormat(effectiveLocale);
-        const plural = new Intl.PluralRules(effectiveLocale);
-        const collator = new Intl.Collator(effectiveLocale, { numeric: true, sensitivity: "base" });
-    
-        const currencyCache = new Map<string, Intl.NumberFormat>();
-        const getCurrency = (code: string) => {
-          let fmt = currencyCache.get(code);
-          if (!fmt) {
-            fmt = new Intl.NumberFormat(effectiveLocale, {
-              style: "currency",
-              currency: code,
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            });
-            currencyCache.set(code, fmt);
-          }
-          return fmt;
-        };
-    
-        return {
-          dayWeekdayShort: (iso) => weekdayShort.format(parseISODate(iso)),
-          dayNumeric: (iso) => dayNumeric.format(parseISODate(iso)),
-          dayLong: (iso) => dayLong.format(parseISODate(iso)),
-          monthYearLong: (iso) => monthYearLong.format(parseISODate(iso)),
-          currency: (minorUnits, code) => {
-            const c = code ?? defaultCurrency ?? "USD";
-            return getCurrency(c).format(minorUnits / 100);
-          },
-          number: (n) => numberFmt.format(n),
-          pluralCategory: (n) => plural.select(n),
-          compare: (a, b) => collator.compare(a, b),
-          todayISO: () => {
-            // en-CA yields YYYY-MM-DD reliably; we then parse parts to be explicit.
-            const parts = todayParts.formatToParts(new Date());
-            const y = parts.find((p) => p.type === "year")?.value ?? "1970";
-            const m = parts.find((p) => p.type === "month")?.value ?? "01";
-            const d = parts.find((p) => p.type === "day")?.value ?? "01";
-            return `${y}-${m}-${d}`;
-          },
-          locale: effectiveLocale,
-          timeZone,
-        };
-      }, [effectiveLocale, timeZone, defaultCurrency]);
-    }
-  </file>
-  <file path="src/components/TapeChart/useTapeChartLayout.ts">
-    function assignLanes(bars: TapeChartPositionedBar[]): number {
-      const laneEnds: number[] = [];
-      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
-      for (const bar of bars) {
-        let placed = false;
-        for (let i = 0; i < laneEnds.length; i++) {
-          if (laneEnds[i]! <= bar.startOffset) {
-            bar.lane = i;
-            laneEnds[i] = bar.startOffset + bar.span;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          bar.lane = laneEnds.length;
-          laneEnds.push(bar.startOffset + bar.span);
-        }
-      }
-      return laneEnds.length;
-    }
-    export function useTapeChartLayout(
-      reservations: TapeChartReservation[],
-      rooms: TapeChartRoom[],
-      startDate: string,
-      endDate: string
-    ): TapeChartLayout {
-      return useMemo(() => {
-        const dayCount = Math.max(0, daysBetween(startDate, endDate));
-        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
-        for (const room of rooms) barsByRoom.set(room.id, []);
-    
-        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
-          date: addDays(startDate, i),
-          arrivals: 0,
-          departures: 0,
-          inHouse: 0,
-        }));
-    
-        for (const reservation of reservations) {
-          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
-          const rawStart = daysBetween(startDate, reservation.start);
-          const rawEnd = daysBetween(startDate, reservation.end);
-          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
-          if (rawEnd <= 0 || rawStart >= dayCount) continue;
-    
-          const startOffset = Math.max(0, rawStart);
-          const endOffset = Math.min(dayCount, rawEnd);
-          const span = Math.max(1, endOffset - startOffset);
-    
-          const list = barsByRoom.get(reservation.roomId);
-          if (!list) continue;
-          list.push({
-            reservation,
-            startOffset,
-            span,
-            lane: 0,
-            clippedStart: rawStart < 0,
-            clippedEnd: rawEnd > dayCount,
-          });
-    
-          // Daily counts — only count when the arrival/departure lands within view.
-          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
-          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
-          for (let i = startOffset; i < endOffset; i++) {
-            dailyCounts[i]!.inHouse += 1;
-          }
-        }
-    
-        let maxLanes = 1;
-        for (const bars of barsByRoom.values()) {
-          const lanes = assignLanes(bars);
-          if (lanes > maxLanes) maxLanes = lanes;
-        }
-    
-        return { barsByRoom, dayCount, maxLanes, dailyCounts };
-      }, [reservations, rooms, startDate, endDate]);
-    }
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
     }
   </file>
   </section>

@@ -1,4 +1,381 @@
 <codebase path=".">
+  <section priority="medium" role="ChatPanel">
+  <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
+    export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
+      const safe: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(props)) {
+        if (BLOCKED_KEYS.has(key)) continue;
+        if (key.startsWith("on") && key.length > 2 && key[2] === key[2]!.toUpperCase()) continue;
+        safe[key] = value;
+      }
+      return safe;
+    }
+  </file>
+  <file path="packages/rialto/src/components/ChatPanel/types.ts">
+    export interface DomainContextSchema {
+      name: string;
+      description: string;
+      fields: string;
+    }
+    export interface DomainContext {
+      schemas: DomainContextSchema[];
+    }
+  </file>
+  <file path="packages/rialto/src/components/ChatPanel/useChatStream.ts">
+    export interface ChatMessageElement {
+      id: string;
+      type: string;
+      props?: Record<string, unknown>;
+      children?: string[];
+    }
+    export interface ChatMessage {
+      role: "user" | "assistant";
+      content: string;
+      elements?: ChatMessageElement[];
+    }
+  </file>
+  </section>
+  <section priority="medium" role="CookieConsent">
+  <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
+    export interface CookiePreferences {
+      readonly essential: true;
+      readonly analytics: boolean;
+      readonly functional: boolean;
+      readonly marketing: boolean;
+    }
+    interface ConsentState {
+      readonly consented: boolean;
+      readonly preferences: CookiePreferences;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="FlipDot">
+  <file path="packages/rialto/src/components/FlipDot/pixel-font.ts">
+    function decodeBitmaskRow(mask: number): boolean[] {
+      const row: boolean[] = [];
+      for (let bit = CHAR_WIDTH - 1; bit >= 0; bit--) {
+        row.push(((mask >> bit) & 1) === 1);
+      }
+      return row;
+    }
+    export function charToMatrix(char: string): readonly (readonly boolean[])[] {
+      const upper = char.toUpperCase();
+      const bitmasks = FONT[upper] ?? FONT[" "]!;
+      return bitmasks.map(decodeBitmaskRow);
+    }
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
+    export type FlipDotAnimationMode =
+      | "typewriter"
+      | "scroll-left"
+      | "scroll-right"
+      | "blink"
+      | "frames";
+    export interface UseFlipDotAnimationOptions {
+      /** Text to render (used by typewriter, scroll, blink modes). */
+      text?: string;
+      /** Pre-built frame sequence (used by "frames" mode). */
+      frames?: readonly (readonly (readonly boolean[])[])[];
+      /** Display row count. */
+      rows: number;
+      /** Display column count. */
+      cols: number;
+      /** Animation mode. @default "scroll-left" */
+      mode?: FlipDotAnimationMode;
+      /** Milliseconds per animation step. @default 150 */
+      speed?: number;
+      /** Loop when the animation completes. @default false */
+      loop?: boolean;
+      /** Start automatically on mount. @default true */
+      autoStart?: boolean;
+    }
+  </file>
+  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-sound.ts">
+    interface UseFlipDotSoundOptions {
+      enabled: boolean;
+      volume?: number;
+    }
+    interface UseFlipDotSoundReturn {
+      /** Play a single dot-flip click. */
+      playClick: () => void;
+      /** Play a composite click for multiple simultaneous flips. */
+      playBatchClick: (count: number) => void;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="SplitFlap">
+  <file path="packages/rialto/src/components/SplitFlap/charset.ts">
+    export const CHARSETS = {
+      alpha: ALPHA,
+      numeric: NUMERIC,
+      alphanumeric: ALPHANUMERIC,
+      full: FULL,
+    } as const;
+    export type CharsetName = keyof typeof CHARSETS;
+  </file>
+  </section>
+  <section priority="medium" role="TapeChart">
+  <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
+    export function parseISOMs(iso: string): number {
+      const parts = iso.split("-");
+      const y = Number(parts[0] ?? "1970");
+      const m = Number(parts[1] ?? "1");
+      const d = Number(parts[2] ?? "1");
+      return Date.UTC(y, m - 1, d);
+    }
+    export function daysBetween(a: string, b: string): number {
+      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
+    }
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
+    export type ResolvedStrings = Required<
+      Omit<
+        TapeChartStrings,
+        | "reservationAriaTemplate"
+        | "nightsLabel"
+        | "partySizeLabel"
+        | "statusLabels"
+        | "roomStatusLabels"
+      >
+    > & {
+      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
+      nightsLabel: (count: number) => string;
+      partySizeLabel: (count: number) => string;
+      statusLabels: Record<TapeChartStatus, string>;
+      roomStatusLabels: Record<TapeChartRoomStatus, string>;
+    };
+    export const DEFAULT_STRINGS: ResolvedStrings = {
+      regionLabel: "Reservations tape chart",
+      roomsColumnLabel: "Rooms",
+      arrivalsLabel: "Arrivals",
+      departuresLabel: "Departures",
+      inHouseLabel: "In-house",
+      viewModeToggleLabel: "View mode",
+      viewModeGridLabel: "Grid",
+      viewModeListLabel: "List",
+      todayLabel: "Today",
+      emptyTitle: "No rooms configured",
+      emptyBody: "Add a room to start managing reservations.",
+      errorTitle: "Couldn't load reservations",
+      errorRetryLabel: "Try again",
+      loadingLabel: "Loading reservations",
+      moveDialogTitle: "Move reservation",
+      moveConfirmLabel: "Move",
+      moveCancelLabel: "Cancel",
+      conflictWarning: "This move conflicts with another reservation.",
+      statusLabels: STATUS_LABELS_EN,
+      roomStatusLabels: ROOM_STATUS_LABELS_EN,
+      reservationAriaTemplate: defaultReservationAriaTemplate,
+      nightsLabel: defaultNightsLabel,
+      partySizeLabel: defaultPartySizeLabel,
+    };
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/types.ts">
+    export type TapeChartStatus =
+      | "tentative"
+      | "confirmed"
+      | "checkedIn"
+      | "checkedOut"
+      | "cancelled"
+      | "noShow";
+    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
+    export interface TapeChartFormatters {
+      /** "Fri" */
+      dayWeekdayShort: (iso: string) => string;
+      /** "28" */
+      dayNumeric: (iso: string) => string;
+      /** "Friday, October 28, 2022" — used for aria-labels. */
+      dayLong: (iso: string) => string;
+      /** "October 2022" — month divider in day header. */
+      monthYearLong: (iso: string) => string;
+      /** Currency-formatted rate, e.g. "$1,290.00". Pass minor units. */
+      currency: (minorUnits: number, currencyCode?: string) => string;
+      /** Plain number. */
+      number: (n: number) => string;
+      /** Locale-correct plural category. */
+      pluralCategory: (n: number) => Intl.LDMLPluralRule;
+      /** Collator for sorting room names. */
+      compare: (a: string, b: string) => number;
+      /** Today's ISO date in the chart's time zone. */
+      todayISO: () => string;
+      locale: string;
+      timeZone?: string;
+    }
+    export function useTapeChartI18n(
+      locale?: string,
+      timeZone?: string,
+      defaultCurrency?: string
+    ): TapeChartFormatters {
+      const effectiveLocale =
+        locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+    
+      return useMemo(() => {
+        const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
+          weekday: "short",
+          timeZone,
+        });
+        const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
+          day: "2-digit",
+          timeZone,
+        });
+        const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone,
+        });
+        const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
+          month: "long",
+          year: "numeric",
+          timeZone,
+        });
+        const todayParts = new Intl.DateTimeFormat("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          timeZone,
+        });
+        const numberFmt = new Intl.NumberFormat(effectiveLocale);
+        const plural = new Intl.PluralRules(effectiveLocale);
+        const collator = new Intl.Collator(effectiveLocale, { numeric: true, sensitivity: "base" });
+    
+        const currencyCache = new Map<string, Intl.NumberFormat>();
+        const getCurrency = (code: string) => {
+          let fmt = currencyCache.get(code);
+          if (!fmt) {
+            fmt = new Intl.NumberFormat(effectiveLocale, {
+              style: "currency",
+              currency: code,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            currencyCache.set(code, fmt);
+          }
+          return fmt;
+        };
+    
+        return {
+          dayWeekdayShort: (iso) => weekdayShort.format(parseISODate(iso)),
+          dayNumeric: (iso) => dayNumeric.format(parseISODate(iso)),
+          dayLong: (iso) => dayLong.format(parseISODate(iso)),
+          monthYearLong: (iso) => monthYearLong.format(parseISODate(iso)),
+          currency: (minorUnits, code) => {
+            const c = code ?? defaultCurrency ?? "USD";
+            return getCurrency(c).format(minorUnits / 100);
+          },
+          number: (n) => numberFmt.format(n),
+          pluralCategory: (n) => plural.select(n),
+          compare: (a, b) => collator.compare(a, b),
+          todayISO: () => {
+            // en-CA yields YYYY-MM-DD reliably; we then parse parts to be explicit.
+            const parts = todayParts.formatToParts(new Date());
+            const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+            const m = parts.find((p) => p.type === "month")?.value ?? "01";
+            const d = parts.find((p) => p.type === "day")?.value ?? "01";
+            return `${y}-${m}-${d}`;
+          },
+          locale: effectiveLocale,
+          timeZone,
+        };
+      }, [effectiveLocale, timeZone, defaultCurrency]);
+    }
+  </file>
+  <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
+    function assignLanes(bars: TapeChartPositionedBar[]): number {
+      const laneEnds: number[] = [];
+      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
+      for (const bar of bars) {
+        let placed = false;
+        for (let i = 0; i < laneEnds.length; i++) {
+          if (laneEnds[i]! <= bar.startOffset) {
+            bar.lane = i;
+            laneEnds[i] = bar.startOffset + bar.span;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          bar.lane = laneEnds.length;
+          laneEnds.push(bar.startOffset + bar.span);
+        }
+      }
+      return laneEnds.length;
+    }
+    export function useTapeChartLayout(
+      reservations: TapeChartReservation[],
+      rooms: TapeChartRoom[],
+      startDate: string,
+      endDate: string
+    ): TapeChartLayout {
+      return useMemo(() => {
+        const dayCount = Math.max(0, daysBetween(startDate, endDate));
+        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
+        for (const room of rooms) barsByRoom.set(room.id, []);
+    
+        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
+          date: addDays(startDate, i),
+          arrivals: 0,
+          departures: 0,
+          inHouse: 0,
+        }));
+    
+        for (const reservation of reservations) {
+          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
+          const rawStart = daysBetween(startDate, reservation.start);
+          const rawEnd = daysBetween(startDate, reservation.end);
+          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
+          if (rawEnd <= 0 || rawStart >= dayCount) continue;
+    
+          const startOffset = Math.max(0, rawStart);
+          const endOffset = Math.min(dayCount, rawEnd);
+          const span = Math.max(1, endOffset - startOffset);
+    
+          const list = barsByRoom.get(reservation.roomId);
+          if (!list) continue;
+          list.push({
+            reservation,
+            startOffset,
+            span,
+            lane: 0,
+            clippedStart: rawStart < 0,
+            clippedEnd: rawEnd > dayCount,
+          });
+    
+          // Daily counts — only count when the arrival/departure lands within view.
+          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
+          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
+          for (let i = startOffset; i < endOffset; i++) {
+            dailyCounts[i]!.inHouse += 1;
+          }
+        }
+    
+        let maxLanes = 1;
+        for (const bars of barsByRoom.values()) {
+          const lanes = assignLanes(bars);
+          if (lanes > maxLanes) maxLanes = lanes;
+        }
+    
+        return { barsByRoom, dayCount, maxLanes, dailyCounts };
+      }, [reservations, rooms, startDate, endDate]);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="Toast">
+  <file path="packages/rialto/src/components/Toast/ToastContext.ts">
+    export type ToastVariant = "default" | "success" | "error" | "accent";
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+    }
+  </file>
+  </section>
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
     function deriveHasChanges(result: SessionResult): boolean {
@@ -617,42 +994,6 @@
       readonly status: "ok" | "degraded" | "down";
       readonly error_rates: number | null;
       readonly latency_ms: number | null;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="ChatPanel">
-  <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
-    export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
-      const safe: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(props)) {
-        if (BLOCKED_KEYS.has(key)) continue;
-        if (key.startsWith("on") && key.length > 2 && key[2] === key[2]!.toUpperCase()) continue;
-        safe[key] = value;
-      }
-      return safe;
-    }
-  </file>
-  <file path="packages/rialto/src/components/ChatPanel/types.ts">
-    export interface DomainContextSchema {
-      name: string;
-      description: string;
-      fields: string;
-    }
-    export interface DomainContext {
-      schemas: DomainContextSchema[];
-    }
-  </file>
-  <file path="packages/rialto/src/components/ChatPanel/useChatStream.ts">
-    export interface ChatMessageElement {
-      id: string;
-      type: string;
-      props?: Record<string, unknown>;
-      children?: string[];
-    }
-    export interface ChatMessage {
-      role: "user" | "assistant";
-      content: string;
-      elements?: ChatMessageElement[];
     }
   </file>
   </section>
@@ -1515,20 +1856,6 @@
     };
   </file>
   </section>
-  <section priority="medium" role="CookieConsent">
-  <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
-    export interface CookiePreferences {
-      readonly essential: true;
-      readonly analytics: boolean;
-      readonly functional: boolean;
-      readonly marketing: boolean;
-    }
-    interface ConsentState {
-      readonly consented: boolean;
-      readonly preferences: CookiePreferences;
-    }
-  </file>
-  </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/projects.ts">
     export interface Project {
@@ -2066,60 +2393,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="FlipDot">
-  <file path="packages/rialto/src/components/FlipDot/pixel-font.ts">
-    function decodeBitmaskRow(mask: number): boolean[] {
-      const row: boolean[] = [];
-      for (let bit = CHAR_WIDTH - 1; bit >= 0; bit--) {
-        row.push(((mask >> bit) & 1) === 1);
-      }
-      return row;
-    }
-    export function charToMatrix(char: string): readonly (readonly boolean[])[] {
-      const upper = char.toUpperCase();
-      const bitmasks = FONT[upper] ?? FONT[" "]!;
-      return bitmasks.map(decodeBitmaskRow);
-    }
-  </file>
-  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
-    export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
-    export interface UseFlipDotAnimationOptions {
-      /** Text to render (used by typewriter, scroll, blink modes). */
-      text?: string;
-      /** Pre-built frame sequence (used by "frames" mode). */
-      frames?: readonly (readonly (readonly boolean[])[])[];
-      /** Display row count. */
-      rows: number;
-      /** Display column count. */
-      cols: number;
-      /** Animation mode. @default "scroll-left" */
-      mode?: FlipDotAnimationMode;
-      /** Milliseconds per animation step. @default 150 */
-      speed?: number;
-      /** Loop when the animation completes. @default false */
-      loop?: boolean;
-      /** Start automatically on mount. @default true */
-      autoStart?: boolean;
-    }
-  </file>
-  <file path="packages/rialto/src/components/FlipDot/use-flip-dot-sound.ts">
-    interface UseFlipDotSoundOptions {
-      enabled: boolean;
-      volume?: number;
-    }
-    interface UseFlipDotSoundReturn {
-      /** Play a single dot-flip click. */
-      playClick: () => void;
-      /** Play a composite click for multiple simultaneous flips. */
-      playBatchClick: (count: number) => void;
-    }
-  </file>
-  </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
@@ -2257,6 +2530,36 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
+    export function useCopyToClipboard() {
+      const [copied, setCopied] = useState(false);
+      const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+      const copy = useCallback(async (text: string) => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+        }
+    
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            window.prompt("Copy to clipboard:", text);
+          }
+        } catch {
+          window.prompt("Copy to clipboard:", text);
+        }
+    
+        setCopied(true);
+        timerRef.current = setTimeout(() => {
+          setCopied(false);
+          timerRef.current = null;
+        }, 2000);
+      }, []);
+    
+      return { copied, copy };
+    }
+  </file>
   <file path="apps/gen/src/hooks/useGenStream.ts">
     type FlatElement = Parameters<typeof flatToTree>[0][number];
     export interface UseGenStreamOptions {
@@ -2718,6 +3021,26 @@
       };
     
       return { ref, style, onMouseMove, onMouseLeave };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="lib">
+  <file path="services/agent/src/lib/verified-webhook.ts">
+    export interface VerifiedWebhookOptions {
+      header: string;
+      secretEnv: string;
+      format: "raw" | "sha256=";
+    }
+    export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
+      return async (request, _reply, payload) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of payload) {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+        }
+        const rawBody = Buffer.concat(chunks);
+        (request as unknown as Record<string | symbol, unknown>)[kRawBody] = rawBody;
+        return Readable.from(rawBody);
+      };
     }
   </file>
   </section>
@@ -4103,18 +4426,122 @@
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
-    function verifyRemediationSignature(
-      payload: Buffer,
-      signature: string | undefined,
-      secret: string
-    ): boolean {
-      if (!signature) return false;
+    export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addHook("preParsing", createRawBodyCaptureHook());
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
-      const expected = createHmac("sha256", secret).update(payload).digest("hex");
-      if (expected.length !== signature.length) return false;
+      // github[js/missing-rate-limiting] — strict limit to prevent alert storms
+      fastify.post<{
+        Body: unknown;
+        Reply: { sessionId: string } | ApiError;
+      }>(
+        "/remediation",
+        {
+          schema: {
+            summary: "Remediation webhook receiver",
+            operationId: "handleRemediationWebhook",
+            description:
+              "Receives monitoring alerts (Grafana, PagerDuty, etc.) and triggers " +
+              "agent investigation sessions. Circuit breaker prevents alert storms.",
+            tags: ["Webhooks"],
+            response: {
+              200: {
+                type: "object",
+                properties: { sessionId: { type: "string" } },
+              },
+              400: { $ref: "AgentError#" },
+              401: { $ref: "AgentError#" },
+              503: { $ref: "AgentError#" },
+            },
+          },
+          config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          // 1. Validate payload
+          const parseResult = AlertPayloadSchema.safeParse(request.body);
+          if (!parseResult.success) {
+            return reply
+              .code(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Bad Request",
+                  `Invalid alert payload: ${parseResult.error.message}`
+                )
+              );
+          }
     
-      return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-    }
+          const payload: AlertPayload = parseResult.data;
+    
+          // 3. Skip info-level alerts (log only)
+          if (payload.severity === "info") {
+            fastify.log.info(
+              { alertName: payload.alertName, source: payload.source },
+              "Info-level alert received — no action taken"
+            );
+            return reply.code(200).send({ sessionId: "" });
+          }
+    
+          // 4. Check circuit breaker
+          const circuitCheck = checkCircuitBreaker();
+          if (!circuitCheck.allowed) {
+            fastify.log.warn(
+              { alertName: payload.alertName, reason: circuitCheck.reason },
+              "Remediation circuit breaker is open"
+            );
+            return reply
+              .code(503)
+              .send(
+                createProblemDetails(
+                  503,
+                  "Service Unavailable",
+                  circuitCheck.reason ?? "Circuit breaker open"
+                )
+              );
+          }
+    
+          // 5. Build investigation task
+          const taskDescription =
+            `[PRODUCTION ALERT — ${payload.severity.toUpperCase()}] ${payload.alertName}\n\n` +
+            `Alert summary: ${payload.summary}\n\n` +
+            `Source: ${payload.source}\n` +
+            (payload.generatorURL ? `Dashboard: ${payload.generatorURL}\n` : "") +
+            (payload.labels ? `Labels: ${JSON.stringify(payload.labels)}\n` : "") +
+            `\nInvestigate the production issue described above. ` +
+            `Check recent deployments (git log --oneline -10), error logs, and the affected code paths. ` +
+            `If the root cause is identifiable from the codebase, create a fix PR. ` +
+            `If it requires infrastructure or environment changes outside the codebase, ` +
+            `create a draft PR documenting the investigation findings and recommended action.`;
+    
+          fastify.log.info(
+            { alertName: payload.alertName, severity: payload.severity, source: payload.source },
+            "Creating remediation session"
+          );
+    
+          const session = await sessionService.create({
+            taskDescription,
+            baseBranch: "main",
+          });
+    
+          // Fire and forget — record outcome when complete
+          executeSession(session)
+            .then(() => recordRemediationOutcome(true))
+            .catch((err) => {
+              recordRemediationOutcome(false);
+              fastify.log.error({ sessionId: session.id, err }, "Remediation session failed");
+            });
+    
+          return { sessionId: session.id };
+        }
+      );
+    };
   </file>
   <file path="services/agent/src/routes/session-events.ts">
     export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -10905,17 +11332,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="SplitFlap">
-  <file path="packages/rialto/src/components/SplitFlap/charset.ts">
-    export const CHARSETS = {
-      alpha: ALPHA,
-      numeric: NUMERIC,
-      alphanumeric: ALPHANUMERIC,
-      full: FULL,
-    } as const;
-    export type CharsetName = keyof typeof CHARSETS;
-  </file>
-  </section>
   <section priority="medium" role="src">
   <file path="apps/gen/src/types.ts">
     export interface HistoryEntry {
@@ -11573,6 +11989,9 @@
       }
     
       return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
+    }
+    export function reviewersForDiff(files: readonly string[]): string[] {
+      return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
     }
   </file>
   <file path="packages/agent-core/src/prompt-builder.ts">
@@ -13195,20 +13614,6 @@
       messages: TwilioMessages;
     }
   </file>
-  <file path="packages/observability/src/baggage.ts">
-    export const BAGGAGE_KEYS = {
-      SESSION_ID: "agent.session_id",
-      PR_NUMBER: "agent.pr_number",
-      ISSUE_NUMBER: "agent.issue_number",
-      DEPLOY_SHA: "deploy.sha",
-    } as const;
-    export interface AgentBaggage {
-      readonly sessionId?: string;
-      readonly prNumber?: string;
-      readonly issueNumber?: string;
-      readonly deploySha?: string;
-    }
-  </file>
   <file path="packages/observability/src/error-rates.ts">
     interface RequestRecord {
       readonly timestamp: number;
@@ -13595,7 +14000,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -14134,253 +14550,18 @@
       adapter?: AdapterType;
     }
   </file>
-  </section>
-  <section priority="medium" role="TapeChart">
-  <file path="packages/rialto/src/components/TapeChart/dateMath.ts">
-    export function parseISOMs(iso: string): number {
-      const parts = iso.split("-");
-      const y = Number(parts[0] ?? "1970");
-      const m = Number(parts[1] ?? "1");
-      const d = Number(parts[2] ?? "1");
-      return Date.UTC(y, m - 1, d);
+  <file path="tools/cli/src/resolve-issue-model.ts">
+    export interface IssueModelInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
     }
-    export function daysBetween(a: string, b: string): number {
-      return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
-    }
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/defaultStrings.ts">
-    export type ResolvedStrings = Required<
-      Omit<
-        TapeChartStrings,
-        | "reservationAriaTemplate"
-        | "nightsLabel"
-        | "partySizeLabel"
-        | "statusLabels"
-        | "roomStatusLabels"
-      >
-    > & {
-      reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
-      nightsLabel: (count: number) => string;
-      partySizeLabel: (count: number) => string;
-      statusLabels: Record<TapeChartStatus, string>;
-      roomStatusLabels: Record<TapeChartRoomStatus, string>;
-    };
-    export const DEFAULT_STRINGS: ResolvedStrings = {
-      regionLabel: "Reservations tape chart",
-      roomsColumnLabel: "Rooms",
-      arrivalsLabel: "Arrivals",
-      departuresLabel: "Departures",
-      inHouseLabel: "In-house",
-      viewModeToggleLabel: "View mode",
-      viewModeGridLabel: "Grid",
-      viewModeListLabel: "List",
-      todayLabel: "Today",
-      emptyTitle: "No rooms configured",
-      emptyBody: "Add a room to start managing reservations.",
-      errorTitle: "Couldn't load reservations",
-      errorRetryLabel: "Try again",
-      loadingLabel: "Loading reservations",
-      moveDialogTitle: "Move reservation",
-      moveConfirmLabel: "Move",
-      moveCancelLabel: "Cancel",
-      conflictWarning: "This move conflicts with another reservation.",
-      statusLabels: STATUS_LABELS_EN,
-      roomStatusLabels: ROOM_STATUS_LABELS_EN,
-      reservationAriaTemplate: defaultReservationAriaTemplate,
-      nightsLabel: defaultNightsLabel,
-      partySizeLabel: defaultPartySizeLabel,
-    };
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/types.ts">
-    export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
-    export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
-    export interface TapeChartFormatters {
-      /** "Fri" */
-      dayWeekdayShort: (iso: string) => string;
-      /** "28" */
-      dayNumeric: (iso: string) => string;
-      /** "Friday, October 28, 2022" — used for aria-labels. */
-      dayLong: (iso: string) => string;
-      /** "October 2022" — month divider in day header. */
-      monthYearLong: (iso: string) => string;
-      /** Currency-formatted rate, e.g. "$1,290.00". Pass minor units. */
-      currency: (minorUnits: number, currencyCode?: string) => string;
-      /** Plain number. */
-      number: (n: number) => string;
-      /** Locale-correct plural category. */
-      pluralCategory: (n: number) => Intl.LDMLPluralRule;
-      /** Collator for sorting room names. */
-      compare: (a: string, b: string) => number;
-      /** Today's ISO date in the chart's time zone. */
-      todayISO: () => string;
-      locale: string;
-      timeZone?: string;
-    }
-    export function useTapeChartI18n(
-      locale?: string,
-      timeZone?: string,
-      defaultCurrency?: string
-    ): TapeChartFormatters {
-      const effectiveLocale =
-        locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
-    
-      return useMemo(() => {
-        const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
-          weekday: "short",
-          timeZone,
-        });
-        const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
-          day: "2-digit",
-          timeZone,
-        });
-        const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          timeZone,
-        });
-        const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
-          month: "long",
-          year: "numeric",
-          timeZone,
-        });
-        const todayParts = new Intl.DateTimeFormat("en-CA", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          timeZone,
-        });
-        const numberFmt = new Intl.NumberFormat(effectiveLocale);
-        const plural = new Intl.PluralRules(effectiveLocale);
-        const collator = new Intl.Collator(effectiveLocale, { numeric: true, sensitivity: "base" });
-    
-        const currencyCache = new Map<string, Intl.NumberFormat>();
-        const getCurrency = (code: string) => {
-          let fmt = currencyCache.get(code);
-          if (!fmt) {
-            fmt = new Intl.NumberFormat(effectiveLocale, {
-              style: "currency",
-              currency: code,
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            });
-            currencyCache.set(code, fmt);
-          }
-          return fmt;
-        };
-    
-        return {
-          dayWeekdayShort: (iso) => weekdayShort.format(parseISODate(iso)),
-          dayNumeric: (iso) => dayNumeric.format(parseISODate(iso)),
-          dayLong: (iso) => dayLong.format(parseISODate(iso)),
-          monthYearLong: (iso) => monthYearLong.format(parseISODate(iso)),
-          currency: (minorUnits, code) => {
-            const c = code ?? defaultCurrency ?? "USD";
-            return getCurrency(c).format(minorUnits / 100);
-          },
-          number: (n) => numberFmt.format(n),
-          pluralCategory: (n) => plural.select(n),
-          compare: (a, b) => collator.compare(a, b),
-          todayISO: () => {
-            // en-CA yields YYYY-MM-DD reliably; we then parse parts to be explicit.
-            const parts = todayParts.formatToParts(new Date());
-            const y = parts.find((p) => p.type === "year")?.value ?? "1970";
-            const m = parts.find((p) => p.type === "month")?.value ?? "01";
-            const d = parts.find((p) => p.type === "day")?.value ?? "01";
-            return `${y}-${m}-${d}`;
-          },
-          locale: effectiveLocale,
-          timeZone,
-        };
-      }, [effectiveLocale, timeZone, defaultCurrency]);
-    }
-  </file>
-  <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
-    function assignLanes(bars: TapeChartPositionedBar[]): number {
-      const laneEnds: number[] = [];
-      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
-      for (const bar of bars) {
-        let placed = false;
-        for (let i = 0; i < laneEnds.length; i++) {
-          if (laneEnds[i]! <= bar.startOffset) {
-            bar.lane = i;
-            laneEnds[i] = bar.startOffset + bar.span;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          bar.lane = laneEnds.length;
-          laneEnds.push(bar.startOffset + bar.span);
-        }
-      }
-      return laneEnds.length;
-    }
-    export function useTapeChartLayout(
-      reservations: TapeChartReservation[],
-      rooms: TapeChartRoom[],
-      startDate: string,
-      endDate: string
-    ): TapeChartLayout {
-      return useMemo(() => {
-        const dayCount = Math.max(0, daysBetween(startDate, endDate));
-        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
-        for (const room of rooms) barsByRoom.set(room.id, []);
-    
-        const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
-          date: addDays(startDate, i),
-          arrivals: 0,
-          departures: 0,
-          inHouse: 0,
-        }));
-    
-        for (const reservation of reservations) {
-          if (reservation.status === "cancelled" || reservation.status === "noShow") continue;
-          const rawStart = daysBetween(startDate, reservation.start);
-          const rawEnd = daysBetween(startDate, reservation.end);
-          // end-exclusive: a reservation Oct 28→Oct 31 spans Oct 28, 29, 30 (3 nights).
-          if (rawEnd <= 0 || rawStart >= dayCount) continue;
-    
-          const startOffset = Math.max(0, rawStart);
-          const endOffset = Math.min(dayCount, rawEnd);
-          const span = Math.max(1, endOffset - startOffset);
-    
-          const list = barsByRoom.get(reservation.roomId);
-          if (!list) continue;
-          list.push({
-            reservation,
-            startOffset,
-            span,
-            lane: 0,
-            clippedStart: rawStart < 0,
-            clippedEnd: rawEnd > dayCount,
-          });
-    
-          // Daily counts — only count when the arrival/departure lands within view.
-          if (rawStart >= 0 && rawStart < dayCount) dailyCounts[rawStart]!.arrivals += 1;
-          if (rawEnd > 0 && rawEnd <= dayCount) dailyCounts[rawEnd - 1]!.departures += 1;
-          for (let i = startOffset; i < endOffset; i++) {
-            dailyCounts[i]!.inHouse += 1;
-          }
-        }
-    
-        let maxLanes = 1;
-        for (const bars of barsByRoom.values()) {
-          const lanes = assignLanes(bars);
-          if (lanes > maxLanes) maxLanes = lanes;
-        }
-    
-        return { barsByRoom, dayCount, maxLanes, dailyCounts };
-      }, [reservations, rooms, startDate, endDate]);
+    export interface IssueModelResult {
+      readonly tier: ModelTier;
+      readonly modelId: string;
+      readonly reason: string;
+      /** Where the decision came from: an explicit issue override vs. the router. */
+      readonly source: "frontmatter" | "router";
     }
   </file>
   </section>
@@ -14456,19 +14637,6 @@
       createdAt: "2026-01-25T00:00:00.000Z",
       updatedAt: "2026-01-25T00:00:00.000Z",
     });
-  </file>
-  </section>
-  <section priority="medium" role="Toast">
-  <file path="packages/rialto/src/components/Toast/ToastContext.ts">
-    export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
-    }
   </file>
   </section>
   <section priority="medium" role="tokens">
@@ -14748,6 +14916,22 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="apps/gen/src/utils/downloadJson.ts">
+    function defaultFilename(): string {
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      return `gen-spec-${ts}.json`;
+    }
+    export function downloadJson(data: unknown, filename?: string): void {
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename ?? defaultFilename();
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </file>
   <file path="apps/gen/src/utils/relative-time.ts">
     export function relativeTime(date: Date): string {
       const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -14758,6 +14942,23 @@
       if (Math.abs(diffMins) < 60) return rtf.format(diffMins, "minute");
       const diffHours = Math.round(diffMins / 60);
       return rtf.format(diffHours, "hour");
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/format.ts">
+    export function formatLongDate(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+    export function formatLongDateWithYear(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
     }
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
