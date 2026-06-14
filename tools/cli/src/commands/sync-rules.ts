@@ -1,22 +1,9 @@
 import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { findMonorepoRoot } from "../monorepo-root.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-function findMonorepoRoot(startDir: string): string {
-  let dir = startDir;
-  const maxDepth = 10;
-  for (let i = 0; i < maxDepth; i++) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-      return dir;
-    }
-    const parent = resolve(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return startDir;
-}
 
 const MANAGED_HEADER = "<!-- @mbe-managed - DO NOT EDIT MANUALLY -->\n";
 

@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import { defineCommand } from "../command-seam.js";
+import type { CommandResult } from "../command-seam.js";
 
 const HEALTH_URL = "https://mattbutlerengineering.com/health/system";
 
@@ -18,14 +20,16 @@ interface SystemHealth {
   deploy?: { status: string };
 }
 
+// ── Formatting helpers (human output only) ────────────────────────────────────
+
 function colorize(text: string, status: string): string {
   const colors: Record<string, string> = {
-    healthy: "\x1b[32m", // green
+    healthy: "\x1b[32m",
     ok: "\x1b[32m",
-    degraded: "\x1b[33m", // yellow
-    unhealthy: "\x1b[31m", // red
+    degraded: "\x1b[33m",
+    unhealthy: "\x1b[31m",
     error: "\x1b[31m",
-    unknown: "\x1b[90m", // gray
+    unknown: "\x1b[90m",
   };
   const reset = "\x1b[0m";
   const color = colors[status] ?? colors.unknown;
@@ -57,7 +61,6 @@ function formatOutput(data: SystemHealth): void {
   console.log(`  Checked: ${data.timestamp}`);
   console.log();
 
-  // Services
   if (data.services) {
     console.log("  \x1b[1mAPI Services\x1b[0m");
     for (const [name, svc] of Object.entries(data.services)) {
@@ -70,7 +73,6 @@ function formatOutput(data: SystemHealth): void {
     console.log();
   }
 
-  // Static sites
   if (data.staticSites) {
     console.log("  \x1b[1mStatic Sites\x1b[0m");
     for (const [name, site] of Object.entries(data.staticSites)) {
@@ -79,7 +81,6 @@ function formatOutput(data: SystemHealth): void {
     console.log();
   }
 
-  // CI & Deploy
   if (data.ci) {
     console.log(`  \x1b[1mCI:\x1b[0m ${statusIcon(data.ci.status)} ${data.ci.status}`);
   }
@@ -99,28 +100,47 @@ async function fetchHealth(): Promise<SystemHealth> {
   return response.json() as Promise<SystemHealth>;
 }
 
+// ── Pure run function (returns CommandResult) ─────────────────────────────────
+
+/**
+ * Fetches health data and returns a CommandResult.
+ * No auth required; no console/process.exit calls.
+ */
+export const healthRun = defineCommand({
+  async run(): Promise<CommandResult> {
+    const data = await fetchHealth();
+    return { kind: "json", data };
+  },
+});
+
+// ── Commander wiring ──────────────────────────────────────────────────────────
+
 export const healthCommand = new Command("health")
   .description("Show system health status")
   .option("--json", "Output raw JSON")
   .option("--watch", "Refresh every 10 seconds")
   .action(async (options: { json?: boolean; watch?: boolean }) => {
     const run = async () => {
-      try {
-        const data = await fetchHealth();
+      const result = await healthRun({});
 
+      if (result.kind === "error") {
+        console.error(
+          `\x1b[31mError:\x1b[0m ${(result as Extract<typeof result, { kind: "error" }>).message}`
+        );
+        if (!options.watch) process.exit(1);
+        return;
+      }
+
+      if (result.kind === "json") {
+        const data = (result as Extract<typeof result, { kind: "json" }>).data as SystemHealth;
         if (options.json) {
           console.log(JSON.stringify(data, null, 2));
         } else {
           if (options.watch) {
-            // Clear screen for watch mode
             process.stdout.write("\x1b[2J\x1b[H");
           }
           formatOutput(data);
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error(`\x1b[31mError:\x1b[0m ${msg}`);
-        if (!options.watch) process.exit(1);
       }
     };
 
