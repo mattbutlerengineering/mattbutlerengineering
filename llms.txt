@@ -3123,7 +3123,7 @@
       } { /* ... */ }
     </item>
     <item priority="high">
-      export function createListResponseSchema(entityRef: string) { /* ... */ }
+      export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/job-types.ts">
