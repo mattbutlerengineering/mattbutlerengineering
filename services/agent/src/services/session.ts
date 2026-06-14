@@ -57,6 +57,25 @@ interface ListOptions {
   readonly status?: SessionStatus;
 }
 
+export interface TriggerSessionOptions {
+  taskDescription: string;
+  baseBranch?: string;
+  userId?: string;
+  model?: string;
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  createPr?: boolean;
+  parentId?: string;
+  onSettled?: (success: boolean) => void | Promise<void>;
+}
+
+export interface TriggerSessionResult {
+  session: AgentSession | null;
+  accepted: boolean;
+}
+
+const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+
 export const sessionService = {
   async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
     const { page, limit, status } = options;
@@ -105,6 +124,40 @@ export const sessionService = {
       },
     });
     return mapPrismaSession(session);
+  },
+
+  async triggerSession(
+    opts: TriggerSessionOptions
+  ): Promise<TriggerSessionResult> {
+    const { executeSession, getActiveSessionCount } = await import(
+      "./session-executor.js"
+    );
+
+    if (getActiveSessionCount() >= MAX_CONCURRENT) {
+      return { session: null, accepted: false };
+    }
+
+    const wrappedTask = `<task>\n${opts.taskDescription}\n</task>`;
+
+    const session = await this.create({
+      taskDescription: wrappedTask,
+      baseBranch: opts.baseBranch,
+      userId: opts.userId,
+      model: opts.model,
+      maxTurns: opts.maxTurns,
+      maxBudgetUsd: opts.maxBudgetUsd,
+      createPr: opts.createPr,
+      parentId: opts.parentId,
+    });
+
+    executeSession(session)
+      .then(() => opts.onSettled?.(true))
+      .catch((err) => {
+        opts.onSettled?.(false);
+        console.error({ sessionId: session.id, err }, "triggerSession execution failed");
+      });
+
+    return { session, accepted: true };
   },
 
   async updateStatus(

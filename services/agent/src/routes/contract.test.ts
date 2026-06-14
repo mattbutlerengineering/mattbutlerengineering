@@ -7,6 +7,7 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn(),
+    triggerSession: vi.fn(),
     updateStatus: vi.fn(),
     delete: vi.fn(),
   },
@@ -41,6 +42,7 @@ vi.mock("jose", () => ({
 }));
 
 import { getActiveSessionCount } from "../services/session-executor.js";
+import { sessionService } from "../services/session.js";
 
 describe("Agent Service API Contract", () => {
   let app: FastifyInstance;
@@ -65,6 +67,10 @@ describe("Agent Service API Contract", () => {
 
   it("POST /v1/sessions returns 429 when max concurrent reached", async () => {
     vi.mocked(getActiveSessionCount).mockReturnValueOnce(5);
+    vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      session: null,
+      accepted: false,
+    });
 
     const response = await app.inject({
       method: "POST",
