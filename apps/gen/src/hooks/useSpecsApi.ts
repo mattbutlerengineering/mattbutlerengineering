@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { ApiClient } from "@mbe/api-client";
 import type { StoredSpec } from "../types.js";
@@ -37,6 +37,12 @@ export function useSpecsApi(): UseSpecsApiReturn {
 
   const [specs, setSpecs] = useState<StoredSpec[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Mirror of specs in a ref so deleteSpec can read the current list without
+  // taking specs as a useCallback dependency (which would recreate on every render).
+  const specsRef = useRef<StoredSpec[]>(specs);
+  useEffect(() => {
+    specsRef.current = specs;
+  }, [specs]);
 
   const fetchSpecs = useCallback(async (): Promise<void> => {
     // NOTE: We deliberately do NOT call setIsLoading(true) synchronously here.
@@ -86,18 +92,23 @@ export function useSpecsApi(): UseSpecsApiReturn {
 
   const deleteSpec = useCallback(
     async (id: string): Promise<void> => {
+      // Read current specs via ref — avoids adding specs to the dep array,
+      // keeping deleteSpec identity stable across renders.
+      const itemToDelete = specsRef.current.find((s) => s.id === id);
       // Optimistic removal from local state
-      const previous = specs;
       setSpecs((prev) => prev.filter((s) => s.id !== id));
       try {
         await client.delete(`/api/gen/specs/${id}`);
       } catch (err) {
-        // Revert on error
-        setSpecs(previous);
+        // Revert only the failed item via functional update — concurrent
+        // successful deletes are not affected (no stale snapshot overwrite).
+        if (itemToDelete !== undefined) {
+          setSpecs((prev) => (prev.some((s) => s.id === id) ? prev : [...prev, itemToDelete]));
+        }
         console.error("[useSpecsApi] deleteSpec error:", err);
       }
     },
-    [client, specs]
+    [client]
   );
 
   useEffect(() => {
