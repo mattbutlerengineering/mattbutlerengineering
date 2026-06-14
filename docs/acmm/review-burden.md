@@ -79,6 +79,75 @@ Auto-merge reduces the mechanical burden of clicking "merge" but does not reduce
 4. **Rotate reviewers**. No single person should be the default reviewer for all agent PRs. Distribute using GitHub's CODEOWNERS or round-robin assignment.
 5. **Scheduled review windows**. Instead of interrupting flow with each agent PR, batch reviews into 1-2 daily windows.
 
+## Automated collector
+
+The ad-hoc `gh` snippets above are for spot checks. The repeatable collector is
+[`scripts/acmm/review-burden-metrics.js`](../../scripts/acmm/review-burden-metrics.js).
+It fetches closed PRs from the GitHub API (via `gh pr list`, so it reuses your
+`gh auth` / `GITHUB_TOKEN` — no token is ever read or logged by the script) and
+computes, per reviewer:
+
+- **PRs reviewed** in the window (self-reviews excluded)
+- **Mean review turnaround** — minutes from PR open to that reviewer's first review
+- **Rubber-stamp ratio** — share of approvals submitted within the threshold (default < 5 min)
+
+### Running it
+
+```bash
+node scripts/acmm/review-burden-metrics.js               # 7-day window, appends to JSON
+node scripts/acmm/review-burden-metrics.js --days 30      # custom window
+node scripts/acmm/review-burden-metrics.js --threshold 10 # custom rubber-stamp minutes
+node scripts/acmm/review-burden-metrics.js --dry-run      # print only, no file write
+```
+
+### Where results live
+
+Each run appends one timestamped entry to **`docs/metrics/review-burden.json`**
+(an array, so trend-over-time is preserved). The script also prints a
+human-readable per-reviewer breakdown to stdout.
+
+### Reading the JSON
+
+```bash
+# Most recent run's per-reviewer load
+jq '.[-1].reviewers' docs/metrics/review-burden.json
+
+# Trend: overall rubber-stamp ratio across every run
+jq '[.[] | { ts: .timestamp, ratio: .summary.overall_rubber_stamp_ratio }]' \
+  docs/metrics/review-burden.json
+```
+
+Each entry's shape:
+
+```jsonc
+{
+  "timestamp": "2026-06-13T...Z",
+  "window_days": 7,
+  "rubber_stamp_threshold_minutes": 5,
+  "total_closed_prs": 73,
+  "reviewers": [
+    {
+      "login": "...",
+      "prs_reviewed": 4,
+      "mean_review_minutes": 12.5,
+      "approvals": 4,
+      "rubber_stamps": 0,
+      "rubber_stamp_ratio": 0,
+    },
+  ],
+  "summary": {
+    "total_reviewers": 3,
+    "total_reviews": 11,
+    "overall_rubber_stamp_ratio": 0.09,
+    "overall_rubber_stamps": 1,
+    "overall_approvals": 11,
+  },
+}
+```
+
+The metric math is unit-tested in
+[`scripts/__tests__/review-burden-metrics.test.mjs`](../../scripts/__tests__/review-burden-metrics.test.mjs).
+
 ## Integration with /progress-tracker
 
 The `/progress-tracker` skill already reports issue and PR metrics. Review burden extends this with:

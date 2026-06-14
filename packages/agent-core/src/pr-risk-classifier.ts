@@ -89,6 +89,23 @@ const DIFF_REVIEWERS: ReadonlyArray<{ name: string; matches: (file: string) => b
       f === "pnpm-lock.yaml" ||
       f === "pnpm-workspace.yaml",
   },
+  {
+    // Generated artifacts (llms.txt context bundles, generated zod schemas,
+    // dependency graph) and the pack generator that emits them. These drift
+    // non-deterministically across platforms (locale-sensitive sorts) or go
+    // stale relative to their source — a class of Integrity failure CI only
+    // catches after push. See the byte-order-comparator fix for the root cause.
+    name: "generated-artifact-determinism-reviewer",
+    matches: (f) =>
+      f === "tools/cli/src/commands/pack.ts" ||
+      f === "llms.txt" ||
+      f === "llms-full.txt" ||
+      f.endsWith("/llms.txt") ||
+      f.endsWith("/llms-full.txt") ||
+      f.endsWith("/generated-schemas.ts") ||
+      f === "infrastructure/worker/dep-graph.json" ||
+      f === "docs/architecture/dependency-graph.md",
+  },
 ];
 
 /**
