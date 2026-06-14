@@ -8628,10 +8628,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.getById(request.params.id);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return { data: table };
         }
@@ -8704,11 +8706,11 @@
             return reply.code(201).send({ data: table });
           } catch (error) {
             if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(400, "Bad Request", "A table with this name already exists")
-                );
+              const err = new Error("A table with this name already exists") as Error & {
+                statusCode?: number;
+              };
+              err.statusCode = 400;
+              throw err;
             }
             throw error;
           }
@@ -8787,10 +8789,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.update(request.params.id, request.body);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return { data: table };
         }
@@ -8861,10 +8865,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.updateStatus(request.params.id, request.body.status);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           emitTableUpdated(table);
           return { data: table };
@@ -8922,7 +8928,9 @@
         async (request, reply) => {
           const deleted = await tableService.delete(request.params.id);
           if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return reply.code(204).send();
         }
@@ -10390,6 +10398,12 @@
       error: z.string(),
       message: z.string(),
       statusCode: z.number(),
+      type: z.string().optional(),
+      title: z.string().optional(),
+      status: z.number().optional(),
+      detail: z.string().optional(),
+      instance: z.string().optional(),
+      details: z.record(z.string(), z.unknown()).optional(),
     });
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
@@ -14375,6 +14389,112 @@
       readonly successorVersion: string;
       readonly sunsetMonthsFromNow: number;
     }
+  </file>
+  <file path="packages/service-bootstrap/src/error-handler.ts">
+    interface CustomError extends Error {
+      statusCode?: number;
+      status?: number;
+      code?: string;
+      meta?: Record<string, unknown>;
+      validation?: Array<{
+        keyword: string;
+        instancePath?: string;
+        dataPath?: string;
+        schemaPath?: string;
+        params?: Record<string, unknown>;
+        message?: string;
+      }>;
+      details?: Record<string, unknown>;
+    }
+    export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
+      fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
+        // 1. Log the error using Fastify logger
+        request.log.error(error);
+    
+        const err = error as CustomError;
+    
+        // 2. Map the error to RFC 7807/Problem Details
+        let status = err.statusCode || err.status || 500;
+        let title = "Internal Server Error";
+        let detail = err.message || "An unexpected error occurred";
+        const type = "about:blank";
+        const extensions: Record<string, unknown> = {};
+    
+        // Check if it is a Prisma error
+        const isPrisma =
+          err.name === "PrismaClientKnownRequestError" ||
+          err.constructor?.name === "PrismaClientKnownRequestError" ||
+          (typeof err.code === "string" && err.code.startsWith("P2"));
+    
+        if (isPrisma) {
+          const prismaCode = err.code || "";
+          extensions.prismaCode = prismaCode;
+          if (err.meta) {
+            extensions.prismaMeta = err.meta;
+          }
+    
+          if (prismaCode === "P2025") {
+            status = 404;
+            title = "Not Found";
+            detail = (err.meta?.cause as string) || err.message || "Record not found";
+          } else if (prismaCode === "P2002") {
+            status = 409;
+            title = "Conflict";
+            const target = Array.isArray(err.meta?.target) ? err.meta.target.join(", ") : "field";
+            detail = `Unique constraint failed: ${target}`;
+          } else if (prismaCode === "P2003") {
+            status = 409;
+            title = "Conflict";
+            detail = `Foreign key constraint failed on field: ${(err.meta?.field_name as string) || "field"}`;
+          } else {
+            status = 500;
+            title = "Database Error";
+            detail = "A database error occurred";
+          }
+        } else if (err.validation) {
+          // AJV validation error
+          status = 400;
+          title = "Bad Request";
+          const validationMsgs = err.validation.map((v) => {
+            const path = v.instancePath || v.dataPath || "";
+            const field = path.startsWith("/")
+              ? path.slice(1)
+              : (v.params?.missingProperty as string) || "";
+            const fieldPrefix = field ? `'${field}' ` : "";
+            return `${fieldPrefix}${v.message || ""}`;
+          });
+          detail = `Validation failed: ${validationMsgs.join(", ")}`;
+          extensions.details = {
+            validation: err.validation,
+          };
+        } else if (
+          typeof err.statusCode === "number" &&
+          err.statusCode >= 400 &&
+          err.statusCode < 600
+        ) {
+          // Standard HTTP errors thrown by Fastify or route handlers
+          status = err.statusCode;
+          title = getTitleForStatus(status);
+          detail = err.message;
+          if (err.details) {
+            extensions.details = err.details;
+          }
+        }
+    
+        // Call createProblemDetails from @mbe/types
+        const problemDetails = createProblemDetails(
+          status,
+          title,
+          detail,
+          type,
+          request.url,
+          extensions
+        );
+    
+        // Send the response
+        reply.status(status).send(problemDetails);
+      });
+    });
   </file>
   <file path="packages/service-bootstrap/src/feature-flags.ts">
     export interface FeatureFlag {
