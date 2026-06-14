@@ -68,28 +68,49 @@ export const FAMILIES = [
     command: "pnpm --filter @mbe/cli start pack-all",
     outputs: [
       "llms.txt",
+      "llms-full.txt",
       "apps/gen/llms.txt",
+      "apps/gen/llms-full.txt",
       "apps/hospitality/llms.txt",
+      "apps/hospitality/llms-full.txt",
       "apps/marketing/llms.txt",
+      "apps/marketing/llms-full.txt",
       "apps/rialto-web/llms.txt",
+      "apps/rialto-web/llms-full.txt",
       "packages/agent-core/llms.txt",
+      "packages/agent-core/llms-full.txt",
       "packages/agent-test-utils/llms.txt",
+      "packages/agent-test-utils/llms-full.txt",
       "packages/api-client/llms.txt",
+      "packages/api-client/llms-full.txt",
       "packages/auth/llms.txt",
+      "packages/auth/llms-full.txt",
       "packages/database/llms.txt",
-      "packages/feature-flags/llms.txt",
+      "packages/database/llms-full.txt",
       "packages/jobs/llms.txt",
+      "packages/jobs/llms-full.txt",
       "packages/mcp-server/llms.txt",
+      "packages/mcp-server/llms-full.txt",
       "packages/notifications/llms.txt",
+      "packages/notifications/llms-full.txt",
       "packages/observability/llms.txt",
+      "packages/observability/llms-full.txt",
       "packages/rialto/llms.txt",
+      "packages/rialto/llms-full.txt",
       "packages/rialto-catalog/llms.txt",
+      "packages/rialto-catalog/llms-full.txt",
       "packages/sentry/llms.txt",
+      "packages/sentry/llms-full.txt",
       "packages/service-bootstrap/llms.txt",
+      "packages/service-bootstrap/llms-full.txt",
       "packages/types/llms.txt",
+      "packages/types/llms-full.txt",
       "services/agent/llms.txt",
+      "services/agent/llms-full.txt",
       "services/reservations/llms.txt",
+      "services/reservations/llms-full.txt",
       "services/users/llms.txt",
+      "services/users/llms-full.txt",
     ],
   },
   {
@@ -124,9 +145,9 @@ export const FAMILIES = [
 
 /** All workspace directories that carry an llms.txt (relative to root). */
 export function llmsPackages() {
-  return FAMILIES.find((f) => f.id === "llms-txt").outputs.map((o) =>
-    o === "llms.txt" ? "." : o.replace(/\/llms\.txt$/, "")
-  );
+  return FAMILIES.find((f) => f.id === "llms-txt")
+    .outputs.filter((o) => o === "llms.txt" || o.endsWith("/llms.txt"))
+    .map((o) => (o === "llms.txt" ? "." : o.replace(/\/llms\.txt$/, "")));
 }
 
 // ---------------------------------------------------------------------------
