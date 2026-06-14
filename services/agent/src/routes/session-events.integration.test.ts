@@ -76,9 +76,14 @@ function makeLiveEvent(
   return { id, sessionId, type, data, createdAt: new Date().toISOString() };
 }
 
-/** Wait one macrotask so SSE writes flush before assertions. */
+/**
+ * Drain the macrotask queue so SSE writes flush before assertions.
+ * Uses setImmediate rather than setTimeout(resolve, 0) to avoid triggering
+ * the setTimeout spy in the "no poll timer" test and to be immune to
+ * timer-starvation under full parallel turbo load.
+ */
 function tick(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 describe("Session Events SSE Integration", () => {
