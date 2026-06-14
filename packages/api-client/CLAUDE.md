@@ -6,16 +6,19 @@ Typed HTTP client for the MBE platform API. Wraps `fetch` with auth token inject
 
 ```
 src/
+├── agent-sessions.ts  # AgentSessionsClient
+├── availability.ts    # AvailabilityClient, HoldsClient
 ├── client.ts          # ApiClient base class, retry, timeout, errors
 ├── client.test.ts     # Core client tests
-├── index.ts           # createApiClient factory + re-exports
-├── users.ts           # UsersClient
-├── reservations.ts    # ReservationsClient
-├── venues.ts          # VenuesClient, VenueGroupsClient
-├── tables.ts          # TablesClient
-├── guests.ts          # GuestsClient
 ├── floor-plans.ts     # FloorPlansClient
-└── availability.ts    # AvailabilityClient, HoldsClient
+├── guests.ts          # GuestsClient
+├── health.ts          # HealthClient
+├── index.ts           # createApiClient factory + re-exports
+├── reservations.ts    # ReservationsClient
+├── streaming.ts       # StreamingClient (SSE event streams)
+├── tables.ts          # TablesClient
+├── users.ts           # UsersClient
+└── venues.ts          # VenuesClient, VenueGroupsClient
 ```
 
 ## Quick Start
@@ -121,8 +124,9 @@ const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 })
 ## Commands
 
 ```bash
-pnpm build        # Compile TypeScript
-pnpm test         # Run tests
-pnpm lint         # ESLint
-pnpm typecheck    # Type check
+pnpm build          # Compile TypeScript
+pnpm test           # Run tests
+pnpm test:contract  # Run contract tests only
+pnpm lint           # ESLint
+pnpm typecheck      # Type check
 ```
