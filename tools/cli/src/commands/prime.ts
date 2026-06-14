@@ -1,23 +1,8 @@
 import { Command } from "commander";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { execSync } from "node:child_process";
+import { findMonorepoRoot } from "../monorepo-root.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-function findMonorepoRoot(startDir: string): string {
-  let dir = startDir;
-  const maxDepth = 10;
-  for (let i = 0; i < maxDepth; i++) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-      return dir;
-    }
-    const parent = resolve(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return startDir;
-}
 
 // ── Command ───────────────────────────────────────────────────────────────
 

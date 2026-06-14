@@ -4,25 +4,12 @@ import { join, resolve } from "node:path";
 import { Project, Node } from "ts-morph";
 import { glob } from "glob";
 import { execSync } from "node:child_process";
+import { findMonorepoRoot } from "../monorepo-root.js";
 
 const SIZE_LIMIT_KB = 15;
 const AUTO_SPLIT_THRESHOLD_KB = 25;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-function findMonorepoRoot(startDir: string): string {
-  let dir = startDir;
-  const maxDepth = 10;
-  for (let i = 0; i < maxDepth; i++) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-      return dir;
-    }
-    const parent = resolve(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return startDir;
-}
 
 function truncateType(type: string, maxLength = 60): string {
   if (type.length <= maxLength) return type;

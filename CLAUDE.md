@@ -196,6 +196,14 @@ The Langfuse MCP server (`.mcp.json`) gives Claude Code access to:
 
 See [AGENTS.md](./AGENTS.md#security-scanning-semgrep) for Semgrep configuration, rules, and usage. Claude Code additionally has the Semgrep MCP server (`.mcp.json`) for invoking scans via `@semgrep/mcp`.
 
+## Browser Automation (Playwright)
+
+The Playwright MCP server (`.mcp.json`) provides shared browser tooling for the whole team and CI headless runs — the same server that drives `/site-audit` and the E2E suite.
+
+- No auth or secrets required — resolves cleanly in a fresh checkout
+- Requires no configuration beyond the entry in `.mcp.json`
+- If you also have the personal Playwright plugin installed, both coexist without conflict (Claude Code deduplicates tools by server name)
+
 ## Cross-Session Memory (claude-mem)
 
 [claude-mem](https://github.com/thedotmack/claude-mem) provides persistent cross-session memory — observations about code patterns, architecture decisions, and domain context survive between conversations.
@@ -227,16 +235,16 @@ claude-mem automatically records observations during sessions — code patterns 
 
 ### Where it fits in our process
 
-| Use case | How graphify helps |
-| --- | --- |
-| **Onboarding a subsystem** | `/graphify packages/<pkg>` then `/graphify query "how does X work"` — concept-level map of an unfamiliar package before touching it. Goes deeper than `docs/architecture/dependency-graph.md`, which is package-level only. |
-| **Architecture audits** | Feed graphify's community clusters + cross-file edges into `/improve-codebase-architecture` to spot coupling and deepening opportunities. |
-| **Agent context priming** | Once `graphify-out/graph.json` exists, codebase questions are answered from the graph (BFS/DFS traversal, token-budgeted) instead of re-reading files — cheaper context for `implement-queue` workers. `--mcp` exposes the graph to agents over MCP. |
-| **PR / change review** | `/graphify path "ModuleA" "ModuleB"` traces the shortest dependency path between two concepts to reason about blast radius. |
+| Use case                   | How graphify helps                                                                                                                                                                                                                                   |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Onboarding a subsystem** | `/graphify packages/<pkg>` then `/graphify query "how does X work"` — concept-level map of an unfamiliar package before touching it. Goes deeper than `docs/architecture/dependency-graph.md`, which is package-level only.                          |
+| **Architecture audits**    | Feed graphify's community clusters + cross-file edges into `/improve-codebase-architecture` to spot coupling and deepening opportunities.                                                                                                            |
+| **Agent context priming**  | Once `graphify-out/graph.json` exists, codebase questions are answered from the graph (BFS/DFS traversal, token-budgeted) instead of re-reading files — cheaper context for `implement-queue` workers. `--mcp` exposes the graph to agents over MCP. |
+| **PR / change review**     | `/graphify path "ModuleA" "ModuleB"` traces the shortest dependency path between two concepts to reason about blast radius.                                                                                                                          |
 
 ### Boundaries (avoid tool overlap)
 
-- **vs `dependency-graph.md`** — that artifact stays the source of truth for *package*-level deps and is CI-enforced. graphify is for *concept/symbol*-level exploration; its output is gitignored and never gates CI.
+- **vs `dependency-graph.md`** — that artifact stays the source of truth for _package_-level deps and is CI-enforced. graphify is for _concept/symbol_-level exploration; its output is gitignored and never gates CI.
 - **vs claude-mem (`/smart-explore`, `/mem-search`)** — claude-mem is session memory + AST search. graphify is a durable graph you query. Reach for graphify when you want a navigable map of how things connect; reach for claude-mem when recalling what happened in past sessions.
 
 ### Quick start
