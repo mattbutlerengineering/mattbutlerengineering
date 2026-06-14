@@ -1,6 +1,21 @@
 import type { ApiError } from "@mbe/types";
 import type { z } from "zod";
 
+/**
+ * Describes the value types accepted in a query-params object.
+ * undefined and null values are omitted; all others are stringified.
+ */
+export type QueryParams = Record<string, string | number | boolean | undefined | null>;
+
+export function buildQueryString(params: QueryParams): string {
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) sp.set(key, String(value));
+  }
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 1_000;
@@ -92,8 +107,9 @@ export class ApiClient {
     return data as T;
   }
 
-  get<T>(path: string, schema?: z.ZodSchema<T>): Promise<T> {
-    return this.request<T>(path, { method: "GET" }, schema);
+  get<T>(path: string, params?: QueryParams, schema?: z.ZodSchema<T>): Promise<T> {
+    const query = params ? buildQueryString(params) : "";
+    return this.request<T>(`${path}${query}`, { method: "GET" }, schema);
   }
 
   post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
@@ -126,8 +142,8 @@ export class ApiClient {
    * GET + unwrap `.data` from ApiResponse envelope.
    * Use for single-resource endpoints that return `{ data: T }`.
    */
-  async getOne<T>(path: string): Promise<T> {
-    const response = await this.get<{ data: T }>(path);
+  async getOne<T>(path: string, params?: QueryParams): Promise<T> {
+    const response = await this.get<{ data: T }>(path, params);
     return response.data;
   }
 

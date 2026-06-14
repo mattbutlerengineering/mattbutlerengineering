@@ -1,5 +1,5 @@
 import type { PaginatedResponse, Table, CreateTableRequest, UpdateTableRequest } from "@mbe/types";
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListTablesParams {
   page?: number;
@@ -15,14 +15,7 @@ export class TablesClient {
    * List tables with optional filters
    */
   async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-    const searchParams = new URLSearchParams();
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-    if (params.venueId) searchParams.set("venueId", params.venueId);
-    if (params.activeOnly !== undefined) searchParams.set("activeOnly", String(params.activeOnly));
-
-    const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Table>>(`/api/v1/tables${query ? `?${query}` : ""}`);
+    return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
   }
 
   /**

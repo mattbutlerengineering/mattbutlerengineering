@@ -40,18 +40,10 @@
   </file>
   <file path="src/client.ts">
     <item priority="low">
-      interface ClientConfig {
-        baseUrl: string;
-        getAccessToken?: () => string | null | Promise<string | null>;
-        timeout?: number;
-        maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
-      }
+      type QueryParams = Record<string, string | number | boolean | undefined | null>;
     </item>
-    <item priority="low">
-      interface RequestOptions {
-        signal?: AbortSignal;
-      }
+    <item priority="high">
+      export function buildQueryString(params: QueryParams): string { /* ... */ }
     </item>
   </file>
   <file path="src/floor-plans.ts">

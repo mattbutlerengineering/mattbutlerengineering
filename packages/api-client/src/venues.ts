@@ -7,7 +7,7 @@ import type {
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
 } from "@mbe/types";
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export class VenuesClient {
   constructor(private client: ApiClient) {}
@@ -18,13 +18,7 @@ export class VenuesClient {
   async list(
     params: { page?: number; limit?: number; venueGroupId?: string } = {}
   ): Promise<PaginatedResponse<Venue>> {
-    const searchParams = new URLSearchParams();
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-    if (params.venueGroupId) searchParams.set("venueGroupId", params.venueGroupId);
-
-    const query = searchParams.toString();
-    return this.client.get<PaginatedResponse<Venue>>(`/api/v1/venues${query ? `?${query}` : ""}`);
+    return this.client.get<PaginatedResponse<Venue>>("/api/v1/venues", params as QueryParams);
   }
 
   /**

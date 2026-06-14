@@ -6,7 +6,7 @@ import type {
   Table,
   PaginatedResponse,
 } from "@mbe/types";
-import type { ApiClient } from "./client.js";
+import type { ApiClient, QueryParams } from "./client.js";
 
 export class FloorPlansClient {
   constructor(private client: ApiClient) {}
@@ -18,14 +18,9 @@ export class FloorPlansClient {
       limit?: number;
     } = {}
   ): Promise<PaginatedResponse<FloorPlan>> {
-    const searchParams = new URLSearchParams();
-    if (params.venueId) searchParams.set("venueId", params.venueId);
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-
-    const query = searchParams.toString();
     return this.client.get<PaginatedResponse<FloorPlan>>(
-      `/api/v1/floor-plans${query ? `?${query}` : ""}`
+      "/api/v1/floor-plans",
+      params as QueryParams
     );
   }
 
