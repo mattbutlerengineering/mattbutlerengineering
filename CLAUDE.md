@@ -83,6 +83,10 @@ mbe agent cancel <id>                             # Cancel running session
 mbe agent delete <id>                             # Delete session + cleanup
 mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
 mbe agent frontmatter                             # stdin issue body → mbe agent run flags (yaml agent block)
+mbe agent cost [id]                               # Show per-turn cost breakdown or summary
+
+# Model governance
+mbe check-model "<directive>"                     # Verify recommended model tier for task complexity
 
 # Development
 mbe stats                                         # Agent performance metrics
@@ -243,12 +247,4 @@ claude-mem automatically records observations during sessions — code patterns 
 /graphify .                                # full monorepo graph (slow — LLM extraction over all packages)
 ```
 
-## Feedback Loop Log
-
-Completed sensor → issue → fix → verify cycles:
-
-| Date       | Sensor                    | Issue | Fix PR | Verified                       |
-| ---------- | ------------------------- | ----- | ------ | ------------------------------ |
-| 2026-05-22 | Process metrics collector | #1630 | #1638  | Tests pass, metrics populated  |
-| 2026-05-22 | Sensor correlator         | #1632 | #1640  | Cross-sensor grouping verified |
-| 2026-05-22 | Improvement discoverer    | #1634 | #1652  | Product improvements detected  |
+> **Feedback Loop Log**: historical sensor-issue-fix-verify cycles are tracked via [GitHub Issues](https://github.com/mattbutlerengineering/mattbutlerengineering/issues?q=label%3A%22sensor%22) and the [progress-tracker skill](#continuous-improvement-loop) — see the live dashboard for current metrics.
