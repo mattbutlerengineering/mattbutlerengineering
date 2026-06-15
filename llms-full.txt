@@ -4684,11 +4684,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -14415,6 +14418,18 @@
       Sentry.setTag("app", options.appName);
     }
   </file>
+  <file path="packages/service-bootstrap/src/apply-versioning.ts">
+    export interface ApiVersioningConfig {
+      readonly currentVersion: string;
+      readonly successorVersion?: string;
+      readonly sunsetMonthsFromNow?: number;
+    }
+    function computeSunsetDate(monthsFromNow: number): string {
+      const date = new Date();
+      date.setMonth(date.getMonth() + monthsFromNow);
+      return date.toUTCString();
+    }
+  </file>
   <file path="packages/service-bootstrap/src/create-service-app.ts">
     export interface SwaggerConfig {
       readonly title: string;
@@ -14422,10 +14437,13 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
-    export interface ApiVersioningConfig {
-      readonly currentVersion: string;
-      readonly successorVersion: string;
-      readonly sunsetMonthsFromNow: number;
+    export interface ServiceAppConfig {
+      /** Swagger/OpenAPI metadata — differs per service */
+      readonly swagger: SwaggerConfig;
+      /** API versioning — defaults to v1 → v2, sunset in 6 months */
+      readonly apiVersioning?: ApiVersioningConfig;
+      /** Optional hook to register service-specific JSON schemas before plugins */
+      readonly registerSchemas?: (fastify: FastifyInstance) => void;
     }
   </file>
   <file path="packages/service-bootstrap/src/error-handler.ts">

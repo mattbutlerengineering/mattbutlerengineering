@@ -3434,6 +3434,18 @@
       export function initSentry(options: InitOptions): void { /* ... */ }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/apply-versioning.ts">
+    <item priority="low">
+      interface ApiVersioningConfig {
+        currentVersion: string;
+        successorVersion?: string;
+        sunsetMonthsFromNow?: number;
+      }
+    </item>
+    <item priority="medium">
+      function computeSunsetDate(monthsFromNow: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/create-service-app.ts">
     <item priority="low">
       interface SwaggerConfig {
@@ -3444,10 +3456,10 @@
       }
     </item>
     <item priority="low">
-      interface ApiVersioningConfig {
-        currentVersion: string;
-        successorVersion: string;
-        sunsetMonthsFromNow: number;
+      interface ServiceAppConfig {
+        swagger: SwaggerConfig;
+        apiVersioning?: ApiVersioningConfig;
+        registerSchemas?: (fastify: FastifyInstance) => void;
       }
     </item>
   </file>
