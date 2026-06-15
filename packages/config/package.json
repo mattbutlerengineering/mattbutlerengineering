@@ -13,7 +13,7 @@
   },
   "type": "module",
   "devDependencies": {
-    "@eslint-react/eslint-plugin": "^5.8.16",
+    "@eslint-react/eslint-plugin": "^5.9.0",
     "@eslint/compat": "^2.1.0",
     "@eslint/js": "^10.0.1",
     "@sentry/vite-plugin": "^5.3.0",
@@ -27,7 +27,7 @@
     "eslint-plugin-security": "^4.0.0",
     "prettier": "^3.8.3",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.61.0",
+    "typescript-eslint": "^8.61.1",
     "vite": "^8.0.16"
   },
   "license": "MIT"
