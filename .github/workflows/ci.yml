@@ -458,6 +458,19 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
 
+  ai-antipattern-ratchet:
+    name: AI Antipattern Ratchet
+    needs: [prepare]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Check AI antipattern counts against baseline
+        run: node scripts/check-ai-antipatterns.mjs
+
   report-health:
     name: Report CI Health
     needs: [lint, typecheck, build, test, migrations]
@@ -627,6 +640,7 @@ jobs:
         migration-dry-run,
         dependency-audit,
         integrity,
+        ai-antipattern-ratchet,
       ]
     runs-on: ubuntu-latest
     steps:
@@ -642,9 +656,10 @@ jobs:
           DRY_RUN: ${{ needs.migration-dry-run.result }}
           DEPS: ${{ needs.dependency-audit.result }}
           INTEGRITY: ${{ needs.integrity.result }}
+          ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
         run: |
-          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY"
-          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY"; do
+          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS"
+          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
