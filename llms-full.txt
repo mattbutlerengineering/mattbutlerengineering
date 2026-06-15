@@ -10953,11 +10953,14 @@
     }
   </file>
   <file path="services/agent/src/services/session-executor.ts">
-    function getRepoPath(): string {
-      return resolve(process.env.REPO_PATH ?? process.cwd());
+    export interface SessionExecutorConfig {
+      maxConcurrent: number;
+      sessionService: typeof SessionServiceType;
     }
-    export function getActiveSessionCount(): number {
-      return activeControllers.size;
+    export interface SessionExecutor {
+      executeSession(session: AgentSession): Promise<void>;
+      cancelSession(sessionId: string): Promise<boolean>;
+      getActiveSessionCount(): number;
     }
   </file>
   <file path="services/agent/src/services/session.ts">
@@ -14799,7 +14802,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
