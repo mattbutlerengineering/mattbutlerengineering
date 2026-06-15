@@ -1961,15 +1961,18 @@
     </item>
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="high">
       type PrismaFloorPlan = {
         id: string;
         venueId: string;
         name: string;
         isAc...;
+    </item>
+    <item priority="high">
+      type PrismaTable = {
+        id: string;
+        name: string;
+        tableNumber: string | n...;
     </item>
   </file>
   <file path="services/reservations/src/services/guest-identity.ts">
@@ -2004,9 +2007,6 @@
   </file>
   <file path="services/reservations/src/services/guest.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaGuest(guest: {
         id: string;
         venueId: string;
@@ -2024,6 +2024,12 @@
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mergeDietaryRestrictions(
+        existing: string[] | null | undefined,
+        incoming: string[] | null | undefined
+      ): string[] | null { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
@@ -2088,13 +2094,43 @@
     </item>
   </file>
   <file path="services/reservations/src/services/reservation.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    <item priority="low">
+      interface ListReservationsOptions {
+        page: number;
+        limit: number;
+        date?: string;
+        status?: ReservationStatus;
+        tableId?: string;
+      }
     </item>
-    <item priority="high">
-      type PrismaReservationWithTable = PrismaReservation & {
-        table?: PrismaTable;
-        guest?: { ...;
+    <item priority="low">
+      interface CreateReservationResult {
+        success: boolean;
+        reservation?: Reservation;
+        table?: Table;
+        error?: string;
+        conflict?: ConflictCheckResult;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/serializers.ts">
+    <item priority="low">
+      interface PrismaTableRow {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      interface PrismaReservationRow {
+        id: string;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
@@ -2129,9 +2165,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export function mapPrismaTable(table: {
         id: string;
@@ -2151,11 +2184,11 @@
         updatedAt: Date;
       }): Table { /* ... */ }
     </item>
+    <item priority="high">
+      export const tableService: unknown;
+    </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="medium">
       function mapPrismaVenueGroup(group: {
         id: string;
@@ -2164,6 +2197,27 @@
         settings: unknown;
         createdAt: Date;
       }): VenueGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenue(venue: {
+        id: string;
+        venueGroupId: string | null;
+        venueGroup?: {
+          id: string;
+          name: string;
+          slug: string;
+          settings: unknown;
+          createdAt: Date;
+        } | null;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode: string;
+        operatingHours: unknown;
+        settings: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Venue { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
@@ -3176,17 +3230,14 @@
   </file>
   <file path="packages/database/src/index.ts">
     <item priority="high">
+      export function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       interface SlowQuery {
         model: string;
         operation: string;
         duration: number;
         timestamp: number;
-      }
-    </item>
-    <item priority="low">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
       }
     </item>
   </file>
