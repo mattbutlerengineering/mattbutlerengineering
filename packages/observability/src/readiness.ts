@@ -134,7 +134,7 @@ export function registerStandardChecks(
     prisma,
     auth0Url = DEFAULT_AUTH0_JWKS_URL,
     jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS,
-    fetchFn = fetch,
+    fetchFn,
   } = options;
 
   tracker.registerCheck("database", async () => {
@@ -144,8 +144,11 @@ export function registerStandardChecks(
   tracker.registerCheck("auth", async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
+    // Use fetchFn if explicitly provided; otherwise read globalThis.fetch lazily
+    // so vi.stubGlobal("fetch", ...) in tests takes effect at call time.
+    const fetchImpl = fetchFn ?? fetch;
     try {
-      const response = await fetchFn(auth0Url, { signal: controller.signal });
+      const response = await fetchImpl(auth0Url, { signal: controller.signal });
       if (!response.ok) {
         throw new Error(`JWKS returned ${response.status}`);
       }

@@ -3,9 +3,6 @@ import type { ReadinessResponse } from "@mbe/types";
 import { createReadinessTracker, registerStandardChecks } from "@mbe/observability";
 import { prisma } from "../services/database.js";
 
-const readiness = createReadinessTracker();
-registerStandardChecks(readiness, { prisma });
-
 const readinessSchema = {
   summary: "Service readiness probe",
   description: "Returns 200 when fully initialized, 503 during startup.",
@@ -53,6 +50,9 @@ const readinessSchema = {
 };
 
 export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+  const readiness = createReadinessTracker();
+  registerStandardChecks(readiness, { prisma });
+
   fastify.get<{ Reply: ReadinessResponse }>(
     "/ready",
     {
