@@ -124,6 +124,7 @@ flowchart TD
   service_bootstrap --> types
   types --> config
   cli --> agent_core
+  cli --> api_client
   cli --> types
   cli --> config
 
@@ -159,9 +160,9 @@ flowchart TD
 
 ## Legend
 
-| Color  | Category                        |
-| ------ | ------------------------------- |
-| Blue   | Frontend Apps (`apps/*`)        |
-| Amber  | Backend Services (`services/*`) |
-| Indigo | Shared Packages (`packages/*`)  |
-| Green  | Developer Tools (`tools/*`)     |
+| Color | Category |
+|-------|----------|
+| Blue | Frontend Apps (`apps/*`) |
+| Amber | Backend Services (`services/*`) |
+| Indigo | Shared Packages (`packages/*`) |
+| Green | Developer Tools (`tools/*`) |
