@@ -89,6 +89,7 @@ playwright-report/
 test-results/
 /metrics/*
 !/metrics/*.jsonl
+!/metrics/ai-antipattern-baselines.json
 
 # Playwright
 e2e/.auth/

@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../verification-orchestrator.js", () => ({
-  orchestrateVerification: vi.fn(),
+vi.mock("../worktree-manager.js", () => ({
+  runVerification: vi.fn(),
+}));
+
+vi.mock("../utils.js", () => ({
+  storeVerificationLog: vi.fn(),
+  emitEvent: vi.fn(),
 }));
 
 vi.mock("../diff-static-analyzer.js", () => ({
@@ -21,11 +26,18 @@ vi.mock("../dep-bump-merger.js", () => ({
   mergeDirectly: vi.fn(),
 }));
 
-vi.mock("../utils.js", () => ({
-  emitEvent: vi.fn(),
+vi.mock("@opentelemetry/api", () => ({
+  trace: {
+    getTracer: () => ({
+      startSpan: () => ({
+        setAttribute: vi.fn(),
+        end: vi.fn(),
+      }),
+    }),
+  },
 }));
 
-import { orchestrateVerification } from "../verification-orchestrator.js";
+import { runVerification } from "../worktree-manager.js";
 import { analyzeDiff } from "../diff-static-analyzer.js";
 import { evaluateSuccess } from "../success-evaluator.js";
 import { reviewDiff } from "../diff-reviewer.js";
@@ -44,11 +56,35 @@ const VALID_INPUT = {
   },
 };
 
+function makeVerificationOk() {
+  return {
+    passed: true,
+    lintOk: true,
+    typecheckOk: true,
+    testsOk: true,
+    lintOutput: "",
+    typecheckOutput: "",
+    testOutput: "",
+  };
+}
+
+function makeVerificationFail(message: string) {
+  return {
+    passed: false,
+    lintOk: false,
+    typecheckOk: true,
+    testsOk: false,
+    lintOutput: message,
+    typecheckOutput: "",
+    testOutput: message,
+  };
+}
+
 describe("runPostCommitGateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(orchestrateVerification).mockResolvedValue({ passed: true });
+    vi.mocked(runVerification).mockResolvedValue(makeVerificationOk());
     vi.mocked(analyzeDiff).mockReturnValue({ clean: true, violations: [] });
     vi.mocked(evaluateSuccess).mockResolvedValue({
       passed: true,
@@ -100,10 +136,7 @@ describe("runPostCommitGateway", () => {
   // ── Outcome: create-draft-pr ───────────────────────────────────────
 
   it("returns create-draft-pr when verification fails", async () => {
-    vi.mocked(orchestrateVerification).mockResolvedValue({
-      passed: false,
-      error: "Verification failed: typecheck: Type error in src/foo.ts",
-    });
+    vi.mocked(runVerification).mockResolvedValue(makeVerificationFail("Type error in src/foo.ts"));
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
 
@@ -207,14 +240,19 @@ describe("runPostCommitGateway", () => {
   // ── errors propagation ─────────────────────────────────────────────
 
   it("propagates verification error into verdict errors", async () => {
-    vi.mocked(orchestrateVerification).mockResolvedValue({
+    vi.mocked(runVerification).mockResolvedValue({
       passed: false,
-      error: "Verification failed: tests: 2 failing",
+      lintOk: true,
+      typecheckOk: true,
+      testsOk: false,
+      lintOutput: "",
+      typecheckOutput: "",
+      testOutput: "2 failing tests",
     });
 
     const verdict = await runPostCommitGateway(VALID_INPUT);
 
-    expect(verdict.errors).toContain("Verification failed: tests: 2 failing");
+    expect(verdict.errors.some((e) => e.includes("Verification failed"))).toBe(true);
   });
 
   it("propagates gate error details into verdict errors", async () => {
@@ -251,7 +289,7 @@ describe("runPostCommitGateway", () => {
   });
 
   it("carries the skipped evaluation result when the skip policy fires", async () => {
-    // evaluateSuccess now absorbs the skip decision internally and returns
+    // evaluateSuccess absorbs the skip decision internally and returns
     // an inconclusive result marked `skipped` rather than being bypassed.
     vi.mocked(evaluateSuccess).mockResolvedValue({
       passed: true,
@@ -272,10 +310,7 @@ describe("runPostCommitGateway", () => {
   // ── Config gating ─────────────────────────────────────────────────
 
   it("skips quality gates when verification fails", async () => {
-    vi.mocked(orchestrateVerification).mockResolvedValue({
-      passed: false,
-      error: "Typecheck failed",
-    });
+    vi.mocked(runVerification).mockResolvedValue(makeVerificationFail("Typecheck failed"));
 
     await runPostCommitGateway(VALID_INPUT);
 
@@ -306,17 +341,22 @@ describe("runPostCommitGateway", () => {
     expect(reviewDiff).not.toHaveBeenCalled();
   });
 
-  it("passes worktreePath to orchestrateVerification", async () => {
+  it("passes worktreePath to runVerification", async () => {
     await runPostCommitGateway(VALID_INPUT);
 
-    expect(orchestrateVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath, undefined);
+    expect(runVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath);
   });
 
-  it("passes onEvent callback to orchestrateVerification", async () => {
+  it("passes onEvent emits verification event after runVerification", async () => {
+    const { emitEvent } = await import("../utils.js");
     const onEvent = vi.fn();
 
     await runPostCommitGateway(VALID_INPUT, onEvent);
 
-    expect(orchestrateVerification).toHaveBeenCalledWith(VALID_INPUT.worktreePath, onEvent);
+    expect(emitEvent).toHaveBeenCalledWith(
+      onEvent,
+      "session:verification",
+      expect.objectContaining({ message: expect.stringContaining("Verification passed") })
+    );
   });
 });
