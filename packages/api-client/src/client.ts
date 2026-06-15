@@ -36,6 +36,15 @@ export interface RequestOptions extends RequestInit {
   signal?: AbortSignal;
 }
 
+/**
+ * Per-request overrides for retry and timeout.
+ * When provided, these take precedence over the client-wide values.
+ */
+export interface PerRequestOptions {
+  maxRetries?: number;
+  timeout?: number;
+}
+
 export class ApiClient {
   private readonly timeout: number;
   private readonly maxRetries: number;
@@ -48,7 +57,8 @@ export class ApiClient {
   async request<T>(
     path: string,
     options: RequestOptions = {},
-    schema?: z.ZodSchema<T>
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
   ): Promise<T> {
     const { baseUrl, getAccessToken } = this.config;
     const method = options.method ?? "GET";
@@ -65,7 +75,10 @@ export class ApiClient {
       }
     }
 
-    const combinedSignal = createCombinedSignal(this.timeout, options.signal);
+    const effectiveTimeout = override?.timeout ?? this.timeout;
+    const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
+
+    const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
 
     const fetchOptions: RequestInit = {
       ...options,
@@ -74,7 +87,7 @@ export class ApiClient {
     };
 
     const url = `${baseUrl}${path}`;
-    const response = await fetchWithRetry(url, fetchOptions, this.maxRetries);
+    const response = await fetchWithRetry(url, fetchOptions, effectiveMaxRetries);
 
     if (!response.ok) {
       const raw = await response.json().catch(() => null);
@@ -124,43 +137,60 @@ export class ApiClient {
     return data as T;
   }
 
-  get<T>(path: string, params?: QueryParams, schema?: z.ZodSchema<T>): Promise<T> {
+  get<T>(
+    path: string,
+    params?: QueryParams,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
     const query = params ? buildQueryString(params) : "";
-    return this.request<T>(`${path}${query}`, { method: "GET" }, schema);
+    return this.request<T>(`${path}${query}`, { method: "GET" }, schema, override);
   }
 
-  post<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
+  post<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
     return this.request<T>(
       path,
       {
         method: "POST",
         body: JSON.stringify(body),
       },
-      schema
+      schema,
+      override
     );
   }
 
-  patch<T>(path: string, body: unknown, schema?: z.ZodSchema<T>): Promise<T> {
+  patch<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
     return this.request<T>(
       path,
       {
         method: "PATCH",
         body: JSON.stringify(body),
       },
-      schema
+      schema,
+      override
     );
   }
 
-  delete(path: string): Promise<void> {
-    return this.request<void>(path, { method: "DELETE" });
+  delete(path: string, override?: PerRequestOptions): Promise<void> {
+    return this.request<void>(path, { method: "DELETE" }, undefined, override);
   }
 
   /**
    * GET + unwrap `.data` from ApiResponse envelope.
    * Use for single-resource endpoints that return `{ data: T }`.
    */
-  async getOne<T>(path: string, params?: QueryParams): Promise<T> {
-    const response = await this.get<{ data: T }>(path, params);
+  async getOne<T>(path: string, params?: QueryParams, override?: PerRequestOptions): Promise<T> {
+    const response = await this.get<{ data: T }>(path, params, undefined, override);
     return response.data;
   }
 
@@ -168,8 +198,8 @@ export class ApiClient {
    * POST + unwrap `.data` from ApiResponse envelope.
    * Use for create endpoints that return `{ data: T }`.
    */
-  async postOne<T>(path: string, body: unknown): Promise<T> {
-    const response = await this.post<{ data: T }>(path, body);
+  async postOne<T>(path: string, body: unknown, override?: PerRequestOptions): Promise<T> {
+    const response = await this.post<{ data: T }>(path, body, undefined, override);
     return response.data;
   }
 
@@ -177,8 +207,8 @@ export class ApiClient {
    * PATCH + unwrap `.data` from ApiResponse envelope.
    * Use for update endpoints that return `{ data: T }`.
    */
-  async patchOne<T>(path: string, body: unknown): Promise<T> {
-    const response = await this.patch<{ data: T }>(path, body);
+  async patchOne<T>(path: string, body: unknown, override?: PerRequestOptions): Promise<T> {
+    const response = await this.patch<{ data: T }>(path, body, undefined, override);
     return response.data;
   }
 }

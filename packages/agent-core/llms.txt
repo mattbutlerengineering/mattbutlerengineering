@@ -86,7 +86,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastEvaluation: EvaluationResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -105,7 +104,6 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
-        lastResult: GateResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }

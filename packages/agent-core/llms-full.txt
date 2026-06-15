@@ -404,7 +404,6 @@
   <file path="src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
-      lastEvaluation?: EvaluationResult;
     
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
@@ -416,7 +415,6 @@
           const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
             commitTitle: context.commitMsg,
           });
-          this.lastEvaluation = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -483,7 +481,6 @@
   <file path="src/gates/static-analysis-gate.ts">
     export class StaticAnalysisGate implements QualityGate {
       readonly name = "static-analysis";
-      lastResult?: GateResult;
     
       shouldSkip(context: GateContext): boolean {
         return context.runStaticAnalysis === false;
@@ -504,31 +501,25 @@
             const formatted = errorViolations
               .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
               .join("; ");
-            const result: GateResult = {
+            return {
               passed: false,
               gateName: this.name,
               severity: "error",
               details: `Static analysis errors: ${formatted}`,
             };
-            this.lastResult = result;
-            return result;
           }
     
           if (!analysisResult.clean) {
             const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
-            const result: GateResult = {
+            return {
               passed: true,
               gateName: this.name,
               severity: "warning",
               details: `${warnCount} warning(s) (non-blocking)`,
             };
-            this.lastResult = result;
-            return result;
           }
     
-          const result: GateResult = { passed: true, gateName: this.name, severity: "error" };
-          this.lastResult = result;
-          return result;
+          return { passed: true, gateName: this.name, severity: "error" };
         } finally {
           span.end();
         }
@@ -1260,8 +1251,7 @@
   </file>
   <file path="src/orchestrator.ts">
     function createSessionTools(config: OrchestratorConfig) {
-      const client =
-        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+      const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
     
       const createSessionTool = tool(
         "create_session",
@@ -1282,14 +1272,17 @@
           baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
         },
         async (args) => {
-          const session = await client.createSession({
-            taskDescription: args.taskDescription,
-            model: args.model ?? config.sessionModel,
-            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
-            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
-            baseBranch: args.baseBranch ?? config.baseBranch,
-            ...(config.parentSessionId && { parentId: config.parentSessionId }),
-          });
+          const session = await client.createSession(
+            {
+              taskDescription: args.taskDescription,
+              model: args.model ?? config.sessionModel,
+              maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+              maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+              baseBranch: args.baseBranch ?? config.baseBranch,
+              ...(config.parentSessionId && { parentId: config.parentSessionId }),
+            },
+            NO_RETRY
+          );
     
           return {
             content: [
@@ -1384,7 +1377,7 @@
         },
         async (args) => {
           try {
-            const session = await client.cancelSession(args.sessionId);
+            const session = await client.cancelSession(args.sessionId, NO_RETRY);
     
             return {
               content: [
