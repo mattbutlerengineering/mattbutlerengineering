@@ -1030,6 +1030,14 @@
       }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useFocusTrap.ts">
+    <item priority="high">
+      export const FOCUSABLE_SELECTOR: unknown;
+    </item>
+    <item priority="high">
+      export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
