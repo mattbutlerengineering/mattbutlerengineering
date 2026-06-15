@@ -22,6 +22,11 @@ vi.mock("../services/database.js", () => ({
   }),
 }));
 
+// Stub fetch at module scope so registerStandardChecks (called at module load
+// time in ready.ts) captures this mock rather than the real globalThis.fetch.
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
 const { prisma } = await import("../services/database.js");
 const { buildApp } = await import("../app.js");
 
@@ -29,20 +34,18 @@ describe("Readiness Probe Route", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     app = await buildApp({ logger: false });
     await app.ready();
-    vi.stubGlobal("fetch", vi.fn());
   });
 
   afterEach(async () => {
     await app.close();
-    vi.unstubAllGlobals();
-    vi.clearAllMocks();
   });
 
   it("returns 200 when all dependencies are ready", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([{ 1: 1 }] as Record<string, unknown>[]);
-    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
 
     const response = await app.inject({
       method: "GET",
@@ -58,7 +61,7 @@ describe("Readiness Probe Route", () => {
 
   it("returns 503 when a dependency fails", async () => {
     vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error("DB Down"));
-    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+    mockFetch.mockResolvedValue({ ok: true } as Response);
 
     const response = await app.inject({
       method: "GET",
@@ -79,7 +82,7 @@ describe("Readiness Probe Route", () => {
 
   it("returns 503 when JWKS check fails", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([{ 1: 1 }] as Record<string, unknown>[]);
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 500 } as unknown as Response);
+    mockFetch.mockResolvedValue({ ok: false, status: 500 } as unknown as Response);
 
     const response = await app.inject({
       method: "GET",
