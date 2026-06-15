@@ -148,3 +148,19 @@
 .option[data-selected="true"] .check {
   opacity: 1;
 }
+
+/* ── Field chrome ────────────────────────────── */
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.required {
+  color: var(--rialto-error);
+}
+
+.optional {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-regular);
+}

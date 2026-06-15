@@ -1014,6 +1014,22 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useField.ts">
+    <item priority="low">
+      interface UseFieldOptions {
+        id?: string;
+        hint?: string;
+        error?: boolean;
+        required?: boolean;
+        showOptional?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface FieldLabelProps {
+        htmlFor: string;
+      }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
@@ -1539,6 +1555,9 @@
   <file path="packages/types/src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ApiErrorSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/common.ts">
@@ -3481,6 +3500,23 @@
         successorVersion: string;
         sunsetMonthsFromNow: number;
       }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/error-handler.ts">
+    <item priority="high">
+      interface CustomError {
+        statusCode?: number;
+        status?: number;
+        code?: string;
+        meta?: Record<string, unknown>;
+        validation?: Array<{
+          keyword: string;
+          instancePath?: string;
+       ...;
+      }
+    </item>
+    <item priority="high">
+      export const errorHandlerPlugin: FastifyPluginAsync;
     </item>
   </file>
   <file path="packages/service-bootstrap/src/feature-flags.ts">

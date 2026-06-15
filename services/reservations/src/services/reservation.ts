@@ -14,6 +14,7 @@ import {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
 import { tableAdvisoryLockSql } from "./confirm-hold.js";
 import { toReservation } from "./serializers.js";
@@ -317,28 +318,38 @@ export const reservationService = {
 
     const dateStr = toDateString(dateOnly);
 
-    // Pre-check for conflicts before the transaction (which re-checks to prevent
-    // TOCTOU races). When the venue is known, fetch the slices once and use the
-    // pure rule; otherwise fall back to the table/date-scoped query.
+    // Pre-check for conflicts and pacing before the transaction (which re-checks
+    // to prevent TOCTOU races). When the venue is known, fetch the slices once
+    // and use the canonical assertBookable predicate; otherwise fall back to the
+    // table/date-scoped query (no pacing — no venue context available).
     if (data.venueId) {
+      const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
+      const settings = (venue?.settings ?? null) as VenueSettings | null;
       const { reservations, holds } = await availabilityService.fetchConflictData(
         data.venueId,
         dateStr
       );
 
-      const hasConflict = availabilityService.checkTableConflict(
-        data.tableId,
-        now,
-        endTime,
+      const bookingError = assertBookable({
+        tableId: data.tableId,
+        window: { startTime: now, endTime },
+        partySize: data.partySize,
+        settings,
         reservations,
-        holds
-      );
+        holds,
+      });
 
-      if (hasConflict) {
+      if (bookingError?.code === "CONFLICT") {
         return {
           success: false,
           error: "Table is not available",
           conflict: { hasConflict: true },
+        };
+      }
+      if (bookingError?.code === "PACING_EXCEEDED") {
+        return {
+          success: false,
+          error: bookingError.message,
         };
       }
     } else {

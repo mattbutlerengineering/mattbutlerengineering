@@ -1112,6 +1112,9 @@ importers:
       "@mbe/sentry":
         specifier: workspace:*
         version: link:../sentry
+      "@mbe/types":
+        specifier: workspace:*
+        version: link:../types
       "@scalar/fastify-api-reference":
         specifier: ^1.59.2
         version: 1.59.2
@@ -1125,9 +1128,6 @@ importers:
       "@mbe/config":
         specifier: workspace:*
         version: link:../config
-      "@mbe/types":
-        specifier: workspace:*
-        version: link:../types
       "@types/node":
         specifier: "catalog:"
         version: 25.9.2
