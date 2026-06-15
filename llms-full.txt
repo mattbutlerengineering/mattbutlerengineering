@@ -3125,6 +3125,26 @@
       return dir;
     }
   </file>
+  <file path="packages/rialto/src/hooks/useField.ts">
+    export interface UseFieldOptions {
+      /** Explicit id; auto-generated if omitted. */
+      id?: string;
+      /** Helper text rendered below the control. */
+      hint?: string;
+      /** When true, applies aria-invalid and wires the error region into aria-describedby. */
+      error?: boolean;
+      /** When true, the control is required; required marker is shown in label. */
+      required?: boolean;
+      /**
+       * When true and not required, shows "(optional)" after the label.
+       * Always false when required=true (mutually exclusive).
+       */
+      showOptional?: boolean;
+    }
+    export interface FieldLabelProps {
+      htmlFor: string;
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */
@@ -10379,6 +10399,20 @@
         instance: z.string().optional(),
       })
       .catchall(z.unknown());
+    export const ApiErrorSchema = z
+      .object({
+        error: z.string(),
+        message: z.string(),
+        statusCode: z.number(),
+        details: z.record(z.string(), z.unknown()).optional(),
+        // RFC 7807 compatibility (optional on legacy shape)
+        type: z.string().optional(),
+        title: z.string().optional(),
+        status: z.number().optional(),
+        detail: z.string().optional(),
+        instance: z.string().optional(),
+      })
+      .catchall(z.unknown());
   </file>
   <file path="packages/types/src/schemas/common.ts">
     export const PaginationSchema = z.object({
@@ -13330,6 +13364,27 @@
       }
     }
   </file>
+  <file path="packages/api-client/src/retry.ts">
+    export interface RetryOptions {
+      /** Maximum number of additional attempts after the first failure. */
+      maxRetries: number;
+      /** Base delay in ms for attempt 0; doubles each subsequent attempt. */
+      baseDelayMs: number;
+      /**
+       * Whether to apply ±20% jitter to prevent thundering herd.
+       * Defaults to true.
+       */
+      jitter?: boolean;
+      /**
+       * Predicate to decide whether an error is retryable.
+       * Defaults to always-retry (all errors are retried).
+       */
+      isRetryable?: (error: unknown) => boolean;
+    }
+    function sleep(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  </file>
   <file path="packages/api-client/src/streaming.ts">
     export interface StreamConfig {
       /** URL to POST to */
@@ -14245,6 +14300,10 @@
         value: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().max(40).optional(),
+        hint: z.string().optional(),
+        error: z.boolean().optional(),
+        required: z.boolean().optional(),
+        showOptional: z.boolean().optional(),
         disabled: z.boolean().optional(),
         disabledReason: z.string().optional(),
       }),

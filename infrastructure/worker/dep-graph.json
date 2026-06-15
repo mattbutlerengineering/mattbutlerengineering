@@ -444,6 +444,11 @@
     },
     {
       "from": "@mbe/notifications",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/notifications",
       "to": "@mbe/config",
       "type": "devDependency"
     },
