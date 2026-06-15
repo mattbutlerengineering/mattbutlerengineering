@@ -1,1 +1,744 @@
-{"numTotalTestSuites":14,"numPassedTestSuites":14,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":65,"numPassedTests":65,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"snapshot":{"added":0,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0,"didUpdate":false},"startTime":1781534646752,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":["Accessibility — Data Display Components"],"fullName":"Accessibility — Data Display Components Table","status":"passed","title":"Table","duration":271.7555000000002,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Data Display Components"],"fullName":"Accessibility — Data Display Components DataList","status":"passed","title":"DataList","duration":37.30616700000019,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534649502,"endTime":1781534649811.3062,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/data-displays.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Focus management — return-to-trigger on close"],"fullName":"Focus management — return-to-trigger on close Dialog returns focus to trigger on close","status":"passed","title":"Dialog returns focus to trigger on close","duration":189.73204199999964,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Focus management — return-to-trigger on close"],"fullName":"Focus management — return-to-trigger on close Drawer returns focus to trigger on close","status":"passed","title":"Drawer returns focus to trigger on close","duration":109.20058299999982,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Focus management — return-to-trigger on close"],"fullName":"Focus management — return-to-trigger on close CommandPalette returns focus to trigger on close","status":"passed","title":"CommandPalette returns focus to trigger on close","duration":16.08162500000026,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534649559,"endTime":1781534649874.0815,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/focus-management.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components Autocomplete","status":"passed","title":"Autocomplete","duration":230.03983300000027,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components Input","status":"passed","title":"Input","duration":30.476582999999664,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components InputGroup","status":"passed","title":"InputGroup","duration":34.888958,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components NumberInput","status":"passed","title":"NumberInput","duration":47.669832999999926,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components PinInput","status":"passed","title":"PinInput","duration":18.794792000000143,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components Select","status":"passed","title":"Select","duration":40.87695799999983,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components Slider","status":"passed","title":"Slider","duration":50.434541999999965,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components TextArea","status":"passed","title":"TextArea","duration":19.744416999999885,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Form Components"],"fullName":"Accessibility — Form Components Toggle","status":"passed","title":"Toggle","duration":22.72729100000015,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534649991,"endTime":1781534650486.7273,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/forms.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Accordion","status":"passed","title":"Accordion","duration":281.16408299999966,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Alert","status":"passed","title":"Alert","duration":35.323999999999614,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components AspectRatio","status":"passed","title":"AspectRatio","duration":23.070083000000068,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Avatar","status":"passed","title":"Avatar","duration":23.561916999999994,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Badge","status":"passed","title":"Badge","duration":19.869916000000103,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Banner","status":"passed","title":"Banner","duration":33.519542,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Breadcrumb","status":"passed","title":"Breadcrumb","duration":44.021458999999595,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Button","status":"passed","title":"Button","duration":19.951250000000073,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Card","status":"passed","title":"Card","duration":19.983165999999983,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Checkbox","status":"passed","title":"Checkbox","duration":35.196874999999636,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Collapsible","status":"passed","title":"Collapsible","duration":24.089458000000377,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Divider","status":"passed","title":"Divider","duration":11.115999999999985,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components EmptyState","status":"passed","title":"EmptyState","duration":26.76154200000019,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Heading","status":"passed","title":"Heading","duration":15.375709000000825,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Hero","status":"passed","title":"Hero","duration":28.739082999999482,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Kbd","status":"passed","title":"Kbd","duration":10.582124999999905,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Meter","status":"passed","title":"Meter","duration":15.619249999999738,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Progress","status":"passed","title":"Progress","duration":16.487624999999753,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Spinner","status":"passed","title":"Spinner","duration":15.856292000000394,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components ScrollArea","status":"passed","title":"ScrollArea","duration":13.353166999999303,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components SegmentedControl","status":"passed","title":"SegmentedControl","duration":25.771374999999352,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Skeleton","status":"passed","title":"Skeleton","duration":11.067708000000493,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Stack","status":"passed","title":"Stack","duration":11.573209000000134,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Stat","status":"passed","title":"Stat","duration":11.040625000000546,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Tabs","status":"passed","title":"Tabs","duration":21.358791999999994,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Tag","status":"passed","title":"Tag","duration":9.41858400000001,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Text","status":"passed","title":"Text","duration":7.861499999999978,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — General Components"],"fullName":"Accessibility — General Components Timeline","status":"passed","title":"Timeline","duration":19.83483299999989,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534650466,"endTime":1781534651298.8347,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/general.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components AppBar","status":"passed","title":"AppBar","duration":172.80212500000016,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Footer","status":"passed","title":"Footer","duration":22.525709000000006,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Navbar","status":"passed","title":"Navbar","duration":50.900458999999955,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components NavigationMenu","status":"passed","title":"NavigationMenu","duration":34.08458400000018,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components PageHeader","status":"passed","title":"PageHeader","duration":57.48895799999991,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Pagination","status":"passed","title":"Pagination","duration":53.32454199999984,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Sidebar","status":"passed","title":"Sidebar","duration":45.72987499999999,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Steps","status":"passed","title":"Steps","duration":58.113124999999854,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Navigation Components"],"fullName":"Accessibility — Navigation Components Tree","status":"passed","title":"Tree","duration":30.545583999999963,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534649932,"endTime":1781534650457.5457,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/navigation.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components ConfirmDialog","status":"passed","title":"ConfirmDialog","duration":195.522375,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components Dialog (open)","status":"passed","title":"Dialog (open)","duration":40.29633300000023,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components Drawer (open)","status":"passed","title":"Drawer (open)","duration":43.40816700000005,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components DropdownMenu","status":"passed","title":"DropdownMenu","duration":26.014000000000124,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components HoverCard","status":"passed","title":"HoverCard","duration":22.533750000000055,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components Popover","status":"passed","title":"Popover","duration":25.504167000000052,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components Toast","status":"passed","title":"Toast","duration":27.965541999999914,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Overlay Components"],"fullName":"Accessibility — Overlay Components Tooltip","status":"passed","title":"Tooltip","duration":13.469000000000051,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534649861,"endTime":1781534650256.469,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/overlays.accessibility.test.tsx"},{"assertionResults":[{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components Chalkboard","status":"passed","title":"Chalkboard","duration":238.4460839999997,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components Ferrofluid","status":"passed","title":"Ferrofluid","duration":45.9270419999998,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components MasterOverride","status":"passed","title":"MasterOverride","duration":85.38916699999982,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components SplitFlap","status":"passed","title":"SplitFlap","duration":83.09254199999987,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components SplitScreenExit","status":"passed","title":"SplitScreenExit","duration":22.16995799999995,"failureMessages":[],"meta":{},"tags":[]},{"ancestorTitles":["Accessibility — Specialty Components"],"fullName":"Accessibility — Specialty Components TapeChart","status":"passed","title":"TapeChart","duration":110.9067500000001,"failureMessages":[],"meta":{},"tags":[]}],"startTime":1781534650088,"endTime":1781534650673.9067,"status":"passed","message":"","name":"/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/specialty.accessibility.test.tsx"}]}
+{
+  "numTotalTestSuites": 14,
+  "numPassedTestSuites": 14,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 65,
+  "numPassedTests": 65,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1781534646752,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — Data Display Components"],
+          "fullName": "Accessibility — Data Display Components Table",
+          "status": "passed",
+          "title": "Table",
+          "duration": 271.7555000000002,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Data Display Components"],
+          "fullName": "Accessibility — Data Display Components DataList",
+          "status": "passed",
+          "title": "DataList",
+          "duration": 37.30616700000019,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534649502,
+      "endTime": 1781534649811.3062,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/data-displays.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Focus management — return-to-trigger on close"],
+          "fullName": "Focus management — return-to-trigger on close Dialog returns focus to trigger on close",
+          "status": "passed",
+          "title": "Dialog returns focus to trigger on close",
+          "duration": 189.73204199999964,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Focus management — return-to-trigger on close"],
+          "fullName": "Focus management — return-to-trigger on close Drawer returns focus to trigger on close",
+          "status": "passed",
+          "title": "Drawer returns focus to trigger on close",
+          "duration": 109.20058299999982,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Focus management — return-to-trigger on close"],
+          "fullName": "Focus management — return-to-trigger on close CommandPalette returns focus to trigger on close",
+          "status": "passed",
+          "title": "CommandPalette returns focus to trigger on close",
+          "duration": 16.08162500000026,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534649559,
+      "endTime": 1781534649874.0815,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/focus-management.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components Autocomplete",
+          "status": "passed",
+          "title": "Autocomplete",
+          "duration": 230.03983300000027,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components Input",
+          "status": "passed",
+          "title": "Input",
+          "duration": 30.476582999999664,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components InputGroup",
+          "status": "passed",
+          "title": "InputGroup",
+          "duration": 34.888958,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components NumberInput",
+          "status": "passed",
+          "title": "NumberInput",
+          "duration": 47.669832999999926,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components PinInput",
+          "status": "passed",
+          "title": "PinInput",
+          "duration": 18.794792000000143,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components Select",
+          "status": "passed",
+          "title": "Select",
+          "duration": 40.87695799999983,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components Slider",
+          "status": "passed",
+          "title": "Slider",
+          "duration": 50.434541999999965,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components TextArea",
+          "status": "passed",
+          "title": "TextArea",
+          "duration": 19.744416999999885,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Form Components"],
+          "fullName": "Accessibility — Form Components Toggle",
+          "status": "passed",
+          "title": "Toggle",
+          "duration": 22.72729100000015,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534649991,
+      "endTime": 1781534650486.7273,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/forms.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Accordion",
+          "status": "passed",
+          "title": "Accordion",
+          "duration": 281.16408299999966,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Alert",
+          "status": "passed",
+          "title": "Alert",
+          "duration": 35.323999999999614,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components AspectRatio",
+          "status": "passed",
+          "title": "AspectRatio",
+          "duration": 23.070083000000068,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Avatar",
+          "status": "passed",
+          "title": "Avatar",
+          "duration": 23.561916999999994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Badge",
+          "status": "passed",
+          "title": "Badge",
+          "duration": 19.869916000000103,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Banner",
+          "status": "passed",
+          "title": "Banner",
+          "duration": 33.519542,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Breadcrumb",
+          "status": "passed",
+          "title": "Breadcrumb",
+          "duration": 44.021458999999595,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Button",
+          "status": "passed",
+          "title": "Button",
+          "duration": 19.951250000000073,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Card",
+          "status": "passed",
+          "title": "Card",
+          "duration": 19.983165999999983,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Checkbox",
+          "status": "passed",
+          "title": "Checkbox",
+          "duration": 35.196874999999636,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Collapsible",
+          "status": "passed",
+          "title": "Collapsible",
+          "duration": 24.089458000000377,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Divider",
+          "status": "passed",
+          "title": "Divider",
+          "duration": 11.115999999999985,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components EmptyState",
+          "status": "passed",
+          "title": "EmptyState",
+          "duration": 26.76154200000019,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Heading",
+          "status": "passed",
+          "title": "Heading",
+          "duration": 15.375709000000825,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Hero",
+          "status": "passed",
+          "title": "Hero",
+          "duration": 28.739082999999482,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Kbd",
+          "status": "passed",
+          "title": "Kbd",
+          "duration": 10.582124999999905,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Meter",
+          "status": "passed",
+          "title": "Meter",
+          "duration": 15.619249999999738,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Progress",
+          "status": "passed",
+          "title": "Progress",
+          "duration": 16.487624999999753,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Spinner",
+          "status": "passed",
+          "title": "Spinner",
+          "duration": 15.856292000000394,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components ScrollArea",
+          "status": "passed",
+          "title": "ScrollArea",
+          "duration": 13.353166999999303,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components SegmentedControl",
+          "status": "passed",
+          "title": "SegmentedControl",
+          "duration": 25.771374999999352,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Skeleton",
+          "status": "passed",
+          "title": "Skeleton",
+          "duration": 11.067708000000493,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Stack",
+          "status": "passed",
+          "title": "Stack",
+          "duration": 11.573209000000134,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Stat",
+          "status": "passed",
+          "title": "Stat",
+          "duration": 11.040625000000546,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Tabs",
+          "status": "passed",
+          "title": "Tabs",
+          "duration": 21.358791999999994,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Tag",
+          "status": "passed",
+          "title": "Tag",
+          "duration": 9.41858400000001,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Text",
+          "status": "passed",
+          "title": "Text",
+          "duration": 7.861499999999978,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — General Components"],
+          "fullName": "Accessibility — General Components Timeline",
+          "status": "passed",
+          "title": "Timeline",
+          "duration": 19.83483299999989,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534650466,
+      "endTime": 1781534651298.8347,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/general.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components AppBar",
+          "status": "passed",
+          "title": "AppBar",
+          "duration": 172.80212500000016,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Footer",
+          "status": "passed",
+          "title": "Footer",
+          "duration": 22.525709000000006,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Navbar",
+          "status": "passed",
+          "title": "Navbar",
+          "duration": 50.900458999999955,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components NavigationMenu",
+          "status": "passed",
+          "title": "NavigationMenu",
+          "duration": 34.08458400000018,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components PageHeader",
+          "status": "passed",
+          "title": "PageHeader",
+          "duration": 57.48895799999991,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Pagination",
+          "status": "passed",
+          "title": "Pagination",
+          "duration": 53.32454199999984,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Sidebar",
+          "status": "passed",
+          "title": "Sidebar",
+          "duration": 45.72987499999999,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Steps",
+          "status": "passed",
+          "title": "Steps",
+          "duration": 58.113124999999854,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Navigation Components"],
+          "fullName": "Accessibility — Navigation Components Tree",
+          "status": "passed",
+          "title": "Tree",
+          "duration": 30.545583999999963,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534649932,
+      "endTime": 1781534650457.5457,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/navigation.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components ConfirmDialog",
+          "status": "passed",
+          "title": "ConfirmDialog",
+          "duration": 195.522375,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components Dialog (open)",
+          "status": "passed",
+          "title": "Dialog (open)",
+          "duration": 40.29633300000023,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components Drawer (open)",
+          "status": "passed",
+          "title": "Drawer (open)",
+          "duration": 43.40816700000005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components DropdownMenu",
+          "status": "passed",
+          "title": "DropdownMenu",
+          "duration": 26.014000000000124,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components HoverCard",
+          "status": "passed",
+          "title": "HoverCard",
+          "duration": 22.533750000000055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components Popover",
+          "status": "passed",
+          "title": "Popover",
+          "duration": 25.504167000000052,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components Toast",
+          "status": "passed",
+          "title": "Toast",
+          "duration": 27.965541999999914,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Overlay Components"],
+          "fullName": "Accessibility — Overlay Components Tooltip",
+          "status": "passed",
+          "title": "Tooltip",
+          "duration": 13.469000000000051,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534649861,
+      "endTime": 1781534650256.469,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/overlays.accessibility.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components Chalkboard",
+          "status": "passed",
+          "title": "Chalkboard",
+          "duration": 238.4460839999997,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components Ferrofluid",
+          "status": "passed",
+          "title": "Ferrofluid",
+          "duration": 45.9270419999998,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components MasterOverride",
+          "status": "passed",
+          "title": "MasterOverride",
+          "duration": 85.38916699999982,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components SplitFlap",
+          "status": "passed",
+          "title": "SplitFlap",
+          "duration": 83.09254199999987,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components SplitScreenExit",
+          "status": "passed",
+          "title": "SplitScreenExit",
+          "duration": 22.16995799999995,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Accessibility — Specialty Components"],
+          "fullName": "Accessibility — Specialty Components TapeChart",
+          "status": "passed",
+          "title": "TapeChart",
+          "duration": 110.9067500000001,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1781534650088,
+      "endTime": 1781534650673.9067,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a227e986cc99c27c3/packages/rialto/src/test/accessibility/specialty.accessibility.test.tsx"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { useCombobox } from "../../hooks/useCombobox";
 import styles from "./Autocomplete.module.css";
 
 export interface AutocompleteOption {
@@ -58,15 +59,16 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const [internalValue, setInternalValue] = useState("");
     const inputValue = controlledValue ?? internalValue;
 
-    const [isOpen, setIsOpen] = useState(false);
-    const [activeIndex, setActiveIndex] = useState(-1);
-
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
     const filtered = options.filter((opt) =>
       opt.label.toLowerCase().includes(inputValue.toLowerCase())
     );
+
+    // Map AutocompleteOption[] to ComboboxItem[] for the hook.
+    // Autocomplete options are never disabled, so we pass them as-is.
+    const comboboxItems = filtered;
 
     const setInputValue = useCallback(
       (val: string) => {
@@ -76,81 +78,72 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
       [controlledValue, onChange]
     );
 
-    const handleSelect = useCallback(
+    const handleSelectOption = useCallback(
       (option: AutocompleteOption) => {
         setInputValue(option.label);
         onSelect?.(option);
-        setIsOpen(false);
-        setActiveIndex(-1);
         inputRef.current?.focus();
       },
       [setInputValue, onSelect]
     );
 
+    const { open, focusedIndex, openWithFocus, close, setFocusedIndex } = useCombobox({
+      items: comboboxItems,
+      containerRef: wrapperRef,
+    });
+
     const handleInputChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
-        setIsOpen(true);
-        setActiveIndex(-1);
+        openWithFocus();
+        setFocusedIndex(-1);
       },
-      [setInputValue]
+      [setInputValue, openWithFocus, setFocusedIndex]
     );
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
-        if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+        if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
           e.preventDefault();
-          setIsOpen(true);
+          openWithFocus();
           return;
         }
 
-        if (!isOpen) return;
+        if (!open) return;
 
         switch (e.key) {
           case "ArrowDown":
             e.preventDefault();
-            setActiveIndex((i) => (i < filtered.length - 1 ? i + 1 : 0));
+            setFocusedIndex(focusedIndex < filtered.length - 1 ? focusedIndex + 1 : 0);
             break;
           case "ArrowUp":
             e.preventDefault();
-            setActiveIndex((i) => (i > 0 ? i - 1 : filtered.length - 1));
+            setFocusedIndex(focusedIndex > 0 ? focusedIndex - 1 : filtered.length - 1);
             break;
           case "Enter":
             e.preventDefault();
-            if (activeIndex >= 0 && filtered[activeIndex]) {
-              handleSelect(filtered[activeIndex]);
+            if (focusedIndex >= 0 && filtered[focusedIndex]) {
+              handleSelectOption(filtered[focusedIndex]);
+              close();
             }
             break;
           case "Escape":
             e.preventDefault();
-            setIsOpen(false);
-            setActiveIndex(-1);
+            close();
             break;
         }
       },
-      [isOpen, activeIndex, filtered, handleSelect]
+      [open, focusedIndex, filtered, handleSelectOption, openWithFocus, close, setFocusedIndex]
     );
-
-    // Close on outside click
-    useEffect(() => {
-      function handleClick(e: MouseEvent) {
-        if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-          setIsOpen(false);
-          setActiveIndex(-1);
-        }
-      }
-      document.addEventListener("mousedown", handleClick);
-      return () => document.removeEventListener("mousedown", handleClick);
-    }, []);
 
     // Scroll active option into view
     useEffect(() => {
-      if (activeIndex < 0) return;
-      const activeEl = wrapperRef.current?.querySelector(`[data-option-index="${activeIndex}"]`);
+      if (focusedIndex < 0) return;
+      const activeEl = wrapperRef.current?.querySelector(`[data-option-index="${focusedIndex}"]`);
       activeEl?.scrollIntoView({ block: "nearest" });
-    }, [activeIndex]);
+    }, [focusedIndex]);
 
-    const activeOptionId = activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined;
+    const activeOptionId = focusedIndex >= 0 ? `${inputId}-option-${focusedIndex}` : undefined;
     const hintId = hint ? `${inputId}-hint` : undefined;
 
     return (
@@ -192,7 +185,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             id={inputId}
             className={styles.input}
             role="combobox"
-            aria-expanded={isOpen}
+            aria-expanded={open}
             aria-controls={listboxId}
             aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
@@ -201,7 +194,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onFocus={() => inputValue && setIsOpen(true)}
+            onFocus={() => inputValue && openWithFocus()}
             placeholder={placeholder}
             required={required}
             {...props}
@@ -209,7 +202,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
         </div>
 
         <AnimatePresence>
-          {isOpen && (
+          {open && (
             <motion.ul
               id={listboxId}
               role="listbox"
@@ -229,16 +222,17 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
                     key={option.value}
                     id={`${inputId}-option-${index}`}
                     role="option"
-                    aria-selected={activeIndex === index}
+                    aria-selected={focusedIndex === index}
                     data-option-index={index}
-                    className={[styles.option, activeIndex === index && styles.optionActive]
+                    className={[styles.option, focusedIndex === index && styles.optionActive]
                       .filter(Boolean)
                       .join(" ")}
                     onMouseDown={(e) => {
                       e.preventDefault(); // keep focus on input
-                      handleSelect(option);
+                      handleSelectOption(option);
+                      close();
                     }}
-                    onMouseEnter={() => setActiveIndex(index)}
+                    onMouseEnter={() => setFocusedIndex(index)}
                   >
                     {option.label}
                   </li>
