@@ -8,7 +8,6 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { tableService } from "../services/table.js";
@@ -116,10 +115,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const table = await tableService.getById(request.params.id);
       if (!table) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        const error = new Error("Table not found") as Error & { statusCode?: number };
+        error.statusCode = 404;
+        throw error;
       }
       return { data: table };
     }
@@ -192,11 +193,11 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(201).send({ data: table });
       } catch (error) {
         if (error instanceof Error && error.message.includes("Unique constraint")) {
-          return reply
-            .code(400)
-            .send(
-              createProblemDetails(400, "Bad Request", "A table with this name already exists")
-            );
+          const err = new Error("A table with this name already exists") as Error & {
+            statusCode?: number;
+          };
+          err.statusCode = 400;
+          throw err;
         }
         throw error;
       }
@@ -275,10 +276,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const table = await tableService.update(request.params.id, request.body);
       if (!table) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        const error = new Error("Table not found") as Error & { statusCode?: number };
+        error.statusCode = 404;
+        throw error;
       }
       return { data: table };
     }
@@ -349,10 +352,12 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const table = await tableService.updateStatus(request.params.id, request.body.status);
       if (!table) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        const error = new Error("Table not found") as Error & { statusCode?: number };
+        error.statusCode = 404;
+        throw error;
       }
       emitTableUpdated(table);
       return { data: table };
@@ -410,7 +415,9 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const deleted = await tableService.delete(request.params.id);
       if (!deleted) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+        const error = new Error("Table not found") as Error & { statusCode?: number };
+        error.statusCode = 404;
+        throw error;
       }
       return reply.code(204).send();
     }
