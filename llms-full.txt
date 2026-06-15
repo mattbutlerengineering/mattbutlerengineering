@@ -2893,6 +2893,26 @@
       return dir;
     }
   </file>
+  <file path="packages/rialto/src/hooks/useField.ts">
+    export interface UseFieldOptions {
+      /** Explicit id; auto-generated if omitted. */
+      id?: string;
+      /** Helper text rendered below the control. */
+      hint?: string;
+      /** When true, applies aria-invalid and wires the error region into aria-describedby. */
+      error?: boolean;
+      /** When true, the control is required; required marker is shown in label. */
+      required?: boolean;
+      /**
+       * When true and not required, shows "(optional)" after the label.
+       * Always false when required=true (mutually exclusive).
+       */
+      showOptional?: boolean;
+    }
+    export interface FieldLabelProps {
+      htmlFor: string;
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */
@@ -14010,6 +14030,10 @@
         value: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().max(40).optional(),
+        hint: z.string().optional(),
+        error: z.boolean().optional(),
+        required: z.boolean().optional(),
+        showOptional: z.boolean().optional(),
         disabled: z.boolean().optional(),
         disabledReason: z.string().optional(),
       }),
