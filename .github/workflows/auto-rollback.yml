@@ -1,6 +1,10 @@
 name: Auto-Rollback on Agent Regression
 
 on:
+  schedule:
+    # Weekly drill every Monday at 10:17 UTC — keeps ACMM active detection green
+    # without requiring a real regression or manual workflow_dispatch
+    - cron: "17 10 * * 1"
   workflow_dispatch:
     inputs:
       drill:
@@ -20,7 +24,7 @@ permissions:
 jobs:
   rollback-drill:
     name: Rollback Drill (dry-run)
-    if: github.event_name == 'workflow_dispatch' && inputs.drill == true
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.drill == true)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3

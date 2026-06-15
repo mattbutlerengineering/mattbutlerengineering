@@ -16,9 +16,12 @@ import { buildOrchestratorPrompt } from "./task-decomposer.js";
 
 // ── MCP tool factory ─────────────────────────────────────────────────
 
+// Mutations (create/cancel) must not retry — a second attempt could double-create
+// a session or send duplicate state transitions. Reads (check/list) use default retries.
+const NO_RETRY = { maxRetries: 0 } as const;
+
 function createSessionTools(config: OrchestratorConfig) {
-  const client =
-    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+  const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
 
   const createSessionTool = tool(
     "create_session",
@@ -39,14 +42,17 @@ function createSessionTools(config: OrchestratorConfig) {
       baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
     },
     async (args) => {
-      const session = await client.createSession({
-        taskDescription: args.taskDescription,
-        model: args.model ?? config.sessionModel,
-        maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
-        maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
-        baseBranch: args.baseBranch ?? config.baseBranch,
-        ...(config.parentSessionId && { parentId: config.parentSessionId }),
-      });
+      const session = await client.createSession(
+        {
+          taskDescription: args.taskDescription,
+          model: args.model ?? config.sessionModel,
+          maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+          maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+          baseBranch: args.baseBranch ?? config.baseBranch,
+          ...(config.parentSessionId && { parentId: config.parentSessionId }),
+        },
+        NO_RETRY
+      );
 
       return {
         content: [
@@ -141,7 +147,7 @@ function createSessionTools(config: OrchestratorConfig) {
     },
     async (args) => {
       try {
-        const session = await client.cancelSession(args.sessionId);
+        const session = await client.cancelSession(args.sessionId, NO_RETRY);
 
         return {
           content: [
@@ -227,9 +233,9 @@ export async function runOrchestrator(
 
   emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);
 
-  // Session client for status gathering after orchestration completes
+  // Session client for status gathering after orchestration completes (reads only — default retries are fine)
   const sessionClient =
-    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+    config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
 
   // Create MCP server with session management tools
   const tools = createSessionTools(config);

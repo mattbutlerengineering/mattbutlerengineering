@@ -1,9 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { query } from "@anthropic-ai/claude-agent-sdk";
 import { pollForFeedback } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
-import { createToolPermissionHandler } from "./tool-permissions.js";
+import { runHardenedQuery } from "./run-hardened-query.js";
 import type { SessionEventCallback, SessionEvent } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -120,7 +119,7 @@ export async function runFeedbackLoop(
       return { retriesUsed, resolved: true, lastFingerprint: lastFingerprint || null };
     }
 
-    // Feedback found — dispatch a fix session
+    // Feedback found — dispatch a fix session via the hardened query loop
     retriesUsed += 1;
     lastFingerprint = feedback.fingerprint;
 
@@ -131,32 +130,22 @@ export async function runFeedbackLoop(
     });
 
     const fixPrompt = buildReviewFixPrompt(feedback.context);
-    const canUseTool = createToolPermissionHandler(config.repoPath);
 
-    const conversation = query({
-      prompt: fixPrompt,
-      options: {
+    // runHardenedQuery provides stuck detection, circuit breaker, and heartbeat/
+    // inactivity timeout — the fix-session is now as well-guarded as the primary run.
+    await runHardenedQuery(
+      {
+        prompt: fixPrompt,
         cwd: config.repoPath,
         model: config.model,
         maxTurns: 30,
         maxBudgetUsd: config.maxBudgetUsd,
-        allowedTools: [...config.allowedTools],
-        permissionMode: "acceptEdits",
-        settingSources: ["project"],
-        systemPrompt: {
-          type: "preset",
-          preset: "claude_code",
-          append:
-            "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
-        },
-        canUseTool: async (toolName, input) => canUseTool(toolName, input),
+        allowedTools: config.allowedTools,
+        systemPromptAppend:
+          "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
       },
-    });
-
-    // Consume the conversation stream
-    for await (const message of conversation) {
-      emitEvent(onEvent, "session:message", message);
-    }
+      onEvent
+    );
 
     // Commit and push the fixes
     await commitAndPush(config.repoPath, `fix: address PR feedback (attempt ${attempt + 1})`);
