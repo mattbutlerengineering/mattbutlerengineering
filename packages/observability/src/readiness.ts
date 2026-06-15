@@ -134,7 +134,7 @@ export function registerStandardChecks(
     prisma,
     auth0Url = DEFAULT_AUTH0_JWKS_URL,
     jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS,
-    fetchFn = fetch,
+    fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args),
   } = options;
 
   tracker.registerCheck("database", async () => {
