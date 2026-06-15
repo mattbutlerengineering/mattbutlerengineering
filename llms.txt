@@ -2017,16 +2017,18 @@
   </file>
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
     <item priority="low">
-      interface LapsedGuestMonitorConfig {
-        getVenueIds: () => Promise<string[]>;
-        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+      interface LapsedGuestMonitorPrismaConfig {
+        prisma: PrismaClient;
         startupDelayMs?: number;
         intervalMs?: number;
       }
     </item>
     <item priority="low">
-      interface LapsedGuestMonitor {
-        
+      interface LapsedGuestMonitorCallbackConfig {
+        getVenueIds: () => Promise<string[]>;
+        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+        startupDelayMs?: number;
+        intervalMs?: number;
       }
     </item>
   </file>
