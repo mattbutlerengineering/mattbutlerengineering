@@ -2091,6 +2091,19 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="apps/marketing/src/data/ai-health.ts">
+    export interface AcmmSensor {
+      readonly available: boolean;
+      readonly level: string;
+      readonly score: number;
+      readonly gaps: number;
+    }
+    export interface CiSensor {
+      readonly available: boolean;
+      readonly passRate: number;
+      readonly recentRuns: number;
+    }
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     export interface Project {
       title: string;

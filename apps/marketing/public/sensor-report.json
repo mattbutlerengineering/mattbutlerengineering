@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-05-09T05:48:08.683Z",
+  "sensors": {
+    "acmm": {
+      "available": true,
+      "level": "unknown",
+      "score": 0,
+      "gaps": 0
+    },
+    "ci": {
+      "available": true,
+      "passRate": 100,
+      "recentRuns": 0
+    },
+    "prMetrics": {
+      "available": true,
+      "merged30d": 16
+    },
+    "issues": {
+      "available": true,
+      "open": 14,
+      "ready": 0
+    },
+    "lighthouse": {
+      "available": true,
+      "surfacesChecked": 0,
+      "surfacesTotal": 4,
+      "note": "needs first run"
+    },
+    "sentry": {
+      "available": true,
+      "totalIssues": 0,
+      "errorCount": 0,
+      "note": "healthy"
+    },
+    "agentCost": {
+      "available": true,
+      "sessions": 0
+    }
+  },
+  "regressions": [],
+  "summary": {
+    "available": 7,
+    "total": 7
+  }
+}
