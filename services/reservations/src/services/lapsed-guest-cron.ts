@@ -88,15 +88,18 @@ export function createLapsedGuestMonitor(config: LapsedGuestMonitorConfig): Laps
       const scan = async () => {
         try {
           const venueIds = await getVenueIds();
-          for (const venueId of venueIds) {
-            const lapsing = await runScan(venueId);
-            if (lapsing.length > 0) {
+          const results = await Promise.allSettled(venueIds.map((venueId) => runScan(venueId)));
+          results.forEach((result, i) => {
+            const venueId = venueIds[i];
+            if (result.status === "rejected") {
+              log.error({ venueId, err: result.reason }, "lapsed guest scan: venue error");
+            } else if (result.value.length > 0) {
               log.info(
-                { venueId, count: lapsing.length },
+                { venueId, count: result.value.length },
                 "lapsed guest scan: found lapsing guests"
               );
             }
-          }
+          });
         } catch (err) {
           log.error({ err }, "lapsed guest scan: error");
         }
