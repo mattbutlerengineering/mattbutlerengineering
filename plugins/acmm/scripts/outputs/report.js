@@ -24,8 +24,9 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {Array<import("../sources/types.js").Source>} args.sources
  * @param {import("../computeLevel.js").LevelComputation} args.computation
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
+ * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
  */
-export function writeReport(cwd, { state, criteria, sources, computation, diff }) {
+export function writeReport(cwd, { state, criteria, sources, computation, diff, hollowCriteria = [] }) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
   const coldStart = loadLatestColdStart(cwd);
@@ -86,6 +87,21 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff }
       );
       lines.push("");
     }
+  }
+
+  // ── Hollow criteria (detected but substance failed) ───────
+  if (hollowCriteria.length > 0) {
+    lines.push(`## Hollow criteria (${hollowCriteria.length})`);
+    lines.push("");
+    lines.push(
+      "These criteria were **detected** (file or pattern present) but their substance check failed. " +
+        "Hollow criteria do **not** count toward level thresholds."
+    );
+    lines.push("");
+    for (const h of hollowCriteria) {
+      lines.push(`- **\`${h.id}\`** — ${h.substanceEvidence}`);
+    }
+    lines.push("");
   }
 
   // ── Next steps (top of report — most actionable first) ────
