@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync as _execFileSync } from "node:child_process";
+import { AUDIT_FRESHNESS_CRITERION } from "./audit-freshness.js";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -208,4 +209,5 @@ export const META_CRITERIA = [
     detection: { type: "active", pattern: "github:improvement-label" },
     check: checkProductImprovements,
   },
+  AUDIT_FRESHNESS_CRITERION,
 ];

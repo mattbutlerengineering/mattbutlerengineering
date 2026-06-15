@@ -1024,6 +1024,22 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useField.ts">
+    <item priority="low">
+      interface UseFieldOptions {
+        id?: string;
+        hint?: string;
+        error?: boolean;
+        required?: boolean;
+        showOptional?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface FieldLabelProps {
+        htmlFor: string;
+      }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
@@ -1549,6 +1565,9 @@
   <file path="packages/types/src/schemas/api.ts">
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ApiErrorSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/common.ts">
@@ -3042,6 +3061,19 @@
         async get(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="packages/api-client/src/retry.ts">
+    <item priority="low">
+      interface RetryOptions {
+        maxRetries: number;
+        baseDelayMs: number;
+        jitter?: boolean;
+        isRetryable?: (error: unknown) => boolean;
+      }
+    </item>
+    <item priority="medium">
+      function sleep(ms: number): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/api-client/src/streaming.ts">

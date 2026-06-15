@@ -253,8 +253,8 @@ describe("checkProductImprovements", () => {
 });
 
 describe("META_CRITERIA", () => {
-  test("exports 5 criteria", () => {
-    assert.equal(META_CRITERIA.length, 5);
+  test("exports 6 criteria", () => {
+    assert.equal(META_CRITERIA.length, 6);
   });
 
   test("all criteria have required fields", () => {
