@@ -60,12 +60,12 @@ export const FAMILIES = [
   {
     id: "llms-txt",
     label: "llms.txt context files",
-    // The root-level llms.txt + one per workspace package.  pack-changed
-    // with --mode commit only regenerates touched packages; for a full
-    // regen we run `mbe pack <pkg>` across all known packages.  The
-    // command below is what `pnpm regen` invokes — regen.mjs calls each
-    // pack individually (see the runLlms helper in regen.mjs).
-    command: "pnpm --filter @mbe/cli start pack-all",
+    // regen.mjs special-cases this family: it loops `mbe pack <pkg>` across
+    // every known package (see regenLlms in regen.mjs). There is no single
+    // CLI command that regenerates all llms.txt files, so the remediation
+    // hint below points at `pnpm regen` — the canonical, always-runnable way
+    // to bring every artifact (including this family) back in sync.
+    command: "pnpm regen",
     outputs: [
       "llms.txt",
       "llms-full.txt",

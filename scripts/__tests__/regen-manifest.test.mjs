@@ -97,6 +97,23 @@ describe("regen-manifest", () => {
     expect(llms.outputs).not.toContain("packages/feature-flags/llms-full.txt");
   });
 
+  it("no family command references the non-existent pack-all alias", () => {
+    // `pack-all` is not a real CLI command — running it errors with
+    // "unknown command 'pack-all'". The command field is the remediation
+    // hint printed by `regen --check`, so it must be runnable as-is.
+    for (const f of FAMILIES) {
+      expect(f.command, `${f.id}.command`).not.toContain("pack-all");
+    }
+  });
+
+  it("llms-txt remediation hint is the runnable `pnpm regen` command", () => {
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    // regen.mjs special-cases the llms-txt family (loops `pack <pkg>`), so the
+    // command field is only the human-facing fix hint. `pnpm regen` is the
+    // canonical, always-correct way to regenerate llms.txt files.
+    expect(llms.command).toBe("pnpm regen");
+  });
+
   it("llms-txt outputs include llms-full.txt alongside every llms.txt", () => {
     const llms = FAMILIES.find((f) => f.id === "llms-txt");
     const txts = llms.outputs.filter((o) => o.endsWith("/llms.txt") || o === "llms.txt");

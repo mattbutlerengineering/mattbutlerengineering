@@ -9,78 +9,15 @@ import {
   type PaginatedResponse,
   type ConflictCheckResult,
   type PacingCheckResult,
-  type TableShapeMetadata,
   type VenueSettings,
 } from "@mbe/types";
-import { paginate, toPaginationMeta } from "@mbe/database";
-import type {
-  Reservation as PrismaReservation,
-  Table as PrismaTable,
-} from "../generated/prisma/index.js";
+import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
 import { tableAdvisoryLockSql } from "./confirm-hold.js";
-
-function isPrismaNotFound(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
-  );
-}
-
-type PrismaReservationWithTable = PrismaReservation & {
-  table?: PrismaTable;
-  guest?: { visitCount: number; communicationPreference: string | null } | null;
-};
-
-function mapPrismaReservation(reservation: PrismaReservationWithTable): Reservation {
-  return {
-    id: reservation.id,
-    date: toDateString(reservation.date),
-    startTime: reservation.startTime.toISOString(),
-    endTime: reservation.endTime.toISOString(),
-    partySize: reservation.partySize,
-    status: reservation.status as ReservationStatus,
-    notes: reservation.notes,
-    cancellationReason: reservation.cancellationReason,
-    cancellationNote: reservation.cancellationNote,
-    occasion: reservation.occasion as Reservation["occasion"],
-    seatingPreference: reservation.seatingPreference as Reservation["seatingPreference"],
-    guestName: reservation.guestName,
-    guestEmail: reservation.guestEmail,
-    guestPhone: reservation.guestPhone,
-    guestId: reservation.guestId,
-    userId: reservation.userId,
-    tableId: reservation.tableId,
-    table: reservation.table
-      ? {
-          id: reservation.table.id,
-          name: reservation.table.name,
-          tableNumber: reservation.table.tableNumber,
-          capacity: reservation.table.capacity,
-          minCovers: reservation.table.minCovers,
-          maxCovers: reservation.table.maxCovers,
-          location: reservation.table.location,
-          isActive: reservation.table.isActive,
-          priority: reservation.table.priority,
-          status: reservation.table.status as Table["status"],
-          venueId: reservation.table.venueId,
-          floorPlanId: reservation.table.floorPlanId,
-          shapeMetadata: reservation.table.shapeMetadata as TableShapeMetadata | null,
-          createdAt: reservation.table.createdAt.toISOString(),
-          updatedAt: reservation.table.updatedAt.toISOString(),
-        }
-      : undefined,
-    guest: reservation.guest ?? null,
-    venueId: reservation.venueId,
-    createdAt: reservation.createdAt.toISOString(),
-    updatedAt: reservation.updatedAt.toISOString(),
-  };
-}
+import { toReservation } from "./serializers.js";
 
 export interface ListReservationsOptions {
   page: number;
@@ -145,7 +82,7 @@ export const reservationService = {
     ]);
 
     return {
-      data: reservations.map(mapPrismaReservation),
+      data: reservations.map(toReservation),
       pagination: toPaginationMeta(page, limit, total),
     };
   },
@@ -169,7 +106,7 @@ export const reservationService = {
     ]);
 
     return {
-      data: reservations.map(mapPrismaReservation),
+      data: reservations.map(toReservation),
       pagination: toPaginationMeta(page, limit, total),
     };
   },
@@ -182,7 +119,7 @@ export const reservationService = {
         guest: { select: { visitCount: true, communicationPreference: true } },
       },
     });
-    return reservation ? mapPrismaReservation(reservation) : null;
+    return reservation ? toReservation(reservation) : null;
   },
 
   async create(data: CreateReservationRequest, userId?: string): Promise<Reservation> {
@@ -206,7 +143,7 @@ export const reservationService = {
         guest: { select: { visitCount: true, communicationPreference: true } },
       },
     });
-    return mapPrismaReservation(reservation);
+    return toReservation(reservation);
   },
 
   /**
@@ -306,7 +243,7 @@ export const reservationService = {
         },
         include: { table: true },
       });
-      return mapPrismaReservation(reservation);
+      return toReservation(reservation);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -489,7 +426,7 @@ export const reservationService = {
 
     return {
       success: true,
-      reservation: mapPrismaReservation(result.reservation),
+      reservation: toReservation(result.reservation),
       table: mapPrismaTable(result.table),
     };
   },
@@ -508,7 +445,7 @@ export const reservationService = {
           guest: { select: { visitCount: true, communicationPreference: true } },
         },
       });
-      return mapPrismaReservation(reservation);
+      return toReservation(reservation);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;

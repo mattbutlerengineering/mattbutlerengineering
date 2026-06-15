@@ -1,4 +1,4 @@
-<codebase path=".">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b">
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
@@ -997,6 +997,28 @@
     }
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    export interface BookingFlowData {
+      selectedDate: string | null;
+      selectedEndDate: string | null;
+      partySize: number;
+      slots: TimeSlot[];
+      selectedSlot: TimeSlot | null;
+      slotsLoading: boolean;
+      slotsError: string | null;
+      hold: ReservationHold | null;
+      holdLoading: boolean;
+      holdError: string | null;
+      reservation: Reservation | null;
+      confirmLoading: boolean;
+      confirmError: string | null;
+      depositConfig: DepositConfig | null;
+      depositPaymentIntentId: string | null;
+    }
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     interface ADRFrontmatter {
@@ -1821,7 +1843,7 @@
     export const usersListRun = defineCommand<{ page: string; limit: string }>({
       requiresAuth: true,
       async run(opts): Promise<CommandResult> {
-        const response = await apiRequest<PaginatedResponse<User>>(
+        const response = await createCliApiClient().request<PaginatedResponse<User>>(
           `/api/v1/users?page=${opts.page}&limit=${opts.limit}`
         );
     
@@ -1840,7 +1862,9 @@
     export const usersGetRun = defineCommand<{ id: string }>({
       requiresAuth: true,
       async run(opts): Promise<CommandResult> {
-        const response = await apiRequest<ApiResponse<User>>(`/api/v1/users/${opts.id}`);
+        const response = await createCliApiClient().request<ApiResponse<User>>(
+          `/api/v1/users/${opts.id}`
+        );
         const user = response.data;
     
         return {
@@ -2026,7 +2050,7 @@
     export const whoamiRun = defineCommand({
       requiresAuth: true,
       async run(): Promise<CommandResult> {
-        const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
+        const response = await createCliApiClient().request<ApiResponse<User>>("/api/v1/users/me");
         const user = response.data;
         return {
           kind: "rows",
@@ -2089,6 +2113,19 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="apps/marketing/src/data/ai-health.ts">
+    export interface AcmmSensor {
+      readonly available: boolean;
+      readonly level: string;
+      readonly score: number;
+      readonly gaps: number;
+    }
+    export interface CiSensor {
+      readonly available: boolean;
+      readonly passRate: number;
+      readonly recentRuns: number;
+    }
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     export interface Project {
       title: string;
@@ -2625,6 +2662,12 @@
     }
   </file>
   </section>
+  <section priority="medium" role="floor-plan">
+  <file path="apps/hospitality/src/components/floor-plan/floor-plan-geometry.ts">
+    export const CANVAS_WIDTH = 800;
+    export const CANVAS_HEIGHT = 600;
+  </file>
+  </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
@@ -2901,6 +2944,18 @@
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
+    export interface GuestRecognitionResult {
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+    }
+    export interface UseGuestRecognitionParams {
+      venueSlug: string | undefined;
+      apiBaseUrl?: string;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -3160,6 +3215,42 @@
           });
         }
       }, [open]);
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/useFocusTrap.ts">
+    export const FOCUSABLE_SELECTOR =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void {
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const panel = panelRef.current;
+        if (!panel) return;
+    
+        const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+    
+        first?.focus();
+    
+        const trap = (e: KeyboardEvent) => {
+          if (e.key !== "Tab") return;
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        };
+    
+        document.addEventListener("keydown", trap);
+        return () => document.removeEventListener("keydown", trap);
+      }, [enabled, panelRef]);
     }
   </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
@@ -3494,10 +3585,6 @@
     }
   </file>
   <file path="packages/agent-core/src/phases/query-phase.ts">
-    interface StreamingResult {
-      readonly resultMessage: SDKResultMessage | null;
-      readonly stuckDetected: StuckPattern | null;
-    }
     export class QueryPhase implements PipelinePhase {
       readonly name = "query" as const;
     
@@ -3523,282 +3610,26 @@
           };
         }
     
-        const abortController = new AbortController();
-        const canUseTool = createToolPermissionHandler(worktree.path);
-    
-        const detector = createStuckDetector(config.stuckDetectorConfig);
-    
-        let conversation: ReturnType<typeof query>;
-        try {
-          conversation = query({
-            prompt: config.taskDescription,
-            options: {
-              abortController,
+        const { resultMessage, stuckReason, rawTurnMetrics, rawToolCallMetrics, errorMessage } =
+          await runHardenedQuery(
+            {
+              prompt: config.taskDescription,
               cwd: worktree.path,
               model: config.model,
               maxTurns: config.maxTurns,
               maxBudgetUsd: config.maxBudgetUsd,
-              allowedTools: [...config.allowedTools],
-              permissionMode: "acceptEdits",
-              settingSources: ["project"],
-              systemPrompt: {
-                type: "preset",
-                preset: "claude_code",
-                append: systemPrompt,
-              },
-              canUseTool: async (toolName, input) => canUseTool(toolName, input),
+              allowedTools: config.allowedTools,
+              systemPromptAppend: systemPrompt,
+              stuckDetectorConfig: config.stuckDetectorConfig,
             },
-          });
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
+            onEvent
+          );
+    
+        // Propagate errors from runHardenedQuery as phase failures
+        if (errorMessage) {
           return {
-            result: { phase: this.name, status: "failed", errors: [errMsg] },
-            ctx: { ...ctx, errors: [...ctx.errors, errMsg] },
-          };
-        }
-    
-        const querySpan = tracer.startSpan("agent_core.sdk_query", {
-          attributes: { "sdk.model": config.model },
-        });
-    
-        let compactionCount = 0;
-        let turnIndex = 0;
-    
-        const rawTurnMetrics: Array<{
-          turnIndex: number;
-          startedAt: string;
-          inputTokens: number;
-          outputTokens: number;
-          thinkingTokens: number;
-          costUsd: number;
-          modelId: string;
-        }> = [];
-    
-        const rawToolCallMetrics: Array<{
-          toolName: string;
-          toolUseId: string;
-          latencyMs: number;
-          isError: boolean;
-        }> = [];
-    
-        const pendingToolCalls = new Map<string, { toolName: string; startMs: number }>();
-    
-        // Heartbeat: periodic liveness signal + inactivity timeout
-        const heartbeat = DEFAULT_HEARTBEAT_CONFIG;
-        const startTime = Date.now();
-        let lastActivityMs = Date.now();
-        let stuckReason: StuckPattern | null = null;
-    
-        const heartbeatInterval = setInterval(() => {
-          const silenceMs = Date.now() - lastActivityMs;
-          emitEvent(onEvent, "session:heartbeat", {
-            message: JSON.stringify({
-              turnCount: turnIndex,
-              compactionCount,
-              elapsedMs: Date.now() - startTime,
-              lastActivityMs: silenceMs,
-            }),
-          });
-          if (silenceMs >= heartbeat.inactivityTimeoutMs) {
-            stuckReason = {
-              type: "zero_progress" as const,
-              count: 0,
-              threshold: 0,
-              description: `No SDK activity for ${Math.round(silenceMs / 1000)}s — session appears hung`,
-              severity: "error" as const,
-            };
-            emitEvent(onEvent, "session:stuck", {
-              message: `Inactivity timeout: no messages for ${Math.round(silenceMs / 1000)}s`,
-            });
-            abortController.abort();
-          }
-        }, heartbeat.intervalMs);
-    
-        let streamResult: StreamingResult = { resultMessage: null, stuckDetected: null };
-        let circuitBreakerTripped = false;
-    
-        try {
-          streamResult = await apiCircuitBreaker.wrap(async (): Promise<StreamingResult> => {
-            let innerResult: SDKResultMessage | null = null;
-            let innerStuck: StuckPattern | null = null;
-            try {
-              for await (const message of conversation) {
-                lastActivityMs = Date.now();
-                emitEvent(onEvent, "session:message", message);
-    
-                if (message.type === "assistant") {
-                  turnIndex++;
-                }
-    
-                // Track assistant messages as Langfuse generation observations
-                if (message.type === "assistant" && "message" in message) {
-                  const msg = message.message as {
-                    role: string;
-                    content: unknown;
-                    usage?: { input_tokens?: number; output_tokens?: number };
-                  };
-                  const gen = startObservation(
-                    `llm-turn-${turnIndex}`,
-                    { model: config.model, input: msg.content },
-                    { asType: "generation" }
-                  );
-                  gen
-                    .update({
-                      output: msg.content,
-                      usageDetails: {
-                        input: msg.usage?.input_tokens ?? 0,
-                        output: msg.usage?.output_tokens ?? 0,
-                      },
-                    })
-                    .end();
-                }
-    
-                // Emit typed events for observability
-                for (const mapped of mapSdkMessage(message, turnIndex)) {
-                  emitEvent(onEvent, mapped.type, {
-                    message: sanitizeStreamChunk(JSON.stringify(mapped)),
-                  });
-    
-                  if (mapped.type === "session:turn_metrics") {
-                    const tm = mapped as TurnMetricsEvent;
-                    rawTurnMetrics.push({
-                      turnIndex: tm.turnIndex,
-                      startedAt: new Date().toISOString(),
-                      inputTokens: tm.inputTokens,
-                      outputTokens: tm.outputTokens,
-                      thinkingTokens: tm.thinkingTokens,
-                      costUsd: tm.costUsd,
-                      modelId: tm.modelId,
-                    });
-                  }
-    
-                  if (mapped.type === "session:tool_use") {
-                    pendingToolCalls.set(mapped.toolUseId, {
-                      toolName: mapped.toolName,
-                      startMs: Date.now(),
-                    });
-                  }
-    
-                  if (mapped.type === "session:tool_result") {
-                    const pending = pendingToolCalls.get(mapped.toolUseId);
-                    if (pending) {
-                      const latencyMs = Date.now() - pending.startMs;
-                      rawToolCallMetrics.push({
-                        toolName: pending.toolName,
-                        toolUseId: mapped.toolUseId,
-                        latencyMs,
-                        isError: mapped.isError,
-                      });
-                      pendingToolCalls.delete(mapped.toolUseId);
-                      emitEvent(onEvent, "session:tool_latency", {
-                        message: JSON.stringify({
-                          toolName: pending.toolName,
-                          toolUseId: mapped.toolUseId,
-                          latencyMs,
-                          isError: mapped.isError,
-                        }),
-                      });
-                    }
-                  }
-                }
-    
-                // Track compaction events
-                if (
-                  message.type === "system" &&
-                  "subtype" in message &&
-                  message.subtype === "compact_boundary"
-                ) {
-                  compactionCount++;
-                  if (compactionCount >= MAX_COMPACTIONS) {
-                    innerStuck = {
-                      type: "context_window_loop",
-                      count: compactionCount,
-                      threshold: MAX_COMPACTIONS,
-                      description: `Context window compacted ${compactionCount} times — session exhausted`,
-                      severity: "error",
-                    };
-                    emitEvent(onEvent, "session:stuck", {
-                      message: `Context window exhaustion: ${compactionCount} compactions reached limit of ${MAX_COMPACTIONS}`,
-                    });
-                    querySpan.setAttribute("sdk.compaction_count", compactionCount);
-                    abortController.abort();
-                    break;
-                  }
-                }
-    
-                if (message.type === "result") {
-                  innerResult = message as SDKResultMessage;
-                  continue;
-                }
-    
-                const stuckPattern = detector.ingest(message);
-                if (stuckPattern) {
-                  if (stuckPattern.severity === "error") {
-                    innerStuck = stuckPattern;
-                    emitEvent(onEvent, "session:stuck", {
-                      message: `Stuck detected: ${stuckPattern.description}`,
-                    });
-                    querySpan.setAttribute("sdk.stuck_pattern", stuckPattern.type);
-                    abortController.abort();
-                    break;
-                  }
-                  emitEvent(onEvent, "session:stuck", {
-                    message: `Stuck warning: ${stuckPattern.description}`,
-                  });
-                }
-              }
-    
-              querySpan.setAttribute("sdk.turns_completed", innerResult?.num_turns ?? 0);
-              querySpan.setAttribute("sdk.compaction_count", compactionCount);
-            } catch (err) {
-              if (err instanceof ContextWindowExhaustedError) {
-                innerStuck = {
-                  type: "context_window_loop",
-                  count: compactionCount,
-                  threshold: MAX_COMPACTIONS,
-                  description: err.message,
-                  severity: "error",
-                };
-                emitEvent(onEvent, "session:stuck", {
-                  message: `Context window exhaustion: ${err.message}`,
-                });
-              } else {
-                querySpan.recordException(err as Error);
-                querySpan.setStatus({ code: SpanStatusCode.ERROR });
-                throw err;
-              }
-            }
-            return { resultMessage: innerResult, stuckDetected: innerStuck };
-          });
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          if (errMsg.includes("Circuit breaker is OPEN")) {
-            circuitBreakerTripped = true;
-            emitEvent(onEvent, "session:error", {
-              message: `Circuit breaker tripped: ${errMsg}`,
-            });
-            querySpan.setAttribute("session.circuit_breaker", "tripped");
-          } else {
-            clearInterval(heartbeatInterval);
-            querySpan.end();
-            return {
-              result: { phase: this.name, status: "failed", errors: [errMsg] },
-              ctx: { ...ctx, errors: [...ctx.errors, errMsg] },
-            };
-          }
-        } finally {
-          clearInterval(heartbeatInterval);
-          querySpan.end();
-        }
-    
-        const resultMessage = streamResult.resultMessage ?? undefined;
-        const detectedStuck = streamResult.stuckDetected ?? stuckReason ?? undefined;
-    
-        if (circuitBreakerTripped) {
-          const circuitMsg = "Circuit breaker tripped — too many consecutive API failures";
-          return {
-            result: { phase: this.name, status: "failed", errors: [circuitMsg] },
-            ctx: { ...ctx, errors: [...ctx.errors, circuitMsg] },
+            result: { phase: this.name, status: "failed", errors: [errorMessage] },
+            ctx: { ...ctx, errors: [...ctx.errors, errorMessage] },
           };
         }
     
@@ -3808,8 +3639,8 @@
           result: { phase: this.name, status: "success", errors: [] },
           ctx: {
             ...ctx,
-            resultMessage,
-            stuckReason: detectedStuck,
+            resultMessage: resultMessage ?? undefined,
+            stuckReason: stuckReason ?? undefined,
             turnMetrics: buildTurnMetricsList(rawTurnMetrics),
             toolCallMetrics: buildToolCallMetricsList(rawToolCallMetrics),
           },
@@ -11267,14 +11098,6 @@
     }
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     type PrismaFloorPlan = {
       id: string;
       venueId: string;
@@ -11284,6 +11107,38 @@
       createdAt: Date;
       updatedAt: Date;
       tables?: PrismaTable[];
+    };
+    type PrismaTable = {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+  </file>
+  <file path="services/reservations/src/services/guest-identity.ts">
+    type GuestSnapshot = {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      dietaryRestrictions: string[] | null;
+    };
+    type IncomingGuestData = {
+      name: string;
+      email?: string;
+      phone?: string;
+      dietaryRestrictions?: string[];
     };
   </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
@@ -11300,14 +11155,6 @@
     }
   </file>
   <file path="services/reservations/src/services/guest.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaGuest(guest: {
       id: string;
       venueId: string;
@@ -11350,6 +11197,21 @@
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
+    }
+    function mergeDietaryRestrictions(
+      existing: string[] | null | undefined,
+      incoming: string[] | null | undefined
+    ): string[] | null {
+      const existingArr = existing ?? [];
+      const incomingArr = incoming ?? [];
+      if (existingArr.length === 0 && incomingArr.length === 0) return null;
+      const merged = [...existingArr];
+      for (const item of incomingArr) {
+        if (!merged.includes(item)) {
+          merged.push(item);
+        }
+      }
+      return merged.length > 0 ? merged : null;
     }
   </file>
   <file path="services/reservations/src/services/hold.ts">
@@ -11406,15 +11268,16 @@
     }
   </file>
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
-    export interface LapsedGuestMonitorConfig {
+    export interface LapsedGuestMonitorPrismaConfig {
+      prisma: PrismaClient;
+      startupDelayMs?: number;
+      intervalMs?: number;
+    }
+    export interface LapsedGuestMonitorCallbackConfig {
       getVenueIds: () => Promise<string[]>;
       runScan: (venueId: string) => Promise<LapsingGuest[]>;
       startupDelayMs?: number;
       intervalMs?: number;
-    }
-    export interface LapsedGuestMonitor {
-      start(log: FastifyBaseLogger): void;
-      stop(): void;
     }
   </file>
   <file path="services/reservations/src/services/lapsed-guest-scan.ts">
@@ -11452,18 +11315,71 @@
     }
   </file>
   <file path="services/reservations/src/services/reservation.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
+    export interface ListReservationsOptions {
+      page: number;
+      limit: number;
+      date?: string;
+      status?: ReservationStatus;
+      tableId?: string;
+      venueId?: string;
     }
-    type PrismaReservationWithTable = PrismaReservation & {
-      table?: PrismaTable;
+    export interface CreateReservationResult {
+      success: boolean;
+      reservation?: Reservation;
+      /**
+       * The table whose status was changed as part of creating the reservation.
+       * Set by {@link reservationService.createWalkIn} when it flips the table to
+       * OCCUPIED in the same transaction as the reservation insert, so the route
+       * can emit the `table:updated` SSE event only after the commit succeeds.
+       */
+      table?: Table;
+      error?: string;
+      conflict?: ConflictCheckResult;
+      pacing?: PacingCheckResult;
+    }
+  </file>
+  <file path="services/reservations/src/services/serializers.ts">
+    export interface PrismaTableRow {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    export interface PrismaReservationRow {
+      id: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      status: string;
+      notes: string | null;
+      cancellationReason: string | null;
+      cancellationNote: string | null;
+      occasion: string | null;
+      seatingPreference: string | null;
+      guestName: string | null;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      guestId: string | null;
+      userId: string | null;
+      tableId: string;
+      table?: PrismaTableRow | null;
       guest?: { visitCount: number; communicationPreference: string | null } | null;
-    };
+      venueId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
     export interface SseConnectionConfig {
@@ -11498,14 +11414,6 @@
     }
   </file>
   <file path="services/reservations/src/services/table.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     export function mapPrismaTable(table: {
       id: string;
       name: string;
@@ -11541,16 +11449,115 @@
         updatedAt: table.updatedAt.toISOString(),
       };
     }
+    export const tableService = {
+      async list(
+        page: number,
+        limit: number,
+        activeOnly: boolean = false
+      ): Promise<PaginatedResponse<Table>> {
+        const where = activeOnly ? { isActive: true } : {};
+    
+        const [tables, total] = await Promise.all([
+          prisma.table.findMany({
+            where,
+            ...paginate({ page, limit }),
+            orderBy: { name: "asc" },
+          }),
+          prisma.table.count({ where }),
+        ]);
+    
+        return {
+          data: tables.map(mapPrismaTable),
+          pagination: toPaginationMeta(page, limit, total),
+        };
+      },
+    
+      async getById(id: string): Promise<Table | null> {
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? mapPrismaTable(table) : null;
+      },
+    
+      async create(data: CreateTableRequest): Promise<Table> {
+        const table = await prisma.table.create({
+          data: {
+            name: data.name,
+            tableNumber: data.tableNumber ?? null,
+            capacity: data.capacity,
+            minCovers: data.minCovers ?? 1,
+            maxCovers: data.maxCovers ?? null,
+            location: data.location ?? null,
+            priority: data.priority ?? 0,
+            venueId: data.venueId ?? null,
+            floorPlanId: data.floorPlanId ?? null,
+            shapeMetadata: data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull,
+          },
+        });
+        return mapPrismaTable(table);
+      },
+    
+      async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
+        try {
+          const updateData: Prisma.TableUpdateInput = {};
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.tableNumber !== undefined) updateData.tableNumber = data.tableNumber;
+          if (data.capacity !== undefined) updateData.capacity = data.capacity;
+          if (data.minCovers !== undefined) updateData.minCovers = data.minCovers;
+          if (data.maxCovers !== undefined) updateData.maxCovers = data.maxCovers;
+          if (data.location !== undefined) updateData.location = data.location;
+          if (data.isActive !== undefined) updateData.isActive = data.isActive;
+          if (data.priority !== undefined) updateData.priority = data.priority;
+          if (data.floorPlanId !== undefined) {
+            updateData.floorPlan = data.floorPlanId
+              ? { connect: { id: data.floorPlanId } }
+              : { disconnect: true };
+          }
+          if (data.shapeMetadata !== undefined) {
+            updateData.shapeMetadata = data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull;
+          }
+    
+          const table = await prisma.table.update({
+            where: { id },
+            data: updateData,
+          });
+          return mapPrismaTable(table);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async updateStatus(id: string, status: string): Promise<Table | null> {
+        if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
+          return null;
+        }
+        try {
+          const table = await prisma.table.update({
+            where: { id },
+            data: { status: status as TableStatus },
+          });
+          return mapPrismaTable(table);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.table.delete({ where: { id } });
+          return true;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return false;
+          throw err;
+        }
+      },
+    };
   </file>
   <file path="services/reservations/src/services/venue.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaVenueGroup(group: {
       id: string;
       name: string;
@@ -11564,6 +11571,39 @@
         slug: group.slug,
         settings: group.settings as Record<string, unknown> | null,
         createdAt: group.createdAt.toISOString(),
+      };
+    }
+    function mapPrismaVenue(venue: {
+      id: string;
+      venueGroupId: string | null;
+      venueGroup?: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      } | null;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: unknown;
+      settings: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Venue {
+      return {
+        id: venue.id,
+        venueGroupId: venue.venueGroupId,
+        venueGroup: venue.venueGroup ? mapPrismaVenueGroup(venue.venueGroup) : undefined,
+        name: venue.name,
+        slug: venue.slug,
+        ianaTimezone: venue.ianaTimezone,
+        currencyCode: venue.currencyCode,
+        operatingHours: venue.operatingHours as Venue["operatingHours"],
+        settings: venue.settings as Venue["settings"],
+        createdAt: venue.createdAt.toISOString(),
+        updatedAt: venue.updatedAt.toISOString(),
       };
     }
   </file>
@@ -12038,6 +12078,18 @@
       readonly content: readonly ContentBlock[];
     }
   </file>
+  <file path="packages/agent-core/src/model-registry.ts">
+    export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
+      haiku: "claude-haiku-4-5-20251001",
+      sonnet: "claude-sonnet-4-6",
+      opus: "claude-opus-4-8",
+    };
+    export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
+      opus: "sonnet",
+      sonnet: "haiku",
+      haiku: "haiku",
+    };
+  </file>
   <file path="packages/agent-core/src/model-router.ts">
     export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
@@ -12056,8 +12108,7 @@
   </file>
   <file path="packages/agent-core/src/orchestrator.ts">
     function createSessionTools(config: OrchestratorConfig) {
-      const client =
-        config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl, maxRetries: 0 });
+      const client = config.sessionClient ?? new AgentSessionClient({ baseUrl: config.apiBaseUrl });
     
       const createSessionTool = tool(
         "create_session",
@@ -12078,14 +12129,17 @@
           baseBranch: z.string().optional().describe("Base branch (defaults to configured branch)"),
         },
         async (args) => {
-          const session = await client.createSession({
-            taskDescription: args.taskDescription,
-            model: args.model ?? config.sessionModel,
-            maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
-            maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
-            baseBranch: args.baseBranch ?? config.baseBranch,
-            ...(config.parentSessionId && { parentId: config.parentSessionId }),
-          });
+          const session = await client.createSession(
+            {
+              taskDescription: args.taskDescription,
+              model: args.model ?? config.sessionModel,
+              maxBudgetUsd: args.maxBudgetUsd ?? config.maxBudgetPerSession,
+              maxTurns: args.maxTurns ?? config.maxTurnsPerSession,
+              baseBranch: args.baseBranch ?? config.baseBranch,
+              ...(config.parentSessionId && { parentId: config.parentSessionId }),
+            },
+            NO_RETRY
+          );
     
           return {
             content: [
@@ -12180,7 +12234,7 @@
         },
         async (args) => {
           try {
-            const session = await client.cancelSession(args.sessionId);
+            const session = await client.cancelSession(args.sessionId, NO_RETRY);
     
             return {
               content: [
@@ -12489,6 +12543,35 @@
     
       /** Optional suggested fix (could be a code snippet or natural-language guidance). */
       readonly suggestion?: string;
+    }
+  </file>
+  <file path="packages/agent-core/src/run-hardened-query.ts">
+    export const apiCircuitBreaker = new CircuitBreaker({
+      failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+      resetTimeoutMs: CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
+    });
+    export interface HardenedQueryConfig {
+      /** The prompt to send to the agent. */
+      readonly prompt: string;
+      /** Working directory for the SDK. */
+      readonly cwd: string;
+      /** Model identifier. */
+      readonly model: string;
+      /** Maximum number of turns. */
+      readonly maxTurns: number;
+      /** Budget ceiling in USD. */
+      readonly maxBudgetUsd: number;
+      /** Allowed tool names. */
+      readonly allowedTools: readonly string[];
+      /**
+       * Text appended to the preset system prompt.
+       * Pass undefined to use only the claude_code preset.
+       */
+      readonly systemPromptAppend?: string;
+      /** Stuck-detector overrides. */
+      readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
+      /** Heartbeat configuration overrides. */
+      readonly heartbeatConfig?: Partial<HeartbeatConfig>;
     }
   </file>
   <file path="packages/agent-core/src/sanitize-output.ts">
@@ -13708,15 +13791,19 @@
     }
   </file>
   <file path="packages/database/src/index.ts">
+    export function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
     interface SlowQuery {
       model: string;
       operation: string;
       duration: number;
       timestamp: number;
-    }
-    export interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
     }
   </file>
   <file path="packages/database/src/list-utils.ts">
@@ -14358,7 +14445,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -14435,6 +14533,18 @@
       Sentry.setTag("app", options.appName);
     }
   </file>
+  <file path="packages/service-bootstrap/src/apply-versioning.ts">
+    export interface ApiVersioningConfig {
+      readonly currentVersion: string;
+      readonly successorVersion?: string;
+      readonly sunsetMonthsFromNow?: number;
+    }
+    function computeSunsetDate(monthsFromNow: number): string {
+      const date = new Date();
+      date.setMonth(date.getMonth() + monthsFromNow);
+      return date.toUTCString();
+    }
+  </file>
   <file path="packages/service-bootstrap/src/create-service-app.ts">
     export interface SwaggerConfig {
       readonly title: string;
@@ -14442,10 +14552,13 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
-    export interface ApiVersioningConfig {
-      readonly currentVersion: string;
-      readonly successorVersion: string;
-      readonly sunsetMonthsFromNow: number;
+    export interface ServiceAppConfig {
+      /** Swagger/OpenAPI metadata — differs per service */
+      readonly swagger: SwaggerConfig;
+      /** API versioning — defaults to v1 → v2, sunset in 6 months */
+      readonly apiVersioning?: ApiVersioningConfig;
+      /** Optional hook to register service-specific JSON schemas before plugins */
+      readonly registerSchemas?: (fastify: FastifyInstance) => void;
     }
   </file>
   <file path="packages/service-bootstrap/src/error-handler.ts">
@@ -14598,6 +14711,69 @@
     export interface LatencyTracker {
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    export interface ReadinessRoutesOptions {
+      /** Prisma client instance — if provided, database health check is registered */
+      readonly prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+      /** Optional custom Auth0 JWKS check URL */
+      readonly auth0JwksUrl?: string;
+      /** Extra custom readiness check functions */
+      readonly extraChecks?: Record<string, () => Promise<void>>;
+    }
+    export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync {
+      const readiness = createReadinessTracker();
+    
+      if (options.prisma) {
+        readiness.registerCheck("database", async () => {
+          await options.prisma!.$queryRaw`SELECT 1`;
+        });
+      }
+    
+      const auth0Url =
+        options.auth0JwksUrl ?? "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+      readiness.registerCheck("auth", async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        try {
+          const response = await fetch(auth0Url, { signal: controller.signal });
+          if (!response.ok) {
+            throw new Error(`JWKS returned ${response.status}`);
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      });
+    
+      if (options.extraChecks) {
+        for (const [name, check] of Object.entries(options.extraChecks)) {
+          readiness.registerCheck(name, check);
+        }
+      }
+    
+      return async (fastify) => {
+        fastify.get<{ Reply: ReadinessResponse }>(
+          "/ready",
+          {
+            schema: { ...readinessSchema, operationId: "getReady" },
+            config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+          },
+          async (_request, reply) => {
+            const snapshot = await readiness.evaluate();
+            const response: ReadinessResponse = {
+              ready: snapshot.ready,
+              timestamp: snapshot.timestamp,
+              checks: snapshot.checks.map((c) => ({
+                name: c.name,
+                status: c.status,
+                ...(c.message ? { message: c.message } : {}),
+              })),
+            };
+            return reply.status(snapshot.ready ? 200 : 503).send(response);
+          }
+        );
+      };
     }
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
@@ -14875,30 +15051,7 @@
       await fastify.register(stripeWebhookRoutes);
     
       // Wire lapsed-guest monitor with lifecycle hooks
-      const lapsedGuestMonitor = createLapsedGuestMonitor({
-        getVenueIds: () =>
-          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
-        runScan: (venueId) =>
-          runLapsedGuestScan(venueId, {
-            findGuestsForScan: (vid) =>
-              prisma.guest.findMany({
-                where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  communicationPreference: true,
-                  reservations: {
-                    where: { status: "COMPLETED" },
-                    select: { startTime: true },
-                    orderBy: { startTime: "asc" },
-                  },
-                },
-              }),
-            emitLapsingGuests,
-          }),
-      });
+      const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
@@ -14963,18 +15116,19 @@
       return fastify;
     }
   </file>
-  <file path="tools/cli/src/api.ts">
-    export class ApiError extends Error {
-      constructor(
-        public statusCode: number,
-        message: string
-      ) {
-        super(message);
-        this.name = "ApiError";
-      }
+  <file path="tools/cli/src/cli-api-client.ts">
+    export function createCliApiClient(): ApiClient {
+      return new ApiClient({
+        baseUrl: getApiUrl(),
+        getAccessToken: () => getAccessToken() ?? null,
+        maxRetries: 0,
+      });
     }
-    interface ErrorResponse {
-      message?: string;
+    export function createAgentApiClient(): ApiClient {
+      return new ApiClient({
+        baseUrl: AGENT_API_URL,
+        maxRetries: 0,
+      });
     }
   </file>
   <file path="tools/cli/src/command-seam.ts">

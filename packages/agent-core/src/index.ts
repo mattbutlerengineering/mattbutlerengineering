@@ -220,6 +220,9 @@ export {
 } from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
+// Model registry (canonical IDs + tier defaults)
+export { MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
+
 // PR risk classification
 export { isLowRiskPR, reviewersForDiff } from "./pr-risk-classifier.js";
 
@@ -298,7 +301,7 @@ export type { RevertCommit, RevertedPR } from "./revert-detector.js";
 
 // Quality gate interface, runner, and built-in gate implementations
 export { GateRunner } from "./gate-runner.js";
-export type { GateContext, GateResult, GateRunResult, QualityGate } from "./gate-runner.js";
+export type { GateRunResult, QualityGate } from "./gate-runner.js";
 export { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
 export { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
 export { SecurityReviewGate } from "./gates/security-review-gate.js";

@@ -32,13 +32,13 @@ const router = createBrowserRouter(routeTree, { basename: "/rialto" });
 
 /* ── Root component ───────────────────────────── */
 function Root() {
-  const { theme, toggleTheme } = useThemeState();
+  const themeState = useThemeState();
 
   return (
     // RialtoProvider MUST wrap RouterProvider (outside it)
-    <RialtoProvider theme={theme}>
+    <RialtoProvider theme={themeState.theme}>
       <ErrorBoundary onError={handleErrorBoundary}>
-        <ThemeContext value={{ theme, onThemeToggle: toggleTheme }}>
+        <ThemeContext value={themeState}>
           <ToastProvider>
             <RouterProvider router={router} />
           </ToastProvider>

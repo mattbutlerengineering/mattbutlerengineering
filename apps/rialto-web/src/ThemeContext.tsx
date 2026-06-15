@@ -1,15 +1,17 @@
 import { createContext, useContext } from "react";
+import type { ThemePreference, ThemeState } from "@mattbutlerengineering/rialto";
 
-interface ThemeContextValue {
-  theme: "light" | "dark";
-  onThemeToggle: () => void;
-}
-
-export const ThemeContext = createContext<ThemeContextValue>({
+const DEFAULT_CONTEXT: ThemeState = {
+  preference: "system",
   theme: "light",
-  onThemeToggle: () => {},
-});
+  setTheme: () => {},
+  toggleTheme: () => {},
+};
 
-export function useThemeContext() {
+export const ThemeContext = createContext<ThemeState>(DEFAULT_CONTEXT);
+
+export function useThemeContext(): ThemeState {
   return useContext(ThemeContext);
 }
+
+export type { ThemePreference, ThemeState };

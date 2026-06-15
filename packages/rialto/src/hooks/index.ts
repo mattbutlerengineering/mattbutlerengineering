@@ -1,6 +1,7 @@
 export { useBoop } from "./useBoop";
 export { useReturnFocus } from "./useReturnFocus";
 export { useDirection } from "./useDirection";
+export { useFocusTrap, FOCUSABLE_SELECTOR } from "./useFocusTrap";
 export { useScrollReveal } from "./useScrollReveal";
 export { useTilt } from "./useTilt";
 export { useThemeState, resolveTheme } from "./useThemeState";

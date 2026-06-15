@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useId, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { Heading } from "../Heading/Heading";
 import styles from "./Dialog.module.css";
 
@@ -44,38 +45,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       return () => document.removeEventListener("keydown", handler);
     }, [open, onClose]);
 
-    // Trap focus inside dialog when open
-    useEffect(() => {
-      if (!open) return;
-      const panel = panelRef.current;
-      if (!panel) return;
-
-      const focusable = panel.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      first?.focus();
-
-      const trap = (e: KeyboardEvent) => {
-        if (e.key !== "Tab") return;
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last?.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault();
-            first?.focus();
-          }
-        }
-      };
-
-      document.addEventListener("keydown", trap);
-      return () => document.removeEventListener("keydown", trap);
-    }, [open]);
+    useFocusTrap(panelRef, open);
 
     const motionProps = shouldReduceMotion
       ? {}
