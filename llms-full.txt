@@ -4684,11 +4684,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -12018,6 +12021,18 @@
       readonly content: readonly ContentBlock[];
     }
   </file>
+  <file path="packages/agent-core/src/model-registry.ts">
+    export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
+      haiku: "claude-haiku-4-5-20251001",
+      sonnet: "claude-sonnet-4-6",
+      opus: "claude-opus-4-8",
+    };
+    export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
+      opus: "sonnet",
+      sonnet: "haiku",
+      haiku: "haiku",
+    };
+  </file>
   <file path="packages/agent-core/src/model-router.ts">
     export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
@@ -14338,7 +14353,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

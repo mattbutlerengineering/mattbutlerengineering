@@ -1502,6 +1502,18 @@
       readonly content: readonly ContentBlock[];
     }
   </file>
+  <file path="src/model-registry.ts">
+    export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
+      haiku: "claude-haiku-4-5-20251001",
+      sonnet: "claude-sonnet-4-6",
+      opus: "claude-opus-4-8",
+    };
+    export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
+      opus: "sonnet",
+      sonnet: "haiku",
+      haiku: "haiku",
+    };
+  </file>
   <file path="src/model-router.ts">
     export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
