@@ -7,8 +7,8 @@ import {
   forwardRef,
   type ReactNode,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { spring } from "../../tokens/motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { spring, reduced } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import styles from "./CommandPalette.module.css";
@@ -84,6 +84,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     { open, onOpenChange, items, placeholder = "Search commands…", groups = [] },
     ref
   ) {
+    const shouldReduceMotion = useReducedMotion();
     const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -228,10 +229,10 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               className={styles.panel}
               role="dialog"
               aria-label="Command palette"
-              initial={{ opacity: 0, scale: 0.95, y: -8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: -4 }}
-              transition={spring}
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4 }}
+              transition={shouldReduceMotion ? reduced : spring}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Search */}
