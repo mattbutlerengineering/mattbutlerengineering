@@ -56,7 +56,9 @@
     "vitest": "catalog:"
   },
   "depcheck": {
-    "ignores": ["@gen/hooks"]
+    "ignores": [
+      "@gen/hooks"
+    ]
   },
   "license": "MIT",
   "acmm": {

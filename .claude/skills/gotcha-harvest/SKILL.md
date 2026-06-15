@@ -97,11 +97,11 @@ If a near-match exists, propose **merge/refine** rather than a new bullet. Also 
 
 ### Step 5: Route each gotcha
 
-| Kind of lesson | Destination | How |
-| --- | --- | --- |
-| Repo CI / build / pre-commit / drift / release / deploy / Prisma | `.claude/rules/gotchas.md` | append a bullet under the matching `## ` section (Pre-commit / Pre-push / Build / CI / Dependencies / Releases / Tooling / Auth0 · E2E / Prisma · DO migrate) |
-| Cross-repo Claude Code / harness / tooling fact (true outside this repo) | frontmatter-per-fact memory | see **Memory schema** below |
-| Workflow/process correction tied to a specific skill | that skill's `SKILL.md` | only when it changes how the skill should behave |
+| Kind of lesson                                                           | Destination                 | How                                                                                                                                                           |
+| ------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo CI / build / pre-commit / drift / release / deploy / Prisma         | `.claude/rules/gotchas.md`  | append a bullet under the matching `## ` section (Pre-commit / Pre-push / Build / CI / Dependencies / Releases / Tooling / Auth0 · E2E / Prisma · DO migrate) |
+| Cross-repo Claude Code / harness / tooling fact (true outside this repo) | frontmatter-per-fact memory | see **Memory schema** below                                                                                                                                   |
+| Workflow/process correction tied to a specific skill                     | that skill's `SKILL.md`     | only when it changes how the skill should behave                                                                                                              |
 
 If no `## ` section fits a repo gotcha, propose a new section header.
 

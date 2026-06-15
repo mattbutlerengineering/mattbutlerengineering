@@ -94,9 +94,9 @@ src/
 
 ### Readiness
 
-| Method | Path      | Description                            |
-| ------ | --------- | -------------------------------------- |
-| GET    | `/ready`  | Readiness probe (DB + Auth0 JWKS)      |
+| Method | Path     | Description                       |
+| ------ | -------- | --------------------------------- |
+| GET    | `/ready` | Readiness probe (DB + Auth0 JWKS) |
 
 ### Sessions
 
@@ -117,22 +117,22 @@ src/
 
 ### Gen AI (Streaming)
 
-| Method | Path                       | Description                      |
-| ------ | -------------------------- | -------------------------------- |
-| POST   | `/api/gen/chat`            | Stream chat responses (SSE)      |
-| POST   | `/api/gen/agent`           | Stream agent responses (SSE)     |
-| POST   | `/api/gen/specs`           | Create and persist a spec        |
-| GET    | `/api/gen/specs`           | List user's specs                |
-| GET    | `/api/gen/specs/:id`       | Get spec by id (public)          |
-| PATCH  | `/api/gen/specs/:id/favorite` | Toggle spec favorite          |
-| DELETE | `/api/gen/specs/:id`       | Delete a spec                    |
+| Method | Path                          | Description                  |
+| ------ | ----------------------------- | ---------------------------- |
+| POST   | `/api/gen/chat`               | Stream chat responses (SSE)  |
+| POST   | `/api/gen/agent`              | Stream agent responses (SSE) |
+| POST   | `/api/gen/specs`              | Create and persist a spec    |
+| GET    | `/api/gen/specs`              | List user's specs            |
+| GET    | `/api/gen/specs/:id`          | Get spec by id (public)      |
+| PATCH  | `/api/gen/specs/:id/favorite` | Toggle spec favorite         |
+| DELETE | `/api/gen/specs/:id`          | Delete a spec                |
 
 ### Webhooks
 
-| Method | Path                       | Description                         |
-| ------ | -------------------------- | ----------------------------------- |
-| POST   | `/v1/webhooks/github`      | GitHub webhook receiver             |
-| POST   | `/v1/webhooks/remediation` | Alert-based auto-remediation hook   |
+| Method | Path                       | Description                       |
+| ------ | -------------------------- | --------------------------------- |
+| POST   | `/v1/webhooks/github`      | GitHub webhook receiver           |
+| POST   | `/v1/webhooks/remediation` | Alert-based auto-remediation hook |
 
 ## Session Lifecycle
 
@@ -259,9 +259,9 @@ Persisted gen-specs from the `stored_specs` table.
 interface StoredSpec {
   id: string;
   userId: string;
-  prompt: string;       // The user's original prompt
-  spec: unknown;        // Parsed spec JSON
-  rawLines: string[];   // Raw lines from the AI response
+  prompt: string; // The user's original prompt
+  spec: unknown; // Parsed spec JSON
+  rawLines: string[]; // Raw lines from the AI response
   isFavorite: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -17,14 +17,14 @@ src/
 
 ## Job Types
 
-| Type                    | Payload                                       | Purpose                          |
-| ----------------------- | --------------------------------------------- | -------------------------------- |
-| `booking-reminder`      | `BookingReminderPayload`                      | 24h before reservation           |
-| `day-of-reminder`       | `DayOfReminderPayload`                        | Day-of reminder                  |
-| `post-visit-followup`   | `PostVisitFollowupPayload`                    | After visit                      |
-| `pre-arrival-briefing`  | `PreArrivalBriefingPayload`                   | Staff briefing before arrival    |
-| `lapsed-guest-scan`     | `LapsedGuestScanPayload`                      | Scan for lapsed guests           |
-| `waitlist-expiry`       | `WaitlistExpiryPayload`                       | Waitlist entry expiry            |
+| Type                   | Payload                     | Purpose                       |
+| ---------------------- | --------------------------- | ----------------------------- |
+| `booking-reminder`     | `BookingReminderPayload`    | 24h before reservation        |
+| `day-of-reminder`      | `DayOfReminderPayload`      | Day-of reminder               |
+| `post-visit-followup`  | `PostVisitFollowupPayload`  | After visit                   |
+| `pre-arrival-briefing` | `PreArrivalBriefingPayload` | Staff briefing before arrival |
+| `lapsed-guest-scan`    | `LapsedGuestScanPayload`    | Scan for lapsed guests        |
+| `waitlist-expiry`      | `WaitlistExpiryPayload`     | Waitlist entry expiry         |
 
 ## Usage
 
@@ -42,8 +42,12 @@ await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, payload, "0 3 * * *");
 const worker = new JobWorker({
   redisUrl: "redis://localhost:6379",
   handlers: {
-    [JOB_TYPES.BOOKING_REMINDER]: async (payload) => { /* ... */ },
-    [JOB_TYPES.LAPSED_GUEST_SCAN]: async (payload) => { /* ... */ },
+    [JOB_TYPES.BOOKING_REMINDER]: async (payload) => {
+      /* ... */
+    },
+    [JOB_TYPES.LAPSED_GUEST_SCAN]: async (payload) => {
+      /* ... */
+    },
   },
 });
 
