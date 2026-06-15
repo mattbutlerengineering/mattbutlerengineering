@@ -3602,6 +3602,28 @@
       function computeSunsetDate(monthsFromNow: number): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/classify-error.ts">
+    <item priority="high">
+      interface CustomError {
+        statusCode?: number;
+        status?: number;
+        code?: string;
+        meta?: Record<string, unknown>;
+        validation?: Array<{
+          keyword: string;
+          instancePath?: string;
+       ...;
+      }
+    </item>
+    <item priority="low">
+      interface ErrorClassification {
+        status: number;
+        title: string;
+        detail: string;
+        extensions: Record<string, unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/create-service-app.ts">
     <item priority="low">
       interface SwaggerConfig {
@@ -3620,18 +3642,6 @@
     </item>
   </file>
   <file path="packages/service-bootstrap/src/error-handler.ts">
-    <item priority="high">
-      interface CustomError {
-        statusCode?: number;
-        status?: number;
-        code?: string;
-        meta?: Record<string, unknown>;
-        validation?: Array<{
-          keyword: string;
-          instancePath?: string;
-       ...;
-      }
-    </item>
     <item priority="high">
       export const errorHandlerPlugin: FastifyPluginAsync;
     </item>
