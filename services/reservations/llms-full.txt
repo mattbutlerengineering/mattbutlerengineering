@@ -5024,15 +5024,16 @@
     }
   </file>
   <file path="src/services/lapsed-guest-cron.ts">
-    export interface LapsedGuestMonitorConfig {
+    export interface LapsedGuestMonitorPrismaConfig {
+      prisma: PrismaClient;
+      startupDelayMs?: number;
+      intervalMs?: number;
+    }
+    export interface LapsedGuestMonitorCallbackConfig {
       getVenueIds: () => Promise<string[]>;
       runScan: (venueId: string) => Promise<LapsingGuest[]>;
       startupDelayMs?: number;
       intervalMs?: number;
-    }
-    export interface LapsedGuestMonitor {
-      start(log: FastifyBaseLogger): void;
-      stop(): void;
     }
   </file>
   <file path="src/services/lapsed-guest-scan.ts">
@@ -5486,30 +5487,7 @@
       await fastify.register(stripeWebhookRoutes);
     
       // Wire lapsed-guest monitor with lifecycle hooks
-      const lapsedGuestMonitor = createLapsedGuestMonitor({
-        getVenueIds: () =>
-          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
-        runScan: (venueId) =>
-          runLapsedGuestScan(venueId, {
-            findGuestsForScan: (vid) =>
-              prisma.guest.findMany({
-                where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  communicationPreference: true,
-                  reservations: {
-                    where: { status: "COMPLETED" },
-                    select: { startTime: true },
-                    orderBy: { startTime: "asc" },
-                  },
-                },
-              }),
-            emitLapsingGuests,
-          }),
-      });
+      const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
