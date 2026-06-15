@@ -26,7 +26,10 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
  */
-export function writeReport(cwd, { state, criteria, sources, computation, diff, hollowCriteria = [] }) {
+export function writeReport(
+  cwd,
+  { state, criteria, sources, computation, diff, hollowCriteria = [] }
+) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
   const coldStart = loadLatestColdStart(cwd);

@@ -731,8 +731,12 @@ describe("apiService factory", () => {
     expect(envs.find((e) => e.key === "NODE_ENV")?.value).toBe("production");
     expect(envs.find((e) => e.key === "PORT")?.value).toBe("3001");
     expect(envs.find((e) => e.key === "CORS_ORIGIN")?.value).toBe(`https://${TEST_DOMAIN}`);
-    expect(envs.find((e) => e.key === "API_BASE_URL")?.value).toBe(`https://api.${TEST_DOMAIN}/api`);
-    expect(envs.find((e) => e.key === "AUTH_AUTHORITY")?.value).toMatch(/^https:\/\/.+\.auth0\.com$/);
+    expect(envs.find((e) => e.key === "API_BASE_URL")?.value).toBe(
+      `https://api.${TEST_DOMAIN}/api`
+    );
+    expect(envs.find((e) => e.key === "AUTH_AUTHORITY")?.value).toMatch(
+      /^https:\/\/.+\.auth0\.com$/
+    );
     expect(envs.find((e) => e.key === "AUTH_AUDIENCE")?.value).toBe(`https://api.${TEST_DOMAIN}`);
     expect(envs.find((e) => e.key === "DATABASE_URL")?.type).toBe("SECRET");
   });
@@ -742,9 +746,7 @@ describe("apiService factory", () => {
       name: "agent-api",
       port: 3003,
       dockerfile: "services/agent/Dockerfile",
-      extraEnvs: [
-        { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
-      ],
+      extraEnvs: [{ key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" }],
     });
 
     const envs = service.envs as Array<{ key: string; value?: string; type?: string }>;
@@ -766,9 +768,7 @@ describe("apiService factory", () => {
       name: "agent-api",
       port: 3003,
       dockerfile: "services/agent/Dockerfile",
-      extraEnvs: [
-        { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
-      ],
+      extraEnvs: [{ key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" }],
     });
 
     expect(usersSpec.name).toBe("users-api");

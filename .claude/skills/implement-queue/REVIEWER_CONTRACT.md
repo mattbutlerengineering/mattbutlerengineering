@@ -16,49 +16,49 @@ the worker checks its own output against the same bias that produced it. A
 
 Defined in `packages/agent-core/src/reviewer-contract.ts` — type `ReviewInput`.
 
-| Field                 | Type               | Description                                    |
-| --------------------- | ------------------ | ---------------------------------------------- |
-| `diff`                | `string`           | Full git diff from the worker's commit(s)      |
-| `verificationOutput`  | `string`           | Trimmed stdout+stderr of lint/typecheck/test   |
-| `taskDescription`     | `string`           | The original task driving the worker session   |
-| `acceptanceCriteria`  | `string[]`         | Structured AC extracted from the issue body    |
-| `changedFiles`        | `string[]`         | Files touched by the diff                      |
-| `commitMessage`       | `string`           | The worker's commit message                    |
+| Field                | Type       | Description                                  |
+| -------------------- | ---------- | -------------------------------------------- |
+| `diff`               | `string`   | Full git diff from the worker's commit(s)    |
+| `verificationOutput` | `string`   | Trimmed stdout+stderr of lint/typecheck/test |
+| `taskDescription`    | `string`   | The original task driving the worker session |
+| `acceptanceCriteria` | `string[]` | Structured AC extracted from the issue body  |
+| `changedFiles`       | `string[]` | Files touched by the diff                    |
+| `commitMessage`      | `string`   | The worker's commit message                  |
 
 ## Output schema (`ReviewVerdict`)
 
 Defined in `packages/agent-core/src/reviewer-contract.ts` — type `ReviewVerdict`.
 
-| Field        | Type            | Description                                              |
-| ------------ | --------------- | -------------------------------------------------------- |
-| `verdict`    | `"pass"|"flag"` | Pass = proceed to PR; flag = block and handle per policy |
-| `score`      | `number` (0–10) | Numeric quality score (see rubric below)                 |
-| `issues`     | `ReviewIssue[]` | Specific issues found (empty on pass)                    |
-| `strengths`  | `string?`       | Optional positive feedback for reward-model training     |
-| `assessment` | `string`        | Free-text qualitative assessment                         |
-| `reviewedAt` | `string`        | ISO-8601 timestamp                                       |
+| Field        | Type            | Description                                          |
+| ------------ | --------------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| `verdict`    | `"pass"         | "flag"`                                              | Pass = proceed to PR; flag = block and handle per policy |
+| `score`      | `number` (0–10) | Numeric quality score (see rubric below)             |
+| `issues`     | `ReviewIssue[]` | Specific issues found (empty on pass)                |
+| `strengths`  | `string?`       | Optional positive feedback for reward-model training |
+| `assessment` | `string`        | Free-text qualitative assessment                     |
+| `reviewedAt` | `string`        | ISO-8601 timestamp                                   |
 
 Each `ReviewIssue` has:
 
-| Field        | Type                  | Description                              |
-| ------------ | --------------------- | ---------------------------------------- |
-| `category`   | `ReviewIssueCategory` | `hallucination|regression|test_failure|lint_violation|type_error|security|incomplete|quality` |
-| `description`| `string`              | Concise problem description              |
-| `filePath`   | `string?`             | File path where the issue manifests      |
-| `lineNumber` | `number?`             | Line number of the issue                 |
-| `suggestion` | `string?`             | Optional fix suggestion (code or text)   |
+| Field         | Type                  | Description                            |
+| ------------- | --------------------- | -------------------------------------- | ---------- | ------------ | -------------- | ---------- | -------- | ---------- | -------- |
+| `category`    | `ReviewIssueCategory` | `hallucination                         | regression | test_failure | lint_violation | type_error | security | incomplete | quality` |
+| `description` | `string`              | Concise problem description            |
+| `filePath`    | `string?`             | File path where the issue manifests    |
+| `lineNumber`  | `number?`             | Line number of the issue               |
+| `suggestion`  | `string?`             | Optional fix suggestion (code or text) |
 
 ## Scoring rubric (0–10)
 
 Scores ≥ **7** constitute a passing grade. Scores ≤ **6** produce a `"flag"` verdict.
 
-| Score | Label       | Criteria                                                              |
-| ----- | ----------- | --------------------------------------------------------------------- |
-| 9–10  | Excellent   | All AC met, no defects, clean code, tests pass, no regressions        |
-| 7–8   | Good        | All AC met, minor nits (style, naming), no blocking issues            |
-| 5–6   | Acceptable  | All AC met but has non-trivial issues (messy code, missing edge case) |
-| 3–4   | Poor        | Some AC missed or broken; requires rework before merging               |
-| 0–2   | Failing     | Major problems: hallucinations, regressions, security, or no tests    |
+| Score | Label      | Criteria                                                              |
+| ----- | ---------- | --------------------------------------------------------------------- |
+| 9–10  | Excellent  | All AC met, no defects, clean code, tests pass, no regressions        |
+| 7–8   | Good       | All AC met, minor nits (style, naming), no blocking issues            |
+| 5–6   | Acceptable | All AC met but has non-trivial issues (messy code, missing edge case) |
+| 3–4   | Poor       | Some AC missed or broken; requires rework before merging              |
+| 0–2   | Failing    | Major problems: hallucinations, regressions, security, or no tests    |
 
 ### Scoring guidelines for the Reviewer
 
@@ -112,18 +112,18 @@ as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
 
 When verdict is `"flag"`:
 
-| Retry count | Action                                                   |
-| ----------- | -------------------------------------------------------- |
-| 0           | **Retry** — send work back to a new worker session with the Reviewer's issues as additional context. Re-run TDD. |
+| Retry count | Action                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| 0           | **Retry** — send work back to a new worker session with the Reviewer's issues as additional context. Re-run TDD.    |
 | 1           | **File issue** — label the linked issue `needs-review`, add a comment with the Reviewer output, and skip the merge. |
-| ≥2          | **Skip** — label `stealable` and move on. Three flags on one issue suggest a fundamental problem. |
+| ≥2          | **Skip** — label `stealable` and move on. Three flags on one issue suggest a fundamental problem.                   |
 
 ### Configuration (`ReviewRetryPolicy`)
 
 ```typescript
 interface ReviewRetryPolicy {
-  maxRetries: number;       // Default: 1
-  actions: ReviewRetryAction[];  // Default: ["retry", "file_issue"]
+  maxRetries: number; // Default: 1
+  actions: ReviewRetryAction[]; // Default: ["retry", "file_issue"]
 }
 ```
 

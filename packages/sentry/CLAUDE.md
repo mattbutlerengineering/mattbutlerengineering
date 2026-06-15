@@ -17,11 +17,11 @@ src/
 
 ## Exports
 
-| Entry               | Key exports                                                |
-| ------------------- | ---------------------------------------------------------- |
-| `@mbe/sentry`       | `resolveConfig`, `SentryConfig`                            |
-| `@mbe/sentry/node`  | `initSentry`, `sentryFastifyPlugin`                        |
-| `@mbe/sentry/react` | `initSentry`, `handleErrorBoundary`, `reportApiError`      |
+| Entry               | Key exports                                           |
+| ------------------- | ----------------------------------------------------- |
+| `@mbe/sentry`       | `resolveConfig`, `SentryConfig`                       |
+| `@mbe/sentry/node`  | `initSentry`, `sentryFastifyPlugin`                   |
+| `@mbe/sentry/react` | `initSentry`, `handleErrorBoundary`, `reportApiError` |
 
 ## Fastify Plugin (node)
 

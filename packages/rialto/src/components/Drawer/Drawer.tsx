@@ -4,6 +4,7 @@ import { spring } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { Heading } from "../Heading/Heading";
 import styles from "./Drawer.module.css";
 

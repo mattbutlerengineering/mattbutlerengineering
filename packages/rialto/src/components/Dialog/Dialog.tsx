@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { Heading } from "../Heading/Heading";
 import styles from "./Dialog.module.css";
 

@@ -83,11 +83,7 @@ export function apiService(args: ApiServiceArgs): digitalocean.types.input.AppSp
     instanceCount: 1,
     instanceSizeSlug: "apps-s-1vcpu-0.5gb",
     httpPort: args.port,
-    envs: [
-      ...sharedEnvs(args.port),
-      ...(args.extraEnvs ?? []),
-      ...otelEnvs,
-    ],
+    envs: [...sharedEnvs(args.port), ...(args.extraEnvs ?? []), ...otelEnvs],
     healthCheck: {
       httpPath: "/ready",
       initialDelaySeconds: 10,

@@ -11,6 +11,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { spring } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import styles from "./CommandPalette.module.css";
 
 /* ── Types ───────────────────────────────────── */
