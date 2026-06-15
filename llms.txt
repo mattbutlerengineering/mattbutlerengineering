@@ -1030,6 +1030,14 @@
       }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useFocusTrap.ts">
+    <item priority="high">
+      export const FOCUSABLE_SELECTOR: unknown;
+    </item>
+    <item priority="high">
+      export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
@@ -1126,12 +1134,6 @@
     </item>
   </file>
   <file path="packages/agent-core/src/phases/query-phase.ts">
-    <item priority="high">
-      interface StreamingResult {
-        resultMessage: SDKResultMessage | null;
-        stuckDetected: StuckPattern | null;
-      }
-    </item>
     <item priority="high">
       class QueryPhase {
         name: unknown;
@@ -1953,6 +1955,22 @@
         isAc...;
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-identity.ts">
+    <item priority="high">
+      type GuestSnapshot = {
+        id: string;
+        name: string;
+        email: string | null;
+       ...;
+    </item>
+    <item priority="high">
+      type IncomingGuestData = {
+        name: string;
+        email?: string;
+        phone?: string;
+        d...;
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     <item priority="low">
       interface GuestRecognition {
@@ -2707,6 +2725,20 @@
         filePath?: string;
         lineNumber?: number;
         suggestion?: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/run-hardened-query.ts">
+    <item priority="high">
+      export const apiCircuitBreaker: unknown;
+    </item>
+    <item priority="low">
+      interface HardenedQueryConfig {
+        prompt: string;
+        cwd: string;
+        model: string;
+        maxTurns: number;
+        maxBudgetUsd: number;
       }
     </item>
   </file>
@@ -3699,16 +3731,12 @@
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
-  <file path="tools/cli/src/api.ts">
+  <file path="tools/cli/src/cli-api-client.ts">
     <item priority="high">
-      class ApiError {
-        
-      }
+      export function createCliApiClient(): ApiClient { /* ... */ }
     </item>
     <item priority="high">
-      interface ErrorResponse {
-        message?: string;
-      }
+      export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/command-seam.ts">
