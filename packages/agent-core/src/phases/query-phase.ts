@@ -28,20 +28,26 @@ export class QueryPhase implements PipelinePhase {
       };
     }
 
-    const { resultMessage, stuckReason, rawTurnMetrics, rawToolCallMetrics, errorMessage } =
-      await runHardenedQuery(
-        {
-          prompt: config.taskDescription,
-          cwd: worktree.path,
-          model: config.model,
-          maxTurns: config.maxTurns,
-          maxBudgetUsd: config.maxBudgetUsd,
-          allowedTools: config.allowedTools,
-          systemPromptAppend: systemPrompt,
-          stuckDetectorConfig: config.stuckDetectorConfig,
-        },
-        onEvent
-      );
+    const {
+      resultMessage,
+      stuckReason,
+      rawTurnMetrics,
+      rawToolCallMetrics,
+      errorMessage,
+      contextMetrics,
+    } = await runHardenedQuery(
+      {
+        prompt: config.taskDescription,
+        cwd: worktree.path,
+        model: config.model,
+        maxTurns: config.maxTurns,
+        maxBudgetUsd: config.maxBudgetUsd,
+        allowedTools: config.allowedTools,
+        systemPromptAppend: systemPrompt,
+        stuckDetectorConfig: config.stuckDetectorConfig,
+      },
+      onEvent
+    );
 
     // Propagate errors from runHardenedQuery as phase failures
     if (errorMessage) {
@@ -61,6 +67,7 @@ export class QueryPhase implements PipelinePhase {
         stuckReason: stuckReason ?? undefined,
         turnMetrics: buildTurnMetricsList(rawTurnMetrics),
         toolCallMetrics: buildToolCallMetricsList(rawToolCallMetrics),
+        contextMetrics: contextMetrics ?? undefined,
       },
     };
   }
