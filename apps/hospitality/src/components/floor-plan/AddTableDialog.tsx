@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS, CANVAS_CENTER } from "./floor-plan-geometry.js";
 import styles from "./AddTableDialog.module.css";

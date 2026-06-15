@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Stage, Layer } from "react-konva";
+import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
