@@ -22,6 +22,8 @@
     "graph": "node scripts/generate-dep-graph.js",
     "generate:dep-graph": "node scripts/generate-dep-graph.mjs",
     "check:schema-compat": "node scripts/check-schema-compat.js",
+    "check:ai-antipatterns": "node scripts/check-ai-antipatterns.mjs",
+    "check:ai-antipatterns:update": "node scripts/check-ai-antipatterns.mjs --update",
     "schema:baseline": "tsx scripts/update-schema-baselines.js",
     "log:cost": "node scripts/log-agent-cost.js",
     "generate:audit-inventory": "node scripts/generate-audit-inventory.mjs",

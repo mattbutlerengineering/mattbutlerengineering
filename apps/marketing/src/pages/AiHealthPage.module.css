@@ -1,0 +1,111 @@
+.container {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+
+.meta {
+  font-size: 0.875rem;
+  opacity: 0.6;
+}
+
+.jsonLink {
+  color: var(--color-primary, #3b82f6);
+  text-decoration: underline;
+}
+
+.error {
+  color: var(--color-error, #ef4444);
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  margin-top: 3rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.section h2 {
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+  opacity: 0.8;
+}
+
+/* Stat cards */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.statLabel {
+  font-size: 0.8125rem;
+  opacity: 0.6;
+  margin-bottom: 0.25rem;
+}
+
+.statValue {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.statNote {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+/* Sensor status list */
+.sensorGrid {
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.sensorRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  font-size: 0.875rem;
+}
+
+.sensorRow:first-child {
+  border-top: none;
+}
+
+.sensorName {
+  font-weight: 500;
+}
+
+.sensorBadge {
+  display: flex;
+  align-items: center;
+}

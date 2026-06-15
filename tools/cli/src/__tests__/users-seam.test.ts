@@ -19,8 +19,11 @@ vi.mock("conf", () => ({
   },
 }));
 
-vi.mock("../api.js", () => ({
-  apiRequest: vi.fn(),
+const mockRequest = vi.fn();
+
+vi.mock("../cli-api-client.js", () => ({
+  createCliApiClient: vi.fn(() => ({ request: mockRequest })),
+  createAgentApiClient: vi.fn(() => ({ request: vi.fn() })),
 }));
 
 vi.mock("../config.js", () => ({
@@ -32,17 +35,17 @@ vi.mock("../config.js", () => ({
 describe("users list run (value-asserted via seam)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockRequest.mockReset();
   });
 
   async function runListRun(authenticated: boolean, apiResult?: unknown, apiError?: Error) {
     const { isAuthenticated } = await import("../config.js");
     vi.mocked(isAuthenticated).mockReturnValue(authenticated);
 
-    const { apiRequest } = await import("../api.js");
     if (apiError) {
-      vi.mocked(apiRequest).mockRejectedValue(apiError);
+      mockRequest.mockRejectedValue(apiError);
     } else if (apiResult !== undefined) {
-      vi.mocked(apiRequest).mockResolvedValue(apiResult as never);
+      mockRequest.mockResolvedValue(apiResult as never);
     }
 
     const { usersListRun } = await import("../commands/users.js");
@@ -98,6 +101,7 @@ describe("users list run (value-asserted via seam)", () => {
 describe("users get run (value-asserted via seam)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockRequest.mockReset();
   });
 
   async function runGetRun(
@@ -109,11 +113,10 @@ describe("users get run (value-asserted via seam)", () => {
     const { isAuthenticated } = await import("../config.js");
     vi.mocked(isAuthenticated).mockReturnValue(authenticated);
 
-    const { apiRequest } = await import("../api.js");
     if (apiError) {
-      vi.mocked(apiRequest).mockRejectedValue(apiError);
+      mockRequest.mockRejectedValue(apiError);
     } else if (apiResult !== undefined) {
-      vi.mocked(apiRequest).mockResolvedValue(apiResult as never);
+      mockRequest.mockResolvedValue(apiResult as never);
     }
 
     const { usersGetRun } = await import("../commands/users.js");

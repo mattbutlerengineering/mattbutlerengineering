@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { isPrismaNotFound } from "./index.js";
 
 // Dynamic imports via `await import("./index.js")` hit a cold module load
 // on every test (vi.resetModules() runs in beforeEach). Under parallel turbo
@@ -295,5 +296,27 @@ describe("createDatabase", () => {
     expect(parsed.model).toBe("unknown");
     expect(parsed.operation).toBe("unknown");
     warnSpy.mockRestore();
+  });
+});
+
+describe("isPrismaNotFound", () => {
+  it("returns true for a Prisma P2025 error object", () => {
+    expect(isPrismaNotFound({ code: "P2025" })).toBe(true);
+  });
+
+  it("returns false for a different Prisma error code", () => {
+    expect(isPrismaNotFound({ code: "P2002" })).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isPrismaNotFound(null)).toBe(false);
+  });
+
+  it("returns false for a plain Error", () => {
+    expect(isPrismaNotFound(new Error("not found"))).toBe(false);
+  });
+
+  it("returns false for a string", () => {
+    expect(isPrismaNotFound("P2025")).toBe(false);
   });
 });

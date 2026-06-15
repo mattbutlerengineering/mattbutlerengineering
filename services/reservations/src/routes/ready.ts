@@ -1,29 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ReadinessResponse } from "@mbe/types";
-import { createReadinessTracker } from "@mbe/observability";
+import { createReadinessTracker, registerStandardChecks } from "@mbe/observability";
 import { prisma } from "../services/database.js";
 
-const AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
-const JWKS_TIMEOUT_MS = 2000;
-
 const readiness = createReadinessTracker();
-
-readiness.registerCheck("database", async () => {
-  await prisma.$queryRaw`SELECT 1`;
-});
-
-readiness.registerCheck("auth", async () => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), JWKS_TIMEOUT_MS);
-  try {
-    const response = await fetch(AUTH0_JWKS_URL, { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`JWKS returned ${response.status}`);
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-});
+registerStandardChecks(readiness, { prisma });
 
 const readinessSchema = {
   summary: "Service readiness probe",
