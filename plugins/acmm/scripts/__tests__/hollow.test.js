@@ -93,7 +93,9 @@ describe("evaluate: empty skills dir yields hollow, lowers computed level", () =
     const result = evaluate(c, fx.root);
     // Detection passes (directory exists), substance fails (no recent entries)
     if (result.verdict === "hollow") {
-      assert.ok(result.substanceEvidence.includes("30 days") || result.substanceEvidence.length > 0);
+      assert.ok(
+        result.substanceEvidence.includes("30 days") || result.substanceEvidence.length > 0
+      );
     } else {
       // If there's no substance checker registered for this pattern path,
       // the verdict may be pass — that's also acceptable as long as we get hollow
@@ -203,10 +205,7 @@ describe("writeReport: hollow section", () => {
       content.includes("Hollow") || content.includes("hollow"),
       "report should contain a hollow section"
     );
-    assert.ok(
-      content.includes("acmm:simple-skills"),
-      "report should list the hollow criterion ID"
-    );
+    assert.ok(content.includes("acmm:simple-skills"), "report should list the hollow criterion ID");
     assert.ok(
       content.includes("stub or insufficient instruction content"),
       "report should include the substance failure reason"

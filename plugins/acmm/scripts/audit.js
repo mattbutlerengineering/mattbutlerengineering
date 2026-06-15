@@ -154,7 +154,10 @@ const hollowCriteria = [];
 for (const c of ALL_CRITERIA) {
   const { verdict, substanceEvidence } = criterionVerdicts.get(c.id);
   if (verdict === "hollow") {
-    hollowCriteria.push({ id: c.id, substanceEvidence: substanceEvidence ?? "substance check failed" });
+    hollowCriteria.push({
+      id: c.id,
+      substanceEvidence: substanceEvidence ?? "substance check failed",
+    });
   }
 }
 
@@ -281,15 +284,27 @@ const reportPath = writeReport(cwd, {
 let badgeOutcome = "skipped";
 if (BADGE) badgeOutcome = updateBadge(cwd, computation.level);
 
-/* ── Optionally: --apply (issues for gaps in next level) ── */
+/* ── Optionally: --apply (issues for regressions + gaps in next level) ── */
 let applyResult = null;
 if (APPLY) {
   try {
     ensureAcmmLabel();
-    // File issues only for criteria gating the NEXT level — avoids issue spam
+
+    // Build a lookup map for criteria by ID.
+    const criteriaById = new Map(ALL_CRITERIA.map((c) => [c.id, c]));
+
+    // File issues for regressed criteria first — these are the headline news.
+    const regressedCriteria = diff
+      ? diff.removed.map((id) => criteriaById.get(id)).filter(Boolean)
+      : [];
+
+    // File issues for criteria gating the NEXT level — avoids issue spam
     // for L5/L6 items when we're still climbing L3.
     const failingForNext = computation.missingForNextLevel;
-    applyResult = applyIssuesForFailures(failingForNext, prior.issuesCreated || {}, {
+
+    // Combine: regressions first, then next-level gaps (dedup handled inside).
+    const allFailing = [...regressedCriteria, ...failingForNext];
+    applyResult = applyIssuesForFailures(allFailing, prior.issuesCreated || {}, {
       extraLabels: EXTRA_LABELS,
     });
     saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
@@ -326,14 +341,14 @@ if (diff) {
   console.log(
     `Since last run: ${levelStr}  ·  ${diff.priorCount} → ${detectedCount} detected (${countArrow})`
   );
-  if (diff.added.length > 0) {
-    console.log(
-      `  + ${diff.added.length} newly detected: ${diff.added.slice(0, 4).join(", ")}${diff.added.length > 4 ? `, … (+${diff.added.length - 4} more)` : ""}`
-    );
-  }
   if (diff.removed.length > 0) {
     console.log(
       `  - ${diff.removed.length} regressed: ${diff.removed.slice(0, 4).join(", ")}${diff.removed.length > 4 ? `, … (+${diff.removed.length - 4} more)` : ""}`
+    );
+  }
+  if (diff.added.length > 0) {
+    console.log(
+      `  + ${diff.added.length} newly detected: ${diff.added.slice(0, 4).join(", ")}${diff.added.length > 4 ? `, … (+${diff.added.length - 4} more)` : ""}`
     );
   }
   if (diff.added.length === 0 && diff.removed.length === 0) {

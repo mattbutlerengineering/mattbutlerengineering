@@ -26,7 +26,10 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
  */
-export function writeReport(cwd, { state, criteria, sources, computation, diff, hollowCriteria = [] }) {
+export function writeReport(
+  cwd,
+  { state, criteria, sources, computation, diff, hollowCriteria = [] }
+) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
   const coldStart = loadLatestColdStart(cwd);
@@ -75,15 +78,15 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff, 
     lines.push("");
     lines.push(headline);
     lines.push("");
-    if (diff.added.length > 0) {
-      lines.push(
-        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
-      );
-      lines.push("");
-    }
     if (diff.removed.length > 0) {
       lines.push(
         `**Regressed (-${diff.removed.length}):** ${diff.removed.map((id) => `\`${id}\``).join(", ")}`
+      );
+      lines.push("");
+    }
+    if (diff.added.length > 0) {
+      lines.push(
+        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
       );
       lines.push("");
     }
