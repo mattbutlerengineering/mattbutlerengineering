@@ -32,9 +32,14 @@ vi.mock("./availability.js", () => ({
   },
 }));
 
+vi.mock("./assert-bookable.js", () => ({
+  assertBookable: vi.fn().mockReturnValue(undefined),
+}));
+
 import { holdService } from "./hold.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 const TEN_MIN_FROM_NOW = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -81,12 +86,14 @@ describe("holdService", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
-    // Default: empty pre-fetched slices; individual tests override the pure
-    // rule results (checkTableConflict / checkPacingForSlot) as needed.
+    // Default: empty pre-fetched slices; individual tests override assertBookable as needed.
     vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
       reservations: [],
       holds: [],
     });
+    // assertBookable: slot is bookable by default (returns undefined = no error).
+    vi.mocked(assertBookable).mockReturnValue(undefined);
+    // Keep these for auto-assign path that doesn't use assertBookable
     vi.mocked(availabilityService.checkTableConflict).mockReturnValue(false);
     vi.mocked(availabilityService.checkPacingForSlot).mockReturnValue(true);
   });
@@ -175,14 +182,13 @@ describe("holdService", () => {
       expect(result.error).toContain("No available tables");
     });
 
-    it("checks conflict when tableId is provided", async () => {
+    it("checks conflict and pacing via assertBookable when tableId is provided", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(true);
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
       const hold = makePrismaHold();
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -212,16 +218,25 @@ describe("holdService", () => {
 
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
-      expect(availabilityService.checkTableConflict).toHaveBeenCalled();
+      expect(assertBookable).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tableId: "table-1",
+          partySize: 2,
+          excludeSessionId: "session-abc",
+        })
+      );
     });
 
-    it("returns error when specified table has conflict", async () => {
+    it("returns error when specified table has conflict (assertBookable returns CONFLICT)", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(true);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
 
       const result = await holdService.create(
         {
@@ -238,14 +253,16 @@ describe("holdService", () => {
       expect(result.error).toContain("not available");
     });
 
-    it("returns error when pacing limit exceeded", async () => {
+    it("returns error when pacing limit exceeded (assertBookable returns PACING_EXCEEDED)", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
         id: "venue-1",
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(false);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PACING_EXCEEDED",
+        message: "Pacing limit reached. Maximum undefined covers per time window.",
+      });
 
       const result = await holdService.create(
         {
@@ -268,9 +285,8 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      // assertBookable passes pre-check; conflict is caught inside transaction
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -309,9 +325,8 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
+      // assertBookable passes pre-check; conflict is caught inside transaction
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
@@ -349,9 +364,6 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
 
       const deleteManyMock = vi.fn().mockResolvedValue({ count: 1 });
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -390,9 +402,6 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -433,9 +442,6 @@ describe("holdService", () => {
         settings: { holdDurationMinutes: 7 },
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -474,9 +480,6 @@ describe("holdService", () => {
         settings: null,
       } as never);
       vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
-      vi.mocked(availabilityService.checkConflict).mockResolvedValueOnce({
-        hasConflict: false,
-      } as never);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
