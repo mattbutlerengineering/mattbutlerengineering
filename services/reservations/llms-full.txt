@@ -4846,14 +4846,6 @@
     }
   </file>
   <file path="src/services/floor-plan.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     type PrismaFloorPlan = {
       id: string;
       venueId: string;
@@ -4863,6 +4855,23 @@
       createdAt: Date;
       updatedAt: Date;
       tables?: PrismaTable[];
+    };
+    type PrismaTable = {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
     };
   </file>
   <file path="src/services/guest-recognition.ts">
@@ -4879,14 +4888,6 @@
     }
   </file>
   <file path="src/services/guest.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaGuest(guest: {
       id: string;
       venueId: string;
@@ -4929,6 +4930,21 @@
         createdAt: guest.createdAt.toISOString(),
         updatedAt: guest.updatedAt.toISOString(),
       };
+    }
+    function mergeDietaryRestrictions(
+      existing: string[] | null | undefined,
+      incoming: string[] | null | undefined
+    ): string[] | null {
+      const existingArr = existing ?? [];
+      const incomingArr = incoming ?? [];
+      if (existingArr.length === 0 && incomingArr.length === 0) return null;
+      const merged = [...existingArr];
+      for (const item of incomingArr) {
+        if (!merged.includes(item)) {
+          merged.push(item);
+        }
+      }
+      return merged.length > 0 ? merged : null;
     }
   </file>
   <file path="src/services/hold.ts">
@@ -5031,18 +5047,71 @@
     }
   </file>
   <file path="src/services/reservation.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
+    export interface ListReservationsOptions {
+      page: number;
+      limit: number;
+      date?: string;
+      status?: ReservationStatus;
+      tableId?: string;
+      venueId?: string;
     }
-    type PrismaReservationWithTable = PrismaReservation & {
-      table?: PrismaTable;
+    export interface CreateReservationResult {
+      success: boolean;
+      reservation?: Reservation;
+      /**
+       * The table whose status was changed as part of creating the reservation.
+       * Set by {@link reservationService.createWalkIn} when it flips the table to
+       * OCCUPIED in the same transaction as the reservation insert, so the route
+       * can emit the `table:updated` SSE event only after the commit succeeds.
+       */
+      table?: Table;
+      error?: string;
+      conflict?: ConflictCheckResult;
+      pacing?: PacingCheckResult;
+    }
+  </file>
+  <file path="src/services/serializers.ts">
+    export interface PrismaTableRow {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: string;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }
+    export interface PrismaReservationRow {
+      id: string;
+      date: Date;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      status: string;
+      notes: string | null;
+      cancellationReason: string | null;
+      cancellationNote: string | null;
+      occasion: string | null;
+      seatingPreference: string | null;
+      guestName: string | null;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      guestId: string | null;
+      userId: string | null;
+      tableId: string;
+      table?: PrismaTableRow | null;
       guest?: { visitCount: number; communicationPreference: string | null } | null;
-    };
+      venueId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }
   </file>
   <file path="src/services/sse-connection-manager.ts">
     export interface SseConnectionConfig {
@@ -5077,14 +5146,6 @@
     }
   </file>
   <file path="src/services/table.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     export function mapPrismaTable(table: {
       id: string;
       name: string;
@@ -5120,16 +5181,115 @@
         updatedAt: table.updatedAt.toISOString(),
       };
     }
+    export const tableService = {
+      async list(
+        page: number,
+        limit: number,
+        activeOnly: boolean = false
+      ): Promise<PaginatedResponse<Table>> {
+        const where = activeOnly ? { isActive: true } : {};
+    
+        const [tables, total] = await Promise.all([
+          prisma.table.findMany({
+            where,
+            ...paginate({ page, limit }),
+            orderBy: { name: "asc" },
+          }),
+          prisma.table.count({ where }),
+        ]);
+    
+        return {
+          data: tables.map(mapPrismaTable),
+          pagination: toPaginationMeta(page, limit, total),
+        };
+      },
+    
+      async getById(id: string): Promise<Table | null> {
+        const table = await prisma.table.findUnique({ where: { id } });
+        return table ? mapPrismaTable(table) : null;
+      },
+    
+      async create(data: CreateTableRequest): Promise<Table> {
+        const table = await prisma.table.create({
+          data: {
+            name: data.name,
+            tableNumber: data.tableNumber ?? null,
+            capacity: data.capacity,
+            minCovers: data.minCovers ?? 1,
+            maxCovers: data.maxCovers ?? null,
+            location: data.location ?? null,
+            priority: data.priority ?? 0,
+            venueId: data.venueId ?? null,
+            floorPlanId: data.floorPlanId ?? null,
+            shapeMetadata: data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull,
+          },
+        });
+        return mapPrismaTable(table);
+      },
+    
+      async update(id: string, data: UpdateTableRequest): Promise<Table | null> {
+        try {
+          const updateData: Prisma.TableUpdateInput = {};
+          if (data.name !== undefined) updateData.name = data.name;
+          if (data.tableNumber !== undefined) updateData.tableNumber = data.tableNumber;
+          if (data.capacity !== undefined) updateData.capacity = data.capacity;
+          if (data.minCovers !== undefined) updateData.minCovers = data.minCovers;
+          if (data.maxCovers !== undefined) updateData.maxCovers = data.maxCovers;
+          if (data.location !== undefined) updateData.location = data.location;
+          if (data.isActive !== undefined) updateData.isActive = data.isActive;
+          if (data.priority !== undefined) updateData.priority = data.priority;
+          if (data.floorPlanId !== undefined) {
+            updateData.floorPlan = data.floorPlanId
+              ? { connect: { id: data.floorPlanId } }
+              : { disconnect: true };
+          }
+          if (data.shapeMetadata !== undefined) {
+            updateData.shapeMetadata = data.shapeMetadata
+              ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull;
+          }
+    
+          const table = await prisma.table.update({
+            where: { id },
+            data: updateData,
+          });
+          return mapPrismaTable(table);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async updateStatus(id: string, status: string): Promise<Table | null> {
+        if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
+          return null;
+        }
+        try {
+          const table = await prisma.table.update({
+            where: { id },
+            data: { status: status as TableStatus },
+          });
+          return mapPrismaTable(table);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.table.delete({ where: { id } });
+          return true;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return false;
+          throw err;
+        }
+      },
+    };
   </file>
   <file path="src/services/venue.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaVenueGroup(group: {
       id: string;
       name: string;
@@ -5143,6 +5303,39 @@
         slug: group.slug,
         settings: group.settings as Record<string, unknown> | null,
         createdAt: group.createdAt.toISOString(),
+      };
+    }
+    function mapPrismaVenue(venue: {
+      id: string;
+      venueGroupId: string | null;
+      venueGroup?: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      } | null;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: unknown;
+      settings: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+    }): Venue {
+      return {
+        id: venue.id,
+        venueGroupId: venue.venueGroupId,
+        venueGroup: venue.venueGroup ? mapPrismaVenueGroup(venue.venueGroup) : undefined,
+        name: venue.name,
+        slug: venue.slug,
+        ianaTimezone: venue.ianaTimezone,
+        currencyCode: venue.currencyCode,
+        operatingHours: venue.operatingHours as Venue["operatingHours"],
+        settings: venue.settings as Venue["settings"],
+        createdAt: venue.createdAt.toISOString(),
+        updatedAt: venue.updatedAt.toISOString(),
       };
     }
   </file>

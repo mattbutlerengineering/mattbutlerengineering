@@ -1,17 +1,10 @@
-import {
-  toDateString,
-  type ConfirmHoldRequest,
-  type Reservation,
-  type ReservationStatus,
-  type Table,
-  type TableShapeMetadata,
-  type VenueSettings,
-} from "@mbe/types";
+import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
+import { toReservation } from "./serializers.js";
 
 type ConfirmHoldErrorCode =
   | "NOT_FOUND"
@@ -47,88 +40,6 @@ export interface ConfirmHoldInput {
 export type ConfirmHoldResult =
   | { success: true; reservation: Reservation }
   | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
-
-function mapReservationResult(result: {
-  id: string;
-  date: Date;
-  startTime: Date;
-  endTime: Date;
-  partySize: number;
-  status: string;
-  notes: string | null;
-  cancellationReason: string | null;
-  cancellationNote: string | null;
-  occasion: string | null;
-  seatingPreference: string | null;
-  guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
-  guestId: string | null;
-  userId: string | null;
-  tableId: string;
-  table?: {
-    id: string;
-    name: string;
-    tableNumber: string | null;
-    capacity: number;
-    minCovers: number;
-    maxCovers: number | null;
-    location: string | null;
-    isActive: boolean;
-    priority: number;
-    status: string;
-    venueId: string | null;
-    floorPlanId: string | null;
-    shapeMetadata: unknown;
-    createdAt: Date;
-    updatedAt: Date;
-  } | null;
-  venueId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): Reservation {
-  return {
-    id: result.id,
-    date: toDateString(result.date),
-    startTime: result.startTime.toISOString(),
-    endTime: result.endTime.toISOString(),
-    partySize: result.partySize,
-    status: result.status as ReservationStatus,
-    notes: result.notes,
-    cancellationReason: result.cancellationReason,
-    cancellationNote: result.cancellationNote,
-    occasion: result.occasion as Reservation["occasion"],
-    seatingPreference: result.seatingPreference as Reservation["seatingPreference"],
-    guestName: result.guestName,
-    guestEmail: result.guestEmail,
-    guestPhone: result.guestPhone,
-    guestId: result.guestId,
-    userId: result.userId,
-    tableId: result.tableId,
-    table: result.table
-      ? {
-          id: result.table.id,
-          name: result.table.name,
-          tableNumber: result.table.tableNumber,
-          capacity: result.table.capacity,
-          minCovers: result.table.minCovers,
-          maxCovers: result.table.maxCovers,
-          location: result.table.location,
-          isActive: result.table.isActive,
-          priority: result.table.priority,
-          status: result.table.status as Table["status"],
-          venueId: result.table.venueId,
-          floorPlanId: result.table.floorPlanId,
-          shapeMetadata: result.table.shapeMetadata as TableShapeMetadata | null,
-          createdAt: result.table.createdAt.toISOString(),
-          updatedAt: result.table.updatedAt.toISOString(),
-        }
-      : undefined,
-    venueId: result.venueId,
-    createdAt: result.createdAt.toISOString(),
-    updatedAt: result.updatedAt.toISOString(),
-  };
-}
 
 /**
  * Orchestrates hold-to-reservation confirmation.
@@ -261,7 +172,10 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
         userId: userId ?? null,
         status: "CONFIRMED",
       },
-      include: { table: true },
+      include: {
+        table: true,
+        guest: { select: { visitCount: true, communicationPreference: true } },
+      },
     });
 
     // Delete the hold
@@ -283,7 +197,7 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
   }
 
   // Step 4: Map to domain type
-  const reservation = mapReservationResult(txResult.reservation);
+  const reservation = toReservation(txResult.reservation);
 
   // Step 5: Emit event
   emitHoldConfirmed(reservation);
