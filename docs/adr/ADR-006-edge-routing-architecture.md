@@ -15,6 +15,19 @@ The platform serves multiple frontend apps (marketing, hospitality, rialto, gen)
 
 A single **Cloudflare Worker** (`edge-router`) acts as the front door for all traffic. It routes requests by path prefix, using **Service Bindings** for static sites and **HTTP subrequests** for the API.
 
+### Edge Topology Registry
+
+Route prefixes, service bindings, cache classes, health paths, and deploy-KV keys
+are all owned by a single config file:
+
+```
+infrastructure/worker/routes-config.json
+```
+
+The edge-router reads this config at module load time — no topology is hardcoded in
+`edge-router.js`. A sync test (`routes-config.test.js`) fails when `wrangler.toml`
+service bindings diverge from the config's `staticRoutes[*].binding` list.
+
 ### Routing Table
 
 | Pattern          | Target                    | Mechanism                           |
@@ -25,6 +38,9 @@ A single **Cloudflare Worker** (`edge-router`) acts as the front door for all tr
 | `/gen/*`         | Gen Worker                | Service Binding (`env.GEN`)         |
 | `/*`             | Marketing Worker          | Service Binding (`env.MARKETING`)   |
 | `/health/system` | Edge router itself        | Aggregated health (see ADR-004)     |
+
+All entries in this table are defined in `routes-config.json`; the table above is
+derived documentation only. Edit the config file to add or change routes.
 
 ### Service Bindings for Static Sites
 
@@ -79,7 +95,7 @@ HTML responses are processed by `HTMLRewriter` to inject the nonce into all `<sc
 **Trade-offs:**
 
 - The edge router is a single point of failure for all traffic. Mitigated by Cloudflare Workers' global distribution and automatic failover.
-- Adding a new static site requires three changes: create the Worker, add a Service Binding in `wrangler.toml`, and add routing logic in `edge-router.js`.
+- Adding a new static site requires: create the Worker, add a Service Binding in `wrangler.toml`, and add one entry to `routes-config.json`. The sync test catches any drift between the config and `wrangler.toml`.
 - The HTTP proxy to DigitalOcean means API latency includes the extra hop from Cloudflare's nearest PoP to the DO region. Acceptable because the DO API region is chosen for database proximity, not client proximity.
 
 ## Alternatives Considered
