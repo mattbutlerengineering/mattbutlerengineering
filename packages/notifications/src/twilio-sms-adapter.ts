@@ -1,3 +1,4 @@
+import { retry } from "@mbe/api-client";
 import type {
   SmsPort,
   SmsNotificationInput,
@@ -32,10 +33,6 @@ function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export class TwilioSmsAdapter implements SmsPort {
@@ -89,26 +86,19 @@ export class TwilioSmsAdapter implements SmsPort {
     await this.sendWithRetry(input.guestPhone, trimmed);
   }
 
-  private async sendWithRetry(to: string, body: string): Promise<void> {
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        await this.client!.messages.create({
+  private sendWithRetry(to: string, body: string): Promise<void> {
+    return retry(
+      () =>
+        this.client!.messages.create({
           to,
           from: this.fromNumber,
           body,
-        });
-        return;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        if (attempt < MAX_RETRIES) {
-          const delay = this.retryDelayMs * Math.pow(2, attempt - 1);
-          await sleep(delay);
-        }
+        }).then(() => undefined),
+      {
+        maxRetries: MAX_RETRIES - 1,
+        baseDelayMs: this.retryDelayMs,
+        jitter: true,
       }
-    }
-
-    throw lastError;
+    );
   }
 }

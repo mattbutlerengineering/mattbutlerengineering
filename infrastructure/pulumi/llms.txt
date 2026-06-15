@@ -1,0 +1,22 @@
+<codebase path="infrastructure/pulumi">
+  <section priority="medium" role="auth0.ts">
+  <file path="auth0.ts">
+    <item priority="high">
+      export const api: unknown;
+    </item>
+    <item priority="high">
+      export const hospitalityApp: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="index.ts">
+  <file path="index.ts">
+    <item priority="high">
+      export const auth0ApiIdentifier: unknown;
+    </item>
+    <item priority="high">
+      export const auth0ClientId: unknown;
+    </item>
+  </file>
+  </section>
+</codebase>
