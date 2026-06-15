@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { apiRequest } from "../api.js";
+import { createCliApiClient } from "../cli-api-client.js";
 import { defineCommand, runCommand } from "../command-seam.js";
 import type { CommandResult } from "../command-seam.js";
 import type { ApiResponse, PaginatedResponse, User } from "@mbe/types";
@@ -9,7 +9,7 @@ import type { ApiResponse, PaginatedResponse, User } from "@mbe/types";
 export const usersListRun = defineCommand<{ page: string; limit: string }>({
   requiresAuth: true,
   async run(opts): Promise<CommandResult> {
-    const response = await apiRequest<PaginatedResponse<User>>(
+    const response = await createCliApiClient().request<PaginatedResponse<User>>(
       `/api/v1/users?page=${opts.page}&limit=${opts.limit}`
     );
 
@@ -29,7 +29,9 @@ export const usersListRun = defineCommand<{ page: string; limit: string }>({
 export const usersGetRun = defineCommand<{ id: string }>({
   requiresAuth: true,
   async run(opts): Promise<CommandResult> {
-    const response = await apiRequest<ApiResponse<User>>(`/api/v1/users/${opts.id}`);
+    const response = await createCliApiClient().request<ApiResponse<User>>(
+      `/api/v1/users/${opts.id}`
+    );
     const user = response.data;
 
     return {
