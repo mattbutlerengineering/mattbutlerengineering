@@ -3395,12 +3395,17 @@
   </file>
   <file path="packages/notifications/src/notification-dispatcher.ts">
     <item priority="low">
-      type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
-    </item>
-    <item priority="low">
       interface NotificationDispatcherConfig {
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
+      }
+    </item>
+    <item priority="high">
+      class NotificationDispatcher {
+        emailAdapter: NotificationPort;
+        smsAdapter: SmsPort | null;
+        async shouldSendEmail(): Promise<unknown>;
+        async shouldSendSms(): Promise<unknown>;
       }
     </item>
   </file>
