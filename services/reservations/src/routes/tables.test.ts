@@ -241,6 +241,8 @@ describe("Table Routes", () => {
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Not Found");
+      // Regression for #1984: 4xx body must carry a non-undefined RFC 7807 `detail`
+      expect(body.detail).toBe("Table not found");
     });
   });
 
