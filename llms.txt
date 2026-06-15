@@ -3034,6 +3034,19 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/retry.ts">
+    <item priority="low">
+      interface RetryOptions {
+        maxRetries: number;
+        baseDelayMs: number;
+        jitter?: boolean;
+        isRetryable?: (error: unknown) => boolean;
+      }
+    </item>
+    <item priority="medium">
+      function sleep(ms: number): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/api-client/src/streaming.ts">
     <item priority="low">
       interface StreamConfig {
