@@ -158,7 +158,7 @@ For each green PR (lock held):
 
    For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
 
-5. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+5. `gh pr merge <N> --auto --squash --delete-branch` — **`main` requires the GitHub merge queue**, so `--auto` adds the PR to the queue rather than merging directly (a bare `gh pr merge --squash` is rejected). GitHub then builds the `merge_group`, runs `CI Gate` against it, and squash-merges when green; the linked issue closes via `Closes #N`. You do **not** need to `update-branch` first (step 1) or pre-merge-wait — the queue rebases and tests each entry. Enqueue the reviewed PR and move on; the queue serialises the actual merges.
 
 **Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
 
