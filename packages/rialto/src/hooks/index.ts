@@ -6,3 +6,12 @@ export { useThemeState, resolveTheme } from "./useThemeState";
 export type { ThemePreference, ThemeState } from "./useThemeState";
 export { useCombobox } from "./useCombobox";
 export type { ComboboxItem, UseComboboxOptions, UseComboboxResult } from "./useCombobox";
+export { useField } from "./useField";
+export type {
+  UseFieldOptions,
+  UseFieldResult,
+  FieldLabelProps,
+  FieldDescriptionProps,
+  FieldErrorProps,
+  FieldControlProps,
+} from "./useField";

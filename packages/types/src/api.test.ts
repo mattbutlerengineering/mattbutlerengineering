@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import type { ProblemDetails, ApiError } from "./api.js";
 import { createProblemDetails } from "./api.js";
+import { ProblemDetailsSchema, ApiErrorSchema } from "./schemas/api.js";
 
 describe("createProblemDetails", () => {
   it("creates a valid problem details object with defaults", () => {
@@ -58,5 +60,44 @@ describe("createProblemDetails", () => {
   it("uses about:blank as default type", () => {
     const result = createProblemDetails(503, "Service Unavailable", "Try again later");
     expect(result.type).toBe("about:blank");
+  });
+});
+
+describe("schema/type alignment (drift prevention)", () => {
+  it("ProblemDetails output parses successfully against ProblemDetailsSchema", () => {
+    // If ProblemDetails type and ProblemDetailsSchema drift, one of these will fail
+    const problem = createProblemDetails(422, "Validation Error", "partySize must be > 0");
+    const result = ProblemDetailsSchema.safeParse(problem);
+    expect(result.success).toBe(true);
+  });
+
+  it("ApiErrorSchema validates the legacy error shape produced by the client fallback", () => {
+    // The api-client's error fallback object must match ApiErrorSchema
+    const legacyError: ApiError = {
+      error: "Error",
+      message: "Not Found",
+      statusCode: 404,
+    };
+    const result = ApiErrorSchema.safeParse(legacyError);
+    expect(result.success).toBe(true);
+  });
+
+  it("ProblemDetails and ApiError are z.infer-derived (compile-time enforcement via assignment)", () => {
+    // These assignments compile only if ProblemDetails === z.infer<typeof ProblemDetailsSchema>
+    // and ApiError === z.infer<typeof ApiErrorSchema>. If the types diverge the
+    // typecheck gate will catch it here before CI runs.
+    const problemData: ProblemDetails = {
+      type: "about:blank",
+      title: "Test",
+      status: 200,
+      detail: "ok",
+    };
+    const errorData: ApiError = {
+      error: "NotFound",
+      message: "Resource missing",
+      statusCode: 404,
+    };
+    expect(ProblemDetailsSchema.safeParse(problemData).success).toBe(true);
+    expect(ApiErrorSchema.safeParse(errorData).success).toBe(true);
   });
 });

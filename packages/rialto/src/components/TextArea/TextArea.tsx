@@ -1,13 +1,7 @@
-import {
-  forwardRef,
-  useState,
-  useId,
-  useRef,
-  useCallback,
-  type TextareaHTMLAttributes,
-} from "react";
+import { forwardRef, useState, useRef, useCallback, type TextareaHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import { useField } from "../../hooks/useField";
 import styles from "./TextArea.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -50,7 +44,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
       autoResize = false,
       maxLength,
       disabledReason,
-      showOptional,
+      showOptional: showOptionalProp,
       className = "",
       rows = 3,
       value,
@@ -58,11 +52,12 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
       disabled,
       readOnly,
       required,
+      id,
       ...rest
     },
     ref
   ) => {
-    const id = useId();
+    const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [internalLength, setInternalLength] = useState(0);
 
@@ -89,22 +84,26 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div ref={ref} className={`${styles.wrapper} ${error ? styles.error : ""} ${className}`}>
           {label && (
-            <label htmlFor={id} className={styles.label}>
+            <label {...field.labelProps} className={styles.label}>
               {label}
-              {required && <span className={styles.required}> *</span>}
-              {showOptional && !required && <span className={styles.optional}> (optional)</span>}
+              {field.showRequired && (
+                <span className={styles.required} aria-hidden="true">
+                  {" "}
+                  *
+                </span>
+              )}
+              {field.showOptional && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.textareaContainer}>
             <textarea
               ref={textareaRef}
-              id={id}
+              {...field.controlProps}
               className={`${styles.textarea} ${autoResize ? styles.autoResize : ""}`}
               rows={rows}
               value={value}
               onChange={handleChange}
               disabled={disabled}
-              aria-describedby={hint ? `${id}-hint` : undefined}
               readOnly={readOnly}
               {...rest}
             />
@@ -115,7 +114,11 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           {(hint || maxLength != null) && (
             <div className={styles.footer}>
               {hint && (
-                <span id={`${id}-hint`} className={styles.hint}>
+                <span
+                  {...field.descriptionProps}
+                  className={styles.hint}
+                  role={error ? "alert" : undefined}
+                >
                   {hint}
                 </span>
               )}
