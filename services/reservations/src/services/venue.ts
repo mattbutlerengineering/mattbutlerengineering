@@ -7,18 +7,9 @@ import type {
   UpdateVenueGroupRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import { paginate, toPaginationMeta } from "@mbe/database";
+import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-
-function isPrismaNotFound(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
-  );
-}
 
 function mapPrismaVenueGroup(group: {
   id: string;

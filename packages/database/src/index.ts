@@ -9,6 +9,16 @@ export {
 } from "./list-utils.js";
 export type { PaginationMeta } from "./list-utils.js";
 
+/** Returns true when `err` is a Prisma "record not found" error (code P2025). */
+export function isPrismaNotFound(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
+  );
+}
+
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;
 const MAX_SLOW_QUERIES = 10;
