@@ -138,6 +138,17 @@ for (const c of ALL_CRITERIA) {
   }
 }
 
+// Collect unverifiable criteria — excluded from level math and listed separately (#2023)
+const unverifiableIds = new Set();
+const unverifiableCriteria = [];
+for (const c of ALL_CRITERIA) {
+  const { verdict, evidence } = criterionVerdicts.get(c.id);
+  if (verdict === "unverifiable") {
+    unverifiableIds.add(c.id);
+    unverifiableCriteria.push({ id: c.id, reason: evidence ?? "gh CLI unavailable or error" });
+  }
+}
+
 const detectedCount = detectedIds.size;
 const totalCount = ALL_CRITERIA.length;
 
@@ -176,7 +187,10 @@ const computeBehavioral = {
   auto_qa_history_count: autoQaTuning ? autoQaTuning.history_count : 0,
 };
 
-const rawComputation = computeLevel(detectedIds, computeBehavioral, { strict: STRICT });
+const rawComputation = computeLevel(detectedIds, computeBehavioral, {
+  strict: STRICT,
+  unverifiableIds,
+});
 const levelCap = prior.levelCap ?? null;
 const computation =
   levelCap !== null && rawComputation.level > levelCap
@@ -256,6 +270,7 @@ const reportPath = writeReport(cwd, {
   diff,
   hollowCriteria,
   origins,
+  unverifiableCriteria,
 });
 
 /* ── Optionally: --badge ─────────────────────────────────── */

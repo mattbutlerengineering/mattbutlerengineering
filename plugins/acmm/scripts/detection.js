@@ -123,7 +123,7 @@ export function detect(cwd, criterion, opts = {}) {
     // Check first matching file for workflow activity
     const workflowFile = patterns.find((p) => existsAt(cwd, p));
     const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
-    if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
+    if (result.degraded) return false; // gh unavailable → unverifiable, not a pass
     return result.active;
   }
   if (type === "grep") {
@@ -192,7 +192,7 @@ export function detectAll(cwd, criteria, opts = {}) {
       const workflowFile = patterns.find((p) => existsAt(cwd, p));
       const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
       if (result.degraded) {
-        detected.add(c.id);
+        // gh unavailable → unverifiable: exclude from detected set (not a pass)
         meta.set(c.id, { status: "degraded", reason: result.reason });
       } else if (result.active) {
         detected.add(c.id);

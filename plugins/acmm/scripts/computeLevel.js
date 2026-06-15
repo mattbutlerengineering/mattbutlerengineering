@@ -151,10 +151,11 @@ function levelDef(n) {
 
 export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
   const strict = options.strict ?? false;
+  // Unverifiable criteria are excluded from both numerator AND denominator.
+  // They cannot be detected (no gh data) so they shouldn't penalise the score.
+  const unverifiableIds = new Set(options.unverifiableIds ?? []);
 
   // Synthesise the virtual L2 OR-group criterion before the level walk.
-  // Callers must already exclude hollow criteria from rawDetectedIds — hollow
-  // verdicts do not count (verdictCounts("hollow") === false, #2022).
   const detectedIds = new Set(rawDetectedIds);
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
     detectedIds.add("acmm:agent-instructions");
@@ -165,7 +166,9 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
 
   // L2–L6 threshold walk (L0 prerequisites and L1 are not gated)
   for (let n = MIN_LEVEL + 1; n <= MAX_LEVEL; n++) {
-    const required = scannableCriteriaForLevel(n);
+    const scannable = scannableCriteriaForLevel(n);
+    // Exclude unverifiable criteria from the denominator so they neither help nor hurt
+    const required = scannable.filter((c) => !unverifiableIds.has(c.id));
     requiredByLevel[n] = required.length;
     detectedByLevel[n] = required.filter((c) => detectedIds.has(c.id)).length;
   }
@@ -202,7 +205,9 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
 
   const nextLevel = currentLevel < MAX_LEVEL ? currentLevel + 1 : null;
   const missingForNextLevel = nextLevel
-    ? scannableCriteriaForLevel(nextLevel).filter((c) => !detectedIds.has(c.id))
+    ? scannableCriteriaForLevel(nextLevel).filter(
+        (c) => !detectedIds.has(c.id) && !unverifiableIds.has(c.id)
+      )
     : [];
 
   const current = levelDef(currentLevel);

@@ -226,5 +226,5 @@ export function evaluate(criterion, cwd, opts = {}) {
  * @returns {boolean}
  */
 export function verdictCounts(verdict) {
-  return verdict === "pass" || verdict === "unverifiable";
+  return verdict === "pass";
 }

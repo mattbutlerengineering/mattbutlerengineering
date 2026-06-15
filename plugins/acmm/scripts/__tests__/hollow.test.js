@@ -46,8 +46,8 @@ describe("verdictCounts", () => {
     assert.equal(verdictCounts("pass"), true);
   });
 
-  test("unverifiable verdict counts (graceful degradation)", () => {
-    assert.equal(verdictCounts("unverifiable"), true);
+  test("unverifiable verdict does not count — excluded from level math (#2023)", () => {
+    assert.equal(verdictCounts("unverifiable"), false);
   });
 
   test("stale verdict does not count", () => {

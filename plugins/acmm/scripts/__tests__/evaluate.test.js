@@ -18,7 +18,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { evaluate } from "../evaluate.js";
+import { evaluate, verdictCounts } from "../evaluate.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-eval-"));
@@ -242,6 +242,28 @@ test("evaluate: substance — detected criterion with failing substance → holl
     "substanceEvidence should be non-empty for hollow verdict"
   );
   fx.cleanup();
+});
+
+// ── verdictCounts ────────────────────────────────────────────────────────────
+
+test("verdictCounts: pass → true", () => {
+  assert.equal(verdictCounts("pass"), true);
+});
+
+test("verdictCounts: hollow → false (excluded from level math, #2022)", () => {
+  assert.equal(verdictCounts("hollow"), false);
+});
+
+test("verdictCounts: stale → false", () => {
+  assert.equal(verdictCounts("stale"), false);
+});
+
+test("verdictCounts: not-found → false", () => {
+  assert.equal(verdictCounts("not-found"), false);
+});
+
+test("verdictCounts: unverifiable → false (excluded from level math)", () => {
+  assert.equal(verdictCounts("unverifiable"), false);
 });
 
 // ── evidence is always populated ────────────────────────────────────────────

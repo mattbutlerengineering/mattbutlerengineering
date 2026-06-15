@@ -25,10 +25,11 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {import("../computeLevel.js").LevelComputation} args.computation
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
+ * @param {Array<{id: string, reason: string}>} [args.unverifiableCriteria]
  */
 export function writeReport(
   cwd,
-  { state, criteria, sources, computation, diff, hollowCriteria = [] }
+  { state, criteria, sources, computation, diff, hollowCriteria = [], unverifiableCriteria = [] }
 ) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
@@ -103,6 +104,22 @@ export function writeReport(
     lines.push("");
     for (const h of hollowCriteria) {
       lines.push(`- **\`${h.id}\`** — ${h.substanceEvidence}`);
+    }
+    lines.push("");
+  }
+
+  // ── Unverifiable criteria (gh CLI unavailable) ────────────
+  if (unverifiableCriteria.length > 0) {
+    lines.push(`## Unverifiable criteria (${unverifiableCriteria.length})`);
+    lines.push("");
+    lines.push(
+      "These `active`-type criteria could not be verified because the `gh` CLI was unavailable or timed out. " +
+        "They are **excluded from level math** (neither counted as passes nor included in the denominator) " +
+        "and will re-evaluate correctly once `gh` is available."
+    );
+    lines.push("");
+    for (const u of unverifiableCriteria) {
+      lines.push(`- **\`${u.id}\`** — ${u.reason}`);
     }
     lines.push("");
   }
