@@ -103,6 +103,7 @@ flowchart TD
   database --> config
   jobs --> config
   mcp_server --> config
+  notifications --> api_client
   notifications --> config
   observability --> types
   observability --> config
