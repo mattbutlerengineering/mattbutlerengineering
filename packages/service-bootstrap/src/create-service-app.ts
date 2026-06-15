@@ -13,6 +13,7 @@ import {
   type RateLimitMonitor,
 } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
+import { errorHandlerPlugin } from "./error-handler.js";
 
 /**
  * Swagger/OpenAPI configuration for the service.
@@ -226,6 +227,9 @@ export async function createServiceApp(
   // --- Sentry ---
   // Register Sentry error handler (no-op without SENTRY_DSN)
   await fastify.register(sentryFastifyPlugin);
+
+  // --- Error Handler (RFC 7807) ---
+  await fastify.register(errorHandlerPlugin);
 
   // --- API Versioning (inlined from @mbe/api-versioning) ---
   const {

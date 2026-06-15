@@ -27,6 +27,7 @@ vi.mock("./availability.js", () => ({
   availabilityService: {
     fetchConflictData: vi.fn(),
   },
+  checkPacingForSlot: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("./assert-bookable.js", () => ({
@@ -36,7 +37,7 @@ vi.mock("./assert-bookable.js", () => ({
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
-import { availabilityService } from "./availability.js";
+import { availabilityService, checkPacingForSlot } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
@@ -76,6 +77,31 @@ function makePrismaTable() {
     shapeMetadata: null,
     createdAt: NOW,
     updatedAt: NOW,
+  };
+}
+
+/**
+ * Builds a minimal transaction client mock for use in $transaction tests.
+ * The in-tx pacing re-check calls reservation.findMany, reservationHold.findMany,
+ * and venue.findUnique — all default to empty/null so the pacing check passes.
+ */
+function makeTxMock(overrides: Record<string, unknown> = {}) {
+  return {
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    venue: {
+      findUnique: vi.fn().mockResolvedValue({ settings: null }),
+    },
+    reservation: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+    },
+    reservationHold: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
+    },
+    ...overrides,
   };
 }
 
@@ -121,6 +147,8 @@ describe("confirmHold", () => {
     });
     // assertBookable: no booking errors by default (slot is free).
     vi.mocked(assertBookable).mockReturnValue(undefined);
+    // checkPacingForSlot: pacing passes by default (used in in-tx re-check).
+    vi.mocked(checkPacingForSlot).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -136,17 +164,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
+              ...makeTxMock().reservation,
               create: vi.fn().mockResolvedValue(reservation),
             },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -197,17 +220,10 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
-            reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              create: reservationCreate,
-            },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: holdDelete,
-            },
-          };
+          const tx = makeTxMock({
+            reservation: { ...makeTxMock().reservation, create: reservationCreate },
+            reservationHold: { ...makeTxMock().reservationHold, delete: holdDelete },
+          });
           return fn(tx);
         }
       );
@@ -257,17 +273,18 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
+          const tx = makeTxMock({
             $executeRaw: executeRaw,
             reservation: {
+              ...makeTxMock().reservation,
               findFirst: reservationFindFirst,
               create: vi.fn().mockResolvedValue(reservation),
             },
             reservationHold: {
+              ...makeTxMock().reservationHold,
               findFirst: holdFindFirst,
-              delete: vi.fn().mockResolvedValue(undefined),
             },
-          };
+          });
           return fn(tx);
         }
       );
@@ -312,17 +329,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
+              ...makeTxMock().reservation,
               findFirst: vi.fn().mockResolvedValue({ id: "conflict-res" }),
-              create: vi.fn(),
             },
-            reservationHold: {
-              findFirst: vi.fn(),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -348,17 +360,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
-            reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              create: vi.fn(),
-            },
+          const tx = makeTxMock({
             reservationHold: {
+              ...makeTxMock().reservationHold,
               findFirst: vi.fn().mockResolvedValue({ id: "conflict-hold" }),
-              delete: vi.fn().mockResolvedValue(undefined),
             },
-          };
+          });
           return fn(tx);
         }
       );
@@ -385,17 +392,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
+              ...makeTxMock().reservation,
               create: vi.fn().mockResolvedValue(reservation),
             },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -421,17 +423,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
+              ...makeTxMock().reservation,
               create: vi.fn().mockResolvedValue(reservation),
             },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -517,17 +514,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
+              ...makeTxMock().reservation,
               create: vi.fn().mockResolvedValue(reservation),
             },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -557,17 +549,12 @@ describe("confirmHold", () => {
 
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
+          const tx = makeTxMock({
             reservation: {
-              findFirst: vi.fn().mockResolvedValue(null),
+              ...makeTxMock().reservation,
               create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
             },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              delete: vi.fn().mockResolvedValue(undefined),
-            },
-          };
+          });
           return fn(tx);
         }
       );
@@ -581,6 +568,42 @@ describe("confirmHold", () => {
       expect(assertBookable).toHaveBeenCalledWith(
         expect.objectContaining({ excludeHoldId: "hold-1" })
       );
+    });
+  });
+
+  describe("Slice 10: In-transaction pacing re-check (TOCTOU close)", () => {
+    it("rejects confirmation when in-tx pacing re-check fails even if pre-check passed", async () => {
+      // Regression test: two concurrent confirmations on different tables for the
+      // same slot can both pass the pre-lock pacing check (TOCTOU). The in-tx
+      // re-check under the advisory lock is the authoritative gate.
+      const hold = makePrismaHold({ partySize: 4 });
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+
+      // Pre-check passes (assertBookable returns undefined)
+      vi.mocked(assertBookable).mockReturnValueOnce(undefined);
+
+      // In-tx pacing re-check: another concurrent confirmation already committed
+      // while we were waiting for the lock, so pacing now fails.
+      vi.mocked(checkPacingForSlot).mockReturnValueOnce(false);
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = makeTxMock();
+          return fn(tx);
+        }
+      );
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.errorCode).toBe("PACING_EXCEEDED");
+      }
+      expect(emitHoldConfirmed).not.toHaveBeenCalled();
     });
   });
 });
