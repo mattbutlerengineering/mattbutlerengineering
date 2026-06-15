@@ -37512,6 +37512,27 @@
           "required": false
         },
         {
+          "name": "hint",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "showOptional",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true and not required, shows \"(optional)\" after the label"
+        },
+        {
           "name": "disabled",
           "type": "boolean | undefined",
           "required": false
