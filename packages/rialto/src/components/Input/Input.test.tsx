@@ -100,6 +100,24 @@ describe("Input", () => {
       const wrapper = container.firstElementChild;
       expect(wrapper?.className).toMatch(/error/);
     });
+
+    it("error message is programmatically associated with the control via aria-describedby", () => {
+      render(<Input error hint="This field is required" />);
+      const input = screen.getByRole("textbox");
+      const describedById = input.getAttribute("aria-describedby");
+      expect(describedById).toBeTruthy();
+      const messageEl = document.getElementById(describedById!);
+      expect(messageEl).toHaveTextContent("This field is required");
+    });
+
+    it("aria-invalid is set when error=true and hint is absent (no dangling aria-describedby)", () => {
+      render(<Input error />);
+      const input = screen.getByRole("textbox");
+      // aria-invalid=true signals the error state
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      // No hint element is rendered, so aria-describedby must not reference a non-existent element
+      expect(input).not.toHaveAttribute("aria-describedby");
+    });
   });
 
   describe("disabled state", () => {
