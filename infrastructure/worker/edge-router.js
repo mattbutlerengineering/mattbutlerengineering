@@ -21,6 +21,7 @@ import {
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 import { buildCspDirectives } from "./csp.js";
 import depGraph from "./dep-graph.json";
+import topologyConfig from "./routes-config.json";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -101,10 +102,13 @@ async function readCspPolicy(kv) {
  * Hashed assets (Vite outputs under /assets/ with content hashes) are
  * immutable by definition — cache them for one year.  HTML documents
  * must always revalidate so deploys take effect immediately.
+ *
+ * Cache policy values come from routes-config.json cacheClasses.
  */
 function cacheControlFor(pathname) {
+  const cls = topologyConfig.cacheClasses["static-site"];
   if (pathname.includes("/assets/")) {
-    return "public, max-age=31536000, immutable";
+    return cls.hashedAssets;
   }
   // HTML and other types are handled in addHeaders where Content-Type is available
   return null;
@@ -138,7 +142,7 @@ function addHeaders(response, pathname, nonce, kvPolicy) {
   } else {
     const contentType = headers.get("Content-Type") || "";
     if (contentType.includes("text/html")) {
-      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+      headers.set("Cache-Control", topologyConfig.cacheClasses["static-site"].html);
     }
   }
 
@@ -288,23 +292,24 @@ function brandedErrorPage(statusCode, message, requestId, nonce = "", kvPolicy) 
 const HEALTH_TIMEOUT_MS = 5_000;
 const STALENESS_THRESHOLD_MS = 72 * 60 * 60 * 1_000; // 72 hours — deploys are change-driven, not daily
 
-const SERVICE_ENDPOINTS = {
-  users: "/health",
-  reservations: "/api/health",
-  agent: "/api/gen/health",
-};
+// ── Topology derived from routes-config.json ─────────────────────────
+// Single source of truth for route prefixes, cache classes, service
+// health paths, and deploy-KV keys. Edit routes-config.json — not here.
 
-const STATIC_SITE_BINDINGS = ["MARKETING", "HOSPITALITY", "RIALTO", "GEN"];
+const SERVICE_ENDPOINTS = Object.fromEntries(
+  topologyConfig.services.map((s) => [s.name, s.healthPath])
+);
+
+const STATIC_SITE_BINDINGS = topologyConfig.staticRoutes.map((r) => r.binding);
 
 const KV_KEYS = {
-  ci: "ci/latest",
-  deployStatic: "deploy/static",
-  deployServices: "deploy/services",
-  deployInfrastructure: "deploy/infrastructure",
-  featureFlags: "flags/all",
-  migrateUsers: "migrate/users",
-  migrateReservations: "migrate/reservations",
-  migrateAgent: "migrate/agent",
+  ...topologyConfig.kvKeys,
+  ...Object.fromEntries(
+    topologyConfig.services.map((s) => [
+      `migrate${s.name.charAt(0).toUpperCase()}${s.name.slice(1)}`,
+      s.kvMigrateKey,
+    ])
+  ),
 };
 
 /**
@@ -1141,7 +1146,9 @@ export default {
     // ── Trailing-slash redirects for SPA prefixes ────────────────────
     // Without the trailing slash, the prefix strip leaves "" which
     // normalizes to "/" and causes React Router catch-all confusion.
-    if (url.pathname === "/rialto" || url.pathname === "/hospitality" || url.pathname === "/gen") {
+    // Prefixes come from routes-config.json staticRoutes (skip catch-all).
+    const spaPrefixes = topologyConfig.staticRoutes.map((r) => r.prefix).filter((p) => p !== "");
+    if (spaPrefixes.includes(url.pathname)) {
       return addHeaders(
         Response.redirect(`https://${url.hostname}${url.pathname}/${url.search}`, 301),
         url.pathname,
@@ -1151,31 +1158,15 @@ export default {
     }
 
     // ── Static sites → Service Binding (CDN-free) ───────────────────
-    let binding;
-    let prefix = "";
-    let bindingOrigin = "";
-
-    let routeName = "marketing";
-
-    if (url.pathname.startsWith("/hospitality")) {
-      binding = env.HOSPITALITY;
-      prefix = "/hospitality";
-      bindingOrigin = "https://mattbutlerengineering-hospitality.workers.dev";
-      routeName = "hospitality";
-    } else if (url.pathname.startsWith("/rialto")) {
-      binding = env.RIALTO;
-      prefix = "/rialto";
-      bindingOrigin = "https://mattbutlerengineering-rialto-web.workers.dev";
-      routeName = "rialto";
-    } else if (url.pathname.startsWith("/gen")) {
-      binding = env.GEN;
-      prefix = "/gen";
-      bindingOrigin = "https://mattbutlerengineering-gen.workers.dev";
-      routeName = "gen";
-    } else {
-      binding = env.MARKETING;
-      bindingOrigin = "https://mattbutlerengineering-marketing.workers.dev";
-    }
+    // Route table comes from routes-config.json staticRoutes.
+    // Entries are ordered: specific prefixes first, catch-all (empty prefix) last.
+    const matchedRoute = topologyConfig.staticRoutes.find((r) =>
+      r.prefix ? url.pathname.startsWith(r.prefix) : true
+    );
+    const prefix = matchedRoute.prefix;
+    const bindingOrigin = matchedRoute.bindingOrigin;
+    const routeName = matchedRoute.routeName;
+    const binding = env[matchedRoute.binding];
 
     // Strip path prefix before forwarding to the app Worker.
     // Each app is built with base: "/<name>/" in Vite, but the Worker

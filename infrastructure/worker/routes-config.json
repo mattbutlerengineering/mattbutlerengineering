@@ -1,0 +1,62 @@
+{
+  "staticRoutes": [
+    {
+      "prefix": "/hospitality",
+      "binding": "HOSPITALITY",
+      "bindingOrigin": "https://mattbutlerengineering-hospitality.workers.dev",
+      "routeName": "hospitality",
+      "cacheClass": "static-site"
+    },
+    {
+      "prefix": "/rialto",
+      "binding": "RIALTO",
+      "bindingOrigin": "https://mattbutlerengineering-rialto-web.workers.dev",
+      "routeName": "rialto",
+      "cacheClass": "static-site"
+    },
+    {
+      "prefix": "/gen",
+      "binding": "GEN",
+      "bindingOrigin": "https://mattbutlerengineering-gen.workers.dev",
+      "routeName": "gen",
+      "cacheClass": "static-site"
+    },
+    {
+      "prefix": "",
+      "binding": "MARKETING",
+      "bindingOrigin": "https://mattbutlerengineering-marketing.workers.dev",
+      "routeName": "marketing",
+      "cacheClass": "static-site"
+    }
+  ],
+  "services": [
+    {
+      "name": "users",
+      "healthPath": "/health",
+      "kvMigrateKey": "migrate/users"
+    },
+    {
+      "name": "reservations",
+      "healthPath": "/api/health",
+      "kvMigrateKey": "migrate/reservations"
+    },
+    {
+      "name": "agent",
+      "healthPath": "/api/gen/health",
+      "kvMigrateKey": "migrate/agent"
+    }
+  ],
+  "kvKeys": {
+    "ci": "ci/latest",
+    "deployStatic": "deploy/static",
+    "deployServices": "deploy/services",
+    "deployInfrastructure": "deploy/infrastructure",
+    "featureFlags": "flags/all"
+  },
+  "cacheClasses": {
+    "static-site": {
+      "hashedAssets": "public, max-age=31536000, immutable",
+      "html": "public, max-age=0, must-revalidate"
+    }
+  }
+}
