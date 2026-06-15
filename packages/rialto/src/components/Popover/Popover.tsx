@@ -11,6 +11,7 @@ import {
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -67,22 +68,11 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<Element | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
   const close = useCallback(() => setOpen(false), []);
 
-  // Capture trigger on open; restore focus to it on close
-  useEffect(() => {
-    if (open) {
-      triggerRef.current = document.activeElement;
-    } else {
-      requestAnimationFrame(() => {
-        (triggerRef.current as HTMLElement | null)?.focus();
-        triggerRef.current = null;
-      });
-    }
-  }, [open]);
+  useReturnFocus(open);
 
   // Click outside
   useEffect(() => {

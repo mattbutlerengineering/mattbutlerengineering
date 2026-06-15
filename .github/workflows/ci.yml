@@ -286,7 +286,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Run a11y tests (accessibility vitest)
-        run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts # accessibility
+        run: pnpm --filter @mattbutlerengineering/rialto exec vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts
 
       - name: Process results and fail on agent violations
         if: always()
@@ -320,7 +320,7 @@ jobs:
               '|------|-------|',
               rows,
               '',
-              'Fix these violations before merging. Run `pnpm --dir packages/rialto vitest run src/test/accessibility` locally to reproduce.',
+              'Fix these violations before merging. Run `pnpm --filter @mattbutlerengineering/rialto exec vitest run src/test/accessibility` locally to reproduce.',
             ].join('\n');
 
             github.rest.issues.createComment({

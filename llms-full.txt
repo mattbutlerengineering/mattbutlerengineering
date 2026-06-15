@@ -3291,6 +3291,23 @@
       }, [enabled, panelRef]);
     }
   </file>
+  <file path="packages/rialto/src/hooks/useReturnFocus.ts">
+    export function useReturnFocus(open: boolean): void {
+      const triggerRef = useRef<Element | null>(null);
+    
+      useEffect(() => {
+        if (open) {
+          triggerRef.current = document.activeElement;
+        } else {
+          const captured = triggerRef.current;
+          triggerRef.current = null;
+          requestAnimationFrame(() => {
+            (captured as HTMLElement | null)?.focus();
+          });
+        }
+      }, [open]);
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */
@@ -4570,11 +4587,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{

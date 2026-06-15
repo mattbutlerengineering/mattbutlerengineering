@@ -9,6 +9,7 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { spring } from "../../tokens/motion";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import styles from "./CommandPalette.module.css";
 
@@ -88,7 +89,6 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
-    const triggerRef = useRef<Element | null>(null);
 
     /* ── Global ⌘K / Ctrl+K shortcut ────────── */
     useEffect(() => {
@@ -140,16 +140,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     const flatItems = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
     /* ── Capture trigger on open; restore focus on close ── */
-    useEffect(() => {
-      if (open) {
-        triggerRef.current = document.activeElement;
-      } else {
-        requestAnimationFrame(() => {
-          (triggerRef.current as HTMLElement | null)?.focus();
-          triggerRef.current = null;
-        });
-      }
-    }, [open]);
+    useReturnFocus(open);
 
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {
