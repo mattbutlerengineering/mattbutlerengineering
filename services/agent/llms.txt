@@ -202,11 +202,16 @@
     </item>
   </file>
   <file path="src/services/session-executor.ts">
-    <item priority="medium">
-      function getRepoPath(): string { /* ... */ }
+    <item priority="low">
+      interface SessionExecutorConfig {
+        maxConcurrent: number;
+        sessionService: typeof SessionServiceType;
+      }
     </item>
-    <item priority="high">
-      export function getActiveSessionCount(): number { /* ... */ }
+    <item priority="low">
+      interface SessionExecutor {
+        
+      }
     </item>
   </file>
   <file path="src/services/session.ts">

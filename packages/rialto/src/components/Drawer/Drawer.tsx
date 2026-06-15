@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useId, useRef, forwardRef, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { spring } from "../../tokens/motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { spring, reduced } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -56,6 +56,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   { open, onClose, title, description, children, footer, side = "right", size = "default" },
   ref
 ) {
+  const shouldReduceMotion = useReducedMotion();
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dir = useDirection(anchorRef);
@@ -89,6 +90,10 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
     .join(" ");
 
   const slideHidden = getSlideVariants(side, dir === "rtl");
+  const panelInitial = shouldReduceMotion ? {} : slideHidden;
+  const panelAnimate = shouldReduceMotion ? {} : slideOpen[side];
+  const panelExit = shouldReduceMotion ? {} : slideHidden;
+  const panelTransition = shouldReduceMotion ? reduced : spring;
 
   return (
     <>
@@ -120,10 +125,10 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               aria-labelledby={title ? titleId : undefined}
               aria-label={title ? undefined : "Drawer"}
               aria-describedby={description ? descriptionId : undefined}
-              initial={slideHidden}
-              animate={slideOpen[side]}
-              exit={slideHidden}
-              transition={spring}
+              initial={panelInitial}
+              animate={panelAnimate}
+              exit={panelExit}
+              transition={panelTransition}
             >
               {/* Header */}
               {(title || description) && (
