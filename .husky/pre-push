@@ -1,5 +1,16 @@
 #!/bin/sh
 
+# Guard: check for destructive Prisma migrations before pushing.
+# Uses the same script as CI so local and remote gates never drift.
+# Service discovery is automatic — reads services/*/prisma/schema.prisma.
+if ! node scripts/check-destructive-migrations.js; then
+  echo ""
+  echo "ERROR: Destructive migration check failed. See above for details."
+  echo "Emergency bypass: git push --no-verify"
+  echo ""
+  exit 1
+fi
+
 # Verify pnpm-lock.yaml is in sync with all package.json files.
 # This prevents the recurring CI failure where agents push code
 # that changes package.json without running pnpm install.
