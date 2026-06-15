@@ -742,6 +742,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="floor-plan">
+  <file path="apps/hospitality/src/components/floor-plan/floor-plan-geometry.ts">
+    <item priority="high">
+      export const CANVAS_WIDTH: unknown;
+    </item>
+    <item priority="high">
+      export const CANVAS_HEIGHT: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     <item priority="high">
