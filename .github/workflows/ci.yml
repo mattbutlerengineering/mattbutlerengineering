@@ -248,6 +248,9 @@ jobs:
             services/agent/src/generated
           key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
 
+      - name: Check rialto exports map is in sync
+        run: pnpm --filter @mattbutlerengineering/rialto exports:check
+
       - name: Build all packages
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

@@ -118,20 +118,11 @@ export function StatusPage() {
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const serviceResults = await Promise.all(
-      SERVICES.map(async (s) => ({
-        ...s,
-        ...(await checkService(s.url)),
-      }))
-    );
+    const [serviceResults, siteResults] = await Promise.all([
+      Promise.all(SERVICES.map(async (s) => ({ ...s, ...(await checkService(s.url)) }))),
+      Promise.all(STATIC_SITES.map(async (s) => ({ ...s, ...(await checkStaticSite(s.url)) }))),
+    ]);
     setServices(serviceResults);
-
-    const siteResults = await Promise.all(
-      STATIC_SITES.map(async (s) => ({
-        ...s,
-        ...(await checkStaticSite(s.url)),
-      }))
-    );
     setSites(siteResults);
     setLastRefresh(new Date().toISOString());
   }, []);
