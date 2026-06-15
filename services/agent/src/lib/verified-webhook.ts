@@ -39,9 +39,7 @@ export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
  * captured by createRawBodyCaptureHook. Sets request.verifiedBody on success.
  * Short-circuits with 401 on failure.
  */
-export function createVerifiedBodyPreHandler(
-  opts: VerifiedWebhookOptions
-): preHandlerHookHandler {
+export function createVerifiedBodyPreHandler(opts: VerifiedWebhookOptions): preHandlerHookHandler {
   return async (request, reply) => {
     const secret = process.env[opts.secretEnv];
     if (!secret) {
@@ -62,9 +60,7 @@ export function createVerifiedBodyPreHandler(
       | Buffer
       | undefined;
     if (!rawBody) {
-      return reply
-        .code(401)
-        .send(createProblemDetails(401, "Unauthorized", "Missing raw body"));
+      return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing raw body"));
     }
 
     const expected =

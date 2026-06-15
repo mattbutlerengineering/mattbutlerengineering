@@ -21,14 +21,14 @@ const db = createDatabase<PrismaClient>(PrismaClient);
 
 `createDatabase` accepts a PrismaClient constructor and an optional `DATABASE_URL`. It creates a `pg.Pool` with `PRISMA_CONNECTION_LIMIT` (default 5), wraps the Prisma client with query monitoring, and returns:
 
-| Export             | Type                                    | Purpose                                    |
-| ------------------ | --------------------------------------- | ------------------------------------------ |
-| `prisma`           | `T` (Prisma client)                     | Query interface with $extends monitoring   |
-| `getSlowQueryStats`| `() => SlowQueryStats`                  | Count + slowest duration (last 5 min)      |
-| `getPoolStats`     | `() => PoolStats`                       | Pool utilization metrics                   |
-| `getPoolMetrics`   | `() => PoolMetrics`                     | Pool + degradation check                   |
-| `getServiceStatus` | `() => ServiceStatus`                   | `"ok"` or `"degraded"`                     |
-| `shutdown`         | `() => Promise<void>`                   | Disconnect Prisma + end pool               |
+| Export              | Type                   | Purpose                                  |
+| ------------------- | ---------------------- | ---------------------------------------- |
+| `prisma`            | `T` (Prisma client)    | Query interface with $extends monitoring |
+| `getSlowQueryStats` | `() => SlowQueryStats` | Count + slowest duration (last 5 min)    |
+| `getPoolStats`      | `() => PoolStats`      | Pool utilization metrics                 |
+| `getPoolMetrics`    | `() => PoolMetrics`    | Pool + degradation check                 |
+| `getServiceStatus`  | `() => ServiceStatus`  | `"ok"` or `"degraded"`                   |
+| `shutdown`          | `() => Promise<void>`  | Disconnect Prisma + end pool             |
 
 Health status degrades when: slow queries exceed 10 in 5 min, or pool utilization exceeds 80%.
 

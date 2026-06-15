@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useId, useRef, forwardRef, type ReactNod
 import { AnimatePresence, motion } from "framer-motion";
 import { spring } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { Heading } from "../Heading/Heading";
 import styles from "./Drawer.module.css";
@@ -57,22 +58,11 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
 ) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<Element | null>(null);
   const dir = useDirection(anchorRef);
   const titleId = useId();
   const descriptionId = useId();
 
-  // Capture trigger element on open; restore focus to it on close
-  useEffect(() => {
-    if (open) {
-      triggerRef.current = document.activeElement;
-    } else {
-      requestAnimationFrame(() => {
-        (triggerRef.current as HTMLElement | null)?.focus();
-        triggerRef.current = null;
-      });
-    }
-  }, [open]);
+  useReturnFocus(open);
 
   /* ── Escape key ──────────────────────────── */
   const handleKeyDown = useCallback(
