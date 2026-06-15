@@ -1442,6 +1442,9 @@ importers:
       '@mbe/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@mbe/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@mbe/types':
         specifier: workspace:*
         version: link:../../packages/types
