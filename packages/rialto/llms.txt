@@ -213,11 +213,6 @@
       }
     </item>
   </file>
-  <file path="src/hooks/useReturnFocus.ts">
-    <item priority="high">
-      export function useReturnFocus(open: boolean): void { /* ... */ }
-    </item>
-  </file>
   <file path="src/hooks/useFocusTrap.ts">
     <item priority="high">
       export const FOCUSABLE_SELECTOR: unknown;
@@ -226,6 +221,10 @@
       export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useReturnFocus.ts">
+    <item priority="high">
+      export function useReturnFocus(open: boolean): void { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
