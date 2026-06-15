@@ -210,6 +210,26 @@ function collectGitHubIssues() {
   };
 }
 
+function collectIssueFeedback() {
+  const feedbackPath = resolve(ROOT, "metrics", "ai-issue-feedback.json");
+  const data = safe(() => readJson(feedbackPath));
+  if (!data || !data.categories) return { available: false };
+
+  const categories = data.categories;
+  const unhealthy = Object.entries(categories)
+    .filter(([, stats]) => stats.rejection_rate > 0.4)
+    .map(([cat]) => cat);
+
+  return {
+    available: true,
+    collected_at: data.collected_at ?? null,
+    category_count: Object.keys(categories).length,
+    unhealthy_categories: unhealthy,
+    categories,
+    budgets: data.budgets ?? {},
+  };
+}
+
 function collectSessionLogs() {
   const logDir = resolve(ROOT, ".claude", "session-logs");
   if (!existsSync(logDir)) return { available: false };
@@ -311,6 +331,7 @@ const report = {
     ciHealth: collectCiHealth(),
     lighthouse: collectLighthouse(),
     issues: collectGitHubIssues(),
+    issueFeedback: collectIssueFeedback(),
     sessionLogs: collectSessionLogs(),
   },
   thresholds: THRESHOLDS,
@@ -376,6 +397,11 @@ if (JSON_ONLY) {
         break;
       case "prMetrics":
         console.log(`   ${name}: ${data.entry_count} entries`);
+        break;
+      case "issueFeedback":
+        console.log(
+          `   ${name}: ${data.category_count} categories, ${data.unhealthy_categories.length} unhealthy (>${Math.round(0.4 * 100)}% rejected)`
+        );
         break;
       default:
         console.log(`   ${name}: available`);
