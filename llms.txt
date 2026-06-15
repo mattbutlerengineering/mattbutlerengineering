@@ -1127,12 +1127,6 @@
   </file>
   <file path="packages/agent-core/src/phases/query-phase.ts">
     <item priority="high">
-      interface StreamingResult {
-        resultMessage: SDKResultMessage | null;
-        stuckDetected: StuckPattern | null;
-      }
-    </item>
-    <item priority="high">
       class QueryPhase {
         name: unknown;
         async run(): Promise<unknown>;
@@ -2723,6 +2717,20 @@
         filePath?: string;
         lineNumber?: number;
         suggestion?: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/run-hardened-query.ts">
+    <item priority="high">
+      export const apiCircuitBreaker: unknown;
+    </item>
+    <item priority="low">
+      interface HardenedQueryConfig {
+        prompt: string;
+        cwd: string;
+        model: string;
+        maxTurns: number;
+        maxBudgetUsd: number;
       }
     </item>
   </file>
