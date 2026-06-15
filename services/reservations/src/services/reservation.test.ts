@@ -29,9 +29,14 @@ vi.mock("./availability.js", () => ({
   },
 }));
 
+vi.mock("./assert-bookable.js", () => ({
+  assertBookable: vi.fn().mockReturnValue(undefined),
+}));
+
 import { reservationService } from "./reservation.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
 
@@ -83,14 +88,15 @@ function makePrismaReservation(overrides: Record<string, unknown> = {}) {
 describe("reservationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: empty pre-fetched slices; individual tests override the pure
-    // rule results (checkTableConflict / checkPacingForSlot) as needed.
+    // Default: empty pre-fetched slices; individual tests override as needed.
     vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
       reservations: [],
       holds: [],
     });
     vi.mocked(availabilityService.checkTableConflict).mockReturnValue(false);
     vi.mocked(availabilityService.checkPacingForSlot).mockReturnValue(true);
+    // assertBookable: slot is bookable by default (returns undefined = no error).
+    vi.mocked(assertBookable).mockReturnValue(undefined);
   });
 
   describe("list", () => {
@@ -627,8 +633,44 @@ describe("reservationService", () => {
       });
     });
 
+    it("returns failure when assertBookable reports CONFLICT", async () => {
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
+
+      const result = await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Table is not available");
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns failure when assertBookable reports PACING_EXCEEDED", async () => {
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PACING_EXCEEDED",
+        message: "Pacing limit reached. Maximum 4 covers per time window.",
+      });
+
+      const result = await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Pacing limit");
+    });
+
     it("returns failure when table has conflict", async () => {
-      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(true);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
 
       const result = await reservationService.createWalkIn({
         partySize: 2,

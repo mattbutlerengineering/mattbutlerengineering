@@ -153,7 +153,7 @@ jobs:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: read
       issues: write
@@ -175,7 +175,47 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
+      - name: Poll for deploy to land
+        id: poll-deploy
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Only poll when triggered by a real workflow_run (not manual dispatch)
+          if [ -z "$EXPECTED_SHA" ]; then
+            echo "Manual dispatch — skipping SHA poll"
+            echo "sha_confirmed=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SHORT_SHA="${EXPECTED_SHA:0:7}"
+          echo "Waiting for marketing site to serve build-id=${SHORT_SHA}"
+
+          MAX_ATTEMPTS=12
+          SLEEP_SECS=15
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            LIVE_BUILD=$(curl -sf --max-time 10 "https://mattbutlerengineering.com/" 2>/dev/null \
+              | grep -oP '(?<=<meta name="build-id" content=")[^"]+' || true)
+
+            echo "Attempt ${i}/${MAX_ATTEMPTS}: live build-id='${LIVE_BUILD}', expected='${SHORT_SHA}'"
+
+            if [ "${LIVE_BUILD:0:7}" = "$SHORT_SHA" ]; then
+              echo "Deploy confirmed on production"
+              echo "sha_confirmed=true" >> "$GITHUB_OUTPUT"
+              echo "live_build_id=$LIVE_BUILD" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            if [ "$i" -lt "$MAX_ATTEMPTS" ]; then
+              sleep "$SLEEP_SECS"
+            fi
+          done
+
+          echo "::warning::Deploy SHA not confirmed after $((MAX_ATTEMPTS * SLEEP_SECS))s — proceeding with tests anyway"
+          echo "sha_confirmed=timeout" >> "$GITHUB_OUTPUT"
+          echo "live_build_id=$LIVE_BUILD" >> "$GITHUB_OUTPUT"
+
       - name: Run smoke tests
+        id: run-tests
         env:
           SMOKE_BASE_URL: "https://mattbutlerengineering.com"
           SMOKE_API_URL: "https://api.mattbutlerengineering.com"
@@ -191,33 +231,147 @@ jobs:
             tests/smoke/playwright-report/
           retention-days: 7
 
-      - name: Create issue on failure
+      - name: Find originating issue from merge commit
+        if: failure()
+        id: find-issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Extract issue numbers referenced in the merge commit (Closes #N / Fixes #N)
+          if [ -z "$HEAD_SHA" ]; then
+            echo "issue_numbers=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          COMMIT_MSG=$(git log --format="%B" -n 1 "$HEAD_SHA" 2>/dev/null || \
+            gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA" --jq '.commit.message' 2>/dev/null || true)
+
+          # Extract issue numbers from common close keywords (case-insensitive)
+          ISSUE_NUMBERS=$(echo "$COMMIT_MSG" | grep -oiE '(closes|fixes|resolves|close|fix|resolve)[[:space:]:#]+[0-9]+' \
+            | grep -oE '[0-9]+' | tr '\n' ' ' | xargs || true)
+
+          echo "issue_numbers=$ISSUE_NUMBERS" >> "$GITHUB_OUTPUT"
+          echo "Originating issues from commit: ${ISSUE_NUMBERS:-none}"
+
+      - name: Reopen originating issues
+        if: failure() && steps.find-issue.outputs.issue_numbers != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBERS: ${{ steps.find-issue.outputs.issue_numbers }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for ISSUE_NUM in $ISSUE_NUMBERS; do
+            ISSUE_STATE=$(gh issue view "$ISSUE_NUM" --repo "$GITHUB_REPOSITORY" --json state --jq '.state' 2>/dev/null || true)
+            if [ "$ISSUE_STATE" = "CLOSED" ]; then
+              gh issue reopen "$ISSUE_NUM" --repo "$GITHUB_REPOSITORY"
+              REOPEN_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              printf 'Post-deploy smoke tests failed after this issue was merged. Reopening for investigation.\n\nRun: %s\nDate: %s\n\nAuto-reopened by post-deploy-check workflow\n' \
+                "$RUN_URL" "$REOPEN_DATE" > /tmp/reopen-comment.md
+              gh issue comment "$ISSUE_NUM" \
+                --repo "$GITHUB_REPOSITORY" \
+                --body-file /tmp/reopen-comment.md
+              echo "Reopened issue #${ISSUE_NUM}"
+            else
+              echo "Issue #${ISSUE_NUM} is already open or not found — skipping reopen"
+            fi
+          done
+
+      - name: Create regression issue on failure
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ORIGINATING_ISSUES: ${{ steps.find-issue.outputs.issue_numbers }}
+          LIVE_BUILD_ID: ${{ steps.poll-deploy.outputs.live_build_id }}
+          SHA_CONFIRMED: ${{ steps.poll-deploy.outputs.sha_confirmed }}
         run: |
+          SHORT_SHA="${HEAD_SHA:0:7}"
+
+          ORIG_REF=""
+          if [ -n "$ORIGINATING_ISSUES" ]; then
+            for NUM in $ORIGINATING_ISSUES; do
+              ORIG_REF="${ORIG_REF} #${NUM}"
+            done
+          fi
+
           {
-            echo "## Smoke Test Failure"
+            echo "## Post-Deploy Smoke Test Failure"
             echo
-            echo "Post-deploy smoke tests failed after a successful deploy."
+            echo "Production smoke tests failed after a successful deploy to main."
             echo
-            echo "**Run:** ${RUN_URL}"
-            echo "**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "**Trigger:** ${TRIGGER_NAME:-manual}"
+            echo "### Deploy Details"
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **Date** | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| **Trigger** | ${TRIGGER_NAME:-manual} |"
+            echo "| **Commit SHA** | \`${SHORT_SHA:-unknown}\` |"
+            echo "| **Live Build ID** | \`${LIVE_BUILD_ID:-unknown}\` |"
+            echo "| **SHA Confirmed** | ${SHA_CONFIRMED:-unknown} |"
+            if [ -n "$ORIG_REF" ]; then
+              echo "| **Originating Issues** |${ORIG_REF} |"
+            fi
+            echo
+            echo "### Failure Run"
+            echo "[View test run logs and artifacts](${RUN_URL})"
             echo
             echo "### Next Steps"
-            echo "1. Check test artifacts for failure screenshots"
-            echo "2. Verify deploy didn't break critical user flows"
+            echo "1. Check test artifacts (screenshots, traces) in the run linked above"
+            echo "2. Verify the deploy did not break critical user flows"
             echo "3. Consider rollback if critical paths are broken"
+            if [ -n "$ORIG_REF" ]; then
+              echo "4. The originating issue(s) (${ORIG_REF}) have been reopened automatically"
+            fi
             echo
             echo "---"
             echo "*Auto-created by post-deploy-check workflow*"
-          } > /tmp/smoke-body.md
+          } > /tmp/regression-body.md
+
           gh issue create \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Post-deploy smoke tests failed" \
+            --title "Post-deploy smoke tests failed (${SHORT_SHA:-unknown})" \
             --label "ci-fix" \
             --label "ready" \
-            --body-file /tmp/smoke-body.md
+            --body-file /tmp/regression-body.md
+
+      - name: Log verification result for learning-loop
+        if: always()
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+          SHA_CONFIRMED: ${{ steps.poll-deploy.outputs.sha_confirmed }}
+          LIVE_BUILD_ID: ${{ steps.poll-deploy.outputs.live_build_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Determine outcome based on test step result
+          if [ "${{ steps.run-tests.outcome }}" = "success" ]; then
+            RESULT="pass"
+          elif [ "${{ steps.run-tests.outcome }}" = "skipped" ]; then
+            RESULT="skipped"
+          else
+            RESULT="fail"
+          fi
+
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          SHORT_SHA="${HEAD_SHA:0:7}"
+
+          # Emit structured JSON for sensor-report.mjs consumption
+          # Written to step summary so it's accessible in the workflow run
+          {
+            echo "### Production Verification Log"
+            echo '```json'
+            printf '{"event":"post_deploy_verification","timestamp":"%s","result":"%s","sha":"%s","live_build_id":"%s","sha_confirmed":"%s","trigger":"%s","run_url":"%s"}\n' \
+              "$TIMESTAMP" \
+              "$RESULT" \
+              "${SHORT_SHA:-unknown}" \
+              "${LIVE_BUILD_ID:-unknown}" \
+              "${SHA_CONFIRMED:-unknown}" \
+              "${TRIGGER_NAME:-manual}" \
+              "$RUN_URL"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Also emit as a workflow output annotation for downstream consumers
+          echo "::notice title=Post-Deploy Verification::result=${RESULT} sha=${SHORT_SHA:-unknown} sha_confirmed=${SHA_CONFIRMED:-unknown}"
