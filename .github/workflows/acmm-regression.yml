@@ -1,0 +1,68 @@
+name: ACMM Regression Detection
+
+# Continuous ACMM maturity regression detection.
+#
+# Weekly, this refreshes the ACMM report and compares the repo's maturity
+# level against the last recorded level in `.claude/acmm/state.json`. If the
+# level dropped, it auto-opens an issue (labels `acmm` + `ready`) naming the
+# regressed criteria — deduplicated so only one regression issue is open at a
+# time. If the level is stable or improved, it bumps the state timestamp.
+#
+# The comparison/dedup logic lives in `scripts/acmm-regression-check.mjs`
+# (unit-tested); this workflow just wires inputs and runs it.
+
+on:
+  schedule:
+    # Saturday 15:00 UTC = 08:00 PT — fits the documented weekend schedule.
+    - cron: "0 15 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: acmm-regression
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refresh ACMM report
+        run: node scripts/generate-acmm-report.mjs
+
+      - name: Detect regression / update state
+        run: node scripts/acmm-regression-check.mjs
+
+      - name: Commit updated state timestamp
+        run: |
+          if git diff --quiet .claude/acmm/state.json; then
+            echo "No state change to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude/acmm/state.json
+          git commit -m "chore(acmm): refresh regression-check state timestamp"
+          git push
