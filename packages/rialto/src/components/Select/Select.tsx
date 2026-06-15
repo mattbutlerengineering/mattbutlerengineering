@@ -1,9 +1,10 @@
-import { forwardRef, useId, useRef, useEffect, type KeyboardEvent } from "react";
+import { forwardRef, useRef, useEffect, type KeyboardEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { springGentle } from "../../tokens/motion";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useCombobox } from "../../hooks/useCombobox";
+import { useField } from "../../hooks/useField";
 import styles from "./Select.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -35,6 +36,11 @@ export interface SelectProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   label?: string;
+  hint?: string;
+  error?: boolean;
+  required?: boolean;
+  /** When true and not required, shows "(optional)" after the label */
+  showOptional?: boolean;
   disabled?: boolean;
   /** Explains why the select is disabled. Shown in a tooltip; requires `disabled` to be true. */
   disabledReason?: string;
@@ -50,16 +56,20 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       onChange,
       placeholder = "Select…",
       label,
+      hint,
+      error,
+      required,
+      showOptional: showOptionalProp,
       disabled,
       disabledReason,
       className,
     },
     ref
   ) => {
-    const baseId = useId();
-    const triggerId = `${baseId}-trigger`;
-    const listboxId = `${baseId}-listbox`;
-    const optionId = (index: number) => `${baseId}-option-${index}`;
+    const field = useField({ hint, error, required, showOptional: showOptionalProp });
+    const triggerId = `${field.id}-trigger`;
+    const listboxId = `${field.id}-listbox`;
+    const optionId = (index: number) => `${field.id}-option-${index}`;
 
     const wrapperRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -100,6 +110,13 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         {label && (
           <label htmlFor={triggerId} className={styles.label}>
             {label}
+            {field.showRequired && (
+              <span className={styles.required} aria-hidden="true">
+                {" "}
+                *
+              </span>
+            )}
+            {field.showOptional && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
         <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -115,6 +132,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-haspopup="listbox"
             aria-activedescendant={open && focusedOption ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={field.controlProps["aria-describedby"]}
             data-open={open}
             onClick={disabled ? (e) => e.preventDefault() : () => toggle()}
           >
@@ -191,6 +210,16 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             </motion.div>
           )}
         </AnimatePresence>
+
+        {hint && (
+          <span
+            {...field.descriptionProps}
+            className={styles.hint}
+            role={error ? "alert" : undefined}
+          >
+            {hint}
+          </span>
+        )}
       </div>
     );
   }

@@ -197,6 +197,22 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useField.ts">
+    <item priority="low">
+      interface UseFieldOptions {
+        id?: string;
+        hint?: string;
+        error?: boolean;
+        required?: boolean;
+        showOptional?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface FieldLabelProps {
+        htmlFor: string;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {

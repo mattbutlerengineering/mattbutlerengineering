@@ -1,4 +1,5 @@
 import type { ApiError } from "@mbe/types";
+import { ApiErrorSchema } from "@mbe/types";
 import type { z } from "zod";
 import { retry } from "./retry.js";
 
@@ -76,15 +77,31 @@ export class ApiClient {
     const response = await fetchWithRetry(url, fetchOptions, this.maxRetries);
 
     if (!response.ok) {
-      const error = (await response.json().catch(() => ({
-        error: "Error",
-        message: response.statusText,
-        statusCode: response.status,
-        type: "about:blank",
-        title: "Error",
-        status: response.status,
-        detail: response.statusText,
-      }))) as ApiError;
+      const raw = await response.json().catch(() => null);
+      const parsed = ApiErrorSchema.safeParse(raw);
+      // If the response body validates against ApiErrorSchema, use it directly.
+      // Otherwise, build a fallback from status line defaults and layer the raw
+      // body on top so partial server responses (e.g. { message: "..." }) still
+      // propagate their fields — including overriding `detail` with any raw
+      // `message` when neither `detail` nor `message` is in the raw body.
+      let error: ApiError;
+      if (parsed.success) {
+        error = parsed.data;
+      } else {
+        const rawObj =
+          typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+        const serverText = (rawObj.detail ?? rawObj.message ?? response.statusText) as string;
+        error = {
+          error: "Error",
+          message: serverText,
+          statusCode: response.status,
+          type: "about:blank",
+          title: "Error",
+          status: response.status,
+          detail: serverText,
+          ...rawObj,
+        };
+      }
       const clientError = new ApiClientError(error, method, path);
       this.config.onError?.(clientError);
       throw clientError;

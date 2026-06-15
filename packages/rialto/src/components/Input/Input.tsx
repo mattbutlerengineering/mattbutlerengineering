@@ -1,6 +1,7 @@
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import { useField } from "../../hooks/useField";
 import styles from "./Input.module.css";
 
 /**
@@ -39,7 +40,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       disabledReason,
       startIcon,
       endIcon,
-      showOptional,
+      showOptional: showOptionalProp,
       className,
       id,
       readOnly,
@@ -48,8 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const autoId = useId();
-    const inputId = id ?? autoId;
+    const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const wrapperClass = [styles.wrapper, error && styles.error, className]
       .filter(Boolean)
       .join(" ");
@@ -65,15 +65,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div className={wrapperClass}>
           {label && (
-            <label htmlFor={inputId} className={styles.label}>
+            <label {...field.labelProps} className={styles.label}>
               {label}
-              {required && (
+              {field.showRequired && (
                 <span className={styles.required} aria-hidden="true">
                   {" "}
                   *
                 </span>
               )}
-              {showOptional && !required && <span className={styles.optional}> (optional)</span>}
+              {field.showOptional && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
           <div className={styles.inputContainer}>
@@ -84,12 +84,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
             <input
               ref={ref}
-              id={inputId}
+              {...field.controlProps}
               className={inputClass}
               disabled={disabled || undefined}
-              aria-invalid={error || undefined}
-              aria-describedby={hint ? `${inputId}-hint` : undefined}
-              required={required}
               readOnly={readOnly}
               {...props}
             />
@@ -103,7 +100,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
           </div>
           {hint && (
-            <span id={`${inputId}-hint`} className={styles.hint}>
+            <span
+              {...field.descriptionProps}
+              className={styles.hint}
+              role={error ? "alert" : undefined}
+            >
               {hint}
             </span>
           )}
