@@ -1,4 +1,4 @@
-<codebase path=".">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b">
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     <item priority="high">
@@ -327,6 +327,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    <item priority="low">
+      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    </item>
+    <item priority="low">
+      interface BookingFlowData {
+        selectedDate: string | null;
+        selectedEndDate: string | null;
+        partySize: number;
+        slots: TimeSlot[];
+        selectedSlot: TimeSlot | null;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     <item priority="high">
@@ -538,6 +554,23 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="apps/marketing/src/data/ai-health.ts">
+    <item priority="low">
+      interface AcmmSensor {
+        available: boolean;
+        level: string;
+        score: number;
+        gaps: number;
+      }
+    </item>
+    <item priority="low">
+      interface CiSensor {
+        available: boolean;
+        passRate: number;
+        recentRuns: number;
+      }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/projects.ts">
     <item priority="low">
       interface Project {
@@ -725,6 +758,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="floor-plan">
+  <file path="apps/hospitality/src/components/floor-plan/floor-plan-geometry.ts">
+    <item priority="high">
+      export const CANVAS_WIDTH: unknown;
+    </item>
+    <item priority="high">
+      export const CANVAS_HEIGHT: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="gates">
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     <item priority="high">
@@ -885,6 +928,22 @@
       export const FLOOR_PLAN_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
+    <item priority="low">
+      interface GuestRecognitionResult {
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestRecognitionParams {
+        venueSlug: string | undefined;
+        apiBaseUrl?: string;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     <item priority="high">
       export const GUESTS_QUERY_KEY: unknown;
@@ -1030,6 +1089,14 @@
       }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useFocusTrap.ts">
+    <item priority="high">
+      export const FOCUSABLE_SELECTOR: unknown;
+    </item>
+    <item priority="high">
+      export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {
@@ -1126,12 +1193,6 @@
     </item>
   </file>
   <file path="packages/agent-core/src/phases/query-phase.ts">
-    <item priority="high">
-      interface StreamingResult {
-        resultMessage: SDKResultMessage | null;
-        stuckDetected: StuckPattern | null;
-      }
-    </item>
     <item priority="high">
       class QueryPhase {
         name: unknown;
@@ -1942,15 +2003,34 @@
     </item>
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="high">
       type PrismaFloorPlan = {
         id: string;
         venueId: string;
         name: string;
         isAc...;
+    </item>
+    <item priority="high">
+      type PrismaTable = {
+        id: string;
+        name: string;
+        tableNumber: string | n...;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/guest-identity.ts">
+    <item priority="high">
+      type GuestSnapshot = {
+        id: string;
+        name: string;
+        email: string | null;
+       ...;
+    </item>
+    <item priority="high">
+      type IncomingGuestData = {
+        name: string;
+        email?: string;
+        phone?: string;
+        d...;
     </item>
   </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
@@ -1969,9 +2049,6 @@
   </file>
   <file path="services/reservations/src/services/guest.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaGuest(guest: {
         id: string;
         venueId: string;
@@ -1989,6 +2066,12 @@
         createdAt: Date;
         updatedAt: Date;
       }): Guest { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mergeDietaryRestrictions(
+        existing: string[] | null | undefined,
+        incoming: string[] | null | undefined
+      ): string[] | null { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
@@ -2017,16 +2100,18 @@
   </file>
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
     <item priority="low">
-      interface LapsedGuestMonitorConfig {
-        getVenueIds: () => Promise<string[]>;
-        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+      interface LapsedGuestMonitorPrismaConfig {
+        prisma: PrismaClient;
         startupDelayMs?: number;
         intervalMs?: number;
       }
     </item>
     <item priority="low">
-      interface LapsedGuestMonitor {
-        
+      interface LapsedGuestMonitorCallbackConfig {
+        getVenueIds: () => Promise<string[]>;
+        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+        startupDelayMs?: number;
+        intervalMs?: number;
       }
     </item>
   </file>
@@ -2053,13 +2138,43 @@
     </item>
   </file>
   <file path="services/reservations/src/services/reservation.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    <item priority="low">
+      interface ListReservationsOptions {
+        page: number;
+        limit: number;
+        date?: string;
+        status?: ReservationStatus;
+        tableId?: string;
+      }
     </item>
-    <item priority="high">
-      type PrismaReservationWithTable = PrismaReservation & {
-        table?: PrismaTable;
-        guest?: { ...;
+    <item priority="low">
+      interface CreateReservationResult {
+        success: boolean;
+        reservation?: Reservation;
+        table?: Table;
+        error?: string;
+        conflict?: ConflictCheckResult;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/serializers.ts">
+    <item priority="low">
+      interface PrismaTableRow {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      interface PrismaReservationRow {
+        id: string;
+        date: Date;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
@@ -2094,9 +2209,6 @@
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export function mapPrismaTable(table: {
         id: string;
@@ -2116,11 +2228,11 @@
         updatedAt: Date;
       }): Table { /* ... */ }
     </item>
+    <item priority="high">
+      export const tableService: unknown;
+    </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
-    <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
     <item priority="medium">
       function mapPrismaVenueGroup(group: {
         id: string;
@@ -2129,6 +2241,27 @@
         settings: unknown;
         createdAt: Date;
       }): VenueGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenue(venue: {
+        id: string;
+        venueGroupId: string | null;
+        venueGroup?: {
+          id: string;
+          name: string;
+          slug: string;
+          settings: unknown;
+          createdAt: Date;
+        } | null;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode: string;
+        operatingHours: unknown;
+        settings: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Venue { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
@@ -2530,6 +2663,14 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/model-registry.ts">
+    <item priority="high">
+      export const MODEL_IDS: Readonly<Record<ModelTier, string>>;
+    </item>
+    <item priority="high">
+      export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>>;
+    </item>
+  </file>
   <file path="packages/agent-core/src/model-router.ts">
     <item priority="low">
       type ModelTier = "haiku" | "sonnet" | "opus";
@@ -2707,6 +2848,20 @@
         filePath?: string;
         lineNumber?: number;
         suggestion?: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/run-hardened-query.ts">
+    <item priority="high">
+      export const apiCircuitBreaker: unknown;
+    </item>
+    <item priority="low">
+      interface HardenedQueryConfig {
+        prompt: string;
+        cwd: string;
+        model: string;
+        maxTurns: number;
+        maxBudgetUsd: number;
       }
     </item>
   </file>
@@ -3127,17 +3282,14 @@
   </file>
   <file path="packages/database/src/index.ts">
     <item priority="high">
+      export function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       interface SlowQuery {
         model: string;
         operation: string;
         duration: number;
         timestamp: number;
-      }
-    </item>
-    <item priority="low">
-      interface SlowQueryStats {
-        count5min: number;
-        slowestMs: number;
       }
     </item>
   </file>
@@ -3524,6 +3676,18 @@
       }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      interface ReadinessRoutesOptions {
+        prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+        auth0JwksUrl?: string;
+        extraChecks?: Record<string, () => Promise<void>>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync { /* ... */ }
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     <item priority="low">
       interface StartServiceServerOptions {
@@ -3711,16 +3875,12 @@
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
-  <file path="tools/cli/src/api.ts">
+  <file path="tools/cli/src/cli-api-client.ts">
     <item priority="high">
-      class ApiError {
-        
-      }
+      export function createCliApiClient(): ApiClient { /* ... */ }
     </item>
     <item priority="high">
-      interface ErrorResponse {
-        message?: string;
-      }
+      export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/command-seam.ts">

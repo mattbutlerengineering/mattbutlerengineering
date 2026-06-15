@@ -398,6 +398,70 @@
       "name": "Motion tokens",
       "path": "dist/lib/motion.js",
       "limit": "1 kB"
+    },
+    {
+      "name": "Button (subpath)",
+      "path": [
+        "dist/lib/components/Button/index.js",
+        "dist/lib/chunks/Button-*.js"
+      ],
+      "limit": "900 B"
+    },
+    {
+      "name": "Card (subpath)",
+      "path": [
+        "dist/lib/components/Card/index.js",
+        "dist/lib/chunks/Card-*.js"
+      ],
+      "limit": "800 B"
+    },
+    {
+      "name": "Dialog (subpath)",
+      "path": [
+        "dist/lib/components/Dialog/index.js",
+        "dist/lib/chunks/Dialog-*.js"
+      ],
+      "limit": "1450 B"
+    },
+    {
+      "name": "Select (subpath)",
+      "path": [
+        "dist/lib/components/Select/index.js",
+        "dist/lib/chunks/Select-*.js"
+      ],
+      "limit": "1800 B"
+    },
+    {
+      "name": "Autocomplete (subpath)",
+      "path": [
+        "dist/lib/components/Autocomplete/index.js",
+        "dist/lib/chunks/Autocomplete-*.js"
+      ],
+      "limit": "2000 B"
+    },
+    {
+      "name": "CommandPalette (subpath)",
+      "path": [
+        "dist/lib/components/CommandPalette/index.js",
+        "dist/lib/chunks/CommandPalette-*.js"
+      ],
+      "limit": "2650 B"
+    },
+    {
+      "name": "Ferrofluid (subpath)",
+      "path": [
+        "dist/lib/components/Ferrofluid/index.js",
+        "dist/lib/chunks/Ferrofluid-*.js"
+      ],
+      "limit": "1150 B"
+    },
+    {
+      "name": "FlipDot (subpath)",
+      "path": [
+        "dist/lib/components/FlipDot/index.js",
+        "dist/lib/chunks/use-flip-dot-animation-*.js"
+      ],
+      "limit": "3700 B"
     }
   ],
   "license": "MIT",

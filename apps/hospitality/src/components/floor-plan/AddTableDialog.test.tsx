@@ -108,7 +108,7 @@ describe("AddTableDialog", () => {
           shape: "rectangle",
           x: 400,
           y: 300,
-          width: 100,
+          width: 80,
           height: 60,
         },
       });
