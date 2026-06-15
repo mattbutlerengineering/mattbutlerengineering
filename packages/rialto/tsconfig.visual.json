@@ -1,0 +1,14 @@
+{
+  "extends": "@mbe/config/typescript/react",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "noUncheckedIndexedAccess": true,
+    "useDefineForClassFields": true,
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["src/test/visual", "playwright.visual.config.ts", "scripts/serve-storybook.mjs"],
+  "exclude": []
+}

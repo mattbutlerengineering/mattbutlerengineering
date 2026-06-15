@@ -96,6 +96,9 @@ e2e/.auth/
 e2e/test-results/
 e2e/screenshots/
 .playwright-cli/
+# Rialto visual regression — diff outputs and HTML reports (never committed)
+packages/rialto/src/test/__diff__/
+packages/rialto/playwright-visual-report/
 
 # Lighthouse CI
 .lighthouseci/

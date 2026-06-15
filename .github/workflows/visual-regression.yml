@@ -1,0 +1,56 @@
+name: Visual Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/rialto/src/**"
+      - "packages/rialto/.storybook/**"
+      - "packages/rialto/src/test/__screenshots__/**"
+      - ".github/workflows/visual-regression.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual-regression:
+    name: Visual Regression (Storybook screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v4/v5
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+
+      - name: Build Storybook
+        run: pnpm --filter @mattbutlerengineering/rialto build-storybook
+
+      - name: Run visual regression tests
+        run: pnpm --dir packages/rialto test:visual
+
+      - name: Upload diff images on failure
+        if: failure()
+        uses: actions/upload-artifact@43b46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-regression-diffs
+          path: |
+            packages/rialto/src/test/__diff__/
+            packages/rialto/playwright-visual-report/
+          retention-days: 14

@@ -7,8 +7,8 @@
     "useDefineForClassFields": true,
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src"],
-  "exclude": ["src/showcase", "**/*.stories.tsx"]
+  "exclude": ["src/showcase", "**/*.stories.tsx", "src/test/visual"]
 }

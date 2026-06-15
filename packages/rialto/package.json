@@ -328,7 +328,7 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.lib.ts && pnpm manifest && pnpm exports",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.visual.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -338,7 +338,9 @@
     "build:registry": "pnpm exec tsx scripts/generate-registry.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test:storybook": "vitest run --config vitest.config.storybook.ts"
+    "test:storybook": "vitest run --config vitest.config.storybook.ts",
+    "test:visual": "playwright test --config playwright.visual.config.ts",
+    "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",
