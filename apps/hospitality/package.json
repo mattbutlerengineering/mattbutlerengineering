@@ -44,6 +44,7 @@
     "konva": "^10.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-hook-form": "^7.79.0",
     "react-konva": "^19.2.5",
     "react-router-dom": "catalog:"
   },
