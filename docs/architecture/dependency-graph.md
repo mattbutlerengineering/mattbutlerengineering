@@ -113,7 +113,6 @@ flowchart TD
   rialto_catalog --> config
   rialto_plugin --> @mattbutlerengineering/rialto
   rialto_plugin --> config
-  sentry --> api_client
   sentry --> types
   sentry --> config
   service_bootstrap --> auth

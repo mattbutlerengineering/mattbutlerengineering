@@ -4684,11 +4684,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -14338,7 +14341,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -14393,26 +14407,15 @@
     }
   </file>
   <file path="packages/sentry/src/react.ts">
+    export interface ReportableApiError {
+      readonly statusCode: number;
+      readonly message: string;
+      readonly method?: string;
+      readonly path?: string;
+    }
     export interface InitOptions {
       readonly appName: string;
       readonly dsn: string;
-    }
-    export function initSentry(options: InitOptions): void {
-      const config = resolveConfig(options.dsn);
-      if (!config.enabled) {
-        return;
-      }
-    
-      Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 0,
-        integrations: [],
-      });
-    
-      Sentry.setTag("app", options.appName);
     }
   </file>
   <file path="packages/service-bootstrap/src/create-service-app.ts">
