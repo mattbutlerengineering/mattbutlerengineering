@@ -28,7 +28,6 @@ import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { RateLimitDetector } from "../adapters/rate-limit-detector.js";
 import { FailoverRouter, AllAdaptersUnavailableError } from "../adapters/failover-router.js";
 import type { AgentSession, ApiResponse, PaginatedResponse, AgentSessionEvent } from "@mbe/types";
-import { createAgentApiClient } from "../cli-api-client.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -115,6 +114,29 @@ function printSession(session: AgentSession, verbose = false): void {
     console.log("Agent output:");
     console.log(session.resultText);
   }
+}
+
+async function agentApiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${AGENT_API_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    },
+  });
+
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({
+      message: response.statusText,
+    }))) as { message?: string };
+    throw new Error(error.message ?? `Request failed (${response.status})`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
 }
 
 function handleEvent(event: SessionEvent, verbose: boolean): void {
@@ -531,19 +553,16 @@ agentCommand
       }
     ) => {
       try {
-        const response = await createAgentApiClient().request<ApiResponse<AgentSession>>(
-          "/v1/sessions",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              taskDescription: task,
-              model: options.model,
-              maxTurns: parseInt(options.maxTurns, 10),
-              maxBudgetUsd: parseFloat(options.maxBudget),
-              baseBranch: options.baseBranch,
-            }),
-          }
-        );
+        const response = await agentApiRequest<ApiResponse<AgentSession>>("/v1/sessions", {
+          method: "POST",
+          body: JSON.stringify({
+            taskDescription: task,
+            model: options.model,
+            maxTurns: parseInt(options.maxTurns, 10),
+            maxBudgetUsd: parseFloat(options.maxBudget),
+            baseBranch: options.baseBranch,
+          }),
+        });
 
         console.log("Session created");
         console.log("───────────────");
@@ -582,7 +601,7 @@ agentCommand
         params.set("status", options.status);
       }
 
-      const response = await createAgentApiClient().request<PaginatedResponse<AgentSession>>(
+      const response = await agentApiRequest<PaginatedResponse<AgentSession>>(
         `/v1/sessions?${params.toString()}`
       );
 
@@ -634,9 +653,7 @@ agentCommand
   .option("-v, --verbose", "Show full output text", false)
   .action(async (id: string, options: { verbose: boolean }) => {
     try {
-      const response = await createAgentApiClient().request<ApiResponse<AgentSession>>(
-        `/v1/sessions/${id}`
-      );
+      const response = await agentApiRequest<ApiResponse<AgentSession>>(`/v1/sessions/${id}`);
 
       console.log("Session");
       console.log("───────");
@@ -654,7 +671,7 @@ agentCommand
   .action(async (id: string) => {
     try {
       // Verify session exists first
-      await createAgentApiClient().request<ApiResponse<AgentSession>>(`/v1/sessions/${id}`);
+      await agentApiRequest<ApiResponse<AgentSession>>(`/v1/sessions/${id}`);
 
       console.log(`Streaming events for session ${id}...`);
       console.log("");
@@ -672,7 +689,7 @@ agentCommand
   .description("Cancel a running session")
   .action(async (id: string) => {
     try {
-      const response = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+      const response = await agentApiRequest<ApiResponse<AgentSession>>(
         `/v1/sessions/${id}/cancel`,
         { method: "POST" }
       );
@@ -692,7 +709,7 @@ agentCommand
   .description("Delete a session")
   .action(async (id: string) => {
     try {
-      await createAgentApiClient().request<void>(`/v1/sessions/${id}`, {
+      await agentApiRequest<void>(`/v1/sessions/${id}`, {
         method: "DELETE",
       });
       console.log(`Session ${id} deleted`);
@@ -831,9 +848,7 @@ agentCommand
       if (options.summary || !id) {
         // Summary mode: fetch all sessions and aggregate
         const response =
-          await createAgentApiClient().request<PaginatedResponse<AgentSession>>(
-            "/v1/sessions?limit=100"
-          );
+          await agentApiRequest<PaginatedResponse<AgentSession>>("/v1/sessions?limit=100");
 
         const sessions = response.data;
 
@@ -890,7 +905,7 @@ agentCommand
         }
       } else {
         // Per-session breakdown
-        const response = await createAgentApiClient().request<ApiResponse<SessionWithMetrics>>(
+        const response = await agentApiRequest<ApiResponse<SessionWithMetrics>>(
           `/v1/sessions/${id}`
         );
 
@@ -960,21 +975,18 @@ agentCommand
           };
         }
 
-        const response = await createAgentApiClient().request<OrchestrateApiResponse>(
-          "/v1/orchestrate",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              taskDescription: task,
-              model: options.model,
-              sessionModel: options.sessionModel,
-              maxBudgetPerSession: parseFloat(options.maxBudget),
-              maxTurnsPerSession: parseInt(options.maxTurns, 10),
-              baseBranch: options.baseBranch,
-              maxConcurrentSessions: parseInt(options.maxConcurrent, 10),
-            }),
-          }
-        );
+        const response = await agentApiRequest<OrchestrateApiResponse>("/v1/orchestrate", {
+          method: "POST",
+          body: JSON.stringify({
+            taskDescription: task,
+            model: options.model,
+            sessionModel: options.sessionModel,
+            maxBudgetPerSession: parseFloat(options.maxBudget),
+            maxTurnsPerSession: parseInt(options.maxTurns, 10),
+            baseBranch: options.baseBranch,
+            maxConcurrentSessions: parseInt(options.maxConcurrent, 10),
+          }),
+        });
 
         const { data } = response;
 
@@ -991,7 +1003,7 @@ agentCommand
           console.log("Child Sessions:");
           for (const childId of data.childSessionIds) {
             try {
-              const child = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+              const child = await agentApiRequest<ApiResponse<AgentSession>>(
                 `/v1/sessions/${childId}`
               );
               const s = child.data;

@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@mbe/agent-core": "workspace:*",
-    "@mbe/api-client": "workspace:*",
     "@mbe/types": "workspace:*",
     "commander": "^15.0.0",
     "conf": "^15.1.0",

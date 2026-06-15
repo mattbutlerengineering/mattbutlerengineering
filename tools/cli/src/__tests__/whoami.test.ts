@@ -16,11 +16,8 @@ vi.mock("conf", () => ({
   },
 }));
 
-const mockRequest = vi.fn();
-
-vi.mock("../cli-api-client.js", () => ({
-  createCliApiClient: vi.fn(() => ({ request: mockRequest })),
-  createAgentApiClient: vi.fn(() => ({ request: vi.fn() })),
+vi.mock("../api.js", () => ({
+  apiRequest: vi.fn(),
 }));
 
 describe("whoami command", () => {
@@ -31,7 +28,6 @@ describe("whoami command", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
-    mockRequest.mockReset();
     store.clear();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -58,13 +54,14 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    mockRequest.mockResolvedValue({
+    const { apiRequest } = await import("../api.js");
+    vi.mocked(apiRequest).mockResolvedValue({
       data: {
         id: "user-123",
         email: "test@example.com",
         name: "Test User",
       },
-    });
+    } as never);
 
     await runWhoami();
 
@@ -79,13 +76,14 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    mockRequest.mockResolvedValue({
+    const { apiRequest } = await import("../api.js");
+    vi.mocked(apiRequest).mockResolvedValue({
       data: {
         id: "user-456",
         email: "noname@example.com",
         name: null,
       },
-    });
+    } as never);
 
     await runWhoami();
 
@@ -97,7 +95,8 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    mockRequest.mockRejectedValue(new Error("API unavailable"));
+    const { apiRequest } = await import("../api.js");
+    vi.mocked(apiRequest).mockRejectedValue(new Error("API unavailable"));
 
     await runWhoami();
 

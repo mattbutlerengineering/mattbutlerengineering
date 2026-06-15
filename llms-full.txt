@@ -1821,7 +1821,7 @@
     export const usersListRun = defineCommand<{ page: string; limit: string }>({
       requiresAuth: true,
       async run(opts): Promise<CommandResult> {
-        const response = await createCliApiClient().request<PaginatedResponse<User>>(
+        const response = await apiRequest<PaginatedResponse<User>>(
           `/api/v1/users?page=${opts.page}&limit=${opts.limit}`
         );
     
@@ -1840,9 +1840,7 @@
     export const usersGetRun = defineCommand<{ id: string }>({
       requiresAuth: true,
       async run(opts): Promise<CommandResult> {
-        const response = await createCliApiClient().request<ApiResponse<User>>(
-          `/api/v1/users/${opts.id}`
-        );
+        const response = await apiRequest<ApiResponse<User>>(`/api/v1/users/${opts.id}`);
         const user = response.data;
     
         return {
@@ -2028,7 +2026,7 @@
     export const whoamiRun = defineCommand({
       requiresAuth: true,
       async run(): Promise<CommandResult> {
-        const response = await createCliApiClient().request<ApiResponse<User>>("/api/v1/users/me");
+        const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
         const user = response.data;
         return {
           kind: "rows",
@@ -4686,14 +4684,11 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook(
-        "preHandler",
-        createVerifiedBodyPreHandler({
-          header: "x-remediation-signature",
-          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-          format: "raw",
-        })
-      );
+      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+        header: "x-remediation-signature",
+        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+        format: "raw",
+      }));
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -14948,19 +14943,18 @@
       return fastify;
     }
   </file>
-  <file path="tools/cli/src/cli-api-client.ts">
-    export function createCliApiClient(): ApiClient {
-      return new ApiClient({
-        baseUrl: getApiUrl(),
-        getAccessToken: () => getAccessToken() ?? null,
-        maxRetries: 0,
-      });
+  <file path="tools/cli/src/api.ts">
+    export class ApiError extends Error {
+      constructor(
+        public statusCode: number,
+        message: string
+      ) {
+        super(message);
+        this.name = "ApiError";
+      }
     }
-    export function createAgentApiClient(): ApiClient {
-      return new ApiClient({
-        baseUrl: AGENT_API_URL,
-        maxRetries: 0,
-      });
+    interface ErrorResponse {
+      message?: string;
     }
   </file>
   <file path="tools/cli/src/command-seam.ts">

@@ -19,11 +19,8 @@ vi.mock("conf", () => ({
   },
 }));
 
-const mockRequest = vi.fn();
-
-vi.mock("../cli-api-client.js", () => ({
-  createCliApiClient: vi.fn(() => ({ request: mockRequest })),
-  createAgentApiClient: vi.fn(() => ({ request: vi.fn() })),
+vi.mock("../api.js", () => ({
+  apiRequest: vi.fn(),
 }));
 
 vi.mock("../config.js", () => ({
@@ -35,17 +32,17 @@ vi.mock("../config.js", () => ({
 describe("whoami command (value-asserted via seam)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockRequest.mockReset();
   });
 
   async function runWhoamiRun(authenticated: boolean, apiResult?: unknown, apiError?: Error) {
     const { isAuthenticated } = await import("../config.js");
     vi.mocked(isAuthenticated).mockReturnValue(authenticated);
 
+    const { apiRequest } = await import("../api.js");
     if (apiError) {
-      mockRequest.mockRejectedValue(apiError);
+      vi.mocked(apiRequest).mockRejectedValue(apiError);
     } else if (apiResult !== undefined) {
-      mockRequest.mockResolvedValue(apiResult as never);
+      vi.mocked(apiRequest).mockResolvedValue(apiResult as never);
     }
 
     const { whoamiRun } = await import("../commands/whoami.js");
