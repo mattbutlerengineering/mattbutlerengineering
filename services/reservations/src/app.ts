@@ -31,8 +31,6 @@ import {
   type BookingNotifier,
 } from "./services/booking-notifications.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
-import { runLapsedGuestScan } from "./services/lapsed-guest-scan.js";
-import { emitLapsingGuests } from "./services/events.js";
 import { prisma } from "./services/database.js";
 
 export interface ReservationsAppOptions extends AppOptions {
@@ -102,30 +100,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(stripeWebhookRoutes);
 
   // Wire lapsed-guest monitor with lifecycle hooks
-  const lapsedGuestMonitor = createLapsedGuestMonitor({
-    getVenueIds: () =>
-      prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
-    runScan: (venueId) =>
-      runLapsedGuestScan(venueId, {
-        findGuestsForScan: (vid) =>
-          prisma.guest.findMany({
-            where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              communicationPreference: true,
-              reservations: {
-                where: { status: "COMPLETED" },
-                select: { startTime: true },
-                orderBy: { startTime: "asc" },
-              },
-            },
-          }),
-        emitLapsingGuests,
-      }),
-  });
+  const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
   if (process.env.NODE_ENV !== "test") {
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
     fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());

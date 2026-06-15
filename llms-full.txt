@@ -997,6 +997,28 @@
     }
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    export interface BookingFlowData {
+      selectedDate: string | null;
+      selectedEndDate: string | null;
+      partySize: number;
+      slots: TimeSlot[];
+      selectedSlot: TimeSlot | null;
+      slotsLoading: boolean;
+      slotsError: string | null;
+      hold: ReservationHold | null;
+      holdLoading: boolean;
+      holdError: string | null;
+      reservation: Reservation | null;
+      confirmLoading: boolean;
+      confirmError: string | null;
+      depositConfig: DepositConfig | null;
+      depositPaymentIntentId: string | null;
+    }
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     interface ADRFrontmatter {
@@ -11229,15 +11251,16 @@
     }
   </file>
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
-    export interface LapsedGuestMonitorConfig {
+    export interface LapsedGuestMonitorPrismaConfig {
+      prisma: PrismaClient;
+      startupDelayMs?: number;
+      intervalMs?: number;
+    }
+    export interface LapsedGuestMonitorCallbackConfig {
       getVenueIds: () => Promise<string[]>;
       runScan: (venueId: string) => Promise<LapsingGuest[]>;
       startupDelayMs?: number;
       intervalMs?: number;
-    }
-    export interface LapsedGuestMonitor {
-      start(log: FastifyBaseLogger): void;
-      stop(): void;
     }
   </file>
   <file path="services/reservations/src/services/lapsed-guest-scan.ts">
@@ -14658,6 +14681,69 @@
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
     }
   </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    export interface ReadinessRoutesOptions {
+      /** Prisma client instance — if provided, database health check is registered */
+      readonly prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+      /** Optional custom Auth0 JWKS check URL */
+      readonly auth0JwksUrl?: string;
+      /** Extra custom readiness check functions */
+      readonly extraChecks?: Record<string, () => Promise<void>>;
+    }
+    export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync {
+      const readiness = createReadinessTracker();
+    
+      if (options.prisma) {
+        readiness.registerCheck("database", async () => {
+          await options.prisma!.$queryRaw`SELECT 1`;
+        });
+      }
+    
+      const auth0Url =
+        options.auth0JwksUrl ?? "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+      readiness.registerCheck("auth", async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        try {
+          const response = await fetch(auth0Url, { signal: controller.signal });
+          if (!response.ok) {
+            throw new Error(`JWKS returned ${response.status}`);
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      });
+    
+      if (options.extraChecks) {
+        for (const [name, check] of Object.entries(options.extraChecks)) {
+          readiness.registerCheck(name, check);
+        }
+      }
+    
+      return async (fastify) => {
+        fastify.get<{ Reply: ReadinessResponse }>(
+          "/ready",
+          {
+            schema: { ...readinessSchema, operationId: "getReady" },
+            config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+          },
+          async (_request, reply) => {
+            const snapshot = await readiness.evaluate();
+            const response: ReadinessResponse = {
+              ready: snapshot.ready,
+              timestamp: snapshot.timestamp,
+              checks: snapshot.checks.map((c) => ({
+                name: c.name,
+                status: c.status,
+                ...(c.message ? { message: c.message } : {}),
+              })),
+            };
+            return reply.status(snapshot.ready ? 200 : 503).send(response);
+          }
+        );
+      };
+    }
+  </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     export interface StartServiceServerOptions {
       serviceName: string;
@@ -14933,30 +15019,7 @@
       await fastify.register(stripeWebhookRoutes);
     
       // Wire lapsed-guest monitor with lifecycle hooks
-      const lapsedGuestMonitor = createLapsedGuestMonitor({
-        getVenueIds: () =>
-          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
-        runScan: (venueId) =>
-          runLapsedGuestScan(venueId, {
-            findGuestsForScan: (vid) =>
-              prisma.guest.findMany({
-                where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  communicationPreference: true,
-                  reservations: {
-                    where: { status: "COMPLETED" },
-                    select: { startTime: true },
-                    orderBy: { startTime: "asc" },
-                  },
-                },
-              }),
-            emitLapsingGuests,
-          }),
-      });
+      const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());

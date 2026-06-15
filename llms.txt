@@ -327,6 +327,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    <item priority="low">
+      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    </item>
+    <item priority="low">
+      interface BookingFlowData {
+        selectedDate: string | null;
+        selectedEndDate: string | null;
+        partySize: number;
+        slots: TimeSlot[];
+        selectedSlot: TimeSlot | null;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     <item priority="high">
@@ -2084,16 +2100,18 @@
   </file>
   <file path="services/reservations/src/services/lapsed-guest-cron.ts">
     <item priority="low">
-      interface LapsedGuestMonitorConfig {
-        getVenueIds: () => Promise<string[]>;
-        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+      interface LapsedGuestMonitorPrismaConfig {
+        prisma: PrismaClient;
         startupDelayMs?: number;
         intervalMs?: number;
       }
     </item>
     <item priority="low">
-      interface LapsedGuestMonitor {
-        
+      interface LapsedGuestMonitorCallbackConfig {
+        getVenueIds: () => Promise<string[]>;
+        runScan: (venueId: string) => Promise<LapsingGuest[]>;
+        startupDelayMs?: number;
+        intervalMs?: number;
       }
     </item>
   </file>
@@ -3644,6 +3662,18 @@
         record: (ms: number) => void;
         checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
       }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      interface ReadinessRoutesOptions {
+        prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+        auth0JwksUrl?: string;
+        extraChecks?: Record<string, () => Promise<void>>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
