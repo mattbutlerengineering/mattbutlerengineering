@@ -1,5 +1,17 @@
 <codebase path="packages/service-bootstrap">
   <section priority="medium" role="src">
+  <file path="src/apply-versioning.ts">
+    <item priority="low">
+      interface ApiVersioningConfig {
+        currentVersion: string;
+        successorVersion?: string;
+        sunsetMonthsFromNow?: number;
+      }
+    </item>
+    <item priority="medium">
+      function computeSunsetDate(monthsFromNow: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/create-service-app.ts">
     <item priority="low">
       interface SwaggerConfig {
@@ -10,10 +22,10 @@
       }
     </item>
     <item priority="low">
-      interface ApiVersioningConfig {
-        currentVersion: string;
-        successorVersion: string;
-        sunsetMonthsFromNow: number;
+      interface ServiceAppConfig {
+        swagger: SwaggerConfig;
+        apiVersioning?: ApiVersioningConfig;
+        registerSchemas?: (fastify: FastifyInstance) => void;
       }
     </item>
   </file>

@@ -1,10 +1,7 @@
 export { createServiceApp, validateCorsOrigins } from "./create-service-app.js";
-export type {
-  ServiceAppConfig,
-  SwaggerConfig,
-  ApiVersioningConfig,
-  AppOptions,
-} from "./create-service-app.js";
+export type { ServiceAppConfig, SwaggerConfig, AppOptions } from "./create-service-app.js";
+export { applyVersioning } from "./apply-versioning.js";
+export type { ApiVersioningConfig } from "./apply-versioning.js";
 export { startServiceServer } from "./start-service-server.js";
 export type { StartServiceServerOptions } from "./start-service-server.js";
 export { createLatencyTracker, checkAuth0 } from "./health.js";
