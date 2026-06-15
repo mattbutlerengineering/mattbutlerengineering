@@ -22,7 +22,12 @@ vi.mock("@mbe/agent-core", () => ({
 
 import { runSession } from "@mbe/agent-core";
 import { sessionService } from "./session.js";
-import { executeSession, cancelSession, getActiveSessionCount } from "./session-executor.js";
+import {
+  executeSession,
+  cancelSession,
+  getActiveSessionCount,
+  createSessionExecutor,
+} from "./session-executor.js";
 import type { AgentSession } from "@mbe/types";
 
 const makeSession = (overrides: Partial<AgentSession> = {}): AgentSession => ({
@@ -338,6 +343,110 @@ describe("session-executor", () => {
 
       resolveRun();
       await execPromise.catch(() => {});
+    });
+  });
+
+  describe("createSessionExecutor factory", () => {
+    it("exports createSessionExecutor as a named export", () => {
+      expect(typeof createSessionExecutor).toBe("function");
+    });
+
+    it("returns an object with executeSession, cancelSession, getActiveSessionCount", () => {
+      const executor = createSessionExecutor({ maxConcurrent: 2, sessionService });
+      expect(typeof executor.executeSession).toBe("function");
+      expect(typeof executor.cancelSession).toBe("function");
+      expect(typeof executor.getActiveSessionCount).toBe("function");
+    });
+
+    it("two instances do not share active controllers", async () => {
+      const resolvers: (() => void)[] = [];
+      vi.mocked(runSession).mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          resolvers.push(resolve);
+        });
+        return makeSuccessResult();
+      });
+
+      const instanceA = createSessionExecutor({ maxConcurrent: 5, sessionService });
+      const instanceB = createSessionExecutor({ maxConcurrent: 5, sessionService });
+
+      const sessionA = makeSession({ id: "iso-a" });
+      const promiseA = instanceA.executeSession(sessionA);
+
+      while (resolvers.length < 1) {
+        await Promise.resolve();
+      }
+
+      // instanceA has 1 active, instanceB must have 0
+      expect(instanceA.getActiveSessionCount()).toBe(1);
+      expect(instanceB.getActiveSessionCount()).toBe(0);
+
+      resolvers.forEach((r) => r());
+      await promiseA;
+    });
+
+    it("respects its own maxConcurrent config independent of other instances", async () => {
+      const resolvers: (() => void)[] = [];
+      vi.mocked(runSession).mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          resolvers.push(resolve);
+        });
+        return makeSuccessResult();
+      });
+
+      // Instance with cap of 1
+      const tightExecutor = createSessionExecutor({ maxConcurrent: 1, sessionService });
+
+      const first = makeSession({ id: "tight-0" });
+      const firstPromise = tightExecutor.executeSession(first);
+
+      while (resolvers.length < 1) {
+        await Promise.resolve();
+      }
+
+      expect(tightExecutor.getActiveSessionCount()).toBe(1);
+
+      // Second session should be rejected because cap is 1
+      const second = makeSession({ id: "tight-1" });
+      await tightExecutor.executeSession(second);
+
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "tight-1",
+        "FAILED",
+        expect.objectContaining({
+          errors: [expect.stringContaining("Max concurrent sessions")],
+        })
+      );
+
+      resolvers.forEach((r) => r());
+      await firstPromise;
+    });
+
+    it("cancelSession on one instance does not affect another instance", async () => {
+      const resolvers: (() => void)[] = [];
+      vi.mocked(runSession).mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          resolvers.push(resolve);
+        });
+        return makeSuccessResult();
+      });
+
+      const instanceA = createSessionExecutor({ maxConcurrent: 5, sessionService });
+      const instanceB = createSessionExecutor({ maxConcurrent: 5, sessionService });
+
+      const sessionA = makeSession({ id: "cross-cancel" });
+      const promiseA = instanceA.executeSession(sessionA);
+
+      while (resolvers.length < 1) {
+        await Promise.resolve();
+      }
+
+      // cancelSession on instanceB for same ID returns false — it doesn't know about it
+      const result = await instanceB.cancelSession("cross-cancel");
+      expect(result).toBe(false);
+
+      resolvers.forEach((r) => r());
+      await promiseA;
     });
   });
 });

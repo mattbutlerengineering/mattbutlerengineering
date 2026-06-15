@@ -161,6 +161,91 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
   });
 });
 
+describe("createLapsedGuestMonitor — concurrent scanning", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("scans all venues concurrently (Promise.allSettled — one failure does not abort others)", async () => {
+    const order: string[] = [];
+
+    const getVenueIds = vi.fn<() => Promise<string[]>>().mockResolvedValue(["v1", "v2", "v3"]);
+    const runScan = vi
+      .fn<(venueId: string) => Promise<LapsingGuest[]>>()
+      .mockImplementation((venueId) => {
+        if (venueId === "v2") {
+          return Promise.reject(new Error("v2 db error"));
+        }
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            order.push(venueId);
+            resolve([]);
+          }, 10);
+        });
+      });
+
+    const log = makeLogger();
+    const monitor = createLapsedGuestMonitor({
+      getVenueIds,
+      runScan,
+      startupDelayMs: 0,
+      intervalMs: 10000,
+    });
+
+    monitor.start(log);
+    // Wait long enough for all concurrent scans to finish (all 10ms timers + buffer)
+    await new Promise((r) => setTimeout(r, 50));
+    monitor.stop();
+
+    // All three scans were launched (v2 rejects, v1 and v3 succeed)
+    expect(runScan).toHaveBeenCalledTimes(3);
+    // v1 and v3 both completed despite v2 failing
+    expect(order).toContain("v1");
+    expect(order).toContain("v3");
+    // v2's error was logged individually, not swallowed
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "v2", err: expect.any(Error) }),
+      "lapsed guest scan: venue error"
+    );
+    // The top-level scan did NOT error (allSettled absorbs individual failures)
+    expect(log.error).not.toHaveBeenCalledWith(
+      expect.objectContaining({}),
+      "lapsed guest scan: error"
+    );
+  });
+
+  it("logs per-venue error individually without aborting sibling scans", async () => {
+    const getVenueIds = vi.fn<() => Promise<string[]>>().mockResolvedValue(["va", "vb"]);
+    const runScan = vi
+      .fn<(venueId: string) => Promise<LapsingGuest[]>>()
+      .mockImplementation((venueId) => {
+        if (venueId === "va") return Promise.reject(new Error("va failure"));
+        return Promise.resolve([]);
+      });
+
+    const log = makeLogger();
+    const monitor = createLapsedGuestMonitor({
+      getVenueIds,
+      runScan,
+      startupDelayMs: 0,
+      intervalMs: 10000,
+    });
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 20));
+    monitor.stop();
+
+    // vb was still scanned even though va failed
+    expect(runScan).toHaveBeenCalledWith("vb");
+    expect(log.error).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "va" }),
+      "lapsed guest scan: venue error"
+    );
+    // No top-level crash
+    expect(log.error).not.toHaveBeenCalledWith(expect.anything(), "lapsed guest scan: error");
+  });
+});
+
 // Retain legacy callback-based tests for the function signature (backwards-compat reference)
 function makeDeps(overrides: Partial<Parameters<typeof createLapsedGuestMonitor>[0]> = {}) {
   return {

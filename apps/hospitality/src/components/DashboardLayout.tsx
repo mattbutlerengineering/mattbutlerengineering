@@ -301,7 +301,10 @@ function DashboardLayoutInner() {
       </div>
 
       {chatMounted && (
-        <div data-chat-wrapper="" style={{ display: chatOpen ? undefined : "none" }}>
+        <div
+          data-chat-wrapper=""
+          style={{ display: chatOpen ? undefined : "none", zIndex: "var(--rialto-z-overlay)" }}
+        >
           <ChatPanel
             onClose={() => setChatOpen(false)}
             api="/api/gen/agent"
