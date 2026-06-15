@@ -117,6 +117,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build --filter=@mbe/marketing
+        env:
+          VITE_BUILD_ID: ${{ github.sha }}
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/marketing/wrangler.toml

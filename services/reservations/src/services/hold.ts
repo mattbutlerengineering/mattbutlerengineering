@@ -7,6 +7,7 @@ import {
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { assertBookable } from "./assert-bookable.js";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -79,35 +80,20 @@ export const holdService = {
       }
       selectedTableId = table.id;
     } else {
-      // Pre-check: verify provided table is available
-      const hasConflict = availabilityService.checkTableConflict(
-        selectedTableId,
-        startTime,
-        endTime,
+      // Pre-check: verify provided table is available and pacing is not exceeded.
+      const bookingError = assertBookable({
+        tableId: selectedTableId,
+        window: { startTime, endTime },
+        partySize,
+        settings,
         reservations,
-        holds
-      );
+        holds,
+        excludeSessionId: sessionId,
+      });
 
-      if (hasConflict) {
-        return { success: false, error: "Table is not available for this time slot" };
+      if (bookingError) {
+        return { success: false, error: bookingError.message };
       }
-    }
-
-    // Check pacing limits (pre-check)
-    const pacingOk = availabilityService.checkPacingForSlot(
-      startTime,
-      partySize,
-      settings,
-      reservations,
-      holds
-    );
-
-    if (!pacingOk) {
-      const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot;
-      return {
-        success: false,
-        error: `Pacing limit reached. Maximum ${maxCovers} covers per time window.`,
-      };
     }
 
     // Wrap conflict re-check + hold creation in a transaction to prevent
