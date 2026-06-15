@@ -999,24 +999,23 @@
   </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     interface ADRFrontmatter {
       id: string;
       title: string;
       status: string;
       prohibited_patterns?: string[];
+    }
+    function parseADR(filePath: string): ADRFrontmatter | null {
+      const content = readFileSync(filePath, "utf8");
+      const match = content.match(/^---([\s\S]*?)---/);
+      if (!match) return null;
+    
+      try {
+        return yaml.load(match[1]) as ADRFrontmatter;
+      } catch (e) {
+        console.error(`Error parsing ADR at ${filePath}:`, e);
+        return null;
+      }
     }
   </file>
   <file path="tools/cli/src/commands/agent-eval.ts">
@@ -1158,19 +1157,6 @@
     }
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const checkDepsCommand = new Command("check-deps")
       .description("Audit dependency version consistency across the monorepo")
       .action(async () => {
@@ -1257,19 +1243,6 @@
     }
   </file>
   <file path="tools/cli/src/commands/compound.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const compoundCommand = new Command("compound")
       .description("Perform the final Compounding phase: Identify and codify task learnings")
       .action(async () => {
@@ -1339,23 +1312,30 @@
       });
   </file>
   <file path="tools/cli/src/commands/generate.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     function writeFile(filePath: string, content: string): void {
       const dir = resolve(filePath, "..");
       mkdirSync(dir, { recursive: true });
       writeFileSync(filePath, content, "utf8");
+    }
+    function componentTemplate(name: string): string {
+      return `import styles from "./${name}.module.css";
+    
+    export interface ${name}Props {
+      children?: React.ReactNode;
+      className?: string;
+    }
+    
+    /**
+     * ${name} component
+     */
+    export function ${name}({ children, className }: ${name}Props) {
+      return (
+        <div className={\`\${styles.root} \${className || ""}\`}>
+          {children}
+        </div>
+      );
+    }
+    `;
     }
   </file>
   <file path="tools/cli/src/commands/health.ts">
@@ -1505,77 +1485,145 @@
       });
   </file>
   <file path="tools/cli/src/commands/mcp.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const mcpCommand = new Command("mcp").description(
       "Model Context Protocol (MCP) server management"
     );
   </file>
   <file path="tools/cli/src/commands/new.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     function toTitleCase(name: string): string {
       return name
         .split("-")
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ");
     }
+    function detectNextPort(appsDir: string): number {
+      const KNOWN_PORTS = [3000, 3001, 3002, 3003, 3004];
+      const usedPorts = new Set<number>(KNOWN_PORTS);
+    
+      if (existsSync(appsDir)) {
+        const appDirs = readdirSync(appsDir, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+    
+        for (const appDir of appDirs) {
+          const viteConfigPath = join(appsDir, appDir, "vite.config.ts");
+          if (existsSync(viteConfigPath)) {
+            const content = readFileSync(viteConfigPath, "utf8");
+            const match = /port:\s*(\d+)/.exec(content);
+            if (match) {
+              usedPorts.add(parseInt(match[1], 10));
+            }
+          }
+        }
+      }
+    
+      let port = 3005;
+      while (usedPorts.has(port)) {
+        port++;
+      }
+      return port;
+    }
   </file>
   <file path="tools/cli/src/commands/pack.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     function truncateType(type: string, maxLength = 60): string {
       if (type.length <= maxLength) return type;
       return type.substring(0, maxLength - 3) + "...";
     }
+    function getSkeleton(node: Node): string {
+      if (
+        Node.isFunctionDeclaration(node) ||
+        Node.isMethodDeclaration(node) ||
+        Node.isConstructorDeclaration(node)
+      ) {
+        const body = node.getBody();
+        if (body) {
+          const text = node.getText();
+          const bodyText = body.getText();
+          return text.replace(bodyText, "{ /* ... */ }");
+        }
+      }
+    
+      if (Node.isArrowFunction(node)) {
+        const body = node.getBody();
+        if (body) {
+          const text = node.getText();
+          const bodyText = body.getText();
+          return text.replace(bodyText, "{ /* ... */ }");
+        }
+      }
+    
+      if (Node.isClassDeclaration(node)) {
+        const name = node.getName() || "AnonymousClass";
+        const members = node
+          .getMembers()
+          .slice(0, 5)
+          .map((m) => {
+            if (Node.isMethodDeclaration(m)) {
+              return `async ${m.getName() ?? "method"}(): Promise<unknown>;`;
+            }
+            if (Node.isPropertyDeclaration(m)) {
+              return `${m.getName() ?? "prop"}: ${truncateType(m.getTypeNode()?.getText() ?? "unknown")};`;
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n  ");
+        return `class ${name} {\n  ${members}\n}`;
+      }
+    
+      if (Node.isInterfaceDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const props = node
+          .getProperties()
+          .slice(0, 5)
+          .map((p) => {
+            return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getTypeNode()?.getText() ?? "unknown")};`;
+          })
+          .join("\n  ");
+        return `interface ${name} {\n  ${props}\n}`;
+      }
+    
+      if (Node.isTypeAliasDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const type = node.getTypeNode();
+        if (type && Node.isUnionTypeNode(type)) {
+          const types = type
+            .getTypeNodes()
+            .map((t) => t.getText().substring(0, 30))
+            .join(" | ");
+          return `type ${name} = ${types};`;
+        }
+        return `type ${name} = ${truncateType(type?.getText() || "unknown")};`;
+      }
+    
+      if (Node.isEnumDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const members = node
+          .getMembers()
+          .slice(0, 10)
+          .map((m) => `${m.getName()}${m.getValue() !== undefined ? " = " + m.getValue() : ""}`)
+          .join(", ");
+        return `enum ${name} { ${members} }`;
+      }
+    
+      if (Node.isVariableStatement(node)) {
+        if (node.isExported()) {
+          const declarations = node.getDeclarations();
+          const declsText = declarations
+            .map((d) => {
+              const name = d.getName();
+              const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
+              return `export const ${name}: ${type};`;
+            })
+            .join("\n");
+          return declsText;
+        }
+      }
+    
+      return "";
+    }
   </file>
   <file path="tools/cli/src/commands/prime.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const primeCommand = new Command("prime")
       .description("Just-In-Time context priming: Pack relevant directories for a task")
       .argument("<directive>", "The task description to identify relevant context")
@@ -1621,19 +1669,6 @@
       });
   </file>
   <file path="tools/cli/src/commands/stats.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     interface AgentSessionRecord {
       timestamp: string;
       sessionId: string;
@@ -1646,21 +1681,43 @@
       humanInterventions: number;
       costUsd: number;
     }
+    export const logSessionCommand = new Command("log-session")
+      .description("Log agent session performance metrics")
+      .requiredOption("--id <string>", "Unique session/task ID")
+      .option("--milestone <string>", "Current milestone (e.g. v1.3)")
+      .option("--model <string>", "Model ID used", "unknown")
+      .requiredOption("--research <number>", "Number of research turns", parseInt)
+      .requiredOption("--execution <number>", "Number of execution turns", parseInt)
+      .option("--success", "Whether it passed on first attempt", false)
+      .option("--interventions <number>", "Number of human interventions", parseInt, 0)
+      .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
+      .action(async (options) => {
+        const root = findMonorepoRoot(process.cwd());
+        const logDir = join(root, "docs/logs");
+        const logFile = join(logDir, "agent-perf.jsonl");
+    
+        if (!existsSync(logDir)) {
+          mkdirSync(logDir, { recursive: true });
+        }
+    
+        const record: AgentSessionRecord = {
+          timestamp: new Date().toISOString(),
+          sessionId: options.id,
+          milestone: options.milestone,
+          modelId: options.model,
+          researchTurns: options.research,
+          executionTurns: options.execution,
+          totalTurns: options.research + options.execution,
+          firstPassSuccess: !!options.success,
+          humanInterventions: options.interventions,
+          costUsd: options.cost,
+        };
+    
+        appendFileSync(logFile, JSON.stringify(record) + "\n");
+        console.log(`✅ Session ${options.id} logged to ${logFile}`);
+      });
   </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const syncRulesCommand = new Command("sync-rules")
       .description("Synchronize agent rules from AGENTS.md to tool-specific files")
       .action(async () => {
@@ -1699,41 +1756,108 @@
       });
   </file>
   <file path="tools/cli/src/commands/up.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     function run(command: string, cwd: string) {
       console.log(`\n🏃 Running: ${command}`);
       execSync(command, { cwd, stdio: "inherit" });
     }
+    export const upCommand = new Command("up")
+      .description("Launch the entire development environment (Docker, DB, Turbo)")
+      .option("--skip-infra", "Skip Docker infrastructure setup", false)
+      .option("--skip-db", "Skip database push/seed", false)
+      .action(async (options) => {
+        const root = findMonorepoRoot(process.cwd());
+    
+        console.log("🚀 Starting MBE Development Stack...");
+    
+        try {
+          // 1. Pre-flight checks
+          try {
+            execSync("docker --version", { stdio: "ignore" });
+          } catch {
+            console.error("❌ Error: Docker is not installed or not in PATH.");
+            process.exit(1);
+          }
+    
+          // 2. Infrastructure
+          if (!options.skipInfra) {
+            console.log("\n📦 Setting up infrastructure...");
+            run("docker compose -f infrastructure/docker-compose.yml up postgres -d --wait", root);
+          }
+    
+          // 3. Database & Environment
+          if (!options.skipDb) {
+            console.log("\n💾 Initializing environment and database...");
+            run("pnpm env:init", root);
+            run("pnpm db:push", root);
+            // Check for seed script
+            const hasSeed =
+              existsSync(join(root, "scripts/seed.js")) ||
+              existsSync(join(root, "packages/api-client/scripts/seed.ts"));
+            if (hasSeed) {
+              // If there's a seed script in package.json, run it
+              try {
+                run("pnpm db:seed", root);
+              } catch {
+                console.log("⚠️ No db:seed script found or it failed. Skipping seeding.");
+              }
+            }
+          }
+    
+          // 4. Turbo Dev
+          console.log("\n📡 Launching dev servers via Turbo...");
+          const turbo = spawn("pnpm", ["dev"], { cwd: root, stdio: "inherit" });
+    
+          turbo.on("close", (code) => {
+            console.log(`\n👋 Turbo exited with code ${code}`);
+            process.exit(code || 0);
+          });
+        } catch (error) {
+          console.error("\n❌ Bootstrapping failed:", error instanceof Error ? error.message : error);
+          process.exit(1);
+        }
+      });
   </file>
   <file path="tools/cli/src/commands/users.ts">
-    export const usersCommand = new Command("users").description("User management commands");
+    export const usersListRun = defineCommand<{ page: string; limit: string }>({
+      requiresAuth: true,
+      async run(opts): Promise<CommandResult> {
+        const response = await apiRequest<PaginatedResponse<User>>(
+          `/api/v1/users?page=${opts.page}&limit=${opts.limit}`
+        );
+    
+        const rows = response.data.map((user) => ({
+          id: user.id,
+          email: user.email,
+          name: user.name ?? "-",
+        }));
+    
+        const { page, totalPages, total } = response.pagination;
+        const footer = `Page ${page} of ${totalPages} (${total} total)`;
+    
+        return { kind: "rows", rows, footer };
+      },
+    });
+    export const usersGetRun = defineCommand<{ id: string }>({
+      requiresAuth: true,
+      async run(opts): Promise<CommandResult> {
+        const response = await apiRequest<ApiResponse<User>>(`/api/v1/users/${opts.id}`);
+        const user = response.data;
+    
+        return {
+          kind: "rows",
+          rows: [
+            { field: "ID", value: user.id },
+            { field: "Email", value: user.email },
+            { field: "Name", value: user.name ?? "(not set)" },
+            { field: "Verified", value: user.emailVerified ? "Yes" : "No" },
+            { field: "Created", value: user.createdAt },
+            { field: "Updated", value: user.updatedAt },
+          ],
+        };
+      },
+    });
   </file>
   <file path="tools/cli/src/commands/visual.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     export const visualCommand = new Command("visual")
       .description("Run visual regression tests via Playwright")
       .argument("[filter]", "Filter tests by component ID (e.g., button)")
@@ -1766,19 +1890,6 @@
       });
   </file>
   <file path="tools/cli/src/commands/wave.ts">
-    function findMonorepoRoot(startDir: string): string {
-      let dir = startDir;
-      const maxDepth = 10;
-      for (let i = 0; i < maxDepth; i++) {
-        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
-          return dir;
-        }
-        const parent = resolve(dir, "..");
-        if (parent === dir) break;
-        dir = parent;
-      }
-      return startDir;
-    }
     interface WaveResult {
       task: string;
       branchName: string;
@@ -1786,33 +1897,154 @@
       success: boolean;
       error?: string;
     }
+    export const waveCommand = new Command("wave")
+      .description("Execute multiple tasks in parallel using git worktrees")
+      .argument("<tasks...>", "List of tasks to execute")
+      .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
+      .option("--base-branch <branch>", "Base branch to branch from", "main")
+      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--model <model>", "Model to use for the agent", "claude-sonnet-4-6")
+      .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
+      .option("--max-turns <n>", "Maximum turns per agent", "100")
+      .action(async (tasks: string[], options) => {
+        const root = findMonorepoRoot(process.cwd());
+        const maxParallel = parseInt(options.maxParallel, 10) || 3;
+        const maxBudget = parseFloat(options.maxBudget) || 2;
+        const maxTurns = parseInt(options.maxTurns, 10) || 100;
+        console.log(`🚀 Starting Wave with ${tasks.length} tasks (max parallel: ${maxParallel})...`);
+    
+        const results: WaveResult[] = [];
+        const queue = [...tasks];
+        const active = new Set<Promise<void>>();
+    
+        const runTask = async (task: string) => {
+          let worktree;
+          try {
+            console.log(`\n🌊 Spawning worktree for task: "${task}"`);
+            worktree = await createWorktree(root, options.baseBranch, task);
+    
+            console.log(`   Branch: ${worktree.branchName}`);
+            console.log(`   Path:   ${worktree.path}`);
+    
+            // Run agent in the worktree
+            const agentArgs = [
+              "agent",
+              "run",
+              task,
+              "--no-pr",
+              "--adapter",
+              options.adapter,
+              "--model",
+              options.model,
+              "--max-budget",
+              String(maxBudget),
+              "--max-turns",
+              String(maxTurns),
+            ];
+            const agentProcess = spawn("mbe", agentArgs, {
+              cwd: worktree.path,
+              stdio: "inherit",
+            });
+    
+            const success = await new Promise<boolean>((resolve) => {
+              agentProcess.on("close", (code) => resolve(code === 0));
+            });
+    
+            results.push({
+              task,
+              branchName: worktree.branchName,
+              worktreePath: worktree.path,
+              success,
+            });
+    
+            if (success) {
+              console.log(`✅ Task succeeded: "${task}"`);
+            } else {
+              console.log(`❌ Task failed:    "${task}"`);
+            }
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error(`💥 Error running task "${task}":`, msg);
+            results.push({
+              task,
+              branchName: worktree?.branchName || "unknown",
+              worktreePath: worktree?.path || "unknown",
+              success: false,
+              error: msg,
+            });
+          }
+        };
+    
+        while (queue.length > 0 || active.size > 0) {
+          while (queue.length > 0 && active.size < maxParallel) {
+            const task = queue.shift()!;
+            const promise = runTask(task).then(() => {
+              active.delete(promise);
+            });
+            active.add(promise);
+          }
+          if (active.size > 0) {
+            await Promise.race(active);
+          }
+        }
+    
+        console.log("\n🏁 Wave execution complete. Processing results...");
+    
+        // Final sequential merge
+        const successful = results.filter((r) => r.success);
+        if (successful.length > 0) {
+          console.log(`\nMerging ${successful.length} successful branches into current branch...`);
+          for (const res of successful) {
+            try {
+              console.log(`   Merging ${res.branchName}...`);
+              execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
+            } catch {
+              console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
+            }
+          }
+        }
+    
+        // Cleanup worktrees
+        console.log("\n🧹 Cleaning up worktrees...");
+        for (const res of results) {
+          if (res.worktreePath !== "unknown") {
+            await removeWorktree(root, res.worktreePath).catch(() => {});
+          }
+        }
+    
+        console.log("\n✨ Done.");
+    
+        const failed = results.filter((r) => !r.success);
+        if (failed.length > 0) {
+          console.log(`\n⚠️  ${failed.length} tasks failed:`);
+          failed.forEach((f) => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
+          process.exit(1);
+        }
+      });
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
+    export const whoamiRun = defineCommand({
+      requiresAuth: true,
+      async run(): Promise<CommandResult> {
+        const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
+        const user = response.data;
+        return {
+          kind: "rows",
+          rows: [
+            { field: "ID", value: user.id },
+            { field: "Email", value: user.email },
+            { field: "Name", value: user.name ?? "(not set)" },
+            { field: "API", value: getApiUrl() },
+          ],
+        };
+      },
+    });
     export const whoamiCommand = new Command("whoami")
       .description("Show current user info")
-      .action(async () => {
-        if (!isAuthenticated()) {
-          console.log("Not logged in. Run: mbe login");
-          process.exit(1);
-        }
-    
-        try {
-          const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
-          const user = response.data;
-    
-          console.log("User Info");
-          console.log("---------");
-          console.log(`ID:    ${user.id}`);
-          console.log(`Email: ${user.email}`);
-          console.log(`Name:  ${user.name ?? "(not set)"}`);
-          console.log("");
-          console.log(`API:   ${getApiUrl()}`);
-        } catch (error) {
-          if (error instanceof Error) {
-            console.error(`Error: ${error.message}`);
-          }
-          process.exit(1);
-        }
+      .option("--json", "Output raw JSON")
+      .action(async (opts: { json?: boolean }) => {
+        const result = await whoamiRun({});
+        await runCommand(result, opts);
       });
   </file>
   </section>
@@ -14567,6 +14799,13 @@
       message?: string;
     }
   </file>
+  <file path="tools/cli/src/command-seam.ts">
+    export type Row = Record<string, unknown>;
+    export type CommandResult =
+      | { kind: "rows"; rows: Row[]; footer?: string }
+      | { kind: "json"; data: unknown }
+      | { kind: "error"; message: string; exitCode?: number };
+  </file>
   <file path="tools/cli/src/config.ts">
     interface ConfigSchema {
       accessToken?: string;
@@ -14591,6 +14830,20 @@
       budget?: number;
       maxTurns?: number;
       adapter?: AdapterType;
+    }
+  </file>
+  <file path="tools/cli/src/monorepo-root.ts">
+    export function findMonorepoRoot(startDir: string): string {
+      let dir = startDir;
+      for (let i = 0; i < MAX_DEPTH; i++) {
+        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
+          return dir;
+        }
+        const parent = resolve(dir, "..");
+        if (parent === dir) break;
+        dir = parent;
+      }
+      return startDir;
     }
   </file>
   <file path="tools/cli/src/resolve-issue-model.ts">

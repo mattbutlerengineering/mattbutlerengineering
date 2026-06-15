@@ -1,0 +1,329 @@
+<codebase path="tools/cli">
+  <section priority="medium" role="adapters">
+  <file path="src/adapters/claude-adapter.ts">
+    <item priority="medium">
+      function detectRateLimitInError(message: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/cli-adapter.ts">
+    <item priority="low">
+      interface AdapterConfig {
+        taskDescription: string;
+        worktreePath: string;
+        repoPath: string;
+        baseBranch: string;
+        model?: string;
+      }
+    </item>
+    <item priority="low">
+      interface AdapterResult {
+        success: boolean;
+        hasChanges: boolean;
+        rateLimited: boolean;
+        error?: string;
+        durationMs: number;
+      }
+    </item>
+  </file>
+  <file path="src/adapters/failover-router.ts">
+    <item priority="high">
+      class AllAdaptersUnavailableError {
+        cooldowns: ReadonlyMap<string, number>;
+      }
+    </item>
+    <item priority="low">
+      type RoutedAdapterResult = AdapterResult & {
+        /** Name of the adapter that produced...;
+    </item>
+  </file>
+  <file path="src/adapters/gemini-adapter.ts">
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/opencode-adapter.ts">
+    <item priority="medium">
+      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectRateLimiting(output: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/rate-limit-detector.ts">
+    <item priority="high">
+      export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      class RateLimitDetector {
+        states: Map<string, AdapterState>;
+        cooldownMs: number;
+        async markRateLimited(): Promise<unknown>;
+        async markSuccess(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="commands">
+  <file path="src/commands/adr.ts">
+    <item priority="high">
+      interface ADRFrontmatter {
+        id: string;
+        title: string;
+        status: string;
+        prohibited_patterns?: string[];
+      }
+    </item>
+    <item priority="medium">
+      function parseADR(filePath: string): ADRFrontmatter | null { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/agent-eval.ts">
+    <item priority="high">
+      export const agentEvalCommand: unknown;
+    </item>
+    <item priority="medium">
+      function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/agent-frontmatter.ts">
+    <item priority="low">
+      async function readStdin(): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const frontmatterCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/agent.ts">
+    <item priority="medium">
+      function formatDuration(ms: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatCost(usd: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/check-deps.ts">
+    <item priority="high">
+      export const checkDepsCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/cleanup-worktrees.ts">
+    <item priority="medium">
+      function getGitRoot(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getWorktreeDirs(): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/compound.ts">
+    <item priority="high">
+      export const compoundCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/generate.ts">
+    <item priority="medium">
+      function writeFile(filePath: string, content: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function componentTemplate(name: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/health.ts">
+    <item priority="high">
+      interface ServiceHealth {
+        status: string;
+        version?: string;
+        latency?: number;
+        checks?: Array<{ name: string; status: string; latency?: number }>;
+      }
+    </item>
+    <item priority="high">
+      interface SystemHealth {
+        status: string;
+        timestamp: string;
+        services?: Record<string, ServiceHealth>;
+        staticSites?: Record<string, { status: string }>;
+        ci?: { status: string };
+      }
+    </item>
+  </file>
+  <file path="src/commands/login.ts">
+    <item priority="high">
+      export const loginCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/logout.ts">
+    <item priority="high">
+      export const logoutCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/loop.ts">
+    <item priority="high">
+      export const loopCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/mcp.ts">
+    <item priority="high">
+      export const mcpCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/new.ts">
+    <item priority="medium">
+      function toTitleCase(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectNextPort(appsDir: string): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/pack.ts">
+    <item priority="medium">
+      function truncateType(type: string, maxLength = 60): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getSkeleton(node: Node): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/commands/prime.ts">
+    <item priority="high">
+      export const primeCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/stats.ts">
+    <item priority="high">
+      interface AgentSessionRecord {
+        timestamp: string;
+        sessionId: string;
+        milestone?: string;
+        modelId: string;
+        researchTurns: number;
+      }
+    </item>
+    <item priority="high">
+      export const logSessionCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/sync-rules.ts">
+    <item priority="high">
+      export const syncRulesCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/up.ts">
+    <item priority="medium">
+      function run(command: string, cwd: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const upCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/users.ts">
+    <item priority="high">
+      export const usersListRun: unknown;
+    </item>
+    <item priority="high">
+      export const usersGetRun: unknown;
+    </item>
+  </file>
+  <file path="src/commands/visual.ts">
+    <item priority="high">
+      export const visualCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/wave.ts">
+    <item priority="high">
+      interface WaveResult {
+        task: string;
+        branchName: string;
+        worktreePath: string;
+        success: boolean;
+        error?: string;
+      }
+    </item>
+    <item priority="high">
+      export const waveCommand: unknown;
+    </item>
+  </file>
+  <file path="src/commands/whoami.ts">
+    <item priority="high">
+      export const whoamiRun: unknown;
+    </item>
+    <item priority="high">
+      export const whoamiCommand: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/api.ts">
+    <item priority="high">
+      class ApiError {
+        
+      }
+    </item>
+    <item priority="high">
+      interface ErrorResponse {
+        message?: string;
+      }
+    </item>
+  </file>
+  <file path="src/command-seam.ts">
+    <item priority="low">
+      type Row = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      type CommandResult = { kind: "rows"; rows: Row[]; f | { kind: "json"; data: unknown  | { kind: "error"; message: stri;
+    </item>
+  </file>
+  <file path="src/config.ts">
+    <item priority="high">
+      interface ConfigSchema {
+        accessToken?: string;
+        refreshToken?: string;
+        tokenExpiry?: number;
+        apiUrl?: string;
+      }
+    </item>
+    <item priority="high">
+      export const config: unknown;
+    </item>
+  </file>
+  <file path="src/issue-frontmatter.ts">
+    <item priority="low">
+      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    </item>
+    <item priority="low">
+      interface AgentOverrides {
+        model?: ModelTier;
+        budget?: number;
+        maxTurns?: number;
+        adapter?: AdapterType;
+      }
+    </item>
+  </file>
+  <file path="src/monorepo-root.ts">
+    <item priority="high">
+      export function findMonorepoRoot(startDir: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/resolve-issue-model.ts">
+    <item priority="low">
+      interface IssueModelInput {
+        title: string;
+        labels: string[];
+        body: string;
+      }
+    </item>
+    <item priority="low">
+      interface IssueModelResult {
+        tier: ModelTier;
+        modelId: string;
+        reason: string;
+        source: "frontmatter" | "router";
+      }
+    </item>
+  </file>
+  </section>
+</codebase>

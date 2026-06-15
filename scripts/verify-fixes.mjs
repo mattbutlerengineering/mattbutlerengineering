@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } fr
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { run as runThresholdTuner } from "./threshold-tuner.mjs";
+import { getAllLabels } from "./sensors-registry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -29,7 +30,7 @@ const hoursIdx = args.indexOf("--hours");
 const LOOKBACK_HOURS = hoursIdx >= 0 ? parseInt(args[hoursIdx + 1] ?? "48", 10) : 48;
 const MAX_VERIFICATIONS = 5;
 
-const SENSOR_LABELS = ["ci-fix", "audit", "acmm", "sentry", "bug"];
+const SENSOR_LABELS = getAllLabels();
 
 function safe(fn, fallback = null) {
   try {
@@ -207,6 +208,14 @@ function verifyBug() {
 
 /* ── Route to correct verifier ───────────────────────── */
 
+function verifySecurity() {
+  return {
+    verified: false,
+    reason: "CORS/security verification: re-run cors-audit.mjs to confirm no new findings",
+    confidence: "low",
+  };
+}
+
 function verifyIssue(issue) {
   const labelNames = (issue.labels ?? []).map((l) => l.name);
 
@@ -214,6 +223,7 @@ function verifyIssue(issue) {
   if (labelNames.includes("acmm")) return verifyAcmm(issue.title);
   if (labelNames.includes("audit")) return verifyAudit(issue.title, issue.body);
   if (labelNames.includes("sentry")) return verifySentry();
+  if (labelNames.includes("security")) return verifySecurity();
   if (labelNames.includes("bug")) return verifyBug();
 
   return { verified: false, reason: "No matching verifier for labels" };

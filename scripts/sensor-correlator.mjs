@@ -8,28 +8,15 @@
  * The output replaces the raw `regressions[]` as input to the issue creation step.
  */
 
+import { buildCategoryMap, buildLabelMap } from "./sensors-registry.mjs";
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const MAX_GROUPS = 3;
 
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
-const CATEGORY_MAP = {
-  performance: [
-    "lighthouse:performance",
-    "lighthouse:speed-index",
-    "sentry:timeout_rate",
-    "ci:duration",
-  ],
-  availability: ["sentry:error_rate", "sentry:error_count", "ci:pass_rate", "ci:failures"],
-  quality: ["acmm:level", "acmm:criteria_count", "lighthouse:a11y", "lighthouse:best-practices"],
-};
-
-const LABEL_MAP = {
-  lighthouse: "audit",
-  ci: "ci-fix",
-  sentry: "sentry",
-  acmm: "acmm",
-};
+const CATEGORY_MAP = buildCategoryMap();
+const LABEL_MAP = buildLabelMap();
 
 function classifySignal(signal) {
   const key = `${signal.sensor}:${signal.metric}`;

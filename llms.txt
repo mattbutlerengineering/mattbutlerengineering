@@ -329,9 +329,6 @@
   </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       interface ADRFrontmatter {
         id: string;
@@ -339,6 +336,9 @@
         status: string;
         prohibited_patterns?: string[];
       }
+    </item>
+    <item priority="medium">
+      function parseADR(filePath: string): ADRFrontmatter | null { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-eval.ts">
@@ -366,9 +366,6 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const checkDepsCommand: unknown;
     </item>
@@ -382,19 +379,16 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/compound.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const compoundCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/generate.ts">
     <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
+      function writeFile(filePath: string, content: string): void { /* ... */ }
     </item>
     <item priority="medium">
-      function writeFile(filePath: string, content: string): void { /* ... */ }
+      function componentTemplate(name: string): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/health.ts">
@@ -432,41 +426,32 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/mcp.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const mcpCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/new.ts">
     <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
+      function toTitleCase(name: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function toTitleCase(name: string): string { /* ... */ }
+      function detectNextPort(appsDir: string): number { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/pack.ts">
     <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
+      function truncateType(type: string, maxLength = 60): string { /* ... */ }
     </item>
     <item priority="medium">
-      function truncateType(type: string, maxLength = 60): string { /* ... */ }
+      function getSkeleton(node: Node): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/prime.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const primeCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/stats.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       interface AgentSessionRecord {
         timestamp: string;
@@ -476,40 +461,37 @@
         researchTurns: number;
       }
     </item>
+    <item priority="high">
+      export const logSessionCommand: unknown;
+    </item>
   </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const syncRulesCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/up.ts">
     <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
       function run(command: string, cwd: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const upCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/users.ts">
     <item priority="high">
-      export const usersCommand: unknown;
+      export const usersListRun: unknown;
+    </item>
+    <item priority="high">
+      export const usersGetRun: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/visual.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       export const visualCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/wave.ts">
-    <item priority="medium">
-      function findMonorepoRoot(startDir: string): string { /* ... */ }
-    </item>
     <item priority="high">
       interface WaveResult {
         task: string;
@@ -519,8 +501,14 @@
         error?: string;
       }
     </item>
+    <item priority="high">
+      export const waveCommand: unknown;
+    </item>
   </file>
   <file path="tools/cli/src/commands/whoami.ts">
+    <item priority="high">
+      export const whoamiRun: unknown;
+    </item>
     <item priority="high">
       export const whoamiCommand: unknown;
     </item>
@@ -3687,6 +3675,14 @@
       }
     </item>
   </file>
+  <file path="tools/cli/src/command-seam.ts">
+    <item priority="low">
+      type Row = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      type CommandResult = { kind: "rows"; rows: Row[]; f | { kind: "json"; data: unknown  | { kind: "error"; message: stri;
+    </item>
+  </file>
   <file path="tools/cli/src/config.ts">
     <item priority="high">
       interface ConfigSchema {
@@ -3711,6 +3707,11 @@
         maxTurns?: number;
         adapter?: AdapterType;
       }
+    </item>
+  </file>
+  <file path="tools/cli/src/monorepo-root.ts">
+    <item priority="high">
+      export function findMonorepoRoot(startDir: string): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/resolve-issue-model.ts">
