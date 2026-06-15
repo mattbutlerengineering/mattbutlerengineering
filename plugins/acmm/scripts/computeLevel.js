@@ -133,6 +133,8 @@ export function computeLevel(rawDetectedIds, behavioral = {}, options = {}) {
   const strict = options.strict ?? false;
 
   // Synthesise the virtual L2 OR-group criterion before the level walk.
+  // Callers must already exclude hollow criteria from rawDetectedIds — hollow
+  // verdicts do not count (verdictCounts("hollow") === false, #2022).
   const detectedIds = new Set(rawDetectedIds);
   if ([...AGENT_INSTRUCTION_FILE_IDS].some((id) => detectedIds.has(id))) {
     detectedIds.add("acmm:agent-instructions");

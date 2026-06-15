@@ -12,6 +12,9 @@
     <item priority="high">
       export const ProblemDetailsSchema: unknown;
     </item>
+    <item priority="high">
+      export const ApiErrorSchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/common.ts">
     <item priority="high">
