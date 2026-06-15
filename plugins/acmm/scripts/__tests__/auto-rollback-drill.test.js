@@ -6,6 +6,8 @@
  * 2. The drill job exists in the workflow
  * 3. A drill run (conclusion=success, triggered by workflow_dispatch) is treated as
  *    a valid "active" run by ACMM detection
+ * 4. The workflow has a schedule trigger so the ACMM criterion stays active without
+ *    requiring manual dispatch or a real regression
  */
 
 import { test } from "node:test";
@@ -150,4 +152,13 @@ test("isWorkflowActive: skipped runs do NOT count as active", () => {
     `expected reason about no successful runs, got: ${result.reason}`
   );
   fx.cleanup();
+});
+
+test("auto-rollback.yml: schedule trigger exists for periodic drill runs", () => {
+  const content = readFileSync(WORKFLOW_PATH, "utf-8");
+  assert.ok(
+    content.includes("schedule:"),
+    "workflow must have a schedule trigger to keep ACMM criterion active without manual dispatch"
+  );
+  assert.ok(content.includes("cron:"), "schedule trigger must use cron expression");
 });

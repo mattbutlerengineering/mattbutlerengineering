@@ -91,9 +91,17 @@ Located at `.github/workflows/auto-rollback.yml`. Triggers on:
 
 ```yaml
 on:
+  schedule:
+    - cron: "17 10 * * 1" # Weekly Monday drill — keeps ACMM criterion active
+  workflow_dispatch:
+    inputs:
+      drill:
+        type: boolean # Set true for a dry-run drill
   workflow_run:
     workflows: ["Post-Deploy Check"]
     types: [completed]
 ```
 
-Only runs when the Post-Deploy Check workflow **fails** (`conclusion == 'failure'`).
+The `workflow_run` path only activates when the Post-Deploy Check workflow **fails** (`conclusion == 'failure'`).
+
+The `schedule` path runs the drill job automatically every Monday at 10:17 UTC. This ensures the `acmm:auto-rollback` ACMM criterion stays active even during quiet periods with no real regressions — the ACMM scanner checks `gh run list --workflow=auto-rollback.yml` for a successful run within 365 days.

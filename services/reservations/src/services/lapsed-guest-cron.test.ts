@@ -17,6 +17,151 @@ function makeLogger(): FastifyBaseLogger {
   } as unknown as FastifyBaseLogger;
 }
 
+type MockPrisma = {
+  venue: { findMany: ReturnType<typeof vi.fn> };
+  guest: { findMany: ReturnType<typeof vi.fn> };
+};
+
+function makePrisma(overrides: Partial<MockPrisma> = {}): MockPrisma {
+  return {
+    venue: { findMany: vi.fn().mockResolvedValue([{ id: "venue-1" }]) },
+    guest: { findMany: vi.fn().mockResolvedValue([]) },
+    ...overrides,
+  };
+}
+
+describe("createLapsedGuestMonitor (prisma interface)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("queries venues and guests using prisma client", async () => {
+    const prisma = makePrisma();
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 100,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    expect(prisma.venue.findMany).toHaveBeenCalledWith({ select: { id: true } });
+    expect(prisma.guest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ venueId: "venue-1", visitCount: { gte: 3 } }),
+      })
+    );
+  });
+
+  it("logs when lapsing guests are found via prisma", async () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS);
+
+    // Guest with visits that trigger lapse detection
+    const lapsingGuest = {
+      id: "g-1",
+      name: "Jane",
+      email: "jane@example.com",
+      phone: null,
+      communicationPreference: "both",
+      reservations: [
+        { startTime: daysAgo(35) },
+        { startTime: daysAgo(28) },
+        { startTime: daysAgo(21) },
+      ],
+    };
+
+    const prisma = makePrisma({
+      guest: { findMany: vi.fn().mockResolvedValue([lapsingGuest]) },
+    });
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 100,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    expect(log.info).toHaveBeenCalledWith(
+      { venueId: "venue-1", count: 1 },
+      "lapsed guest scan: found lapsing guests"
+    );
+  });
+
+  it("logs error when prisma query throws", async () => {
+    const err = new Error("db failure");
+    const prisma = makePrisma({
+      venue: { findMany: vi.fn().mockRejectedValue(err) },
+    });
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 100,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    expect(log.error).toHaveBeenCalledWith({ err }, "lapsed guest scan: error");
+  });
+
+  it("stop() prevents further scans from running", async () => {
+    const prisma = makePrisma();
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 50,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    const callsAfterStop = (prisma.venue.findMany as ReturnType<typeof vi.fn>).mock.calls.length;
+    await new Promise((r) => setTimeout(r, 120));
+    expect((prisma.venue.findMany as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+      callsAfterStop
+    );
+  });
+
+  it("guest query selects required fields and filters by COMPLETED reservations", async () => {
+    const prisma = makePrisma();
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 100,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    const call = (prisma.guest.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.select).toMatchObject({
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      communicationPreference: true,
+      reservations: expect.objectContaining({
+        where: { status: "COMPLETED" },
+        select: { startTime: true },
+      }),
+    });
+  });
+});
+
+// Retain legacy callback-based tests for the function signature (backwards-compat reference)
 function makeDeps(overrides: Partial<Parameters<typeof createLapsedGuestMonitor>[0]> = {}) {
   return {
     getVenueIds: vi.fn<() => Promise<string[]>>().mockResolvedValue(["venue-1"]),
@@ -27,7 +172,7 @@ function makeDeps(overrides: Partial<Parameters<typeof createLapsedGuestMonitor>
   };
 }
 
-describe("createLapsedGuestMonitor", () => {
+describe("createLapsedGuestMonitor (legacy callback interface)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });

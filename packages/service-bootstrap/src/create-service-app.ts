@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
@@ -14,6 +14,9 @@ import {
 } from "@mbe/observability";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { errorHandlerPlugin } from "./error-handler.js";
+import { applyVersioning } from "./apply-versioning.js";
+import type { ApiVersioningConfig } from "./apply-versioning.js";
+export type { ApiVersioningConfig } from "./apply-versioning.js";
 
 /**
  * Swagger/OpenAPI configuration for the service.
@@ -23,15 +26,6 @@ export interface SwaggerConfig {
   readonly description: string;
   readonly serverUrl: string;
   readonly version?: string;
-}
-
-/**
- * API versioning configuration.
- */
-export interface ApiVersioningConfig {
-  readonly currentVersion: string;
-  readonly successorVersion: string;
-  readonly sunsetMonthsFromNow: number;
 }
 
 /**
@@ -231,64 +225,16 @@ export async function createServiceApp(
   // --- Error Handler (RFC 7807) ---
   await fastify.register(errorHandlerPlugin);
 
-  // --- API Versioning (inlined from @mbe/api-versioning) ---
-  const {
-    currentVersion,
-    successorVersion: configuredSuccessorVersion,
-    sunsetMonthsFromNow = 6,
-  } = config.apiVersioning ?? {
-    currentVersion: "v1",
-    successorVersion: "v2",
-    sunsetMonthsFromNow: 6,
-  };
-
-  const successorVersion =
-    configuredSuccessorVersion !== undefined
-      ? configuredSuccessorVersion
-      : (() => {
-          const match = currentVersion.match(/^v(\d+)$/);
-          if (match) {
-            return `v${parseInt(match[1], 10) + 1}`;
-          }
-          return undefined;
-        })();
-
-  const sunsetDate = (() => {
-    const date = new Date();
-    date.setMonth(date.getMonth() + sunsetMonthsFromNow);
-    return date.toUTCString();
-  })();
-
-  fastify.addHook("onSend", async (request, reply) => {
-    reply.header("API-Version", currentVersion);
-    if (successorVersion) {
-      const path = request.url.replace(/\/v\d+/, `/${successorVersion}`);
-      reply.header("Link", `<${path}>; rel="successor-version"`);
-    }
-  });
-
-  fastify.decorate("addDeprecationHeaders", (reply: FastifyReply) => {
-    reply.header("Deprecation", "true");
-    reply.header("Sunset", sunsetDate);
-    if (successorVersion) {
-      const path = reply.request.url.replace(/\/v\d+/, `/${successorVersion}`);
-      reply.header("Link", `<${path}>; rel="successor-version"`);
-    }
-  });
-
-  fastify.decorate("apiVersion", currentVersion);
-  fastify.decorate("successorVersion", successorVersion);
-  fastify.decorate("sunsetDate", sunsetDate);
+  // --- API Versioning ---
+  // Policy (successor computation, sunset headers, deprecation decorators) is
+  // governed by ADR-002 and lives in apply-versioning.ts.
+  applyVersioning(fastify, config.apiVersioning);
 
   return fastify;
 }
 
 declare module "fastify" {
   interface FastifyInstance {
-    apiVersion: string;
-    successorVersion?: string;
-    sunsetDate: string;
-    addDeprecationHeaders: (reply: FastifyReply) => void;
     rateLimitMonitor: RateLimitMonitor;
   }
 }

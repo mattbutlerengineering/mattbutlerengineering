@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 import { classifyTask } from "./task-signal-registry.js";
 
 const execFileAsync = promisify(execFile);

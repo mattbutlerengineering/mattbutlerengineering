@@ -1,6 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 

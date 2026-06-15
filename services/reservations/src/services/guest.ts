@@ -9,20 +9,12 @@ import type {
   GuestSegment,
   PaginatedResponse,
 } from "@mbe/types";
-import { paginate, toPaginationMeta } from "@mbe/database";
+import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
 import { emitLapsingGuests } from "./events.js";
-
-function isPrismaNotFound(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
-  );
-}
+import { buildGuestUpdateData } from "./guest-identity.js";
 
 function mapPrismaGuest(guest: {
   id: string;
@@ -66,26 +58,6 @@ function mapPrismaGuest(guest: {
     createdAt: guest.createdAt.toISOString(),
     updatedAt: guest.updatedAt.toISOString(),
   };
-}
-
-/**
- * Compute the union of two string arrays, preserving order and deduplicating.
- * Returns null if both inputs are null/undefined/empty.
- */
-function mergeDietaryRestrictions(
-  existing: string[] | null | undefined,
-  incoming: string[] | null | undefined
-): string[] | null {
-  const existingArr = existing ?? [];
-  const incomingArr = incoming ?? [];
-  if (existingArr.length === 0 && incomingArr.length === 0) return null;
-  const merged = [...existingArr];
-  for (const item of incomingArr) {
-    if (!merged.includes(item)) {
-      merged.push(item);
-    }
-  }
-  return merged.length > 0 ? merged : null;
 }
 
 export const guestService = {
@@ -132,79 +104,36 @@ export const guestService = {
     venueId: string,
     data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
   ): Promise<Guest> {
-    // Try to find by email first
-    if (data.email) {
-      const existingByEmail = await prisma.guest.findUnique({
-        where: { venueId_email: { venueId, email: data.email } },
-      });
-      if (existingByEmail) {
-        const updateData: Prisma.GuestUpdateInput = {};
-        if (existingByEmail.name !== data.name) {
-          updateData.name = data.name;
-        }
-        if (data.phone && existingByEmail.phone !== data.phone) {
-          updateData.phone = data.phone;
-        }
-        // Merge dietary restrictions (union, no duplicates)
-        if (data.dietaryRestrictions && data.dietaryRestrictions.length > 0) {
-          const existingDietary = existingByEmail.dietaryRestrictions as string[] | null;
-          const merged = mergeDietaryRestrictions(existingDietary, data.dietaryRestrictions);
-          // Only update if new restrictions were added
-          const hasNewRestrictions =
-            merged !== null &&
-            (existingDietary === null ||
-              merged.length > existingDietary.length ||
-              merged.some((r) => !existingDietary.includes(r)));
-          if (hasNewRestrictions) {
-            updateData.dietaryRestrictions = merged as Prisma.InputJsonValue;
-          }
-        }
-        if (Object.keys(updateData).length > 0) {
-          const updated = await prisma.guest.update({
-            where: { id: existingByEmail.id },
-            data: updateData,
-          });
-          return mapPrismaGuest(updated);
-        }
-        return mapPrismaGuest(existingByEmail);
-      }
-    }
+    // Resolve identity: email takes precedence over phone
+    const existing =
+      (data.email
+        ? await prisma.guest.findUnique({
+            where: { venueId_email: { venueId, email: data.email } },
+          })
+        : null) ??
+      (data.phone
+        ? await prisma.guest.findUnique({
+            where: { venueId_phone: { venueId, phone: data.phone } },
+          })
+        : null);
 
-    // Try to find by phone
-    if (data.phone) {
-      const existingByPhone = await prisma.guest.findUnique({
-        where: { venueId_phone: { venueId, phone: data.phone } },
-      });
-      if (existingByPhone) {
-        const updateData: Prisma.GuestUpdateInput = {};
-        if (existingByPhone.name !== data.name) {
-          updateData.name = data.name;
-        }
-        if (data.email && existingByPhone.email !== data.email) {
-          updateData.email = data.email;
-        }
-        // Merge dietary restrictions (union, no duplicates)
-        if (data.dietaryRestrictions && data.dietaryRestrictions.length > 0) {
-          const existingDietary = existingByPhone.dietaryRestrictions as string[] | null;
-          const merged = mergeDietaryRestrictions(existingDietary, data.dietaryRestrictions);
-          const hasNewRestrictions =
-            merged !== null &&
-            (existingDietary === null ||
-              merged.length > existingDietary.length ||
-              merged.some((r) => !existingDietary.includes(r)));
-          if (hasNewRestrictions) {
-            updateData.dietaryRestrictions = merged as Prisma.InputJsonValue;
-          }
-        }
-        if (Object.keys(updateData).length > 0) {
-          const updated = await prisma.guest.update({
-            where: { id: existingByPhone.id },
-            data: updateData,
-          });
-          return mapPrismaGuest(updated);
-        }
-        return mapPrismaGuest(existingByPhone);
+    if (existing) {
+      const snapshot = {
+        id: existing.id,
+        name: existing.name,
+        email: existing.email,
+        phone: existing.phone,
+        dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
+      };
+      const updateData = buildGuestUpdateData(snapshot, data);
+      if (Object.keys(updateData).length > 0) {
+        const updated = await prisma.guest.update({
+          where: { id: existing.id },
+          data: updateData,
+        });
+        return mapPrismaGuest(updated);
       }
+      return mapPrismaGuest(existing);
     }
 
     // Create new guest

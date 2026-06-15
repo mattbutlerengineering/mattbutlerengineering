@@ -57,23 +57,16 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    ```bash
    # Architecture audit (ADR + dependency constraints)
    pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps
-   # Generated-artifact drift — regenerate, then check if anything changed
-   pnpm graph && pnpm generate:dep-graph     # only if you touched package.json / pnpm-workspace.yaml / pnpm-lock.yaml
-   pnpm pack-changed                          # regenerates per-package llms.txt for changed packages
-   node scripts/detect-instruction-rot.mjs    # CI runs this; catches stale refs pack-changed misses
-   git status --short                         # surfaces any regenerated artifacts
+   # Generated-artifact drift — regenerate EVERYTHING from source, exactly like CI
+   pnpm build --filter @mbe/cli...            # build CLI + transitive deps (agent-core) so regen runs in a bare worktree
+   pnpm regen                                  # CI-EQUIVALENT: regenerate every artifact family from source
+   node scripts/detect-instruction-rot.mjs    # CI runs this; catches stale instruction refs
+   git status --short                          # surfaces any artifact the regen changed
    ```
 
-   If `check-adr`/`check-deps` fail, fix the violation. If regeneration changed artifacts (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`), stage **those specific files** alongside your change (never `git add -A`) — CI's Integrity check fails on uncommitted drift.
+   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick `pack-changed`.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pack-changed` has blind spots that have repeatedly broken the merge train: it skips the root (workspace-aggregate) `llms.txt`, skips families like `registry.json` / `generated-schemas.ts`, and misses `llms-full.txt`-only drift. `pnpm regen` covers all of them. (Note: `pnpm regen --check` is only a working-tree-vs-index `git diff` — it catches "regenerated but forgot to stage," NOT "committed artifact is stale vs source," so it is **not** a substitute for actually running `pnpm regen`.)
 
-   **If you ADDED or DELETED a package** (new or removed `package.json`), the **root** `llms.txt`/`llms-full.txt` also drift — and `pnpm pack-changed` does NOT cover root, so the drift slips past the Integrity *sync* step and fails the *instruction-rot* step instead (`[ROT] llms.txt: Reference to deleted package …`). Regenerate root explicitly and re-verify:
-
-   ```bash
-   pnpm --filter @mbe/cli start pack .        # regenerate the root (workspace-aggregate) llms.txt
-   node scripts/detect-instruction-rot.mjs    # must print "✓ No instruction rot detected"
-   ```
-
-   Stage the root `llms.txt`/`llms-full.txt` alongside the dep-graph regen.
+   If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
 
 5. **Simplify** — Review your changes. Remove unnecessary complexity. If you added more than 20 lines, look for opportunities to simplify, then re-run gates.
 
