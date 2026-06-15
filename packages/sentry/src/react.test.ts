@@ -182,13 +182,24 @@ describe("reportApiError", () => {
       method: overrides.method ?? "GET",
       path: overrides.path ?? "/api/v1/test",
       message: overrides.message ?? "Error",
-      name: "ApiClientError",
-      response: {
-        status: overrides.statusCode,
-        message: overrides.message ?? "Error",
-      },
     };
   }
+
+  it("accepts a plain structural object without any cast", () => {
+    // This test verifies reportApiError uses a structural type, not ApiClientError.
+    // No 'as never' or import from @mbe/api-client should be needed.
+    const error: { statusCode: number; message: string; method?: string; path?: string } = {
+      statusCode: 404,
+      message: "Not Found",
+      method: "GET",
+      path: "/api/v1/test",
+    };
+
+    // Should compile and run without error
+    reportApiError(error);
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledTimes(1);
+  });
 
   it("calls captureException for 5xx server errors", () => {
     const error = makeError({
@@ -198,7 +209,7 @@ describe("reportApiError", () => {
       message: "Internal Server Error",
     });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockCaptureException).toHaveBeenCalledWith(error);
     expect(mockCaptureMessage).not.toHaveBeenCalled();
@@ -207,7 +218,7 @@ describe("reportApiError", () => {
   it("calls captureException for 502 server errors", () => {
     const error = makeError({ statusCode: 502, message: "Bad Gateway" });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
@@ -220,7 +231,7 @@ describe("reportApiError", () => {
       message: "Unauthorized",
     });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockCaptureMessage).toHaveBeenCalledWith("Unauthorized", "warning");
     expect(mockCaptureException).not.toHaveBeenCalled();
@@ -234,7 +245,7 @@ describe("reportApiError", () => {
       message: "Forbidden",
     });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockCaptureMessage).toHaveBeenCalledWith("Forbidden", "warning");
     expect(mockCaptureException).not.toHaveBeenCalled();
@@ -248,7 +259,7 @@ describe("reportApiError", () => {
       message: "Not Found",
     });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockCaptureException).not.toHaveBeenCalled();
     expect(mockCaptureMessage).not.toHaveBeenCalled();
@@ -261,7 +272,7 @@ describe("reportApiError", () => {
       path: "/api/v1/venues/missing",
     });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockAddBreadcrumb).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -279,7 +290,7 @@ describe("reportApiError", () => {
   it("uses error level in breadcrumb for 5xx", () => {
     const error = makeError({ statusCode: 503 });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "error" }));
   });
@@ -287,7 +298,7 @@ describe("reportApiError", () => {
   it("uses warning level in breadcrumb for 4xx", () => {
     const error = makeError({ statusCode: 422 });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
   });
@@ -295,7 +306,7 @@ describe("reportApiError", () => {
   it("uses warning level in breadcrumb for 401", () => {
     const error = makeError({ statusCode: 401 });
 
-    reportApiError(error as never);
+    reportApiError(error);
 
     expect(mockAddBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ level: "warning" }));
   });

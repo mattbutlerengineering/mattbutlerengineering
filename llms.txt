@@ -3581,13 +3581,18 @@
   </file>
   <file path="packages/sentry/src/react.ts">
     <item priority="low">
+      interface ReportableApiError {
+        statusCode: number;
+        message: string;
+        method?: string;
+        path?: string;
+      }
+    </item>
+    <item priority="low">
       interface InitOptions {
         appName: string;
         dsn: string;
       }
-    </item>
-    <item priority="high">
-      export function initSentry(options: InitOptions): void { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/apply-versioning.ts">

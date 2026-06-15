@@ -5,9 +5,7 @@
  * across all three locations where they're defined:
  *
  * 1. infrastructure/worker/wrangler.toml — [[services]] binding names
- * 2. infrastructure/worker/edge-router.js — STATIC_SITE_BINDINGS array, or
- *    infrastructure/worker/routes-config.json — staticRoutes[].binding (when
- *    edge-router.js derives bindings dynamically from the config file)
+ * 2. infrastructure/worker/routes-config.json — staticRoutes[].binding
  * 3. infrastructure/pulumi/index.ts — bindings array with { name, service }
  *
  * Catches the class of bug where a Worker is renamed in one file but not the
@@ -36,21 +34,10 @@ function parseWranglerBindings() {
 }
 
 function parseEdgeRouterBindings() {
-  const content = readFileSync(join(root, "infrastructure", "worker", "edge-router.js"), "utf-8");
-  // Try static array literal first (legacy form)
-  const found = content.match(/STATIC_SITE_BINDINGS\s*=\s*\[([^\]]+)\]/);
-  if (found) {
-    return found[1]
-      .split(",")
-      .map((s) => s.trim().replace(/['"]/g, ""))
-      .filter(Boolean)
-      .sort();
-  }
-  // Fall back to routes-config.json when edge-router derives bindings dynamically
-  const routesConfig = JSON.parse(
+  const config = JSON.parse(
     readFileSync(join(root, "infrastructure", "worker", "routes-config.json"), "utf-8")
   );
-  return routesConfig.staticRoutes.map((r) => r.binding).sort();
+  return config.staticRoutes.map((r) => r.binding).sort();
 }
 
 function parsePulumiBindings() {
@@ -70,9 +57,9 @@ const edgeRouter = parseEdgeRouterBindings();
 const pulumi = parsePulumiBindings();
 
 console.log("Checking service binding consistency across 3 sources...\n");
-console.log(`  wrangler.toml:   [${wrangler.join(", ")}]`);
-console.log(`  edge-router.js:  [${edgeRouter.join(", ")}]`);
-console.log(`  pulumi/index.ts: [${pulumi.join(", ")}]`);
+console.log(`  wrangler.toml:        [${wrangler.join(", ")}]`);
+console.log(`  routes-config.json:   [${edgeRouter.join(", ")}]`);
+console.log(`  pulumi/index.ts:      [${pulumi.join(", ")}]`);
 console.log("");
 
 const wranglerStr = JSON.stringify(wrangler);
@@ -90,18 +77,18 @@ if (allMatch) {
     const inWrangler = wrangler.filter((b) => !edgeRouter.includes(b));
     const inEdgeRouter = edgeRouter.filter((b) => !wrangler.includes(b));
     if (inWrangler.length > 0)
-      console.log(`  In wrangler.toml but NOT edge-router.js: ${inWrangler.join(", ")}`);
+      console.log(`  In wrangler.toml but NOT routes-config.json: ${inWrangler.join(", ")}`);
     if (inEdgeRouter.length > 0)
-      console.log(`  In edge-router.js but NOT wrangler.toml: ${inEdgeRouter.join(", ")}`);
+      console.log(`  In routes-config.json but NOT wrangler.toml: ${inEdgeRouter.join(", ")}`);
   }
 
   if (edgeRouterStr !== pulumiStr) {
     const inEdgeRouter = edgeRouter.filter((b) => !pulumi.includes(b));
     const inPulumi = pulumi.filter((b) => !edgeRouter.includes(b));
     if (inEdgeRouter.length > 0)
-      console.log(`  In edge-router.js but NOT pulumi/index.ts: ${inEdgeRouter.join(", ")}`);
+      console.log(`  In routes-config.json but NOT pulumi/index.ts: ${inEdgeRouter.join(", ")}`);
     if (inPulumi.length > 0)
-      console.log(`  In pulumi/index.ts but NOT edge-router.js: ${inPulumi.join(", ")}`);
+      console.log(`  In pulumi/index.ts but NOT routes-config.json: ${inPulumi.join(", ")}`);
   }
 
   console.log("\nUpdate all 3 files to use the same set of service bindings.");

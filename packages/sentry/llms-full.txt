@@ -37,26 +37,15 @@
     }
   </file>
   <file path="src/react.ts">
+    export interface ReportableApiError {
+      readonly statusCode: number;
+      readonly message: string;
+      readonly method?: string;
+      readonly path?: string;
+    }
     export interface InitOptions {
       readonly appName: string;
       readonly dsn: string;
-    }
-    export function initSentry(options: InitOptions): void {
-      const config = resolveConfig(options.dsn);
-      if (!config.enabled) {
-        return;
-      }
-    
-      Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 0,
-        integrations: [],
-      });
-    
-      Sentry.setTag("app", options.appName);
     }
   </file>
   </section>

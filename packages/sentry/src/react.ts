@@ -1,7 +1,17 @@
 import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
-import type { ApiClientError } from "@mbe/api-client";
 import { resolveConfig } from "./config.js";
+
+/**
+ * Structural error type accepted by reportApiError.
+ * Any object with statusCode and message satisfies this — including ApiClientError.
+ */
+export interface ReportableApiError {
+  readonly statusCode: number;
+  readonly message: string;
+  readonly method?: string;
+  readonly path?: string;
+}
 
 export interface InitOptions {
   readonly appName: string;
@@ -40,7 +50,7 @@ export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void {
  * - 401/403 → captureMessage with "warning" severity
  * - Other 4xx → breadcrumb only
  */
-export function reportApiError(error: ApiClientError): void {
+export function reportApiError(error: ReportableApiError): void {
   const code = error.statusCode;
 
   Sentry.addBreadcrumb({

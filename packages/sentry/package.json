@@ -40,7 +40,6 @@
     }
   },
   "dependencies": {
-    "@mbe/api-client": "workspace:^",
     "@mbe/types": "workspace:^",
     "@sentry/node": "^10.57.0",
     "@sentry/react": "^10.57.0",
