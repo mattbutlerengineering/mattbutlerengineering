@@ -18,10 +18,10 @@ src/
 
 ## Exports
 
-| Entry                  | Key exports                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| `@mbe/notifications`   | `NotificationDispatcher`, `ResendNotificationAdapter`, `TwilioSmsAdapter`, `buildBookingEmailContent`, `generateBookingIcal` |
-| `@mbe/notifications/ical` | `generateBookingIcal`, `IcalEventInput`, `IcalMethod`                        |
+| Entry                     | Key exports                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `@mbe/notifications`      | `NotificationDispatcher`, `ResendNotificationAdapter`, `TwilioSmsAdapter`, `buildBookingEmailContent`, `generateBookingIcal` |
+| `@mbe/notifications/ical` | `generateBookingIcal`, `IcalEventInput`, `IcalMethod`                                                                        |
 
 ## NotificationDispatcher
 
@@ -30,7 +30,7 @@ Routes notifications based on `CommunicationPreference`:
 | Preference           | Email | SMS | Marketing OK |
 | -------------------- | ----- | --- | ------------ |
 | `email_only`         | Yes   | No  | Yes          |
-| `sms_only`           | Yes*  | Yes | Yes          |
+| `sms_only`           | Yes\* | Yes | Yes          |
 | `both`               | Yes   | Yes | Yes          |
 | `transactional_only` | Yes   | No  | No           |
 

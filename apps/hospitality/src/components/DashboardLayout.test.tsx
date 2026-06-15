@@ -223,6 +223,24 @@ describe("DashboardLayout", () => {
     });
   });
 
+  it("chat wrapper has z-index style to clear the navbar stacking context", async () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      isLoading: false,
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+    } as any);
+    renderLayout("/");
+
+    const chatNav = screen.getByText("Chat");
+    const user = userEvent.setup();
+    await user.click(chatNav);
+
+    const wrapper = screen.getByTestId("chat-panel").closest("[data-chat-wrapper]") as HTMLElement;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper.style.zIndex).toBeTruthy();
+  });
+
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",

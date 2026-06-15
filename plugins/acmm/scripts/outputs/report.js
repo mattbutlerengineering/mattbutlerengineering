@@ -26,7 +26,10 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
  */
-export function writeReport(cwd, { state, criteria, sources, computation, diff, hollowCriteria = [] }) {
+export function writeReport(
+  cwd,
+  { state, criteria, sources, computation, diff, hollowCriteria = [] }
+) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
   const coldStart = loadLatestColdStart(cwd);
@@ -75,15 +78,15 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff, 
     lines.push("");
     lines.push(headline);
     lines.push("");
-    if (diff.added.length > 0) {
-      lines.push(
-        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
-      );
-      lines.push("");
-    }
     if (diff.removed.length > 0) {
       lines.push(
         `**Regressed (-${diff.removed.length}):** ${diff.removed.map((id) => `\`${id}\``).join(", ")}`
+      );
+      lines.push("");
+    }
+    if (diff.added.length > 0) {
+      lines.push(
+        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
       );
       lines.push("");
     }
@@ -191,7 +194,16 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff, 
       const acc = (apr.acceptance_rate_30d * 100).toFixed(0);
       const rev = (apr.revert_rate_30d * 100).toFixed(0);
       const ttm = apr.median_time_to_merge_hours.toFixed(1);
-      const htr = (apr.human_touch_ratio * 100).toFixed(0);
+      const htrPct =
+        apr.human_touch_ratio != null ? `${(apr.human_touch_ratio * 100).toFixed(0)}%` : "—";
+      const htrIcon =
+        apr.human_touch_ratio == null
+          ? "?"
+          : apr.human_touch_ratio < 0.5
+            ? "✅"
+            : apr.human_touch_ratio < 0.75
+              ? "⚠️"
+              : "❌";
       const accIcon =
         apr.acceptance_rate_30d >= 0.8 ? "✅" : apr.acceptance_rate_30d >= 0.5 ? "⚠️" : "❌";
       const revIcon =
@@ -201,7 +213,9 @@ export function writeReport(cwd, { state, criteria, sources, computation, diff, 
       );
       lines.push(`- **${revIcon} Revert rate:** ${rev}% within 7 days of merge`);
       lines.push(`- **Median time-to-merge:** ${ttm}h`);
-      lines.push(`- **Human-touch ratio:** ${htr}% of merged PRs had non-author commits`);
+      lines.push(
+        `- **${htrIcon} Human-touch ratio (L6 gate):** ${htrPct} of merged PRs had non-author commits${apr.human_touch_ratio == null ? " (unverifiable — no data)" : ` · window: 30d · n=${apr.merged_count}`}`
+      );
       lines.push(
         `- **Sample:** ${apr.sample_size} agent PR${apr.sample_size === 1 ? "" : "s"} (${apr.open_count} still open)`
       );

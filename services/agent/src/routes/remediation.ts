@@ -6,10 +6,7 @@ import {
   checkCircuitBreaker,
   recordRemediationOutcome,
 } from "../services/remediation-circuit-breaker.js";
-import {
-  createRawBodyCaptureHook,
-  createVerifiedBodyPreHandler,
-} from "../lib/verified-webhook.js";
+import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
 
 // ── Alert payload schema ─────────────────────────────────────────────
 
@@ -29,11 +26,14 @@ type AlertPayload = z.infer<typeof AlertPayloadSchema>;
 
 export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook("preParsing", createRawBodyCaptureHook());
-  fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-    header: "x-remediation-signature",
-    secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-    format: "raw",
-  }));
+  fastify.addHook(
+    "preHandler",
+    createVerifiedBodyPreHandler({
+      header: "x-remediation-signature",
+      secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+      format: "raw",
+    })
+  );
 
   // github[js/missing-rate-limiting] — strict limit to prevent alert storms
   fastify.post<{
