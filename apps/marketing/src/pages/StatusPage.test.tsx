@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { StatusPage } from "./StatusPage.js";
 
@@ -18,18 +18,37 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 describe("StatusPage", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
   it("renders loading state", () => {
     mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
     render(<StatusPage />);
     expect(screen.getAllByTestId("spinner").length).toBeGreaterThan(0);
   });
 
-  it("renders error state", async () => {
+  it("renders error status when fetch is rejected", async () => {
     mockFetch.mockRejectedValue(new Error("Network Error"));
     render(<StatusPage />);
     await waitFor(() => {
       expect(screen.getAllByText("Down").length).toBeGreaterThan(0);
     });
+    // Page must stay mounted — key elements still present
+    expect(screen.getByText("Users API")).toBeInTheDocument();
+    expect(screen.getByText("Marketing")).toBeInTheDocument();
+  });
+
+  it("renders error status for a row when fetch returns non-ok response", async () => {
+    // All fetches return non-ok (e.g., 503)
+    mockFetch.mockResolvedValue({ ok: false, json: async () => ({}) });
+    render(<StatusPage />);
+    await waitFor(() => {
+      expect(screen.getAllByText("Down").length).toBeGreaterThan(0);
+    });
+    // Page must stay mounted
+    expect(screen.getByText("Reservations API")).toBeInTheDocument();
+    expect(screen.getByText("Hospitality")).toBeInTheDocument();
   });
 
   it("renders healthy state", async () => {
