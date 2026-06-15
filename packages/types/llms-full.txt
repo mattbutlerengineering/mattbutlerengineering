@@ -45,6 +45,20 @@
         instance: z.string().optional(),
       })
       .catchall(z.unknown());
+    export const ApiErrorSchema = z
+      .object({
+        error: z.string(),
+        message: z.string(),
+        statusCode: z.number(),
+        details: z.record(z.string(), z.unknown()).optional(),
+        // RFC 7807 compatibility (optional on legacy shape)
+        type: z.string().optional(),
+        title: z.string().optional(),
+        status: z.number().optional(),
+        detail: z.string().optional(),
+        instance: z.string().optional(),
+      })
+      .catchall(z.unknown());
   </file>
   <file path="src/schemas/common.ts">
     export const PaginationSchema = z.object({
@@ -59,6 +73,12 @@
       error: z.string(),
       message: z.string(),
       statusCode: z.number(),
+      type: z.string().optional(),
+      title: z.string().optional(),
+      status: z.number().optional(),
+      detail: z.string().optional(),
+      instance: z.string().optional(),
+      details: z.record(z.string(), z.unknown()).optional(),
     });
   </file>
   <file path="src/schemas/floor-plan.ts">

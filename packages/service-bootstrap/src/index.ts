@@ -17,3 +17,4 @@ export {
   FEATURE_FLAGS_HEADER,
 } from "./feature-flags.js";
 export type { FeatureContext, FeatureFlag } from "./feature-flags.js";
+export { errorHandlerPlugin } from "./error-handler.js";
