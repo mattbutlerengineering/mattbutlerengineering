@@ -221,6 +221,11 @@
       export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useReturnFocus.ts">
+    <item priority="high">
+      export function useReturnFocus(open: boolean): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     <item priority="high">
       interface UseScrollRevealOptions {

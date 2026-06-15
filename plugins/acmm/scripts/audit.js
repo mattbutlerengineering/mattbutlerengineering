@@ -154,7 +154,10 @@ const hollowCriteria = [];
 for (const c of ALL_CRITERIA) {
   const { verdict, substanceEvidence } = criterionVerdicts.get(c.id);
   if (verdict === "hollow") {
-    hollowCriteria.push({ id: c.id, substanceEvidence: substanceEvidence ?? "substance check failed" });
+    hollowCriteria.push({
+      id: c.id,
+      substanceEvidence: substanceEvidence ?? "substance check failed",
+    });
   }
 }
 

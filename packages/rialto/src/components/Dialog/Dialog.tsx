@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useId, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { Heading } from "../Heading/Heading";
 import styles from "./Dialog.module.css";
@@ -29,21 +30,10 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
   ({ open, onClose, title, description, children, footer }, ref) => {
     const shouldReduceMotion = useReducedMotion();
     const panelRef = useRef<HTMLDivElement>(null);
-    const triggerRef = useRef<Element | null>(null);
     const titleId = useId();
     const descriptionId = useId();
 
-    // Capture trigger element on open; restore focus to it on close
-    useEffect(() => {
-      if (open) {
-        triggerRef.current = document.activeElement;
-      } else {
-        requestAnimationFrame(() => {
-          (triggerRef.current as HTMLElement | null)?.focus();
-          triggerRef.current = null;
-        });
-      }
-    }, [open]);
+    useReturnFocus(open);
 
     // Close on Escape
     useEffect(() => {

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { useReturnFocus } from "../../hooks/useReturnFocus";
 import styles from "./ContextMenu.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -81,20 +82,9 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
   const [activeIndex, setActiveIndex] = useState(-1);
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const triggerRef = useRef<Element | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  // Capture focused element on open; restore focus to it on close
-  useEffect(() => {
-    if (open) {
-      triggerRef.current = document.activeElement;
-    } else {
-      requestAnimationFrame(() => {
-        (triggerRef.current as HTMLElement | null)?.focus();
-        triggerRef.current = null;
-      });
-    }
-  }, [open]);
+  useReturnFocus(open);
 
   const focusableIndices = items.reduce<number[]>((acc, entry, i) => {
     if (isItem(entry) && !entry.disabled) acc.push(i);

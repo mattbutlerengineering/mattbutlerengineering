@@ -3291,6 +3291,23 @@
       }, [enabled, panelRef]);
     }
   </file>
+  <file path="packages/rialto/src/hooks/useReturnFocus.ts">
+    export function useReturnFocus(open: boolean): void {
+      const triggerRef = useRef<Element | null>(null);
+    
+      useEffect(() => {
+        if (open) {
+          triggerRef.current = document.activeElement;
+        } else {
+          const captured = triggerRef.current;
+          triggerRef.current = null;
+          requestAnimationFrame(() => {
+            (captured as HTMLElement | null)?.focus();
+          });
+        }
+      }, [open]);
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */
