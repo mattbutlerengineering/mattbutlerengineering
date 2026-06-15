@@ -5,7 +5,9 @@
  * across all three locations where they're defined:
  *
  * 1. infrastructure/worker/wrangler.toml — [[services]] binding names
- * 2. infrastructure/worker/edge-router.js — STATIC_SITE_BINDINGS array
+ * 2. infrastructure/worker/edge-router.js — STATIC_SITE_BINDINGS array, or
+ *    infrastructure/worker/routes-config.json — staticRoutes[].binding (when
+ *    edge-router.js derives bindings dynamically from the config file)
  * 3. infrastructure/pulumi/index.ts — bindings array with { name, service }
  *
  * Catches the class of bug where a Worker is renamed in one file but not the
@@ -35,13 +37,20 @@ function parseWranglerBindings() {
 
 function parseEdgeRouterBindings() {
   const content = readFileSync(join(root, "infrastructure", "worker", "edge-router.js"), "utf-8");
+  // Try static array literal first (legacy form)
   const found = content.match(/STATIC_SITE_BINDINGS\s*=\s*\[([^\]]+)\]/);
-  if (!found) return [];
-  return found[1]
-    .split(",")
-    .map((s) => s.trim().replace(/['"]/g, ""))
-    .filter(Boolean)
-    .sort();
+  if (found) {
+    return found[1]
+      .split(",")
+      .map((s) => s.trim().replace(/['"]/g, ""))
+      .filter(Boolean)
+      .sort();
+  }
+  // Fall back to routes-config.json when edge-router derives bindings dynamically
+  const routesConfig = JSON.parse(
+    readFileSync(join(root, "infrastructure", "worker", "routes-config.json"), "utf-8")
+  );
+  return routesConfig.staticRoutes.map((r) => r.binding).sort();
 }
 
 function parsePulumiBindings() {
