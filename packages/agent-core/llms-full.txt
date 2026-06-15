@@ -404,7 +404,6 @@
   <file path="src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
-      lastEvaluation?: EvaluationResult;
     
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
@@ -416,7 +415,6 @@
           const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
             commitTitle: context.commitMsg,
           });
-          this.lastEvaluation = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -483,7 +481,6 @@
   <file path="src/gates/static-analysis-gate.ts">
     export class StaticAnalysisGate implements QualityGate {
       readonly name = "static-analysis";
-      lastResult?: GateResult;
     
       shouldSkip(context: GateContext): boolean {
         return context.runStaticAnalysis === false;
@@ -504,31 +501,25 @@
             const formatted = errorViolations
               .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
               .join("; ");
-            const result: GateResult = {
+            return {
               passed: false,
               gateName: this.name,
               severity: "error",
               details: `Static analysis errors: ${formatted}`,
             };
-            this.lastResult = result;
-            return result;
           }
     
           if (!analysisResult.clean) {
             const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
-            const result: GateResult = {
+            return {
               passed: true,
               gateName: this.name,
               severity: "warning",
               details: `${warnCount} warning(s) (non-blocking)`,
             };
-            this.lastResult = result;
-            return result;
           }
     
-          const result: GateResult = { passed: true, gateName: this.name, severity: "error" };
-          this.lastResult = result;
-          return result;
+          return { passed: true, gateName: this.name, severity: "error" };
         } finally {
           span.end();
         }
