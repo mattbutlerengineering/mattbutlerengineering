@@ -545,6 +545,21 @@ describe("Edge Router", () => {
     });
   });
 
+  describe("CSP connect-src uses single Auth0 origin constant", () => {
+    it("exports AUTH0_ORIGIN constant used in CSP connect-src", async () => {
+      // Verify the module exports AUTH0_ORIGIN so CSP derives from one place
+      const { AUTH0_ORIGIN } = await import("./edge-router.js");
+      expect(AUTH0_ORIGIN).toBe("https://dev-ytbgmz5ls3wh4xdx.us.auth0.com");
+    });
+
+    it("CSP connect-src includes the AUTH0_ORIGIN value", async () => {
+      const { AUTH0_ORIGIN } = await import("./edge-router.js");
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      const csp = response.headers.get("Content-Security-Policy");
+      expect(csp).toContain(`connect-src 'self' ${AUTH0_ORIGIN}`);
+    });
+  });
+
   describe("Service binding names match wrangler.toml", () => {
     it("uses the expected set of static site bindings", () => {
       // This test serves as a canary — if STATIC_SITE_BINDINGS changes
