@@ -45,19 +45,31 @@ This finds issues closed in the last 48 hours with sensor labels (`ci-fix`, `aud
 
 Note any reopened issues for the summary.
 
+### Step 2b: Collect AI Issue Feedback
+
+Run the feedback collector to update per-category acceptance rates:
+
+```bash
+node scripts/collect-ai-issue-feedback.mjs
+```
+
+This queries closed AI-created issues, classifies each as accepted/rejected/wontfix, and writes per-category rates + budgets to `metrics/ai-issue-feedback.json`. The budgets are used in Step 3 to cap issue creation for categories with high rejection rates (>40% rejected = budget halved).
+
 ### Step 3: Triage Regressions
 
-Read the sensor report from `metrics/sensor-report.json`. For each regression in the `regressions` array:
+Read the sensor report from `metrics/sensor-report.json` and the issue feedback budgets from `metrics/ai-issue-feedback.json`. For each regression in the `regressions` array:
 
-1. **Check for duplicates** — search open issues for the same sensor + metric combination:
+1. **Check category budget** — read `budgets.<category>` from the feedback file. If the budget for that regression's label category is 0, skip. Default budget is 3 if no feedback data exists.
+
+2. **Check for duplicates** — search open issues for the same sensor + metric combination:
 
    ```bash
    gh issue list --state open --search "<sensor> <metric>" --json number,title --limit 5
    ```
 
-2. **Skip if duplicate exists** — don't create noise.
+3. **Skip if duplicate exists** — don't create noise.
 
-3. **Create issue** if novel — use this format:
+4. **Create issue** if novel — use this format:
 
    ```bash
    gh issue create \
@@ -66,7 +78,7 @@ Read the sensor report from `metrics/sensor-report.json`. For each regression in
      --body "## Regression Detected\n\n**Sensor:** <sensor>\n**Metric:** <metric>\n**Current:** <value>\n**Previous:** <value>\n**Delta:** <delta>\n**Severity:** <high|medium>\n\n## Acceptance Criteria\n\n- [ ] <metric> returns to previous level or better\n- [ ] Verified by next learning loop run\n\n_Detected by [learning-loop](../.claude/skills/learning-loop/SKILL.md) sensor report_"
    ```
 
-4. **Max 3 issues per run** — prioritize high severity over medium.
+5. **Max issues per run** — use the per-category budget from `metrics/ai-issue-feedback.json` (default 3). Prioritize high severity over medium. Never exceed the budget for any single category.
 
 ### Step 4: Analyze Session Logs (Weekly)
 
@@ -135,9 +147,10 @@ Or invoke manually: `/learning-loop`
 
 ## Guardrails
 
-- Max 3 regression issues per run (avoid noise)
+- Max issues per category governed by `metrics/ai-issue-feedback.json` budgets (default 3, halved when rejection rate >40%)
 - Max 2 skill proposals per run
 - Deduplication: always check open issues before creating
 - Reopened issues get `ready` label for implement-queue pickup
 - Session log analysis only on Fridays (configurable)
 - Verification runs on 48h-old closures (configurable via `--hours`)
+- AI issue feedback collection runs every invocation (Step 2b) to keep budgets current

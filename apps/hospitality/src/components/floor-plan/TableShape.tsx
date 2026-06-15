@@ -3,6 +3,7 @@ import { Group, Rect, Circle, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
+import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — use JS constants */
 const TABLE_LABEL_COLOR = "#ffffff";
@@ -23,12 +24,6 @@ const TABLE_COLORS = {
   inactive: "#a8a49d", // Rialto Surface Deep
 };
 
-const SHAPE_DEFAULTS = {
-  rect: { width: 80, height: 60 },
-  circle: { radius: 35 },
-  square: { size: 60 },
-};
-
 export function TableShape({
   table,
   isSelected,
@@ -42,7 +37,7 @@ export function TableShape({
   // Get position from shapeMetadata or default
   const x = table.shapeMetadata?.x ?? 100;
   const y = table.shapeMetadata?.y ?? 100;
-  const shape = table.shapeMetadata?.shape ?? "rect";
+  const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
   // Determine color based on table state
@@ -80,7 +75,7 @@ export function TableShape({
       case "circle":
         return (
           <Circle
-            radius={SHAPE_DEFAULTS.circle.radius}
+            radius={SHAPE_DEFAULTS.circle.width / 2}
             fill={fillColor}
             stroke={stroke}
             strokeWidth={strokeWidth}
@@ -89,24 +84,24 @@ export function TableShape({
       case "square":
         return (
           <Rect
-            width={SHAPE_DEFAULTS.square.size}
-            height={SHAPE_DEFAULTS.square.size}
-            offsetX={SHAPE_DEFAULTS.square.size / 2}
-            offsetY={SHAPE_DEFAULTS.square.size / 2}
+            width={SHAPE_DEFAULTS.square.width}
+            height={SHAPE_DEFAULTS.square.height}
+            offsetX={SHAPE_DEFAULTS.square.width / 2}
+            offsetY={SHAPE_DEFAULTS.square.height / 2}
             fill={fillColor}
             stroke={stroke}
             strokeWidth={strokeWidth}
             cornerRadius={4}
           />
         );
-      case "rect":
+      case "rectangle":
       default:
         return (
           <Rect
-            width={SHAPE_DEFAULTS.rect.width}
-            height={SHAPE_DEFAULTS.rect.height}
-            offsetX={SHAPE_DEFAULTS.rect.width / 2}
-            offsetY={SHAPE_DEFAULTS.rect.height / 2}
+            width={SHAPE_DEFAULTS.rectangle.width}
+            height={SHAPE_DEFAULTS.rectangle.height}
+            offsetX={SHAPE_DEFAULTS.rectangle.width / 2}
+            offsetY={SHAPE_DEFAULTS.rectangle.height / 2}
             fill={fillColor}
             stroke={stroke}
             strokeWidth={strokeWidth}
