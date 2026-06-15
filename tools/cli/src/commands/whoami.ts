@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { getApiUrl } from "../config.js";
-import { apiRequest } from "../api.js";
+import { createCliApiClient } from "../cli-api-client.js";
 import { defineCommand, runCommand } from "../command-seam.js";
 import type { CommandResult } from "../command-seam.js";
 import type { ApiResponse, User } from "@mbe/types";
@@ -8,7 +8,7 @@ import type { ApiResponse, User } from "@mbe/types";
 export const whoamiRun = defineCommand({
   requiresAuth: true,
   async run(): Promise<CommandResult> {
-    const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
+    const response = await createCliApiClient().request<ApiResponse<User>>("/api/v1/users/me");
     const user = response.data;
     return {
       kind: "rows",
