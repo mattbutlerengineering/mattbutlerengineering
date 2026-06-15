@@ -86,7 +86,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastEvaluation: EvaluationResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -105,7 +104,6 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
-        lastResult: GateResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -143,12 +141,6 @@
     </item>
   </file>
   <file path="src/phases/query-phase.ts">
-    <item priority="high">
-      interface StreamingResult {
-        resultMessage: SDKResultMessage | null;
-        stuckDetected: StuckPattern | null;
-      }
-    </item>
     <item priority="high">
       class QueryPhase {
         name: unknown;
@@ -443,6 +435,14 @@
       }
     </item>
   </file>
+  <file path="src/model-registry.ts">
+    <item priority="high">
+      export const MODEL_IDS: Readonly<Record<ModelTier, string>>;
+    </item>
+    <item priority="high">
+      export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>>;
+    </item>
+  </file>
   <file path="src/model-router.ts">
     <item priority="low">
       type ModelTier = "haiku" | "sonnet" | "opus";
@@ -620,6 +620,20 @@
         filePath?: string;
         lineNumber?: number;
         suggestion?: string;
+      }
+    </item>
+  </file>
+  <file path="src/run-hardened-query.ts">
+    <item priority="high">
+      export const apiCircuitBreaker: unknown;
+    </item>
+    <item priority="low">
+      interface HardenedQueryConfig {
+        prompt: string;
+        cwd: string;
+        model: string;
+        maxTurns: number;
+        maxBudgetUsd: number;
       }
     </item>
   </file>

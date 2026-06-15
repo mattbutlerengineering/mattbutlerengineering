@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 import { buildEvaluationPrompt } from "./evaluation-prompt-builder.js";
 import { evaluationSkipDecision } from "./evaluation-skip-policy.js";
 import type { SkipPolicyInput, SkipReason } from "./evaluation-skip-policy.js";

@@ -1,15 +1,19 @@
 <codebase path="packages/database">
   <section priority="medium" role="src">
   <file path="src/index.ts">
+    export function isPrismaNotFound(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2025"
+      );
+    }
     interface SlowQuery {
       model: string;
       operation: string;
       duration: number;
       timestamp: number;
-    }
-    export interface SlowQueryStats {
-      count5min: number;
-      slowestMs: number;
     }
   </file>
   <file path="src/list-utils.ts">

@@ -6,7 +6,7 @@
  * instructs the orchestrator on how to decompose tasks effectively.
  */
 
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 import type { AgentSessionClient } from "@mbe/api-client";
 
 export interface OrchestratorConfig {
