@@ -41,6 +41,10 @@
       "env": {
         "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}"
       }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
     }
   }
 }
