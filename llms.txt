@@ -3715,16 +3715,12 @@
       export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
-  <file path="tools/cli/src/api.ts">
+  <file path="tools/cli/src/cli-api-client.ts">
     <item priority="high">
-      class ApiError {
-        
-      }
+      export function createCliApiClient(): ApiClient { /* ... */ }
     </item>
     <item priority="high">
-      interface ErrorResponse {
-        message?: string;
-      }
+      export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/command-seam.ts">
