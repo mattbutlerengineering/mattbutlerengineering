@@ -10,7 +10,7 @@ import {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
-import { availabilityService } from "./availability.js";
+import { availabilityService, checkPacingForSlot } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 
 type ConfirmHoldErrorCode =
@@ -244,6 +244,53 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
       return { outcome: "conflict" as const };
     }
 
+    // Re-check pacing under the advisory lock so two concurrent confirmations
+    // at the same slot (on different tables) cannot both pass the pre-lock
+    // pacing check and jointly exceed the cover limit (TOCTOU close).
+    if (hold.venueId) {
+      const txReservations = await tx.reservation.findMany({
+        where: {
+          venueId: hold.venueId,
+          date: hold.date,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+      });
+      const txHolds = await tx.reservationHold.findMany({
+        where: {
+          venueId: hold.venueId,
+          date: hold.date,
+          expiresAt: { gt: new Date() },
+          id: { not: holdId },
+        },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          expiresAt: true,
+        },
+      });
+
+      const settings = (
+        await tx.venue.findUnique({ where: { id: hold.venueId }, select: { settings: true } })
+      )?.settings as VenueSettings | null | undefined;
+
+      const pacingOk = checkPacingForSlot(
+        hold.startTime,
+        hold.partySize,
+        settings,
+        txReservations,
+        txHolds
+      );
+
+      if (!pacingOk) {
+        await tx.reservationHold.delete({ where: { id: holdId } });
+        return { outcome: "pacing_exceeded" as const };
+      }
+    }
+
     // Create the reservation
     const reservation = await tx.reservation.create({
       data: {
@@ -282,6 +329,14 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
+  if (txResult.outcome === "pacing_exceeded") {
+    return {
+      success: false,
+      error: "Pacing limit reached for this time slot",
+      errorCode: "PACING_EXCEEDED",
+    };
+  }
+
   // Step 4: Map to domain type
   const reservation = mapReservationResult(txResult.reservation);
 
@@ -294,12 +349,17 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 // Transaction client type — matches the subset used in the transaction callback
 type PrismaTransactionClient = {
   $executeRaw: typeof prisma.$executeRaw;
+  venue: {
+    findUnique: typeof prisma.venue.findUnique;
+  };
   reservation: {
     findFirst: typeof prisma.reservation.findFirst;
+    findMany: typeof prisma.reservation.findMany;
     create: typeof prisma.reservation.create;
   };
   reservationHold: {
     findFirst: typeof prisma.reservationHold.findFirst;
+    findMany: typeof prisma.reservationHold.findMany;
     delete: typeof prisma.reservationHold.delete;
   };
 };
