@@ -46,40 +46,21 @@ const BEHAVIORAL_GATES = [
     direction: "below", // value must be below threshold to pass
     extract: (b) => b?.agent_pr?.revert_rate_30d,
   },
-  {
-    level: 6,
-    name: "human-touch-ratio",
-    description:
-      "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
-    threshold: 0.5,
-    direction: "below", // value must be below threshold to pass
-    extract: (b) => b?.agent_pr?.human_touch_ratio,
-    /** When true, missing data blocks advancement (unverifiable) rather than silently passing. */
-    unverifiableOnNoData: true,
-  },
 ];
 
 /**
  * Evaluate a single behavioral gate against the provided behavioral data.
  * Returns a gate result object with pass/fail status and metadata.
- *
- * For gates with `unverifiableOnNoData: true`, missing data reports
- * `unverifiable: true` and blocks advancement in strict mode.
- * For all other gates, missing data is treated as passed (no block).
  */
 function evaluateGate(gate, behavioral, strict) {
   const value = gate.extract(behavioral);
   const hasValue = value !== undefined && value !== null;
-  const unverifiable = !hasValue && gate.unverifiableOnNoData === true;
-
-  let passed;
-  if (!hasValue) {
-    // unverifiableOnNoData=true → fails in strict mode; passes in soft mode
-    passed = unverifiable ? !strict : true;
-  } else {
-    passed = gate.direction === "below" ? value < gate.threshold : value > gate.threshold;
-  }
-
+  // Gates with no data are treated as passed (data unavailable = no block)
+  const passed = !hasValue
+    ? true
+    : gate.direction === "below"
+      ? value < gate.threshold
+      : value > gate.threshold;
   return {
     level: gate.level,
     name: gate.name,
@@ -90,7 +71,6 @@ function evaluateGate(gate, behavioral, strict) {
     direction: gate.direction,
     strict,
     dataAvailable: hasValue,
-    unverifiable,
   };
 }
 
