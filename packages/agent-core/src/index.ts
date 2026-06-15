@@ -220,6 +220,9 @@ export {
 } from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
+// Model registry (canonical IDs + tier defaults)
+export { MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
+
 // PR risk classification
 export { isLowRiskPR, reviewersForDiff } from "./pr-risk-classifier.js";
 

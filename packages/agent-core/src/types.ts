@@ -1,6 +1,6 @@
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { StuckDetectorConfig } from "./stuck-detector.js";
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 
 // ── Failure categorization ───────────────────────────────────────────
 
