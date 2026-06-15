@@ -1307,7 +1307,7 @@
   </file>
   <file path="services/agent/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
+      export const readinessRoutes: unknown;
     </item>
   </file>
   <file path="services/agent/src/routes/remediation.ts">
@@ -1492,7 +1492,7 @@
   </file>
   <file path="services/reservations/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
+      export const readinessRoutes: unknown;
     </item>
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
@@ -1530,7 +1530,7 @@
   </file>
   <file path="services/users/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
+      export const readinessRoutes: unknown;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
@@ -3431,6 +3431,23 @@
       }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/error-handler.ts">
+    <item priority="high">
+      interface CustomError {
+        statusCode?: number;
+        status?: number;
+        code?: string;
+        meta?: Record<string, unknown>;
+        validation?: Array<{
+          keyword: string;
+          instancePath?: string;
+       ...;
+      }
+    </item>
+    <item priority="high">
+      export const errorHandlerPlugin: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/feature-flags.ts">
     <item priority="low">
       interface FeatureFlag {
@@ -3473,6 +3490,18 @@
         record: (ms: number) => void;
         checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
       }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      interface ReadinessRoutesOptions {
+        prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+        auth0JwksUrl?: string;
+        extraChecks?: Record<string, () => Promise<void>>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">

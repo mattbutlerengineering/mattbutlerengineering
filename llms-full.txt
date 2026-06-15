@@ -4405,38 +4405,20 @@
     }
   </file>
   <file path="services/agent/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes = createReadinessRoutes({ prisma });
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -7454,28 +7436,7 @@
     };
   </file>
   <file path="services/reservations/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes = createReadinessRoutes({ prisma });
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -8396,10 +8357,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.getById(request.params.id);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return { data: table };
         }
@@ -8472,11 +8435,11 @@
             return reply.code(201).send({ data: table });
           } catch (error) {
             if (error instanceof Error && error.message.includes("Unique constraint")) {
-              return reply
-                .code(400)
-                .send(
-                  createProblemDetails(400, "Bad Request", "A table with this name already exists")
-                );
+              const err = new Error("A table with this name already exists") as Error & {
+                statusCode?: number;
+              };
+              err.statusCode = 400;
+              throw err;
             }
             throw error;
           }
@@ -8555,10 +8518,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.update(request.params.id, request.body);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return { data: table };
         }
@@ -8629,10 +8594,12 @@
             },
           },
         },
-        async (request, reply) => {
+        async (request) => {
           const table = await tableService.updateStatus(request.params.id, request.body.status);
           if (!table) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           emitTableUpdated(table);
           return { data: table };
@@ -8690,7 +8657,9 @@
         async (request, reply) => {
           const deleted = await tableService.delete(request.params.id);
           if (!deleted) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Table not found"));
+            const error = new Error("Table not found") as Error & { statusCode?: number };
+            error.statusCode = 404;
+            throw error;
           }
           return reply.code(204).send();
         }
@@ -9597,28 +9566,7 @@
     };
   </file>
   <file path="services/users/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes = createReadinessRoutes({ prisma });
   </file>
   <file path="services/users/src/routes/users.ts">
     export const userRoutes: FastifyPluginAsync = async (fastify) => {
@@ -10158,6 +10106,12 @@
       error: z.string(),
       message: z.string(),
       statusCode: z.number(),
+      type: z.string().optional(),
+      title: z.string().optional(),
+      status: z.number().optional(),
+      detail: z.string().optional(),
+      instance: z.string().optional(),
+      details: z.record(z.string(), z.unknown()).optional(),
     });
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
@@ -14123,6 +14077,112 @@
       readonly sunsetMonthsFromNow: number;
     }
   </file>
+  <file path="packages/service-bootstrap/src/error-handler.ts">
+    interface CustomError extends Error {
+      statusCode?: number;
+      status?: number;
+      code?: string;
+      meta?: Record<string, unknown>;
+      validation?: Array<{
+        keyword: string;
+        instancePath?: string;
+        dataPath?: string;
+        schemaPath?: string;
+        params?: Record<string, unknown>;
+        message?: string;
+      }>;
+      details?: Record<string, unknown>;
+    }
+    export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
+      fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
+        // 1. Log the error using Fastify logger
+        request.log.error(error);
+    
+        const err = error as CustomError;
+    
+        // 2. Map the error to RFC 7807/Problem Details
+        let status = err.statusCode || err.status || 500;
+        let title = "Internal Server Error";
+        let detail = err.message || "An unexpected error occurred";
+        const type = "about:blank";
+        const extensions: Record<string, unknown> = {};
+    
+        // Check if it is a Prisma error
+        const isPrisma =
+          err.name === "PrismaClientKnownRequestError" ||
+          err.constructor?.name === "PrismaClientKnownRequestError" ||
+          (typeof err.code === "string" && err.code.startsWith("P2"));
+    
+        if (isPrisma) {
+          const prismaCode = err.code || "";
+          extensions.prismaCode = prismaCode;
+          if (err.meta) {
+            extensions.prismaMeta = err.meta;
+          }
+    
+          if (prismaCode === "P2025") {
+            status = 404;
+            title = "Not Found";
+            detail = (err.meta?.cause as string) || err.message || "Record not found";
+          } else if (prismaCode === "P2002") {
+            status = 409;
+            title = "Conflict";
+            const target = Array.isArray(err.meta?.target) ? err.meta.target.join(", ") : "field";
+            detail = `Unique constraint failed: ${target}`;
+          } else if (prismaCode === "P2003") {
+            status = 409;
+            title = "Conflict";
+            detail = `Foreign key constraint failed on field: ${(err.meta?.field_name as string) || "field"}`;
+          } else {
+            status = 500;
+            title = "Database Error";
+            detail = "A database error occurred";
+          }
+        } else if (err.validation) {
+          // AJV validation error
+          status = 400;
+          title = "Bad Request";
+          const validationMsgs = err.validation.map((v) => {
+            const path = v.instancePath || v.dataPath || "";
+            const field = path.startsWith("/")
+              ? path.slice(1)
+              : (v.params?.missingProperty as string) || "";
+            const fieldPrefix = field ? `'${field}' ` : "";
+            return `${fieldPrefix}${v.message || ""}`;
+          });
+          detail = `Validation failed: ${validationMsgs.join(", ")}`;
+          extensions.details = {
+            validation: err.validation,
+          };
+        } else if (
+          typeof err.statusCode === "number" &&
+          err.statusCode >= 400 &&
+          err.statusCode < 600
+        ) {
+          // Standard HTTP errors thrown by Fastify or route handlers
+          status = err.statusCode;
+          title = getTitleForStatus(status);
+          detail = err.message;
+          if (err.details) {
+            extensions.details = err.details;
+          }
+        }
+    
+        // Call createProblemDetails from @mbe/types
+        const problemDetails = createProblemDetails(
+          status,
+          title,
+          detail,
+          type,
+          request.url,
+          extensions
+        );
+    
+        // Send the response
+        reply.status(status).send(problemDetails);
+      });
+    });
+  </file>
   <file path="packages/service-bootstrap/src/feature-flags.ts">
     export interface FeatureFlag {
       enabled: boolean;
@@ -14167,6 +14227,69 @@
     export interface LatencyTracker {
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+    }
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    export interface ReadinessRoutesOptions {
+      /** Prisma client instance — if provided, database health check is registered */
+      readonly prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+      /** Optional custom Auth0 JWKS check URL */
+      readonly auth0JwksUrl?: string;
+      /** Extra custom readiness check functions */
+      readonly extraChecks?: Record<string, () => Promise<void>>;
+    }
+    export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync {
+      const readiness = createReadinessTracker();
+    
+      if (options.prisma) {
+        readiness.registerCheck("database", async () => {
+          await options.prisma!.$queryRaw`SELECT 1`;
+        });
+      }
+    
+      const auth0Url =
+        options.auth0JwksUrl ?? "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+      readiness.registerCheck("auth", async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        try {
+          const response = await fetch(auth0Url, { signal: controller.signal });
+          if (!response.ok) {
+            throw new Error(`JWKS returned ${response.status}`);
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      });
+    
+      if (options.extraChecks) {
+        for (const [name, check] of Object.entries(options.extraChecks)) {
+          readiness.registerCheck(name, check);
+        }
+      }
+    
+      return async (fastify) => {
+        fastify.get<{ Reply: ReadinessResponse }>(
+          "/ready",
+          {
+            schema: { ...readinessSchema, operationId: "getReady" },
+            config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+          },
+          async (_request, reply) => {
+            const snapshot = await readiness.evaluate();
+            const response: ReadinessResponse = {
+              ready: snapshot.ready,
+              timestamp: snapshot.timestamp,
+              checks: snapshot.checks.map((c) => ({
+                name: c.name,
+                status: c.status,
+                ...(c.message ? { message: c.message } : {}),
+              })),
+            };
+            return reply.status(snapshot.ready ? 200 : 503).send(response);
+          }
+        );
+      };
     }
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
