@@ -1,5 +1,8 @@
 import { classifyTask } from "./task-signal-registry.js";
 import type { TaskSignals } from "./task-signal-registry.js";
+import { MODEL_IDS } from "./model-registry.js";
+
+export { resolveModelId, getFeedbackLoopModel } from "./model-registry.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -38,12 +41,6 @@ export interface ModelRoutingResult {
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const MODEL_IDS: Record<ModelTier, string> = {
-  haiku: "claude-haiku-4-5-20251001",
-  sonnet: "claude-sonnet-4-6",
-  opus: "claude-opus-4-8",
-} as const;
-
 /** Budget threshold below which an opus routing is downgraded to sonnet. */
 const OPUS_MIN_BUDGET_USD = 0.3;
 
@@ -56,14 +53,6 @@ const LARGE_CHANGE_FILE_THRESHOLD = 15;
  */
 const TEST_OR_DOCS_PATH =
   /(?:__tests__|\/tests?\/|\/docs\/|\.test\.[tj]sx?$|\.spec\.[tj]sx?$|README|CHANGELOG|\.md$)/i;
-
-// ── Tier downgrade map (used by feedback loop) ───────────────────────
-
-const TIER_DOWNGRADE: Record<ModelTier, ModelTier> = {
-  opus: "sonnet",
-  sonnet: "haiku",
-  haiku: "haiku",
-};
 
 // ── Routing logic ────────────────────────────────────────────────────
 
@@ -148,26 +137,6 @@ export function routeModelWithReason(issue: IssueInput, ctx?: RoutingContext): M
     buildResult("sonnet", "Default routing: no specific pattern matched"),
     ctx
   );
-}
-
-/**
- * Resolve a ModelTier to its concrete model ID string.
- */
-export function resolveModelId(tier: ModelTier): string {
-  return MODEL_IDS[tier];
-}
-
-/**
- * Return the model ID to use for a feedback-loop fix session.
- * Fix sessions are tightly scoped (one comment, one CI failure), so they
- * run one tier below the parent: opus → sonnet, sonnet → haiku, haiku → haiku.
- */
-export function getFeedbackLoopModel(parentModelId: string): string {
-  const tier = (Object.entries(MODEL_IDS) as [ModelTier, string][]).find(
-    ([, id]) => id === parentModelId
-  )?.[0];
-  if (!tier) return parentModelId;
-  return MODEL_IDS[TIER_DOWNGRADE[tier]];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

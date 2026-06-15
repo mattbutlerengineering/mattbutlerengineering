@@ -1052,6 +1052,9 @@ importers:
 
   packages/sentry:
     dependencies:
+      '@mbe/api-client':
+        specifier: workspace:^
+        version: link:../api-client
       '@mbe/types':
         specifier: workspace:^
         version: link:../types

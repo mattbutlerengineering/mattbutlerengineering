@@ -1,5 +1,17 @@
 <codebase path="packages/service-bootstrap">
   <section priority="medium" role="src">
+  <file path="src/apply-versioning.ts">
+    export interface ApiVersioningConfig {
+      readonly currentVersion: string;
+      readonly successorVersion?: string;
+      readonly sunsetMonthsFromNow?: number;
+    }
+    function computeSunsetDate(monthsFromNow: number): string {
+      const date = new Date();
+      date.setMonth(date.getMonth() + monthsFromNow);
+      return date.toUTCString();
+    }
+  </file>
   <file path="src/create-service-app.ts">
     export interface SwaggerConfig {
       readonly title: string;
@@ -7,10 +19,13 @@
       readonly serverUrl: string;
       readonly version?: string;
     }
-    export interface ApiVersioningConfig {
-      readonly currentVersion: string;
-      readonly successorVersion: string;
-      readonly sunsetMonthsFromNow: number;
+    export interface ServiceAppConfig {
+      /** Swagger/OpenAPI metadata — differs per service */
+      readonly swagger: SwaggerConfig;
+      /** API versioning — defaults to v1 → v2, sunset in 6 months */
+      readonly apiVersioning?: ApiVersioningConfig;
+      /** Optional hook to register service-specific JSON schemas before plugins */
+      readonly registerSchemas?: (fastify: FastifyInstance) => void;
     }
   </file>
   <file path="src/error-handler.ts">
@@ -163,6 +178,69 @@
     export interface LatencyTracker {
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+    }
+  </file>
+  <file path="src/readiness-routes.ts">
+    export interface ReadinessRoutesOptions {
+      /** Prisma client instance — if provided, database health check is registered */
+      readonly prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
+      /** Optional custom Auth0 JWKS check URL */
+      readonly auth0JwksUrl?: string;
+      /** Extra custom readiness check functions */
+      readonly extraChecks?: Record<string, () => Promise<void>>;
+    }
+    export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync {
+      const readiness = createReadinessTracker();
+    
+      if (options.prisma) {
+        readiness.registerCheck("database", async () => {
+          await options.prisma!.$queryRaw`SELECT 1`;
+        });
+      }
+    
+      const auth0Url =
+        options.auth0JwksUrl ?? "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+      readiness.registerCheck("auth", async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+        try {
+          const response = await fetch(auth0Url, { signal: controller.signal });
+          if (!response.ok) {
+            throw new Error(`JWKS returned ${response.status}`);
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      });
+    
+      if (options.extraChecks) {
+        for (const [name, check] of Object.entries(options.extraChecks)) {
+          readiness.registerCheck(name, check);
+        }
+      }
+    
+      return async (fastify) => {
+        fastify.get<{ Reply: ReadinessResponse }>(
+          "/ready",
+          {
+            schema: { ...readinessSchema, operationId: "getReady" },
+            config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+          },
+          async (_request, reply) => {
+            const snapshot = await readiness.evaluate();
+            const response: ReadinessResponse = {
+              ready: snapshot.ready,
+              timestamp: snapshot.timestamp,
+              checks: snapshot.checks.map((c) => ({
+                name: c.name,
+                status: c.status,
+                ...(c.message ? { message: c.message } : {}),
+              })),
+            };
+            return reply.status(snapshot.ready ? 200 : 503).send(response);
+          }
+        );
+      };
     }
   </file>
   <file path="src/start-service-server.ts">

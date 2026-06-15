@@ -10,6 +10,32 @@ Verifies the continuous improvement loop by seeding synthetic bugs and confirmin
 
 **Goal:** Bridge the gap between 'Measured' (L3) and 'Adaptive' (L4) by proving our feedback loops actually work.
 
+## Pre-Flight Checks
+
+Before seeding any bug, chaos-agent MUST verify:
+
+1. **Not in a worktree:** Refuse to run if `pwd` contains `.claude/worktrees/` — chaos branches in active worktrees corrupt in-flight feature branches
+2. **On main branch:** Refuse to run if `git branch --show-current` != `main` — chaos runs must start clean from main
+
+Add these checks as the first step of the skill:
+
+```bash
+# Guard 1: Check if we're in a worktree
+if echo "$PWD" | grep -q ".claude/worktrees/"; then
+  echo "ERROR: chaos-agent refuses to run inside an active worktree (.claude/worktrees/)"
+  echo "This prevents silent corruption of in-flight feature branches."
+  exit 1
+fi
+
+# Guard 2: Check if we're on main branch
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" != "main" ]; then
+  echo "ERROR: chaos-agent refuses to run on branch '$CURRENT_BRANCH'"
+  echo "Chaos runs must start from the 'main' branch to avoid corrupting feature work."
+  exit 1
+fi
+```
+
 ## Workflow
 
 ### Phase 1: Seed a Bug
@@ -38,21 +64,21 @@ Pick a non-breaking but auditable bug type:
 1. Create a new branch:
 
 ```bash
-git checkout -b chaos/synthetic-bug-test-$(date +%Y%m%d%H%M%S)
+git checkout -b chaos/synthetic-bug-$(date +%s)
 ```
 
 2. Seed the bug:
 
 ```bash
 mkdir -p apps/marketing/src/utils
-cat > apps/marketing/src/utils/test-lint.ts <<'EOF'
+cat > apps/marketing/src/utils/test-lint.ts <<'INNER_EOF'
 // Synthetic bug for audit loop testing
 const unusedVariable = "this variable is never used";
 
 export function testFunction(): void {
   console.log("Function that should trigger audit");
 }
-EOF
+INNER_EOF
 ```
 
 3. Commit and push:
@@ -60,7 +86,7 @@ EOF
 ```bash
 git add apps/marketing/src/utils/test-lint.ts
 git commit -m "test(chaos): seed synthetic lint violation for audit verification"
-git push origin chaos/synthetic-bug-test-$(date +%Y%m%d%H%M%S)
+git push origin chaos/synthetic-bug-$(git rev-parse --short HEAD)
 ```
 
 4. Create PR (mark as test):
@@ -123,11 +149,14 @@ gh issue close <issue_number>
 gh issue comment <issue_number> --body "Verified: Synthetic bug was correctly detected and filed by audit loop. Closing as verification complete. (chaos-agent run: $(date -u +%Y-%m-%dT%H:%M:%SZ))"
 ```
 
-3. **Clean up the branch:**
+3. **Clean up the branch** (CRITICAL — prevent accumulation):
 
 ```bash
-git branch -D chaos/synthetic-bug-test-*
-git push origin --delete chaos/synthetic-bug-test-*
+# Delete the local branch
+git branch -D chaos/synthetic-bug-*
+
+# Delete the remote branch
+git push origin --delete chaos/synthetic-bug-*
 ```
 
 4. **Log result to state file:**
@@ -135,6 +164,53 @@ git push origin --delete chaos/synthetic-bug-test-*
 ```bash
 mkdir -p .claude/state
 echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"bug_type\":\"lint_violation\",\"verified\":true,\"issue_number\":$ISSUE_NUM}" >> .claude/state/chaos-runs.jsonl
+```
+
+## Cleanup Script (Stale Branch Removal)
+
+To prevent branch accumulation, use this script to delete all stale `chaos/synthetic-bug-*` branches:
+
+```bash
+#!/bin/bash
+# cleanup-chaos-branches.sh — delete all stale chaos/synthetic-bug-* branches
+
+set -euo pipefail
+
+echo "Cleaning up stale chaos/synthetic-bug-* branches..."
+
+# Count before
+LOCAL_BEFORE=$(git branch -l | grep -c "chaos/synthetic-bug" || echo "0")
+REMOTE_BEFORE=$(git branch -r | grep -c "chaos/synthetic-bug" || echo "0")
+
+echo "Before: $LOCAL_BEFORE local, $REMOTE_BEFORE remote"
+
+# Delete local branches
+if [ "$LOCAL_BEFORE" -gt 0 ]; then
+  git branch -D $(git branch -l | grep "chaos/synthetic-bug" | tr '\n' ' ') || true
+  echo "Deleted local branches"
+fi
+
+# Delete remote branches
+if [ "$REMOTE_BEFORE" -gt 0 ]; then
+  for branch in $(git branch -r | grep "chaos/synthetic-bug" | sed 's|origin/||'); do
+    git push origin --delete "$branch" || true
+  done
+  echo "Deleted remote branches"
+fi
+
+# Count after
+LOCAL_AFTER=$(git branch -l | grep -c "chaos/synthetic-bug" || echo "0")
+REMOTE_AFTER=$(git branch -r | grep -c "chaos/synthetic-bug" || echo "0")
+
+echo "After: $LOCAL_AFTER local, $REMOTE_AFTER remote"
+
+if [ "$LOCAL_AFTER" -eq 0 ] && [ "$REMOTE_AFTER" -eq 0 ]; then
+  echo "✅ Cleanup complete"
+  exit 0
+else
+  echo "⚠️  Some branches remain (may require manual cleanup)"
+  exit 1
+fi
 ```
 
 ## Scheduling
@@ -145,23 +221,25 @@ Set up in [claude.ai/code/scheduled](https://claude.ai/code/scheduled):
 
 - **Name:** `mbe-chaos-agent`
 - **Schedule:** `0 17 * * 5` (Fri 9am PT = 5pm UTC)
-- **Prompt:** `/chaos-agent`
+- **Prompt:** `/chaos-agent` (with pre-flight guard checks)
 
 ## Success Criteria
 
 A successful chaos-agent run achieves:
 
-1. ✅ Lint violation is seeded without breaking the build
-2. ✅ Audit loop detects the violation within expected time
-3. ✅ GitHub issue is filed with appropriate labels
-4. ✅ Issue is closeable and documented
-5. ✅ Branch cleanup succeeds
-6. ✅ Entry is logged to state file for trend analysis
+1. ✅ Pre-flight guards prevent running in worktrees or on non-main branches
+2. ✅ Lint violation is seeded without breaking the build
+3. ✅ Audit loop detects the violation within expected time
+4. ✅ GitHub issue is filed with appropriate labels
+5. ✅ Issue is closeable and documented
+6. ✅ Branch cleanup succeeds (both local and remote)
+7. ✅ Entry is logged to state file for trend analysis
 
 ## Troubleshooting
 
 | Issue                       | Cause                                  | Fix                                                    |
 | --------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| Pre-flight guard triggered  | Running in worktree or non-main branch | Return to shared checkout, check out main, retry       |
 | Lint violation not detected | Audit loop didn't run                  | Check `/site-audit smoke` or `/ci-monitor` was invoked |
 | No issue filed              | Audit loop ran but didn't create issue | Check progress-tracker for audit loop health           |
 | PR won't close              | Issue still linked                     | Unlink issue from PR before closing                    |

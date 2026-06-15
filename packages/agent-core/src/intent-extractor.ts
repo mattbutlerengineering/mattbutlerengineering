@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { trace } from "@opentelemetry/api";
-import { resolveModelId } from "./model-router.js";
+import { resolveModelId } from "./model-registry.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 

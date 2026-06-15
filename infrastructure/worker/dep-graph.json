@@ -544,6 +544,11 @@
     },
     {
       "from": "@mbe/cli",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
       "to": "@mbe/types",
       "type": "dependency"
     },
