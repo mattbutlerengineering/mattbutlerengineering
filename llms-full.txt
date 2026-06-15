@@ -1,4 +1,4 @@
-<codebase path=".">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b">
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
@@ -2901,6 +2901,18 @@
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
+    export interface GuestRecognitionResult {
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+    }
+    export interface UseGuestRecognitionParams {
+      venueSlug: string | undefined;
+      apiBaseUrl?: string;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -4664,11 +4676,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{

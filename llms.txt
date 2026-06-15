@@ -1,4 +1,4 @@
-<codebase path=".">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b">
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     <item priority="high">
@@ -883,6 +883,22 @@
     </item>
     <item priority="high">
       export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
+    <item priority="low">
+      interface GuestRecognitionResult {
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestRecognitionParams {
+        venueSlug: string | undefined;
+        apiBaseUrl?: string;
+      }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
