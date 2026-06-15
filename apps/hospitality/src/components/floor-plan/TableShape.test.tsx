@@ -157,7 +157,7 @@ function makeTable(overrides: Partial<Table> = {}): Table {
       y: 200,
       width: 80,
       height: 60,
-      shape: "rect",
+      shape: "rectangle",
     },
     createdAt: "2025-01-01T00:00:00Z",
     updatedAt: "2025-01-01T00:00:00Z",
@@ -183,7 +183,7 @@ describe("TableShape", () => {
   describe("shape rendering", () => {
     it("renders a Group at the correct position", () => {
       const table = makeTable({
-        shapeMetadata: { x: 150, y: 250, width: 80, height: 60, shape: "rect" },
+        shapeMetadata: { x: 150, y: 250, width: 80, height: 60, shape: "rectangle" },
       });
       const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
 
@@ -232,7 +232,7 @@ describe("TableShape", () => {
 
     it("applies rotation from shapeMetadata", () => {
       const table = makeTable({
-        shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rect", rotation: 45 },
+        shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rectangle", rotation: 45 },
       });
       const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
       expect(getByTestId("konva-group").getAttribute("data-rotation")).toBe("45");

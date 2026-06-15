@@ -3,6 +3,7 @@ import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";
+import { SHAPE_DEFAULTS } from "../components/floor-plan/floor-plan-geometry.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import {
   useFloorPlan,
@@ -70,8 +71,7 @@ export function FloorPlanEditorPage() {
       prev.map((t) => {
         if (t.id !== tableId) return t;
         const existing = t.shapeMetadata ?? {
-          width: 80,
-          height: 60,
+          ...SHAPE_DEFAULTS.rectangle,
           shape: "rectangle" as const,
         };
         return {
@@ -103,8 +103,8 @@ export function FloorPlanEditorPage() {
           shapeMetadata: {
             x: pos.x,
             y: pos.y,
-            width: existing?.width ?? 80,
-            height: existing?.height ?? 60,
+            width: existing?.width ?? SHAPE_DEFAULTS.rectangle.width,
+            height: existing?.height ?? SHAPE_DEFAULTS.rectangle.height,
             shape: existing?.shape ?? ("rectangle" as const),
             rotation: existing?.rotation,
             color: existing?.color,

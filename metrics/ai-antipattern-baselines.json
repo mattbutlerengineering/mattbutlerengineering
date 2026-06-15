@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-06-15T04:15:28.913Z",
+  "patterns": {
+    "magicTimeouts": {
+      "count": 27,
+      "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
+    },
+    "emptyCatch": {
+      "count": 40,
+      "description": "Empty catch blocks that swallow errors silently"
+    },
+    "noopTestAssertions": {
+      "count": 267,
+      "description": "Test functions containing no expect() calls"
+    },
+    "hardcodedRoutes": {
+      "count": 489,
+      "description": "Hardcoded /api/... route strings instead of route constants"
+    },
+    "anyType": {
+      "count": 387,
+      "description": "TypeScript `as any` casts or `: any` type annotations"
+    },
+    "consoleLogs": {
+      "count": 739,
+      "description": "console.log() calls in production (non-test) source files"
+    },
+    "unusedParams": {
+      "count": 4,
+      "description": "Function parameters that look unused (not prefixed with _)"
+    },
+    "mockShapeMismatch": {
+      "count": 28,
+      "description": "Test mocks using .mockResolvedValue({}) or .mockReturnValue({}) with empty objects (likely missing required fields)"
+    }
+  }
+}
