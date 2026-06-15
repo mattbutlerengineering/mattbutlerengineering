@@ -149,6 +149,15 @@ for (const c of ALL_CRITERIA) {
   if (verdictCounts(result.verdict)) detectedIds.add(c.id);
 }
 
+// Collect hollow criteria for the report section (#2022)
+const hollowCriteria = [];
+for (const c of ALL_CRITERIA) {
+  const { verdict, substanceEvidence } = criterionVerdicts.get(c.id);
+  if (verdict === "hollow") {
+    hollowCriteria.push({ id: c.id, substanceEvidence: substanceEvidence ?? "substance check failed" });
+  }
+}
+
 const detectedCount = detectedIds.size;
 const totalCount = ALL_CRITERIA.length;
 
@@ -265,6 +274,7 @@ const reportPath = writeReport(cwd, {
   sources: SOURCES,
   computation,
   diff,
+  hollowCriteria,
 });
 
 /* ── Optionally: --badge ─────────────────────────────────── */
@@ -363,6 +373,14 @@ if (substChecked > 0) {
     if (sub.substantive === false) {
       console.log(`  ◐ ${id}: ${sub.substanceEvidence}`);
     }
+  }
+  console.log("");
+}
+
+if (hollowCriteria.length > 0) {
+  console.log(`Hollow (detected but substance failed — ${hollowCriteria.length}):`);
+  for (const h of hollowCriteria) {
+    console.log(`  ◐ ${h.id}: ${h.substanceEvidence}`);
   }
   console.log("");
 }

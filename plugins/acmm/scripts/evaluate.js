@@ -216,20 +216,15 @@ export function evaluate(criterion, cwd, opts = {}) {
 /**
  * Whether a verdict counts as "detected" for level-math purposes.
  *
- * Behavior-preserving mapping:
  *   'pass'          → true  (detected, substance passed)
- *   'hollow'        → true  (detected, substance failed — but detection still counts for level math,
- *                            matching prior behavior where detect() returned true regardless of substance)
- *   'unverifiable'  → true  (active type, gh degraded — matches prior graceful-degradation)
+ *   'hollow'        → false (detected but substance failed — does NOT count toward level thresholds)
+ *   'unverifiable'  → true  (active type, gh degraded — graceful degradation)
  *   'stale'         → false (active type, no recent run)
  *   'not-found'     → false (file/pattern not found)
- *
- * NOTE: 'hollow' counting here is the behavior-preserving choice. Follow-up issues
- * #2022/#2023/#2024 will make hollow verdicts consequential (i.e. not count).
  *
  * @param {'pass'|'hollow'|'stale'|'unverifiable'|'not-found'} verdict
  * @returns {boolean}
  */
 export function verdictCounts(verdict) {
-  return verdict === "pass" || verdict === "hollow" || verdict === "unverifiable";
+  return verdict === "pass" || verdict === "unverifiable";
 }

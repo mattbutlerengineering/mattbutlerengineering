@@ -4,14 +4,32 @@ exports[`User service schemas > ErrorSchema matches snapshot 1`] = `
 {
   "$id": "Error",
   "properties": {
+    "detail": {
+      "type": "string",
+    },
+    "details": {
+      "type": "object",
+    },
     "error": {
+      "type": "string",
+    },
+    "instance": {
       "type": "string",
     },
     "message": {
       "type": "string",
     },
+    "status": {
+      "type": "number",
+    },
     "statusCode": {
       "type": "number",
+    },
+    "title": {
+      "type": "string",
+    },
+    "type": {
+      "type": "string",
     },
   },
   "required": [
