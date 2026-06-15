@@ -256,6 +256,27 @@
       }
     }
   </file>
+  <file path="src/retry.ts">
+    export interface RetryOptions {
+      /** Maximum number of additional attempts after the first failure. */
+      maxRetries: number;
+      /** Base delay in ms for attempt 0; doubles each subsequent attempt. */
+      baseDelayMs: number;
+      /**
+       * Whether to apply ±20% jitter to prevent thundering herd.
+       * Defaults to true.
+       */
+      jitter?: boolean;
+      /**
+       * Predicate to decide whether an error is retryable.
+       * Defaults to always-retry (all errors are retried).
+       */
+      isRetryable?: (error: unknown) => boolean;
+    }
+    function sleep(ms: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  </file>
   <file path="src/streaming.ts">
     export interface StreamConfig {
       /** URL to POST to */

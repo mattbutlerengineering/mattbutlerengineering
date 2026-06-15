@@ -1,0 +1,49 @@
+<codebase path="infrastructure/pulumi">
+  <section priority="medium" role="auth0.ts">
+  <file path="auth0.ts">
+    export const api = new auth0.ResourceServer("mattbutlerengineering-api", {
+      name: "mattbutlerengineering-api",
+      identifier: `https://api.${domain}`,
+      signingAlg: "RS256",
+      allowOfflineAccess: true,
+      tokenLifetime: 86400, // 24 hours
+      tokenLifetimeForWeb: 7200, // 2 hours
+    });
+    export const hospitalityApp = new auth0.Client("mattbutlerengineering-hospitality", {
+      name: "mattbutlerengineering-hospitality",
+      description: "Matt Butler Engineering Hospitality",
+      appType: "spa",
+      callbacks: callbackUrls,
+      allowedLogoutUrls: logoutUrls,
+      webOrigins: webOrigins,
+      allowedOrigins: webOrigins,
+      oidcConformant: true,
+      jwtConfiguration: {
+        alg: "RS256",
+        lifetimeInSeconds: 36000,
+      },
+      grantTypes: [
+        "authorization_code",
+        "refresh_token",
+        "password",
+        "http://auth0.com/oauth/grant-type/password-realm",
+      ],
+      refreshToken: {
+        rotationType: "rotating",
+        expirationType: "expiring",
+        leeway: 0,
+        tokenLifetime: 2592000, // 30 days
+        infiniteIdleTokenLifetime: false,
+        infiniteTokenLifetime: false,
+        idleTokenLifetime: 1296000, // 15 days
+      },
+    });
+  </file>
+  </section>
+  <section priority="medium" role="index.ts">
+  <file path="index.ts">
+    export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
+    export const auth0ClientId = auth0Outputs.hospitalityClientId;
+  </file>
+  </section>
+</codebase>
