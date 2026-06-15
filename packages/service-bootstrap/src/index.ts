@@ -14,4 +14,6 @@ export {
   FEATURE_FLAGS_HEADER,
 } from "./feature-flags.js";
 export type { FeatureContext, FeatureFlag } from "./feature-flags.js";
-export { errorHandlerPlugin } from "./error-handler.js";
+export { errorHandlerPlugin, getTitleForStatus } from "./error-handler.js";
+export { classifyError } from "./classify-error.js";
+export type { ErrorClassification } from "./classify-error.js";
