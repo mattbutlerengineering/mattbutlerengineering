@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Stage, Layer } from "react-konva";
+import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
+import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, snapToGrid } from "./floor-plan-geometry.js";
 import styles from "./FloorPlanCanvas.module.css";
 
 export interface FloorPlanCanvasProps {
@@ -13,10 +15,6 @@ export interface FloorPlanCanvasProps {
   selectedTableId: string | null;
   readOnly?: boolean;
 }
-
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
-const GRID_SIZE = 20;
 
 export function FloorPlanCanvas({
   floorPlan,
@@ -64,10 +62,7 @@ export function FloorPlanCanvas({
       setDraggingTableId(null);
 
       // Snap to grid
-      const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
-      const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
-
-      onTableMove(tableId, snappedX, snappedY);
+      onTableMove(tableId, snapToGrid(x), snapToGrid(y));
     },
     [readOnly, onTableMove]
   );
@@ -109,7 +104,7 @@ export function FloorPlanCanvas({
       {/* Floor plan name overlay */}
       <div className={styles.nameOverlay}>
         {floorPlan.name}
-        {floorPlan.isActive && <span className={styles.activeLabel}>(Active)</span>}
+        {floorPlan.isActive && <Text className={styles.activeLabel}>(Active)</Text>}
       </div>
 
       {/* Zoom indicator */}
@@ -142,8 +137,8 @@ export function FloorPlanCanvas({
       {tables.length === 0 && (
         <div className={styles.emptyState}>
           <div className={styles.emptyStateContent}>
-            <p className={styles.emptyStateTitle}>No tables on this floor plan</p>
-            <p className={styles.emptyStateNote}>Add tables from the sidebar</p>
+            <Text className={styles.emptyStateTitle}>No tables on this floor plan</Text>
+            <Text className={styles.emptyStateNote}>Add tables from the sidebar</Text>
           </div>
         </div>
       )}

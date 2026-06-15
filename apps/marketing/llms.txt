@@ -1,5 +1,22 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
+  <file path="src/data/ai-health.ts">
+    <item priority="low">
+      interface AcmmSensor {
+        available: boolean;
+        level: string;
+        score: number;
+        gaps: number;
+      }
+    </item>
+    <item priority="low">
+      interface CiSensor {
+        available: boolean;
+        passRate: number;
+        recentRuns: number;
+      }
+    </item>
+  </file>
   <file path="src/data/projects.ts">
     <item priority="low">
       interface Project {

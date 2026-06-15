@@ -1,5 +1,5 @@
 import { ApiClient } from "./client.js";
-import type { ClientConfig, QueryParams } from "./client.js";
+import type { ClientConfig, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface SessionSummary {
   readonly id: string;
@@ -40,19 +40,25 @@ export class AgentSessionClient extends ApiClient {
     super(config);
   }
 
-  async createSession(body: CreateSessionRequest): Promise<SessionSummary> {
-    return this.postOne<SessionSummary>("/v1/sessions", body);
+  async createSession(
+    body: CreateSessionRequest,
+    override?: PerRequestOptions
+  ): Promise<SessionSummary> {
+    return this.postOne<SessionSummary>("/v1/sessions", body, override);
   }
 
-  async getSession(id: string): Promise<SessionSummary> {
-    return this.getOne<SessionSummary>(`/v1/sessions/${id}`);
+  async getSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
+    return this.getOne<SessionSummary>(`/v1/sessions/${id}`, undefined, override);
   }
 
-  async listSessions(params: ListSessionsParams = {}): Promise<PaginatedSessions> {
-    return this.get<PaginatedSessions>("/v1/sessions", params as QueryParams);
+  async listSessions(
+    params: ListSessionsParams = {},
+    override?: PerRequestOptions
+  ): Promise<PaginatedSessions> {
+    return this.get<PaginatedSessions>("/v1/sessions", params as QueryParams, undefined, override);
   }
 
-  async cancelSession(id: string): Promise<SessionSummary> {
-    return this.postOne<SessionSummary>(`/v1/sessions/${id}/cancel`, {});
+  async cancelSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
+    return this.postOne<SessionSummary>(`/v1/sessions/${id}/cancel`, {}, override);
   }
 }

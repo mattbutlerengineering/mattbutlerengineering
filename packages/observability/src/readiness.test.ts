@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { createReadinessTracker } from "./readiness.js";
+import { describe, it, expect, vi } from "vitest";
+import { createReadinessTracker, registerStandardChecks } from "./readiness.js";
 
 describe("createReadinessTracker", () => {
   it("returns not ready when no checks are registered", async () => {
@@ -127,5 +127,103 @@ describe("createReadinessTracker", () => {
     const parsed = new Date(snapshot.timestamp);
 
     expect(parsed.toISOString()).toBe(snapshot.timestamp);
+  });
+});
+
+describe("registerStandardChecks", () => {
+  it("registers database and auth checks — healthy path", async () => {
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    registerStandardChecks(tracker, {
+      prisma: mockPrisma,
+      auth0Url: "https://example.auth0.com/.well-known/jwks.json",
+      fetchFn: mockFetch,
+    });
+
+    const snapshot = await tracker.evaluate();
+
+    expect(snapshot.ready).toBe(true);
+    expect(snapshot.checks).toHaveLength(2);
+    expect(snapshot.checks[0]).toEqual({ name: "database", status: "ok" });
+    expect(snapshot.checks[1]).toEqual({ name: "auth", status: "ok" });
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledOnce();
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("reports database check as error when prisma throws", async () => {
+    const mockPrisma = {
+      $queryRaw: vi.fn().mockRejectedValue(new Error("Connection refused")),
+    };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    registerStandardChecks(tracker, {
+      prisma: mockPrisma,
+      auth0Url: "https://example.auth0.com/.well-known/jwks.json",
+      fetchFn: mockFetch,
+    });
+
+    const snapshot = await tracker.evaluate();
+
+    expect(snapshot.ready).toBe(false);
+    expect(snapshot.checks[0]).toEqual({
+      name: "database",
+      status: "error",
+      message: "Connection refused",
+    });
+    expect(snapshot.checks[1]).toEqual({ name: "auth", status: "ok" });
+  });
+
+  it("reports auth check as error when JWKS fetch times out", async () => {
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockImplementation(
+      (_url: string, opts: { signal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) => {
+          if (opts?.signal) {
+            opts.signal.addEventListener("abort", () => {
+              reject(new DOMException("The operation was aborted.", "AbortError"));
+            });
+          }
+        })
+    );
+    const tracker = createReadinessTracker();
+
+    registerStandardChecks(tracker, {
+      prisma: mockPrisma,
+      auth0Url: "https://example.auth0.com/.well-known/jwks.json",
+      fetchFn: mockFetch,
+      jwksTimeoutMs: 10,
+    });
+
+    const snapshot = await tracker.evaluate();
+
+    expect(snapshot.ready).toBe(false);
+    expect(snapshot.checks[1]).toMatchObject({
+      name: "auth",
+      status: "error",
+    });
+  });
+
+  it("reports auth check as error when JWKS fetch returns non-ok status", async () => {
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+    const tracker = createReadinessTracker();
+
+    registerStandardChecks(tracker, {
+      prisma: mockPrisma,
+      auth0Url: "https://example.auth0.com/.well-known/jwks.json",
+      fetchFn: mockFetch,
+    });
+
+    const snapshot = await tracker.evaluate();
+
+    expect(snapshot.ready).toBe(false);
+    expect(snapshot.checks[1]).toEqual({
+      name: "auth",
+      status: "error",
+      message: "JWKS returned 503",
+    });
   });
 });

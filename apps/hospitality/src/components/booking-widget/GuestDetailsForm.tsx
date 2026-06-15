@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useReducer, useRef } from "react";
+import { useState, useEffect, useCallback, useReducer } from "react";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime } from "../../utils/format.js";
+import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -22,13 +23,6 @@ export interface GuestDetailsFormProps {
   onBack: () => void;
   venueSlug?: string;
   apiBaseUrl?: string;
-}
-
-interface RecognitionResult {
-  firstName: string | null;
-  phone: string | null;
-  visitCount: number;
-  hasPreferences: boolean;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -59,20 +53,26 @@ export function GuestDetailsForm({
   venueSlug,
   apiBaseUrl = "",
 }: GuestDetailsFormProps) {
-  const [name, setName] = useState("");
+  const [nameInput, setNameInput] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
   const [notes, setNotes] = useState("");
-  const [recognition, setRecognition] = useState<RecognitionResult | null>(null);
+  const [nameEdited, setNameEdited] = useState(false);
+  const [phoneEdited, setPhoneEdited] = useState(false);
   // Force re-render every second so the hold countdown stays current
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { result: recognition, recognize } = useGuestRecognition({ venueSlug, apiBaseUrl });
 
   useEffect(() => {
     if (!hold) return;
     const interval = setInterval(forceRender, 1000);
     return () => clearInterval(interval);
   }, [hold]);
+
+  // Render-time derivation: use recognition data only until user edits the field
+  const name = nameEdited || !recognition?.firstName ? nameInput : recognition.firstName;
+  const phone = phoneEdited || !recognition?.phone ? phoneInput : recognition.phone;
 
   const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
 
@@ -89,49 +89,10 @@ export function GuestDetailsForm({
 
   const handleEmailBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
-      const emailValue = e.target.value;
-      if (!venueSlug || !emailValue) return;
-
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      debounceTimerRef.current = setTimeout(async () => {
-        try {
-          const url = `${apiBaseUrl}/public/v1/venues/${venueSlug}/guests/recognize?email=${encodeURIComponent(emailValue)}`;
-          const res = await fetch(url);
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data.recognized) {
-            setRecognition({
-              firstName: data.firstName ?? null,
-              phone: data.phone ?? null,
-              visitCount: data.visitCount ?? 1,
-              hasPreferences: data.hasPreferences ?? false,
-            });
-            if (data.firstName && !name) {
-              setName(data.firstName);
-            }
-            if (data.phone && !phone) {
-              setPhone(data.phone);
-            }
-          }
-        } catch {
-          // Silent fail — never block booking
-        }
-      }, 300);
+      recognize(e.target.value);
     },
-    [venueSlug, apiBaseUrl, name, phone]
+    [recognize]
   );
-
-  // Clear debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
 
   const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
 
@@ -179,7 +140,10 @@ export function GuestDetailsForm({
           label="Name"
           required
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setNameInput(e.target.value);
+            setNameEdited(true);
+          }}
           placeholder="John Smith"
         />
 
@@ -196,7 +160,10 @@ export function GuestDetailsForm({
           label="Phone"
           type="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => {
+            setPhoneInput(e.target.value);
+            setPhoneEdited(true);
+          }}
           placeholder="(555) 123-4567"
         />
 

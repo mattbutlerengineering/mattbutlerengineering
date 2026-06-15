@@ -1,13 +1,14 @@
-import { orchestrateVerification } from "./verification-orchestrator.js";
-import { GateRunner } from "./gate-runner.js";
-import type { GateContext } from "./gate-runner.js";
-import { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
-import { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
-import { SecurityReviewGate } from "./gates/security-review-gate.js";
-import { isTrivialDepBump } from "./dep-bump-merger.js";
-import { emitEvent } from "./utils.js";
-import type { SessionEventCallback } from "./types.js";
+import { trace } from "@opentelemetry/api";
+import { runVerification } from "./worktree-manager.js";
+import { storeVerificationLog, emitEvent } from "./utils.js";
+import { analyzeDiff } from "./diff-static-analyzer.js";
+import { evaluateSuccess } from "./success-evaluator.js";
 import type { EvaluationResult } from "./success-evaluator.js";
+import { reviewDiff } from "./diff-reviewer.js";
+import { isTrivialDepBump } from "./dep-bump-merger.js";
+import type { SessionEventCallback } from "./types.js";
+
+const tracer = trace.getTracer("@mbe/agent-core");
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,12 @@ export interface PostCommitGatewayInput {
 /**
  * Run all post-commit validation gates and determine the PR outcome.
  *
+ * Inline steps:
+ *   1. Verification (lint + typecheck + tests)
+ *   2. Static analysis (regex-based, no AI)
+ *   3. LLM evaluation (skip-policy absorbed inside evaluateSuccess)
+ *   4. Security review (skipped when static analysis failed)
+ *
  * Returns a GatewayVerdict with:
  *   - `outcome`: "merge-direct" | "create-pr" | "create-draft-pr"
  *   - `passed`: true when all gates passed
@@ -61,48 +68,132 @@ export async function runPostCommitGateway(
   const errors: string[] = [];
   const gateFailures: string[] = [];
 
-  // 1. Verification (lint + typecheck + tests)
-  const verification = await orchestrateVerification(worktreePath, onEvent);
-  if (!verification.passed) {
-    gateFailures.push("verification");
-    if (verification.error) errors.push(verification.error);
-  }
+  // ── Step 1: Verification (lint + typecheck + tests) ──────────────────────
+  const verifySpan = tracer.startSpan("agent_core.verify_changes");
+  let verificationPassed: boolean;
+  try {
+    const verification = await runVerification(worktreePath);
+    verifySpan.setAttribute("verify.passed", verification.passed);
+    verifySpan.setAttribute("verify.lint", verification.lintOk);
+    verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
+    verifySpan.setAttribute("verify.tests", verification.testsOk);
 
-  // 2. Quality gates via GateRunner — only run when verification passed
-  let evaluation: EvaluationResult | undefined;
-  if (verification.passed) {
-    const staticGate = new StaticAnalysisGate();
-    const evalGate = new LlmEvaluationGate();
-    const securityGate = new SecurityReviewGate({
-      skipWhen: () => staticGate.lastResult !== undefined && !staticGate.lastResult.passed,
+    const logSections: { label: string; output: string }[] = [];
+    if (verification.lintOutput)
+      logSections.push({ label: "Lint", output: verification.lintOutput });
+    if (verification.typecheckOutput)
+      logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
+    if (verification.testOutput)
+      logSections.push({ label: "Tests", output: verification.testOutput });
+
+    let verificationLogPath: string | undefined;
+    if (logSections.length > 0) {
+      verificationLogPath = await storeVerificationLog(worktreePath, logSections);
+    }
+
+    emitEvent(onEvent, "session:verification", {
+      message: verification.passed
+        ? "Verification passed (lint + typecheck + tests)"
+        : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
     });
 
-    const context: GateContext = {
-      diff,
-      taskDescription,
-      commitMsg,
-      evaluateSuccess: config.evaluateSuccess !== false,
-      runStaticAnalysis: config.runStaticAnalysis !== false,
-      runSecurityReview: config.runSecurityReview !== false,
-    };
+    verificationPassed = verification.passed;
+    if (!verification.passed) {
+      gateFailures.push("verification");
+      const parts: string[] = [];
+      if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
+      if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
+      if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
+      errors.push(`Verification failed: ${parts.join("; ")}`);
+    }
+  } finally {
+    verifySpan.end();
+  }
 
-    const gateRunResult = await new GateRunner([staticGate, evalGate, securityGate]).run(context);
-    evaluation = evalGate.lastEvaluation;
+  // Quality gates only run when verification passed
+  if (!verificationPassed) {
+    return { outcome: "create-draft-pr", passed: false, gateFailures, errors };
+  }
 
-    for (const result of gateRunResult.results) {
-      if (!result.passed) {
-        gateFailures.push(result.gateName);
-        if (result.details) errors.push(result.details);
+  let evaluation: EvaluationResult | undefined;
+
+  // ── Step 2: Static analysis ───────────────────────────────────────────────
+  let staticAnalysisPassed = true;
+  if (config.runStaticAnalysis !== false) {
+    const staticSpan = tracer.startSpan("agent_core.static_analysis_gate");
+    try {
+      const analysisResult = analyzeDiff(diff);
+      const errorViolations = analysisResult.violations.filter((v) => v.severity === "error");
+      staticAnalysisPassed = errorViolations.length === 0;
+
+      staticSpan.setAttribute("static_analysis.clean", analysisResult.clean);
+      staticSpan.setAttribute("static_analysis.violation_count", analysisResult.violations.length);
+      staticSpan.setAttribute("static_analysis.error_count", errorViolations.length);
+
+      if (!staticAnalysisPassed) {
+        const formatted = errorViolations
+          .map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`)
+          .join("; ");
+        const details = `Static analysis errors: ${formatted}`;
+        gateFailures.push("static-analysis");
+        errors.push(details);
+        emitEvent(onEvent, "session:verification", { message: details });
+      } else if (!analysisResult.clean) {
+        const warnCount = analysisResult.violations.filter((v) => v.severity === "warning").length;
+        emitEvent(onEvent, "session:verification", {
+          message: `${warnCount} warning(s) (non-blocking)`,
+        });
       }
-      if (result.details && result.details !== "skipped") {
-        const eventType =
-          result.gateName === "static-analysis"
-            ? "session:verification"
-            : result.gateName === "evaluation"
-              ? "session:evaluation"
-              : "session:review";
-        emitEvent(onEvent, eventType, { message: result.details });
+    } finally {
+      staticSpan.end();
+    }
+  }
+
+  // ── Step 3: LLM evaluation ────────────────────────────────────────────────
+  if (config.evaluateSuccess !== false) {
+    const evalSpan = tracer.startSpan("agent_core.llm_evaluation_gate");
+    try {
+      const evalResult = await evaluateSuccess(taskDescription, diff, { commitTitle: commitMsg });
+      evaluation = evalResult;
+
+      evalSpan.setAttribute("evaluation.passed", evalResult.passed);
+      evalSpan.setAttribute("evaluation.confidence", evalResult.confidence);
+      if (evalResult.skipped) {
+        evalSpan.setAttribute("evaluation.skipped", true);
       }
+
+      if (!evalResult.passed) {
+        const details = `Evaluation failed: ${evalResult.reasoning}`;
+        gateFailures.push("evaluation");
+        errors.push(details);
+        emitEvent(onEvent, "session:evaluation", { message: details });
+      } else {
+        emitEvent(onEvent, "session:evaluation", {
+          message: `confidence: ${evalResult.confidence.toFixed(2)}`,
+        });
+      }
+    } finally {
+      evalSpan.end();
+    }
+  }
+
+  // ── Step 4: Security review (skipped when static analysis failed) ─────────
+  if (config.runSecurityReview !== false && staticAnalysisPassed) {
+    const secSpan = tracer.startSpan("agent_core.security_review_gate");
+    try {
+      const reviewResult = await reviewDiff(diff);
+
+      secSpan.setAttribute("security_review.approved", reviewResult.approved);
+      secSpan.setAttribute("security_review.issues_count", reviewResult.issues.length);
+
+      if (!reviewResult.approved) {
+        const details = `Security review failed: ${reviewResult.issues.join("; ")}`;
+        gateFailures.push("security-review");
+        errors.push(details);
+        emitEvent(onEvent, "session:review", { message: details });
+      }
+    } finally {
+      secSpan.end();
     }
   }
 
@@ -112,7 +203,7 @@ export async function runPostCommitGateway(
     return { outcome: "create-draft-pr", passed: false, gateFailures, errors, evaluation };
   }
 
-  // 3. Determine merge strategy — trivial dep bumps bypass PR review
+  // ── Step 5: Determine merge strategy ─────────────────────────────────────
   const depBumpCheck = isTrivialDepBump(diff);
   if (depBumpCheck.isTrivial) {
     return { outcome: "merge-direct", passed: true, gateFailures: [], errors: [], evaluation };
