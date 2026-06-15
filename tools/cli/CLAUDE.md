@@ -7,7 +7,6 @@ Monorepo CLI for development, agent orchestration, and infrastructure management
 ```
 src/
 ├── index.ts           # Commander program setup, command registration
-├── api.ts             # API client for agent service (localhost:3003)
 ├── config.ts          # CLI configuration (auth tokens, API URLs)
 ├── commands/
 │   ├── agent.ts       # agent run/start/list/status/logs/cancel/delete/orchestrate/cost
