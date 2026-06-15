@@ -997,6 +997,28 @@
     }
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    export interface BookingFlowData {
+      selectedDate: string | null;
+      selectedEndDate: string | null;
+      partySize: number;
+      slots: TimeSlot[];
+      selectedSlot: TimeSlot | null;
+      slotsLoading: boolean;
+      slotsError: string | null;
+      hold: ReservationHold | null;
+      holdLoading: boolean;
+      holdError: string | null;
+      reservation: Reservation | null;
+      confirmLoading: boolean;
+      confirmError: string | null;
+      depositConfig: DepositConfig | null;
+      depositPaymentIntentId: string | null;
+    }
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     interface ADRFrontmatter {
@@ -4684,11 +4706,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -14338,7 +14363,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

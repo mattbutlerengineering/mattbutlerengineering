@@ -327,6 +327,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
+    <item priority="low">
+      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    </item>
+    <item priority="low">
+      interface BookingFlowData {
+        selectedDate: string | null;
+        selectedEndDate: string | null;
+        partySize: number;
+        slots: TimeSlot[];
+        selectedSlot: TimeSlot | null;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="commands">
   <file path="tools/cli/src/commands/adr.ts">
     <item priority="high">

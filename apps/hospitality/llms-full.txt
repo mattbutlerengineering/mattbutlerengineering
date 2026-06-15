@@ -1,4 +1,26 @@
 <codebase path="apps/hospitality">
+  <section priority="medium" role="booking-widget">
+  <file path="src/components/booking-widget/useBookingFlow.ts">
+    export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+    export interface BookingFlowData {
+      selectedDate: string | null;
+      selectedEndDate: string | null;
+      partySize: number;
+      slots: TimeSlot[];
+      selectedSlot: TimeSlot | null;
+      slotsLoading: boolean;
+      slotsError: string | null;
+      hold: ReservationHold | null;
+      holdLoading: boolean;
+      holdError: string | null;
+      reservation: Reservation | null;
+      confirmLoading: boolean;
+      confirmError: string | null;
+      depositConfig: DepositConfig | null;
+      depositPaymentIntentId: string | null;
+    }
+  </file>
+  </section>
   <section priority="medium" role="constants">
   <file path="src/constants/auth.ts">
     export interface AuthConfigResult {
