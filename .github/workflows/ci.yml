@@ -67,18 +67,17 @@ jobs:
         id: cache-prisma
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Generate Prisma clients
         if: steps.cache-prisma.outputs.cache-hit != 'true'
         run: |
-          pnpm --filter @mbe/users-service db:generate
-          pnpm --filter @mbe/reservations-service db:generate
-          pnpm --filter @mbe/agent-service db:generate
+          # Derive service list from the workspace — no hardcoded names
+          for SERVICE in $(node scripts/discover-prisma-services.mjs); do
+            PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
+            pnpm --filter "$PKG" db:generate
+          done
 
       - name: Login to Turborepo Remote Cache
         if: env.TURBO_TOKEN != ''
@@ -176,11 +175,8 @@ jobs:
       - name: Restore Prisma clients
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Typecheck
         env:
@@ -242,11 +238,8 @@ jobs:
       - name: Restore Prisma clients
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Check rialto exports map is in sync
         run: pnpm --filter @mattbutlerengineering/rialto exports:check
@@ -350,11 +343,8 @@ jobs:
       - name: Restore Prisma clients
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Run tests with coverage
         env:
@@ -426,37 +416,32 @@ jobs:
       - name: Restore Prisma clients
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          key: prisma-clients-${{ hashFiles('services/users/prisma/schema.prisma', 'services/reservations/prisma/schema.prisma', 'services/agent/prisma/schema.prisma') }}
+          path: services/*/src/generated
+          key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Check for destructive migrations
         run: node scripts/check-destructive-migrations.js
 
-      - name: Apply migrations (users)
-        run: pnpm --filter @mbe/users-service db:migrate:deploy
+      - name: Apply migrations
+        # Derives service list from the workspace — adding a new service with
+        # prisma/schema.prisma requires zero edits to this workflow.
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
-
-      - name: Apply migrations (reservations)
-        run: pnpm --filter @mbe/reservations-service db:migrate:deploy
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-
-      - name: Apply migrations (agent)
-        run: pnpm --filter @mbe/agent-service db:migrate:deploy
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
+        run: |
+          for SERVICE in $(node scripts/discover-prisma-services.mjs); do
+            PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
+            echo "=== Applying migrations for $PKG ==="
+            pnpm --filter "$PKG" db:migrate:deploy
+          done
 
       - name: Verify schema is in sync
-        run: |
-          pnpm --filter @mbe/users-service db:migrate:status
-          pnpm --filter @mbe/reservations-service db:migrate:status
-          pnpm --filter @mbe/agent-service db:migrate:status
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
+        run: |
+          for SERVICE in $(node scripts/discover-prisma-services.mjs); do
+            PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
+            pnpm --filter "$PKG" db:migrate:status
+          done
 
   ai-antipattern-ratchet:
     name: AI Antipattern Ratchet
