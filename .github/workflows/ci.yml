@@ -284,13 +284,48 @@ jobs:
 
       - name: Run a11y tests (accessibility vitest)
         run: pnpm --dir packages/rialto vitest run --reporter=json --outputFile=../../a11y-results.json src/test/accessibility src/test/token-contrast.test.ts # accessibility
-        continue-on-error: true
 
-      - name: Process results for attribution
-        run: node scripts/process-a11y-results.js || true
+      - name: Process results and fail on agent violations
+        if: always()
+        run: node scripts/process-a11y-results.mjs
         env:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Comment a11y violations on PR
+        if: failure()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const violationsFile = 'a11y-violations.json';
+            if (!fs.existsSync(violationsFile)) return;
+            const entry = JSON.parse(fs.readFileSync(violationsFile, 'utf8'));
+            if (!entry.violations || entry.violations.length === 0) return;
+
+            const rows = entry.violations
+              .map(v => `| ${v.name.replace(/\|/g, '\\|')} | ${v.error.split('\n')[0].replace(/\|/g, '\\|')} |`)
+              .join('\n');
+
+            const body = [
+              '## Accessibility violations detected in AI-generated code',
+              '',
+              `**Branch:** \`${entry.branch}\`  `,
+              `**Failures:** ${entry.numFailures} of ${entry.numTests} tests`,
+              '',
+              '| Test | Error |',
+              '|------|-------|',
+              rows,
+              '',
+              'Fix these violations before merging. Run `pnpm --dir packages/rialto vitest run src/test/accessibility` locally to reproduce.',
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
 
   test:
     name: Test (Node ${{ matrix.node-version }})
