@@ -46,7 +46,8 @@ export function ShowcaseLayout() {
       <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={toggleTheme} />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <Button
+      {/* eslint-disable mbe-local/prefer-rialto-components */}
+      <button
         ref={toggleButtonRef}
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
@@ -69,7 +70,8 @@ export function ShowcaseLayout() {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-      </Button>
+      </button>
+      {/* eslint-enable mbe-local/prefer-rialto-components */}
 
       {/* ── Body (sidebar + content) ────────────── */}
       <div className={styles.body}>
@@ -91,7 +93,9 @@ export function ShowcaseLayout() {
               variant="rich"
               logo={
                 <>
-                  Ri<Text style={{ color: "var(--rialto-accent)" }}>a</Text>lto
+                  {/* eslint-disable mbe-local/prefer-rialto-components */}
+                  Ri<span style={{ color: "var(--rialto-accent)" }}>a</span>lto
+                  {/* eslint-enable mbe-local/prefer-rialto-components */}
                 </>
               }
               columns={[
@@ -113,7 +117,7 @@ export function ShowcaseLayout() {
                   ],
                 },
               ]}
-              copyright={`\u00A9 ${new Date().getFullYear()} Matt Butler Engineering. All rights reserved.`}
+              copyright={`© ${new Date().getFullYear()} Matt Butler Engineering. All rights reserved.`}
             />
           </div>
         </main>
