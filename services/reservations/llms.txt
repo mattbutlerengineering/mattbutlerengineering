@@ -370,11 +370,8 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
-    <item priority="medium">
-      function mergeDietaryRestrictions(
-        existing: string[] | null | undefined,
-        incoming: string[] | null | undefined
-      ): string[] | null { /* ... */ }
+    <item priority="high">
+      export const guestService: unknown;
     </item>
   </file>
   <file path="src/services/hold.ts">

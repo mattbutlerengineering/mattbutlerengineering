@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b">
+<codebase path=".">
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     <item priority="high">
@@ -224,10 +224,14 @@
   </file>
   <file path="tools/cli/src/adapters/claude-adapter.ts">
     <item priority="medium">
-      function detectRateLimitInError(message: string): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      class ClaudeAdapter {
+        name: unknown;
+        async isAvailable(): Promise<unknown>;
+        async run(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="tools/cli/src/adapters/cli-adapter.ts">
@@ -266,7 +270,7 @@
       function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
     </item>
     <item priority="medium">
-      function detectRateLimiting(output: string): boolean { /* ... */ }
+      function buildCommitMessage(task: string): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/adapters/opencode-adapter.ts">
@@ -274,7 +278,7 @@
       function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
     </item>
     <item priority="medium">
-      function detectRateLimiting(output: string): boolean { /* ... */ }
+      function buildCommitMessage(task: string): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/adapters/rate-limit-detector.ts">
@@ -747,7 +751,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastEvaluation: EvaluationResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -766,7 +769,6 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
-        lastResult: GateResult;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -2041,11 +2043,8 @@
         updatedAt: Date;
       }): Guest { /* ... */ }
     </item>
-    <item priority="medium">
-      function mergeDietaryRestrictions(
-        existing: string[] | null | undefined,
-        incoming: string[] | null | undefined
-      ): string[] | null { /* ... */ }
+    <item priority="high">
+      export const guestService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
