@@ -6,12 +6,6 @@ import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
 
-/* ── Props ───────────────────────────────────── */
-export interface ShowcaseLayoutProps {
-  theme?: "light" | "dark";
-  onThemeToggle?: () => void;
-}
-
 /**
  * App shell for the Rialto showcase.
  *
@@ -21,7 +15,7 @@ export interface ShowcaseLayoutProps {
  * - Main content area (Outlet) — only this scrolls
  * - Footer at bottom of content scroll area
  */
-export function ShowcaseLayout(props: ShowcaseLayoutProps) {
+export function ShowcaseLayout() {
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main && !window.location.hash) {
@@ -29,9 +23,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
     }
   }, []);
 
-  const themeCtx = useThemeContext();
-  const theme = props.theme ?? themeCtx.theme;
-  const onThemeToggle = props.onThemeToggle ?? themeCtx.onThemeToggle;
+  const { theme, toggleTheme } = useThemeContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -51,10 +43,10 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={onThemeToggle} />
+      <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={toggleTheme} />
 
       {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
-      <button
+      <Button
         ref={toggleButtonRef}
         className={styles.mobileSidebarToggle}
         onClick={handleMobileToggle}
@@ -77,7 +69,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-      </button>
+      </Button>
 
       {/* ── Body (sidebar + content) ────────────── */}
       <div className={styles.body}>
@@ -99,7 +91,7 @@ export function ShowcaseLayout(props: ShowcaseLayoutProps) {
               variant="rich"
               logo={
                 <>
-                  Ri<span style={{ color: "var(--rialto-accent)" }}>a</span>lto
+                  Ri<Text style={{ color: "var(--rialto-accent)" }}>a</Text>lto
                 </>
               }
               columns={[
