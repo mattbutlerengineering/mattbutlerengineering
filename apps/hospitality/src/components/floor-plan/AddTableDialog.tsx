@@ -1,21 +1,9 @@
 import { useState } from "react";
 import type { CreateTableRequest } from "@mbe/types";
+import { SHAPE_DEFAULTS, CANVAS_CENTER } from "./floor-plan-geometry.js";
 import styles from "./AddTableDialog.module.css";
 
 type TableShape = "rectangle" | "square" | "circle";
-
-interface ShapeDimensions {
-  width: number;
-  height: number;
-}
-
-const SHAPE_DEFAULTS: Record<TableShape, ShapeDimensions> = {
-  rectangle: { width: 100, height: 60 },
-  square: { width: 70, height: 70 },
-  circle: { width: 70, height: 70 },
-};
-
-const CANVAS_CENTER = { x: 400, y: 300 };
 
 export interface AddTableDialogProps {
   venueId: string;
@@ -94,8 +82,8 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
-          <h2 className={styles.dialogTitle}>Add Table</h2>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
+          <Heading className={styles.dialogTitle}>Add Table</Heading>
+          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -104,7 +92,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
@@ -112,9 +100,9 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.fieldGroup}>
             <label htmlFor="table-name" className={styles.label}>
-              Table Name <span className={styles.required}>*</span>
+              Table Name <Text className={styles.required}>*</Text>
             </label>
-            <input
+            <Input
               id="table-name"
               type="text"
               className={styles.input}
@@ -131,7 +119,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
               <label htmlFor="table-capacity" className={styles.label}>
                 Capacity
               </label>
-              <input
+              <Input
                 id="table-capacity"
                 type="number"
                 className={styles.input}
@@ -146,7 +134,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
               <label htmlFor="table-min-covers" className={styles.label}>
                 Min Covers
               </label>
-              <input
+              <Input
                 id="table-min-covers"
                 type="number"
                 className={styles.input}
@@ -159,10 +147,10 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
           </div>
 
           <div className={styles.fieldGroup}>
-            <span className={styles.label}>Shape</span>
+            <Text className={styles.label}>Shape</Text>
             <div className={styles.shapeSelector}>
               {(["rectangle", "square", "circle"] as TableShape[]).map((s) => (
-                <button
+                <Button
                   key={s}
                   type="button"
                   className={`${styles.shapeButton} ${shape === s ? styles.shapeButtonActive : ""}`}
@@ -170,29 +158,29 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                   disabled={isSubmitting}
                   aria-pressed={shape === s}
                 >
-                  <span className={styles.shapeIcon} aria-hidden="true">
+                  <Text className={styles.shapeIcon} aria-hidden="true">
                     {s === "rectangle" && <RectangleIcon />}
                     {s === "square" && <SquareIcon />}
                     {s === "circle" && <CircleIcon />}
-                  </span>
-                  <span className={styles.shapeLabel}>{capitalize(s)}</span>
-                </button>
+                  </Text>
+                  <Text className={styles.shapeLabel}>{capitalize(s)}</Text>
+                </Button>
               ))}
             </div>
           </div>
 
           <div className={styles.dialogFooter}>
-            <button
+            <Button
               type="button"
               className={styles.cancelButton}
               onClick={onClose}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            </Button>
+            <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
               {isSubmitting ? "Adding..." : "Add Table"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

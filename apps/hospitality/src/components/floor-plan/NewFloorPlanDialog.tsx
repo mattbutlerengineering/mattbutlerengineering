@@ -1,8 +1,14 @@
 import { useState } from "react";
 import type { CreateFloorPlanRequest, FloorPlan } from "@mbe/types";
+import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "./floor-plan-geometry.js";
 import styles from "./NewFloorPlanDialog.module.css";
 
-const DEFAULT_LAYOUT = { width: 800, height: 600, gridSize: 20, showGrid: true };
+const DEFAULT_LAYOUT = {
+  width: CANVAS_WIDTH,
+  height: CANVAS_HEIGHT,
+  gridSize: GRID_SIZE,
+  showGrid: true,
+};
 
 export interface NewFloorPlanDialogProps {
   venueId: string;
@@ -64,8 +70,8 @@ export function NewFloorPlanDialog({
     <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
-          <h2 className={styles.dialogTitle}>New Floor Plan</h2>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
+          <Heading className={styles.dialogTitle}>New Floor Plan</Heading>
+          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -74,7 +80,7 @@ export function NewFloorPlanDialog({
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
@@ -82,9 +88,9 @@ export function NewFloorPlanDialog({
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.fieldGroup}>
             <label htmlFor="floor-plan-name" className={styles.label}>
-              Name <span className={styles.required}>*</span>
+              Name <Text className={styles.required}>*</Text>
             </label>
-            <input
+            <Input
               id="floor-plan-name"
               type="text"
               className={styles.input}
@@ -97,17 +103,17 @@ export function NewFloorPlanDialog({
           </div>
 
           <div className={styles.dialogFooter}>
-            <button
+            <Button
               type="button"
               className={styles.cancelButton}
               onClick={onClose}
               disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            </Button>
+            <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
