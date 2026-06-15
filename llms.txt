@@ -3638,6 +3638,18 @@
       }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      interface ReadinessRoutesOptions {
+        prisma?: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+        auth0JwksUrl?: string;
+        extraChecks?: Record<string, () => Promise<void>>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessRoutes(options: ReadinessRoutesOptions = {}): FastifyPluginAsync { /* ... */ }
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     <item priority="low">
       interface StartServiceServerOptions {

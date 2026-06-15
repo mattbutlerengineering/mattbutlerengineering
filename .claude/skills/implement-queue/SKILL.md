@@ -95,9 +95,34 @@ Each agent prompt MUST include:
 
 ## Phase 3: Serial Merge Train
 
-Merge one PR at a time, oldest green first. Never merge two PRs concurrently and never run two implement-queue sessions at once — concurrent merge trains race and duplicate-fix branches.
+Merge one PR at a time, oldest green first. **Exactly one merge train may run at a time across all sessions** — concurrent trains race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a lock, not the honor system.
 
-For each green PR:
+### Acquire the merge-train lock (before merging anything)
+
+The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. Acquisition is an atomic `mkdir`; a lock whose mtime is older than 45 min is treated as crashed and reclaimed.
+
+```bash
+LOCK="$(git rev-parse --git-common-dir)/mbe-merge-train.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +45 2>/dev/null)" ]; then
+    rm -rf "$LOCK" && mkdir "$LOCK"        # stale (>45m, crashed owner) → reclaim
+  else
+    echo "merge-train lock held by another session — SKIP Phase 3 this iteration."
+    # Do NOT run the merge train. Drop to monitor-only (report open PR state) and
+    # go to Phase 4. Another session owns the train; racing it is the bug we are preventing.
+  fi
+fi
+```
+
+If you did not acquire the lock, **skip the entire merge loop below** and proceed to Phase 4 in monitor-only mode (report PR state; merge nothing).
+
+If you did acquire it: `touch "$LOCK"` at the **start of each PR iteration** as a heartbeat (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
+
+```bash
+rm -rf "$LOCK"
+```
+
+For each green PR (lock held):
 
 1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
 2. Wait for CI (`gh pr checks <N> --watch` or poll).
@@ -141,8 +166,9 @@ If CI fails on a PR: one fix attempt in the main session (small fixes) or create
 
 ## Phase 4: Loop or Stop
 
+- **Release the merge-train lock** (`rm -rf "$(git rev-parse --git-common-dir)/mbe-merge-train.lock"`) before looping or stopping — if you acquired it in Phase 3. (A crash leaves it for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - More `ready` issues and time/budget remain → back to Phase 0.
-- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → stop and report.
+- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock, then stop and report.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /implement-queue`.
