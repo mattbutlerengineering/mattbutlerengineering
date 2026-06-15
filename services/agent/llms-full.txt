@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b/services/agent">
+<codebase path="services/agent">
   <section priority="medium" role="lib">
   <file path="src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {
@@ -553,14 +553,11 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook(
-        "preHandler",
-        createVerifiedBodyPreHandler({
-          header: "x-remediation-signature",
-          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-          format: "raw",
-        })
-      );
+      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+        header: "x-remediation-signature",
+        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+        format: "raw",
+      }));
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{

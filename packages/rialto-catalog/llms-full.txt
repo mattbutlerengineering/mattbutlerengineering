@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b/packages/rialto-catalog">
+<codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     interface CharacterLimit {
@@ -337,18 +337,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
