@@ -626,6 +626,80 @@ describe("ApiClient", () => {
     });
   });
 
+  describe("per-request retry/timeout override", () => {
+    it("should use per-request maxRetries override instead of client-wide value", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      // Client-wide maxRetries is 3, but per-request override is 0
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.get("/users", undefined, undefined, { maxRetries: 0 })).rejects.toThrow(
+        ApiClientError
+      );
+      // With maxRetries:0 override, only 1 attempt
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should retry on transient failure when per-request maxRetries > 0", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      // Client-wide maxRetries is 0 (mutations-style), but GET uses per-request override
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      const result = await client.get<{ data: string }>("/users", undefined, undefined, {
+        maxRetries: 2,
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "ok" });
+    });
+
+    it("should use per-request timeout override instead of client-wide value", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", timeout: 30_000 });
+      await client.get("/users", undefined, undefined, { timeout: 5_000 });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.signal).toBeDefined();
+      expect(options?.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("should allow mutation (post) to disable retries per-request", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      // Client has retries enabled, but this mutation disables them
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(
+        client.post("/sessions", { task: "test" }, undefined, { maxRetries: 0 })
+      ).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not affect callers that omit the override — defaults unchanged", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 1 });
+
+      await expect(client.get("/users")).rejects.toThrow(ApiClientError);
+      // 1 initial + 1 retry = 2 total (uses client-wide default)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("configuration defaults", () => {
     it("should use default timeout of 30000ms", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
