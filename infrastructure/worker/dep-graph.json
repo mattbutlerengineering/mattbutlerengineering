@@ -529,12 +529,12 @@
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/config",
-      "type": "devDependency"
+      "to": "@mbe/types",
+      "type": "dependency"
     },
     {
       "from": "@mbe/service-bootstrap",
-      "to": "@mbe/types",
+      "to": "@mbe/config",
       "type": "devDependency"
     },
     {
@@ -545,6 +545,11 @@
     {
       "from": "@mbe/cli",
       "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
+      "to": "@mbe/api-client",
       "type": "dependency"
     },
     {

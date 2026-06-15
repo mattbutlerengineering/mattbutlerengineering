@@ -120,10 +120,11 @@ flowchart TD
   service_bootstrap --> database
   service_bootstrap --> observability
   service_bootstrap --> sentry
-  service_bootstrap --> config
   service_bootstrap --> types
+  service_bootstrap --> config
   types --> config
   cli --> agent_core
+  cli --> api_client
   cli --> types
   cli --> config
 

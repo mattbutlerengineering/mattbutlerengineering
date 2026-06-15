@@ -192,6 +192,18 @@
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
   </file>
+  <file path="src/hooks/useGuestRecognition.ts">
+    export interface GuestRecognitionResult {
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+    }
+    export interface UseGuestRecognitionParams {
+      venueSlug: string | undefined;
+      apiBaseUrl?: string;
+    }
+  </file>
   <file path="src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;

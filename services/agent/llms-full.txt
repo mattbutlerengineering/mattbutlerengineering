@@ -1,4 +1,4 @@
-<codebase path="services/agent">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-adf718a64a59d7f6b/services/agent">
   <section priority="medium" role="lib">
   <file path="src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {

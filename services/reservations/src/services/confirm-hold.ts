@@ -1,17 +1,10 @@
-import {
-  toDateString,
-  type ConfirmHoldRequest,
-  type Reservation,
-  type ReservationStatus,
-  type Table,
-  type TableShapeMetadata,
-  type VenueSettings,
-} from "@mbe/types";
+import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
-import { availabilityService } from "./availability.js";
+import { availabilityService, checkPacingForSlot } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
+import { toReservation } from "./serializers.js";
 
 type ConfirmHoldErrorCode =
   | "NOT_FOUND"
@@ -47,88 +40,6 @@ export interface ConfirmHoldInput {
 export type ConfirmHoldResult =
   | { success: true; reservation: Reservation }
   | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
-
-function mapReservationResult(result: {
-  id: string;
-  date: Date;
-  startTime: Date;
-  endTime: Date;
-  partySize: number;
-  status: string;
-  notes: string | null;
-  cancellationReason: string | null;
-  cancellationNote: string | null;
-  occasion: string | null;
-  seatingPreference: string | null;
-  guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
-  guestId: string | null;
-  userId: string | null;
-  tableId: string;
-  table?: {
-    id: string;
-    name: string;
-    tableNumber: string | null;
-    capacity: number;
-    minCovers: number;
-    maxCovers: number | null;
-    location: string | null;
-    isActive: boolean;
-    priority: number;
-    status: string;
-    venueId: string | null;
-    floorPlanId: string | null;
-    shapeMetadata: unknown;
-    createdAt: Date;
-    updatedAt: Date;
-  } | null;
-  venueId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): Reservation {
-  return {
-    id: result.id,
-    date: toDateString(result.date),
-    startTime: result.startTime.toISOString(),
-    endTime: result.endTime.toISOString(),
-    partySize: result.partySize,
-    status: result.status as ReservationStatus,
-    notes: result.notes,
-    cancellationReason: result.cancellationReason,
-    cancellationNote: result.cancellationNote,
-    occasion: result.occasion as Reservation["occasion"],
-    seatingPreference: result.seatingPreference as Reservation["seatingPreference"],
-    guestName: result.guestName,
-    guestEmail: result.guestEmail,
-    guestPhone: result.guestPhone,
-    guestId: result.guestId,
-    userId: result.userId,
-    tableId: result.tableId,
-    table: result.table
-      ? {
-          id: result.table.id,
-          name: result.table.name,
-          tableNumber: result.table.tableNumber,
-          capacity: result.table.capacity,
-          minCovers: result.table.minCovers,
-          maxCovers: result.table.maxCovers,
-          location: result.table.location,
-          isActive: result.table.isActive,
-          priority: result.table.priority,
-          status: result.table.status as Table["status"],
-          venueId: result.table.venueId,
-          floorPlanId: result.table.floorPlanId,
-          shapeMetadata: result.table.shapeMetadata as TableShapeMetadata | null,
-          createdAt: result.table.createdAt.toISOString(),
-          updatedAt: result.table.updatedAt.toISOString(),
-        }
-      : undefined,
-    venueId: result.venueId,
-    createdAt: result.createdAt.toISOString(),
-    updatedAt: result.updatedAt.toISOString(),
-  };
-}
 
 /**
  * Orchestrates hold-to-reservation confirmation.
@@ -244,6 +155,53 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
       return { outcome: "conflict" as const };
     }
 
+    // Re-check pacing under the advisory lock so two concurrent confirmations
+    // at the same slot (on different tables) cannot both pass the pre-lock
+    // pacing check and jointly exceed the cover limit (TOCTOU close).
+    if (hold.venueId) {
+      const txReservations = await tx.reservation.findMany({
+        where: {
+          venueId: hold.venueId,
+          date: hold.date,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+      });
+      const txHolds = await tx.reservationHold.findMany({
+        where: {
+          venueId: hold.venueId,
+          date: hold.date,
+          expiresAt: { gt: new Date() },
+          id: { not: holdId },
+        },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          expiresAt: true,
+        },
+      });
+
+      const settings = (
+        await tx.venue.findUnique({ where: { id: hold.venueId }, select: { settings: true } })
+      )?.settings as VenueSettings | null | undefined;
+
+      const pacingOk = checkPacingForSlot(
+        hold.startTime,
+        hold.partySize,
+        settings,
+        txReservations,
+        txHolds
+      );
+
+      if (!pacingOk) {
+        await tx.reservationHold.delete({ where: { id: holdId } });
+        return { outcome: "pacing_exceeded" as const };
+      }
+    }
+
     // Create the reservation
     const reservation = await tx.reservation.create({
       data: {
@@ -261,7 +219,10 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
         userId: userId ?? null,
         status: "CONFIRMED",
       },
-      include: { table: true },
+      include: {
+        table: true,
+        guest: { select: { visitCount: true, communicationPreference: true } },
+      },
     });
 
     // Delete the hold
@@ -282,8 +243,16 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
+  if (txResult.outcome === "pacing_exceeded") {
+    return {
+      success: false,
+      error: "Pacing limit reached for this time slot",
+      errorCode: "PACING_EXCEEDED",
+    };
+  }
+
   // Step 4: Map to domain type
-  const reservation = mapReservationResult(txResult.reservation);
+  const reservation = toReservation(txResult.reservation);
 
   // Step 5: Emit event
   emitHoldConfirmed(reservation);
@@ -294,12 +263,17 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
 // Transaction client type — matches the subset used in the transaction callback
 type PrismaTransactionClient = {
   $executeRaw: typeof prisma.$executeRaw;
+  venue: {
+    findUnique: typeof prisma.venue.findUnique;
+  };
   reservation: {
     findFirst: typeof prisma.reservation.findFirst;
+    findMany: typeof prisma.reservation.findMany;
     create: typeof prisma.reservation.create;
   };
   reservationHold: {
     findFirst: typeof prisma.reservationHold.findFirst;
+    findMany: typeof prisma.reservationHold.findMany;
     delete: typeof prisma.reservationHold.delete;
   };
 };
