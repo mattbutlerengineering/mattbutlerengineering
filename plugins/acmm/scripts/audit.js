@@ -154,7 +154,10 @@ const hollowCriteria = [];
 for (const c of ALL_CRITERIA) {
   const { verdict, substanceEvidence } = criterionVerdicts.get(c.id);
   if (verdict === "hollow") {
-    hollowCriteria.push({ id: c.id, substanceEvidence: substanceEvidence ?? "substance check failed" });
+    hollowCriteria.push({
+      id: c.id,
+      substanceEvidence: substanceEvidence ?? "substance check failed",
+    });
   }
 }
 
@@ -419,8 +422,12 @@ if (behavioral.agent_pr) {
     const acc = (o.acceptance_rate_30d * 100).toFixed(0);
     const rev = (o.revert_rate_30d * 100).toFixed(0);
     const ttm = o.median_time_to_merge_hours.toFixed(1);
+    const htr =
+      o.human_touch_ratio != null
+        ? `${(o.human_touch_ratio * 100).toFixed(0)}% human-touched`
+        : "human-touch unverifiable";
     console.log(
-      `Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge (n=${o.sample_size})`
+      `Agent PR outcomes: ${acc}% accepted · ${rev}% reverted · ${ttm}h median time-to-merge · ${htr} (n=${o.sample_size})`
     );
   }
 } else {
