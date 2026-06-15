@@ -69,6 +69,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="floor-plan">
+  <file path="src/components/floor-plan/floor-plan-geometry.ts">
+    <item priority="high">
+      export const CANVAS_WIDTH: unknown;
+    </item>
+    <item priority="high">
+      export const CANVAS_HEIGHT: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
@@ -150,6 +160,22 @@
     </item>
     <item priority="high">
       export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useGuestRecognition.ts">
+    <item priority="low">
+      interface GuestRecognitionResult {
+        firstName: string | null;
+        phone: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestRecognitionParams {
+        venueSlug: string | undefined;
+        apiBaseUrl?: string;
+      }
     </item>
   </file>
   <file path="src/hooks/useGuests.ts">

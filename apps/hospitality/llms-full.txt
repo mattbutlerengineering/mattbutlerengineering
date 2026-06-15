@@ -138,6 +138,12 @@
     });
   </file>
   </section>
+  <section priority="medium" role="floor-plan">
+  <file path="src/components/floor-plan/floor-plan-geometry.ts">
+    export const CANVAS_WIDTH = 800;
+    export const CANVAS_HEIGHT = 600;
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
@@ -213,6 +219,18 @@
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+  </file>
+  <file path="src/hooks/useGuestRecognition.ts">
+    export interface GuestRecognitionResult {
+      firstName: string | null;
+      phone: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+    }
+    export interface UseGuestRecognitionParams {
+      venueSlug: string | undefined;
+      apiBaseUrl?: string;
+    }
   </file>
   <file path="src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
