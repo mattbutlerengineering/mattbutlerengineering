@@ -1,6 +1,7 @@
 import type { ApiError } from "@mbe/types";
 import { ApiErrorSchema } from "@mbe/types";
 import type { z } from "zod";
+import { retry } from "./retry.js";
 
 /**
  * Describes the value types accepted in a query-params object.
@@ -20,7 +21,6 @@ export function buildQueryString(params: QueryParams): string {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 1_000;
-const JITTER_FACTOR = 0.2;
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 
@@ -272,35 +272,6 @@ function createCombinedSignal(timeoutMs: number, callerSignal?: AbortSignal | nu
 }
 
 /**
- * Returns whether an error is retryable (network errors from fetch).
- */
-function isRetryableError(error: unknown): boolean {
-  return error instanceof TypeError;
-}
-
-/**
- * Returns whether an HTTP status code is retryable.
- */
-function isRetryableStatus(status: number): boolean {
-  return RETRYABLE_STATUS_CODES.has(status);
-}
-
-/**
- * Calculates exponential backoff with jitter.
- * Base delay doubles each attempt: 1s, 2s, 4s, ...
- * Jitter adds +-20% to prevent thundering herd.
- */
-function getBackoffMs(attempt: number): number {
-  const base = BASE_BACKOFF_MS * Math.pow(2, attempt);
-  const jitter = base * JITTER_FACTOR * (2 * Math.random() - 1);
-  return base + jitter;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Wraps fetch with retry logic for transient failures.
  * Retries on network errors (TypeError) and 502/503/504 status codes.
  */
@@ -309,25 +280,30 @@ async function fetchWithRetry(
   options: RequestInit,
   maxRetries: number
 ): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
+  return retry(
+    async () => {
       const response = await fetch(url, options);
-
-      if (isRetryableStatus(response.status) && attempt < maxRetries) {
-        await sleep(getBackoffMs(attempt));
-        continue;
+      if (RETRYABLE_STATUS_CODES.has(response.status)) {
+        throw new RetryableStatusError(response);
       }
-
       return response;
-    } catch (error) {
-      if (attempt < maxRetries && isRetryableError(error)) {
-        await sleep(getBackoffMs(attempt));
-        continue;
-      }
-      throw error;
+    },
+    {
+      maxRetries,
+      baseDelayMs: BASE_BACKOFF_MS,
+      jitter: true,
+      isRetryable: (e) => e instanceof TypeError || e instanceof RetryableStatusError,
     }
-  }
+  ).catch((error) => {
+    if (error instanceof RetryableStatusError) return error.response;
+    throw error;
+  });
+}
 
-  // Unreachable, but TypeScript needs it
-  throw new Error("fetchWithRetry: exhausted all retries");
+/** Sentinel error used internally to signal a retryable HTTP status. */
+class RetryableStatusError extends Error {
+  constructor(public readonly response: Response) {
+    super(`Retryable status: ${response.status}`);
+    this.name = "RetryableStatusError";
+  }
 }
