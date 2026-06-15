@@ -103,6 +103,7 @@ flowchart TD
   database --> config
   jobs --> config
   mcp_server --> config
+  notifications --> api_client
   notifications --> config
   observability --> types
   observability --> config
@@ -123,6 +124,7 @@ flowchart TD
   service_bootstrap --> config
   types --> config
   cli --> agent_core
+  cli --> api_client
   cli --> types
   cli --> config
 

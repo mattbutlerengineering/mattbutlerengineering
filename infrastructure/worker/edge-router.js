@@ -19,6 +19,7 @@ import {
   recordFailure,
 } from "./circuit-breaker.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
+import { buildCspDirectives } from "./csp.js";
 import depGraph from "./dep-graph.json";
 
 // ── Audit Token Verification ─────────────────────────────────────────
@@ -38,6 +39,11 @@ function isAuditRequest(request, env) {
   const token = request.headers.get("X-Audit-Token");
   return token !== null && token === env.AUDIT_TOKEN;
 }
+
+// ── Auth0 Tenant ──────────────────────────────────────────────────────
+// Single source of truth for the Auth0 tenant origin used in the CSP
+// connect-src directive. Must match AUTH_AUTHORITY in Pulumi and docker-compose.
+export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 
 // ── CORS Origin Allowlist ──────────────────────────────────────────────
 // Only these production origins may receive Access-Control-Allow-Origin.
@@ -60,8 +66,12 @@ function corsOriginFor(request) {
  * Build security headers with a per-request nonce for CSP script-src.
  * The nonce replaces 'unsafe-inline', preventing injected scripts from
  * executing while allowing our own <script nonce="..."> tags to run.
+ *
+ * The CSP policy is read from KV key "security/csp" (JSON object mapping
+ * directive names to values). If absent or unreadable, falls back to the
+ * hardcoded defaults in buildCspDirectives. Rollback: delete the KV key.
  */
-function buildSecurityHeaders(nonce) {
+function buildSecurityHeaders(nonce, kvPolicy) {
   return {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Frame-Options": "DENY",
@@ -69,18 +79,20 @@ function buildSecurityHeaders(nonce) {
     "X-XSS-Protection": "0",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      `script-src 'nonce-${nonce}' 'self'`,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: https:",
-      "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://dev-ytbgmz5ls3wh4xdx.us.auth0.com https://api.mattbutlerengineering.com",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
+    "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy }),
   };
+}
+
+/**
+ * Read the CSP policy override from KV ("security/csp").
+ * Returns null on miss or error — callers treat null as "use hardcoded fallback".
+ */
+async function readCspPolicy(kv) {
+  try {
+    return await kv.get("security/csp", "json");
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -111,8 +123,8 @@ function generateNonce() {
  * and inject nonce into <script> tags for HTML responses.
  * Used for static site responses only (not API proxy).
  */
-function addHeaders(response, pathname, nonce) {
-  const securityHeaders = buildSecurityHeaders(nonce);
+function addHeaders(response, pathname, nonce, kvPolicy) {
+  const securityHeaders = buildSecurityHeaders(nonce, kvPolicy);
   const headers = new Headers(response.headers);
 
   for (const [key, value] of Object.entries(securityHeaders)) {
@@ -168,7 +180,7 @@ class NonceInjector {
 /**
  * Return a branded error page for service failures.
  */
-function brandedErrorPage(statusCode, message, requestId, nonce = "") {
+function brandedErrorPage(statusCode, message, requestId, nonce = "", kvPolicy) {
   const statusMessages = {
     502: "Service temporarily unavailable",
     503: "Service temporarily unavailable",
@@ -256,7 +268,7 @@ function brandedErrorPage(statusCode, message, requestId, nonce = "") {
 </body>
 </html>`;
 
-  const securityHeaders = nonce ? buildSecurityHeaders(nonce) : {};
+  const securityHeaders = nonce ? buildSecurityHeaders(nonce, kvPolicy) : {};
   return new Response(html, {
     status: statusCode,
     headers: {
@@ -990,6 +1002,10 @@ export default {
     // Generate a per-request nonce for CSP script-src
     const nonce = generateNonce();
 
+    // ── CSP policy from KV (security/csp) — null = use hardcoded fallback ─
+    // Rollback: `wrangler kv key delete --binding HEALTH_STATE "security/csp"`
+    const kvPolicy = await readCspPolicy(env.HEALTH_STATE);
+
     // ── Audit token verification ──────────────────────────────────────
     const auditVerified = isAuditRequest(request, env);
 
@@ -1034,7 +1050,8 @@ export default {
       return addHeaders(
         Response.redirect(`https://${bare}${url.pathname}${url.search}`, 301),
         url.pathname,
-        nonce
+        nonce,
+        kvPolicy
       );
     }
 
@@ -1044,7 +1061,8 @@ export default {
       return addHeaders(
         Response.redirect(`https://${url.hostname}/hospitality${rest}`, 301),
         url.pathname,
-        nonce
+        nonce,
+        kvPolicy
       );
     }
 
@@ -1060,7 +1078,7 @@ export default {
       }
 
       if (!allowed) {
-        return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce);
+        return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce, kvPolicy);
       }
 
       const target = new URL(url.pathname + url.search, env.API_ORIGIN);
@@ -1091,14 +1109,14 @@ export default {
         console.error("API proxy error:", error.message);
         const newState = recordFailure(updatedState ?? circuitState, Date.now());
         await saveCircuitState(env.HEALTH_STATE, newState);
-        return brandedErrorPage(503, "Service unreachable", requestId, nonce);
+        return brandedErrorPage(503, "Service unreachable", requestId, nonce, kvPolicy);
       }
 
       // If API returns 5xx, record failure for circuit breaker
       if (apiResponse.status >= 500) {
         const newState = recordFailure(updatedState ?? circuitState, Date.now());
         await saveCircuitState(env.HEALTH_STATE, newState);
-        return brandedErrorPage(apiResponse.status, "Service error", requestId, nonce);
+        return brandedErrorPage(apiResponse.status, "Service error", requestId, nonce, kvPolicy);
       }
 
       // Success — record for circuit breaker recovery
@@ -1127,7 +1145,8 @@ export default {
       return addHeaders(
         Response.redirect(`https://${url.hostname}${url.pathname}/${url.search}`, 301),
         url.pathname,
-        nonce
+        nonce,
+        kvPolicy
       );
     }
 
@@ -1177,12 +1196,12 @@ export default {
       response = await binding.fetch(appRequest);
     } catch (error) {
       console.error(`Static site error (${prefix || "marketing"}):`, error.message);
-      return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce);
+      return brandedErrorPage(503, "Service temporarily unavailable", requestId, nonce, kvPolicy);
     }
 
     // If static site returns 5xx, show branded error
     if (response.status >= 500) {
-      return brandedErrorPage(response.status, "Service error", requestId, nonce);
+      return brandedErrorPage(response.status, "Service error", requestId, nonce, kvPolicy);
     }
 
     // Rewrite Location headers so redirects use the public domain with prefix.
@@ -1200,7 +1219,8 @@ export default {
               headers: rewritten,
             }),
             url.pathname,
-            nonce
+            nonce,
+            kvPolicy
           );
         }
       } catch {
@@ -1209,6 +1229,6 @@ export default {
     }
 
     writeAnalytics(env, request, routeName, response.status, startTime);
-    return addHeaders(response, url.pathname, nonce);
+    return addHeaders(response, url.pathname, nonce, kvPolicy);
   },
 };

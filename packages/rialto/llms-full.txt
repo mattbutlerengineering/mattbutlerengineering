@@ -434,6 +434,62 @@
       return dir;
     }
   </file>
+  <file path="src/hooks/useField.ts">
+    export interface UseFieldOptions {
+      /** Explicit id; auto-generated if omitted. */
+      id?: string;
+      /** Helper text rendered below the control. */
+      hint?: string;
+      /** When true, applies aria-invalid and wires the error region into aria-describedby. */
+      error?: boolean;
+      /** When true, the control is required; required marker is shown in label. */
+      required?: boolean;
+      /**
+       * When true and not required, shows "(optional)" after the label.
+       * Always false when required=true (mutually exclusive).
+       */
+      showOptional?: boolean;
+    }
+    export interface FieldLabelProps {
+      htmlFor: string;
+    }
+  </file>
+  <file path="src/hooks/useFocusTrap.ts">
+    export const FOCUSABLE_SELECTOR =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void {
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const panel = panelRef.current;
+        if (!panel) return;
+    
+        const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+    
+        first?.focus();
+    
+        const trap = (e: KeyboardEvent) => {
+          if (e.key !== "Tab") return;
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        };
+    
+        document.addEventListener("keydown", trap);
+        return () => document.removeEventListener("keydown", trap);
+      }, [enabled, panelRef]);
+    }
+  </file>
   <file path="src/hooks/useScrollReveal.ts">
     interface UseScrollRevealOptions {
       /** IntersectionObserver rootMargin. Default "-80px". */

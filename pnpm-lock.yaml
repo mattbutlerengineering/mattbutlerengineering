@@ -790,6 +790,9 @@ importers:
 
   packages/notifications:
     dependencies:
+      '@mbe/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       twilio:
         specifier: ^6.0.2
         version: 6.0.2

@@ -90,6 +90,17 @@ const DIFF_REVIEWERS: ReadonlyArray<{ name: string; matches: (file: string) => b
       f === "pnpm-workspace.yaml",
   },
   {
+    // Payment, webhook, deposit, and Stripe-touching files — catches missing
+    // webhook signature verification, dropped idempotency keys, float/integer
+    // money handling, and broken refund/deposit/charge state transitions that
+    // CI regex and schema checks cannot surface.
+    name: "stripe-flow-reviewer",
+    matches: (f) =>
+      /(?:^|\/)(?:payment|payments|webhook|webhooks|deposit|deposits|stripe|charge|charges|refund|refunds)[^/]*\.[tj]sx?$/.test(
+        f
+      ),
+  },
+  {
     // Generated artifacts (llms.txt context bundles, generated zod schemas,
     // dependency graph) and the pack generator that emits them. These drift
     // non-deterministically across platforms (locale-sensitive sorts) or go

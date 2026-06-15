@@ -1,6 +1,7 @@
-import { forwardRef, useId, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
+import { forwardRef, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import { useField } from "../../hooks/useField";
 import styles from "./NumberInput.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -55,14 +56,15 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       error = false,
       disabled = false,
       disabledReason,
-      showOptional,
+      showOptional: showOptionalProp,
       size = "default",
       className = "",
+      required,
       ...rest
     },
     ref
   ) => {
-    const id = useId();
+    const field = useField({ hint, error, required, showOptional: showOptionalProp });
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -141,12 +143,15 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div ref={ref} className={wrapperClasses}>
           {label && (
-            <label htmlFor={id} className={styles.label}>
+            <label {...field.labelProps} className={styles.label}>
               {label}
-              {rest.required && <span className={styles.required}> *</span>}
-              {showOptional && !rest.required && (
-                <span className={styles.optional}> (optional)</span>
+              {field.showRequired && (
+                <span className={styles.required} aria-hidden="true">
+                  {" "}
+                  *
+                </span>
               )}
+              {field.showOptional && <span className={styles.optional}> (optional)</span>}
               {disabled && disabledReason && (
                 <Lock size={12} aria-hidden className={styles.lockIcon} />
               )}
@@ -168,7 +173,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               </svg>
             </button>
             <input
-              id={id}
+              {...field.controlProps}
               type="number"
               className={styles.input}
               value={value}
@@ -178,8 +183,6 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               max={max}
               step={step}
               disabled={disabled}
-              aria-invalid={error || undefined}
-              aria-describedby={hint ? `${id}-hint` : undefined}
               readOnly={rest.readOnly}
               {...rest}
             />
@@ -200,7 +203,11 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             </button>
           </div>
           {hint && (
-            <span id={`${id}-hint`} className={styles.hint}>
+            <span
+              {...field.descriptionProps}
+              className={styles.hint}
+              role={error ? "alert" : undefined}
+            >
               {hint}
             </span>
           )}

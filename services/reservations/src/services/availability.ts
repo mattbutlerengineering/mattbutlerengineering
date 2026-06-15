@@ -151,7 +151,9 @@ export async function generateTimeSlots(
     const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
-    // Check which tables are available for this slot
+    // Check which tables are available for this slot.
+    // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
+    // that assertBookable composes on write paths — same rules, no divergence.
     const availableTables: AvailableTable[] = [];
 
     for (const table of suitableTables) {
@@ -168,7 +170,7 @@ export async function generateTimeSlots(
       }
     }
 
-    // Check pacing limits
+    // Evaluate pacing once per slot (venue-wide — not per-table).
     const pacingOk = checkPacingForSlot(slotStart, partySize, settings, reservations, holds);
 
     slots.push({

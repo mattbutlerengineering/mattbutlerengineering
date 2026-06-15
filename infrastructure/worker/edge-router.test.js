@@ -545,6 +545,67 @@ describe("Edge Router", () => {
     });
   });
 
+  describe("CSP connect-src uses single Auth0 origin constant", () => {
+    it("exports AUTH0_ORIGIN constant used in CSP connect-src", async () => {
+      // Verify the module exports AUTH0_ORIGIN so CSP derives from one place
+      const { AUTH0_ORIGIN } = await import("./edge-router.js");
+      expect(AUTH0_ORIGIN).toBe("https://dev-ytbgmz5ls3wh4xdx.us.auth0.com");
+    });
+
+    it("CSP connect-src includes the AUTH0_ORIGIN value", async () => {
+      const { AUTH0_ORIGIN } = await import("./edge-router.js");
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      const csp = response.headers.get("Content-Security-Policy");
+      expect(csp).toContain(`connect-src 'self' ${AUTH0_ORIGIN}`);
+    });
+  });
+
+  describe("CSP policy from KV (security/csp)", () => {
+    it("uses hardcoded fallback when KV has no security/csp key", async () => {
+      // Default mock KV returns null for all keys — fallback should apply
+      const response = await edgeRouter.fetch(makeRequest("/"), env);
+      const csp = response.headers.get("Content-Security-Policy");
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toMatch(/script-src 'nonce-[a-f0-9]{32}' 'self'/);
+    });
+
+    it("merges KV policy overrides into CSP when security/csp is set", async () => {
+      const kvWithCsp = {
+        get: vi.fn(async (key, format) => {
+          if (key === "security/csp" && format === "json") {
+            return { "img-src": "'self' https://images.example.com" };
+          }
+          return null;
+        }),
+        put: vi.fn(),
+      };
+      const envWithKvCsp = { ...env, HEALTH_STATE: kvWithCsp };
+
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithKvCsp);
+      const csp = response.headers.get("Content-Security-Policy");
+      expect(csp).toContain("https://images.example.com");
+      // Other directives (not overridden) still come from hardcoded defaults
+      expect(csp).toContain("default-src 'self'");
+    });
+
+    it("falls back to hardcoded defaults when KV read throws", async () => {
+      const kvThatThrows = {
+        get: vi.fn(async (key) => {
+          if (key === "security/csp") throw new Error("KV unavailable");
+          return null;
+        }),
+        put: vi.fn(),
+      };
+      const envWithBrokenKv = { ...env, HEALTH_STATE: kvThatThrows };
+
+      // Should NOT throw — graceful fallback
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithBrokenKv);
+      expect(response.status).toBe(200);
+      const csp = response.headers.get("Content-Security-Policy");
+      expect(csp).toContain("default-src 'self'");
+    });
+  });
+
   describe("Service binding names match wrangler.toml", () => {
     it("uses the expected set of static site bindings", () => {
       // This test serves as a canary — if STATIC_SITE_BINDINGS changes

@@ -1,3 +1,6 @@
+import type { z } from "zod";
+import type { ProblemDetailsSchema, ApiErrorSchema } from "./schemas/api.js";
+
 /**
  * Standard API response wrapper
  */
@@ -15,32 +18,16 @@ export interface ApiMeta {
 }
 
 /**
- * API error response (legacy + RFC 7807 fields for transition)
+ * API error response (legacy + RFC 7807 fields for transition).
+ * Derived from ApiErrorSchema — single source of truth.
  */
-export interface ApiError {
-  error: string;
-  message: string;
-  statusCode: number;
-  details?: Record<string, unknown>;
-  // RFC 7807 compatibility
-  type?: string;
-  title?: string;
-  status?: number;
-  detail?: string;
-  instance?: string;
-}
+export type ApiError = z.infer<typeof ApiErrorSchema>;
 
 /**
- * RFC 7807 Problem Details for HTTP APIs
+ * RFC 7807 Problem Details for HTTP APIs.
+ * Derived from ProblemDetailsSchema — single source of truth.
  */
-export interface ProblemDetails {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  instance?: string;
-  [key: string]: unknown;
-}
+export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
 
 /**
  * Creates a standard RFC 7807 Problem Details object.

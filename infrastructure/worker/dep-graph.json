@@ -444,6 +444,11 @@
     },
     {
       "from": "@mbe/notifications",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/notifications",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -540,6 +545,11 @@
     {
       "from": "@mbe/cli",
       "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
+      "to": "@mbe/api-client",
       "type": "dependency"
     },
     {

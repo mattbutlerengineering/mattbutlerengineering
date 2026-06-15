@@ -8,6 +8,7 @@
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "./cli-adapter.js";
+import { scanForRateLimitPatterns } from "./rate-limit-detector.js";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -18,29 +19,11 @@ const DEFAULT_TIMEOUT_MS = 600_000;
 const MAX_TASK_LENGTH = 8_000;
 
 /**
- * Case-insensitive patterns that indicate rate limiting in CLI output.
- */
-const RATE_LIMIT_PATTERNS: readonly RegExp[] = [
-  /rate.?limit/i,
-  /quota.?exceeded/i,
-  /\b429\b/,
-  /throttled/i,
-  /too.?many.?requests/i,
-];
-
-/**
  * Truncate a task description to a safe length for CLI arguments.
  */
 function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
   if (task.length <= maxLength) return task;
   return task.slice(0, maxLength - 3) + "...";
-}
-
-/**
- * Scan combined output for rate-limit indicators.
- */
-function detectRateLimiting(output: string): boolean {
-  return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
 }
 
 /**
@@ -93,7 +76,7 @@ export class OpenCodeAdapter implements AgentAdapter {
     );
 
     const combinedOutput = `${stdout}\n${stderr}`;
-    const rateLimited = detectRateLimiting(combinedOutput);
+    const rateLimited = scanForRateLimitPatterns(combinedOutput);
 
     // Check for changes in the worktree
     const hasChanges = await this.checkForChanges(config.worktreePath);

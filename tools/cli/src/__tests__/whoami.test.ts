@@ -16,8 +16,11 @@ vi.mock("conf", () => ({
   },
 }));
 
-vi.mock("../api.js", () => ({
-  apiRequest: vi.fn(),
+const mockRequest = vi.fn();
+
+vi.mock("../cli-api-client.js", () => ({
+  createCliApiClient: vi.fn(() => ({ request: mockRequest })),
+  createAgentApiClient: vi.fn(() => ({ request: vi.fn() })),
 }));
 
 describe("whoami command", () => {
@@ -28,6 +31,7 @@ describe("whoami command", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
+    mockRequest.mockReset();
     store.clear();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -44,7 +48,8 @@ describe("whoami command", () => {
     await runWhoami();
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const output = logSpy.mock.calls.flat().join("\n");
+    // Auth error is now routed through runCommand → console.error
+    const output = errorSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Not logged in");
   });
 
@@ -53,14 +58,13 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    const { apiRequest } = await import("../api.js");
-    vi.mocked(apiRequest).mockResolvedValue({
+    mockRequest.mockResolvedValue({
       data: {
         id: "user-123",
         email: "test@example.com",
         name: "Test User",
       },
-    } as never);
+    });
 
     await runWhoami();
 
@@ -75,14 +79,13 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    const { apiRequest } = await import("../api.js");
-    vi.mocked(apiRequest).mockResolvedValue({
+    mockRequest.mockResolvedValue({
       data: {
         id: "user-456",
         email: "noname@example.com",
         name: null,
       },
-    } as never);
+    });
 
     await runWhoami();
 
@@ -94,8 +97,7 @@ describe("whoami command", () => {
     store.set("accessToken", "valid-token");
     store.set("tokenExpiry", Date.now() + 60_000);
 
-    const { apiRequest } = await import("../api.js");
-    vi.mocked(apiRequest).mockRejectedValue(new Error("API unavailable"));
+    mockRequest.mockRejectedValue(new Error("API unavailable"));
 
     await runWhoami();
 

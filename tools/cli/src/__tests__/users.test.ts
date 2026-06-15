@@ -16,8 +16,11 @@ vi.mock("conf", () => ({
   },
 }));
 
-vi.mock("../api.js", () => ({
-  apiRequest: vi.fn(),
+const mockRequest = vi.fn();
+
+vi.mock("../cli-api-client.js", () => ({
+  createCliApiClient: vi.fn(() => ({ request: mockRequest })),
+  createAgentApiClient: vi.fn(() => ({ request: vi.fn() })),
 }));
 
 describe("users command", () => {
@@ -28,6 +31,7 @@ describe("users command", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
+    mockRequest.mockReset();
     store.clear();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -46,7 +50,8 @@ describe("users command", () => {
       await runUsersList();
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      const output = logSpy.mock.calls.flat().join("\n");
+      // Auth error now routed through runCommand → console.error
+      const output = errorSpy.mock.calls.flat().join("\n");
       expect(output).toContain("Not logged in");
     });
 
@@ -54,14 +59,13 @@ describe("users command", () => {
       store.set("accessToken", "valid-token");
       store.set("tokenExpiry", Date.now() + 60_000);
 
-      const { apiRequest } = await import("../api.js");
-      vi.mocked(apiRequest).mockResolvedValue({
+      mockRequest.mockResolvedValue({
         data: [
           { id: "u1", email: "alice@example.com", name: "Alice" },
           { id: "u2", email: "bob@example.com", name: null },
         ],
         pagination: { page: 1, totalPages: 1, total: 2 },
-      } as never);
+      });
 
       await runUsersList();
 
@@ -76,11 +80,10 @@ describe("users command", () => {
       store.set("accessToken", "valid-token");
       store.set("tokenExpiry", Date.now() + 60_000);
 
-      const { apiRequest } = await import("../api.js");
-      vi.mocked(apiRequest).mockResolvedValue({
+      mockRequest.mockResolvedValue({
         data: [],
         pagination: { page: 1, totalPages: 0, total: 0 },
-      } as never);
+      });
 
       await runUsersList();
 
@@ -92,8 +95,7 @@ describe("users command", () => {
       store.set("accessToken", "valid-token");
       store.set("tokenExpiry", Date.now() + 60_000);
 
-      const { apiRequest } = await import("../api.js");
-      vi.mocked(apiRequest).mockRejectedValue(new Error("Network error"));
+      mockRequest.mockRejectedValue(new Error("Network error"));
 
       await runUsersList();
 
@@ -115,7 +117,8 @@ describe("users command", () => {
       await runUsersGet("user-123");
 
       expect(exitSpy).toHaveBeenCalledWith(1);
-      const output = logSpy.mock.calls.flat().join("\n");
+      // Auth error now routed through runCommand → console.error
+      const output = errorSpy.mock.calls.flat().join("\n");
       expect(output).toContain("Not logged in");
     });
 
@@ -123,8 +126,7 @@ describe("users command", () => {
       store.set("accessToken", "valid-token");
       store.set("tokenExpiry", Date.now() + 60_000);
 
-      const { apiRequest } = await import("../api.js");
-      vi.mocked(apiRequest).mockResolvedValue({
+      mockRequest.mockResolvedValue({
         data: {
           id: "user-123",
           email: "alice@example.com",
@@ -133,7 +135,7 @@ describe("users command", () => {
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-02T00:00:00Z",
         },
-      } as never);
+      });
 
       await runUsersGet("user-123");
 
@@ -148,8 +150,7 @@ describe("users command", () => {
       store.set("accessToken", "valid-token");
       store.set("tokenExpiry", Date.now() + 60_000);
 
-      const { apiRequest } = await import("../api.js");
-      vi.mocked(apiRequest).mockRejectedValue(new Error("Not found"));
+      mockRequest.mockRejectedValue(new Error("Not found"));
 
       await runUsersGet("bad-id");
 

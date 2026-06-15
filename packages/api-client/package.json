@@ -7,17 +7,17 @@
     ".": {
       "types": "./src/index.ts",
       "production": "./dist/index.js",
-      "default": "./dist/index.js"
+      "default": "./src/index.ts"
     },
     "./users": {
       "types": "./src/users.ts",
       "production": "./dist/users.js",
-      "default": "./dist/users.js"
+      "default": "./src/users.ts"
     },
     "./streaming": {
       "types": "./src/streaming.ts",
       "production": "./dist/streaming.js",
-      "default": "./dist/streaming.js"
+      "default": "./src/streaming.ts"
     }
   },
   "scripts": {

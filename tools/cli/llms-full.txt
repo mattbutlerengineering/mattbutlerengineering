@@ -1,0 +1,1340 @@
+<codebase path="tools/cli">
+  <section priority="medium" role="adapters">
+  <file path="src/adapters/claude-adapter.ts">
+    function deriveHasChanges(result: SessionResult): boolean {
+      if (result.prUrl !== null) return true;
+      // If the session succeeded and produced a branch, there were likely changes
+      // even if the PR wasn't created (createPr: false path).
+      if (result.status === "succeeded" && result.branchName.length > 0) return true;
+      return false;
+    }
+    export class ClaudeAdapter implements AgentAdapter {
+      readonly name = "claude";
+    
+      /**
+       * The Claude SDK adapter is available when the ANTHROPIC_API_KEY env var is set.
+       */
+      async isAvailable(): Promise<boolean> {
+        return (
+          typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
+          process.env["ANTHROPIC_API_KEY"].length > 0
+        );
+      }
+    
+      /**
+       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
+       * result back to AdapterResult.
+       */
+      async run(config: AdapterConfig): Promise<AdapterResult> {
+        const startTime = Date.now();
+    
+        try {
+          const sessionResult = await runSession({
+            taskDescription: config.taskDescription,
+            repoPath: config.repoPath,
+            baseBranch: config.baseBranch,
+            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
+            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
+            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+            createPr: false, // Worktree lifecycle is managed by the caller / router
+          });
+    
+          const durationMs = Date.now() - startTime;
+          const rateLimited = sessionResult.failureCategory === "rate_limited";
+          const success = sessionResult.status === "succeeded";
+          const hasChanges = deriveHasChanges(sessionResult);
+    
+          return {
+            success,
+            hasChanges,
+            rateLimited,
+            durationMs,
+            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
+          };
+        } catch (err: unknown) {
+          const durationMs = Date.now() - startTime;
+          const message = err instanceof Error ? err.message : String(err);
+          const rateLimited = scanForRateLimitPatterns(message);
+    
+          return {
+            success: false,
+            hasChanges: false,
+            rateLimited,
+            durationMs,
+            error: message,
+          };
+        }
+      }
+    }
+  </file>
+  <file path="src/adapters/cli-adapter.ts">
+    export interface AdapterConfig {
+      /** Human-readable description of the task for the agent to perform. */
+      readonly taskDescription: string;
+      /** Absolute path to the isolated worktree where the agent operates. */
+      readonly worktreePath: string;
+      /** Absolute path to the original repository root. */
+      readonly repoPath: string;
+      /** Git branch to base work on (e.g. "main"). */
+      readonly baseBranch: string;
+      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
+      readonly model?: string;
+      /** Maximum number of conversation turns before the adapter should stop. */
+      readonly maxTurns?: number;
+      /** Hard wall-clock timeout in milliseconds for the entire run. */
+      readonly timeoutMs?: number;
+    }
+    export interface AdapterResult {
+      /** Whether the agent session completed successfully. */
+      readonly success: boolean;
+      /** Whether the agent made any git-visible changes in the worktree. */
+      readonly hasChanges: boolean;
+      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
+      readonly rateLimited: boolean;
+      /** Human-readable error message when success is false. */
+      readonly error?: string;
+      /** Wall-clock duration of the run in milliseconds. */
+      readonly durationMs: number;
+    }
+  </file>
+  <file path="src/adapters/failover-router.ts">
+    export class AllAdaptersUnavailableError extends Error {
+      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+      readonly cooldowns: ReadonlyMap<string, number>;
+    
+      constructor(cooldowns: ReadonlyMap<string, number>) {
+        super("All agent adapters are rate-limited or unavailable");
+        this.name = "AllAdaptersUnavailableError";
+        this.cooldowns = cooldowns;
+      }
+    }
+    export type RoutedAdapterResult = AdapterResult & {
+      /** Name of the adapter that produced this result. */
+      readonly adapter: string;
+    };
+  </file>
+  <file path="src/adapters/gemini-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function buildCommitMessage(task: string): string {
+      const maxSubject = 72;
+      const prefix = "feat: ";
+      const available = maxSubject - prefix.length;
+      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
+      return `${prefix}${subject}`;
+    }
+  </file>
+  <file path="src/adapters/opencode-adapter.ts">
+    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
+      if (task.length <= maxLength) return task;
+      return task.slice(0, maxLength - 3) + "...";
+    }
+    function buildCommitMessage(task: string): string {
+      const maxSubject = 72;
+      const prefix = "feat: ";
+      const available = maxSubject - prefix.length;
+      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
+      return `${prefix}${subject}`;
+    }
+  </file>
+  <file path="src/adapters/rate-limit-detector.ts">
+    export function scanForRateLimitPatterns(output: string): boolean {
+      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
+    }
+    export class RateLimitDetector {
+      private readonly states: Map<string, AdapterState> = new Map();
+      private readonly cooldownMs: number;
+    
+      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
+        this.cooldownMs = cooldownMs;
+        for (const name of adapterNames) {
+          this.states.set(name, {
+            name,
+            available: true,
+            cooldownUntil: null,
+            consecutiveFailures: 0,
+          });
+        }
+      }
+    
+      markRateLimited(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        // Create new state object (immutability pattern)
+        this.states.set(adapterName, {
+          ...state,
+          available: false,
+          cooldownUntil: Date.now() + this.cooldownMs,
+          consecutiveFailures: state.consecutiveFailures + 1,
+        });
+      }
+    
+      markSuccess(adapterName: string): void {
+        const state = this.states.get(adapterName);
+        if (!state) return;
+        this.states.set(adapterName, {
+          ...state,
+          available: true,
+          cooldownUntil: null,
+          consecutiveFailures: 0,
+        });
+      }
+    
+      isAvailable(adapterName: string): boolean {
+        const state = this.states.get(adapterName);
+        if (!state) return false;
+        if (state.available) return true;
+        // Check if cooldown has expired
+        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
+          this.states.set(adapterName, {
+            ...state,
+            available: true,
+            cooldownUntil: null,
+          });
+          return true;
+        }
+        return false;
+      }
+    
+      getAvailableAdapters(): readonly string[] {
+        return [...this.states.keys()].filter((name) => this.isAvailable(name));
+      }
+    
+      getState(adapterName: string): AdapterState | undefined {
+        return this.states.get(adapterName);
+      }
+    }
+  </file>
+  </section>
+  <section priority="medium" role="commands">
+  <file path="src/commands/adr.ts">
+    interface ADRFrontmatter {
+      id: string;
+      title: string;
+      status: string;
+      prohibited_patterns?: string[];
+    }
+    function parseADR(filePath: string): ADRFrontmatter | null {
+      const content = readFileSync(filePath, "utf8");
+      const match = content.match(/^---([\s\S]*?)---/);
+      if (!match) return null;
+    
+      try {
+        return yaml.load(match[1]) as ADRFrontmatter;
+      } catch (e) {
+        console.error(`Error parsing ADR at ${filePath}:`, e);
+        return null;
+      }
+    }
+  </file>
+  <file path="src/commands/agent-eval.ts">
+    export const agentEvalCommand = new Command("eval")
+      .description("Run the golden-task eval suite through the agent and score the results")
+      .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
+      .option("--task <id>", "Run only the task with this id")
+      .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
+      .option("--json", "Emit the EvalReport as JSON", false)
+      .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+      .action(
+        async (options: {
+          suite: string;
+          task?: string;
+          model: string;
+          json: boolean;
+          threshold?: string;
+        }) => {
+          const repoPath = resolve(process.cwd());
+          const suiteDir = resolve(repoPath, options.suite);
+    
+          let tasks: Task[];
+          try {
+            tasks = await loadSuite(suiteDir);
+          } catch (err) {
+            console.error(err instanceof Error ? err.message : String(err));
+            process.exitCode = 1;
+            return;
+          }
+    
+          const runTask = makeAgentTaskRunner(repoPath, options.model);
+          const report = await runEvalSuite(tasks, {
+            runId: `eval-${process.pid}`,
+            only: options.task,
+            runTask,
+          });
+    
+          if (options.json) {
+            console.log(JSON.stringify(report, null, 2));
+          } else {
+            printReport(report);
+          }
+    
+          if (options.threshold !== undefined) {
+            const threshold = Number(options.threshold) / 100;
+            if (report.aggregate.passRate < threshold) {
+              console.error(
+                `\nPass rate ${(report.aggregate.passRate * 100).toFixed(1)}% is below threshold ${options.threshold}%`
+              );
+              process.exitCode = 1;
+            }
+          }
+        }
+      );
+    function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
+      return async (task: Task): Promise<TaskRunResult> => {
+        const config: SessionConfig = {
+          taskDescription: task.prompt,
+          repoPath,
+          baseBranch: DEFAULT_SESSION_CONFIG.baseBranch,
+          model,
+          maxTurns: task.budget.maxTurns,
+          maxBudgetUsd: task.budget.maxCostUsd,
+          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+          createPr: false,
+          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
+        };
+    
+        const session = await runSession(config, () => {});
+    
+        const withinBudget =
+          session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
+    
+        const checks: DeterministicChecks = {
+          withinBudget,
+          testsPass: task.rubric.testsMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
+            : true,
+          typecheckPass: task.rubric.typecheckMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
+            : true,
+          lintPass: task.rubric.lintMustPass
+            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
+            : true,
+        };
+    
+        return { task, session, checks };
+      };
+    }
+  </file>
+  <file path="src/commands/agent-frontmatter.ts">
+    async function readStdin(): Promise<string> {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      }
+      return Buffer.concat(chunks).toString("utf-8");
+    }
+    export const frontmatterCommand = new Command("frontmatter")
+      .description(
+        "Parse the yaml agent block from an issue body (stdin or --body-file) into mbe agent run flags"
+      )
+      .option("--body-file <path>", "Read the issue body from a file instead of stdin")
+      .action(async (options: { bodyFile?: string }) => {
+        if (!options.bodyFile && process.stdin.isTTY) {
+          console.warn(
+            "frontmatter: stdin is a terminal and no --body-file given; pipe an issue body in"
+          );
+          console.log("");
+          return;
+        }
+    
+        let body: string;
+        try {
+          body = options.bodyFile ? readFileSync(options.bodyFile, "utf-8") : await readStdin();
+        } catch (err) {
+          console.warn(`frontmatter: cannot read issue body: ${(err as Error).message}`);
+          console.log("");
+          return;
+        }
+    
+        const { overrides, warnings } = parseAgentFrontmatter(body);
+        for (const warning of warnings) {
+          console.warn(`frontmatter: ${warning}`);
+        }
+        console.log(flagsFromOverrides(overrides).join(" "));
+      });
+  </file>
+  <file path="src/commands/agent.ts">
+    function formatDuration(ms: number): string {
+      const seconds = Math.floor(ms / 1000);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      const remaining = seconds % 60;
+      return `${minutes}m ${remaining}s`;
+    }
+    function formatCost(usd: number): string {
+      return `$${usd.toFixed(4)}`;
+    }
+  </file>
+  <file path="src/commands/check-deps.ts">
+    export const checkDepsCommand = new Command("check-deps")
+      .description("Audit dependency version consistency across the monorepo")
+      .action(async () => {
+        const root = findMonorepoRoot(process.cwd());
+        console.log("🔍 Auditing dependency integrity...");
+    
+        const packageFiles = await glob("**/package.json", {
+          cwd: root,
+          ignore: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/generated/**",
+            "**/.claude/worktrees/**",
+            "**/.agent-worktrees/**",
+            "**/.worktrees/**",
+            "**/fix-ci-and-merge-task/**",
+          ],
+        });
+    
+        const dependencyMap = new Map<string, Map<string, string>>();
+    
+        for (const file of packageFiles) {
+          const pkg = JSON.parse(readFileSync(join(root, file), "utf8"));
+          const pkgName = pkg.name || file;
+    
+          const allDeps = {
+            ...pkg.dependencies,
+            ...pkg.devDependencies,
+            // peerDependencies intentionally omitted: they express compatibility
+            // ranges for consumers, not resolved versions, so they should not be
+            // compared against other packages' pinned or catalog versions.
+          };
+    
+          for (const [name, version] of Object.entries(allDeps as Record<string, string>)) {
+            if (version.startsWith("workspace:") || version.startsWith("catalog:")) continue;
+    
+            if (!dependencyMap.has(name)) {
+              dependencyMap.set(name, new Map());
+            }
+            dependencyMap.get(name)!.set(pkgName, version);
+          }
+        }
+    
+        let inconsistencies = 0;
+    
+        console.log("\nFound version mismatches:");
+        console.log("=========================");
+    
+        for (const [name, versions] of dependencyMap.entries()) {
+          const uniqueVersions = new Set(versions.values());
+          if (uniqueVersions.size > 1) {
+            inconsistencies++;
+            console.warn(`📦 ${name}:`);
+            for (const [pkg, ver] of versions.entries()) {
+              console.warn(`   - ${ver} in ${pkg}`);
+            }
+            console.log("");
+          }
+        }
+    
+        if (inconsistencies === 0) {
+          console.log("✅ All external dependencies are consistent across the monorepo.");
+        } else {
+          throw new Error(`Found ${inconsistencies} dependencies with version mismatches.`);
+        }
+      });
+  </file>
+  <file path="src/commands/cleanup-worktrees.ts">
+    function getGitRoot(): string {
+      try {
+        return execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+      } catch {
+        return process.cwd();
+      }
+    }
+    function getWorktreeDirs(): string[] {
+      const gitRoot = getGitRoot();
+      const worktreesDir = join(gitRoot, ".claude/worktrees");
+      try {
+        return readdirSync(worktreesDir);
+      } catch {
+        return [];
+      }
+    }
+  </file>
+  <file path="src/commands/compound.ts">
+    export const compoundCommand = new Command("compound")
+      .description("Perform the final Compounding phase: Identify and codify task learnings")
+      .action(async () => {
+        const root = findMonorepoRoot(process.cwd());
+        console.log("🧠 Starting Compounding Phase...");
+    
+        try {
+          // Get the staged changes or last commit
+          const diff = execSync("git diff HEAD", { cwd: root, encoding: "utf8" });
+    
+          if (!diff) {
+            console.log("No changes detected since last commit. Have you committed your work yet?");
+            console.log("If so, try checking the last commit: git show HEAD");
+          }
+    
+          console.log("\nAnalyzing changes for compoundable knowledge...");
+    
+          const suggestions: string[] = [];
+    
+          // 1. Check for new packages or structural changes
+          if (
+            diff.includes("package.json") &&
+            (diff.includes('+  "name":') || diff.includes('+    "@mbe/'))
+          ) {
+            suggestions.push(
+              "New internal package detected. ACTION: Add its core purpose to AGENTS.md #Project Structure."
+            );
+          }
+    
+          // 2. Check for API changes
+          if (diff.includes("services/") && diff.includes("routes/") && diff.includes("+  fastify.")) {
+            suggestions.push(
+              "New API endpoints detected. ACTION: Run 'mbe pack' on the service to update llms.txt."
+            );
+          }
+    
+          // 3. Check for pattern establishing (ADRs)
+          if (diff.includes("ADR-") && diff.includes("+status: active")) {
+            suggestions.push(
+              "New architectural decision established. ACTION: Run 'mbe sync-rules' to propagate to all AI tools."
+            );
+          }
+    
+          // 4. Check for UI patterns
+          if (diff.includes("packages/rialto") && diff.includes("+export function")) {
+            suggestions.push(
+              "New design system component detected. ACTION: Update packages/rialto/CLAUDE.md with the new component spec."
+            );
+          }
+    
+          if (suggestions.length === 0) {
+            console.log(
+              "✅ No obvious compounding tasks found. Consider if any tribal knowledge should be moved to AGENTS.md."
+            );
+          } else {
+            console.log("\nCompounding Recommendations:");
+            suggestions.forEach((s, i) => console.log(`${i + 1}. ${s}`));
+          }
+    
+          console.log("\nRemember: A task is not done until the knowledge gained has been codified.");
+        } catch (error) {
+          console.error(
+            "Error during compounding analysis:",
+            error instanceof Error ? error.message : String(error)
+          );
+        }
+      });
+  </file>
+  <file path="src/commands/generate.ts">
+    function writeFile(filePath: string, content: string): void {
+      const dir = resolve(filePath, "..");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(filePath, content, "utf8");
+    }
+    function componentTemplate(name: string): string {
+      return `import styles from "./${name}.module.css";
+    
+    export interface ${name}Props {
+      children?: React.ReactNode;
+      className?: string;
+    }
+    
+    /**
+     * ${name} component
+     */
+    export function ${name}({ children, className }: ${name}Props) {
+      return (
+        <div className={\`\${styles.root} \${className || ""}\`}>
+          {children}
+        </div>
+      );
+    }
+    `;
+    }
+  </file>
+  <file path="src/commands/health.ts">
+    interface ServiceHealth {
+      status: string;
+      version?: string;
+      latency?: number;
+      checks?: Array<{ name: string; status: string; latency?: number }>;
+    }
+    interface SystemHealth {
+      status: string;
+      timestamp: string;
+      services?: Record<string, ServiceHealth>;
+      staticSites?: Record<string, { status: string }>;
+      ci?: { status: string };
+      deploy?: { status: string };
+    }
+  </file>
+  <file path="src/commands/login.ts">
+    export const loginCommand = new Command("login")
+      .description("Authenticate with the API")
+      .option("--token <token>", "Access token (for testing)")
+      .option("--api-url <url>", "API URL")
+      .action(async (options) => {
+        if (options.apiUrl) {
+          config.set("apiUrl", options.apiUrl);
+          console.log(`API URL set to: ${options.apiUrl}`);
+        }
+    
+        if (options.token) {
+          // Direct token input (for development/testing)
+          setTokens(options.token, 3600); // 1 hour expiry
+          console.log("Logged in successfully (token mode)");
+          return;
+        }
+    
+        // Device authorization flow would go here
+        // For now, show instructions
+        console.log("Device Authorization Flow");
+        console.log("-------------------------");
+        console.log("This feature requires Auth0 configuration.");
+        console.log("");
+        console.log("For development, use: mbe login --token <your-access-token>");
+        console.log("");
+        console.log("To get a token:");
+        console.log("1. Sign in to the dashboard");
+        console.log("2. Open browser DevTools > Application > Session Storage");
+        console.log("3. Copy the access_token value");
+      });
+  </file>
+  <file path="src/commands/logout.ts">
+    export const logoutCommand = new Command("logout")
+      .description("Clear stored credentials")
+      .action(() => {
+        clearTokens();
+        console.log("Logged out successfully");
+      });
+  </file>
+  <file path="src/commands/loop.ts">
+    export const loopCommand = new Command("loop")
+      .description("Run an agent directive in an autonomous loop (Ralph Wiggum pattern)")
+      .argument("<directive>", "The task for the agent to complete")
+      .option("--max-loops <number>", "Maximum number of iterations", parseInt, 10)
+      .option("--model <model>", "LLM model to use")
+      .option("--max-budget <usd>", "Maximum budget for the entire loop", "1.00")
+      .option("--max-turns <n>", "Maximum turns per iteration", parseInt, 50)
+      .option("-v, --verbose", "Show detailed agent events", false)
+      .action(async (directive: string, options) => {
+        let currentLoop = 1;
+        let totalCost = 0;
+        let taskComplete = false;
+    
+        // Resolve max budget
+        const budgetConfig = resolveBudget(directive);
+        const maxBudgetUsd = options.maxBudget ? parseFloat(options.maxBudget) : budgetConfig.budgetUsd;
+    
+        console.log(`🚀 Starting Ralph Wiggum Loop: "${directive}"`);
+        console.log(`Target: ${options.maxLoops} iterations, Max Budget: $${maxBudgetUsd}\n`);
+    
+        while (currentLoop <= options.maxLoops && !taskComplete) {
+          console.log(`--- Iteration ${currentLoop}/${options.maxLoops} ---`);
+    
+          const config = {
+            ...DEFAULT_SESSION_CONFIG,
+            taskDescription: directive,
+            repoPath: process.cwd(),
+            model: resolveModel(options.model || directive),
+            maxBudgetUsd: maxBudgetUsd - totalCost,
+            maxTurns: options.maxTurns,
+          };
+    
+          try {
+            const result = await runSession(config, (event: SessionEvent) => {
+              if (options.verbose) {
+                const timestamp = new Date(event.timestamp).toLocaleTimeString();
+                if (event.type === "session:start" || event.type === "session:result") {
+                  const data = event.data as { message: string };
+                  console.log(`[${timestamp}] ${data.message}`);
+                }
+              }
+            });
+    
+            totalCost += result.costUsd;
+            console.log(
+              `Iteration ${currentLoop} cost: $${result.costUsd.toFixed(4)} (Total: $${totalCost.toFixed(4)})`
+            );
+    
+            if (result.status === "succeeded") {
+              if (
+                result.resultText?.includes("<promise>COMPLETE</promise>") ||
+                result.resultText?.includes("DONE")
+              ) {
+                console.log("\n✅ Task marked as complete by agent.");
+                taskComplete = true;
+              } else {
+                console.log("Iteration finished but no completion token found. Continuing...");
+              }
+            } else {
+              console.log(
+                `Iteration failed with status: ${result.status}. Restarting with fresh context...`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error in iteration ${currentLoop}:`,
+              error instanceof Error ? error.message : error
+            );
+          }
+    
+          if (totalCost >= maxBudgetUsd) {
+            console.log("\n⚠️ Budget limit reached. Stopping loop.");
+            break;
+          }
+    
+          currentLoop++;
+        }
+    
+        if (taskComplete) {
+          console.log(`\n🎉 Successfully completed task in ${currentLoop - 1} iterations.`);
+        } else if (currentLoop > options.maxLoops) {
+          console.log(`\n❌ Reached maximum iterations (${options.maxLoops}) without completion.`);
+        }
+    
+        console.log(
+          `Final stats: Total iterations: ${currentLoop - 1}, Total cost: $${totalCost.toFixed(4)}`
+        );
+      });
+  </file>
+  <file path="src/commands/mcp.ts">
+    export const mcpCommand = new Command("mcp").description(
+      "Model Context Protocol (MCP) server management"
+    );
+  </file>
+  <file path="src/commands/new.ts">
+    function toTitleCase(name: string): string {
+      return name
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+    function detectNextPort(appsDir: string): number {
+      const KNOWN_PORTS = [3000, 3001, 3002, 3003, 3004];
+      const usedPorts = new Set<number>(KNOWN_PORTS);
+    
+      if (existsSync(appsDir)) {
+        const appDirs = readdirSync(appsDir, { withFileTypes: true })
+          .filter((d) => d.isDirectory())
+          .map((d) => d.name);
+    
+        for (const appDir of appDirs) {
+          const viteConfigPath = join(appsDir, appDir, "vite.config.ts");
+          if (existsSync(viteConfigPath)) {
+            const content = readFileSync(viteConfigPath, "utf8");
+            const match = /port:\s*(\d+)/.exec(content);
+            if (match) {
+              usedPorts.add(parseInt(match[1], 10));
+            }
+          }
+        }
+      }
+    
+      let port = 3005;
+      while (usedPorts.has(port)) {
+        port++;
+      }
+      return port;
+    }
+  </file>
+  <file path="src/commands/pack.ts">
+    function truncateType(type: string, maxLength = 60): string {
+      if (type.length <= maxLength) return type;
+      return type.substring(0, maxLength - 3) + "...";
+    }
+    function getSkeleton(node: Node): string {
+      if (
+        Node.isFunctionDeclaration(node) ||
+        Node.isMethodDeclaration(node) ||
+        Node.isConstructorDeclaration(node)
+      ) {
+        const body = node.getBody();
+        if (body) {
+          const text = node.getText();
+          const bodyText = body.getText();
+          return text.replace(bodyText, "{ /* ... */ }");
+        }
+      }
+    
+      if (Node.isArrowFunction(node)) {
+        const body = node.getBody();
+        if (body) {
+          const text = node.getText();
+          const bodyText = body.getText();
+          return text.replace(bodyText, "{ /* ... */ }");
+        }
+      }
+    
+      if (Node.isClassDeclaration(node)) {
+        const name = node.getName() || "AnonymousClass";
+        const members = node
+          .getMembers()
+          .slice(0, 5)
+          .map((m) => {
+            if (Node.isMethodDeclaration(m)) {
+              return `async ${m.getName() ?? "method"}(): Promise<unknown>;`;
+            }
+            if (Node.isPropertyDeclaration(m)) {
+              return `${m.getName() ?? "prop"}: ${truncateType(m.getTypeNode()?.getText() ?? "unknown")};`;
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n  ");
+        return `class ${name} {\n  ${members}\n}`;
+      }
+    
+      if (Node.isInterfaceDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const props = node
+          .getProperties()
+          .slice(0, 5)
+          .map((p) => {
+            return `${p.getName()}${p.hasQuestionToken() ? "?" : ""}: ${truncateType(p.getTypeNode()?.getText() ?? "unknown")};`;
+          })
+          .join("\n  ");
+        return `interface ${name} {\n  ${props}\n}`;
+      }
+    
+      if (Node.isTypeAliasDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const type = node.getTypeNode();
+        if (type && Node.isUnionTypeNode(type)) {
+          const types = type
+            .getTypeNodes()
+            .map((t) => t.getText().substring(0, 30))
+            .join(" | ");
+          return `type ${name} = ${types};`;
+        }
+        return `type ${name} = ${truncateType(type?.getText() || "unknown")};`;
+      }
+    
+      if (Node.isEnumDeclaration(node)) {
+        const name = node.getName() || "Anonymous";
+        const members = node
+          .getMembers()
+          .slice(0, 10)
+          .map((m) => `${m.getName()}${m.getValue() !== undefined ? " = " + m.getValue() : ""}`)
+          .join(", ");
+        return `enum ${name} { ${members} }`;
+      }
+    
+      if (Node.isVariableStatement(node)) {
+        if (node.isExported()) {
+          const declarations = node.getDeclarations();
+          const declsText = declarations
+            .map((d) => {
+              const name = d.getName();
+              const type = truncateType(d.getTypeNode()?.getText() ?? "unknown");
+              return `export const ${name}: ${type};`;
+            })
+            .join("\n");
+          return declsText;
+        }
+      }
+    
+      return "";
+    }
+  </file>
+  <file path="src/commands/prime.ts">
+    export const primeCommand = new Command("prime")
+      .description("Just-In-Time context priming: Pack relevant directories for a task")
+      .argument("<directive>", "The task description to identify relevant context")
+      .action(async (directive: string) => {
+        const root = findMonorepoRoot(process.cwd());
+        console.log(`🎯 Priming context for: "${directive}"`);
+    
+        const packages = new Set<string>();
+    
+        // Simple keyword-based detection for now
+        // Future: Use LLM or dependency graph
+        const lower = directive.toLowerCase();
+    
+        if (lower.includes("user")) packages.add("services/users");
+        if (lower.includes("reservation") || lower.includes("table") || lower.includes("venue"))
+          packages.add("services/reservations");
+        if (lower.includes("agent") || lower.includes("session")) packages.add("services/agent");
+        if (lower.includes("rialto") || lower.includes("ui") || lower.includes("component"))
+          packages.add("packages/rialto");
+        if (lower.includes("auth")) packages.add("packages/auth");
+        if (lower.includes("api") || lower.includes("client")) packages.add("packages/api-client");
+    
+        // If no specific package found, pack everything in services/ (conservative default)
+        if (packages.size === 0) {
+          console.log("No specific packages identified. Priming all core services...");
+          packages.add("services/users");
+          packages.add("services/agent");
+          packages.add("services/reservations");
+        }
+    
+        console.log(`Refreshing context for ${packages.size} packages...`);
+    
+        for (const pkg of packages) {
+          try {
+            console.log(`   Packing ${pkg}...`);
+            execSync(`pnpm --filter @mbe/cli start pack ${pkg}`, { cwd: root, stdio: "inherit" });
+          } catch {
+            console.error(`❌ Failed to pack ${pkg}`);
+          }
+        }
+    
+        console.log("\n✅ Context primed. You are ready to work with fresh semantic skeletons.");
+      });
+  </file>
+  <file path="src/commands/stats.ts">
+    interface AgentSessionRecord {
+      timestamp: string;
+      sessionId: string;
+      milestone?: string;
+      modelId: string;
+      researchTurns: number;
+      executionTurns: number;
+      totalTurns: number;
+      firstPassSuccess: boolean;
+      humanInterventions: number;
+      costUsd: number;
+    }
+    export const logSessionCommand = new Command("log-session")
+      .description("Log agent session performance metrics")
+      .requiredOption("--id <string>", "Unique session/task ID")
+      .option("--milestone <string>", "Current milestone (e.g. v1.3)")
+      .option("--model <string>", "Model ID used", "unknown")
+      .requiredOption("--research <number>", "Number of research turns", parseInt)
+      .requiredOption("--execution <number>", "Number of execution turns", parseInt)
+      .option("--success", "Whether it passed on first attempt", false)
+      .option("--interventions <number>", "Number of human interventions", parseInt, 0)
+      .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
+      .action(async (options) => {
+        const root = findMonorepoRoot(process.cwd());
+        const logDir = join(root, "docs/logs");
+        const logFile = join(logDir, "agent-perf.jsonl");
+    
+        if (!existsSync(logDir)) {
+          mkdirSync(logDir, { recursive: true });
+        }
+    
+        const record: AgentSessionRecord = {
+          timestamp: new Date().toISOString(),
+          sessionId: options.id,
+          milestone: options.milestone,
+          modelId: options.model,
+          researchTurns: options.research,
+          executionTurns: options.execution,
+          totalTurns: options.research + options.execution,
+          firstPassSuccess: !!options.success,
+          humanInterventions: options.interventions,
+          costUsd: options.cost,
+        };
+    
+        appendFileSync(logFile, JSON.stringify(record) + "\n");
+        console.log(`✅ Session ${options.id} logged to ${logFile}`);
+      });
+  </file>
+  <file path="src/commands/sync-rules.ts">
+    export const syncRulesCommand = new Command("sync-rules")
+      .description("Synchronize agent rules from AGENTS.md to tool-specific files")
+      .action(async () => {
+        const root = findMonorepoRoot(process.cwd());
+        const agentsPath = join(root, "AGENTS.md");
+    
+        if (!existsSync(agentsPath)) {
+          console.error(`Error: AGENTS.md not found at ${agentsPath}`);
+          process.exit(1);
+        }
+    
+        console.log("Syncing agent rules...");
+    
+        const agentsContent = readFileSync(agentsPath, "utf8");
+    
+        // 1. Update .cursorrules
+        const cursorRulesPath = join(root, ".cursorrules");
+        const cursorRulesContent = `${MANAGED_HEADER}# Cursor Rules - mattbutlerengineering\n\n${agentsContent}`;
+        writeFileSync(cursorRulesPath, cursorRulesContent);
+        console.log("✅ Updated .cursorrules");
+    
+        // 2. Update GEMINI.md (Injecting core content into specialized mandates)
+        const geminiPath = join(root, "GEMINI.md");
+        if (existsSync(geminiPath)) {
+          let geminiContent = readFileSync(geminiPath, "utf8");
+          // We want to keep the "Gemini-Specific Mandates" but sync the rest or reference it
+          // For simplicity in this first version, we'll ensure AGENTS.md is referenced
+          if (!geminiContent.includes("AGENTS.md")) {
+            geminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
+            writeFileSync(geminiPath, geminiContent);
+          }
+          console.log("✅ Verified GEMINI.md reference");
+        }
+    
+        console.log("Successfully synchronized all agent rules.");
+      });
+  </file>
+  <file path="src/commands/up.ts">
+    function run(command: string, cwd: string) {
+      console.log(`\n🏃 Running: ${command}`);
+      execSync(command, { cwd, stdio: "inherit" });
+    }
+    export const upCommand = new Command("up")
+      .description("Launch the entire development environment (Docker, DB, Turbo)")
+      .option("--skip-infra", "Skip Docker infrastructure setup", false)
+      .option("--skip-db", "Skip database push/seed", false)
+      .action(async (options) => {
+        const root = findMonorepoRoot(process.cwd());
+    
+        console.log("🚀 Starting MBE Development Stack...");
+    
+        try {
+          // 1. Pre-flight checks
+          try {
+            execSync("docker --version", { stdio: "ignore" });
+          } catch {
+            console.error("❌ Error: Docker is not installed or not in PATH.");
+            process.exit(1);
+          }
+    
+          // 2. Infrastructure
+          if (!options.skipInfra) {
+            console.log("\n📦 Setting up infrastructure...");
+            run("docker compose -f infrastructure/docker-compose.yml up postgres -d --wait", root);
+          }
+    
+          // 3. Database & Environment
+          if (!options.skipDb) {
+            console.log("\n💾 Initializing environment and database...");
+            run("pnpm env:init", root);
+            run("pnpm db:push", root);
+            // Check for seed script
+            const hasSeed =
+              existsSync(join(root, "scripts/seed.js")) ||
+              existsSync(join(root, "packages/api-client/scripts/seed.ts"));
+            if (hasSeed) {
+              // If there's a seed script in package.json, run it
+              try {
+                run("pnpm db:seed", root);
+              } catch {
+                console.log("⚠️ No db:seed script found or it failed. Skipping seeding.");
+              }
+            }
+          }
+    
+          // 4. Turbo Dev
+          console.log("\n📡 Launching dev servers via Turbo...");
+          const turbo = spawn("pnpm", ["dev"], { cwd: root, stdio: "inherit" });
+    
+          turbo.on("close", (code) => {
+            console.log(`\n👋 Turbo exited with code ${code}`);
+            process.exit(code || 0);
+          });
+        } catch (error) {
+          console.error("\n❌ Bootstrapping failed:", error instanceof Error ? error.message : error);
+          process.exit(1);
+        }
+      });
+  </file>
+  <file path="src/commands/users.ts">
+    export const usersListRun = defineCommand<{ page: string; limit: string }>({
+      requiresAuth: true,
+      async run(opts): Promise<CommandResult> {
+        const response = await apiRequest<PaginatedResponse<User>>(
+          `/api/v1/users?page=${opts.page}&limit=${opts.limit}`
+        );
+    
+        const rows = response.data.map((user) => ({
+          id: user.id,
+          email: user.email,
+          name: user.name ?? "-",
+        }));
+    
+        const { page, totalPages, total } = response.pagination;
+        const footer = `Page ${page} of ${totalPages} (${total} total)`;
+    
+        return { kind: "rows", rows, footer };
+      },
+    });
+    export const usersGetRun = defineCommand<{ id: string }>({
+      requiresAuth: true,
+      async run(opts): Promise<CommandResult> {
+        const response = await apiRequest<ApiResponse<User>>(`/api/v1/users/${opts.id}`);
+        const user = response.data;
+    
+        return {
+          kind: "rows",
+          rows: [
+            { field: "ID", value: user.id },
+            { field: "Email", value: user.email },
+            { field: "Name", value: user.name ?? "(not set)" },
+            { field: "Verified", value: user.emailVerified ? "Yes" : "No" },
+            { field: "Created", value: user.createdAt },
+            { field: "Updated", value: user.updatedAt },
+          ],
+        };
+      },
+    });
+  </file>
+  <file path="src/commands/visual.ts">
+    export const visualCommand = new Command("visual")
+      .description("Run visual regression tests via Playwright")
+      .argument("[filter]", "Filter tests by component ID (e.g., button)")
+      .option("-u, --update", "Update visual baselines", false)
+      .action(async (filter: string | undefined, options) => {
+        const root = findMonorepoRoot(process.cwd());
+        console.log(`🚀 Running visual regression tests${filter ? ` for: "${filter}"` : ""}...`);
+    
+        const args = ["playwright", "test", "e2e/visual.spec.ts"];
+        if (filter) {
+          args.push("-g", filter);
+        }
+        if (options.update) {
+          args.push("--update-snapshots");
+        }
+    
+        const testProcess = spawn("pnpm", ["--filter", "@mbe/rialto-web", "exec", ...args], {
+          cwd: root,
+          stdio: "inherit",
+        });
+    
+        testProcess.on("close", (code) => {
+          if (code === 0) {
+            console.log("\n✅ Visual tests passed.");
+          } else {
+            console.error(`\n❌ Visual tests failed with code ${code}.`);
+          }
+          process.exit(code || 0);
+        });
+      });
+  </file>
+  <file path="src/commands/wave.ts">
+    interface WaveResult {
+      task: string;
+      branchName: string;
+      worktreePath: string;
+      success: boolean;
+      error?: string;
+    }
+    export const waveCommand = new Command("wave")
+      .description("Execute multiple tasks in parallel using git worktrees")
+      .argument("<tasks...>", "List of tasks to execute")
+      .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
+      .option("--base-branch <branch>", "Base branch to branch from", "main")
+      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
+      .option("--model <model>", "Model to use for the agent", "claude-sonnet-4-6")
+      .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
+      .option("--max-turns <n>", "Maximum turns per agent", "100")
+      .action(async (tasks: string[], options) => {
+        const root = findMonorepoRoot(process.cwd());
+        const maxParallel = parseInt(options.maxParallel, 10) || 3;
+        const maxBudget = parseFloat(options.maxBudget) || 2;
+        const maxTurns = parseInt(options.maxTurns, 10) || 100;
+        console.log(`🚀 Starting Wave with ${tasks.length} tasks (max parallel: ${maxParallel})...`);
+    
+        const results: WaveResult[] = [];
+        const queue = [...tasks];
+        const active = new Set<Promise<void>>();
+    
+        const runTask = async (task: string) => {
+          let worktree;
+          try {
+            console.log(`\n🌊 Spawning worktree for task: "${task}"`);
+            worktree = await createWorktree(root, options.baseBranch, task);
+    
+            console.log(`   Branch: ${worktree.branchName}`);
+            console.log(`   Path:   ${worktree.path}`);
+    
+            // Run agent in the worktree
+            const agentArgs = [
+              "agent",
+              "run",
+              task,
+              "--no-pr",
+              "--adapter",
+              options.adapter,
+              "--model",
+              options.model,
+              "--max-budget",
+              String(maxBudget),
+              "--max-turns",
+              String(maxTurns),
+            ];
+            const agentProcess = spawn("mbe", agentArgs, {
+              cwd: worktree.path,
+              stdio: "inherit",
+            });
+    
+            const success = await new Promise<boolean>((resolve) => {
+              agentProcess.on("close", (code) => resolve(code === 0));
+            });
+    
+            results.push({
+              task,
+              branchName: worktree.branchName,
+              worktreePath: worktree.path,
+              success,
+            });
+    
+            if (success) {
+              console.log(`✅ Task succeeded: "${task}"`);
+            } else {
+              console.log(`❌ Task failed:    "${task}"`);
+            }
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error(`💥 Error running task "${task}":`, msg);
+            results.push({
+              task,
+              branchName: worktree?.branchName || "unknown",
+              worktreePath: worktree?.path || "unknown",
+              success: false,
+              error: msg,
+            });
+          }
+        };
+    
+        while (queue.length > 0 || active.size > 0) {
+          while (queue.length > 0 && active.size < maxParallel) {
+            const task = queue.shift()!;
+            const promise = runTask(task).then(() => {
+              active.delete(promise);
+            });
+            active.add(promise);
+          }
+          if (active.size > 0) {
+            await Promise.race(active);
+          }
+        }
+    
+        console.log("\n🏁 Wave execution complete. Processing results...");
+    
+        // Final sequential merge
+        const successful = results.filter((r) => r.success);
+        if (successful.length > 0) {
+          console.log(`\nMerging ${successful.length} successful branches into current branch...`);
+          for (const res of successful) {
+            try {
+              console.log(`   Merging ${res.branchName}...`);
+              execSync(`git merge ${res.branchName}`, { cwd: root, stdio: "inherit" });
+            } catch {
+              console.error(`   ❌ Failed to merge ${res.branchName}. There might be conflicts.`);
+            }
+          }
+        }
+    
+        // Cleanup worktrees
+        console.log("\n🧹 Cleaning up worktrees...");
+        for (const res of results) {
+          if (res.worktreePath !== "unknown") {
+            await removeWorktree(root, res.worktreePath).catch(() => {});
+          }
+        }
+    
+        console.log("\n✨ Done.");
+    
+        const failed = results.filter((r) => !r.success);
+        if (failed.length > 0) {
+          console.log(`\n⚠️  ${failed.length} tasks failed:`);
+          failed.forEach((f) => console.log(`   - "${f.task}" (${f.error || "Agent failed"})`));
+          process.exit(1);
+        }
+      });
+  </file>
+  <file path="src/commands/whoami.ts">
+    export const whoamiRun = defineCommand({
+      requiresAuth: true,
+      async run(): Promise<CommandResult> {
+        const response = await apiRequest<ApiResponse<User>>("/api/v1/users/me");
+        const user = response.data;
+        return {
+          kind: "rows",
+          rows: [
+            { field: "ID", value: user.id },
+            { field: "Email", value: user.email },
+            { field: "Name", value: user.name ?? "(not set)" },
+            { field: "API", value: getApiUrl() },
+          ],
+        };
+      },
+    });
+    export const whoamiCommand = new Command("whoami")
+      .description("Show current user info")
+      .option("--json", "Output raw JSON")
+      .action(async (opts: { json?: boolean }) => {
+        const result = await whoamiRun({});
+        await runCommand(result, opts);
+      });
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/api.ts">
+    export class ApiError extends Error {
+      constructor(
+        public statusCode: number,
+        message: string
+      ) {
+        super(message);
+        this.name = "ApiError";
+      }
+    }
+    interface ErrorResponse {
+      message?: string;
+    }
+  </file>
+  <file path="src/command-seam.ts">
+    export type Row = Record<string, unknown>;
+    export type CommandResult =
+      | { kind: "rows"; rows: Row[]; footer?: string }
+      | { kind: "json"; data: unknown }
+      | { kind: "error"; message: string; exitCode?: number };
+  </file>
+  <file path="src/config.ts">
+    interface ConfigSchema {
+      accessToken?: string;
+      refreshToken?: string;
+      tokenExpiry?: number;
+      apiUrl?: string;
+    }
+    export const config = new Conf<ConfigSchema>({
+      projectName: "mbe-cli",
+      schema: {
+        accessToken: { type: "string" },
+        refreshToken: { type: "string" },
+        tokenExpiry: { type: "number" },
+        apiUrl: { type: "string", default: "http://localhost:3001" },
+      },
+    });
+  </file>
+  <file path="src/issue-frontmatter.ts">
+    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export interface AgentOverrides {
+      model?: ModelTier;
+      budget?: number;
+      maxTurns?: number;
+      adapter?: AdapterType;
+    }
+  </file>
+  <file path="src/monorepo-root.ts">
+    export function findMonorepoRoot(startDir: string): string {
+      let dir = startDir;
+      for (let i = 0; i < MAX_DEPTH; i++) {
+        if (existsSync(join(dir, "pnpm-workspace.yaml"))) {
+          return dir;
+        }
+        const parent = resolve(dir, "..");
+        if (parent === dir) break;
+        dir = parent;
+      }
+      return startDir;
+    }
+  </file>
+  <file path="src/resolve-issue-model.ts">
+    export interface IssueModelInput {
+      readonly title: string;
+      readonly labels: string[];
+      readonly body: string;
+    }
+    export interface IssueModelResult {
+      readonly tier: ModelTier;
+      readonly modelId: string;
+      readonly reason: string;
+      /** Where the decision came from: an explicit issue override vs. the router. */
+      readonly source: "frontmatter" | "router";
+    }
+  </file>
+  </section>
+</codebase>
