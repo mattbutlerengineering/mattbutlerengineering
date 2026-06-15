@@ -4684,11 +4684,14 @@
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
-        header: "x-remediation-signature",
-        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-        format: "raw",
-      }));
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-remediation-signature",
+          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+          format: "raw",
+        })
+      );
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -11266,6 +11269,21 @@
       tables?: PrismaTable[];
     };
   </file>
+  <file path="services/reservations/src/services/guest-identity.ts">
+    type GuestSnapshot = {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      dietaryRestrictions: string[] | null;
+    };
+    type IncomingGuestData = {
+      name: string;
+      email?: string;
+      phone?: string;
+      dietaryRestrictions?: string[];
+    };
+  </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     export interface GuestRecognition {
       recognized: boolean;
@@ -14338,7 +14356,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

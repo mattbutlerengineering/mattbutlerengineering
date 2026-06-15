@@ -1953,6 +1953,22 @@
         isAc...;
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-identity.ts">
+    <item priority="high">
+      type GuestSnapshot = {
+        id: string;
+        name: string;
+        email: string | null;
+       ...;
+    </item>
+    <item priority="high">
+      type IncomingGuestData = {
+        name: string;
+        email?: string;
+        phone?: string;
+        d...;
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     <item priority="low">
       interface GuestRecognition {
