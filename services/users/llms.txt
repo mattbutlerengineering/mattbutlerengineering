@@ -21,7 +21,7 @@
   </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: unknown;
+      export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/users.ts">

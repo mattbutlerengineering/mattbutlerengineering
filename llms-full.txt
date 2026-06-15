@@ -4405,20 +4405,38 @@
     }
   </file>
   <file path="services/agent/src/routes/ready.ts">
-    export const readinessRoutes = createReadinessRoutes({ prisma });
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        {
+          schema: { ...readinessSchema, operationId: "getReady" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        }
+      );
+    };
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
     export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.addHook("preParsing", createRawBodyCaptureHook());
-      fastify.addHook(
-        "preHandler",
-        createVerifiedBodyPreHandler({
-          header: "x-remediation-signature",
-          secretEnv: "REMEDIATION_WEBHOOK_SECRET",
-          format: "raw",
-        })
-      );
+      fastify.addHook("preHandler", createVerifiedBodyPreHandler({
+        header: "x-remediation-signature",
+        secretEnv: "REMEDIATION_WEBHOOK_SECRET",
+        format: "raw",
+      }));
     
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
@@ -7436,7 +7454,28 @@
     };
   </file>
   <file path="services/reservations/src/routes/ready.ts">
-    export const readinessRoutes = createReadinessRoutes({ prisma });
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        {
+          schema: { ...readinessSchema, operationId: "getReady" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        }
+      );
+    };
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -9566,7 +9605,28 @@
     };
   </file>
   <file path="services/users/src/routes/ready.ts">
-    export const readinessRoutes = createReadinessRoutes({ prisma });
+    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Reply: ReadinessResponse }>(
+        "/ready",
+        {
+          schema: { ...readinessSchema, operationId: "getReady" },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        async (_request, reply) => {
+          const snapshot = await readiness.evaluate();
+          const response: ReadinessResponse = {
+            ready: snapshot.ready,
+            timestamp: snapshot.timestamp,
+            checks: snapshot.checks.map((c) => ({
+              name: c.name,
+              status: c.status,
+              ...(c.message ? { message: c.message } : {}),
+            })),
+          };
+          return reply.status(snapshot.ready ? 200 : 503).send(response);
+        }
+      );
+    };
   </file>
   <file path="services/users/src/routes/users.ts">
     export const userRoutes: FastifyPluginAsync = async (fastify) => {

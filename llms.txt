@@ -1307,7 +1307,7 @@
   </file>
   <file path="services/agent/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: unknown;
+      export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/agent/src/routes/remediation.ts">
@@ -1492,7 +1492,7 @@
   </file>
   <file path="services/reservations/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: unknown;
+      export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
@@ -1530,7 +1530,7 @@
   </file>
   <file path="services/users/src/routes/ready.ts">
     <item priority="high">
-      export const readinessRoutes: unknown;
+      export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
