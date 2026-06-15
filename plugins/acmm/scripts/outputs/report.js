@@ -78,15 +78,15 @@ export function writeReport(
     lines.push("");
     lines.push(headline);
     lines.push("");
-    if (diff.added.length > 0) {
-      lines.push(
-        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
-      );
-      lines.push("");
-    }
     if (diff.removed.length > 0) {
       lines.push(
         `**Regressed (-${diff.removed.length}):** ${diff.removed.map((id) => `\`${id}\``).join(", ")}`
+      );
+      lines.push("");
+    }
+    if (diff.added.length > 0) {
+      lines.push(
+        `**Newly detected (+${diff.added.length}):** ${diff.added.map((id) => `\`${id}\``).join(", ")}`
       );
       lines.push("");
     }
