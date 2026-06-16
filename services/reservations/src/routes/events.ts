@@ -209,17 +209,16 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       // Don't end the response - keep the connection open
       // The response will be ended when the client disconnects or timeout fires
 
-      // TEST-ONLY: automatically close after N ms to allow app.inject to complete in tests
-      // github[js/resource-exhaustion] - CLAMP: maximum 5 seconds to prevent resource exhaustion
+      // TEST-ONLY: automatically close after a fixed delay to allow app.inject to complete.
+      // The testClose param is a boolean flag — its value is ignored to prevent
+      // user-controlled data from flowing into setTimeout (CodeQL js/resource-exhaustion).
       if (process.env.NODE_ENV === "test" && testClose) {
-        const ms = Math.min(Math.max(0, parseInt(testClose, 10)), 5000);
-        if (!isNaN(ms)) {
-          setTimeout(() => {
-            if (!reply.raw.writableEnded) {
-              reply.raw.end();
-            }
-          }, ms);
-        }
+        const TEST_CLOSE_TIMEOUT_MS = 50;
+        setTimeout(() => {
+          if (!reply.raw.writableEnded) {
+            reply.raw.end();
+          }
+        }, TEST_CLOSE_TIMEOUT_MS);
       }
     }
   );
