@@ -99,6 +99,7 @@ overrides:
   qs@<=6.15.1: ^6.15.2
   ioredis: ^5.11.0
   form-data@<4.0.6: ^4.0.6
+  js-yaml@<4.2.0: ^4.2.0
 
 importers:
 
@@ -6985,10 +6986,6 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@3.14.2:
-    resolution: {integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==}
-    hasBin: true
-
   js-yaml@4.2.0:
     resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
     hasBin: true
@@ -11428,7 +11425,7 @@ snapshots:
     dependencies:
       debug: 4.4.3
       isomorphic-fetch: 3.0.0(encoding@0.1.13)
-      js-yaml: 3.14.2
+      js-yaml: 4.2.0
       lighthouse: 12.6.1
       tree-kill: 1.2.2
     transitivePeerDependencies:
@@ -12428,7 +12425,7 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.4)
       google-protobuf: 3.21.4
       ini: 2.0.0
-      js-yaml: 3.14.2
+      js-yaml: 4.2.0
       minimist: 1.2.8
       normalize-package-data: 6.0.2
       picomatch: 4.0.4
@@ -13907,6 +13904,7 @@ snapshots:
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
+    optional: true
 
   argparse@2.0.1: {}
 
@@ -16089,11 +16087,6 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@3.14.2:
-    dependencies:
-      argparse: 1.0.10
-      esprima: 4.0.1
-
   js-yaml@4.2.0:
     dependencies:
       argparse: 2.0.1
@@ -17426,7 +17419,7 @@ snapshots:
   read-yaml-file@1.1.0:
     dependencies:
       graceful-fs: 4.2.11
-      js-yaml: 3.14.2
+      js-yaml: 4.2.0
       pify: 4.0.1
       strip-bom: 3.0.0
 
@@ -17937,7 +17930,8 @@ snapshots:
 
   split2@4.2.0: {}
 
-  sprintf-js@1.0.3: {}
+  sprintf-js@1.0.3:
+    optional: true
 
   sqlstring@2.3.3: {}
 
