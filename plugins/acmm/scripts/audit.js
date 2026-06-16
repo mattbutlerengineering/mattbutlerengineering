@@ -17,7 +17,8 @@
  */
 
 import { ALL_CRITERIA, SOURCES } from "./sources/index.js";
-import { evaluate, verdictCounts } from "./evaluate.js";
+import { verdictCounts } from "./evaluate.js";
+import { evaluateWithInheritance } from "./inheritance.js";
 import { substanceCheckers } from "./substance.js";
 import { computeLevel } from "./computeLevel.js";
 import { loadState, saveState, recordHistory } from "./state.js";
@@ -118,36 +119,12 @@ const startedAt = Date.now();
 const prior = loadState(cwd);
 
 // Evaluate all criteria through the verdict seam, with inheritance support
-const criterionVerdicts = new Map(); // id → { verdict, evidence }
-const detectedIds = new Set();
-for (const c of ALL_CRITERIA) {
-  // Try local first
-  let result = evaluate(c, cwd);
-
-  // If not counted and inheritance enabled, try root for allowed global paths
-  if (!verdictCounts(result.verdict) && acmmConfig.inherit) {
-    const patterns = Array.isArray(c.detection.pattern)
-      ? c.detection.pattern
-      : [c.detection.pattern];
-
-    // Check if any pattern is local-only
-    const isLocalOnly = patterns.some((p) =>
-      acmmConfig.localOnly.some((lo) => p.startsWith(lo) || p === lo)
-    );
-
-    if (!isLocalOnly) {
-      const isGlobal = patterns.some((p) =>
-        acmmConfig.globalPaths.some((gp) => p.startsWith(gp) || p === gp)
-      );
-      if (isGlobal) {
-        result = evaluate(c, repoRoot);
-      }
-    }
-  }
-
-  criterionVerdicts.set(c.id, result);
-  if (verdictCounts(result.verdict)) detectedIds.add(c.id);
-}
+const { detectedIds, criterionVerdicts, origins } = evaluateWithInheritance(
+  ALL_CRITERIA,
+  cwd,
+  repoRoot,
+  acmmConfig
+);
 
 // Collect hollow criteria for the report section (#2022)
 const hollowCriteria = [];
@@ -278,6 +255,7 @@ const reportPath = writeReport(cwd, {
   computation,
   diff,
   hollowCriteria,
+  origins,
 });
 
 /* ── Optionally: --badge ─────────────────────────────────── */
