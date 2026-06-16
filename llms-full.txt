@@ -5448,6 +5448,11 @@
     export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.patch<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/confirm",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+        },
         async (request, reply) => {
           const { token } = request.query;
     
@@ -7031,6 +7036,11 @@
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{ Querystring: { token?: string } }>(
         "/public/v1/reservations/manage",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+        },
         async (request, reply) => {
           const { token } = request.query;
     
@@ -14916,7 +14926,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
