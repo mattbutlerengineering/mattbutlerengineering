@@ -35,6 +35,11 @@ h1{color:#d97706;margin:0 0 .5rem}p{color:#4b5563;margin:0}</style></head>
 export const confirmAttendanceRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Querystring: { token?: string } }>(
     "/public/v1/reservations/confirm",
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
+    },
     async (request, reply) => {
       const { token } = request.query;
 
