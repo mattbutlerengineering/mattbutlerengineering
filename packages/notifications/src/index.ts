@@ -14,7 +14,5 @@ export type {
 export { TwilioSmsAdapter } from "./twilio-sms-adapter.js";
 export type { TwilioSmsAdapterConfig } from "./twilio-sms-adapter.js";
 export { NotificationDispatcher } from "./notification-dispatcher.js";
-export type {
-  NotificationDispatcherConfig,
-  CommunicationPreference,
-} from "./notification-dispatcher.js";
+export type { NotificationDispatcherConfig } from "./notification-dispatcher.js";
+export type { CommunicationPreference } from "@mbe/types";

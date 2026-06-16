@@ -794,6 +794,9 @@ importers:
       '@mbe/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@mbe/types':
+        specifier: workspace:*
+        version: link:../types
       twilio:
         specifier: ^6.0.2
         version: 6.0.2

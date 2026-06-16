@@ -19,6 +19,8 @@ import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { startObservation } from "@langfuse/tracing";
 import { createStuckDetector } from "./stuck-detector.js";
 import type { StuckPattern, StuckDetectorConfig } from "./stuck-detector.js";
+import { createContextBudget } from "./context-budget.js";
+import type { ContextMetrics } from "./context-budget.js";
 import { mapSdkMessage } from "./event-mapper.js";
 import type { TurnMetricsEvent } from "./event-mapper.js";
 import { sanitizeStreamChunk } from "./sanitize-output.js";
@@ -91,6 +93,8 @@ export interface HardenedQueryResult {
   readonly rawToolCallMetrics: readonly RawToolCallMetric[];
   /** Set when the query failed due to an unrecoverable error (SDK throw, etc.). */
   readonly errorMessage: string | null;
+  /** Context budget metrics for observability. */
+  readonly contextMetrics: ContextMetrics | null;
 }
 
 // ── Main function ─────────────────────────────────────────────────────
@@ -129,12 +133,14 @@ export async function runHardenedQuery(
       rawTurnMetrics: [],
       rawToolCallMetrics: [],
       errorMessage: msg,
+      contextMetrics: null,
     };
   }
 
   const abortController = new AbortController();
   const canUseTool = createToolPermissionHandler(config.cwd);
   const detector = createStuckDetector(config.stuckDetectorConfig);
+  const contextBudget = createContextBudget(config.model);
 
   let conversation: ReturnType<typeof query>;
   try {
@@ -175,6 +181,7 @@ export async function runHardenedQuery(
       rawTurnMetrics: [],
       rawToolCallMetrics: [],
       errorMessage: errMsg,
+      contextMetrics: null,
     };
   }
 
@@ -277,6 +284,18 @@ export async function runHardenedQuery(
                 costUsd: tm.costUsd,
                 modelId: tm.modelId,
               });
+
+              // Track context budget from cumulative input tokens
+              contextBudget.track({
+                inputTokens: tm.inputTokens,
+                outputTokens: tm.outputTokens,
+              });
+              const hint = contextBudget.strategyMessage();
+              if (hint) {
+                emitEvent(onEvent, "session:stuck", {
+                  message: `Context budget: ${hint}`,
+                });
+              }
             }
 
             if (mapped.type === "session:tool_use") {
@@ -316,6 +335,7 @@ export async function runHardenedQuery(
             message.subtype === "compact_boundary"
           ) {
             compactionCount++;
+            contextBudget.trackCompaction();
             if (compactionCount >= MAX_COMPACTIONS) {
               innerStuck = {
                 type: "context_window_loop",
@@ -399,6 +419,7 @@ export async function runHardenedQuery(
         rawTurnMetrics,
         rawToolCallMetrics,
         errorMessage: errMsg,
+        contextMetrics: contextBudget.metrics(),
       };
     }
   } finally {
@@ -420,6 +441,7 @@ export async function runHardenedQuery(
       rawTurnMetrics,
       rawToolCallMetrics,
       errorMessage: circuitMsg,
+      contextMetrics: contextBudget.metrics(),
     };
   }
 
@@ -429,5 +451,6 @@ export async function runHardenedQuery(
     rawTurnMetrics,
     rawToolCallMetrics,
     errorMessage: null,
+    contextMetrics: contextBudget.metrics(),
   };
 }

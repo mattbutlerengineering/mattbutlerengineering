@@ -449,6 +449,11 @@
     },
     {
       "from": "@mbe/notifications",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/notifications",
       "to": "@mbe/config",
       "type": "devDependency"
     },

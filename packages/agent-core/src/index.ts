@@ -62,6 +62,17 @@ export { createToolPermissionHandler, normalizeBashCommand } from "./tool-permis
 // Cost tracking
 export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-tracker.js";
 
+// Context budget (proactive context management)
+export { createContextBudget, MODEL_CONTEXT_LIMITS } from "./context-budget.js";
+export type {
+  ContextBudget,
+  ContextUsage,
+  ContextStrategy,
+  ContextStrategyHint,
+  ContextMetrics,
+  ContextBudgetConfig,
+} from "./context-budget.js";
+
 // Stuck detection
 export { createStuckDetector, DEFAULT_STUCK_CONFIG } from "./stuck-detector.js";
 export type {
