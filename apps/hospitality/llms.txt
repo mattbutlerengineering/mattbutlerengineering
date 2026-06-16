@@ -44,11 +44,7 @@
       function loadFixture(name: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function jsonResponse(
-        route: Route,
-        fixtureName: string,
-        status = 200
-      ): Promise<void> { /* ... */ }
+      function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">
@@ -234,10 +230,7 @@
       type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
     </item>
     <item priority="high">
-      export function notifySSEStatus(
-        isConnected: boolean,
-        error: Error | null
-      ): void { /* ... */ }
+      export function notifySSEStatus(isConnected: boolean, error: Error | null): void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useTables.ts">
