@@ -142,4 +142,24 @@ describe("SSE Event Stream Integration", () => {
     expect(response.body).toContain("event: connected");
     expect(response.body).not.toContain("res-other");
   });
+
+  it("testClose flag uses a fixed timeout — value is not user-controlled", async () => {
+    // The testClose query param should be a boolean flag only.
+    // Regardless of the numeric value passed, the connection must close within
+    // a short fixed window (< 500ms). This guards against CodeQL js/resource-exhaustion:
+    // user-controlled data must not flow into setTimeout().
+    const start = Date.now();
+    const response = await app.inject({
+      method: "GET",
+      // Pass a large numeric value — if user input controls the delay this would hang
+      url: "/api/v1/events/stream?testClose=99999",
+      headers: { "x-auth-bypass": "true" },
+    });
+    const elapsed = Date.now() - start;
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("event: connected");
+    // Must complete well within 500ms regardless of the testClose value
+    expect(elapsed).toBeLessThan(500);
+  });
 });

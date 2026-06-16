@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { FAMILIES, llmsPackages } from "../regen-manifest.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SOURCE = readFileSync(resolve(__dirname, "../regen-manifest.mjs"), "utf8");
 
 describe("regen-manifest", () => {
   it("exports an array of families", () => {
@@ -122,5 +128,16 @@ describe("regen-manifest", () => {
         txt === "llms.txt" ? "llms-full.txt" : txt.replace(/\/llms\.txt$/, "/llms-full.txt");
       expect(llms.outputs, `expected ${fullTxt} alongside ${txt}`).toContain(fullTxt);
     }
+  });
+
+  // Security: shell command injection from environment (CodeQL #112)
+  // execSync() invokes a shell and is susceptible to env-var injection.
+  // The safe alternative is execFileSync() with an args array (no shell).
+  it("does not use execSync (shell-based, env-injection risk)", () => {
+    expect(SOURCE).not.toContain("execSync");
+  });
+
+  it("uses execFileSync for subprocess execution (no shell invocation)", () => {
+    expect(SOURCE).toContain("execFileSync");
   });
 });
