@@ -6,6 +6,11 @@ import { venueService } from "../services/venue.js";
 export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { token?: string } }>(
     "/public/v1/reservations/manage",
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
+    },
     async (request, reply) => {
       const { token } = request.query;
 

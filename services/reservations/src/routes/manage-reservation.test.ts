@@ -153,3 +153,29 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(response.statusCode).toBe(400);
   });
 });
+
+describe("GET /public/v1/reservations/manage — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "GET",
+        url: "/public/v1/reservations/manage?token=garbage-token",
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      expect(responses[i].statusCode).toBe(401);
+    }
+    expect(responses[10].statusCode).toBe(429);
+  });
+});
