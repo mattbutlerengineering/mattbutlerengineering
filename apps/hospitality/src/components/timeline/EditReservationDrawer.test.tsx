@@ -131,7 +131,10 @@ describe("EditReservationDrawer", () => {
 
   it("should use empty string for notes when reservation notes is null", () => {
     render(
-      <EditReservationDrawer {...defaultProps} reservation={makeReservation({ notes: null })} />
+      <EditReservationDrawer
+        {...defaultProps}
+        reservation={makeReservation({ notes: null })}
+      />
     );
     const textarea = screen.getByLabelText("Notes") as HTMLTextAreaElement;
     expect(textarea.value).toBe("");
@@ -155,8 +158,12 @@ describe("EditReservationDrawer", () => {
     const trigger = screen.getByRole("combobox", { name: /assign table/i });
     fireEvent.click(trigger);
 
-    expect(screen.getByRole("option", { name: /Table 1 \(cap\. 4\)/ })).toBeDefined();
-    expect(screen.getByRole("option", { name: /Table 2 \(cap\. 6\)/ })).toBeDefined();
+    expect(
+      screen.getByRole("option", { name: /Table 1 \(cap\. 4\)/ })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("option", { name: /Table 2 \(cap\. 6\)/ })
+    ).toBeDefined();
   });
 
   it("should allow changing party size", () => {
@@ -183,7 +190,9 @@ describe("EditReservationDrawer", () => {
     render(<EditReservationDrawer {...defaultProps} />);
 
     // Change party size
-    const partySizeInput = screen.getByLabelText("Party Size") as HTMLInputElement;
+    const partySizeInput = screen.getByLabelText(
+      "Party Size"
+    ) as HTMLInputElement;
     fireEvent.change(partySizeInput, { target: { value: "6" } });
 
     // Change notes
@@ -211,7 +220,9 @@ describe("EditReservationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Party size must be a positive number.")).toBeDefined();
+      expect(
+        screen.getByText("Party size must be a positive number.")
+      ).toBeDefined();
     });
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });
@@ -224,7 +235,9 @@ describe("EditReservationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Party size must be a positive number.")).toBeDefined();
+      expect(
+        screen.getByText("Party size must be a positive number.")
+      ).toBeDefined();
     });
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });
@@ -239,7 +252,9 @@ describe("EditReservationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => {
-      expect(screen.getByText("End time must be after start time.")).toBeDefined();
+      expect(
+        screen.getByText("End time must be after start time.")
+      ).toBeDefined();
     });
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });
@@ -254,7 +269,9 @@ describe("EditReservationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => {
-      expect(screen.getByText("End time must be after start time.")).toBeDefined();
+      expect(
+        screen.getByText("End time must be after start time.")
+      ).toBeDefined();
     });
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });
@@ -267,7 +284,9 @@ describe("EditReservationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Start and end times are required.")).toBeDefined();
+      expect(
+        screen.getByText("Start and end times are required.")
+      ).toBeDefined();
     });
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });

@@ -96,22 +96,46 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+  Alert: ({
+    children,
+    variant,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+  }) => (
     <div data-testid="alert" data-variant={variant}>
       {children}
     </div>
   ),
-  Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
+  Text: ({
+    children,
+    className,
+  }: {
+    children?: React.ReactNode;
+    className?: string;
+  }) => (
     <div data-testid="text" className={className}>
       {children}
     </div>
   ),
-  Banner: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+  Banner: ({
+    children,
+    variant,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+  }) => (
     <div data-testid="recognition-banner" data-variant={variant}>
       {children}
     </div>
   ),
-  Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+  Badge: ({
+    children,
+    variant,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+  }) => (
     <span data-testid="preferences-badge" data-variant={variant}>
       {children}
     </span>
@@ -202,7 +226,9 @@ describe("GuestDetailsForm", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     const notesInput = screen.getByTestId("special-requests");
     fireEvent.change(notesInput, { target: { value: "Birthday celebration" } });
-    expect((notesInput as HTMLTextAreaElement).value).toBe("Birthday celebration");
+    expect((notesInput as HTMLTextAreaElement).value).toBe(
+      "Birthday celebration"
+    );
   });
 
   it("should not submit when name is empty", () => {
@@ -214,7 +240,9 @@ describe("GuestDetailsForm", () => {
   it("should enable submit when name and email are provided", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
-    fireEvent.change(screen.getByTestId("email"), { target: { value: "john@example.com" } });
+    fireEvent.change(screen.getByTestId("email"), {
+      target: { value: "john@example.com" },
+    });
     const submitButton = screen.getByTestId("submit-button");
     expect(submitButton).not.toBeDisabled();
   });
@@ -222,15 +250,21 @@ describe("GuestDetailsForm", () => {
   it("should enable submit when name and phone are provided", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
-    fireEvent.change(screen.getByTestId("phone"), { target: { value: "555-123-4567" } });
+    fireEvent.change(screen.getByTestId("phone"), {
+      target: { value: "555-123-4567" },
+    });
     const submitButton = screen.getByTestId("submit-button");
     expect(submitButton).not.toBeDisabled();
   });
 
   it("should call onSubmit with form data when submitted", () => {
     render(<GuestDetailsForm {...defaultProps} />);
-    fireEvent.change(screen.getByTestId("name"), { target: { value: "John Doe" } });
-    fireEvent.change(screen.getByTestId("email"), { target: { value: "john@example.com" } });
+    fireEvent.change(screen.getByTestId("name"), {
+      target: { value: "John Doe" },
+    });
+    fireEvent.change(screen.getByTestId("email"), {
+      target: { value: "john@example.com" },
+    });
     fireEvent.click(screen.getByTestId("submit-button"));
     expect(defaultProps.onSubmit).toHaveBeenCalledWith({
       name: "John Doe",
@@ -304,11 +338,17 @@ describe("GuestDetailsForm", () => {
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
       expect(screen.getByTestId("recognition-banner")).toBeDefined();
-      expect(screen.getByTestId("recognition-banner").textContent).toContain("Welcome back, Jane");
-      expect(screen.getByTestId("recognition-banner").textContent).toContain("5th visit");
+      expect(screen.getByTestId("recognition-banner").textContent).toContain(
+        "Welcome back, Jane"
+      );
+      expect(screen.getByTestId("recognition-banner").textContent).toContain(
+        "5th visit"
+      );
 
       // Auto-filled phone
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-999-0000");
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
+        "555-999-0000"
+      );
     });
 
     it("shows preferences badge when hasPreferences is true", async () => {
@@ -329,7 +369,9 @@ describe("GuestDetailsForm", () => {
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
       expect(screen.getByTestId("preferences-badge")).toBeDefined();
-      expect(screen.getByTestId("preferences-badge").textContent).toContain("Preferences on file");
+      expect(screen.getByTestId("preferences-badge").textContent).toContain(
+        "Preferences on file"
+      );
     });
 
     it("does not show badge when hasPreferences is false", async () => {
@@ -423,11 +465,17 @@ describe("GuestDetailsForm", () => {
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-999-0000");
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
+        "555-999-0000"
+      );
 
       // User can override the auto-filled value
-      fireEvent.change(screen.getByTestId("phone"), { target: { value: "555-111-2222" } });
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-111-2222");
+      fireEvent.change(screen.getByTestId("phone"), {
+        target: { value: "555-111-2222" },
+      });
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
+        "555-111-2222"
+      );
     });
   });
 });
