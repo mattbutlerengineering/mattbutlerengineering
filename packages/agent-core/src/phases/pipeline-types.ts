@@ -7,6 +7,7 @@ import type {
   ToolCallMetrics,
 } from "../types.js";
 import type { StuckPattern } from "../stuck-detector.js";
+import type { ContextMetrics } from "../context-budget.js";
 import type { EvaluationResult } from "../success-evaluator.js";
 import type { GatewayVerdict } from "../post-commit-gateway.js";
 import type { TaskSignals } from "../task-signal-registry.js";
@@ -47,6 +48,7 @@ export interface PipelineContext {
   readonly stuckReason?: StuckPattern;
   readonly turnMetrics?: readonly TurnMetrics[];
   readonly toolCallMetrics?: readonly ToolCallMetrics[];
+  readonly contextMetrics?: ContextMetrics;
 
   // VerificationPhase outputs
   readonly hasChanges?: boolean;

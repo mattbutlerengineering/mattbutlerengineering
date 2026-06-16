@@ -192,7 +192,14 @@ function buildFinalResult(
   ctx: PipelineContext,
   rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
 ): SessionResult {
-  const { resultMessage, stuckReason, gatewayEvaluation, turnMetrics, toolCallMetrics } = ctx;
+  const {
+    resultMessage,
+    stuckReason,
+    gatewayEvaluation,
+    turnMetrics,
+    toolCallMetrics,
+    contextMetrics,
+  } = ctx;
   const errors = [...ctx.errors];
 
   if (stuckReason) {
@@ -261,6 +268,11 @@ function buildFinalResult(
     if (failureCategory) rootSpan.setAttribute("session.failure_category", failureCategory);
     rootSpan.setAttribute("session.turn_count", collectedTurnMetrics.length);
     rootSpan.setAttribute("session.tool_call_count", collectedToolCallMetrics.length);
+    if (contextMetrics) {
+      rootSpan.setAttribute("session.context_percent_at_exit", contextMetrics.contextPercentAtExit);
+      rootSpan.setAttribute("session.peak_context_percent", contextMetrics.peakContextPercent);
+      rootSpan.setAttribute("session.context_compaction_count", contextMetrics.compactionCount);
+    }
 
     emitEvent(ctx.onEvent, "session:result", {
       message: `Session completed: ${finalResult.status}`,
@@ -277,6 +289,13 @@ function buildFinalResult(
           ? {
               evaluation_confidence: String(evalSummary.confidence),
               evaluation_reasoning: evalSummary.reasoning,
+            }
+          : {}),
+        ...(contextMetrics
+          ? {
+              context_percent_at_exit: String(contextMetrics.contextPercentAtExit),
+              peak_context_percent: String(contextMetrics.peakContextPercent),
+              context_compaction_count: String(contextMetrics.compactionCount),
             }
           : {}),
       },
