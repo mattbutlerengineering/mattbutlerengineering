@@ -4,12 +4,7 @@ import type {
   WinBackNotificationInput,
 } from "./port.js";
 import type { SmsPort, SmsNotificationInput } from "./sms-port.js";
-
-/**
- * Guest communication preference enum values.
- * Matches the CommunicationPreference enum in the Prisma schema.
- */
-export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
+import type { CommunicationPreference } from "@mbe/types";
 
 export interface NotificationDispatcherConfig {
   emailAdapter: NotificationPort;

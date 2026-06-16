@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@mbe/api-client": "workspace:*",
+    "@mbe/types": "workspace:*",
     "twilio": "^6.0.2"
   },
   "devDependencies": {
