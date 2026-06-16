@@ -31,6 +31,18 @@ pnpm typecheck      # Run tsc across workspace
 pnpm clean          # Wipe artifacts and node_modules
 ```
 
+> **Prisma client:** `services/*/src/generated/prisma/` is gitignored — generated artifacts are never committed.
+> After `pnpm install`, generate all service clients before running `dev`, `typecheck`, or `test`:
+>
+> ```bash
+> for SERVICE in $(node scripts/discover-prisma-services.mjs); do
+>   PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
+>   pnpm --filter "$PKG" db:generate
+> done
+> ```
+>
+> CI generates clients in the `prepare` job (cached by schema hash). Dockerfiles run `db:generate` in the builder stage.
+
 ### Multi-Repo Orchestration
 
 ```bash
