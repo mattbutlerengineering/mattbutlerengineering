@@ -1,7 +1,12 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import type { CreateFloorPlanRequest, FloorPlan } from "@mbe/types";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "./floor-plan-geometry.js";
+import {
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  GRID_SIZE,
+} from "./floor-plan-geometry.js";
 import styles from "./NewFloorPlanDialog.module.css";
 
 const DEFAULT_LAYOUT = {
@@ -10,6 +15,10 @@ const DEFAULT_LAYOUT = {
   gridSize: GRID_SIZE,
   showGrid: true,
 };
+
+interface NewFloorPlanFormData {
+  name: string;
+}
 
 export interface NewFloorPlanDialogProps {
   venueId: string;
@@ -24,9 +33,16 @@ export function NewFloorPlanDialog({
   onClose,
   onCreate,
 }: NewFloorPlanDialogProps) {
-  const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<NewFloorPlanFormData>({
+    defaultValues: { name: "" },
+  });
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -40,40 +56,50 @@ export function NewFloorPlanDialog({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError("Floor plan name is required.");
-      return;
-    }
-
+  const onSubmit = async (data: NewFloorPlanFormData) => {
     setIsSubmitting(true);
     setError(null);
 
     try {
       const floorPlan = await onCreate({
         venueId,
-        name: trimmedName,
+        name: data.name.trim(),
         layoutJson: DEFAULT_LAYOUT,
       });
       onCreated(floorPlan);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create floor plan.");
+      setError(
+        err instanceof Error ? err.message : "Failed to create floor plan."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const validationError = errors.name?.message ?? error;
+
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
+    <div
+      className={styles.overlay}
+      onClick={handleOverlayClick}
+      onKeyDown={handleOverlayKeyDown}
+    >
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
           <Heading className={styles.dialogTitle}>New Floor Plan</Heading>
-          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Button
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -84,9 +110,15 @@ export function NewFloorPlanDialog({
           </Button>
         </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {validationError && (
+          <div className={styles.errorBanner}>{validationError}</div>
+        )}
 
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <form
+          noValidate
+          onSubmit={handleSubmit(onSubmit)}
+          className={styles.form}
+        >
           <div className={styles.fieldGroup}>
             <label htmlFor="floor-plan-name" className={styles.label}>
               Name <Text className={styles.required}>*</Text>
@@ -95,11 +127,12 @@ export function NewFloorPlanDialog({
               id="floor-plan-name"
               type="text"
               className={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Main Dining Room"
-              required
               disabled={isSubmitting}
+              {...register("name", {
+                validate: (value) =>
+                  value.trim().length > 0 || "Floor plan name is required.",
+              })}
             />
           </div>
 
@@ -112,7 +145,11 @@ export function NewFloorPlanDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            <Button
+              type="submit"
+              className={styles.submitButton}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Creating..." : "Create"}
             </Button>
           </div>
