@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-15T15:37:22.663Z",
+  "generatedAt": "2026-06-16T00:02:49.090Z",
   "patterns": {
     "magicTimeouts": {
       "count": 35,
@@ -10,7 +10,7 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 304,
+      "count": 292,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 749,
+      "count": 750,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {
