@@ -1,10 +1,17 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS, CANVAS_CENTER } from "./floor-plan-geometry.js";
 import styles from "./AddTableDialog.module.css";
 
 type TableShape = "rectangle" | "square" | "circle";
+
+interface AddTableFormData {
+  name: string;
+  capacity: number;
+  minCovers: number;
+}
 
 export interface AddTableDialogProps {
   venueId: string;
@@ -13,13 +20,23 @@ export interface AddTableDialogProps {
   onClose: () => void;
 }
 
-export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddTableDialogProps) {
-  const [name, setName] = useState("");
-  const [capacity, setCapacity] = useState(4);
-  const [minCovers, setMinCovers] = useState(1);
+export function AddTableDialog({
+  venueId,
+  floorPlanId,
+  onSubmit,
+  onClose,
+}: AddTableDialogProps) {
   const [shape, setShape] = useState<TableShape>("rectangle");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<AddTableFormData>({
+    defaultValues: { name: "", capacity: 4, minCovers: 1 },
+  });
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -33,28 +50,12 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError("Table name is required.");
-      return;
-    }
-    if (capacity < 1) {
-      setError("Capacity must be at least 1.");
-      return;
-    }
-    if (minCovers < 1) {
-      setError("Min covers must be at least 1.");
-      return;
-    }
-
+  const onFormSubmit = async (data: AddTableFormData) => {
     const dims = SHAPE_DEFAULTS[shape];
-    const data: CreateTableRequest = {
-      name: trimmedName,
-      capacity,
-      minCovers,
+    const request: CreateTableRequest = {
+      name: data.name.trim(),
+      capacity: Number(data.capacity),
+      minCovers: Number(data.minCovers),
       venueId,
       floorPlanId,
       shapeMetadata: {
@@ -70,7 +71,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     setError(null);
 
     try {
-      await onSubmit(data);
+      await onSubmit(request);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create table.");
     } finally {
@@ -78,14 +79,34 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
     }
   };
 
+  const validationError =
+    errors.name?.message ??
+    errors.capacity?.message ??
+    errors.minCovers?.message ??
+    error;
+
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
+    <div
+      className={styles.overlay}
+      onClick={handleOverlayClick}
+      onKeyDown={handleOverlayKeyDown}
+    >
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
           <Heading className={styles.dialogTitle}>Add Table</Heading>
-          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Button
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -96,9 +117,15 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
           </Button>
         </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {validationError && (
+          <div className={styles.errorBanner}>{validationError}</div>
+        )}
 
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <form
+          noValidate
+          onSubmit={handleSubmit(onFormSubmit)}
+          className={styles.form}
+        >
           <div className={styles.fieldGroup}>
             <label htmlFor="table-name" className={styles.label}>
               Table Name <Text className={styles.required}>*</Text>
@@ -107,11 +134,12 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
               id="table-name"
               type="text"
               className={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Table 1"
-              required
               disabled={isSubmitting}
+              {...register("name", {
+                validate: (value) =>
+                  value.trim().length > 0 || "Table name is required.",
+              })}
             />
           </div>
 
@@ -124,10 +152,12 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 id="table-capacity"
                 type="number"
                 className={styles.input}
-                value={capacity}
                 min={1}
-                onChange={(e) => setCapacity(Math.max(1, Number(e.target.value)))}
                 disabled={isSubmitting}
+                {...register("capacity", {
+                  valueAsNumber: true,
+                  min: { value: 1, message: "Capacity must be at least 1." },
+                })}
               />
             </div>
 
@@ -139,10 +169,12 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 id="table-min-covers"
                 type="number"
                 className={styles.input}
-                value={minCovers}
                 min={1}
-                onChange={(e) => setMinCovers(Math.max(1, Number(e.target.value)))}
                 disabled={isSubmitting}
+                {...register("minCovers", {
+                  valueAsNumber: true,
+                  min: { value: 1, message: "Min covers must be at least 1." },
+                })}
               />
             </div>
           </div>
@@ -154,7 +186,9 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
                 <Button
                   key={s}
                   type="button"
-                  className={`${styles.shapeButton} ${shape === s ? styles.shapeButtonActive : ""}`}
+                  className={`${styles.shapeButton} ${
+                    shape === s ? styles.shapeButtonActive : ""
+                  }`}
                   onClick={() => setShape(s)}
                   disabled={isSubmitting}
                   aria-pressed={shape === s}
@@ -179,7 +213,11 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
             >
               Cancel
             </Button>
-            <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            <Button
+              type="submit"
+              className={styles.submitButton}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Adding..." : "Add Table"}
             </Button>
           </div>
@@ -195,7 +233,13 @@ function capitalize(s: string) {
 
 function RectangleIcon() {
   return (
-    <svg width="28" height="20" viewBox="0 0 28 20" fill="none" stroke="currentColor">
+    <svg
+      width="28"
+      height="20"
+      viewBox="0 0 28 20"
+      fill="none"
+      stroke="currentColor"
+    >
       <rect x="2" y="4" width="24" height="12" rx="2" strokeWidth="2" />
     </svg>
   );
@@ -203,7 +247,13 @@ function RectangleIcon() {
 
 function SquareIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+    >
       <rect x="2" y="2" width="16" height="16" rx="2" strokeWidth="2" />
     </svg>
   );
@@ -211,7 +261,13 @@ function SquareIcon() {
 
 function CircleIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+    >
       <circle cx="10" cy="10" r="8" strokeWidth="2" />
     </svg>
   );

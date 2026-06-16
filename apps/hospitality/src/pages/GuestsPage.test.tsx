@@ -25,7 +25,9 @@ function makeVenue(overrides: Partial<Venue> = {}): Venue {
   };
 }
 
-function makeVenueContext(overrides: Partial<VenueContextValue> = {}): VenueContextValue {
+function makeVenueContext(
+  overrides: Partial<VenueContextValue> = {}
+): VenueContextValue {
   return {
     selectedVenueId: "venue-1",
     venues: [makeVenue()],
@@ -66,7 +68,9 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error }: any) => <div data-testid="error-banner">{error}</div>,
+  ErrorRetryBanner: ({ error }: any) => (
+    <div data-testid="error-banner">{error}</div>
+  ),
 }));
 
 const mockToast = vi.fn();
@@ -142,7 +146,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
           onKeyDown={props.onKeyDown}
           placeholder={props.placeholder}
         />
-        {props.error && props.hint && <span data-testid={`input-error-${id}`}>{props.hint}</span>}
+        {props.error && props.hint && (
+          <span data-testid={`input-error-${id}`}>{props.hint}</span>
+        )}
       </div>
     );
   },
@@ -160,7 +166,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </select>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
+  SkeletonGroup: ({ children }: any) => (
+    <div data-testid="skeleton-group">{children}</div>
+  ),
   Stack: ({ children }: any) => <div>{children}</div>,
   Stat: ({ label, value }: any) => (
     <div data-testid="stat">
@@ -171,7 +179,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
   Text: ({ children }: any) => <span>{children}</span>,
   TextArea: (props: any) => (
-    <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
+    <textarea
+      data-testid="textarea"
+      value={props.value}
+      onChange={(e) => props.onChange?.(e)}
+    />
   ),
   useToast: () => ({ toast: mockToast }),
 }));
@@ -181,7 +193,11 @@ function createWrapper() {
     defaultOptions: { queries: { retry: false } },
   });
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
   };
 }
 
@@ -235,10 +251,16 @@ const defaultSegments = [
 function setupDefaultMocks() {
   vi.mocked(useVenue).mockReturnValue(makeVenueContext());
 
-  mockApiClient.guests.list.mockResolvedValue({ data: defaultGuests, pagination: {} });
+  mockApiClient.guests.list.mockResolvedValue({
+    data: defaultGuests,
+    pagination: {},
+  });
   mockApiClient.guests.getSegments.mockResolvedValue(defaultSegments);
   mockApiClient.guests.search.mockResolvedValue({ data: [], pagination: {} });
-  mockApiClient.reservations.list.mockResolvedValue({ data: [], pagination: {} });
+  mockApiClient.reservations.list.mockResolvedValue({
+    data: [],
+    pagination: {},
+  });
 }
 
 describe("GuestsPage", () => {
@@ -426,7 +448,9 @@ describe("GuestsPage - guest detail drawer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    mockApiClient.guests.getSegments.mockResolvedValue([{ name: "VIP", count: 5 }]);
+    mockApiClient.guests.getSegments.mockResolvedValue([
+      { name: "VIP", count: 5 },
+    ]);
     mockApiClient.guests.list.mockResolvedValue({
       data: [
         {
@@ -460,7 +484,10 @@ describe("GuestsPage - guest detail drawer", () => {
       ],
       pagination: {},
     });
-    mockApiClient.reservations.list.mockResolvedValue({ data: [], pagination: {} });
+    mockApiClient.reservations.list.mockResolvedValue({
+      data: [],
+      pagination: {},
+    });
   });
 
   it("opens drawer when clicking a guest row", async () => {
@@ -470,7 +497,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -485,14 +514,18 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
       expect(screen.getByTestId("drawer")).toBeDefined();
     });
 
-    expect(screen.getAllByText("Prefers window seat").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Prefers window seat").length).toBeGreaterThan(
+      0
+    );
   });
 
   it("displays guest tags in the drawer", async () => {
@@ -502,7 +535,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -520,7 +555,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -537,7 +574,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -554,7 +593,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.keyDown(row, { key: "Enter" });
 
     await waitFor(() => {
@@ -569,7 +610,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -592,7 +635,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -624,7 +669,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -650,7 +697,9 @@ describe("GuestsPage - guest detail drawer", () => {
       expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0);
     });
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
 
     await waitFor(() => {
@@ -746,7 +795,9 @@ describe("GuestsPage - add guest dialog", () => {
   });
 
   it("shows error when add guest API fails", async () => {
-    mockApiClient.guests.findOrCreate.mockRejectedValue(new Error("Duplicate guest"));
+    mockApiClient.guests.findOrCreate.mockRejectedValue(
+      new Error("Duplicate guest")
+    );
     const user = userEvent.setup();
 
     renderPage();
@@ -837,7 +888,9 @@ describe("GuestsPage - empty state", () => {
     });
 
     expect(screen.getByText("No guests yet")).toBeDefined();
-    expect(screen.getByText("Guests will appear here once they make a reservation.")).toBeDefined();
+    expect(
+      screen.getByText("Guests will appear here once they make a reservation.")
+    ).toBeDefined();
   });
 
   it("shows search-specific empty state when no results match", async () => {
@@ -894,7 +947,11 @@ describe("GuestsPage - no venue selected", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useVenue).mockReturnValue(
-      makeVenueContext({ selectedVenueId: null, venues: [], selectedVenue: null })
+      makeVenueContext({
+        selectedVenueId: null,
+        venues: [],
+        selectedVenue: null,
+      })
     );
   });
 
@@ -902,7 +959,9 @@ describe("GuestsPage - no venue selected", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Please select a venue to view guests.")).toBeDefined();
+      expect(
+        screen.getByText("Please select a venue to view guests.")
+      ).toBeDefined();
     });
   });
 
@@ -910,7 +969,9 @@ describe("GuestsPage - no venue selected", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Please select a venue to view guests.")).toBeDefined();
+      expect(
+        screen.getByText("Please select a venue to view guests.")
+      ).toBeDefined();
     });
 
     expect(mockApiClient.guests.list).not.toHaveBeenCalled();
@@ -922,7 +983,9 @@ describe("GuestsPage - guest table content", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    mockApiClient.guests.getSegments.mockResolvedValue([{ name: "VIP", count: 5 }]);
+    mockApiClient.guests.getSegments.mockResolvedValue([
+      { name: "VIP", count: 5 },
+    ]);
     mockApiClient.guests.list.mockResolvedValue({
       data: [
         {
@@ -1046,9 +1109,15 @@ describe("GuestsPage - multi-venue", () => {
     );
 
     mockApiClient.guests.getSegments.mockResolvedValue([]);
-    mockApiClient.guests.list.mockResolvedValue({ data: [defaultGuests[0]], pagination: {} });
+    mockApiClient.guests.list.mockResolvedValue({
+      data: [defaultGuests[0]],
+      pagination: {},
+    });
     mockApiClient.guests.search.mockResolvedValue({ data: [], pagination: {} });
-    mockApiClient.reservations.list.mockResolvedValue({ data: [], pagination: {} });
+    mockApiClient.reservations.list.mockResolvedValue({
+      data: [],
+      pagination: {},
+    });
   });
 
   it("does not show a venue selector (venue switching is sidebar-only)", async () => {
@@ -1091,7 +1160,9 @@ describe("GuestsPage - tags editing in drawer", () => {
       isMultiVenue: false,
     } as any);
 
-    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.getSegments.mockResolvedValue([
+      { id: "s1", name: "VIP", count: 5 },
+    ]);
     mockApi.guests.list.mockResolvedValue({
       data: [
         {
@@ -1127,9 +1198,13 @@ describe("GuestsPage - tags editing in drawer", () => {
   it("shows tags input in edit mode", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1143,9 +1218,13 @@ describe("GuestsPage - tags editing in drawer", () => {
   it("includes tags in the update API call", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1188,7 +1267,9 @@ describe("GuestsPage - dietary restrictions editing", () => {
       isMultiVenue: false,
     } as any);
 
-    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.getSegments.mockResolvedValue([
+      { id: "s1", name: "VIP", count: 5 },
+    ]);
     mockApi.guests.list.mockResolvedValue({
       data: [
         {
@@ -1213,9 +1294,13 @@ describe("GuestsPage - dietary restrictions editing", () => {
   it("shows dietary restrictions checkboxes in edit mode", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1231,25 +1316,35 @@ describe("GuestsPage - dietary restrictions editing", () => {
   it("pre-checks dietary restrictions from guest data", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
     fireEvent.click(screen.getByText("Edit Guest"));
     await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
 
-    const vegetarianCheckbox = screen.getByLabelText(/vegetarian/i) as HTMLInputElement;
+    const vegetarianCheckbox = screen.getByLabelText(
+      /vegetarian/i
+    ) as HTMLInputElement;
     expect(vegetarianCheckbox.checked).toBe(true);
   });
 
   it("includes dietaryRestrictions in the update API call", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1270,9 +1365,13 @@ describe("GuestsPage - dietary restrictions editing", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1324,7 +1423,9 @@ describe("GuestsPage - success toast on save", () => {
       isMultiVenue: false,
     } as any);
 
-    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.getSegments.mockResolvedValue([
+      { id: "s1", name: "VIP", count: 5 },
+    ]);
     mockApi.guests.list.mockResolvedValue({
       data: [
         {
@@ -1350,9 +1451,13 @@ describe("GuestsPage - success toast on save", () => {
   it("shows success toast after successful save", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1362,7 +1467,9 @@ describe("GuestsPage - success toast on save", () => {
     fireEvent.click(screen.getByText("Save"));
 
     await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: "success" })
+      );
     });
   });
 
@@ -1370,9 +1477,13 @@ describe("GuestsPage - success toast on save", () => {
     mockApi.guests.update.mockRejectedValue(new Error("Network error"));
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1385,7 +1496,9 @@ describe("GuestsPage - success toast on save", () => {
       expect(screen.getByText("Network error")).toBeDefined();
     });
 
-    expect(mockToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "success" })
+    );
   });
 });
 
@@ -1414,7 +1527,9 @@ describe("GuestsPage - form validation", () => {
       isMultiVenue: false,
     } as any);
 
-    mockApi.guests.getSegments.mockResolvedValue([{ id: "s1", name: "VIP", count: 5 }]);
+    mockApi.guests.getSegments.mockResolvedValue([
+      { id: "s1", name: "VIP", count: 5 },
+    ]);
     mockApi.guests.list.mockResolvedValue({
       data: [
         {
@@ -1439,9 +1554,13 @@ describe("GuestsPage - form validation", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
@@ -1459,9 +1578,13 @@ describe("GuestsPage - form validation", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await waitFor(() => expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText("John Doe").length).toBeGreaterThan(0)
+    );
 
-    const row = screen.getByRole("button", { name: "View details for John Doe" });
+    const row = screen.getByRole("button", {
+      name: "View details for John Doe",
+    });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByTestId("drawer")).toBeDefined());
 
