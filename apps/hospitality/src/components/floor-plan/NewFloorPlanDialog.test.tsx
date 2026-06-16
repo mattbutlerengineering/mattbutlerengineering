@@ -50,7 +50,9 @@ describe("NewFloorPlanDialog", () => {
     const form = container.querySelector("form")!;
     fireEvent.submit(form);
     await waitFor(() => {
-      expect(screen.getByText("Floor plan name is required.")).toBeInTheDocument();
+      expect(
+        screen.getByText("Floor plan name is required.")
+      ).toBeInTheDocument();
     });
     expect(defaultProps.onCreate).not.toHaveBeenCalled();
   });
@@ -93,13 +95,17 @@ describe("NewFloorPlanDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Failed to create floor plan.")).toBeInTheDocument();
+      expect(
+        screen.getByText("Failed to create floor plan.")
+      ).toBeInTheDocument();
     });
   });
 
   it("disables inputs while submitting", async () => {
     let resolveCreate: (v: any) => void;
-    defaultProps.onCreate.mockReturnValue(new Promise((r) => (resolveCreate = r)));
+    defaultProps.onCreate.mockReturnValue(
+      new Promise((r) => (resolveCreate = r))
+    );
 
     render(<NewFloorPlanDialog {...defaultProps} />);
     await userEvent.type(screen.getByLabelText(/Name/), "Test");

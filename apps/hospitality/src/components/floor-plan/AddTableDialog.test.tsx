@@ -45,7 +45,9 @@ describe("AddTableDialog", () => {
   it("renders dialog with form fields", () => {
     render(<AddTableDialog {...defaultProps} />);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Add Table" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Add Table" })
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/Table Name/)).toBeInTheDocument();
     expect(screen.getByLabelText("Capacity")).toBeInTheDocument();
     expect(screen.getByLabelText("Min Covers")).toBeInTheDocument();
@@ -161,7 +163,9 @@ describe("AddTableDialog", () => {
 
   it("disables inputs while submitting", async () => {
     let resolveSubmit: () => void;
-    defaultProps.onSubmit.mockReturnValue(new Promise((r) => (resolveSubmit = r)));
+    defaultProps.onSubmit.mockReturnValue(
+      new Promise((r) => (resolveSubmit = r))
+    );
 
     render(<AddTableDialog {...defaultProps} />);
     await userEvent.type(screen.getByLabelText(/Table Name/), "Table 1");
