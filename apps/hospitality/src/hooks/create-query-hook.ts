@@ -27,10 +27,6 @@ export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TD
   select?: (data: TData | undefined) => TResult;
 }
 
-type HookParams<TParams> = TParams extends undefined
-  ? { enabled?: boolean } | undefined
-  : TParams & { enabled?: boolean };
-
 /**
  * Factory that collapses the ~15-line repeated useQuery wrapper pattern
  * into a single declaration per domain hook.
@@ -42,10 +38,12 @@ type HookParams<TParams> = TParams extends undefined
  */
 export function createQueryHook<TData, TParams = undefined, TResult = TData>(
   options: CreateQueryHookOptions<TData, TParams, TResult>
-): (params?: HookParams<TParams>) => QueryHookResult<TResult> {
+): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> {
   const { key, fetcher, getEnabled, select } = options;
 
-  return function useQueryHook(params?: HookParams<TParams>): QueryHookResult<TResult> {
+  return function useQueryHook(
+    params?: (TParams & { enabled?: boolean }) | undefined
+  ): QueryHookResult<TResult> {
     const api = useApiClient();
 
     const enabled = resolveEnabled(params, getEnabled);
