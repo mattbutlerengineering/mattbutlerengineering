@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -19,6 +20,11 @@ import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
 import styles from "./ProfilePage.module.css";
+
+interface ProfileFormData {
+  name: string;
+  picture: string;
+}
 
 function formatMemberSince(date: string | Date): string {
   return new Date(date).toLocaleDateString("en-US", {
@@ -55,17 +61,16 @@ export function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", picture: "" });
 
-  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, name: e.target.value }));
-  }, []);
+  const { handleSubmit, watch, reset, setValue } = useForm<ProfileFormData>({
+    defaultValues: { name: "", picture: "" },
+  });
 
-  const handlePictureChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, picture: e.target.value }));
-  }, []);
+  const watchedName = watch("name");
+  const watchedPicture = watch("picture");
+  const isNameEmpty = watchedName.trim().length === 0;
 
-  async function handleSave() {
+  async function onFormSubmit(data: ProfileFormData) {
     if (!user) return;
 
     try {
@@ -74,22 +79,24 @@ export function ProfilePage() {
       await updateMutation.mutateAsync({
         id: user.id,
         data: {
-          name: formData.name || undefined,
-          picture: formData.picture || undefined,
+          name: data.name || undefined,
+          picture: data.picture || undefined,
         },
       });
       setIsEditing(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save profile");
+      setSaveError(
+        err instanceof Error ? err.message : "Failed to save profile"
+      );
     } finally {
       setIsSaving(false);
     }
   }
 
   function handleCancel() {
-    setFormData({
+    reset({
       name: user?.name ?? "",
       picture: user?.picture ?? "",
     });
@@ -98,15 +105,13 @@ export function ProfilePage() {
   }
 
   function handleEdit() {
-    setFormData({
+    reset({
       name: user?.name ?? "",
       picture: user?.picture ?? "",
     });
     setIsEditing(true);
     setSaveSuccess(false);
   }
-
-  const isNameEmpty = formData.name.trim().length === 0;
 
   if (isLoading) {
     return (
@@ -169,7 +174,10 @@ export function ProfilePage() {
 
   return (
     <div>
-      <PageHeader title="Profile" description="View and manage your profile information" />
+      <PageHeader
+        title="Profile"
+        description="View and manage your profile information"
+      />
 
       <Stack gap="lg">
         {saveSuccess && (
@@ -184,7 +192,12 @@ export function ProfilePage() {
         )}
 
         {saveError && (
-          <Alert variant="error" title="Error" dismissible onDismiss={() => setSaveError(null)}>
+          <Alert
+            variant="error"
+            title="Error"
+            dismissible
+            onDismiss={() => setSaveError(null)}
+          >
             {saveError}
           </Alert>
         )}
@@ -193,7 +206,12 @@ export function ProfilePage() {
         <Card>
           <div className={styles.hero}>
             <div className={styles.heroAvatar}>
-              <Avatar src={avatarSrc} name={displayName} size="xl" className={styles.avatarRing} />
+              <Avatar
+                src={avatarSrc}
+                name={displayName}
+                size="xl"
+                className={styles.avatarRing}
+              />
             </div>
 
             <div className={styles.heroInfo}>
@@ -216,42 +234,56 @@ export function ProfilePage() {
         </Card>
 
         {/* Edit form */}
-        <div className={`${styles.editPanel} ${isEditing ? styles.editPanelOpen : ""}`}>
+        <div
+          className={`${styles.editPanel} ${
+            isEditing ? styles.editPanelOpen : ""
+          }`}
+        >
           {isEditing && (
             <Card>
-              <div className={styles.editHeader}>
-                <Text variant="label" color="primary">
-                  Edit Profile
-                </Text>
-              </div>
-              <Stack gap="md">
-                <Input
-                  label="Name"
-                  value={formData.name}
-                  onChange={handleNameChange}
-                  placeholder="Your name"
-                  required
-                  error={isNameEmpty}
-                  hint={isNameEmpty ? "Name is required" : undefined}
-                />
-                <Input
-                  label="Picture URL"
-                  type="url"
-                  value={formData.picture}
-                  onChange={handlePictureChange}
-                  placeholder="https://example.com/photo.jpg"
-                  showOptional
-                />
-                <Divider spacing="compact" />
-                <Stack gap="sm" direction="row">
-                  <Button variant="primary" onClick={handleSave} disabled={isSaving || isNameEmpty}>
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </Button>
-                  <Button variant="secondary" onClick={handleCancel} disabled={isSaving}>
-                    Cancel
-                  </Button>
+              <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
+                <div className={styles.editHeader}>
+                  <Text variant="label" color="primary">
+                    Edit Profile
+                  </Text>
+                </div>
+                <Stack gap="md">
+                  <Input
+                    label="Name"
+                    value={watchedName}
+                    onChange={(e) => setValue("name", e.target.value)}
+                    placeholder="Your name"
+                    error={isNameEmpty}
+                    hint={isNameEmpty ? "Name is required" : undefined}
+                  />
+                  <Input
+                    label="Picture URL"
+                    type="url"
+                    value={watchedPicture}
+                    onChange={(e) => setValue("picture", e.target.value)}
+                    placeholder="https://example.com/photo.jpg"
+                    showOptional
+                  />
+                  <Divider spacing="compact" />
+                  <Stack gap="sm" direction="row">
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      disabled={isSaving || isNameEmpty}
+                    >
+                      {isSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                  </Stack>
                 </Stack>
-              </Stack>
+              </form>
             </Card>
           )}
         </div>
@@ -279,7 +311,9 @@ export function ProfilePage() {
                 Member Since
               </Text>
               <Text variant="body" color="primary">
-                {user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown"}
+                {user?.createdAt
+                  ? formatMemberSince(user.createdAt)
+                  : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>
@@ -287,7 +321,9 @@ export function ProfilePage() {
                 Last Updated
               </Text>
               <Text variant="body" color="primary">
-                {user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown"}
+                {user?.updatedAt
+                  ? formatRelativeTime(user.updatedAt)
+                  : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>

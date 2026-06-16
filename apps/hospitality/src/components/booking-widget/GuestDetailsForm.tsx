@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useReducer } from "react";
+import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
-import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
+import {
+  Input,
+  TextArea,
+  Button,
+  Alert,
+  Text,
+  Banner,
+  Badge,
+} from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime } from "../../utils/format.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
 import styles from "./GuestDetailsForm.module.css";
@@ -62,7 +71,14 @@ export function GuestDetailsForm({
   // Force re-render every second so the hold countdown stays current
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
 
-  const { result: recognition, recognize } = useGuestRecognition({ venueSlug, apiBaseUrl });
+  // useForm for noValidate pattern; handleSubmit not used because
+  // recognition auto-fill requires render-time derivation of name/phone
+  useForm<GuestDetails>();
+
+  const { result: recognition, recognize } = useGuestRecognition({
+    venueSlug,
+    apiBaseUrl,
+  });
 
   useEffect(() => {
     if (!hold) return;
@@ -71,8 +87,10 @@ export function GuestDetailsForm({
   }, [hold]);
 
   // Render-time derivation: use recognition data only until user edits the field
-  const name = nameEdited || !recognition?.firstName ? nameInput : recognition.firstName;
-  const phone = phoneEdited || !recognition?.phone ? phoneInput : recognition.phone;
+  const name =
+    nameEdited || !recognition?.firstName ? nameInput : recognition.firstName;
+  const phone =
+    phoneEdited || !recognition?.phone ? phoneInput : recognition.phone;
 
   const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
 
@@ -94,7 +112,9 @@ export function GuestDetailsForm({
     [recognize]
   );
 
-  const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
+  const isValid =
+    name.trim().length > 0 &&
+    (email.trim().length > 0 || phone.trim().length > 0);
 
   return (
     <div className={styles.container}>
@@ -125,8 +145,8 @@ export function GuestDetailsForm({
 
       {recognition && (
         <Banner variant="accent">
-          Welcome back, {recognition.firstName} &mdash; your {ordinalSuffix(recognition.visitCount)}{" "}
-          visit!
+          Welcome back, {recognition.firstName} &mdash; your{" "}
+          {ordinalSuffix(recognition.visitCount)} visit!
           {recognition.hasPreferences && (
             <Badge variant="success" size="sm">
               Preferences on file
@@ -135,10 +155,9 @@ export function GuestDetailsForm({
         </Banner>
       )}
 
-      <form onSubmit={handleSubmit} className={styles.form}>
+      <form noValidate onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Name"
-          required
           value={name}
           onChange={(e) => {
             setNameInput(e.target.value);
@@ -167,7 +186,9 @@ export function GuestDetailsForm({
           placeholder="(555) 123-4567"
         />
 
-        <Text className={styles.hint}>Please provide either email or phone for confirmation.</Text>
+        <Text className={styles.hint}>
+          Please provide either email or phone for confirmation.
+        </Text>
 
         <TextArea
           label="Special Requests"
@@ -177,7 +198,11 @@ export function GuestDetailsForm({
           placeholder="Allergies, celebrations, seating preferences..."
         />
 
-        <Button variant="primary" type="submit" disabled={!isValid || isLoading}>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={!isValid || isLoading}
+        >
           {isLoading ? "Confirming..." : "Complete Reservation"}
         </Button>
       </form>

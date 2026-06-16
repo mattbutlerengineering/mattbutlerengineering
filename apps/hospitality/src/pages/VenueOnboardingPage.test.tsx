@@ -131,7 +131,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div>
       {label && <label>{label}</label>}
       <input value={value} onChange={onChange} aria-label={label} />
-      {error && hint ? <span role="alert">{hint}</span> : hint ? <span>{hint}</span> : null}
+      {error && hint ? (
+        <span role="alert">{hint}</span>
+      ) : hint ? (
+        <span>{hint}</span>
+      ) : null}
     </div>
   ),
   Select: ({
@@ -348,7 +352,9 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Clear the timezone (mock Autocomplete renders as select)
-    const timezoneSelect = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    const timezoneSelect = screen.getByLabelText(
+      "Timezone"
+    ) as HTMLSelectElement;
     fireEvent.change(timezoneSelect, { target: { value: "" } });
 
     // Try to proceed without selecting timezone
@@ -365,13 +371,17 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 2 — select timezone
-    const timezoneSelect = screen.getByLabelText("Timezone") as HTMLSelectElement;
+    const timezoneSelect = screen.getByLabelText(
+      "Timezone"
+    ) as HTMLSelectElement;
     fireEvent.change(timezoneSelect, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — operating hours (must toggle at least one day)
     expect(screen.getByText("Operating Hours")).toBeTruthy();
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
+    const mondayToggle = screen.getByLabelText(
+      "monday open"
+    ) as HTMLInputElement;
     fireEvent.click(mondayToggle);
     fireEvent.click(screen.getByText("Next"));
 
@@ -414,7 +424,9 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — toggle a day then proceed
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
+    const mondayToggle = screen.getByLabelText(
+      "monday open"
+    ) as HTMLInputElement;
     fireEvent.click(mondayToggle);
     fireEvent.click(screen.getByText("Next"));
 
@@ -537,7 +549,9 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — toggle monday on
-    const mondayToggle = screen.getByLabelText("monday open") as HTMLInputElement;
+    const mondayToggle = screen.getByLabelText(
+      "monday open"
+    ) as HTMLInputElement;
     fireEvent.click(mondayToggle);
     fireEvent.click(screen.getByText("Next"));
 
@@ -546,7 +560,9 @@ describe("VenueOnboardingPage", () => {
       "Default Reservation Duration (minutes)"
     ) as HTMLInputElement;
     fireEvent.change(durationInput, { target: { value: "60" } });
-    const partyInput = screen.getByLabelText("Maximum Party Size") as HTMLInputElement;
+    const partyInput = screen.getByLabelText(
+      "Maximum Party Size"
+    ) as HTMLInputElement;
     fireEvent.change(partyInput, { target: { value: "8" } });
     fireEvent.click(screen.getByText("Next"));
 
@@ -561,7 +577,10 @@ describe("VenueOnboardingPage", () => {
     expect(payload.ianaTimezone).toBe("Europe/London");
     expect(payload.currencyCode).toBe("GBP");
     expect(payload.operatingHours).toBeDefined();
-    expect(payload.operatingHours.monday).toEqual({ open: "09:00", close: "22:00" });
+    expect(payload.operatingHours.monday).toEqual({
+      open: "09:00",
+      close: "22:00",
+    });
     expect(payload.settings).toBeDefined();
     expect(payload.settings.defaultReservationDuration).toBe(60);
     expect(payload.settings.maxPartySize).toBe(8);

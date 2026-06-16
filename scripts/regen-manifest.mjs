@@ -19,7 +19,7 @@
  * @module regen-manifest
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,10 +31,12 @@ const ROOT = resolve(__dirname, "..");
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Run a shell command from the repo root, inheriting stdio (for --check mode
- *  this is suppressed and we check the exit code manually). */
+/** Run a command from the repo root without invoking a shell.
+ *  Accepts a string (split on whitespace) or a [file, ...args] array.
+ *  For --check mode pass { silent: true } to suppress stdio. */
 function run(cmd, { silent = false } = {}) {
-  execSync(cmd, {
+  const [file, ...args] = Array.isArray(cmd) ? cmd : cmd.split(/\s+/);
+  execFileSync(file, args, {
     cwd: ROOT,
     stdio: silent ? "pipe" : "inherit",
     env: { ...process.env, FORCE_COLOR: "0" },
@@ -44,7 +46,7 @@ function run(cmd, { silent = false } = {}) {
 /** Returns true when all listed paths are unmodified vs. the index. */
 function isClean(paths) {
   try {
-    run(`git diff --quiet -- ${paths.map((p) => JSON.stringify(p)).join(" ")}`, { silent: true });
+    run(["git", "diff", "--quiet", "--", ...paths], { silent: true });
     return true;
   } catch {
     return false;
@@ -171,6 +173,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   } else {
     // Delegate to regen.mjs which handles the llms.txt family individually
-    run(`node ${JSON.stringify(resolve(__dirname, "regen.mjs"))}`);
+    run(["node", resolve(__dirname, "regen.mjs")]);
   }
 }
