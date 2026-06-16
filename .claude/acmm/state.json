@@ -1,6 +1,6 @@
 {
-  "lastRun": "2026-06-13T17:05:05.986Z",
-  "currentLevel": 6,
+  "lastRun": "2026-06-16T17:07:04.904Z",
+  "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
       "passed": true,
@@ -346,11 +346,11 @@
       "substanceEvidence": null
     },
     "acmm:feedback-loops": {
-      "passed": true,
+      "passed": false,
       "evidence": "detected at: CLAUDE.md",
-      "verdict": "pass",
-      "substantive": true,
-      "substanceEvidence": null
+      "verdict": "hollow",
+      "substantive": false,
+      "substanceEvidence": "no entries from last 30 days"
     },
     "acmm:claude-md-auto-sync": {
       "passed": true,
@@ -598,9 +598,9 @@
       "substanceEvidence": null
     },
     "acmm:accessibility-ai-check": {
-      "passed": true,
-      "evidence": ".github/workflows/ci.yml contains: pnpm --dir packages/rialto vitest .* accessibility",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": ".github/workflows/ci.yml does not contain: pnpm --dir packages/rialto vitest .* accessibility",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -792,6 +792,13 @@
       "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
+    },
+    "meta:audit-freshness": {
+      "passed": true,
+      "evidence": "gh CLI unavailable or error",
+      "verdict": "unverifiable",
+      "substantive": null,
+      "substanceEvidence": null
     }
   },
   "history": [
@@ -884,6 +891,12 @@
       "level": 6,
       "detected": 111,
       "total": 113
+    },
+    {
+      "date": "2026-06-16",
+      "level": 5,
+      "detected": 110,
+      "total": 114
     }
   ],
   "issuesCreated": {
@@ -893,8 +906,8 @@
     "acmm:instruction-rot-detection": 1265,
     "acmm:repo-bench": 1266
   },
-  "levelName": "Fully Autonomous",
-  "role": "Strategist",
+  "levelName": "Semi-Automated",
+  "role": "Operator",
   "detectedIds": [
     "acmm:prereq-test-suite",
     "acmm:prereq-cicd",
@@ -944,7 +957,6 @@
     "acmm:instruction-sync-gate",
     "acmm:component-registry-integrity",
     "acmm:instruction-rot-detection",
-    "acmm:feedback-loops",
     "acmm:claude-md-auto-sync",
     "acmm:preference-index",
     "acmm:task-ledger",
@@ -980,7 +992,6 @@
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
-    "acmm:accessibility-ai-check",
     "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
@@ -1006,19 +1017,20 @@
     "meta:threshold-tuning",
     "meta:instruction-evolution",
     "meta:process-metrics",
-    "meta:fp-rate-healthy"
+    "meta:fp-rate-healthy",
+    "meta:audit-freshness"
   ],
   "computation": {
-    "level": 6,
+    "level": 5,
     "strict": true,
-    "levelName": "Fully Autonomous",
-    "role": "Strategist",
-    "characteristic": "The system acts on what it finds — generates issues, merges PRs, rolls back failures. Humans set policy and audit after the fact.",
+    "levelName": "Semi-Automated",
+    "role": "Operator",
+    "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
     "detectedByLevel": {
       "2": 3,
       "3": 6,
       "4": 16,
-      "5": 16,
+      "5": 15,
       "6": 8
     },
     "requiredByLevel": {
@@ -1029,8 +1041,8 @@
       "6": 8
     },
     "missingForNextLevel": [],
-    "nextTransitionTrigger": null,
-    "antiPattern": "Mistaking autonomy for abandonment: an autonomous codebase still needs a strategist to set direction, or it drifts toward local optima.",
+    "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
+    "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
     "prerequisites": {
       "met": 7,
       "total": 8
@@ -1055,7 +1067,8 @@
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
-        "dataAvailable": true
+        "dataAvailable": true,
+        "unverifiable": false
       },
       {
         "level": 4,
@@ -1066,7 +1079,8 @@
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
-        "dataAvailable": true
+        "dataAvailable": true,
+        "unverifiable": false
       },
       {
         "level": 5,
@@ -1077,7 +1091,8 @@
         "threshold": 1,
         "direction": "above",
         "strict": true,
-        "dataAvailable": true
+        "dataAvailable": true,
+        "unverifiable": false
       },
       {
         "level": 6,
@@ -1088,7 +1103,20 @@
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
-        "dataAvailable": true
+        "dataAvailable": true,
+        "unverifiable": false
+      },
+      {
+        "level": 6,
+        "name": "human-touch-ratio",
+        "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+        "passed": false,
+        "value": 1,
+        "threshold": 0.5,
+        "direction": "below",
+        "strict": true,
+        "dataAvailable": true,
+        "unverifiable": false
       }
     ],
     "capped": false
@@ -1132,7 +1160,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-06-13T17:05:05.984Z"
+      "measured_at": "2026-06-16T17:07:04.902Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
