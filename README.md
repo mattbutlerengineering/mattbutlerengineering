@@ -3,7 +3,7 @@
 [![CI](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 [![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg?token=ANNEPED1FV)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
-[![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)](docs/acmm.md)
+[![ACMM Level 5 (stale unknown)](https://img.shields.io/badge/ACMM-Level%205%20%28stale%20unknown%29-9e9e9e?style=flat-square)](docs/acmm.md)
 
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
