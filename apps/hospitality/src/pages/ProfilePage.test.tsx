@@ -38,7 +38,13 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+  ErrorRetryBanner: ({
+    error,
+    onRetry,
+  }: {
+    error: string;
+    onRetry: () => void;
+  }) => (
     <div data-testid="error-retry-banner">
       <span>{error}</span>
       <button data-testid="retry-button" onClick={onRetry}>
@@ -76,7 +82,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Avatar: ({ name, src: _src }: any) => <div data-testid="avatar">{name}</div>,
-  Badge: ({ children, variant }: any) => <span data-testid={`badge-${variant}`}>{children}</span>,
+  Badge: ({ children, variant }: any) => (
+    <span data-testid={`badge-${variant}`}>{children}</span>
+  ),
   Button: ({ children, onClick, disabled, variant }: any) => (
     <button onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}
@@ -122,7 +130,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Skeleton: ({ variant }: any) => <div data-testid={`skeleton-${variant}`} />,
-  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
+  SkeletonGroup: ({ children }: any) => (
+    <div data-testid="skeleton-group">{children}</div>
+  ),
   Stack: ({ children }: any) => <div>{children}</div>,
   Text: ({ children }: any) => <span>{children}</span>,
 }));
@@ -134,7 +144,11 @@ function createWrapper() {
     defaultOptions: { queries: { retry: false } },
   });
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
   };
 }
 
@@ -155,7 +169,11 @@ const mockUser = {
   emailVerified: true,
   createdAt: "2025-01-15T10:00:00Z",
   updatedAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-  preferences: { theme: "system", emailNotifications: true, marketingEmails: false },
+  preferences: {
+    theme: "system",
+    emailNotifications: true,
+    marketingEmails: false,
+  },
 };
 
 beforeEach(() => {
@@ -262,7 +280,9 @@ describe("ProfilePage", () => {
       await user.click(screen.getByText("Edit Profile"));
 
       expect(screen.getByPlaceholderText("Your name")).toBeDefined();
-      expect(screen.getByPlaceholderText("https://example.com/photo.jpg")).toBeDefined();
+      expect(
+        screen.getByPlaceholderText("https://example.com/photo.jpg")
+      ).toBeDefined();
     });
 
     it("name input is pre-filled with user name", async () => {
@@ -275,7 +295,9 @@ describe("ProfilePage", () => {
 
       await user.click(screen.getByText("Edit Profile"));
 
-      const nameInput = screen.getByPlaceholderText("Your name") as HTMLInputElement;
+      const nameInput = screen.getByPlaceholderText(
+        "Your name"
+      ) as HTMLInputElement;
       expect(nameInput.value).toBe("Test User");
     });
 
@@ -325,7 +347,10 @@ describe("ProfilePage", () => {
     });
 
     it("save success shows success alert", async () => {
-      mockApiClient.users.update.mockResolvedValue({ ...mockUser, name: "Updated" });
+      mockApiClient.users.update.mockResolvedValue({
+        ...mockUser,
+        name: "Updated",
+      });
 
       const user = userEvent.setup();
       renderPage();
@@ -385,7 +410,9 @@ describe("ProfilePage", () => {
 
       // Re-open to verify data reverted
       await user.click(screen.getByText("Edit Profile"));
-      const revertedInput = screen.getByPlaceholderText("Your name") as HTMLInputElement;
+      const revertedInput = screen.getByPlaceholderText(
+        "Your name"
+      ) as HTMLInputElement;
       expect(revertedInput.value).toBe("Test User");
     });
   });
