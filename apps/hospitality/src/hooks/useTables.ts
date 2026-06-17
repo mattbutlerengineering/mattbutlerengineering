@@ -1,7 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import type { Table } from "@mbe/types";
 import type { ListTablesParams } from "@mbe/api-client";
-import { useApiClient } from "./useApiClient.js";
+import { createQueryHook } from "./create-query-hook.js";
 
 export const TABLES_QUERY_KEY = "tables" as const;
 
@@ -16,23 +15,10 @@ export interface UseTablesResult {
   refetch: () => void;
 }
 
-export function useTables(params: UseTablesParams = {}): UseTablesResult {
-  const { enabled = true, ...queryParams } = params;
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [TABLES_QUERY_KEY, queryParams],
-    queryFn: async () => {
-      const response = await api.tables.list(queryParams);
-      return response.data;
-    },
-    enabled,
-  });
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
-}
+export const useTables = createQueryHook<Table[], UseTablesParams>({
+  key: TABLES_QUERY_KEY,
+  fetcher: async (params, api) => {
+    const response = await api.tables.list(params ?? {});
+    return response.data;
+  },
+});
