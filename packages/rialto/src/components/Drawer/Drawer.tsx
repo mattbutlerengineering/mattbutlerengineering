@@ -108,7 +108,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={shouldReduceMotion ? reduced : { duration: 0.2 }}
               onClick={onClose}
             />
 
