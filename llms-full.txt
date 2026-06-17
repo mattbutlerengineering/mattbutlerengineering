@@ -2737,6 +2737,9 @@
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
     
+      /** Set after evaluate() completes. Undefined before the gate runs. */
+      lastResult: EvaluationResult | undefined;
+    
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
       }
@@ -2747,6 +2750,8 @@
           const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
             commitTitle: context.commitMsg,
           });
+    
+          this.lastResult = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -14926,7 +14931,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

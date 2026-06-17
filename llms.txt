@@ -777,6 +777,7 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
+        lastResult: EvaluationResult | undefined;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
