@@ -125,7 +125,7 @@ describe("User routes — authorization branches", () => {
       expect(body.error).toBe("Forbidden");
     });
 
-    it("returns 403 when non-admin user not found in database", async () => {
+    it("returns 401 when non-admin user not found in database (identity unresolvable)", async () => {
       vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
 
       const response = await app.inject({
@@ -134,7 +134,7 @@ describe("User routes — authorization branches", () => {
         headers: { authorization: "Bearer valid-token" },
       });
 
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(401);
     });
 
     it("returns 401 when auth user has no email (get by id)", async () => {
@@ -208,7 +208,7 @@ describe("User routes — authorization branches", () => {
       expect(response.statusCode).toBe(401);
     });
 
-    it("returns 403 when non-admin user not found in database (update)", async () => {
+    it("returns 401 when non-admin user not found in database (update, identity unresolvable)", async () => {
       vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
 
       const response = await app.inject({
@@ -218,7 +218,7 @@ describe("User routes — authorization branches", () => {
         payload: { name: "X" },
       });
 
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(401);
     });
   });
 
@@ -284,7 +284,7 @@ describe("User routes — authorization branches", () => {
       expect(response.statusCode).toBe(404);
     });
 
-    it("returns 403 when non-admin user not found in database (delete)", async () => {
+    it("returns 401 when non-admin user not found in database (delete, identity unresolvable)", async () => {
       vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
 
       const response = await app.inject({
@@ -293,7 +293,7 @@ describe("User routes — authorization branches", () => {
         headers: { authorization: "Bearer valid-token" },
       });
 
-      expect(response.statusCode).toBe(403);
+      expect(response.statusCode).toBe(401);
     });
   });
 

@@ -6,5 +6,10 @@ export { AuthProvider, useAuth, useAccessToken, useRequireAuth } from "./react/i
 export type { AuthProviderProps } from "./react/index.js";
 
 // Fastify exports (tree-shakeable via separate entry point)
-export { authPlugin, requireAuth, getAuthPluginOptionsFromEnv } from "./fastify/index.js";
-export type { AuthPluginOptions } from "./fastify/index.js";
+export {
+  authPlugin,
+  requireAuth,
+  getAuthPluginOptionsFromEnv,
+  requireOwnershipOrAdmin,
+} from "./fastify/index.js";
+export type { AuthPluginOptions, OwnerResolver, AuthorizationContext } from "./fastify/index.js";

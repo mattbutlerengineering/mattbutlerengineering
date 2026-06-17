@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   type User,
   type CreateUserRequest,
@@ -9,9 +9,28 @@ import {
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, hasPermission } from "@mbe/auth/fastify";
+import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { userService } from "../services/user.js";
+
+/** Returns the requesting user's database cuid by looking up their JWT email. */
+async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
+  const email = request.user?.email;
+  if (!email) return null;
+  const user = await userService.getByEmail(email);
+  return user?.id ?? null;
+}
+
+/** Returns the target user id from the route param `:id`. */
+function resolveTargetUserId(request: FastifyRequest): Promise<string | null> {
+  const params = request.params as { id?: string };
+  return Promise.resolve(params.id ?? null);
+}
+
+const requireUserOwnershipOrAdmin = requireOwnershipOrAdmin(
+  resolveTargetUserId,
+  resolveCurrentUserId
+);
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // List users
@@ -81,7 +100,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireUserOwnershipOrAdmin],
       schema: {
         summary: "Get user by ID",
         operationId: "getUserById",
@@ -117,23 +136,6 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const authUser = request.user;
-      const requestedId = request.params.id;
-
-      if (!hasPermission(authUser, "admin")) {
-        if (!authUser?.email) {
-          return reply
-            .code(401)
-            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
-        }
-        const requestingUser = await userService.getByEmail(authUser.email);
-        if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply
-            .code(403)
-            .send(createProblemDetails(403, "Forbidden", "You can only access your own profile"));
-        }
-      }
-
       const user = await userService.getById(request.params.id);
       if (!user) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
@@ -215,7 +217,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireUserOwnershipOrAdmin],
       schema: {
         summary: "Update a user",
         operationId: "updateUser",
@@ -267,23 +269,6 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const authUser = request.user;
-      const requestedId = request.params.id;
-
-      if (!hasPermission(authUser, "admin")) {
-        if (!authUser?.email) {
-          return reply
-            .code(401)
-            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
-        }
-        const requestingUser = await userService.getByEmail(authUser.email);
-        if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply
-            .code(403)
-            .send(createProblemDetails(403, "Forbidden", "You can only update your own profile"));
-        }
-      }
-
       const user = await userService.update(request.params.id, request.body);
       if (!user) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
@@ -298,7 +283,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireUserOwnershipOrAdmin],
       schema: {
         summary: "Delete a user",
         operationId: "deleteUser",
@@ -331,23 +316,6 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const authUser = request.user;
-      const requestedId = request.params.id;
-
-      if (!hasPermission(authUser, "admin")) {
-        if (!authUser?.email) {
-          return reply
-            .code(401)
-            .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
-        }
-        const requestingUser = await userService.getByEmail(authUser.email);
-        if (!requestingUser || requestingUser.id !== requestedId) {
-          return reply
-            .code(403)
-            .send(createProblemDetails(403, "Forbidden", "You can only delete your own profile"));
-        }
-      }
-
       const deleted = await userService.delete(request.params.id);
       if (!deleted) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
