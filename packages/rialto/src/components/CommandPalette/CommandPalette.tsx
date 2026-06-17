@@ -220,7 +220,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={shouldReduceMotion ? reduced : { duration: 0.15 }}
             onClick={() => onOpenChange(false)}
             onKeyDown={handleKeyDown}
           >
