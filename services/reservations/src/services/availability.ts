@@ -3,7 +3,6 @@ import {
   type TimeSlot,
   type AvailableTable,
   type DateAvailability,
-  type ConflictCheckResult,
   type VenueSettings,
   type OperatingHours,
   type DaySchedule,
@@ -359,64 +358,6 @@ export async function findBestTable(
   return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
 }
 
-/**
- * Checks if there's a conflict for a specific table and time range.
- *
- * @deprecated Fires its own DB query each call. Callers in the same request
- * flow should call {@link fetchConflictData} once and delegate to the pure
- * {@link checkTableConflict} instead, to avoid redundant round-trips.
- */
-export async function checkConflict(
-  tableId: string,
-  date: string,
-  startTime: Date,
-  endTime: Date,
-  excludeReservationId?: string,
-  excludeHoldId?: string
-): Promise<ConflictCheckResult> {
-  const venueDate = new Date(date);
-
-  // Check for conflicting reservations
-  const conflictingReservation = await prisma.reservation.findFirst({
-    where: {
-      tableId,
-      date: venueDate,
-      status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      id: excludeReservationId ? { not: excludeReservationId } : undefined,
-      AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-    },
-    select: { id: true },
-  });
-
-  if (conflictingReservation) {
-    return {
-      hasConflict: true,
-      conflictingReservationId: conflictingReservation.id,
-    };
-  }
-
-  // Check for conflicting holds (not expired)
-  const conflictingHold = await prisma.reservationHold.findFirst({
-    where: {
-      tableId,
-      date: venueDate,
-      expiresAt: { gt: new Date() },
-      id: excludeHoldId ? { not: excludeHoldId } : undefined,
-      AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-    },
-    select: { id: true },
-  });
-
-  if (conflictingHold) {
-    return {
-      hasConflict: true,
-      conflictingHoldId: conflictingHold.id,
-    };
-  }
-
-  return { hasConflict: false };
-}
-
 // --- Helper functions ---
 
 async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> {
@@ -611,7 +552,6 @@ export const availabilityService = {
   generateTimeSlots,
   getAvailableDates,
   findBestTable,
-  checkConflict,
   fetchConflictData,
   checkTableConflict,
   checkPacingForSlot,
