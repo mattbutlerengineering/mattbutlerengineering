@@ -1,0 +1,106 @@
+name: Report Deploy Health
+description: >-
+  Write a deploy health record to Cloudflare KV under the given key.
+  Derives the conclusion from deploy-result (and optional verify-result /
+  rollback-result), then writes { conclusion, sha, updated_at } as JSON.
+  If deploy-result is "skipped", the step is a no-op — the previous KV state
+  is preserved rather than overwritten with a false conclusion.
+
+  Conclusions written (matching DEPLOY_HEALTH_CONCLUSIONS in deploy-health.js):
+    success    — deploy succeeded and verification passed
+    failure    — deploy or verification failed
+    cancelled  — deploy or verification was cancelled
+    rolled_back — rollback job succeeded (static pipeline only)
+
+inputs:
+  kv-key:
+    description: "KV key to write (e.g. deploy/services, deploy/static, deploy/infrastructure)"
+    required: true
+  deploy-result:
+    description: "GitHub Actions job result for the deploy job (success|failure|cancelled|skipped)"
+    required: true
+  verify-result:
+    description: "GitHub Actions job result for the post-deploy verify job (success|failure|cancelled|skipped|)"
+    required: false
+    default: ""
+  rollback-result:
+    description: "GitHub Actions job result for the rollback job (success|failure|cancelled|skipped|)"
+    required: false
+    default: ""
+  apps-deployed:
+    description: 'JSON object of deployed app flags e.g. {"marketing":"true","hospitality":"false"} — only used by the static pipeline'
+    required: false
+    default: ""
+  sha:
+    description: "Git commit SHA (defaults to github.sha)"
+    required: false
+    default: ${{ github.sha }}
+  cf-account-id:
+    description: "Cloudflare account ID"
+    required: true
+  cf-api-token:
+    description: "Cloudflare API token with KV write permission"
+    required: true
+  kv-namespace-id:
+    description: "KV namespace ID for health state"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write deploy health to KV
+      shell: bash
+      env:
+        KV_KEY: ${{ inputs.kv-key }}
+        DEPLOY_RESULT: ${{ inputs.deploy-result }}
+        VERIFY_RESULT: ${{ inputs.verify-result }}
+        ROLLBACK_RESULT: ${{ inputs.rollback-result }}
+        APPS_DEPLOYED: ${{ inputs.apps-deployed }}
+        GH_SHA: ${{ inputs.sha }}
+        CF_ACCOUNT_ID: ${{ inputs.cf-account-id }}
+        CF_API_TOKEN: ${{ inputs.cf-api-token }}
+        KV_NS_ID: ${{ inputs.kv-namespace-id }}
+      run: |
+        # No deploy attempted (circuit-blocked or skipped) — preserve
+        # the previous KV state rather than writing a false conclusion.
+        if [ "$DEPLOY_RESULT" = "skipped" ]; then
+          echo "Deploy was skipped; preserving previous ${KV_KEY} status"
+          exit 0
+        fi
+
+        # Derive conclusion from job results (priority: rolled_back > failure > cancelled > success)
+        CONCLUSION="success"
+        if [ "$ROLLBACK_RESULT" = "success" ]; then
+          CONCLUSION="rolled_back"
+        elif [ "$DEPLOY_RESULT" = "failure" ] || [ "$VERIFY_RESULT" = "failure" ]; then
+          CONCLUSION="failure"
+        elif [ "$DEPLOY_RESULT" = "cancelled" ] || [ "$VERIFY_RESULT" = "cancelled" ]; then
+          CONCLUSION="cancelled"
+        fi
+
+        UPDATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+        # Build payload — include apps_deployed only when provided
+        if [ -n "$APPS_DEPLOYED" ]; then
+          PAYLOAD=$(jq -n \
+            --arg conclusion "$CONCLUSION" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$UPDATED_AT" \
+            --argjson apps_deployed "$APPS_DEPLOYED" \
+            '{conclusion: $conclusion, sha: $sha, updated_at: $updated_at, apps_deployed: $apps_deployed}')
+        else
+          PAYLOAD=$(jq -n \
+            --arg conclusion "$CONCLUSION" \
+            --arg sha "$GH_SHA" \
+            --arg updated_at "$UPDATED_AT" \
+            '{conclusion: $conclusion, sha: $sha, updated_at: $updated_at}')
+        fi
+
+        # URL-encode the KV key (/ → %2F)
+        ENCODED_KEY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$KV_KEY")
+
+        curl -sf -X PUT \
+          "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/${ENCODED_KEY}" \
+          -H "Authorization: Bearer ${CF_API_TOKEN}" \
+          -H "Content-Type: application/json" \
+          -d "$PAYLOAD"
