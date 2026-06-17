@@ -1,11 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 
-import {
-  createBookingNotifier,
-  createDefaultBookingNotifier,
-  resolveChannel,
-} from "./booking-notifications.js";
+import { createBookingNotifier, resolveChannel } from "./booking-notifications.js";
 import type { BookingNotifierDeps, ResolveChannelInput } from "./booking-notifications.js";
+import type { NotificationDispatcher } from "@mbe/notifications";
 
 const mockVenue = {
   id: "venue-1",
@@ -100,16 +97,6 @@ describe("resolveChannel", () => {
   });
 });
 
-describe("createDefaultBookingNotifier", () => {
-  it("returns a BookingNotifier without constructing deps (no Redis connection at build time)", () => {
-    const notifier = createDefaultBookingNotifier();
-
-    expect(typeof notifier.scheduleBookingNotifications).toBe("function");
-    expect(typeof notifier.cancelBookingReminders).toBe("function");
-    expect(typeof notifier.rescheduleBookingReminders).toBe("function");
-  });
-});
-
 // ─── createBookingNotifier factory tests ─────────────────────────────────────────────────
 // No vi.mock for @mbe/notifications or ./venue.js — deps injected directly.
 
@@ -120,14 +107,17 @@ describe("createBookingNotifier", () => {
     const sendConfirmStub = vi.fn().mockResolvedValue(undefined);
     const getVenueStub = vi.fn().mockResolvedValue(mockVenue);
 
+    // NotificationDispatcher has methods with (input, preference) signatures
+    const notificationAdapter: NotificationDispatcher = {
+      sendBookingConfirmation: sendConfirmStub,
+      sendBookingReminder: vi.fn().mockResolvedValue(undefined),
+      sendBookingModified: vi.fn().mockResolvedValue(undefined),
+      sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+      sendWinBack: vi.fn().mockResolvedValue(undefined),
+    } as unknown as NotificationDispatcher;
+
     return {
-      notificationAdapter: {
-        sendBookingConfirmation: sendConfirmStub,
-        sendBookingReminder: vi.fn().mockResolvedValue(undefined),
-        sendBookingModified: vi.fn().mockResolvedValue(undefined),
-        sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
-        sendWinBack: vi.fn().mockResolvedValue(undefined),
-      },
+      notificationAdapter,
       scheduler: {
         schedule: scheduleStub,
         cancel: cancelStub,
@@ -144,10 +134,12 @@ describe("createBookingNotifier", () => {
     expect(typeof notifier.rescheduleBookingReminders).toBe("function");
   });
 
-  it("scheduleBookingNotifications calls notificationAdapter with correct payload", async () => {
+  it("scheduleBookingNotifications calls sendBookingConfirmation with payload and CommunicationPreference", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
-    const reservation = makeReservation();
+    const reservation = makeReservation({
+      guest: { visitCount: 1, communicationPreference: "email_only" },
+    });
 
     await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
 
@@ -157,7 +149,21 @@ describe("createBookingNotifier", () => {
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
         manageToken: "token-xyz",
-      })
+      }),
+      "email_only"
+    );
+  });
+
+  it("scheduleBookingNotifications passes 'both' preference when guest has no preference", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation({ guest: null });
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
+
+    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "res-1" }),
+      "both"
     );
   });
 
