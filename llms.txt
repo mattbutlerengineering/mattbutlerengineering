@@ -2873,6 +2873,18 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/reviewer-runner.ts">
+    <item priority="low">
+      interface ReviewerConfig {
+        model: string;
+        maxBudgetUsd: number;
+        timeoutMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
+    </item>
+  </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">
     <item priority="high">
       export const apiCircuitBreaker: unknown;
