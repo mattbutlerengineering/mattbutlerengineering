@@ -305,6 +305,7 @@ describe("Auth Plugin", () => {
     it("returns options object when env vars are set", () => {
       process.env.AUTH_AUTHORITY = "https://test.auth0.com";
       process.env.AUTH_AUDIENCE = "https://api.example.com";
+      delete process.env.AUTH_BYPASS_IN_TESTS;
 
       const options = getAuthPluginOptionsFromEnv();
 
@@ -312,7 +313,28 @@ describe("Auth Plugin", () => {
         authority: "https://test.auth0.com",
         audience: "https://api.example.com",
         excludePaths: ["/health", "/docs", "/v1/webhooks"],
+        bypassTestMode: false,
       });
+    });
+
+    it("sets bypassTestMode:true when AUTH_BYPASS_IN_TESTS=true", () => {
+      process.env.AUTH_AUTHORITY = "https://test.auth0.com";
+      process.env.AUTH_AUDIENCE = "https://api.example.com";
+      process.env.AUTH_BYPASS_IN_TESTS = "true";
+
+      const options = getAuthPluginOptionsFromEnv();
+
+      expect(options.bypassTestMode).toBe(true);
+    });
+
+    it("sets bypassTestMode:false when AUTH_BYPASS_IN_TESTS is not 'true'", () => {
+      process.env.AUTH_AUTHORITY = "https://test.auth0.com";
+      process.env.AUTH_AUDIENCE = "https://api.example.com";
+      process.env.AUTH_BYPASS_IN_TESTS = "false";
+
+      const options = getAuthPluginOptionsFromEnv();
+
+      expect(options.bypassTestMode).toBe(false);
     });
 
     it("throws error when AUTH_AUTHORITY is missing", () => {
@@ -343,6 +365,92 @@ describe("Auth Plugin", () => {
     });
   });
 
+  describe("bypassTestMode plugin option", () => {
+    it("grants bypass identity when bypassTestMode:true and header is set", async () => {
+      const bypassApp = Fastify({ logger: false });
+      const bypassPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          bypassTestMode: true,
+        });
+        fastify.get("/protected", async (request) => {
+          return { user: request.user };
+        });
+      };
+      await bypassApp.register(bypassPlugin);
+      await bypassApp.ready();
+
+      const response = await bypassApp.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.user?.id).toBe("auth0|user-123");
+      expect(mockJwtVerify).not.toHaveBeenCalled();
+
+      await bypassApp.close();
+    });
+
+    it("does NOT bypass when bypassTestMode:false even if header is set", async () => {
+      const noBypassApp = Fastify({ logger: false });
+      const noBypassPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          bypassTestMode: false,
+        });
+        fastify.get("/protected", { preHandler: requireAuth }, async (request) => {
+          return { user: request.user };
+        });
+      };
+      await noBypassApp.register(noBypassPlugin);
+      await noBypassApp.ready();
+
+      const response = await noBypassApp.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(mockJwtVerify).not.toHaveBeenCalled();
+
+      await noBypassApp.close();
+    });
+
+    it("requireAuth allows bypassed request when bypassTestMode:true", async () => {
+      const bypassApp = Fastify({ logger: false });
+      const bypassPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          bypassTestMode: true,
+        });
+        fastify.get("/guarded", { preHandler: requireAuth }, async (request) => {
+          return { user: request.user };
+        });
+      };
+      await bypassApp.register(bypassPlugin);
+      await bypassApp.ready();
+
+      const response = await bypassApp.inject({
+        method: "GET",
+        url: "/guarded",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.user?.id).toBe("auth0|user-123");
+
+      await bypassApp.close();
+    });
+  });
+
   describe("AUTH_BYPASS_IN_TESTS production guard", () => {
     const originalEnv = process.env;
 
@@ -354,12 +462,25 @@ describe("Auth Plugin", () => {
       process.env = originalEnv;
     });
 
-    it("grants bypass identity in non-production when env var + header are set", async () => {
+    it("grants bypass identity in non-production when bypassTestMode option + header are set", async () => {
       process.env.NODE_ENV = "test";
-      process.env.AUTH_BYPASS_IN_TESTS = "true";
 
       const bypassApp = Fastify({ logger: false });
-      await bypassApp.register(testRoutesPlugin, { excludePaths: ["/health"] });
+      const bypassRoutesPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          excludePaths: ["/health"],
+          bypassTestMode: true,
+        });
+        fastify.get("/protected", async (request) => {
+          return { user: request.user };
+        });
+        fastify.get("/health", async () => {
+          return { status: "ok" };
+        });
+      };
+      await bypassApp.register(bypassRoutesPlugin);
       await bypassApp.ready();
 
       const response = await bypassApp.inject({
@@ -378,13 +499,13 @@ describe("Auth Plugin", () => {
 
     it("does NOT bypass in production: requireAuth route 401s without a token", async () => {
       process.env.NODE_ENV = "production";
-      process.env.AUTH_BYPASS_IN_TESTS = "true";
 
       const prodApp = Fastify({ logger: false });
       const prodRoutesPlugin: FastifyPluginAsync = async (fastify) => {
         await fastify.register(authPlugin, {
           authority: "https://test.auth0.com",
           audience: "https://api.example.com",
+          bypassTestMode: true,
         });
         fastify.get("/guarded", { preHandler: requireAuth }, async (request) => {
           return { user: request.user };
@@ -408,15 +529,19 @@ describe("Auth Plugin", () => {
       await prodApp.close();
     });
 
-    it("logs a prominent warning at registration when AUTH_BYPASS_IN_TESTS=true", async () => {
-      process.env.NODE_ENV = "test";
-      process.env.AUTH_BYPASS_IN_TESTS = "true";
-
+    it("logs a prominent warning at registration when bypassTestMode:true", async () => {
       const warnSpy = vi.fn();
       const warnApp = Fastify({ logger: { level: "warn" } });
       warnApp.log.warn = warnSpy;
 
-      await warnApp.register(testRoutesPlugin);
+      const warnPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          bypassTestMode: true,
+        });
+      };
+      await warnApp.register(warnPlugin);
       await warnApp.ready();
 
       const bypassWarnings = warnSpy.mock.calls.filter(
@@ -427,9 +552,7 @@ describe("Auth Plugin", () => {
       await warnApp.close();
     });
 
-    it("does not log the bypass warning when AUTH_BYPASS_IN_TESTS is unset", async () => {
-      delete process.env.AUTH_BYPASS_IN_TESTS;
-
+    it("does not log the bypass warning when bypassTestMode is unset", async () => {
       const warnSpy = vi.fn();
       const warnApp = Fastify({ logger: { level: "warn" } });
       warnApp.log.warn = warnSpy;
