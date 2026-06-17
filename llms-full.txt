@@ -14926,7 +14926,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -15338,12 +15349,13 @@
         options
       );
     
-      // Wire notification port (injected or default Resend-backed)
+      // Single NotificationDispatcher — one Resend client, shared by both decorator slots.
       const notificationPort = options.notificationPort ?? createNotificationPort();
       fastify.decorate("notificationPort", notificationPort);
     
-      // Wire booking notifier (injected or default Resend + BullMQ backed)
-      const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier();
+      // Wire booking notifier — passes the dispatcher so confirmation emails are
+      // routed through CommunicationPreference logic (no second Resend client).
+      const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Register routes

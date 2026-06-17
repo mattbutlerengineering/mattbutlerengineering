@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-import { createBookingNotifier, createDefaultBookingNotifier } from "./booking-notifications.js";
+import { createBookingNotifier } from "./booking-notifications.js";
 import type { BookingNotifierDeps } from "./booking-notifications.js";
 
 const mockVenue = {
@@ -40,16 +40,6 @@ function makeReservation(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("createDefaultBookingNotifier", () => {
-  it("returns a BookingNotifier without constructing deps (no Redis connection at build time)", () => {
-    const notifier = createDefaultBookingNotifier();
-
-    expect(typeof notifier.scheduleBookingNotifications).toBe("function");
-    expect(typeof notifier.cancelBookingReminders).toBe("function");
-    expect(typeof notifier.rescheduleBookingReminders).toBe("function");
-  });
-});
-
 // ─── createBookingNotifier factory tests ─────────────────────────────────────────────────
 // No vi.mock for @mbe/notifications or ./venue.js — deps injected directly.
 
@@ -61,13 +51,13 @@ describe("createBookingNotifier", () => {
     const getVenueStub = vi.fn().mockResolvedValue(mockVenue);
 
     return {
-      notificationAdapter: {
+      dispatcher: {
         sendBookingConfirmation: sendConfirmStub,
         sendBookingReminder: vi.fn().mockResolvedValue(undefined),
         sendBookingModified: vi.fn().mockResolvedValue(undefined),
         sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
         sendWinBack: vi.fn().mockResolvedValue(undefined),
-      },
+      } as never,
       scheduler: {
         schedule: scheduleStub,
         cancel: cancelStub,
@@ -84,20 +74,53 @@ describe("createBookingNotifier", () => {
     expect(typeof notifier.rescheduleBookingReminders).toBe("function");
   });
 
-  it("scheduleBookingNotifications calls notificationAdapter with correct payload", async () => {
+  it("scheduleBookingNotifications calls dispatcher.sendBookingConfirmation with correct payload", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
     const reservation = makeReservation();
 
     await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
 
-    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
+    expect(deps.dispatcher.sendBookingConfirmation).toHaveBeenCalledWith(
       expect.objectContaining({
         reservationId: "res-1",
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
         manageToken: "token-xyz",
-      })
+      }),
+      expect.any(String)
+    );
+  });
+
+  it("scheduleBookingNotifications passes communicationPreference to dispatcher", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = {
+      ...makeReservation(),
+      communicationPreference: "sms_only",
+    };
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
+
+    expect(deps.dispatcher.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.any(Object),
+      "sms_only"
+    );
+  });
+
+  it("scheduleBookingNotifications defaults preference to email_only when null", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = {
+      ...makeReservation(),
+      communicationPreference: null,
+    };
+
+    await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
+
+    expect(deps.dispatcher.sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.any(Object),
+      "email_only"
     );
   });
 
@@ -120,7 +143,7 @@ describe("createBookingNotifier", () => {
 
     await notifier.scheduleBookingNotifications(reservation as never, "token");
 
-    expect(deps.notificationAdapter.sendBookingConfirmation).not.toHaveBeenCalled();
+    expect(deps.dispatcher.sendBookingConfirmation).not.toHaveBeenCalled();
   });
 
   it("scheduleBookingNotifications skips confirmation when guestEmail is null", async () => {
@@ -130,7 +153,7 @@ describe("createBookingNotifier", () => {
 
     await notifier.scheduleBookingNotifications(reservation as never, "token");
 
-    expect(deps.notificationAdapter.sendBookingConfirmation).not.toHaveBeenCalled();
+    expect(deps.dispatcher.sendBookingConfirmation).not.toHaveBeenCalled();
   });
 
   it("scheduleBookingNotifications skips reminders when venueId is null", async () => {
