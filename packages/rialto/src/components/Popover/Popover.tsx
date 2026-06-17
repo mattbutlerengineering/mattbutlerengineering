@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -73,6 +74,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const close = useCallback(() => setOpen(false), []);
 
   useReturnFocus(open);
+  useEscapeKey(close, open);
 
   // Click outside
   useEffect(() => {
@@ -86,18 +88,6 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [open, close]);
-
-  // Escape key
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
   }, [open, close]);
 
   // Focus first focusable element on open
