@@ -58,8 +58,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const notificationPort = options.notificationPort ?? createNotificationPort();
   fastify.decorate("notificationPort", notificationPort);
 
-  // Wire booking notifier (injected or default Resend + BullMQ backed)
-  const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier();
+  // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
+  const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
   fastify.decorate("bookingNotifier", bookingNotifier);
 
   // Register routes

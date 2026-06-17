@@ -1,12 +1,10 @@
 import { JobScheduler, JOB_TYPES } from "@mbe/jobs";
-import { ResendNotificationAdapter } from "@mbe/notifications";
-import type { NotificationPort } from "@mbe/notifications";
-import { Resend } from "resend";
+import type { NotificationDispatcher } from "@mbe/notifications";
+import type { CommunicationPreference } from "@mbe/types";
 import type { Reservation, Venue } from "@mbe/types";
 import { venueService } from "./venue.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
-const MANAGE_BASE_URL = process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -35,7 +33,7 @@ export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "b
 // ─── BookingNotifier factory ─────────────────────────────────────────────────
 
 export interface BookingNotifierDeps {
-  notificationAdapter: NotificationPort;
+  notificationAdapter: NotificationDispatcher;
   scheduler: {
     schedule(jobType: string, payload: unknown, delayMs: number, jobId?: string): Promise<unknown>;
     cancel(id: string): Promise<void>;
@@ -57,25 +55,31 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     manageToken: string
   ): Promise<void> {
     const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
+    const communicationPreference =
+      (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null;
 
     if (guestEmail && venueId) {
       const venue = await getVenue(venueId);
       if (venue) {
-        await notificationAdapter.sendBookingConfirmation({
-          reservationId: id,
-          date: reservation.date,
-          startTime,
-          endTime: reservation.endTime,
-          partySize: reservation.partySize,
-          guestName: reservation.guestName,
-          guestEmail,
-          guestPhone: guestPhone ?? null,
-          specialRequests: reservation.notes ?? null,
-          venueName: venue.name,
-          venueTimezone: venue.ianaTimezone,
-          venueAddress: null,
-          manageToken,
-        });
+        const preference: CommunicationPreference = communicationPreference ?? "both";
+        await notificationAdapter.sendBookingConfirmation(
+          {
+            reservationId: id,
+            date: reservation.date,
+            startTime,
+            endTime: reservation.endTime,
+            partySize: reservation.partySize,
+            guestName: reservation.guestName,
+            guestEmail,
+            guestPhone: guestPhone ?? null,
+            specialRequests: reservation.notes ?? null,
+            venueName: venue.name,
+            venueTimezone: venue.ianaTimezone,
+            venueAddress: null,
+            manageToken,
+          },
+          preference
+        );
       }
     }
 
@@ -135,29 +139,19 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
 
 /**
  * Creates the production BookingNotifier backed by Resend + BullMQ.
+ * Accepts the already-constructed NotificationDispatcher so the Resend
+ * client is constructed exactly once (in notifications.ts / createNotificationPort).
  * Dep construction is deferred to first use: JobScheduler opens a Redis
  * connection in its constructor, and buildApp() must stay side-effect-free
  * for tests that don't inject a stub.
  */
-export function createDefaultBookingNotifier(): BookingNotifier {
+export function createDefaultBookingNotifier(
+  notificationAdapter: NotificationDispatcher
+): BookingNotifier {
   let notifier: BookingNotifier | null = null;
 
   function getNotifier(): BookingNotifier {
     if (!notifier) {
-      const resendClient = process.env.RESEND_API_KEY
-        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-            emails: {
-              send(payload: Record<string, unknown>): Promise<{ id: string }>;
-            };
-          })
-        : null;
-
-      const notificationAdapter: NotificationPort = new ResendNotificationAdapter({
-        resend: resendClient,
-        fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
-        manageBaseUrl: MANAGE_BASE_URL,
-      });
-
       notifier = createBookingNotifier({
         notificationAdapter,
         scheduler: new JobScheduler({ redisUrl: REDIS_URL }),
