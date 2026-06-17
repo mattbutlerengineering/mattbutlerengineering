@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Guest, GuestSegment, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
 import { useApiClient } from "./useApiClient.js";
+import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 
 export const GUESTS_QUERY_KEY = "guests" as const;
 export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -21,27 +22,15 @@ export interface UseGuestsResult {
   refetch: () => void;
 }
 
-export function useGuests(params: UseGuestsParams = {}): UseGuestsResult {
-  const { venueId, limit = 50, enabled = true } = params;
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [GUESTS_QUERY_KEY, { venueId, limit }],
-    queryFn: async () => {
-      if (!venueId) return [];
-      const response = await api.guests.list({ venueId, limit });
-      return response.data;
-    },
-    enabled: enabled && !!venueId,
-  });
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
-}
+export const useGuests = createQueryHook<Guest[], UseGuestsParams>({
+  key: GUESTS_QUERY_KEY,
+  fetcher: async (params, api) => {
+    if (!params?.venueId) return [];
+    const response = await api.guests.list({ venueId: params.venueId, limit: params.limit ?? 50 });
+    return response.data;
+  },
+  getEnabled: (params) => !!params?.venueId,
+});
 
 /* ── useGuestSearch ──────────────────────────────────── */
 
@@ -51,26 +40,18 @@ export interface UseGuestSearchParams {
   enabled?: boolean;
 }
 
+const useGuestSearchQuery = createQueryHook<Guest[], UseGuestSearchParams>({
+  key: GUESTS_QUERY_KEY,
+  fetcher: async (params, api) => {
+    if (!params?.venueId || !params.query) return [];
+    const response = await api.guests.search({ venueId: params.venueId, query: params.query });
+    return response.data;
+  },
+  getEnabled: (params) => !!params?.venueId && !!params?.query,
+});
+
 export function useGuestSearch(params: UseGuestSearchParams): UseGuestsResult {
-  const { venueId, query, enabled = true } = params;
-  const api = useApiClient();
-
-  const searchQuery = useQuery({
-    queryKey: [GUESTS_QUERY_KEY, { venueId, search: query }],
-    queryFn: async () => {
-      if (!venueId || !query) return [];
-      const response = await api.guests.search({ venueId, query });
-      return response.data;
-    },
-    enabled: enabled && !!venueId && !!query,
-  });
-
-  return {
-    data: searchQuery.data,
-    isLoading: searchQuery.isLoading,
-    error: searchQuery.error ?? null,
-    refetch: searchQuery.refetch,
-  };
+  return useGuestSearchQuery(params);
 }
 
 /* ── useGuestSegments ────────────────────────────────── */
@@ -81,23 +62,39 @@ export interface UseGuestSegmentsResult {
   error: Error | null;
 }
 
+const useGuestSegmentsQuery = createQueryHook<
+  GuestSegment[],
+  { venueId: string | null | undefined }
+>({
+  key: GUEST_SEGMENTS_QUERY_KEY,
+  fetcher: async (params, api) => {
+    if (!params?.venueId) return [];
+    return api.guests.getSegments(params.venueId);
+  },
+  getEnabled: (params) => !!params?.venueId,
+});
+
 export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
-  const api = useApiClient();
+  return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
+}
 
-  const query = useQuery({
-    queryKey: [GUEST_SEGMENTS_QUERY_KEY, venueId],
-    queryFn: async () => {
-      if (!venueId) return [];
-      return api.guests.getSegments(venueId);
-    },
-    enabled: !!venueId,
-  });
+/* ── useGuest (single) ───────────────────────────────── */
 
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-  };
+export interface UseGuestResult {
+  data: Guest | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+const useGuestQuery = createQueryHook<Guest, { id: string | null | undefined }>({
+  key: GUESTS_QUERY_KEY,
+  fetcher: (params, api) => api.guests.get(params!.id!),
+  getEnabled: (params) => !!params?.id,
+});
+
+export function useGuest(guestId: string | null | undefined): UseGuestResult {
+  return useGuestQuery({ id: guestId });
 }
 
 /* ── useAddGuest mutation ────────────────────────────── */
@@ -128,32 +125,6 @@ export function useUpdateGuest() {
       queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
     },
   });
-}
-
-/* ── useGuest (single) ───────────────────────────────── */
-
-export interface UseGuestResult {
-  data: Guest | undefined;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
-}
-
-export function useGuest(guestId: string | null | undefined): UseGuestResult {
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [GUESTS_QUERY_KEY, { id: guestId }],
-    queryFn: () => api.guests.get(guestId!),
-    enabled: !!guestId,
-  });
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
 }
 
 /* ── useAddStaffNote mutation ────────────────────────── */
