@@ -111,6 +111,11 @@
       "path": "packages/service-bootstrap"
     },
     {
+      "name": "@mbe/test-fixtures",
+      "type": "package",
+      "path": "packages/test-fixtures"
+    },
+    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
@@ -343,6 +348,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/test-fixtures",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/users-service",
       "to": "@mbe/auth",
       "type": "dependency"
@@ -375,6 +385,11 @@
     {
       "from": "@mbe/users-service",
       "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/test-fixtures",
       "type": "devDependency"
     },
     {
@@ -534,6 +549,16 @@
     },
     {
       "from": "@mbe/service-bootstrap",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/test-fixtures",
+      "to": "@mbe/types",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/test-fixtures",
       "to": "@mbe/config",
       "type": "devDependency"
     },

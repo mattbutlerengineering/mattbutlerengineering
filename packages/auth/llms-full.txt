@@ -1,5 +1,12 @@
 <codebase path="packages/auth">
   <section priority="medium" role="fastify">
+  <file path="src/fastify/ownership.ts">
+    export interface AuthorizationContext {
+      isAdmin: boolean;
+      isOwner: boolean;
+    }
+    export type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+  </file>
   <file path="src/fastify/plugin.ts">
     export interface AuthPluginOptions {
       /** OIDC authority URL (issuer) */

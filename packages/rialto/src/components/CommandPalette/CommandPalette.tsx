@@ -11,6 +11,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { spring, reduced } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./CommandPalette.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -142,6 +143,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
 
     /* ── Capture trigger on open; restore focus on close ── */
     useReturnFocus(open);
+    useEscapeKey(() => onOpenChange(false), open);
 
     /* ── Reset on open/close ─────────────────── */
     useEffect(() => {

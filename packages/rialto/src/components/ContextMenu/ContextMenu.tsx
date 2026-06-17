@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./ContextMenu.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -96,6 +97,8 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
     setActiveIndex(-1);
   }, []);
 
+  useEscapeKey(close, open);
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -112,7 +115,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
     [items.length, focusableIndices]
   );
 
-  // Click outside / Escape
+  // Click outside
   useEffect(() => {
     if (!open) return;
 
@@ -122,15 +125,9 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
       }
     }
 
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-
     document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
     };
   }, [open, close]);
 

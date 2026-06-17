@@ -749,6 +749,17 @@
   </file>
   </section>
   <section priority="medium" role="fastify">
+  <file path="packages/auth/src/fastify/ownership.ts">
+    <item priority="low">
+      interface AuthorizationContext {
+        isAdmin: boolean;
+        isOwner: boolean;
+      }
+    </item>
+    <item priority="low">
+      type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+    </item>
+  </file>
   <file path="packages/auth/src/fastify/plugin.ts">
     <item priority="low">
       interface AuthPluginOptions {
@@ -1109,6 +1120,11 @@
     </item>
     <item priority="high">
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/useEscapeKey.ts">
+    <item priority="high">
+      export function useEscapeKey(onClose: () => void, enabled: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useField.ts">
@@ -1650,8 +1666,11 @@
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
-    <item priority="high">
-      export const userRoutes: FastifyPluginAsync;
+    <item priority="low">
+      async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveTargetUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }
     </item>
   </file>
   </section>
@@ -3802,6 +3821,58 @@
       export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="packages/test-fixtures/src/jwt.ts">
+    <item priority="low">
+      interface MockJWTPayload {
+        sub: string;
+        iss: string;
+        aud: string;
+        exp: number;
+        iat: number;
+      }
+    </item>
+    <item priority="high">
+      export function createMockJWTPayload(overrides?: Partial<MockJWTPayload>): MockJWTPayload { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/test-fixtures/src/reservations.ts">
+    <item priority="low">
+      interface MockTable {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
+      }
+    </item>
+    <item priority="low">
+      interface MockReservation {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+  </file>
+  <file path="packages/test-fixtures/src/users.ts">
+    <item priority="low">
+      interface MockUserPreferences {
+        theme: "light" | "dark" | "system";
+        emailNotifications: boolean;
+        marketingEmails: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface MockUser {
+        id: string;
+        email: string;
+        name: string | null;
+        picture: string | null;
+        emailVerified: boolean;
+      }
+    </item>
+  </file>
   <file path="packages/types/src/agent.ts">
     <item priority="low">
       type AgentSessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
@@ -4042,38 +4113,12 @@
   </file>
   </section>
   <section priority="medium" role="test">
-  <file path="services/reservations/src/test/mocks.ts">
-    <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
-    </item>
-  </file>
   <file path="services/users/src/test/fixtures.ts">
-    <item priority="low">
-      interface UserFixture {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
+    <item priority="high">
+      export const MOCK_USER: unknown;
     </item>
     <item priority="high">
-      export const MOCK_USER: UserFixture;
+      export const MOCK_JWT_PAYLOAD: unknown;
     </item>
   </file>
   </section>

@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@mbe/config": "workspace:*",
+    "@mbe/test-fixtures": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",

@@ -1,6 +1,7 @@
-import { forwardRef, useState, useRef, useCallback, useId, useEffect, type ReactNode } from "react";
+import { forwardRef, useState, useRef, useCallback, useId, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./Tooltip.module.css";
 
 /**
@@ -41,15 +42,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
       setOpen(false);
     }, []);
 
-    // Escape key closes the tooltip
-    useEffect(() => {
-      if (!open) return;
-      function handleKey(e: KeyboardEvent) {
-        if (e.key === "Escape") hide();
-      }
-      document.addEventListener("keydown", handleKey);
-      return () => document.removeEventListener("keydown", handleKey);
-    }, [open, hide]);
+    useEscapeKey(hide, open);
 
     // Axis-aware animation origin
     const axis = placement === "top" || placement === "bottom" ? "y" : "x";
