@@ -1,4 +1,5 @@
 export { useBoop } from "./useBoop";
+export { useEscapeKey } from "./useEscapeKey";
 export { useReturnFocus } from "./useReturnFocus";
 export { useDirection } from "./useDirection";
 export { useFocusTrap, FOCUSABLE_SELECTOR } from "./useFocusTrap";

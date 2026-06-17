@@ -1122,6 +1122,11 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useEscapeKey.ts">
+    <item priority="high">
+      export function useEscapeKey(onClose: () => void, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useField.ts">
     <item priority="low">
       interface UseFieldOptions {

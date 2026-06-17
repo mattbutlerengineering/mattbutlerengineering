@@ -1,8 +1,9 @@
-import { forwardRef, useEffect, useId, useRef, type ReactNode } from "react";
+import { forwardRef, useId, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle, precision } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
 import styles from "./Dialog.module.css";
 
@@ -34,17 +35,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     const descriptionId = useId();
 
     useReturnFocus(open);
-
-    // Close on Escape
-    useEffect(() => {
-      if (!open) return;
-      const handler = (e: KeyboardEvent) => {
-        if (e.key === "Escape") onClose();
-      };
-      document.addEventListener("keydown", handler);
-      return () => document.removeEventListener("keydown", handler);
-    }, [open, onClose]);
-
+    useEscapeKey(onClose, open);
     useFocusTrap(panelRef, open);
 
     const motionProps = shouldReduceMotion
