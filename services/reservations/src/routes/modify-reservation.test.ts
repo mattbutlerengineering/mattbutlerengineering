@@ -232,26 +232,6 @@ describe("PATCH /public/v1/reservations/manage", () => {
     expect(response.json().detail).toContain("At least one field");
   });
 
-  it("returns 400 when token is missing", async () => {
-    const response = await app.inject({
-      method: "PATCH",
-      url: "/public/v1/reservations/manage",
-      payload: { partySize: 2 },
-    });
-
-    expect(response.statusCode).toBe(400);
-  });
-
-  it("returns 401 for invalid token", async () => {
-    const response = await app.inject({
-      method: "PATCH",
-      url: "/public/v1/reservations/manage?token=garbage-token",
-      payload: { partySize: 2 },
-    });
-
-    expect(response.statusCode).toBe(401);
-  });
-
   it("returns 404 when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 

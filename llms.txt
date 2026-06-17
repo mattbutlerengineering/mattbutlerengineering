@@ -777,6 +777,7 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
+        lastResult: EvaluationResult | undefined;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -845,6 +846,24 @@
         fetchSpecs: () => Promise<void>;
         saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
         toggleFavorite: (id: string) => Promise<void>;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/create-query-hook.ts">
+    <item priority="low">
+      interface QueryHookResult {
+        data: TData | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface CreateQueryHookOptions {
+        key: string;
+        fetcher: (params: TParams | undefined, api: ReturnType<typeof useA...;
+        getEnabled?: (params: (TParams & { enabled?: boolean }) | undefined) =...;
+        select?: (data: TData | undefined) => TResult;
       }
     </item>
   </file>
@@ -928,6 +947,22 @@
     </item>
     <item priority="high">
       export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useGuestDirectory.ts">
+    <item priority="low">
+      interface UseGuestDirectoryParams {
+        venueId?: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestDirectoryResult {
+        guests: Guest[];
+        segments: GuestSegment[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
@@ -1166,6 +1201,14 @@
     </item>
     <item priority="medium">
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/middleware/require-manage-token.ts">
+    <item priority="high">
+      export async function requireManageToken(
+        request: FastifyRequest<{ Querystring: { token?: string } }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   </section>
@@ -1955,12 +1998,12 @@
     <item priority="medium">
       function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveChannel(
-        guestEmail: string | null,
-        guestPhone: string | null,
-        communicationPreference: string | null = null
-      ): "email" | "sms" | "both" { /* ... */ }
+    <item priority="low">
+      interface ResolveChannelInput {
+        email: string | null;
+        phone: string | null;
+        communicationPreference: string | null;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
