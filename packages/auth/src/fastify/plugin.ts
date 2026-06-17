@@ -8,6 +8,9 @@ declare module "fastify" {
   interface FastifyRequest {
     user?: AuthUser;
   }
+  interface FastifyInstance {
+    authBypassTestMode: boolean;
+  }
 }
 
 export interface AuthPluginOptions {
@@ -17,6 +20,12 @@ export interface AuthPluginOptions {
   audience: string;
   /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
+  /**
+   * When true, requests with 'x-auth-bypass: true' header skip JWT validation
+   * and receive a hardcoded admin identity. Resolved once from AUTH_BYPASS_IN_TESTS
+   * in getAuthPluginOptionsFromEnv(). Never set this in production.
+   */
+  bypassTestMode?: boolean;
 }
 
 /**
@@ -28,15 +37,19 @@ export interface AuthPluginOptions {
  * `rateLimit` decorator is missing at startup.
  */
 async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
-  const { authority, audience, excludePaths = [] } = options;
+  const { authority, audience, excludePaths = [], bypassTestMode = false } = options;
 
   const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
   const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
+  // Expose bypassTestMode on the instance so requireAuth (a standalone preHandler)
+  // can consult it without reading process.env at request time.
+  fastify.decorate("authBypassTestMode", bypassTestMode);
+
   // Prominent startup warning when the test auth bypass is enabled. The bypass
   // grants a hardcoded admin identity with no JWT validation, so it must never
   // be active in production (enforced by the NODE_ENV guard in the onRequest hook).
-  if (process.env.AUTH_BYPASS_IN_TESTS === "true") {
+  if (bypassTestMode) {
     fastify.log.warn(
       "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Requests with 'x-auth-bypass: true' " +
         "skip JWT validation and receive a hardcoded admin identity. This is structurally " +
@@ -64,7 +77,7 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
     // deploy config cannot grant a hardcoded admin identity on a live service.
     if (
       process.env.NODE_ENV !== "production" &&
-      process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+      bypassTestMode &&
       request.headers["x-auth-bypass"] === "true"
     ) {
       request.user = {
@@ -171,9 +184,10 @@ export function hasPermission(user: AuthUser | undefined, permission: string): b
 }
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
+  const bypassTestMode = (request.server as FastifyInstance).authBypassTestMode ?? false;
   const isBypassed =
     process.env.NODE_ENV !== "production" &&
-    process.env.AUTH_BYPASS_IN_TESTS === "true" &&
+    bypassTestMode &&
     request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {
     return reply
@@ -196,5 +210,6 @@ export function getAuthPluginOptionsFromEnv(): AuthPluginOptions {
     authority,
     audience,
     excludePaths: ["/health", "/docs", "/v1/webhooks"],
+    bypassTestMode: process.env.AUTH_BYPASS_IN_TESTS === "true",
   };
 }

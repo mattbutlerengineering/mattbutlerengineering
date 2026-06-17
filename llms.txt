@@ -755,6 +755,7 @@
         authority: string;
         audience: string;
         excludePaths?: string[];
+        bypassTestMode?: boolean;
       }
     </item>
     <item priority="low">
