@@ -14201,6 +14201,18 @@
       return { skip: (query.page - 1) * query.limit, take: query.limit };
     }
   </file>
+  <file path="packages/database/src/testing.ts">
+    export interface MockPrisma {
+      $queryRaw: ReturnType<typeof vi.fn>;
+      [key: string]: unknown;
+    }
+    export interface MockDatabaseService {
+      prisma: MockPrisma;
+      getSlowQueryStats: ReturnType<typeof vi.fn>;
+      getServiceStatus: ReturnType<typeof vi.fn>;
+      getPoolMetrics: ReturnType<typeof vi.fn>;
+    }
+  </file>
   <file path="packages/jobs/src/job-types.ts">
     export const JOB_TYPES = {
       BOOKING_REMINDER: "booking-reminder",

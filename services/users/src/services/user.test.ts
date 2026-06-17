@@ -1,18 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    user: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      upsert: vi.fn(),
-      count: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      user: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        upsert: vi.fn(),
+        count: vi.fn(),
+      },
     },
-  },
-}));
+  });
+});
 
 import { prisma } from "./database.js";
 import { userService } from "./user.js";
