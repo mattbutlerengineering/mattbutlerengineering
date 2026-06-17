@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
-import { verifyManageToken } from "./public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { requireManageToken } from "../middleware/require-manage-token.js";
 
 export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { token?: string } }>(
@@ -10,40 +10,10 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       config: {
         rateLimit: { max: 10, timeWindow: "1 minute" },
       },
+      preHandler: requireManageToken,
     },
     async (request, reply) => {
-      const { token } = request.query;
-
-      if (!token) {
-        return reply.status(400).send({
-          type: "about:blank",
-          title: "Missing Token",
-          status: 400,
-          detail: "Token query parameter is required",
-        });
-      }
-
-      const result = verifyManageToken(token);
-
-      if (!result.valid && result.expired) {
-        return reply.status(410).send({
-          type: "about:blank",
-          title: "Token Expired",
-          status: 410,
-          detail: "This manage link has expired",
-        });
-      }
-
-      if (!result.valid) {
-        return reply.status(401).send({
-          type: "about:blank",
-          title: "Invalid Token",
-          status: 401,
-          detail: "Invalid or malformed token",
-        });
-      }
-
-      const reservation = await reservationService.getById(result.reservationId!);
+      const reservation = await reservationService.getById(request.managedReservationId);
       if (!reservation) {
         return reply.status(404).send({
           type: "about:blank",
