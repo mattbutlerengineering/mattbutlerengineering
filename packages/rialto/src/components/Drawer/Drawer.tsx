@@ -1,9 +1,10 @@
-import React, { useEffect, useCallback, useId, useRef, forwardRef, type ReactNode } from "react";
+import React, { useEffect, useId, useRef, forwardRef, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { spring, reduced } from "../../tokens/motion";
 import { useDirection } from "../../hooks/useDirection";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
 import styles from "./Drawer.module.css";
 
@@ -64,24 +65,16 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   const descriptionId = useId();
 
   useReturnFocus(open);
+  useEscapeKey(onClose, open);
 
-  /* ── Escape key ──────────────────────────── */
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
+  /* ── Body scroll lock ────────────────────── */
   useEffect(() => {
     if (!open) return;
-    document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [open, handleKeyDown]);
+  }, [open]);
 
   useFocusTrap(panelRef, open);
 

@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./DropdownMenu.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -112,6 +113,8 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
     setOpen(false);
     setActiveIndex(-1);
   }, []);
+
+  useEscapeKey(close, open);
 
   // Click outside
   useEffect(() => {

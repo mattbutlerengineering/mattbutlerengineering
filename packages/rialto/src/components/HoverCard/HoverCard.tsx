@@ -3,12 +3,12 @@ import {
   useState,
   useRef,
   useCallback,
-  useEffect,
   type ReactNode,
   type ReactElement,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./HoverCard.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -83,15 +83,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
       setOpen(false);
     }, []);
 
-    // Escape key closes the card
-    useEffect(() => {
-      if (!open) return;
-      function handleKey(e: KeyboardEvent) {
-        if (e.key === "Escape") closeImmediate();
-      }
-      document.addEventListener("keydown", handleKey);
-      return () => document.removeEventListener("keydown", handleKey);
-    }, [open, closeImmediate]);
+    useEscapeKey(closeImmediate, open);
 
     const origin = motionOrigin[placement];
 
