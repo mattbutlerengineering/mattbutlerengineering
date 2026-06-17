@@ -222,18 +222,6 @@
       }
     </item>
   </file>
-  <file path="tools/cli/src/adapters/claude-adapter.ts">
-    <item priority="medium">
-      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      class ClaudeAdapter {
-        name: unknown;
-        async isAvailable(): Promise<unknown>;
-        async run(): Promise<unknown>;
-      }
-    </item>
-  </file>
   <file path="tools/cli/src/adapters/cli-adapter.ts">
     <item priority="low">
       interface AdapterConfig {
@@ -266,19 +254,23 @@
     </item>
   </file>
   <file path="tools/cli/src/adapters/gemini-adapter.ts">
-    <item priority="medium">
-      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildCommitMessage(task: string): string { /* ... */ }
+    <item priority="high">
+      class GeminiCliAdapter {
+        name: unknown;
+        binary: unknown;
+        defaultError: unknown;
+        async buildArgs(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="tools/cli/src/adapters/opencode-adapter.ts">
-    <item priority="medium">
-      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildCommitMessage(task: string): string { /* ... */ }
+    <item priority="high">
+      class OpenCodeAdapter {
+        name: unknown;
+        binary: unknown;
+        defaultError: unknown;
+        async buildArgs(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="tools/cli/src/adapters/rate-limit-detector.ts">
@@ -292,6 +284,14 @@
         async markRateLimited(): Promise<unknown>;
         async markSuccess(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="tools/cli/src/adapters/spawn-and-commit-base.ts">
+    <item priority="medium">
+      function truncateTask(task: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildCommitMessage(task: string): string { /* ... */ }
     </item>
   </file>
   </section>

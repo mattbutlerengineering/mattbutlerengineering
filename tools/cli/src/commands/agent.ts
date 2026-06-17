@@ -22,7 +22,6 @@ import {
   buildPrBody,
 } from "@mbe/agent-core";
 import type { AdapterConfig, AdapterResult } from "../adapters/cli-adapter.js";
-import { ClaudeAdapter } from "../adapters/claude-adapter.js";
 import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { RateLimitDetector } from "../adapters/rate-limit-detector.js";
@@ -381,8 +380,8 @@ agentCommand
 
         try {
           if (adapterType === "auto") {
-            // Failover routing across all adapters
-            const adapters = [new ClaudeAdapter(), new GeminiCliAdapter(), new OpenCodeAdapter()];
+            // Failover routing across CLI-backed adapters (claude calls runSession directly above)
+            const adapters = [new GeminiCliAdapter(), new OpenCodeAdapter()];
             const detector = new RateLimitDetector(adapters.map((a) => a.name));
             const router = new FailoverRouter(adapters, detector);
 

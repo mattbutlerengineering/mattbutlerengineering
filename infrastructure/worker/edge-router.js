@@ -20,6 +20,7 @@ import {
 } from "./circuit-breaker.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
 import { buildCspDirectives } from "./csp.js";
+import { STALENESS_THRESHOLD_MS, interpretDeployHealth } from "./deploy-health.js";
 import depGraph from "./dep-graph.json";
 import topologyConfig from "./routes-config.json";
 
@@ -290,7 +291,7 @@ function brandedErrorPage(statusCode, message, requestId, nonce = "", kvPolicy) 
 // status is read from KV (written by GitHub Actions).
 
 const HEALTH_TIMEOUT_MS = 5_000;
-const STALENESS_THRESHOLD_MS = 72 * 60 * 60 * 1_000; // 72 hours — deploys are change-driven, not daily
+// STALENESS_THRESHOLD_MS is imported from deploy-health.js (shared with the action)
 
 // ── Topology derived from routes-config.json ─────────────────────────
 // Single source of truth for route prefixes, cache classes, service
@@ -435,19 +436,15 @@ function ciStatus(kvData, now) {
 
 /**
  * Determine deploy health from KV data for all three pipelines.
+ * Each pipeline's record is interpreted via the shared interpretDeployHealth().
  */
 function deployStatus(pipelines, now) {
-  const entries = Object.entries(pipelines);
   let errorCount = 0;
   let staleCount = 0;
-  for (const [, data] of entries) {
-    if (!data) {
-      staleCount++;
-    } else {
-      const age = now - new Date(data.updated_at).getTime();
-      if (age > STALENESS_THRESHOLD_MS) staleCount++;
-      else if (data.conclusion !== "success") errorCount++;
-    }
+  for (const [, data] of Object.entries(pipelines)) {
+    const { status } = interpretDeployHealth(data, now);
+    if (status === "stale") staleCount++;
+    else if (status === "unhealthy") errorCount++;
   }
   const status = errorCount > 0 ? "unhealthy" : staleCount > 0 ? "degraded" : "healthy";
   return { status, pipelines };
