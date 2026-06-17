@@ -1187,6 +1187,14 @@
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/middleware/require-manage-token.ts">
+    <item priority="high">
+      export async function requireManageToken(
+        request: FastifyRequest<{ Querystring: { token?: string } }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="phases">
   <file path="packages/agent-core/src/phases/feedback-phase.ts">

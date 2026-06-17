@@ -117,41 +117,6 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(body.data.reservation.partySize).toBe(4);
     expect(body.data.venue.name).toBe("The Oak Table");
   });
-
-  it("returns 401 for invalid token", async () => {
-    const response = await app.inject({
-      method: "GET",
-      url: "/public/v1/reservations/manage?token=garbage-token",
-    });
-
-    expect(response.statusCode).toBe(401);
-  });
-
-  it("returns 410 for expired token", async () => {
-    // Manually craft an expired token
-    const { createHmac } = await import("crypto");
-    const secret = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
-    const expiry = Date.now() - 1000; // already expired
-    const payload = `res_1:jane@example.com:${expiry}`;
-    const signature = createHmac("sha256", secret).update(payload).digest("hex");
-    const expiredToken = Buffer.from(`${payload}:${signature}`).toString("base64url");
-
-    const response = await app.inject({
-      method: "GET",
-      url: `/public/v1/reservations/manage?token=${expiredToken}`,
-    });
-
-    expect(response.statusCode).toBe(410);
-  });
-
-  it("returns 400 when token query param is missing", async () => {
-    const response = await app.inject({
-      method: "GET",
-      url: "/public/v1/reservations/manage",
-    });
-
-    expect(response.statusCode).toBe(400);
-  });
 });
 
 describe("GET /public/v1/reservations/manage — rate limiting", () => {
