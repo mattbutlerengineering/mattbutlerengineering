@@ -244,6 +244,36 @@
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
   </file>
+  <file path="src/hooks/useGuestDirectory.ts">
+    export interface UseGuestDirectoryParams {
+      venueId?: string | null;
+    }
+    export interface UseGuestDirectoryResult {
+      // Data
+      guests: Guest[];
+      segments: GuestSegment[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    
+      // Search
+      searchQuery: string;
+      setSearchQuery: (query: string) => void;
+      isSearchActive: boolean;
+    
+      // Selection
+      selectedGuestId: string | null;
+      selectedGuest: Guest | null;
+      selectGuest: (id: string) => void;
+      clearSelection: () => void;
+    
+      // Mutations
+      addGuest: (data: FindOrCreateGuestRequest) => Promise<void>;
+      updateGuest: (guestId: string, data: UpdateGuestRequest) => Promise<void>;
+      isAddingGuest: boolean;
+      isUpdatingGuest: boolean;
+    }
+  </file>
   <file path="src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;

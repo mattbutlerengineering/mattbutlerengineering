@@ -1,11 +1,4 @@
-import {
-  useState,
-  useMemo,
-  useCallback,
-  useReducer,
-  useEffect,
-  type ChangeEvent,
-} from "react";
+import { useState, useCallback, useReducer, useEffect, type ChangeEvent } from "react";
 import {
   Alert,
   Badge,
@@ -27,21 +20,10 @@ import {
   useToast,
 } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
-import type {
-  Guest,
-  GuestSegment,
-  Reservation,
-  UpdateGuestRequest,
-} from "@mbe/types";
+import type { Guest, GuestSegment, Reservation, UpdateGuestRequest } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
-import {
-  useGuests,
-  useGuestSearch,
-  useGuestSegments,
-  useAddGuest,
-  useUpdateGuest,
-} from "../hooks/useGuests.js";
+import { useGuestDirectory, type UseGuestDirectoryResult } from "../hooks/useGuestDirectory.js";
 import { useReservations } from "../hooks/useReservations.js";
 import { GuestCard } from "../components/crm/GuestCard.js";
 import styles from "./GuestsPage.module.css";
@@ -94,23 +76,12 @@ function GuestsLoadingSkeleton() {
 interface AddGuestDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: {
-    name: string;
-    email: string;
-    phone: string;
-    notes: string;
-  }) => Promise<void>;
+  onSubmit: (data: { name: string; email: string; phone: string; notes: string }) => Promise<void>;
   isSubmitting: boolean;
   error: string | null;
 }
 
-function AddGuestDialog({
-  open,
-  onClose,
-  onSubmit,
-  isSubmitting,
-  error,
-}: AddGuestDialogProps) {
+function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGuestDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -320,19 +291,9 @@ function GuestDetailDrawer({
   guestReservations,
   isLoadingHistory,
 }: GuestDetailDrawerProps) {
-  const [state, drawerDispatch] = useReducer(
-    drawerReducer,
-    INITIAL_DRAWER_STATE
-  );
+  const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
   const { isEditing, formData, isSaving, saveError } = state;
   const { toast } = useToast();
-
-  // Reset form when guest changes or drawer opens
-  useCallback(() => {
-    if (guest && open) {
-      drawerDispatch({ type: "reset", guest });
-    }
-  }, [guest, open]);
 
   // Reset when guest/open changes
   useEffect(() => {
@@ -350,15 +311,12 @@ function GuestDetailDrawer({
     []
   );
 
-  const handleTagInputKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" || e.key === ",") {
-        e.preventDefault();
-        drawerDispatch({ type: "add_tag" });
-      }
-    },
-    []
-  );
+  const handleTagInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      drawerDispatch({ type: "add_tag" });
+    }
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!guest) return;
@@ -392,9 +350,7 @@ function GuestDetailDrawer({
           phone: guest.phone ?? "",
           notes: guest.notes ?? "",
           tags: guest.tags ? [...guest.tags] : [],
-          dietaryRestrictions: guest.dietaryRestrictions
-            ? [...guest.dietaryRestrictions]
-            : [],
+          dietaryRestrictions: guest.dietaryRestrictions ? [...guest.dietaryRestrictions] : [],
           tagInput: "",
         },
       });
@@ -430,10 +386,8 @@ function GuestDetailDrawer({
   }
 
   const isNameValid = formData.name.trim().length > 0;
-  const isEmailValid =
-    !formData.email.trim() || EMAIL_REGEX.test(formData.email.trim());
-  const isPhoneValid =
-    !formData.phone.trim() || PHONE_REGEX.test(formData.phone.trim());
+  const isEmailValid = !formData.email.trim() || EMAIL_REGEX.test(formData.email.trim());
+  const isPhoneValid = !formData.phone.trim() || PHONE_REGEX.test(formData.phone.trim());
   const isFormValid = isNameValid && isEmailValid && isPhoneValid;
 
   return (
@@ -446,18 +400,10 @@ function GuestDetailDrawer({
       footer={
         isEditing ? (
           <Stack direction="row" gap="sm" justify="end">
-            <Button
-              variant="ghost"
-              onClick={handleCancelEdit}
-              disabled={isSaving}
-            >
+            <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={isSaving || !isFormValid}
-            >
+            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isFormValid}>
               {isSaving ? "Saving..." : "Save"}
             </Button>
           </Stack>
@@ -468,9 +414,7 @@ function GuestDetailDrawer({
             </Button>
             <Button
               variant="secondary"
-              onClick={() =>
-                drawerDispatch({ type: "set_editing", isEditing: true })
-              }
+              onClick={() => drawerDispatch({ type: "set_editing", isEditing: true })}
             >
               Edit Guest
             </Button>
@@ -495,9 +439,7 @@ function GuestDetailDrawer({
             value={formData.email}
             onChange={handleFieldChange("email")}
             error={!isEmailValid}
-            hint={
-              !isEmailValid ? "Please enter a valid email address" : undefined
-            }
+            hint={!isEmailValid ? "Please enter a valid email address" : undefined}
           />
           <Input
             label="Phone"
@@ -506,9 +448,7 @@ function GuestDetailDrawer({
             value={formData.phone}
             onChange={handleFieldChange("phone")}
             error={!isPhoneValid}
-            hint={
-              !isPhoneValid ? "Please enter a valid phone number" : undefined
-            }
+            hint={!isPhoneValid ? "Please enter a valid phone number" : undefined}
           />
           <TextArea
             label="Notes"
@@ -557,9 +497,7 @@ function GuestDetailDrawer({
                   key={restriction}
                   label={restriction}
                   checked={formData.dietaryRestrictions.includes(restriction)}
-                  onCheckedChange={() =>
-                    drawerDispatch({ type: "toggle_dietary", restriction })
-                  }
+                  onCheckedChange={() => drawerDispatch({ type: "toggle_dietary", restriction })}
                 />
               ))}
             </Stack>
@@ -570,9 +508,7 @@ function GuestDetailDrawer({
           {/* Unified CRM display via GuestCard */}
           <GuestCard
             guestId={guest.id}
-            onEditProfile={() =>
-              drawerDispatch({ type: "set_editing", isEditing: true })
-            }
+            onEditProfile={() => drawerDispatch({ type: "set_editing", isEditing: true })}
           />
 
           {guest.tags && guest.tags.length > 0 && (
@@ -661,59 +597,46 @@ function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
 
 /* ── Main component ─────────────────────────── */
 
-export function GuestsPage() {
+// Allow injecting a fake hook in tests
+export interface GuestsPageProps {
+  _useGuestDirectory?: (params: { venueId: string | null | undefined }) => UseGuestDirectoryResult;
+}
+
+export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
   const { selectedVenueId } = useVenue();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
-  // Debounce search query to avoid firing a TQ query on every keystroke
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const directory = (_useGuestDirectory ?? useGuestDirectory)({
+    venueId: selectedVenueId,
+  });
 
-  // Drawer state
-  const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+  const {
+    guests,
+    segments,
+    isLoading,
+    error,
+    refetch,
+    searchQuery,
+    setSearchQuery,
+    isSearchActive,
+    selectedGuest,
+    selectedGuestId,
+    selectGuest,
+    clearSelection,
+    addGuest,
+    updateGuest,
+    isAddingGuest,
+  } = directory;
 
-  // Add guest dialog state
+  // Add guest dialog state (local UI only)
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addDialogError, setAddDialogError] = useState<string | null>(null);
 
-  // Use search query hook when query is non-empty, otherwise use list hook
-  const listResult = useGuests({
-    venueId: selectedVenueId,
-    enabled: !debouncedSearchQuery,
-  });
-  const searchResult = useGuestSearch({
-    venueId: selectedVenueId,
-    query: debouncedSearchQuery,
-    enabled: !!debouncedSearchQuery,
-  });
-
-  const { data: segments } = useGuestSegments(selectedVenueId);
-  const addGuestMutation = useAddGuest();
-  const updateGuestMutation = useUpdateGuest();
-
-  const {
-    data: guests = [],
-    isLoading,
-    error,
-  } = debouncedSearchQuery ? searchResult : listResult;
-
   // Fetch reservation history for selected guest
-  const { data: guestReservations = [], isLoading: historyLoading } =
-    useReservations({
-      guestId: selectedGuestId ?? undefined,
-      limit: 10,
-      enabled: !!selectedGuestId,
-    });
-
-  const selectedGuest = useMemo(
-    () => guests.find((g: Guest) => g.id === selectedGuestId) ?? null,
-    [guests, selectedGuestId]
-  );
+  const { data: guestReservations = [], isLoading: historyLoading } = useReservations({
+    guestId: selectedGuestId ?? undefined,
+    limit: 10,
+    enabled: !!selectedGuestId,
+  });
 
   const drawerOpen = selectedGuestId !== null;
 
@@ -722,56 +645,38 @@ export function GuestsPage() {
     return new Date(isoString).toLocaleDateString();
   };
 
-  const handleRowClick = useCallback((guestId: string) => {
-    setSelectedGuestId(guestId);
-  }, []);
+  const handleRowClick = (guestId: string) => {
+    selectGuest(guestId);
+  };
 
-  const handleDrawerClose = useCallback(() => {
-    setSelectedGuestId(null);
-  }, []);
+  const handleAddGuest = async (data: {
+    name: string;
+    email: string;
+    phone: string;
+    notes: string;
+  }) => {
+    if (!selectedVenueId) return;
+    setAddDialogError(null);
+    try {
+      await addGuest({
+        venueId: selectedVenueId,
+        name: data.name.trim(),
+        ...(data.email.trim() ? { email: data.email.trim() } : {}),
+        ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
+      });
+      setAddDialogOpen(false);
+    } catch (err) {
+      setAddDialogError(err instanceof Error ? err.message : "Failed to add guest");
+    }
+  };
 
-  const handleAddGuest = useCallback(
-    async (data: {
-      name: string;
-      email: string;
-      phone: string;
-      notes: string;
-    }) => {
-      if (!selectedVenueId) return;
+  const handleEditGuest = async (guestId: string, data: UpdateGuestRequest) => {
+    await updateGuest(guestId, data);
+  };
 
-      setAddDialogError(null);
-
-      try {
-        await addGuestMutation.mutateAsync({
-          venueId: selectedVenueId,
-          name: data.name.trim(),
-          ...(data.email.trim() ? { email: data.email.trim() } : {}),
-          ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
-        });
-        setAddDialogOpen(false);
-      } catch (err) {
-        setAddDialogError(
-          err instanceof Error ? err.message : "Failed to add guest"
-        );
-      }
-    },
-    [addGuestMutation, selectedVenueId]
-  );
-
-  const handleEditGuest = useCallback(
-    async (guestId: string, data: UpdateGuestRequest) => {
-      await updateGuestMutation.mutateAsync({ guestId, data });
-    },
-    [updateGuestMutation]
-  );
-
-  const totalGuestCount = useMemo(
-    () =>
-      (segments ?? []).reduce(
-        (sum: number, s: GuestSegment) => sum + s.count,
-        0
-      ),
-    [segments]
+  const totalGuestCount = (segments ?? []).reduce(
+    (sum: number, s: GuestSegment) => sum + s.count,
+    0
   );
 
   if (!selectedVenueId && !isLoading) {
@@ -814,8 +719,7 @@ export function GuestsPage() {
               key={segment.name}
               className={styles.segmentCard}
               style={{
-                borderInlineStartColor:
-                  SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
+                borderInlineStartColor: SEGMENT_ACCENT_COLORS[index % SEGMENT_ACCENT_COLORS.length],
               }}
             >
               <Stat label={segment.name} value={segment.count} />
@@ -824,15 +728,7 @@ export function GuestsPage() {
         </div>
       )}
 
-      {error && (
-        <ErrorRetryBanner
-          error={error.message}
-          onRetry={
-            debouncedSearchQuery ? searchResult.refetch : listResult.refetch
-          }
-          onDismiss={() => {}}
-        />
-      )}
+      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} onDismiss={() => {}} />}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
@@ -841,9 +737,9 @@ export function GuestsPage() {
       {!isLoading && !error && guests.length === 0 && (
         <div aria-live="polite" role="status">
           <EmptyState
-            heading={debouncedSearchQuery ? "No guests found" : "No guests yet"}
+            heading={isSearchActive ? "No guests found" : "No guests yet"}
             description={
-              debouncedSearchQuery
+              isSearchActive
                 ? "Try adjusting your search query."
                 : "Guests will appear here once they make a reservation."
             }
@@ -853,11 +749,7 @@ export function GuestsPage() {
 
       {!isLoading && !error && guests.length > 0 && (
         <>
-          <Text
-            variant="caption"
-            color="secondary"
-            className={styles.resultCount}
-          >
+          <Text variant="caption" color="secondary" className={styles.resultCount}>
             Showing {guests.length} of {totalGuestCount} guests
           </Text>
 
@@ -881,9 +773,7 @@ export function GuestsPage() {
                       key={guest.id}
                       className={[
                         styles.tableRow,
-                        selectedGuestId === guest.id
-                          ? styles.tableRowActive
-                          : "",
+                        selectedGuestId === guest.id ? styles.tableRowActive : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -899,19 +789,11 @@ export function GuestsPage() {
                       aria-label={`View details for ${guest.name}`}
                     >
                       <td className={styles.td}>
-                        <Text
-                          variant="body"
-                          color="primary"
-                          className={styles.guestName}
-                        >
+                        <Text variant="body" color="primary" className={styles.guestName}>
                           {guest.name}
                         </Text>
                         {guest.notes && (
-                          <Text
-                            variant="caption"
-                            color="secondary"
-                            className={styles.guestNotes}
-                          >
+                          <Text variant="caption" color="secondary" className={styles.guestNotes}>
                             {guest.notes}
                           </Text>
                         )}
@@ -929,9 +811,7 @@ export function GuestsPage() {
                         )}
                       </td>
                       <td className={styles.td}>{guest.visitCount}</td>
-                      <td className={styles.tdMuted}>
-                        {formatDate(guest.lastVisit)}
-                      </td>
+                      <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
                       <td className={styles.tdTags}>
                         <div className={styles.tagList}>
                           {guest.tags?.map((tag: string) => (
@@ -964,7 +844,7 @@ export function GuestsPage() {
       <GuestDetailDrawer
         guest={selectedGuest}
         open={drawerOpen}
-        onClose={handleDrawerClose}
+        onClose={clearSelection}
         onSave={handleEditGuest}
         guestReservations={guestReservations}
         isLoadingHistory={historyLoading}
@@ -978,7 +858,7 @@ export function GuestsPage() {
           setAddDialogError(null);
         }}
         onSubmit={handleAddGuest}
-        isSubmitting={addGuestMutation.isPending}
+        isSubmitting={isAddingGuest}
         error={addDialogError}
       />
     </div>
