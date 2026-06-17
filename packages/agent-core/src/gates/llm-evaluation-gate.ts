@@ -1,5 +1,6 @@
 import { trace } from "@opentelemetry/api";
 import { evaluateSuccess } from "../success-evaluator.js";
+import type { EvaluationResult } from "../success-evaluator.js";
 import type { GateContext, GateResult, QualityGate } from "../gate-runner.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
@@ -10,9 +11,15 @@ const tracer = trace.getTracer("@mbe/agent-core");
  * The skip policy is absorbed inside `evaluateSuccess`: when the policy
  * fires, `evaluateSuccess` returns the inconclusive `skipped` result and
  * the gate passes.
+ *
+ * After `evaluate()` runs, `lastResult` holds the full EvaluationResult
+ * so callers can read it without triggering a second LLM call.
  */
 export class LlmEvaluationGate implements QualityGate {
   readonly name = "evaluation";
+
+  /** Set after evaluate() completes. Undefined before the gate runs. */
+  lastResult: EvaluationResult | undefined;
 
   shouldSkip(context: GateContext): boolean {
     return context.evaluateSuccess === false;
@@ -24,6 +31,8 @@ export class LlmEvaluationGate implements QualityGate {
       const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
         commitTitle: context.commitMsg,
       });
+
+      this.lastResult = evalResult;
 
       span.setAttribute("evaluation.passed", evalResult.passed);
       span.setAttribute("evaluation.confidence", evalResult.confidence);

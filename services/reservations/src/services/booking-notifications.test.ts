@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 
-import { createBookingNotifier, createDefaultBookingNotifier } from "./booking-notifications.js";
-import type { BookingNotifierDeps } from "./booking-notifications.js";
+import {
+  createBookingNotifier,
+  createDefaultBookingNotifier,
+  resolveChannel,
+} from "./booking-notifications.js";
+import type { BookingNotifierDeps, ResolveChannelInput } from "./booking-notifications.js";
 
 const mockVenue = {
   id: "venue-1",
@@ -39,6 +43,62 @@ function makeReservation(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("resolveChannel", () => {
+  it("returns 'email' when preference is 'email' regardless of phone availability", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: "+15551234567",
+      communicationPreference: "email",
+    };
+    expect(resolveChannel(input)).toBe("email");
+  });
+
+  it("returns 'sms' when preference is 'sms'", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: "+15551234567",
+      communicationPreference: "sms",
+    };
+    expect(resolveChannel(input)).toBe("sms");
+  });
+
+  it("returns 'both' when preference is 'both'", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: "+15551234567",
+      communicationPreference: "both",
+    };
+    expect(resolveChannel(input)).toBe("both");
+  });
+
+  it("falls back to 'both' when no preference and both email and phone are present", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: "+15551234567",
+      communicationPreference: null,
+    };
+    expect(resolveChannel(input)).toBe("both");
+  });
+
+  it("falls back to 'sms' when no preference and only phone is present", () => {
+    const input: ResolveChannelInput = {
+      email: null,
+      phone: "+15551234567",
+      communicationPreference: null,
+    };
+    expect(resolveChannel(input)).toBe("sms");
+  });
+
+  it("falls back to 'email' when no preference and no phone", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: null,
+      communicationPreference: null,
+    };
+    expect(resolveChannel(input)).toBe("email");
+  });
+});
 
 describe("createDefaultBookingNotifier", () => {
   it("returns a BookingNotifier without constructing deps (no Redis connection at build time)", () => {
@@ -245,12 +305,12 @@ describe("createBookingNotifier", () => {
   it("resolveChannel prefers communicationPreference=email over data availability", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
-    // Reservation has both email and phone but pref = email
+    // Reservation has both email and phone but pref = email (via guest field)
     const startMs = Date.now() + 30 * 60 * 60 * 1000;
-    const reservation = {
-      ...makeReservation({ startTime: new Date(startMs).toISOString() }),
-      communicationPreference: "email",
-    };
+    const reservation = makeReservation({
+      startTime: new Date(startMs).toISOString(),
+      guest: { visitCount: 1, communicationPreference: "email" },
+    });
 
     await notifier.scheduleBookingNotifications(reservation as never, "token");
 
@@ -266,10 +326,10 @@ describe("createBookingNotifier", () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
     const startMs = Date.now() + 30 * 60 * 60 * 1000;
-    const reservation = {
-      ...makeReservation({ startTime: new Date(startMs).toISOString() }),
-      communicationPreference: null,
-    };
+    const reservation = makeReservation({
+      startTime: new Date(startMs).toISOString(),
+      guest: { visitCount: 1, communicationPreference: null },
+    });
 
     await notifier.scheduleBookingNotifications(reservation as never, "token");
 

@@ -131,8 +131,12 @@ describe("WalkInDialog", () => {
     render(<WalkInDialog {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: "5" }));
 
-    expect(screen.getByRole("button", { name: "5" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "2" }).getAttribute("aria-pressed")).toBe("false");
+    expect(
+      screen.getByRole("button", { name: "5" }).getAttribute("aria-pressed")
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "2" }).getAttribute("aria-pressed")
+    ).toBe("false");
   });
 
   it("should only show available tables with sufficient capacity", () => {
@@ -153,14 +157,22 @@ describe("WalkInDialog", () => {
 
   it("should show no-tables message when no tables fit", () => {
     // All tables occupied
-    const occupiedTables = makeTables().map((t) => ({ ...t, status: "OCCUPIED" as const }));
+    const occupiedTables = makeTables().map((t) => ({
+      ...t,
+      status: "OCCUPIED" as const,
+    }));
     render(<WalkInDialog {...defaultProps} tables={occupiedTables} />);
 
-    expect(screen.getByText(/no available tables for a party of 2/i)).toBeDefined();
+    expect(
+      screen.getByText(/no available tables for a party of 2/i)
+    ).toBeDefined();
   });
 
   it("should disable Seat Now when no tables available", () => {
-    const occupiedTables = makeTables().map((t) => ({ ...t, status: "OCCUPIED" as const }));
+    const occupiedTables = makeTables().map((t) => ({
+      ...t,
+      status: "OCCUPIED" as const,
+    }));
     render(<WalkInDialog {...defaultProps} tables={occupiedTables} />);
 
     expect(screen.getByRole("button", { name: "Seat Now" })).toBeDisabled();
@@ -320,7 +332,10 @@ describe("WalkInDialog", () => {
 
   it("should show error when no table is selected", async () => {
     // Provide tables but make none available so tableId stays empty
-    const _noAvailable = makeTables().map((t) => ({ ...t, status: "OCCUPIED" as const }));
+    const _noAvailable = makeTables().map((t) => ({
+      ...t,
+      status: "OCCUPIED" as const,
+    }));
     const smallTables: Table[] = [
       {
         id: "table-tiny",

@@ -20,6 +20,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 - Run `pnpm` from inside a package directory, not the monorepo root — turbo filter errors out at the root for `test`/`typecheck`/`build` in most packages
 - Parallel `Bash` tool calls don't share `cd` state and race each other — use absolute paths or `pnpm --dir <abs-path> <cmd>` when running in parallel
 - **Worktree agents must `pnpm install --frozen-lockfile` before running tests/builds.** Claude Code `isolation: "worktree"` creates a bare checkout without `node_modules`. Without the install step, `vitest: command not found` / `ELIFECYCLE` failures are guaranteed. This is the #1 recurring CI failure pattern across agent sessions
+- **`gh pr update-branch` drifts llms.txt artifacts** — the merge brings in new main changes but doesn't re-run `pnpm regen`. CI's "Verify generated artifacts" step then fails on stale llms.txt/llms-full.txt. The `regen-after-update-branch.sh` PostToolUse hook auto-fixes this by fetching the updated branch, running `pnpm regen`, and pushing a fixup commit. If the hook is unavailable, run manually: fetch branch → checkout → `pnpm regen` → commit → push
 
 ## CI
 

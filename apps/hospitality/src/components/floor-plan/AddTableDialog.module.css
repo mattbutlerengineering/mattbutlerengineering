@@ -132,9 +132,7 @@
   background: var(--rialto-surface);
   cursor: pointer;
   color: var(--rialto-text-secondary);
-  transition:
-    border-color 0.15s,
-    background 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .shapeButton:hover:not(:disabled) {

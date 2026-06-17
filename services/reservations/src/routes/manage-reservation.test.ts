@@ -117,39 +117,30 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(body.data.reservation.partySize).toBe(4);
     expect(body.data.venue.name).toBe("The Oak Table");
   });
+});
 
-  it("returns 401 for invalid token", async () => {
-    const response = await app.inject({
-      method: "GET",
-      url: "/public/v1/reservations/manage?token=garbage-token",
-    });
+describe("GET /public/v1/reservations/manage — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
 
-    expect(response.statusCode).toBe(401);
-  });
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "GET",
+        url: "/public/v1/reservations/manage?token=garbage-token",
+      });
+      responses.push(response);
+    }
 
-  it("returns 410 for expired token", async () => {
-    // Manually craft an expired token
-    const { createHmac } = await import("crypto");
-    const secret = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
-    const expiry = Date.now() - 1000; // already expired
-    const payload = `res_1:jane@example.com:${expiry}`;
-    const signature = createHmac("sha256", secret).update(payload).digest("hex");
-    const expiredToken = Buffer.from(`${payload}:${signature}`).toString("base64url");
+    await freshApp.close();
 
-    const response = await app.inject({
-      method: "GET",
-      url: `/public/v1/reservations/manage?token=${expiredToken}`,
-    });
-
-    expect(response.statusCode).toBe(410);
-  });
-
-  it("returns 400 when token query param is missing", async () => {
-    const response = await app.inject({
-      method: "GET",
-      url: "/public/v1/reservations/manage",
-    });
-
-    expect(response.statusCode).toBe(400);
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      expect(responses[i].statusCode).toBe(401);
+    }
+    expect(responses[10].statusCode).toBe(429);
   });
 });

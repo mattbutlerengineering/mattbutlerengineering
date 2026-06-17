@@ -9,6 +9,9 @@ on:
     paths:
       - "apps/hospitality/**"
 
+permissions:
+  contents: read
+
 jobs:
   screenshots:
     name: Capture E2E Screenshots

@@ -132,17 +132,16 @@ describe("PATCH /public/v1/reservations/confirm", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("returns 401 HTML for invalid token", async () => {
+  it("returns 401 for invalid token (preHandler — RFC 7807)", async () => {
     const response = await app.inject({
       method: "PATCH",
       url: "/public/v1/reservations/confirm?token=garbage",
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.headers["content-type"]).toContain("text/html");
   });
 
-  it("returns 410 HTML for expired token", async () => {
+  it("returns 410 for expired token (preHandler — RFC 7807)", async () => {
     const { createHmac } = await import("crypto");
     const secret = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
     const expiry = Date.now() - 1000;
@@ -156,6 +155,31 @@ describe("PATCH /public/v1/reservations/confirm", () => {
     });
 
     expect(response.statusCode).toBe(410);
-    expect(response.headers["content-type"]).toContain("text/html");
+  });
+});
+
+describe("PATCH /public/v1/reservations/confirm — rate limiting", () => {
+  it("has rate limiting configured at 10 req/min", async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    const freshApp = await buildApp({ logger: false });
+    await freshApp.ready();
+
+    // Send 11 requests — the 11th should be rate-limited
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await freshApp.inject({
+        method: "PATCH",
+        url: "/public/v1/reservations/confirm?token=garbage",
+      });
+      responses.push(response);
+    }
+
+    await freshApp.close();
+
+    // First 10 return 401 (invalid token), 11th should be rate limited
+    for (let i = 0; i < 10; i++) {
+      expect(responses[i].statusCode).toBe(401);
+    }
+    expect(responses[10].statusCode).toBe(429);
   });
 });

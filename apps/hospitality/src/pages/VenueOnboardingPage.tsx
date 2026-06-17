@@ -1,14 +1,27 @@
 import { useState, useCallback, useEffect, useRef, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  Card,
+  Text,
+  Stack,
+  useToast,
+} from "@mattbutlerengineering/rialto";
 import { ApiClient, VenuesClient } from "@mbe/api-client";
-import type { OperatingHours, CreateVenueRequest, VenueSettings } from "@mbe/types";
+import type {
+  OperatingHours,
+  CreateVenueRequest,
+  VenueSettings,
+} from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
-import { LocationTimeStep, detectTimezone } from "../components/venue-onboarding/LocationTimeStep";
+import {
+  LocationTimeStep,
+  detectTimezone,
+} from "../components/venue-onboarding/LocationTimeStep";
 import {
   OperatingHoursStep,
   validateOperatingHours,
@@ -59,8 +72,12 @@ export function VenueOnboardingPage() {
 
   // Step data — each piece of state is immutable (replaced, never mutated)
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>(INITIAL_BASIC_INFO);
-  const [locationTime, setLocationTime] = useState<LocationTimeData>(INITIAL_LOCATION_TIME);
-  const [operatingHours, setOperatingHours] = useState<OperatingHours>(INITIAL_OPERATING_HOURS);
+  const [locationTime, setLocationTime] = useState<LocationTimeData>(
+    INITIAL_LOCATION_TIME
+  );
+  const [operatingHours, setOperatingHours] = useState<OperatingHours>(
+    INITIAL_OPERATING_HOURS
+  );
   const [settings, setSettings] = useState<SettingsData>(INITIAL_SETTINGS);
 
   // Validation errors per step
@@ -70,9 +87,9 @@ export function VenueOnboardingPage() {
   const [locationTimeErrors, setLocationTimeErrors] = useState<
     Partial<Record<keyof LocationTimeData, string>>
   >({});
-  const [settingsErrors, setSettingsErrors] = useState<Partial<Record<keyof SettingsData, string>>>(
-    {}
-  );
+  const [settingsErrors, setSettingsErrors] = useState<
+    Partial<Record<keyof SettingsData, string>>
+  >({});
   const [operatingHoursErrors, setOperatingHoursErrors] =
     useState<OperatingHoursValidationErrors | null>(null);
 
@@ -111,7 +128,10 @@ export function VenueOnboardingPage() {
         await venuesClient.getBySlug(slug);
         // If it returns successfully, the slug is taken
         dispatchSlugStatus("taken");
-        setBasicInfoErrors((prev) => ({ ...prev, slug: "A venue with this slug already exists" }));
+        setBasicInfoErrors((prev) => ({
+          ...prev,
+          slug: "A venue with this slug already exists",
+        }));
       } catch {
         // 404 means slug is available
         dispatchSlugStatus("available");
@@ -136,7 +156,8 @@ export function VenueOnboardingPage() {
     if (!slug) {
       errors.slug = "Slug is required";
     } else if (!isValidSlug(slug)) {
-      errors.slug = "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
+      errors.slug =
+        "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
     } else if (slugStatus === "taken") {
       errors.slug = "A venue with this slug already exists";
     }
@@ -166,7 +187,8 @@ export function VenueOnboardingPage() {
     if (settings.defaultReservationDuration !== "") {
       const val = Number(settings.defaultReservationDuration);
       if (isNaN(val) || val <= 0) {
-        errors.defaultReservationDuration = "Duration must be a positive number";
+        errors.defaultReservationDuration =
+          "Duration must be a positive number";
       }
     }
 
@@ -254,7 +276,9 @@ export function VenueOnboardingPage() {
 
     const venueSettings: VenueSettings = {};
     if (settings.defaultReservationDuration !== "") {
-      venueSettings.defaultReservationDuration = Number(settings.defaultReservationDuration);
+      venueSettings.defaultReservationDuration = Number(
+        settings.defaultReservationDuration
+      );
     }
     if (settings.maxPartySize !== "") {
       venueSettings.maxPartySize = Number(settings.maxPartySize);
@@ -296,7 +320,9 @@ export function VenueOnboardingPage() {
       navigate("/setup", { replace: true });
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Failed to create venue. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Failed to create venue. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -305,7 +331,10 @@ export function VenueOnboardingPage() {
 
   return (
     <div>
-      <PageHeader title="New Venue" description="Set up your venue in a few steps" />
+      <PageHeader
+        title="New Venue"
+        description="Set up your venue in a few steps"
+      />
 
       <div className={styles.wizardContainer}>
         <StepIndicator
@@ -390,7 +419,11 @@ export function VenueOnboardingPage() {
             )}
 
             <Stack direction="row" gap="md" justify="between">
-              <Button variant="secondary" onClick={handleBack} disabled={currentStep === 1}>
+              <Button
+                variant="secondary"
+                onClick={handleBack}
+                disabled={currentStep === 1}
+              >
                 Back
               </Button>
 
@@ -399,7 +432,11 @@ export function VenueOnboardingPage() {
                   Next
                 </Button>
               ) : (
-                <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
+                <Button
+                  variant="primary"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Creating..." : "Create Venue"}
                 </Button>
               )}

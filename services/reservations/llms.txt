@@ -11,6 +11,14 @@
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/middleware/require-manage-token.ts">
+    <item priority="high">
+      export async function requireManageToken(
+        request: FastifyRequest<{ Querystring: { token?: string } }>,
+        reply: FastifyReply
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
@@ -246,12 +254,12 @@
     <item priority="medium">
       function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveChannel(
-        guestEmail: string | null,
-        guestPhone: string | null,
-        communicationPreference: string | null = null
-      ): "email" | "sms" | "both" { /* ... */ }
+    <item priority="low">
+      interface ResolveChannelInput {
+        email: string | null;
+        phone: string | null;
+        communicationPreference: string | null;
+      }
     </item>
   </file>
   <file path="src/services/confirm-hold.ts">

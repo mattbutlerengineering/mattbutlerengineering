@@ -145,6 +145,30 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/create-query-hook.ts">
+    export interface QueryHookResult<TData> {
+      data: TData | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TData> {
+      /** Base query key string */
+      key: string;
+      /** Fetcher function — receives params and api client, returns TData */
+      fetcher: (params: TParams | undefined, api: ReturnType<typeof useApiClient>) => Promise<TData>;
+      /**
+       * Optional predicate to derive the `enabled` flag from params.
+       * When omitted, the hook is always enabled unless params.enabled === false.
+       */
+      getEnabled?: (params: (TParams & { enabled?: boolean }) | undefined) => boolean;
+      /**
+       * Optional transform applied to query.data before returning.
+       * Use this to coalesce undefined → null, or extract a nested field.
+       */
+      select?: (data: TData | undefined) => TResult;
+    }
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
@@ -219,6 +243,36 @@
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+  </file>
+  <file path="src/hooks/useGuestDirectory.ts">
+    export interface UseGuestDirectoryParams {
+      venueId?: string | null;
+    }
+    export interface UseGuestDirectoryResult {
+      // Data
+      guests: Guest[];
+      segments: GuestSegment[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    
+      // Search
+      searchQuery: string;
+      setSearchQuery: (query: string) => void;
+      isSearchActive: boolean;
+    
+      // Selection
+      selectedGuestId: string | null;
+      selectedGuest: Guest | null;
+      selectGuest: (id: string) => void;
+      clearSelection: () => void;
+    
+      // Mutations
+      addGuest: (data: FindOrCreateGuestRequest) => Promise<void>;
+      updateGuest: (guestId: string, data: UpdateGuestRequest) => Promise<void>;
+      isAddingGuest: boolean;
+      isUpdatingGuest: boolean;
+    }
   </file>
   <file path="src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
