@@ -76,17 +76,11 @@
   </section>
   <section priority="medium" role="test">
   <file path="src/test/fixtures.ts">
-    <item priority="low">
-      interface UserFixture {
-        id: string;
-        email: string;
-        name: string | null;
-        picture: string | null;
-        emailVerified: boolean;
-      }
+    <item priority="high">
+      export const MOCK_USER: unknown;
     </item>
     <item priority="high">
-      export const MOCK_USER: UserFixture;
+      export const MOCK_JWT_PAYLOAD: unknown;
     </item>
   </file>
   </section>

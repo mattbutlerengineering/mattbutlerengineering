@@ -34,6 +34,7 @@ flowchart TD
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
+    test_fixtures["test-fixtures"]
     types["types"]
   end
   subgraph tools["Developer Tools"]
@@ -83,6 +84,7 @@ flowchart TD
   reservations_service --> sentry
   reservations_service --> types
   reservations_service --> config
+  reservations_service --> test_fixtures
   users_service --> auth
   users_service --> observability
   users_service --> sentry
@@ -90,6 +92,7 @@ flowchart TD
   users_service --> database
   users_service --> service_bootstrap
   users_service --> config
+  users_service --> test_fixtures
   agent_core --> api_client
   agent_core --> types
   agent_core --> config
@@ -122,6 +125,8 @@ flowchart TD
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
+  test_fixtures --> types
+  test_fixtures --> config
   types --> config
   cli --> agent_core
   cli --> api_client
@@ -154,6 +159,7 @@ flowchart TD
   class rialto_plugin shared
   class sentry shared
   class service_bootstrap shared
+  class test_fixtures shared
   class types shared
   class cli tooling
 ```

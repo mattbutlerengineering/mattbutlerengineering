@@ -627,26 +627,4 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="test">
-  <file path="src/test/mocks.ts">
-    <item priority="low">
-      interface MockTable {
-        id: string;
-        name: string;
-        tableNumber: string | null;
-        capacity: number;
-        minCovers: number;
-      }
-    </item>
-    <item priority="low">
-      interface MockReservation {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        partySize: number;
-      }
-    </item>
-  </file>
-  </section>
 </codebase>
