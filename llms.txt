@@ -749,6 +749,17 @@
   </file>
   </section>
   <section priority="medium" role="fastify">
+  <file path="packages/auth/src/fastify/ownership.ts">
+    <item priority="low">
+      interface AuthorizationContext {
+        isAdmin: boolean;
+        isOwner: boolean;
+      }
+    </item>
+    <item priority="low">
+      type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+    </item>
+  </file>
   <file path="packages/auth/src/fastify/plugin.ts">
     <item priority="low">
       interface AuthPluginOptions {
@@ -1650,8 +1661,11 @@
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
-    <item priority="high">
-      export const userRoutes: FastifyPluginAsync;
+    <item priority="low">
+      async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveTargetUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }
     </item>
   </file>
   </section>

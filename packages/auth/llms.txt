@@ -1,5 +1,16 @@
 <codebase path="packages/auth">
   <section priority="medium" role="fastify">
+  <file path="src/fastify/ownership.ts">
+    <item priority="low">
+      interface AuthorizationContext {
+        isAdmin: boolean;
+        isOwner: boolean;
+      }
+    </item>
+    <item priority="low">
+      type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+    </item>
+  </file>
   <file path="src/fastify/plugin.ts">
     <item priority="low">
       interface AuthPluginOptions {
