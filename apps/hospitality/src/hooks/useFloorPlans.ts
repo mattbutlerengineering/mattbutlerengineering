@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { FloorPlan, CreateTableRequest, Table } from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
+import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 
 export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
 export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
@@ -20,29 +21,16 @@ export interface UseFloorPlansResult {
   refetch: () => void;
 }
 
-export function useFloorPlans(params: UseFloorPlansParams = {}): UseFloorPlansResult {
-  const { venueId, limit = 50, enabled = true } = params;
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [FLOOR_PLANS_QUERY_KEY, { venueId, limit }],
-    queryFn: async () => {
-      const response = await api.floorPlans.list({
-        venueId: venueId ?? undefined,
-        limit,
-      });
-      return response.data;
-    },
-    enabled,
-  });
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
-}
+export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
+  key: FLOOR_PLANS_QUERY_KEY,
+  fetcher: async (params, api) => {
+    const response = await api.floorPlans.list({
+      venueId: params?.venueId ?? undefined,
+      limit: params?.limit ?? 50,
+    });
+    return response.data;
+  },
+});
 
 /* ── useFloorPlan (single) ───────────────────────────── */
 
@@ -53,24 +41,18 @@ export interface UseFloorPlanResult {
   refetch: () => void;
 }
 
+const useFloorPlanQuery = createQueryHook<FloorPlan | null, { id: string | undefined }>({
+  key: FLOOR_PLAN_QUERY_KEY,
+  fetcher: async (params, api) => {
+    const fp = await api.floorPlans.getById(params!.id!);
+    return fp;
+  },
+  getEnabled: (params) => !!params?.id,
+  select: (data) => data ?? null,
+});
+
 export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [FLOOR_PLAN_QUERY_KEY, id],
-    queryFn: async () => {
-      const fp = await api.floorPlans.getById(id!);
-      return fp;
-    },
-    enabled: !!id,
-  });
-
-  return {
-    data: query.data ?? null,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
+  return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
 }
 
 /* ── useCloneFloorPlan mutation ──────────────────────── */

@@ -15,17 +15,20 @@ function reminderJobId(jobType: string, reservationId: string): string {
   return `${jobType}:${reservationId}`;
 }
 
-function resolveChannel(
-  guestEmail: string | null,
-  guestPhone: string | null,
-  communicationPreference: string | null = null
-): "email" | "sms" | "both" {
+export interface ResolveChannelInput {
+  email: string | null;
+  phone: string | null;
+  communicationPreference: string | null;
+}
+
+export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "both" {
+  const { email, phone, communicationPreference } = input;
   if (communicationPreference === "email") return "email";
   if (communicationPreference === "sms") return "sms";
   if (communicationPreference === "both") return "both";
   // Fall back to data availability
-  if (guestEmail && guestPhone) return "both";
-  if (guestPhone) return "sms";
+  if (email && phone) return "both";
+  if (phone) return "sms";
   return "email";
 }
 
@@ -83,9 +86,11 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
 
     if (startMs <= now) return;
 
-    const communicationPreference = (reservation as unknown as Record<string, unknown>)
-      .communicationPreference as string | null | undefined;
-    const channel = resolveChannel(guestEmail, guestPhone, communicationPreference ?? null);
+    const channel = resolveChannel({
+      email: guestEmail,
+      phone: guestPhone,
+      communicationPreference: reservation.guest?.communicationPreference ?? null,
+    });
 
     const dayBeforeDelay = startMs - now - DAY_MS;
     if (dayBeforeDelay > 0) {

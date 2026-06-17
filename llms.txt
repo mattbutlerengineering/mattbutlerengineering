@@ -849,6 +849,24 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/create-query-hook.ts">
+    <item priority="low">
+      interface QueryHookResult {
+        data: TData | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface CreateQueryHookOptions {
+        key: string;
+        fetcher: (params: TParams | undefined, api: ReturnType<typeof useA...;
+        getEnabled?: (params: (TParams & { enabled?: boolean }) | undefined) =...;
+        select?: (data: TData | undefined) => TResult;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
@@ -1956,12 +1974,12 @@
     <item priority="medium">
       function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveChannel(
-        guestEmail: string | null,
-        guestPhone: string | null,
-        communicationPreference: string | null = null
-      ): "email" | "sms" | "both" { /* ... */ }
+    <item priority="low">
+      interface ResolveChannelInput {
+        email: string | null;
+        phone: string | null;
+        communicationPreference: string | null;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">

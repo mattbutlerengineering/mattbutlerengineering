@@ -2929,6 +2929,30 @@
       deleteSpec: (id: string) => Promise<void>;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/create-query-hook.ts">
+    export interface QueryHookResult<TData> {
+      data: TData | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TData> {
+      /** Base query key string */
+      key: string;
+      /** Fetcher function — receives params and api client, returns TData */
+      fetcher: (params: TParams | undefined, api: ReturnType<typeof useApiClient>) => Promise<TData>;
+      /**
+       * Optional predicate to derive the `enabled` flag from params.
+       * When omitted, the hook is always enabled unless params.enabled === false.
+       */
+      getEnabled?: (params: (TParams & { enabled?: boolean }) | undefined) => boolean;
+      /**
+       * Optional transform applied to query.data before returning.
+       * Use this to coalesce undefined → null, or extract a nested field.
+       */
+      select?: (data: TData | undefined) => TResult;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
       sections: readonly NavSection[];
@@ -11105,18 +11129,10 @@
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
     }
-    function resolveChannel(
-      guestEmail: string | null,
-      guestPhone: string | null,
-      communicationPreference: string | null = null
-    ): "email" | "sms" | "both" {
-      if (communicationPreference === "email") return "email";
-      if (communicationPreference === "sms") return "sms";
-      if (communicationPreference === "both") return "both";
-      // Fall back to data availability
-      if (guestEmail && guestPhone) return "both";
-      if (guestPhone) return "sms";
-      return "email";
+    export interface ResolveChannelInput {
+      email: string | null;
+      phone: string | null;
+      communicationPreference: string | null;
     }
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -12028,7 +12044,15 @@
         return false;
       }
     
-      if (!guest.email) {
+      // Use shared channel resolver to determine delivery path.
+      const channel = resolveChannel({
+        email: guest.email,
+        phone: guest.phone,
+        communicationPreference: guest.communicationPreference,
+      });
+    
+      // Win-back is email-only; skip guests without an email address.
+      if (channel === "sms" || !guest.email) {
         return false;
       }
     
