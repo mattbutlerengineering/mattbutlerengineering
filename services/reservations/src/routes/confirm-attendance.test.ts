@@ -132,17 +132,16 @@ describe("PATCH /public/v1/reservations/confirm", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("returns 401 HTML for invalid token", async () => {
+  it("returns 401 for invalid token (preHandler — RFC 7807)", async () => {
     const response = await app.inject({
       method: "PATCH",
       url: "/public/v1/reservations/confirm?token=garbage",
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.headers["content-type"]).toContain("text/html");
   });
 
-  it("returns 410 HTML for expired token", async () => {
+  it("returns 410 for expired token (preHandler — RFC 7807)", async () => {
     const { createHmac } = await import("crypto");
     const secret = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
     const expiry = Date.now() - 1000;
@@ -156,7 +155,6 @@ describe("PATCH /public/v1/reservations/confirm", () => {
     });
 
     expect(response.statusCode).toBe(410);
-    expect(response.headers["content-type"]).toContain("text/html");
   });
 });
 

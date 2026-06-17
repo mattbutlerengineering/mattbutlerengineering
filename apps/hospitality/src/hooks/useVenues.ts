@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Venue, UpdateVenueRequest } from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
+import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 
 export const VENUES_QUERY_KEY = "venues" as const;
 export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
@@ -19,26 +20,13 @@ export interface UseVenuesResult {
   refetch: () => void;
 }
 
-export function useVenues(params: UseVenuesParams = {}): UseVenuesResult {
-  const { limit = 50, enabled = true } = params;
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [VENUES_QUERY_KEY, { limit }],
-    queryFn: async () => {
-      const response = await api.venues.list({ limit });
-      return response.data;
-    },
-    enabled,
-  });
-
-  return {
-    data: query.data,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
-}
+export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
+  key: VENUES_QUERY_KEY,
+  fetcher: async (params, api) => {
+    const response = await api.venues.list({ limit: params?.limit ?? 50 });
+    return response.data;
+  },
+});
 
 /* ── useUpdateVenue mutation ─────────────────────────── */
 
@@ -63,21 +51,16 @@ export interface UseVenueBySlugResult {
   error: Error | null;
 }
 
+const useVenueBySlugQuery = createQueryHook<Venue | null, { slug: string | undefined }>({
+  key: VENUE_BY_SLUG_QUERY_KEY,
+  fetcher: async (params, api) => {
+    if (!params?.slug) return null;
+    return api.venues.getBySlug(params.slug);
+  },
+  getEnabled: (params) => !!params?.slug,
+  select: (data) => data ?? null,
+});
+
 export function useVenueBySlug(slug: string | undefined): UseVenueBySlugResult {
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [VENUE_BY_SLUG_QUERY_KEY, slug],
-    queryFn: async () => {
-      if (!slug) return null;
-      return api.venues.getBySlug(slug);
-    },
-    enabled: !!slug,
-  });
-
-  return {
-    data: query.data ?? null,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-  };
+  return useVenueBySlugQuery({ slug }) as QueryHookResult<Venue | null>;
 }

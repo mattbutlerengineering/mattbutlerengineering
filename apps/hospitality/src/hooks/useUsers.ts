@@ -1,6 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { User, UpdateUserRequest, UpdatePreferencesRequest } from "@mbe/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type {
+  User,
+  UpdateUserRequest,
+  UpdatePreferencesRequest,
+  PaginatedResponse,
+} from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
+import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 
 export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
 export const USERS_QUERY_KEY = "users" as const;
@@ -14,20 +20,14 @@ export interface UseCurrentUserResult {
   refetch: () => void;
 }
 
+const useCurrentUserQuery = createQueryHook<User | null>({
+  key: CURRENT_USER_QUERY_KEY,
+  fetcher: (_params, api) => api.users.me(),
+  select: (data) => data ?? null,
+});
+
 export function useCurrentUser(): UseCurrentUserResult {
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [CURRENT_USER_QUERY_KEY],
-    queryFn: () => api.users.me(),
-  });
-
-  return {
-    data: query.data ?? null,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
-  };
+  return useCurrentUserQuery() as QueryHookResult<User | null>;
 }
 
 /* ── useUpdateCurrentUser mutation ───────────────────── */
@@ -83,23 +83,18 @@ export interface UseUsersResult {
   refetch: () => void;
 }
 
+const useUsersQuery = createQueryHook<PaginatedResponse<User>, UseUsersParams>({
+  key: USERS_QUERY_KEY,
+  fetcher: (params, api) => api.users.list(params?.page ?? 1, params?.limit ?? 10),
+});
+
 export function useUsers(params: UseUsersParams = {}): UseUsersResult {
-  const { page = 1, limit = 10, enabled = true } = params;
-  const api = useApiClient();
-
-  const query = useQuery({
-    queryKey: [USERS_QUERY_KEY, { page, limit }],
-    queryFn: async () => {
-      return api.users.list(page, limit);
-    },
-    enabled,
-  });
-
+  const result = useUsersQuery(params);
   return {
-    data: query.data?.data,
-    pagination: query.data?.pagination,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
+    data: result.data?.data,
+    pagination: result.data?.pagination,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
   };
 }

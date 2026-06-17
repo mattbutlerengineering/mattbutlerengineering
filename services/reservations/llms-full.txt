@@ -9,6 +9,48 @@
       return `${ip}:${venueSlug}`;
     }
   </file>
+  <file path="src/middleware/require-manage-token.ts">
+    export async function requireManageToken(
+      request: FastifyRequest<{ Querystring: { token?: string } }>,
+      reply: FastifyReply
+    ): Promise<void> {
+      const { token } = request.query;
+    
+      if (!token) {
+        await reply.status(400).send({
+          type: "about:blank",
+          title: "Missing Token",
+          status: 400,
+          detail: "Token query parameter is required",
+        });
+        return;
+      }
+    
+      const result = verifyManageToken(token);
+    
+      if (!result.valid && result.expired) {
+        await reply.status(410).send({
+          type: "about:blank",
+          title: "Token Expired",
+          status: 410,
+          detail: "This manage link has expired",
+        });
+        return;
+      }
+    
+      if (!result.valid) {
+        await reply.status(401).send({
+          type: "about:blank",
+          title: "Invalid Token",
+          status: 401,
+          detail: "Invalid or malformed token",
+        });
+        return;
+      }
+    
+      request.managedReservationId = result.reservationId!;
+    }
+  </file>
   </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
@@ -287,40 +329,10 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
+          preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const { token } = request.query;
-    
-          if (!token) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Missing Token",
-              status: 400,
-              detail: "Token query parameter is required",
-            });
-          }
-    
-          const result = verifyManageToken(token);
-    
-          if (!result.valid && result.expired) {
-            return reply.status(410).send({
-              type: "about:blank",
-              title: "Token Expired",
-              status: 410,
-              detail: "This manage link has expired",
-            });
-          }
-    
-          if (!result.valid) {
-            return reply.status(401).send({
-              type: "about:blank",
-              title: "Invalid Token",
-              status: 401,
-              detail: "Invalid or malformed token",
-            });
-          }
-    
-          const reservation = await reservationService.getById(result.reservationId!);
+          const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
             return reply.status(404).send({
               type: "about:blank",
@@ -391,7 +403,7 @@
                   venueName: venue.name,
                   venueTimezone: venue.ianaTimezone,
                   venueAddress: null,
-                  manageToken: token,
+                  manageToken: request.query.token!,
                 },
                 preference
               );
@@ -415,31 +427,16 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
+          preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const { token } = request.query;
-    
-          if (!token) {
-            return reply.status(401).type("text/html").send(invalidHtml);
-          }
-    
-          const result = verifyManageToken(token);
-    
-          if (!result.valid && result.expired) {
-            return reply.status(410).type("text/html").send(expiredHtml);
-          }
-    
-          if (!result.valid) {
-            return reply.status(401).type("text/html").send(invalidHtml);
-          }
-    
-          const reservation = await reservationService.getById(result.reservationId!);
+          const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
             return reply.status(401).type("text/html").send(invalidHtml);
           }
     
           if (reservation.status === "PENDING") {
-            await reservationService.update(result.reservationId!, { status: "CONFIRMED" });
+            await reservationService.update(request.managedReservationId, { status: "CONFIRMED" });
           }
     
           return reply.status(200).type("text/html").send(successHtml);
@@ -2003,40 +2000,10 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
+          preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const { token } = request.query;
-    
-          if (!token) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Missing Token",
-              status: 400,
-              detail: "Token query parameter is required",
-            });
-          }
-    
-          const result = verifyManageToken(token);
-    
-          if (!result.valid && result.expired) {
-            return reply.status(410).send({
-              type: "about:blank",
-              title: "Token Expired",
-              status: 410,
-              detail: "This manage link has expired",
-            });
-          }
-    
-          if (!result.valid) {
-            return reply.status(401).send({
-              type: "about:blank",
-              title: "Invalid Token",
-              status: 401,
-              detail: "Invalid or malformed token",
-            });
-          }
-    
-          const reservation = await reservationService.getById(result.reservationId!);
+          const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
             return reply.status(404).send({
               type: "about:blank",
@@ -2086,40 +2053,10 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
+          preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const { token } = request.query;
-    
-          if (!token) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Missing Token",
-              status: 400,
-              detail: "Token query parameter is required",
-            });
-          }
-    
-          const result = verifyManageToken(token);
-    
-          if (!result.valid && result.expired) {
-            return reply.status(410).send({
-              type: "about:blank",
-              title: "Token Expired",
-              status: 410,
-              detail: "This manage link has expired",
-            });
-          }
-    
-          if (!result.valid) {
-            return reply.status(401).send({
-              type: "about:blank",
-              title: "Invalid Token",
-              status: 401,
-              detail: "Invalid or malformed token",
-            });
-          }
-    
-          const reservation = await reservationService.getById(result.reservationId!);
+          const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
             return reply.status(404).send({
               type: "about:blank",
@@ -2203,7 +2140,7 @@
           const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
           if (timeChanged) {
             fastify.bookingNotifier
-              .rescheduleBookingReminders(updated, token)
+              .rescheduleBookingReminders(updated, request.query.token!)
               .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
           }
     
@@ -2230,7 +2167,7 @@
                   venueName: venue.name,
                   venueTimezone: venue.ianaTimezone,
                   venueAddress: null,
-                  manageToken: token,
+                  manageToken: request.query.token!,
                   sequence: 2,
                 },
                 preference
@@ -4791,18 +4728,10 @@
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
     }
-    function resolveChannel(
-      guestEmail: string | null,
-      guestPhone: string | null,
-      communicationPreference: string | null = null
-    ): "email" | "sms" | "both" {
-      if (communicationPreference === "email") return "email";
-      if (communicationPreference === "sms") return "sms";
-      if (communicationPreference === "both") return "both";
-      // Fall back to data availability
-      if (guestEmail && guestPhone) return "both";
-      if (guestPhone) return "sms";
-      return "email";
+    export interface ResolveChannelInput {
+      email: string | null;
+      phone: string | null;
+      communicationPreference: string | null;
     }
   </file>
   <file path="src/services/confirm-hold.ts">
@@ -5714,7 +5643,15 @@
         return false;
       }
     
-      if (!guest.email) {
+      // Use shared channel resolver to determine delivery path.
+      const channel = resolveChannel({
+        email: guest.email,
+        phone: guest.phone,
+        communicationPreference: guest.communicationPreference,
+      });
+    
+      // Win-back is email-only; skip guests without an email address.
+      if (channel === "sms" || !guest.email) {
         return false;
       }
     
