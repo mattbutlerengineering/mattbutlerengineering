@@ -11124,18 +11124,10 @@
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
     }
-    function resolveChannel(
-      guestEmail: string | null,
-      guestPhone: string | null,
-      communicationPreference: string | null = null
-    ): "email" | "sms" | "both" {
-      if (communicationPreference === "email") return "email";
-      if (communicationPreference === "sms") return "sms";
-      if (communicationPreference === "both") return "both";
-      // Fall back to data availability
-      if (guestEmail && guestPhone) return "both";
-      if (guestPhone) return "sms";
-      return "email";
+    export interface ResolveChannelInput {
+      email: string | null;
+      phone: string | null;
+      communicationPreference: string | null;
     }
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -12047,7 +12039,15 @@
         return false;
       }
     
-      if (!guest.email) {
+      // Use shared channel resolver to determine delivery path.
+      const channel = resolveChannel({
+        email: guest.email,
+        phone: guest.phone,
+        communicationPreference: guest.communicationPreference,
+      });
+    
+      // Win-back is email-only; skip guests without an email address.
+      if (channel === "sms" || !guest.email) {
         return false;
       }
     
