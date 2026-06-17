@@ -6,21 +6,10 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-vi.mock("../services/database.js", () => ({
-  prisma: {
-    $queryRaw: vi.fn(),
-  },
-  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
-  getServiceStatus: vi.fn().mockReturnValue("ok"),
-  getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1,
-    idle: 4,
-    busy: 1,
-    size: 5,
-    utilization: 0.2,
-    isDegraded: false,
-  }),
-}));
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService();
+});
 
 // Stub fetch at module scope so registerStandardChecks (called at module load
 // time in ready.ts) captures this mock rather than the real globalThis.fetch.

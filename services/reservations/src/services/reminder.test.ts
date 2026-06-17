@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { findReservationsNeedingReminder } from "./reminder.js";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    reservation: {
-      findMany: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      reservation: {
+        findMany: vi.fn(),
+      },
     },
-  },
-}));
+  });
+});
 
 import { prisma } from "./database.js";
 
