@@ -349,3 +349,12 @@ export type {
 } from "./reviewer-contract.js";
 
 export { PASS_THRESHOLD, DEFAULT_REVIEW_RETRY_POLICY } from "./reviewer-contract.js";
+
+// Reviewer runner (dispatches the Reviewer sub-agent in the merge train)
+export {
+  runReviewer,
+  parseReviewerVerdict,
+  selectRetryAction,
+  DEFAULT_REVIEWER_CONFIG,
+} from "./reviewer-runner.js";
+export type { ReviewerConfig, RunReviewerOptions } from "./reviewer-runner.js";

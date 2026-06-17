@@ -1721,6 +1721,21 @@
       readonly suggestion?: string;
     }
   </file>
+  <file path="src/reviewer-runner.ts">
+    export interface ReviewerConfig {
+      /** Model to use for the reviewer. Default: haiku (fast + cheap). */
+      readonly model: string;
+      /** Maximum spend per review in USD. Default: 0.05. */
+      readonly maxBudgetUsd: number;
+      /** Wall-clock timeout in ms. Reviewer fails-open on timeout. Default: 30_000. */
+      readonly timeoutMs: number;
+    }
+    export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
+      model: resolveModelId("haiku"),
+      maxBudgetUsd: 0.05,
+      timeoutMs: 30_000,
+    };
+  </file>
   <file path="src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({
       failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
