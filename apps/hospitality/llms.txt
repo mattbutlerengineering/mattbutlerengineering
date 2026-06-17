@@ -80,6 +80,24 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/create-query-hook.ts">
+    <item priority="low">
+      interface QueryHookResult {
+        data: TData | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface CreateQueryHookOptions {
+        key: string;
+        fetcher: (params: TParams | undefined, api: ReturnType<typeof useA...;
+        getEnabled?: (params: (TParams & { enabled?: boolean }) | undefined) =...;
+        select?: (data: TData | undefined) => TResult;
+      }
+    </item>
+  </file>
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
       interface UseCommandPaletteOptions {
