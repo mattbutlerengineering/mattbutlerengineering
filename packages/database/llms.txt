@@ -24,5 +24,20 @@
       export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
+  <file path="src/testing.ts">
+    <item priority="low">
+      interface MockPrisma {
+        $queryRaw: ReturnType<typeof vi.fn>;
+      }
+    </item>
+    <item priority="low">
+      interface MockDatabaseService {
+        prisma: MockPrisma;
+        getSlowQueryStats: ReturnType<typeof vi.fn>;
+        getServiceStatus: ReturnType<typeof vi.fn>;
+        getPoolMetrics: ReturnType<typeof vi.fn>;
+      }
+    </item>
+  </file>
   </section>
 </codebase>

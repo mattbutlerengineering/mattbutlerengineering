@@ -1,26 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    floorPlan: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      delete: vi.fn(),
-      count: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      floorPlan: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn(),
+      },
+      table: {
+        createMany: vi.fn(),
+        update: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      $transaction: vi.fn(),
     },
-    table: {
-      createMany: vi.fn(),
-      update: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
-}));
+  });
+});
 
 vi.mock("./events.js", () => ({
   emitFloorPlanCreated: vi.fn(),

@@ -72,19 +72,10 @@ vi.mock("../services/floor-plan.js", () => ({
     removeTable: vi.fn(),
   },
 }));
-vi.mock("../services/database.js", () => ({
-  prisma: { $queryRaw: vi.fn().mockResolvedValue([{ result: 1 }]) },
-  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
-  getServiceStatus: vi.fn().mockReturnValue("ok"),
-  getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1,
-    idle: 4,
-    busy: 1,
-    size: 5,
-    utilization: 0.2,
-    isDegraded: false,
-  }),
-}));
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService();
+});
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),

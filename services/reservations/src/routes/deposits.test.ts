@@ -13,16 +13,10 @@ const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../services/database.js", () => ({
-  prisma: {
-    deposit: mockDepositDb,
-    guest: mockGuestDb,
-  },
-  getSlowQueryStats: vi.fn().mockReturnValue([]),
-  getPoolStats: vi.fn().mockReturnValue({}),
-  getPoolMetrics: vi.fn().mockReturnValue({}),
-  getServiceStatus: vi.fn().mockReturnValue("ok"),
-}));
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
+});
 
 const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({
   mockPaymentIntents: {

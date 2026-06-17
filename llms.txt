@@ -3382,6 +3382,21 @@
       export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
+  <file path="packages/database/src/testing.ts">
+    <item priority="low">
+      interface MockPrisma {
+        $queryRaw: ReturnType<typeof vi.fn>;
+      }
+    </item>
+    <item priority="low">
+      interface MockDatabaseService {
+        prisma: MockPrisma;
+        getSlowQueryStats: ReturnType<typeof vi.fn>;
+        getServiceStatus: ReturnType<typeof vi.fn>;
+        getPoolMetrics: ReturnType<typeof vi.fn>;
+      }
+    </item>
+  </file>
   <file path="packages/jobs/src/job-types.ts">
     <item priority="high">
       export const JOB_TYPES: unknown;
