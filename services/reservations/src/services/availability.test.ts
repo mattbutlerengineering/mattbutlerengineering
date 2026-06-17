@@ -1,25 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    venue: {
-      findUnique: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      venue: {
+        findUnique: vi.fn(),
+      },
+      table: {
+        findMany: vi.fn(),
+      },
+      reservation: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        aggregate: vi.fn(),
+      },
+      reservationHold: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        aggregate: vi.fn(),
+      },
     },
-    table: {
-      findMany: vi.fn(),
-    },
-    reservation: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      aggregate: vi.fn(),
-    },
-    reservationHold: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      aggregate: vi.fn(),
-    },
-  },
-}));
+  });
+});
 
 import {
   availabilityService,

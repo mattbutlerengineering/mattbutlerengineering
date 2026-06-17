@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { recognizeGuest } from "./guest-recognition.js";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    venue: {
-      findFirst: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      venue: {
+        findFirst: vi.fn(),
+      },
+      guest: {
+        findUnique: vi.fn(),
+      },
     },
-    guest: {
-      findUnique: vi.fn(),
-    },
-  },
-}));
+  });
+});
 
 import { prisma } from "./database.js";
 

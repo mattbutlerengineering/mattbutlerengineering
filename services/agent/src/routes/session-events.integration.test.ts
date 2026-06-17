@@ -27,35 +27,28 @@ vi.mock("jose", () => ({
   }),
 }));
 
-vi.mock("../services/database.js", () => ({
-  prisma: {
-    $queryRaw: vi.fn(),
-    session: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      count: vi.fn(),
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      $queryRaw: vi.fn(),
+      session: {
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        count: vi.fn(),
+      },
+      sessionEvent: {
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        findUnique: vi.fn(),
+      },
     },
-    sessionEvent: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      findUnique: vi.fn(),
-    },
-  },
-  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
-  getServiceStatus: vi.fn().mockReturnValue("ok"),
-  getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1,
-    idle: 4,
-    busy: 1,
-    size: 5,
-    utilization: 0.2,
-    isDegraded: false,
-  }),
-}));
+  });
+});
 
 vi.mock("../services/session-executor.js", () => ({
   executeSession: vi.fn(),

@@ -1,23 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    venue: {
-      findUnique: vi.fn(),
+vi.mock("./database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      venue: {
+        findUnique: vi.fn(),
+      },
+      reservationHold: {
+        findUnique: vi.fn(),
+        delete: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      reservation: {
+        create: vi.fn(),
+        findFirst: vi.fn(),
+      },
+      $transaction: vi.fn(),
     },
-    reservationHold: {
-      findUnique: vi.fn(),
-      delete: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-    reservation: {
-      create: vi.fn(),
-      findFirst: vi.fn(),
-    },
-    $transaction: vi.fn(),
-  },
-}));
+  });
+});
 
 vi.mock("./events.js", () => ({
   emitHoldConfirmed: vi.fn(),

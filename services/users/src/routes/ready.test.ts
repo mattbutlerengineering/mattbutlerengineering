@@ -2,26 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 // Mock database before importing app
-vi.mock("../services/database.js", () => ({
-  prisma: {
-    $queryRaw: vi.fn(),
-    user: {
-      findUnique: vi.fn(),
-      upsert: vi.fn(),
-      update: vi.fn(),
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService({
+    prisma: {
+      $queryRaw: vi.fn(),
+      user: {
+        findUnique: vi.fn(),
+        upsert: vi.fn(),
+        update: vi.fn(),
+      },
     },
-  },
-  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
-  getServiceStatus: vi.fn().mockReturnValue("ok"),
-  getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1,
-    idle: 4,
-    busy: 1,
-    size: 5,
-    utilization: 0.2,
-    isDegraded: false,
-  }),
-}));
+  });
+});
 
 vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
