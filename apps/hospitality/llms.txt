@@ -162,6 +162,22 @@
       export const FLOOR_PLAN_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/useGuestDirectory.ts">
+    <item priority="low">
+      interface UseGuestDirectoryParams {
+        venueId?: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestDirectoryResult {
+        guests: Guest[];
+        segments: GuestSegment[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useGuestRecognition.ts">
     <item priority="low">
       interface GuestRecognitionResult {
