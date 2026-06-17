@@ -665,74 +665,6 @@
       }
     }
   </file>
-  <file path="tools/cli/src/adapters/claude-adapter.ts">
-    function deriveHasChanges(result: SessionResult): boolean {
-      if (result.prUrl !== null) return true;
-      // If the session succeeded and produced a branch, there were likely changes
-      // even if the PR wasn't created (createPr: false path).
-      if (result.status === "succeeded" && result.branchName.length > 0) return true;
-      return false;
-    }
-    export class ClaudeAdapter implements AgentAdapter {
-      readonly name = "claude";
-    
-      /**
-       * The Claude SDK adapter is available when the ANTHROPIC_API_KEY env var is set.
-       */
-      async isAvailable(): Promise<boolean> {
-        return (
-          typeof process.env["ANTHROPIC_API_KEY"] === "string" &&
-          process.env["ANTHROPIC_API_KEY"].length > 0
-        );
-      }
-    
-      /**
-       * Map AdapterConfig to SessionConfig, invoke runSession(), and normalise the
-       * result back to AdapterResult.
-       */
-      async run(config: AdapterConfig): Promise<AdapterResult> {
-        const startTime = Date.now();
-    
-        try {
-          const sessionResult = await runSession({
-            taskDescription: config.taskDescription,
-            repoPath: config.repoPath,
-            baseBranch: config.baseBranch,
-            model: config.model ?? DEFAULT_SESSION_CONFIG.model,
-            maxTurns: config.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
-            maxBudgetUsd: DEFAULT_SESSION_CONFIG.maxBudgetUsd,
-            allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-            createPr: false, // Worktree lifecycle is managed by the caller / router
-          });
-    
-          const durationMs = Date.now() - startTime;
-          const rateLimited = sessionResult.failureCategory === "rate_limited";
-          const success = sessionResult.status === "succeeded";
-          const hasChanges = deriveHasChanges(sessionResult);
-    
-          return {
-            success,
-            hasChanges,
-            rateLimited,
-            durationMs,
-            ...(success ? {} : { error: sessionResult.errors.join("; ") || undefined }),
-          };
-        } catch (err: unknown) {
-          const durationMs = Date.now() - startTime;
-          const message = err instanceof Error ? err.message : String(err);
-          const rateLimited = scanForRateLimitPatterns(message);
-    
-          return {
-            success: false,
-            hasChanges: false,
-            rateLimited,
-            durationMs,
-            error: message,
-          };
-        }
-      }
-    }
-  </file>
   <file path="tools/cli/src/adapters/cli-adapter.ts">
     export interface AdapterConfig {
       /** Human-readable description of the task for the agent to perform. */
@@ -780,29 +712,28 @@
     };
   </file>
   <file path="tools/cli/src/adapters/gemini-adapter.ts">
-    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
-      if (task.length <= maxLength) return task;
-      return task.slice(0, maxLength - 3) + "...";
-    }
-    function buildCommitMessage(task: string): string {
-      const maxSubject = 72;
-      const prefix = "feat: ";
-      const available = maxSubject - prefix.length;
-      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-      return `${prefix}${subject}`;
+    export class GeminiCliAdapter extends SpawnAndCommitBase {
+      readonly name = "gemini";
+      protected readonly binary = "gemini";
+      protected readonly defaultError = "Gemini CLI exited with non-zero status";
+    
+      /**
+       * Gemini CLI args: `-p <task> --yolo` for non-interactive execution.
+       */
+      protected buildArgs(task: string): string[] {
+        return ["-p", task, "--yolo"];
+      }
     }
   </file>
   <file path="tools/cli/src/adapters/opencode-adapter.ts">
-    function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string {
-      if (task.length <= maxLength) return task;
-      return task.slice(0, maxLength - 3) + "...";
-    }
-    function buildCommitMessage(task: string): string {
-      const maxSubject = 72;
-      const prefix = "feat: ";
-      const available = maxSubject - prefix.length;
-      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-      return `${prefix}${subject}`;
+    export class OpenCodeAdapter extends SpawnAndCommitBase {
+      readonly name = "opencode";
+      protected readonly binary = "opencode";
+      protected readonly defaultError = "OpenCode CLI exited with non-zero status";
+    
+      protected buildArgs(task: string): string[] {
+        return ["run", task];
+      }
     }
   </file>
   <file path="tools/cli/src/adapters/rate-limit-detector.ts">
@@ -871,6 +802,18 @@
       getState(adapterName: string): AdapterState | undefined {
         return this.states.get(adapterName);
       }
+    }
+  </file>
+  <file path="tools/cli/src/adapters/spawn-and-commit-base.ts">
+    function truncateTask(task: string): string {
+      if (task.length <= MAX_TASK_LENGTH) return task;
+      return task.slice(0, MAX_TASK_LENGTH - 3) + "...";
+    }
+    function buildCommitMessage(task: string): string {
+      const prefix = "feat: ";
+      const available = MAX_COMMIT_SUBJECT - prefix.length;
+      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
+      return `${prefix}${subject}`;
     }
   </file>
   </section>

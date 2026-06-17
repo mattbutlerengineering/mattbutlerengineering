@@ -10,10 +10,8 @@ const mockRunVerification = vi.fn();
 const mockPushBranch = vi.fn();
 const mockCreatePullRequest = vi.fn();
 
-const mockClaudeRun = vi.fn();
 const mockGeminiRun = vi.fn();
 const mockOpenCodeRun = vi.fn();
-const mockClaudeIsAvailable = vi.fn();
 const mockGeminiIsAvailable = vi.fn();
 const mockOpenCodeIsAvailable = vi.fn();
 const mockRouterRoute = vi.fn();
@@ -57,14 +55,6 @@ vi.mock("../adapters/failover-router.js", () => ({
       this.cooldowns = cooldowns;
     }
   },
-}));
-
-vi.mock("../adapters/claude-adapter.js", () => ({
-  ClaudeAdapter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.name = "claude";
-    this.isAvailable = mockClaudeIsAvailable;
-    this.run = mockClaudeRun;
-  }),
 }));
 
 vi.mock("../adapters/gemini-adapter.js", () => ({
@@ -154,16 +144,14 @@ describe("agent run --adapter", () => {
     const sessionConfig = mockRunSession.mock.calls[0][0];
     expect(sessionConfig.taskDescription).toBe("fix bug");
 
-    // Verify adapter constructors were NOT invoked
-    const { ClaudeAdapter } = await import("../adapters/claude-adapter.js");
+    // Verify CLI adapter constructors were NOT invoked (runSession called directly)
     const { GeminiCliAdapter } = await import("../adapters/gemini-adapter.js");
     const { OpenCodeAdapter } = await import("../adapters/opencode-adapter.js");
-    expect(ClaudeAdapter).not.toHaveBeenCalled();
     expect(GeminiCliAdapter).not.toHaveBeenCalled();
     expect(OpenCodeAdapter).not.toHaveBeenCalled();
   });
 
-  it("auto adapter creates all 3 adapters and uses FailoverRouter", async () => {
+  it("auto adapter creates gemini+opencode adapters and uses FailoverRouter", async () => {
     mockCreateWorktree.mockResolvedValueOnce({
       path: "/tmp/worktree-test",
       branchName: "agent/test-task",
@@ -191,12 +179,10 @@ describe("agent run --adapter", () => {
     ]);
 
     const { FailoverRouter } = await import("../adapters/failover-router.js");
-    const { ClaudeAdapter } = await import("../adapters/claude-adapter.js");
     const { GeminiCliAdapter } = await import("../adapters/gemini-adapter.js");
     const { OpenCodeAdapter } = await import("../adapters/opencode-adapter.js");
 
     expect(FailoverRouter).toHaveBeenCalledTimes(1);
-    expect(ClaudeAdapter).toHaveBeenCalledTimes(1);
     expect(GeminiCliAdapter).toHaveBeenCalledTimes(1);
     expect(OpenCodeAdapter).toHaveBeenCalledTimes(1);
 
