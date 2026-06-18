@@ -103,6 +103,33 @@ describe("parseAgentFrontmatter", () => {
   });
 });
 
+describe("parseAgentFrontmatter — escalate field (#2031)", () => {
+  it("parses escalate: sonnet", () => {
+    const result = parseAgentFrontmatter(
+      body("```yaml agent\nmodel: haiku\nescalate: sonnet\n```")
+    );
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ model: "haiku", escalate: "sonnet" });
+  });
+
+  it("parses escalate: opus", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: opus\n```"));
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ escalate: "opus" });
+  });
+
+  it("rejects an invalid escalate tier with a warning", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: gpt-5\n```"));
+    expect(result.overrides).toBeNull();
+    expect(result.warnings.some((w) => w.includes("escalate"))).toBe(true);
+  });
+
+  it("includes escalate in known-key list so it does not produce an 'unknown key' warning", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: sonnet\n```"));
+    expect(result.warnings).toEqual([]);
+  });
+});
+
 describe("flagsFromOverrides", () => {
   it("returns empty array for null overrides", () => {
     expect(flagsFromOverrides(null)).toEqual([]);
