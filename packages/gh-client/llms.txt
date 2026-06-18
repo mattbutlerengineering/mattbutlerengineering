@@ -1,0 +1,36 @@
+<codebase path="packages/gh-client">
+  <section priority="medium" role="src">
+  <file path="src/client.ts">
+    <item priority="low">
+      interface GhClientOptions {
+        runner?: ExecRunner;
+      }
+    </item>
+    <item priority="medium">
+      function buildLabelArgs(transition: LabelTransition): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/exec-runner.ts">
+    <item priority="low">
+      type ExecRunner = (
+        cmd: string,
+        args: string[],
+        opts: { encoding: "u...;
+    </item>
+    <item priority="low">
+      interface ExecRunnerOptions {
+        runner?: ExecRunner;
+        timeoutMs?: number;
+      }
+    </item>
+  </file>
+  <file path="src/label-machine.ts">
+    <item priority="high">
+      export const COORDINATION_LABELS: unknown;
+    </item>
+    <item priority="low">
+      type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
+  </section>
+</codebase>
