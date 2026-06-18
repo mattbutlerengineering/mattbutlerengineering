@@ -3,7 +3,6 @@ import { prisma } from "./database.js";
 export interface GuestRecognition {
   recognized: boolean;
   firstName: string | null;
-  phone: string | null;
   visitCount: number;
   hasPreferences: boolean;
   lastVisit: string | null;
@@ -12,7 +11,6 @@ export interface GuestRecognition {
 const UNRECOGNIZED: GuestRecognition = {
   recognized: false,
   firstName: null,
-  phone: null,
   visitCount: 0,
   hasPreferences: false,
   lastVisit: null,
@@ -34,7 +32,7 @@ function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): bo
 
 /**
  * Read-only lookup: recognize a guest by email within a venue.
- * Returns only safe public fields (first name, phone, visit stats).
+ * Returns only safe public fields (first name, visit stats).
  * Never exposes id, email, notes, tags, lifetimeSpend, or venueId.
  */
 export async function recognizeGuest(venueId: string, email: string): Promise<GuestRecognition> {
@@ -49,7 +47,6 @@ export async function recognizeGuest(venueId: string, email: string): Promise<Gu
   return {
     recognized: true,
     firstName: extractFirstName(guest.name),
-    phone: guest.phone,
     visitCount: guest.visitCount,
     hasPreferences: hasGuestPreferences(guest),
     lastVisit: guest.lastVisit?.toISOString() ?? null,

@@ -115,12 +115,11 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 
-  it("returns recognized guest data for known email", async () => {
+  it("returns recognized guest data for known email (no phone)", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(recognizeGuest).mockResolvedValueOnce({
       recognized: true,
       firstName: "Jane",
-      phone: "+1-555-999-1234",
       visitCount: 7,
       hasPreferences: false,
       lastVisit: "2026-05-01T18:00:00.000Z",
@@ -136,11 +135,11 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     expect(body.data).toEqual({
       recognized: true,
       firstName: "Jane",
-      phone: "+1-555-999-1234",
       visitCount: 7,
       hasPreferences: false,
       lastVisit: "2026-05-01T18:00:00.000Z",
     });
+    expect(body.data).not.toHaveProperty("phone");
   });
 
   it("returns { recognized: false } for unknown email (not 404)", async () => {
@@ -148,7 +147,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     vi.mocked(recognizeGuest).mockResolvedValueOnce({
       recognized: false,
       firstName: null,
-      phone: null,
       visitCount: 0,
       hasPreferences: false,
       lastVisit: null,
@@ -194,7 +192,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     vi.mocked(recognizeGuest).mockResolvedValueOnce({
       recognized: false,
       firstName: null,
-      phone: null,
       visitCount: 0,
       hasPreferences: false,
       lastVisit: null,
@@ -215,7 +212,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     vi.mocked(recognizeGuest).mockResolvedValueOnce({
       recognized: true,
       firstName: "Jane",
-      phone: "+1-555-999-1234",
       visitCount: 7,
       hasPreferences: true,
       lastVisit: "2026-05-01T18:00:00.000Z",
@@ -229,6 +225,7 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     const body = response.json();
     expect(body.data).not.toHaveProperty("id");
     expect(body.data).not.toHaveProperty("email");
+    expect(body.data).not.toHaveProperty("phone");
     expect(body.data).not.toHaveProperty("notes");
     expect(body.data).not.toHaveProperty("lifetimeSpend");
     expect(body.data).not.toHaveProperty("tags");
@@ -240,7 +237,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     vi.mocked(recognizeGuest).mockResolvedValue({
       recognized: false,
       firstName: null,
-      phone: null,
       visitCount: 0,
       hasPreferences: false,
       lastVisit: null,
