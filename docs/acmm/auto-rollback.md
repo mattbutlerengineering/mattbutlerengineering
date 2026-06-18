@@ -74,6 +74,24 @@ A commit is classified as agent-authored if ANY of:
 - Check for failed reverts: `gh issue list --label agent-regression,urgent`
 - Trend tracking via `/progress-tracker` regression count
 
+## Manual Override / Opt-out
+
+Auto-rollback only fires for agent commits — human-authored commits are never auto-reverted. For cases where the automatic revert should be suppressed:
+
+| Scenario                                         | Action                                                          |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| Known flaky post-deploy check                    | Close the revert PR without merging; fix the flake separately   |
+| Intentional breaking change (coordinated deploy) | Add the `no-auto-rollback` label to the PR before merging       |
+| Revert would itself be dangerous                 | Close the auto-created revert PR; create a targeted fix instead |
+
+### `no-auto-rollback` label
+
+Apply this label to any PR before it merges to suppress automatic revert creation if post-deploy checks fail. The workflow checks for this label on the originating PR before creating the revert.
+
+### Testing the mechanism without a real failure
+
+Trigger `auto-rollback.yml` with `workflow_dispatch` and `drill: true` for a dry-run that simulates rollback without creating a live revert PR. The weekly Monday schedule also exercises the drill path automatically.
+
 ## Testing
 
 To test the workflow without a real production failure:

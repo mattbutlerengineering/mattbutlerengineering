@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import { ReservationEventEmitter } from "../services/events.js";
 
 // Mock the table service
 vi.mock("../services/table.js", () => ({
@@ -22,17 +23,6 @@ vi.mock("../services/table.js", () => ({
       this.to = to;
     }
   },
-}));
-
-// Mock the events service
-vi.mock("../services/events.js", () => ({
-  emitTableUpdated: vi.fn(),
-  emitReservationCreated: vi.fn(),
-  emitReservationUpdated: vi.fn(),
-  emitReservationCancelled: vi.fn(),
-  emitHoldCreated: vi.fn(),
-  emitHoldReleased: vi.fn(),
-  emitHoldConfirmed: vi.fn(),
 }));
 
 // Mock the reservation service (needed for app registration)
@@ -112,7 +102,6 @@ vi.mock("jose", () => ({
 }));
 
 import { tableService } from "../services/table.js";
-import { emitTableUpdated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 const mockTable = {
@@ -147,6 +136,7 @@ const mockJWTPayload = {
 
 describe("Table Routes", () => {
   let app: FastifyInstance;
+  let stubEvents: ReservationEventEmitter;
   const originalEnv = process.env;
 
   beforeEach(async () => {
@@ -156,7 +146,9 @@ describe("Table Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    app = await buildApp({ logger: false });
+    stubEvents = new ReservationEventEmitter();
+    vi.spyOn(stubEvents, "emitTableUpdated");
+    app = await buildApp({ logger: false, reservationEvents: stubEvents });
     await app.ready();
   });
 
@@ -356,7 +348,7 @@ describe("Table Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("OCCUPIED");
       expect(tableService.updateStatus).toHaveBeenCalledWith("table-123", "OCCUPIED");
-      expect(emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
+      expect(stubEvents.emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
     });
 
     it("returns 404 when table not found", async () => {

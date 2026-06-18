@@ -11,7 +11,6 @@ import type {
 import { requireAuth } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { tableService, TableTransitionError } from "../services/table.js";
-import { emitTableUpdated } from "../services/events.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // List tables
@@ -360,7 +359,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
           error.statusCode = 404;
           throw error;
         }
-        emitTableUpdated(table);
+        fastify.reservationEvents.emitTableUpdated(table);
         return { data: table };
       } catch (err) {
         if (err instanceof TableTransitionError) {
