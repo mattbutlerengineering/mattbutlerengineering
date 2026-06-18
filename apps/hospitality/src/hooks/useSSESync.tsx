@@ -29,6 +29,7 @@ import {
   useLayoutEffect,
   useCallback,
   useRef,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -79,22 +80,13 @@ const MAX_BACKOFF_ATTEMPTS = 8;
 const TOAST_WINDOW_MS = 10_000;
 const TOAST_MAX = 3;
 
-let _toastTimestamps: number[] = [];
-
-function canShowToast(): boolean {
-  const now = Date.now();
-  _toastTimestamps = _toastTimestamps.filter((t) => now - t < TOAST_WINDOW_MS);
-  if (_toastTimestamps.length >= TOAST_MAX) return false;
-  _toastTimestamps.push(now);
-  return true;
-}
-
 /* ── Context ────────────────────────────────────────────────────── */
 
 interface SSESyncContextValue {
   connectionState: SSEConnectionState;
   dispatchConnection: (action: SSEConnectionAction) => void;
   feedListeners: Set<(event: ReservationEvent) => void>;
+  toastTimestampsRef: MutableRefObject<number[]>;
 }
 
 const SSESyncContext = createContext<SSESyncContextValue | null>(null);
@@ -124,8 +116,10 @@ export function SSESyncProvider({ children }: { children: ReactNode }) {
    
   const feedListeners = useMemo(() => new Set<(event: ReservationEvent) => void>(), []);
 
+  const toastTimestampsRef = useRef<number[]>([]);
+
   return (
-    <SSESyncContext.Provider value={{ connectionState, dispatchConnection, feedListeners }}>
+    <SSESyncContext.Provider value={{ connectionState, dispatchConnection, feedListeners, toastTimestampsRef }}>
       {children}
     </SSESyncContext.Provider>
   );
@@ -144,7 +138,7 @@ function useSSESyncContext(): SSESyncContextValue {
  * Returns reconnect() for manual reconnect (e.g. retry button).
  */
 export function useSSESync(): { reconnect: () => void } {
-  const { dispatchConnection, feedListeners } = useSSESyncContext();
+  const { dispatchConnection, feedListeners, toastTimestampsRef } = useSSESyncContext();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { selectedVenueId } = useVenue();
@@ -184,6 +178,14 @@ export function useSSESync(): { reconnect: () => void } {
     }),
     [selectedVenueId]
   );
+
+  const canShowToast = useCallback(() => {
+    const now = Date.now();
+    toastTimestampsRef.current = toastTimestampsRef.current.filter((t) => now - t < TOAST_WINDOW_MS);
+    if (toastTimestampsRef.current.length >= TOAST_MAX) return false;
+    toastTimestampsRef.current = [...toastTimestampsRef.current, now];
+    return true;
+  }, [toastTimestampsRef]);
 
   const closeConnection = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -303,7 +305,7 @@ export function useSSESync(): { reconnect: () => void } {
       const payload = JSON.parse(event.data) as ReservationEvent;
       broadcastEvent(makeEvent("guest:lapsing", payload.data as LapsingGuest[]));
     });
-  }, [selectedVenueId, broadcastEvent, makeEvent]);
+  }, [selectedVenueId, broadcastEvent, makeEvent, canShowToast]);
 
   // Keep connectRef in sync so the backoff timeout calls the latest connect
   useLayoutEffect(() => {
