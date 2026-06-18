@@ -2965,22 +2965,6 @@
       );
     }
   </file>
-  <file path="apps/hospitality/src/hooks/useDashboardStats.ts">
-    export interface DashboardStats {
-      totalReservations: number;
-      expectedCovers: number;
-      upcomingCount: number;
-      cancellationRate: number;
-      cancellationTrend: "up" | "down" | "neutral";
-    }
-    export interface UseDashboardStatsResult {
-      reservations: readonly Reservation[];
-      stats: DashboardStats;
-      isLoading: boolean;
-      error: string | null;
-      refetch: () => Promise<void>;
-    }
-  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;

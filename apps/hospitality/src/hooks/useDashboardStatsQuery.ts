@@ -39,11 +39,10 @@ function getTodayString(): string {
 function computeUpcoming(reservations: readonly Reservation[]): number {
   const now = new Date();
   const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-  const todayStr = getTodayString();
 
   return reservations.filter((r) => {
     if (r.status === "CANCELLED" || r.status === "NO_SHOW") return false;
-    const start = new Date(`${todayStr}T${r.startTime}`);
+    const start = new Date(r.startTime);
     return start >= now && start <= twoHoursLater;
   }).length;
 }
