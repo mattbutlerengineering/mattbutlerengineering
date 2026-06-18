@@ -4266,13 +4266,277 @@
   <section priority="medium" role="routes">
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export const WRITE_TOOLS = new Set([
-      "create_reservation",
-      "modify_reservation",
-      "cancel_reservation",
-      "seat_walk_in",
-      "update_table_status",
-    ]);
+    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
+      return {
+        // ── Read tools (instant, no confirmation) ──────────────
+        check_availability: tool({
+          description: "Check available time slots for a venue on a specific date",
+          inputSchema: z.object({
+            venueId: z.string().describe("The venue ID to check availability for"),
+            date: z.string().describe("Date in YYYY-MM-DD format"),
+            partySize: z.number().describe("Number of guests"),
+          }),
+          execute: async ({ venueId, date, partySize }) => {
+            log.info({ venueId, date, partySize }, "check_availability tool called");
+            try {
+              const slots = await api.availability.getTimeSlots({ venueId, date, partySize });
+              return { slots };
+            } catch (err) {
+              log.error({ err, venueId, date, partySize }, "check_availability failed");
+              return { error: "Failed to check availability. Please try again." };
+            }
+          },
+        }),
+    
+        lookup_reservation: tool({
+          description: "Find reservations by guest name, date, or confirmation number",
+          inputSchema: z.object({
+            guestName: z.string().optional().describe("Guest name to search"),
+            date: z.string().optional().describe("Date in YYYY-MM-DD format"),
+            venueId: z.string().optional().describe("Venue ID to filter by"),
+          }),
+          execute: async ({ date, venueId }) => {
+            log.info({ date, venueId }, "lookup_reservation tool called");
+            try {
+              const result = await api.reservations.list({
+                ...(date ? { date } : {}),
+                ...(venueId ? { venueId } : {}),
+              });
+              return { reservations: result.data };
+            } catch (err) {
+              log.error({ err, date, venueId }, "lookup_reservation failed");
+              return { error: "Failed to look up reservations. Please try again." };
+            }
+          },
+        }),
+    
+        search_guests: tool({
+          description: "Search guest directory by name, email, or phone",
+          inputSchema: z.object({
+            query: z.string().describe("Search term (name, email, or phone)"),
+            venueId: z.string().optional().describe("Venue ID to scope search"),
+          }),
+          execute: async ({ query, venueId }) => {
+            log.info({ query, venueId }, "search_guests tool called");
+            try {
+              const result = await api.guests.search({
+                venueId: venueId ?? "",
+                query,
+              });
+              return { guests: result.data };
+            } catch (err) {
+              log.error({ err, query, venueId }, "search_guests failed");
+              return { error: "Failed to search guests. Please try again." };
+            }
+          },
+        }),
+    
+        get_table_status: tool({
+          description: "Check the status of a specific table or all tables",
+          inputSchema: z.object({
+            venueId: z.string().describe("Venue ID"),
+            tableNumber: z.number().optional().describe("Specific table number to check"),
+          }),
+          execute: async ({ venueId }) => {
+            log.info({ venueId }, "get_table_status tool called");
+            try {
+              const result = await api.tables.list({ venueId });
+              return { tables: result.data };
+            } catch (err) {
+              log.error({ err, venueId }, "get_table_status failed");
+              return { error: "Failed to get table status. Please try again." };
+            }
+          },
+        }),
+    
+        list_today_reservations: tool({
+          description: "List all reservations for today or a specified date",
+          inputSchema: z.object({
+            venueId: z.string().describe("Venue ID"),
+            date: z.string().optional().describe("Date in YYYY-MM-DD format, defaults to today"),
+            status: z
+              .enum(["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"])
+              .optional()
+              .describe("Filter by reservation status"),
+          }),
+          execute: async ({ venueId, date, status }) => {
+            log.info({ venueId, date, status }, "list_today_reservations tool called");
+            try {
+              const queryDate = date ?? new Date().toISOString().split("T")[0]!;
+              const result = await api.reservations.list({
+                venueId,
+                date: queryDate,
+                limit: 50,
+                ...(status ? { status } : {}),
+              });
+              return { reservations: result.data };
+            } catch (err) {
+              log.error({ err, venueId, date }, "list_today_reservations failed");
+              return { error: "Failed to list reservations. Please try again." };
+            }
+          },
+        }),
+    
+        // ── Render tool (special handling — emits elements) ────
+        render_component: tool({
+          description:
+            "Render interactive UI components in the chat. Use when visual presentation is better than text — availability cards, reservation summaries, confirmation forms. Elements use the rialto component catalog.",
+          inputSchema: z.object({
+            elements: z.array(
+              z.object({
+                id: z.string(),
+                type: z.string(),
+                props: z.record(z.string(), z.unknown()).optional(),
+                children: z.array(z.string()).optional(),
+              })
+            ),
+          }),
+          execute: async () => ({ rendered: true }),
+        }),
+    
+        // ── Write tools (require confirmation) ─────────────────
+        create_reservation: tool({
+          description: "Create a new reservation. Requires confirmation before executing.",
+          inputSchema: z.object({
+            guestName: z.string().describe("Guest name"),
+            date: z.string().describe("Date in YYYY-MM-DD format"),
+            startTime: z.string().describe("Start time in HH:MM format"),
+            endTime: z.string().describe("End time in HH:MM format"),
+            partySize: z.number().describe("Number of guests"),
+            tableId: z.string().describe("Table ID to reserve"),
+            notes: z.string().optional().describe("Reservation notes"),
+          }),
+          execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
+            log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+            try {
+              const reservation = await api.reservations.create({
+                guestName,
+                date,
+                startTime,
+                endTime,
+                partySize,
+                tableId,
+                ...(notes ? { notes } : {}),
+              });
+              return { reservation };
+            } catch (err) {
+              log.error({ err, guestName, date }, "create_reservation failed");
+              return { error: "Failed to create reservation. Please try again." };
+            }
+          },
+        }),
+    
+        modify_reservation: tool({
+          description:
+            "Modify an existing reservation (time, table, party size, or notes). Requires confirmation.",
+          inputSchema: z.object({
+            reservationId: z.string().describe("Reservation ID to modify"),
+            date: z.string().optional().describe("New date in YYYY-MM-DD format"),
+            startTime: z.string().optional().describe("New start time in HH:MM format"),
+            endTime: z.string().optional().describe("New end time in HH:MM format"),
+            partySize: z.number().optional().describe("New party size"),
+            tableId: z.string().optional().describe("New table ID"),
+            notes: z.string().optional().describe("Updated notes"),
+          }),
+          execute: async ({ reservationId, ...updates }) => {
+            log.info({ reservationId, ...updates }, "modify_reservation tool called");
+            try {
+              const cleanUpdates = Object.fromEntries(
+                Object.entries(updates).filter(([, v]) => v !== undefined)
+              );
+              const reservation = await api.reservations.update(reservationId, cleanUpdates);
+              return { reservation };
+            } catch (err) {
+              log.error({ err, reservationId }, "modify_reservation failed");
+              return { error: "Failed to modify reservation. Please try again." };
+            }
+          },
+        }),
+    
+        cancel_reservation: tool({
+          description: "Cancel a reservation. Requires confirmation.",
+          inputSchema: z.object({
+            reservationId: z.string().optional().describe("Reservation ID to cancel"),
+            guestName: z.string().optional().describe("Guest name to look up and cancel"),
+            date: z.string().optional().describe("Date to narrow search"),
+          }),
+          execute: async ({ reservationId }) => {
+            log.info({ reservationId }, "cancel_reservation tool called");
+            try {
+              if (!reservationId) {
+                return {
+                  error: "Reservation ID is required to cancel. Please look up the reservation first.",
+                };
+              }
+              const reservation = await api.reservations.cancel(reservationId);
+              return { reservation };
+            } catch (err) {
+              log.error({ err, reservationId }, "cancel_reservation failed");
+              return { error: "Failed to cancel reservation. Please try again." };
+            }
+          },
+        }),
+    
+        seat_walk_in: tool({
+          description:
+            "Create a walk-in reservation and seat guests immediately. Requires confirmation.",
+          inputSchema: z.object({
+            venueId: z.string().describe("Venue ID"),
+            partySize: z.number().describe("Number of guests"),
+            tableId: z
+              .string()
+              .optional()
+              .describe("Specific table to seat at (auto-assigns if omitted)"),
+            guestName: z.string().optional().describe("Guest name if provided"),
+          }),
+          execute: async ({ venueId, partySize, tableId, guestName }) => {
+            log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+            try {
+              if (!tableId) {
+                return {
+                  error: "A table must be specified for walk-ins. Check available tables first.",
+                };
+              }
+              const reservation = await api.reservations.walkIn({
+                venueId,
+                partySize,
+                tableId,
+                ...(guestName ? { guestName } : {}),
+              });
+              return { reservation };
+            } catch (err) {
+              log.error({ err, venueId, partySize }, "seat_walk_in failed");
+              return { error: "Failed to seat walk-in. Please try again." };
+            }
+          },
+        }),
+    
+        update_table_status: tool({
+          description:
+            "Update a table's status (clean, dirty, occupied, available). Requires confirmation.",
+          inputSchema: z.object({
+            venueId: z.string().describe("Venue ID"),
+            tableNumber: z.number().describe("Table number"),
+            status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
+          }),
+          execute: async ({ venueId, tableNumber, status: newStatus }) => {
+            log.info({ venueId, tableNumber, newStatus }, "update_table_status tool called");
+            try {
+              const tablesResult = await api.tables.list({ venueId });
+              const table = tablesResult.data.find((t) => t.tableNumber === String(tableNumber));
+              if (!table) {
+                return { error: `Table ${tableNumber} not found in this venue.` };
+              }
+              const updated = await api.tables.updateStatus(table.id, newStatus);
+              return { table: updated };
+            } catch (err) {
+              log.error({ err, venueId, tableNumber }, "update_table_status failed");
+              return { error: "Failed to update table status. Please try again." };
+            }
+          },
+        }),
+      };
+    }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
     export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
@@ -4310,12 +4574,10 @@
             getAccessToken: () => token,
           });
           const agentTools = createAgentTools(request.log, api);
-    
-          const result = streamText({
-            model: anthropic(GEN_MODEL_ID),
-            messages: buildGenMessages(SYSTEM_PROMPT, messages),
-            tools: agentTools,
-            stopWhen: stepCountIs(5),
+          const runner = createGenRunner({
+            systemPrompt: SYSTEM_PROMPT,
+            modelId: GEN_MODEL_ID,
+            maxSteps: 5,
             onFinish: async ({ usage, providerMetadata }) =>
               logGenCost(request.log, {
                 userId: request.user?.id,
@@ -4327,49 +4589,13 @@
     
           applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
     
-          const encoder = new TextEncoder();
           const ndjsonStream = new ReadableStream({
             async start(controller) {
               try {
-                for await (const event of result.fullStream) {
-                  if (event.type === "text-delta") {
-                    const line = JSON.stringify({
-                      type: "text",
-                      content: event.text,
-                    });
-                    controller.enqueue(encoder.encode(line + "\n"));
-                  } else if (event.type === "tool-call") {
-                    if (event.toolName === "render_component") {
-                      const input = event.input as { elements?: unknown[] };
-                      for (const element of input.elements ?? []) {
-                        const line = JSON.stringify({ type: "element", element });
-                        controller.enqueue(encoder.encode(line + "\n"));
-                      }
-                    } else if (WRITE_TOOLS.has(event.toolName)) {
-                      const line = JSON.stringify({
-                        type: "action_request",
-                        actionId: event.toolCallId,
-                        toolName: event.toolName,
-                        toolInput: event.input,
-                      });
-                      controller.enqueue(encoder.encode(line + "\n"));
-                    } else {
-                      const line = JSON.stringify({
-                        type: "tool_status",
-                        tool: event.toolName,
-                        status: "running",
-                      });
-                      controller.enqueue(encoder.encode(line + "\n"));
-                    }
-                  } else if (event.type === "tool-result") {
-                    const line = JSON.stringify({
-                      type: "tool_status",
-                      tool: event.toolName,
-                      status: "complete",
-                    });
-                    controller.enqueue(encoder.encode(line + "\n"));
-                  }
-                }
+                await runner.run(messages, agentTools, async (event) => {
+                  const line = JSON.stringify(event);
+                  controller.enqueue(encoder.encode(line + "\n"));
+                });
               } finally {
                 controller.close();
               }
@@ -4412,12 +4638,11 @@
           }
     
           const { messages } = parseResult.data;
-    
-          const result = streamText({
+          const runner = createGenRunner({
+            systemPrompt: SYSTEM_PROMPT,
             // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
-            model: anthropic(GEN_MODEL_ID),
-            // GEN-05: prompt caching via providerOptions on the system message
-            messages: buildGenMessages(SYSTEM_PROMPT, messages),
+            modelId: GEN_MODEL_ID,
+            maxSteps: 1,
             // GEN-06: cost logging in onFinish
             onFinish: async ({ usage, providerMetadata }) =>
               logGenCost(request.log, {
@@ -4431,11 +4656,51 @@
           // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
           applyStreamHeaders(reply, "text/plain; charset=utf-8");
     
+          // Build a plain text stream from the runner's text events, then sanitize
+          const textStream = new ReadableStream<string>({
+            async start(controller) {
+              try {
+                await runner.run(messages, {}, async (event) => {
+                  if (event.type === "text") {
+                    controller.enqueue(event.content);
+                  }
+                });
+              } finally {
+                controller.close();
+              }
+            },
+          });
+    
           // Sanitize AI output to prevent XSS (OWASP LLM02)
-          return reply.send(createSanitizedStream(result.textStream));
+          return reply.send(createSanitizedStream(textStream));
         }
       );
     };
+  </file>
+  <file path="services/agent/src/routes/gen-runner.ts">
+    export type GenStreamEvent =
+      | { readonly type: "text"; readonly content: string }
+      | { readonly type: "element"; readonly element: unknown }
+      | {
+          readonly type: "action_request";
+          readonly actionId: string;
+          readonly toolName: string;
+          readonly toolInput: unknown;
+        }
+      | {
+          readonly type: "tool_status";
+          readonly tool: string;
+          readonly status: "running" | "complete";
+        }
+      | {
+          readonly type: "permission_denied";
+          readonly toolName: string;
+          readonly reason: string;
+        };
+    export interface GenFinishPayload {
+      readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
+      readonly providerMetadata: unknown;
+    }
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
     export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -11907,6 +12172,44 @@
       readonly details?: string;
     }
   </file>
+  <file path="packages/agent-core/src/gen-permissions.ts">
+    export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
+      /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?|(-[a-zA-Z]*f[a-zA-Z]*\s+)?-[a-zA-Z]*r[a-zA-Z]*\s+|--recursive\s+).*\//,
+      /\brm\s+.*\/\*/, // rm ... /*
+      /\bsudo\b/, // sudo anything
+      /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
+      /\bwget\b.*\|\s*\bbash\b/, // wget | bash
+      /\bgit\s+push\b/, // git push (orchestrator handles this)
+      /\bnpm\s+publish\b/, // npm publish
+      /\bpnpm\s+publish\b/, // pnpm publish
+    ];
+    export const ENCODING_BYPASS_PATTERNS: readonly RegExp[] = [
+      // base64 decode piped to shell
+      /\bbase64\s+(-d|--decode)\b.*\|\s*(sh|bash|zsh|eval)\b/,
+      /\bbase64\s+(-d|--decode)\b.*\$\(/,
+    
+      // printf/echo with hex (\x..) or octal (\0..) piped to shell
+      /\b(printf|echo\s+-e)\b.*\\x[0-9a-fA-F]{2}.*\|\s*(sh|bash|zsh|eval)\b/,
+      /\b(printf|echo\s+-e)\b.*\\0[0-7]{1,3}.*\|\s*(sh|bash|zsh|eval)\b/,
+    
+      // $'\x..' ANSI-C quoting with hex/octal piped to shell
+      /\$'[^']*\\x[0-9a-fA-F]{2}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
+      /\$'[^']*\\0[0-7]{1,3}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
+    
+      // eval of variable expansion or subshell (eval "$cmd", eval $(…))
+      /\beval\s+("|'|\$[({])/,
+    
+      // command substitution piped to shell: $(...) | sh
+      /\$\([^)]+\)\s*\|\s*(sh|bash|zsh|eval)\b/,
+    
+      // generic pipe to shell execution (covers many encoding tricks)
+      /\|\s*(sh|bash|zsh)\b/,
+    
+      // variable-based command execution: cmd="rm"; $cmd ...
+      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-[a-zA-Z]*r[a-zA-Z]*f/,
+      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-rf\b/,
+    ];
+  </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
     interface ContentBlock {
       readonly type: string;
@@ -12839,52 +13142,45 @@
     export type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">
-    export function normalizeBashCommand(command: string): readonly string[] {
-      const variants: string[] = [command];
-    
-      // Collapse escaped newlines (line continuations)
-      const collapsed = command.replace(/\\\n/g, "");
-      if (collapsed !== command) {
-        variants.push(collapsed);
-      }
-    
-      // Split on unescaped newlines and semicolons to catch injection
-      const lines = command
-        .split(/(?<!\\)[;\n]+/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-      if (lines.length > 1) {
-        for (const line of lines) {
-          variants.push(line);
-        }
-      }
-    
-      // Collapse excess whitespace in each variant
-      const withNormalizedSpace = variants.map((v) => v.replace(/\s+/g, " ").trim());
-      const allVariants = [...new Set([...variants, ...withNormalizedSpace])];
-    
-      return allVariants;
+    function isPathWithinWorktree(filePath: string, worktreePath: string): boolean {
+      const resolvedFile = resolve(filePath);
+      const resolvedWorktree = resolve(worktreePath);
+      return resolvedFile === resolvedWorktree || resolvedFile.startsWith(resolvedWorktree + "/");
     }
-    function isBashCommandBlocked(command: string): string | null {
-      const variants = normalizeBashCommand(command);
+    export function createToolPermissionHandler(worktreePath: string) {
+      return async (toolName: string, input: Record<string, unknown>): Promise<PermissionResult> => {
+        // Block explicitly disallowed tools
+        if (BLOCKED_TOOLS.has(toolName)) {
+          return {
+            behavior: "deny",
+            message: `Tool "${toolName}" is not allowed in agent sessions`,
+          };
+        }
     
-      for (const variant of variants) {
-        // Check structural encoding bypass patterns first
-        for (const pattern of ENCODING_BYPASS_PATTERNS) {
-          if (pattern.test(variant)) {
-            return `Blocked: command uses shell encoding bypass (${pattern.source})`;
+        // Check bash commands against blocked patterns
+        if (toolName === "Bash") {
+          const command = input.command as string | undefined;
+          if (command) {
+            const blockReason = isBashCommandBlocked(command);
+            if (blockReason) {
+              return { behavior: "deny", message: blockReason };
+            }
           }
         }
     
-        // Check standard blocked patterns
-        for (const pattern of BLOCKED_BASH_PATTERNS) {
-          if (pattern.test(variant)) {
-            return `Blocked: command matches dangerous pattern ${pattern.source}`;
+        // Block file writes outside the worktree (resolve to prevent path traversal)
+        if (toolName === "Write" || toolName === "Edit") {
+          const filePath = (input.file_path ?? input.filePath) as string | undefined;
+          if (filePath && !isPathWithinWorktree(filePath, worktreePath)) {
+            return {
+              behavior: "deny",
+              message: `File operations are restricted to the worktree: ${worktreePath}`,
+            };
           }
         }
-      }
     
-      return null;
+        return { behavior: "allow", updatedInput: input };
+      };
     }
   </file>
   <file path="packages/agent-core/src/types.ts">
@@ -14446,7 +14742,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
