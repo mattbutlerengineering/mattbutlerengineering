@@ -74,6 +74,11 @@ It honors an explicit `model:` in the issue's ```yaml agent block, otherwise rou
 
 Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
 
+**Adapter by tier** — when the worker prompt calls `mbe agent run` internally (e.g. for sub-tasks):
+
+- `haiku` / `sonnet` tiers: use `--adapter auto` — enables rate-limit failover cascade (claude → gemini → opencode on 429), preventing stalls on busy days.
+- `opus` tier: pin `--adapter claude` — stays on the Claude provider; failover to gemini/opencode is inappropriate for deep architecture tasks.
+
 Each agent prompt MUST include:
 
 1. The issue number, title, and full body.

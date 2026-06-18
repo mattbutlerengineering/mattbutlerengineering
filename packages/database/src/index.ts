@@ -6,8 +6,9 @@ export {
   paginate,
   toPaginationMeta,
   createListResponseSchema,
+  buildPaginatedResponse,
 } from "./list-utils.js";
-export type { PaginationMeta } from "./list-utils.js";
+export type { PaginationMeta, PaginatedResponse } from "./list-utils.js";
 
 /** Returns true when `err` is a Prisma "record not found" error (code P2025). */
 export function isPrismaNotFound(err: unknown): boolean {

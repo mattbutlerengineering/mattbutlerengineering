@@ -1,3 +1,4 @@
+export { dispatchJob, UnknownJobTypeError } from "./dispatch-job.js";
 export { JobScheduler } from "./scheduler.js";
 export type { JobSchedulerConfig } from "./scheduler.js";
 export { JobWorker } from "./worker.js";

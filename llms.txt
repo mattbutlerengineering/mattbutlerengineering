@@ -878,6 +878,23 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/create-mutation-hook.ts">
+    <item priority="low">
+      interface CreateMutationHookOptions {
+        invalidateKey: string;
+        mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariab...;
+      }
+    </item>
+    <item priority="low">
+      interface MutationHookResult {
+        mutate: (variables: TVariables) => void;
+        mutateAsync: (variables: TVariables) => Promise<TData>;
+        isPending: boolean;
+        isSuccess: boolean;
+        isError: boolean;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/create-query-hook.ts">
     <item priority="low">
       interface QueryHookResult {
@@ -1363,7 +1380,7 @@
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
     <item priority="high">
-      export const WRITE_TOOLS: unknown;
+      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
@@ -1374,6 +1391,20 @@
   <file path="services/agent/src/routes/gen-chat.ts">
     <item priority="high">
       export const genChatRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-runner.ts">
+    <item priority="low">
+      type GenStreamEvent = { readonly type: "text"; reado | { readonly type: "element"; re | {
+            readonly type: "action | {
+            readonly type: "tool_s | {
+            readonly type: "permis;
+    </item>
+    <item priority="low">
+      interface GenFinishPayload {
+        usage: { readonly inputTokens?: number; readonly outputTokens?: ...;
+        providerMetadata: unknown;
+      }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-specs.ts">
@@ -1943,10 +1974,10 @@
   </file>
   <file path="services/agent/src/services/session.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
+      function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
@@ -2379,9 +2410,6 @@
   </file>
   <file path="services/users/src/services/user.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaUser(user: {
         id: string;
         email: string;
@@ -2392,6 +2420,9 @@
         createdAt: Date;
         updatedAt: Date;
       }): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userService: unknown;
     </item>
   </file>
   </section>
@@ -2732,6 +2763,14 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/gen-permissions.ts">
+    <item priority="high">
+      export const BLOCKED_BASH_PATTERNS: readonly RegExp[];
+    </item>
+    <item priority="high">
+      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
+    </item>
+  </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
     <item priority="high">
       interface ContentBlock {
@@ -3051,11 +3090,11 @@
     </item>
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">
-    <item priority="high">
-      export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
-    </item>
     <item priority="medium">
-      function isBashCommandBlocked(command: string): string | null { /* ... */ }
+      function isPathWithinWorktree(filePath: string, worktreePath: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createToolPermissionHandler(worktreePath: string) { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/types.ts">
@@ -3443,6 +3482,19 @@
     </item>
     <item priority="low">
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
+  <file path="packages/jobs/src/dispatch-job.ts">
+    <item priority="high">
+      class UnknownJobTypeError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function dispatchJob(
+        handlers: JobHandlerMap,
+        job: { name: string; data: unknown }
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/job-types.ts">

@@ -3,6 +3,7 @@ import type { Guest, GuestSegment, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
 import { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import { createMutationHook } from "./create-mutation-hook.js";
 
 export const GUESTS_QUERY_KEY = "guests" as const;
 export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -114,18 +115,10 @@ export function useAddGuest() {
 
 /* ── useUpdateGuest mutation ─────────────────────────── */
 
-export function useUpdateGuest() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ guestId, data }: { guestId: string; data: UpdateGuestRequest }) =>
-      api.guests.update(guestId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-    },
-  });
-}
+export const useUpdateGuest = createMutationHook<{ guestId: string; data: UpdateGuestRequest }>({
+  invalidateKey: GUESTS_QUERY_KEY,
+  mutationFn: (api, { guestId, data }) => api.guests.update(guestId, data),
+});
 
 /* ── useAddStaffNote mutation ────────────────────────── */
 
