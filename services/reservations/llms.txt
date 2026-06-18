@@ -1,4 +1,21 @@
 <codebase path="services/reservations">
+  <section priority="medium" role="config">
+  <file path="src/config/stripe.ts">
+    <item priority="low">
+      interface StripeConfig {
+        secretKey: string;
+        webhookSecret: string;
+      }
+    </item>
+    <item priority="high">
+      interface StripeConfigInput {
+        nodeEnv: string | undefined;
+        secretKey: string | undefined;
+        webhookSecret: string | undefined;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="middleware">
   <file path="src/middleware/public-rate-limit.ts">
     <item priority="high">
@@ -349,9 +366,9 @@
       interface GuestRecognition {
         recognized: boolean;
         firstName: string | null;
-        phone: string | null;
         visitCount: number;
         hasPreferences: boolean;
+        lastVisit: string | null;
       }
     </item>
     <item priority="medium">

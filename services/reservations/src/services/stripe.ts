@@ -115,7 +115,9 @@ export class StripeService {
 
 /**
  * Singleton Stripe service instance.
- * Uses STRIPE_SECRET_KEY from environment (falls back to empty string for tests).
+ * Uses STRIPE_SECRET_KEY from environment.
+ * Production validation (non-empty assertion) happens in buildApp() via assertStripeSecrets().
+ * The placeholder key allows module load in test/dev without a real Stripe key.
  */
 export const stripeService = new StripeService(
   process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"

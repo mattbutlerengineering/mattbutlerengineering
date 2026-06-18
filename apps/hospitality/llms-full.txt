@@ -277,7 +277,6 @@
   <file path="src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
     }

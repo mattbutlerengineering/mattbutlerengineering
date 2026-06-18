@@ -4,8 +4,6 @@ import { createProblemDetails } from "@mbe/types";
 import { stripeService } from "../services/stripe.js";
 import { depositService } from "../services/deposit.js";
 
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-
 /**
  * Stripe webhook endpoint.
  * Handles: payment_intent.succeeded, payment_intent.canceled, charge.refunded
@@ -37,7 +35,11 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
 
       let event: Stripe.Event;
       try {
-        event = stripeService.constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+        event = stripeService.constructWebhookEvent(
+          rawBody,
+          signature,
+          process.env.STRIPE_WEBHOOK_SECRET ?? ""
+        );
       } catch (err) {
         const message = err instanceof Error ? err.message : "Invalid webhook signature";
         return reply.code(400).send(createProblemDetails(400, "Bad Request", message));

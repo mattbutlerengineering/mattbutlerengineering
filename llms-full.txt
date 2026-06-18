@@ -2079,6 +2079,19 @@
       });
   </file>
   </section>
+  <section priority="medium" role="config">
+  <file path="services/reservations/src/config/stripe.ts">
+    export interface StripeConfig {
+      secretKey: string;
+      webhookSecret: string;
+    }
+    interface StripeConfigInput {
+      nodeEnv: string | undefined;
+      secretKey: string | undefined;
+      webhookSecret: string | undefined;
+    }
+  </file>
+  </section>
   <section priority="medium" role="constants">
   <file path="apps/hospitality/src/constants/auth.ts">
     export interface AuthConfigResult {
@@ -3021,7 +3034,6 @@
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
     }
@@ -8359,7 +8371,11 @@
     
           let event: Stripe.Event;
           try {
-            event = stripeService.constructWebhookEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+            event = stripeService.constructWebhookEvent(
+              rawBody,
+              signature,
+              process.env.STRIPE_WEBHOOK_SECRET ?? ""
+            );
           } catch (err) {
             const message = err instanceof Error ? err.message : "Invalid webhook signature";
             return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
@@ -10719,7 +10735,6 @@
     export interface GuestRecognition {
       recognized: boolean;
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
       lastVisit: string | null;
@@ -14948,6 +14963,14 @@
       bookingNotifier?: BookingNotifier;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
+      // Validate Stripe secrets at startup — throws in production if missing.
+      // In test/dev, warns but continues to allow local development without Stripe CLI.
+      getStripeConfig({
+        nodeEnv: process.env.NODE_ENV,
+        secretKey: process.env.STRIPE_SECRET_KEY,
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      });
+    
       const fastify = await createServiceApp(
         {
           swagger: {
