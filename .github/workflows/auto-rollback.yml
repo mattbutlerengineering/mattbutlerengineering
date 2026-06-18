@@ -168,21 +168,27 @@ jobs:
             IS_AGENT="true"
           fi
 
-          # Check for has-pr label on the merge commit's PR
+          # Check for has-pr label on the merge commit's PR; also check no-auto-rollback opt-out
+          NO_ROLLBACK="false"
           PR_NUM=$(echo "$MESSAGE" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
           if [ -n "$PR_NUM" ]; then
             LABELS=$(gh pr view "$PR_NUM" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
             if echo "$LABELS" | grep -q 'has-pr'; then
               IS_AGENT="true"
             fi
+            # Opt-out: PR was labelled no-auto-rollback before merge
+            if echo "$LABELS" | grep -q 'no-auto-rollback'; then
+              NO_ROLLBACK="true"
+            fi
           fi
 
           echo "is_agent=$IS_AGENT" >> "$GITHUB_OUTPUT"
+          echo "no_rollback=$NO_ROLLBACK" >> "$GITHUB_OUTPUT"
           echo "commit_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
 
       - name: Create revert PR
-        if: steps.agent-check.outputs.is_agent == 'true'
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
@@ -223,13 +229,18 @@ jobs:
               --label "agent-regression,urgent"
           fi
 
-      - name: Skip non-agent failures
-        if: steps.agent-check.outputs.is_agent != 'true'
+      - name: Skip non-agent or opted-out failures
+        if: steps.agent-check.outputs.is_agent != 'true' || steps.agent-check.outputs.no_rollback == 'true'
         env:
           COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
           COMMIT_AUTHOR: ${{ steps.agent-check.outputs.author }}
+          NO_ROLLBACK: ${{ steps.agent-check.outputs.no_rollback }}
         run: |
-          echo "Post-deploy failure was not from an agent commit — skipping auto-rollback"
+          if [ "$NO_ROLLBACK" = "true" ]; then
+            echo "PR was labelled no-auto-rollback — skipping auto-rollback"
+          else
+            echo "Post-deploy failure was not from an agent commit — skipping auto-rollback"
+          fi
           echo "Commit: ${COMMIT_SHA}"
           echo "Author: ${COMMIT_AUTHOR}"
 
