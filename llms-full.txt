@@ -6689,7 +6689,9 @@
           if (!guest) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
           }
-          const sent = await sendWinBack(guest, fastify.notificationPort);
+          const venue = await venueService.getById(guest.venueId);
+          const venueName = venue?.name ?? guest.venueId;
+          const sent = await sendWinBack(guest, fastify.notificationPort, venueName);
           return { data: { sent } };
         }
       );
@@ -11529,7 +11531,8 @@
   <file path="services/reservations/src/services/win-back.ts">
     export async function sendWinBack(
       guest: Guest,
-      notificationPort: NotificationDispatcher
+      notificationPort: NotificationDispatcher,
+      venueName: string
     ): Promise<boolean> {
       const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
     
@@ -11553,7 +11556,7 @@
         {
           guestName: guest.name,
           guestEmail: guest.email,
-          venueName: "your favourite restaurant",
+          venueName,
         },
         preference
       );
