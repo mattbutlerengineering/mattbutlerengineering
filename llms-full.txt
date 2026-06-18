@@ -13836,6 +13836,26 @@
     } as const;
     export type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LABELS];
   </file>
+  <file path="packages/jobs/src/dispatch-job.ts">
+    export class UnknownJobTypeError extends Error {
+      constructor(name: string) {
+        super(`Unknown job type: "${name}"`);
+        this.name = "UnknownJobTypeError";
+      }
+    }
+    export async function dispatchJob(
+      handlers: JobHandlerMap,
+      job: { name: string; data: unknown }
+    ): Promise<void> {
+      if (!JOB_TYPE_SET.has(job.name)) {
+        throw new UnknownJobTypeError(job.name);
+      }
+    
+      const jobType = job.name as JobType;
+      const handler = (handlers as Record<JobType, (data: unknown) => Promise<void>>)[jobType];
+      await handler(job.data);
+    }
+  </file>
   <file path="packages/jobs/src/job-types.ts">
     export const JOB_TYPES = {
       BOOKING_REMINDER: "booking-reminder",
