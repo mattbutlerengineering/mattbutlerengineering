@@ -421,6 +421,9 @@ describe("reservationService", () => {
     });
 
     it("updates status to CONFIRMED", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "PENDING" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ status: "CONFIRMED" }) as never
       );
@@ -433,6 +436,9 @@ describe("reservationService", () => {
     });
 
     it("updates status to COMPLETED", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ status: "COMPLETED" }) as never
       );
@@ -445,6 +451,9 @@ describe("reservationService", () => {
     });
 
     it("updates status to NO_SHOW", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ status: "NO_SHOW" }) as never
       );
@@ -896,6 +905,9 @@ describe("reservationService", () => {
 
   describe("cancel", () => {
     it("sets status to CANCELLED", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "PENDING" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ status: "CANCELLED" }) as never
       );
@@ -914,6 +926,9 @@ describe("reservationService", () => {
     });
 
     it("stores cancellation reason and note", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({
           status: "CANCELLED",
@@ -932,13 +947,25 @@ describe("reservationService", () => {
       expect(result!.cancellationNote).toBe("Guest changed plans");
     });
 
-    it("returns null for P2025 (not found)", async () => {
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce({ code: "P2025" } as never);
+    it("returns null when reservation not found", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(null);
 
       expect(await reservationService.cancel("missing")).toBeNull();
     });
 
-    it("re-throws non-P2025 errors", async () => {
+    it("throws ReservationTransitionError when cancelling a terminal state", async () => {
+      const { ReservationTransitionError } = await import("./reservation-state-machine.js");
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "COMPLETED" }) as never
+      );
+
+      await expect(reservationService.cancel("res-1")).rejects.toThrow(ReservationTransitionError);
+    });
+
+    it("re-throws non-transition errors from update", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "PENDING" }) as never
+      );
       vi.mocked(prisma.reservation.update).mockRejectedValueOnce(new Error("DB error") as never);
 
       await expect(reservationService.cancel("res-1")).rejects.toThrow("DB error");

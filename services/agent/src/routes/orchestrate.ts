@@ -92,7 +92,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
               },
             },
           },
-          400: { $ref: "AgentError#" },
+          400: { $ref: "AgentProblemDetails#" },
         },
       },
     },

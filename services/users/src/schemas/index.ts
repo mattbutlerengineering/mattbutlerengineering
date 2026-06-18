@@ -3,14 +3,15 @@ import {
   userPreferencesJsonSchema,
   userJsonSchema,
   paginationJsonSchema,
-  errorJsonSchema,
+  problemDetailsJsonSchema,
 } from "@mbe/types";
 
 // Re-export the derived JSON Schemas so existing imports continue to work.
 export const UserPreferencesSchema = userPreferencesJsonSchema;
 export const UserSchema = userJsonSchema;
 export const PaginationSchema = paginationJsonSchema;
-export const ErrorSchema = errorJsonSchema;
+// RFC 7807 problem-details schema — replaces the legacy ErrorResponseSchema shape.
+export const ErrorSchema = problemDetailsJsonSchema;
 
 export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(UserPreferencesSchema);

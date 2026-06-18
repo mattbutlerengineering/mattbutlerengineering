@@ -305,7 +305,7 @@ describe("User routes — authorization branches", () => {
 
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Unauthorized");
+      expect(body.title).toBe("Unauthorized");
     });
   });
 
@@ -376,7 +376,7 @@ describe("User routes — authorization branches", () => {
 
       expect(response.statusCode).toBe(500);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Internal Server Error");
+      expect(body.title).toBe("Internal Server Error");
     });
   });
 });

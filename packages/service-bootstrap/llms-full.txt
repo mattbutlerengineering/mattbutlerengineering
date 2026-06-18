@@ -117,6 +117,13 @@
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
     }
   </file>
+  <file path="src/readiness-routes.ts">
+    export type ReadinessRoutesOptions = StandardChecksOptions;
+    export const registerReadinessRoutes = fp(readinessRoutesPlugin, {
+      name: "readiness-routes",
+      fastify: "5.x",
+    });
+  </file>
   <file path="src/start-service-server.ts">
     export interface StartServiceServerOptions {
       serviceName: string;

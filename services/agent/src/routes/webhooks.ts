@@ -155,7 +155,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             type: "object",
             properties: { received: { type: "boolean" } },
           },
-          401: { $ref: "AgentError#" },
+          401: { $ref: "AgentProblemDetails#" },
         },
       },
       config: { rateLimit: { max: 20, timeWindow: "1 minute" } },

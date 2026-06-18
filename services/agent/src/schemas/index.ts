@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { sessionJsonSchema, sessionEventJsonSchema, createSessionBodyJsonSchema } from "@mbe/types";
+import {
+  sessionJsonSchema,
+  sessionEventJsonSchema,
+  createSessionBodyJsonSchema,
+  problemDetailsJsonSchema,
+} from "@mbe/types";
 
 // Re-export the derived JSON Schemas so existing imports continue to work.
 export const SessionSchema = sessionJsonSchema;
@@ -22,16 +27,10 @@ export const PaginationSchema = {
   },
 } as const;
 
-export const ErrorSchema = {
-  $id: "AgentError",
-  type: "object",
-  required: ["error", "message", "statusCode"],
-  properties: {
-    error: { type: "string", example: "Not Found" },
-    message: { type: "string", example: "Session not found" },
-    statusCode: { type: "number", example: 404 },
-  },
-} as const;
+// RFC 7807 problem-details schema — replaces the legacy AgentError shape.
+// Uses a distinct $id to avoid collisions when this service's OpenAPI doc
+// is composed alongside other services that also register ProblemDetails.
+export const ErrorSchema = { ...problemDetailsJsonSchema, $id: "AgentProblemDetails" } as const;
 
 export function registerSchemas(fastify: FastifyInstance) {
   fastify.addSchema(SessionSchema);

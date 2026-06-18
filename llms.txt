@@ -2205,6 +2205,17 @@
       export async function findReservationsNeedingReminder() { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/reservation-state-machine.ts">
+    <item priority="high">
+      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidReservationTransition(
+        from: ReservationStatus,
+        to: ReservationStatus
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reservation.ts">
     <item priority="low">
       interface ListReservationsOptions {
@@ -3811,6 +3822,14 @@
         record: (ms: number) => void;
         checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
       }
+    </item>
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      type ReadinessRoutesOptions = StandardChecksOptions;
+    </item>
+    <item priority="high">
+      export const registerReadinessRoutes: unknown;
     </item>
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">

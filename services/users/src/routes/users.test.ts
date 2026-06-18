@@ -165,7 +165,7 @@ describe("User Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
   });
 
@@ -340,7 +340,7 @@ describe("GET /api/v1/users/me", () => {
 
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.message).toBe("Missing or invalid authorization header");
+    expect(body.detail).toBe("Missing or invalid authorization header");
   });
 
   it("returns 401 for invalid token", async () => {
@@ -356,7 +356,7 @@ describe("GET /api/v1/users/me", () => {
 
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body.message).toBe("Invalid token");
+    expect(body.detail).toBe("Invalid token");
   });
 });
 
