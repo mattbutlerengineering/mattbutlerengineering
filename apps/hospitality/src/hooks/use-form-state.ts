@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { ZodSchema } from "zod";
 
 export interface UseFormStateResult<T extends Record<string, unknown>> {
@@ -30,6 +30,7 @@ export function useFormState<T extends Record<string, unknown>>(
   }, [initialData]);
 
   const handleSubmit = useCallback(async () => {
+    if (isPending) return;
     const parsed = schema.safeParse(fields);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Validation failed");
@@ -45,9 +46,12 @@ export function useFormState<T extends Record<string, unknown>>(
     } finally {
       setIsPending(false);
     }
-  }, [fields, onSubmit, schema]);
+  }, [fields, onSubmit, schema, isPending]);
 
-  const isDirty = Object.keys(initialData).some((key) => fields[key] !== initialData[key]);
+  const isDirty = useMemo(
+    () => Object.keys(initialData).some((key) => fields[key] !== initialData[key]),
+    [initialData, fields]
+  );
 
   return { fields, setField, isPending, error, isDirty, handleSubmit, reset };
 }
