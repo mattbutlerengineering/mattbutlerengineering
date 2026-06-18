@@ -20,12 +20,11 @@ vi.mock("../hooks/useVenueReadiness.js", () => ({
   })),
 }));
 
-vi.mock("../hooks/useReservationQuerySync.js", () => ({
-  useReservationQuerySync: vi.fn(() => ({
-    isConnected: true,
-    error: null,
-    reconnect: vi.fn(),
-  })),
+vi.mock("../hooks/useSSESync.js", () => ({
+  SSESyncProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
+  useSSEStatus: vi.fn(() => ({ isConnected: true, error: null })),
+  useSSEEventFeed: vi.fn(() => []),
 }));
 
 vi.mock("../hooks/use-command-palette.js", () => ({
