@@ -133,6 +133,8 @@ Security rules: never hardcode secrets, no SQL injection, no XSS. Never modify .
   --max-budget 0.75 --adapter auto
 ```
 
+`--adapter auto` enables rate-limit failover: if Claude returns 429, the adapter cascade tries gemini then opencode before giving up. Opus-tier tasks (deep architecture analysis) should pin `--adapter claude` to stay on the Claude provider.
+
 Note the PR number from agent output for Step 2d.
 
 #### 2d: Validate the Fix (Reviewer Agent Contract)
@@ -264,6 +266,8 @@ mbe agent run "Fix failing CI checks on PR #<NUMBER> [type: <classified type>]:
 Fix the root cause, run pnpm lint && pnpm typecheck && pnpm test on affected packages, then push the fix to the same branch." \
   --max-budget 0.50 --adapter auto
 ```
+
+`--adapter auto` enables rate-limit failover (claude → gemini → opencode on 429). These PR fix runs are haiku/sonnet-tier — opus-tier tasks should pin `--adapter claude`.
 
 Track result as before. On fix-PR CI failure, increment `CONSECUTIVE_FAILURES`.
 
