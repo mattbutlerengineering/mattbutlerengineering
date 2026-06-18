@@ -353,6 +353,29 @@ describe("reservationService", () => {
       expect(result.pacing).toBeDefined();
     });
 
+    it("calls fetchConflictData exactly once for conflict + pacing checks (no extra DB queries)", async () => {
+      vi.mocked(availabilityService.checkTableConflict).mockReturnValueOnce(false);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(availabilityService.checkPacingForSlot).mockReturnValueOnce(true);
+      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+
+      await reservationService.createWithConflictCheck({
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      // Regression guard: fetchConflictData must be called exactly once even when
+      // both conflict and pacing rules are evaluated — the slices are reused.
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
+    });
+
     it("uses fetch-then-rule pattern when venueId not provided (table has venueId)", async () => {
       vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
         id: "table-1",
