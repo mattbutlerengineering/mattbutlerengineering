@@ -1943,10 +1943,10 @@
   </file>
   <file path="services/agent/src/services/session.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
+      function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
@@ -2379,9 +2379,6 @@
   </file>
   <file path="services/users/src/services/user.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaUser(user: {
         id: string;
         email: string;
@@ -2392,6 +2389,9 @@
         createdAt: Date;
         updatedAt: Date;
       }): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userService: unknown;
     </item>
   </file>
   </section>

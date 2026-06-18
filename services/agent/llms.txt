@@ -216,10 +216,10 @@
   </file>
   <file path="src/services/session.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
+      function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
   </file>
   <file path="src/services/stored-spec.ts">
