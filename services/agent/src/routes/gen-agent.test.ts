@@ -71,6 +71,15 @@ vi.mock("@mbe/agent-core", () => ({
   resolveModel: vi.fn(),
   routeModelWithReason: vi.fn(),
   createSanitizedStream: vi.fn((stream: unknown) => stream),
+  // Gen permission policy exports (used by gen-runner.ts)
+  GEN_BLOCKED_TOOLS: new Set([
+    "WebSearch",
+    "WebFetch",
+    "AskUserQuestion",
+    "EnterPlanMode",
+    "EnterWorktree",
+  ]),
+  genIsBashCommandBlocked: vi.fn(() => null),
 }));
 
 import { streamText } from "ai";

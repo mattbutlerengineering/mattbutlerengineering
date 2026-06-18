@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 // Must mock before importing buildApp
 vi.mock("ai", () => ({
   streamText: vi.fn(),
+  stepCountIs: vi.fn((n: number) => ({ type: "stepCount", count: n })),
   Output: {
     object: vi.fn(),
   },
@@ -70,6 +71,15 @@ vi.mock("@mbe/agent-core", () => ({
   resolveModel: vi.fn(),
   routeModelWithReason: vi.fn(),
   createSanitizedStream: vi.fn((stream: unknown) => stream),
+  // Gen permission policy exports (used by gen-runner.ts)
+  GEN_BLOCKED_TOOLS: new Set([
+    "WebSearch",
+    "WebFetch",
+    "AskUserQuestion",
+    "EnterPlanMode",
+    "EnterWorktree",
+  ]),
+  genIsBashCommandBlocked: vi.fn(() => null),
 }));
 
 import { streamText } from "ai";
@@ -119,15 +129,11 @@ describe("POST /api/gen/chat", () => {
   });
 
   it("calls streamText with system prompt and user messages", async () => {
-    const closedStream = new ReadableStream({
-      start(controller) {
-        controller.close();
-      },
-    });
-    const mockStream = {
-      toUIMessageStream: vi.fn(() => closedStream),
-    };
-    vi.mocked(streamText).mockReturnValueOnce(mockStream as never);
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: (async function* () {})(),
+      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
 
     await app.inject({
       method: "POST",
@@ -153,15 +159,11 @@ describe("POST /api/gen/chat", () => {
   });
 
   it("applies prompt caching on system message", async () => {
-    const closedStream = new ReadableStream({
-      start(controller) {
-        controller.close();
-      },
-    });
-    const mockStream = {
-      toUIMessageStream: vi.fn(() => closedStream),
-    };
-    vi.mocked(streamText).mockReturnValueOnce(mockStream as never);
+    vi.mocked(streamText).mockReturnValueOnce({
+      fullStream: (async function* () {})(),
+      usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+      providerMetadata: Promise.resolve({}),
+    } as never);
 
     await app.inject({
       method: "POST",

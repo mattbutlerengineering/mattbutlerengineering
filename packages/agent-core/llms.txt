@@ -436,6 +436,14 @@
       }
     </item>
   </file>
+  <file path="src/gen-permissions.ts">
+    <item priority="high">
+      export const BLOCKED_BASH_PATTERNS: readonly RegExp[];
+    </item>
+    <item priority="high">
+      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
+    </item>
+  </file>
   <file path="src/intent-extractor.ts">
     <item priority="high">
       interface ContentBlock {
@@ -755,11 +763,11 @@
     </item>
   </file>
   <file path="src/tool-permissions.ts">
-    <item priority="high">
-      export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
-    </item>
     <item priority="medium">
-      function isBashCommandBlocked(command: string): string | null { /* ... */ }
+      function isPathWithinWorktree(filePath: string, worktreePath: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createToolPermissionHandler(worktreePath: string) { /* ... */ }
     </item>
   </file>
   <file path="src/types.ts">

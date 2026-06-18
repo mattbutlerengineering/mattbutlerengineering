@@ -56,8 +56,14 @@ export type { TrivialDepBumpResult } from "./dep-bump-merger.js";
 export { buildSystemPrompt, loadProjectContext, loadSourceFiles } from "./prompt-builder.js";
 export type { SourceFileEntry } from "./prompt-builder.js";
 
-// Tool permissions
+// Tool permissions (worktree-scoped agent sessions)
 export { createToolPermissionHandler, normalizeBashCommand } from "./tool-permissions.js";
+
+// Gen permissions (shared policy for gen streaming sessions)
+export {
+  BLOCKED_TOOLS as GEN_BLOCKED_TOOLS,
+  isBashCommandBlocked as genIsBashCommandBlocked,
+} from "./gen-permissions.js";
 
 // Cost tracking
 export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-tracker.js";

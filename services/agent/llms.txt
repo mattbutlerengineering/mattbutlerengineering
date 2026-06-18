@@ -33,7 +33,7 @@
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
     <item priority="high">
-      export const WRITE_TOOLS: unknown;
+      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-agent.ts">
@@ -44,6 +44,20 @@
   <file path="src/routes/gen-chat.ts">
     <item priority="high">
       export const genChatRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/gen-runner.ts">
+    <item priority="low">
+      type GenStreamEvent = { readonly type: "text"; reado | { readonly type: "element"; re | {
+            readonly type: "action | {
+            readonly type: "tool_s | {
+            readonly type: "permis;
+    </item>
+    <item priority="low">
+      interface GenFinishPayload {
+        usage: { readonly inputTokens?: number; readonly outputTokens?: ...;
+        providerMetadata: unknown;
+      }
     </item>
   </file>
   <file path="src/routes/gen-specs.ts">
