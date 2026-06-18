@@ -32,6 +32,7 @@ import {
 } from "./services/booking-notifications.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { prisma } from "./services/database.js";
+import { getStripeConfig } from "./config/stripe.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
@@ -42,6 +43,14 @@ export interface ReservationsAppOptions extends AppOptions {
  * Creates the Fastify application instance.
  */
 export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
+  // Validate Stripe secrets at startup — throws in production if missing.
+  // In test/dev, warns but continues to allow local development without Stripe CLI.
+  getStripeConfig({
+    nodeEnv: process.env.NODE_ENV,
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  });
+
   const fastify = await createServiceApp(
     {
       swagger: {
