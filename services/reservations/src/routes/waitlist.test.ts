@@ -118,7 +118,6 @@ vi.mock("../services/availability.js", () => ({
     generateTimeSlots: vi.fn(),
     getAvailableDates: vi.fn(),
     findBestTable: vi.fn(),
-    checkConflict: vi.fn(),
     estimateDuration: vi.fn(),
   },
 }));
