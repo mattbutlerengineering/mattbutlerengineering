@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from "react";
 
 export interface GuestRecognitionResult {
   firstName: string | null;
-  phone: string | null;
   visitCount: number;
   hasPreferences: boolean;
 }
@@ -58,7 +57,6 @@ export function useGuestRecognition({
           if (data.recognized) {
             setResult({
               firstName: data.firstName ?? null,
-              phone: data.phone ?? null,
               visitCount: data.visitCount ?? 1,
               hasPreferences: data.hasPreferences ?? false,
             });

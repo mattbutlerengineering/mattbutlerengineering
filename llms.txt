@@ -534,6 +534,23 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="config">
+  <file path="services/reservations/src/config/stripe.ts">
+    <item priority="low">
+      interface StripeConfig {
+        secretKey: string;
+        webhookSecret: string;
+      }
+    </item>
+    <item priority="high">
+      interface StripeConfigInput {
+        nodeEnv: string | undefined;
+        secretKey: string | undefined;
+        webhookSecret: string | undefined;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="constants">
   <file path="apps/hospitality/src/constants/auth.ts">
     <item priority="low">
@@ -981,7 +998,6 @@
     <item priority="low">
       interface GuestRecognitionResult {
         firstName: string | null;
-        phone: string | null;
         visitCount: number;
         hasPreferences: boolean;
       }
@@ -2113,9 +2129,9 @@
       interface GuestRecognition {
         recognized: boolean;
         firstName: string | null;
-        phone: string | null;
         visitCount: number;
         hasPreferences: boolean;
+        lastVisit: string | null;
       }
     </item>
     <item priority="medium">
