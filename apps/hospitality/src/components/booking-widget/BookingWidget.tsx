@@ -157,8 +157,7 @@ export function BookingWidget({
     }, 1000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.hold]);
+  }, [data.hold, fetchSlots]);
 
   // Navigation handlers
   const handleFindTimes = useCallback(() => {
