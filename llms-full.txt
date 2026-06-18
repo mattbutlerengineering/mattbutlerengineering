@@ -2910,6 +2910,22 @@
       deleteSpec: (id: string) => Promise<void>;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/create-mutation-hook.ts">
+    export interface CreateMutationHookOptions<TVariables, TData = unknown> {
+      /** Query key string to invalidate on successful mutation */
+      invalidateKey: string;
+      /** Mutation function — receives api client and variables, returns a promise */
+      mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariables) => Promise<TData>;
+    }
+    export interface MutationHookResult<TVariables, TData = unknown> {
+      mutate: (variables: TVariables) => void;
+      mutateAsync: (variables: TVariables) => Promise<TData>;
+      isPending: boolean;
+      isSuccess: boolean;
+      isError: boolean;
+      error: Error | null;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/create-query-hook.ts">
     export interface QueryHookResult<TData> {
       data: TData | undefined;
@@ -14511,7 +14527,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

@@ -145,6 +145,22 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/create-mutation-hook.ts">
+    export interface CreateMutationHookOptions<TVariables, TData = unknown> {
+      /** Query key string to invalidate on successful mutation */
+      invalidateKey: string;
+      /** Mutation function — receives api client and variables, returns a promise */
+      mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariables) => Promise<TData>;
+    }
+    export interface MutationHookResult<TVariables, TData = unknown> {
+      mutate: (variables: TVariables) => void;
+      mutateAsync: (variables: TVariables) => Promise<TData>;
+      isPending: boolean;
+      isSuccess: boolean;
+      isError: boolean;
+      error: Error | null;
+    }
+  </file>
   <file path="src/hooks/create-query-hook.ts">
     export interface QueryHookResult<TData> {
       data: TData | undefined;
