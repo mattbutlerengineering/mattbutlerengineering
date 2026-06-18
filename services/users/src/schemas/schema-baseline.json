@@ -1,19 +1,30 @@
 {
-  "Error": {
-    "$id": "Error",
+  "ProblemDetails": {
+    "$id": "ProblemDetails",
     "type": "object",
     "properties": {
-      "error": {
+      "type": {
+        "anyOf": [
+          { "type": "string", "format": "uri" },
+          { "type": "string", "const": "about:blank" }
+        ]
+      },
+      "title": {
         "type": "string"
       },
-      "message": {
+      "status": {
+        "type": "integer",
+        "minimum": 100,
+        "maximum": 599
+      },
+      "detail": {
         "type": "string"
       },
-      "statusCode": {
-        "type": "number"
+      "instance": {
+        "type": "string"
       }
     },
-    "required": ["error", "message", "statusCode"]
+    "required": ["type", "title", "status", "detail"]
   },
   "Pagination": {
     "$id": "Pagination",

@@ -33,24 +33,32 @@
     },
     "required": ["taskDescription"]
   },
-  "AgentError": {
-    "$id": "AgentError",
+  "AgentProblemDetails": {
+    "$id": "AgentProblemDetails",
     "type": "object",
-    "required": ["error", "message", "statusCode"],
     "properties": {
-      "error": {
-        "type": "string",
-        "example": "Not Found"
+      "type": {
+        "anyOf": [
+          { "type": "string", "format": "uri" },
+          { "type": "string", "const": "about:blank" }
+        ]
       },
-      "message": {
-        "type": "string",
-        "example": "Session not found"
+      "title": {
+        "type": "string"
       },
-      "statusCode": {
-        "type": "number",
-        "example": 404
+      "status": {
+        "type": "integer",
+        "minimum": 100,
+        "maximum": 599
+      },
+      "detail": {
+        "type": "string"
+      },
+      "instance": {
+        "type": "string"
       }
-    }
+    },
+    "required": ["type", "title", "status", "detail"]
   },
   "AgentPagination": {
     "$id": "AgentPagination",

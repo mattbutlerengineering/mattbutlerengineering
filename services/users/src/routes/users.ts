@@ -76,7 +76,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -126,11 +126,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           404: {
             description: "User not found",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -194,11 +194,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           400: {
             description: "Invalid request body or email already exists",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -259,11 +259,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           404: {
             description: "User not found",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -306,11 +306,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           404: {
             description: "User not found",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -348,11 +348,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           401: {
             description: "Authentication required or token invalid",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
@@ -420,15 +420,15 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           },
           401: {
             description: "Authentication required or token invalid",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           404: {
             description: "User not found",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
           500: {
             description: "Internal server error",
-            $ref: "Error#",
+            $ref: "ProblemDetails#",
           },
         },
       },
