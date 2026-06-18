@@ -3464,6 +3464,19 @@
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
     </item>
   </file>
+  <file path="packages/jobs/src/dispatch-job.ts">
+    <item priority="high">
+      class UnknownJobTypeError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function dispatchJob(
+        handlers: JobHandlerMap,
+        job: { name: string; data: unknown }
+      ): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/jobs/src/job-types.ts">
     <item priority="high">
       export const JOB_TYPES: unknown;
