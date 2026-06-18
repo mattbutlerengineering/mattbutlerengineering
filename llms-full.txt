@@ -7833,9 +7833,9 @@
               .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
           }
           // Emit only after the transaction has committed.
-          emitReservationCreated(result.reservation);
+          fastify.reservationEvents.emitReservationCreated(result.reservation);
           if (result.table) {
-            emitTableUpdated(result.table);
+            fastify.reservationEvents.emitTableUpdated(result.table);
           }
           return reply.code(201).send({ data: result.reservation });
         }
@@ -8189,7 +8189,7 @@
                   .send(createProblemDetails(404, "Not Found", "Reservation not found"));
               }
     
-              emitReservationCancelled(cancelled);
+              fastify.reservationEvents.emitReservationCancelled(cancelled);
               return { data: cancelled };
             } catch (err) {
               if (err instanceof ReservationTransitionError) {
@@ -8783,7 +8783,7 @@
               error.statusCode = 404;
               throw error;
             }
-            emitTableUpdated(table);
+            fastify.reservationEvents.emitTableUpdated(table);
             return { data: table };
           } catch (err) {
             if (err instanceof TableTransitionError) {
@@ -14966,6 +14966,7 @@
     export interface ReservationsAppOptions extends AppOptions {
       notificationPort?: NotificationDispatcher;
       bookingNotifier?: BookingNotifier;
+      reservationEvents?: ReservationEventEmitter;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — throws in production if missing.
@@ -14995,6 +14996,10 @@
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
       const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
       fastify.decorate("bookingNotifier", bookingNotifier);
+    
+      // Wire reservation events emitter — injectable for testing, default singleton for production
+      const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
+      fastify.decorate("reservationEvents", reservationEvents);
     
       // Register routes
       await fastify.register(healthRoutes);
