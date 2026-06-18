@@ -2965,22 +2965,6 @@
       );
     }
   </file>
-  <file path="apps/hospitality/src/hooks/useDashboardStats.ts">
-    export interface DashboardStats {
-      totalReservations: number;
-      expectedCovers: number;
-      upcomingCount: number;
-      cancellationRate: number;
-      cancellationTrend: "up" | "down" | "neutral";
-    }
-    export interface UseDashboardStatsResult {
-      reservations: readonly Reservation[];
-      stats: DashboardStats;
-      isLoading: boolean;
-      error: string | null;
-      refetch: () => Promise<void>;
-    }
-  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;
@@ -14476,7 +14460,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

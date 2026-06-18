@@ -1,21 +1,22 @@
 import { describe, it, expect } from "vitest";
-import { computeStats } from "./useDashboardStats.js";
-import type { DashboardStats } from "./useDashboardStats.js";
+import { computeStatsFromReservations } from "./useDashboardStatsQuery.js";
 import type { Reservation } from "@mbe/types";
 
-/* ── Helpers ────────────────────────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────── */
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   return {
     id: "res-1",
     date: "2026-01-15",
-    startTime: "18:00",
-    endTime: "20:00",
+    startTime: "2026-01-15T18:00:00.000Z",
+    endTime: "2026-01-15T20:00:00.000Z",
     partySize: 4,
     status: "CONFIRMED",
     notes: null,
     cancellationReason: null,
     cancellationNote: null,
+    occasion: null,
+    seatingPreference: null,
     guestName: "Test Guest",
     guestEmail: null,
     guestPhone: null,
@@ -29,10 +30,9 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   };
 }
 
-describe("computeStats", () => {
+describe("computeStatsFromReservations", () => {
   it("returns fallback stats for empty reservations list", () => {
-    const stats: DashboardStats = computeStats([]);
-
+    const stats = computeStatsFromReservations([]);
     expect(stats.totalReservations).toBe(0);
     expect(stats.expectedCovers).toBe(0);
     expect(stats.upcomingCount).toBe(0);
@@ -49,9 +49,7 @@ describe("computeStats", () => {
       makeReservation({ id: "r5", status: "COMPLETED", partySize: 5 }),
     ];
 
-    const stats = computeStats(reservations);
-
-    // Active = CONFIRMED + PENDING + COMPLETED = 3
+    const stats = computeStatsFromReservations(reservations);
     expect(stats.totalReservations).toBe(3);
   });
 
@@ -62,9 +60,7 @@ describe("computeStats", () => {
       makeReservation({ id: "r3", status: "CANCELLED", partySize: 10 }),
     ];
 
-    const stats = computeStats(reservations);
-
-    // Only CONFIRMED(4) + PENDING(2) = 6
+    const stats = computeStatsFromReservations(reservations);
     expect(stats.expectedCovers).toBe(6);
   });
 
@@ -76,24 +72,62 @@ describe("computeStats", () => {
       makeReservation({ id: "r4", status: "CANCELLED" }),
     ];
 
-    const stats = computeStats(reservations);
-
-    // 2 cancelled out of 4 = 50%
+    const stats = computeStatsFromReservations(reservations);
     expect(stats.cancellationRate).toBe(50);
-    expect(stats.cancellationTrend).toBe("up"); // >10% -> "up"
+    expect(stats.cancellationTrend).toBe("up");
   });
 
   it("returns 'down' cancellation trend when rate is below 5%", () => {
-    // Need a rate < 5% -> 0 cancelled out of many
     const reservations = Array.from({ length: 25 }, (_, i) =>
       makeReservation({ id: `r${i}`, status: "CONFIRMED" })
     );
-    // Add 1 cancelled to get 1/26 = ~4%
     reservations.push(makeReservation({ id: "cancelled-1", status: "CANCELLED" }));
 
-    const stats = computeStats(reservations);
-
-    expect(stats.cancellationRate).toBe(4); // Math.round(1/26*100) = 4
+    const stats = computeStatsFromReservations(reservations);
+    expect(stats.cancellationRate).toBe(4);
     expect(stats.cancellationTrend).toBe("down");
+  });
+
+  it("counts upcoming reservations when startTime is a full ISO datetime within 2 hours", () => {
+    const now = new Date();
+    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
+    const inThreeHours = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+
+    const reservations = [
+      makeReservation({
+        id: "r-upcoming",
+        status: "CONFIRMED",
+        startTime: inOneHour.toISOString(),
+      }),
+      makeReservation({
+        id: "r-too-far",
+        status: "CONFIRMED",
+        startTime: inThreeHours.toISOString(),
+      }),
+    ];
+
+    const stats = computeStatsFromReservations(reservations);
+    expect(stats.upcomingCount).toBe(1);
+  });
+
+  it("does not count cancelled reservations in upcomingCount", () => {
+    const now = new Date();
+    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
+
+    const reservations = [
+      makeReservation({
+        id: "r-cancelled",
+        status: "CANCELLED",
+        startTime: inOneHour.toISOString(),
+      }),
+      makeReservation({
+        id: "r-no-show",
+        status: "NO_SHOW",
+        startTime: inOneHour.toISOString(),
+      }),
+    ];
+
+    const stats = computeStatsFromReservations(reservations);
+    expect(stats.upcomingCount).toBe(0);
   });
 });

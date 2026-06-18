@@ -930,26 +930,6 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
-  <file path="apps/hospitality/src/hooks/useDashboardStats.ts">
-    <item priority="low">
-      interface DashboardStats {
-        totalReservations: number;
-        expectedCovers: number;
-        upcomingCount: number;
-        cancellationRate: number;
-        cancellationTrend: "up" | "down" | "neutral";
-      }
-    </item>
-    <item priority="low">
-      interface UseDashboardStatsResult {
-        reservations: readonly Reservation[];
-        stats: DashboardStats;
-        isLoading: boolean;
-        error: string | null;
-        refetch: () => Promise<void>;
-      }
-    </item>
-  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
