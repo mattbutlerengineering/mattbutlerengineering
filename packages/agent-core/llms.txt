@@ -417,6 +417,14 @@
       }
     </item>
   </file>
+  <file path="src/file-classifier.ts">
+    <item priority="high">
+      export function isTestFile(path: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isDocFile(path: string): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/gate-runner.ts">
     <item priority="low">
       interface GateContext {

@@ -1219,6 +1219,14 @@
       readonly ciLogMaxChars?: number;
     }
   </file>
+  <file path="src/file-classifier.ts">
+    export function isTestFile(path: string): boolean {
+      return /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/.test(path);
+    }
+    export function isDocFile(path: string): boolean {
+      return path.endsWith(".md") || path.startsWith("docs/");
+    }
+  </file>
   <file path="src/gate-runner.ts">
     export interface GateContext {
       /** The git diff produced by the agent's commit. */
@@ -1547,7 +1555,7 @@
         return false;
       }
     
-      return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
+      return files.every(isLowRiskFile);
     }
     export function reviewersForDiff(files: readonly string[]): string[] {
       return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
