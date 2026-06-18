@@ -2977,6 +2977,7 @@
       }, [initialData]);
     
       const handleSubmit = useCallback(async () => {
+        if (isPending) return;
         const parsed = schema.safeParse(fields);
         if (!parsed.success) {
           setError(parsed.error.issues[0]?.message ?? "Validation failed");
@@ -2992,9 +2993,12 @@
         } finally {
           setIsPending(false);
         }
-      }, [fields, onSubmit, schema]);
+      }, [fields, onSubmit, schema, isPending]);
     
-      const isDirty = Object.keys(initialData).some((key) => fields[key] !== initialData[key]);
+      const isDirty = useMemo(
+        () => Object.keys(initialData).some((key) => fields[key] !== initialData[key]),
+        [initialData, fields]
+      );
     
       return { fields, setField, isPending, error, isDirty, handleSubmit, reset };
     }
@@ -14562,7 +14566,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
