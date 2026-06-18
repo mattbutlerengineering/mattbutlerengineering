@@ -4646,28 +4646,8 @@
     }
   </file>
   <file path="services/agent/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
+      registerReadinessRoutes(fastify, { prisma, auth0Url });
   </file>
   <file path="services/agent/src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -7607,28 +7587,8 @@
     };
   </file>
   <file path="services/reservations/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
+      registerReadinessRoutes(fastify, { prisma, auth0Url });
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -14513,18 +14473,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -15199,6 +15148,8 @@
       budget?: number;
       maxTurns?: number;
       adapter?: AdapterType;
+      /** Tier to retry at when the initial run fails. One escalation max. */
+      escalate?: ModelTier;
       verify?: string;
     }
   </file>
@@ -15227,7 +15178,7 @@
       readonly modelId: string;
       readonly reason: string;
       /** Where the decision came from: an explicit issue override vs. the router. */
-      readonly source: "frontmatter" | "router";
+      readonly source: "frontmatter" | "router" | "escalate";
     }
   </file>
   </section>
