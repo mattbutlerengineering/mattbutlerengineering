@@ -641,6 +641,9 @@
   </file>
   <file path="src/notifications.ts">
     <item priority="high">
+      export function createResendAdapter(): ResendNotificationAdapter { /* ... */ }
+    </item>
+    <item priority="high">
       export function createNotificationPort(): NotificationDispatcher { /* ... */ }
     </item>
   </file>
