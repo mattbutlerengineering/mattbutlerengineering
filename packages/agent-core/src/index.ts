@@ -234,12 +234,11 @@ export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "
 // Model registry (canonical IDs + tier defaults)
 export { MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
 
-// PR risk classification
-export { isLowRiskPR, reviewersForDiff } from "./pr-risk-classifier.js";
-
-// Change-type classification (ship-loop phase gating)
+// Change-type classification (ship-loop phase gating) + PR risk + diff reviewers
 export {
   classifyChanges,
+  isLowRiskPR,
+  reviewersForDiff,
   shouldSkipPhase,
   formatClassification,
 } from "./change-type-classifier.js";

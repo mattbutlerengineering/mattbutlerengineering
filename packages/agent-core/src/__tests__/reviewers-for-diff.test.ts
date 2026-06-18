@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { reviewersForDiff } from "../pr-risk-classifier.js";
+import { reviewersForDiff } from "../change-type-classifier.js";
 
 describe("reviewersForDiff — migration-reviewer", () => {
   it("fires for a Prisma schema change", () => {
