@@ -9,30 +9,7 @@
  *   - Config files  (.github/**, .claude/**, turbo.json, *.config.ts, *.config.js, *.config.mjs)
  */
 
-/** Pattern groups that are considered low-risk. */
-const LOW_RISK_PATTERNS: ReadonlyArray<(file: string) => boolean> = [
-  // Test files
-  (f) => /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/.test(f),
-
-  // Documentation
-  (f) => f.endsWith(".md") || f.startsWith("docs/"),
-
-  // Dependency manifests
-  (f) =>
-    f === "package.json" ||
-    f.endsWith("/package.json") ||
-    f === "pnpm-lock.yaml" ||
-    f === "package-lock.json" ||
-    f === "yarn.lock",
-
-  // Config files
-  (f) =>
-    f.startsWith(".github/") ||
-    f.startsWith(".claude/") ||
-    f === "turbo.json" ||
-    /\.(config)\.(ts|js|mjs|cjs)$/.test(f) ||
-    /\.(config)\.(ts|js|mjs|cjs)$/.test(f.split("/").pop() ?? ""),
-];
+import { isLowRiskFile } from "./file-classifier.js";
 
 /**
  * Returns `true` when every file in `files` is considered low-risk and the PR
@@ -46,7 +23,7 @@ export function isLowRiskPR(files: readonly string[]): boolean {
     return false;
   }
 
-  return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
+  return files.every(isLowRiskFile);
 }
 
 // ── Diff-matched specialized reviewers ───────────────────────────────────────

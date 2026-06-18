@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
+import { isNonAuditableFile } from "./file-classifier.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -569,32 +570,7 @@ export async function saveInventory(repoPath: string, inventory: AuditInventory)
 
 // ── Non-Auditable File Detection ────────────────────────────────────
 
-/**
- * Glob-style patterns for files that never affect auditable surfaces.
- * When ALL changed files match these patterns, the smoke audit can be skipped entirely.
- */
-const NON_AUDITABLE_PATTERNS: readonly RegExp[] = [
-  // Documentation
-  /^docs\//,
-  /\.md$/,
-  // CI / GitHub config
-  /^\.github\//,
-  /\.ya?ml$/,
-  // Test files
-  /\.(test|spec)\.(ts|tsx|js|jsx)$/,
-  // Claude / editor / repo config
-  /^\.claude\//,
-  /^\.gitignore$/,
-  /^turbo\.json$/,
-];
-
-/**
- * Returns true when the file is known to have no effect on any auditable surface.
- * The smoke audit can be skipped when every changed file satisfies this check.
- */
-export function isNonAuditableFile(filePath: string): boolean {
-  return NON_AUDITABLE_PATTERNS.some((pattern) => pattern.test(filePath));
-}
+export { isNonAuditableFile };
 
 /**
  * Returns true when every file in the list is non-auditable, meaning no

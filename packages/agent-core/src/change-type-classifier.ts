@@ -7,6 +7,16 @@
  * apply. If files span multiple types, the result is "mixed" with no skips.
  */
 
+import {
+  isTestFile,
+  isDocFile,
+  isConfigFile,
+  isDependencyFile,
+  isInfrastructureFile,
+  isFrontendSourceFile,
+  isBackendSourceFile,
+} from "./file-classifier.js";
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export type ChangeType =
@@ -33,36 +43,6 @@ interface ClassificationRule {
   readonly matches: (file: string) => boolean;
   readonly skipPhases: readonly SkippablePhase[];
 }
-
-// ── Helpers ─────────────────────────────────────────────────────────
-
-const isTestFile = (f: string): boolean => /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/.test(f);
-
-const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
-
-const isConfigFile = (f: string): boolean =>
-  f.startsWith(".github/") ||
-  f.startsWith(".claude/") ||
-  f === "turbo.json" ||
-  /\.config\.(ts|js|mjs|cjs)$/.test(f);
-
-const isDependencyFile = (f: string): boolean =>
-  f === "package.json" ||
-  f.endsWith("/package.json") ||
-  f === "pnpm-lock.yaml" ||
-  f === "package-lock.json" ||
-  f === "yarn.lock";
-
-const isInfrastructureFile = (f: string): boolean => f.startsWith("infrastructure/");
-
-const isFrontendFile = (f: string): boolean =>
-  (f.startsWith("apps/") || f.startsWith("packages/rialto/")) &&
-  !isTestFile(f) &&
-  !isDocFile(f) &&
-  !isConfigFile(f);
-
-const isBackendFile = (f: string): boolean =>
-  f.startsWith("services/") && !isTestFile(f) && !isDocFile(f) && !isConfigFile(f);
 
 // ── Rules (priority order) ──────────────────────────────────────────
 
@@ -94,12 +74,12 @@ const CLASSIFICATION_RULES: readonly ClassificationRule[] = [
   },
   {
     type: "frontend",
-    matches: isFrontendFile,
+    matches: isFrontendSourceFile,
     skipPhases: [],
   },
   {
     type: "backend",
-    matches: isBackendFile,
+    matches: isBackendSourceFile,
     skipPhases: ["lighthouse"],
   },
 ] as const;

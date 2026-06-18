@@ -234,6 +234,18 @@ export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "
 // Model registry (canonical IDs + tier defaults)
 export { MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
 
+// File classification predicates (unified source of truth for all callers)
+export {
+  isTestFile,
+  isDocFile,
+  isConfigFile,
+  isDependencyFile,
+  isInfrastructureFile,
+  isFrontendSourceFile,
+  isBackendSourceFile,
+  isLowRiskFile,
+} from "./file-classifier.js";
+
 // PR risk classification
 export { isLowRiskPR, reviewersForDiff } from "./pr-risk-classifier.js";
 
