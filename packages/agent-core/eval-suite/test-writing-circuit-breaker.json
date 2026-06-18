@@ -1,0 +1,20 @@
+{
+  "id": "test-writing-circuit-breaker",
+  "category": "test-writing",
+  "prompt": "The `CircuitBreaker` class in `packages/agent-core/src/circuit-breaker.ts` has no unit tests. Write a test file `packages/agent-core/src/circuit-breaker.test.ts` that covers: (1) breaker starts CLOSED, (2) trips OPEN after reaching the failure threshold, (3) moves to HALF_OPEN after the reset timeout, (4) closes again on a successful call in HALF_OPEN state, and (5) re-opens on a failed call in HALF_OPEN state. Use vitest and fake timers for timeout tests.",
+  "fixtureRef": "packages/agent-core",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "All five state-transition scenarios have at least one test case",
+      "Fake timers are used rather than real `setTimeout` / `sleep` calls",
+      "No new production code is added — only the test file"
+    ]
+  },
+  "budget": {
+    "maxTurns": 30,
+    "maxCostUsd": 0.75
+  }
+}

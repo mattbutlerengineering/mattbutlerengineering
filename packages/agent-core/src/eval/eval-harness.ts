@@ -1,4 +1,11 @@
-import type { EvalAggregate, EvalReport, Task, TaskRunner, TaskScore } from "./types.js";
+import type {
+  CategoryStats,
+  EvalAggregate,
+  EvalReport,
+  Task,
+  TaskRunner,
+  TaskScore,
+} from "./types.js";
 import { scoreTask } from "./task-scorer.js";
 
 export interface RunEvalSuiteOptions {
@@ -56,7 +63,15 @@ function failedScore(task: Task, err: unknown): TaskScore {
 function aggregate(scores: readonly TaskScore[]): EvalAggregate {
   const total = scores.length;
   if (total === 0) {
-    return { total: 0, passRate: 0, meanScore: 0, meanCostUsd: 0, meanTurns: 0, stuckCount: 0 };
+    return {
+      total: 0,
+      passRate: 0,
+      meanScore: 0,
+      meanCostUsd: 0,
+      meanTurns: 0,
+      stuckCount: 0,
+      byCategory: {},
+    };
   }
   const sum = (pick: (s: TaskScore) => number): number =>
     scores.reduce((acc, s) => acc + pick(s), 0);
@@ -69,5 +84,19 @@ function aggregate(scores: readonly TaskScore[]): EvalAggregate {
     // Tasks that failed to complete (crashed mid-run) — a proxy for "stuck"
     // until session stuckPattern is propagated in a later slice.
     stuckCount: scores.filter((s) => s.error !== undefined).length,
+    byCategory: aggregateByCategory(scores),
   };
+}
+
+function aggregateByCategory(scores: readonly TaskScore[]): Record<string, CategoryStats> {
+  const groups = new Map<string, { passed: number; total: number }>();
+  for (const s of scores) {
+    const prev = groups.get(s.category) ?? { passed: 0, total: 0 };
+    groups.set(s.category, { passed: prev.passed + (s.passed ? 1 : 0), total: prev.total + 1 });
+  }
+  const result: Record<string, CategoryStats> = {};
+  for (const [cat, { passed, total }] of groups) {
+    result[cat] = { total, passRate: passed / total };
+  }
+  return result;
 }

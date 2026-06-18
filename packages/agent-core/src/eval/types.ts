@@ -90,6 +90,11 @@ export interface TaskScore {
   readonly error?: string;
 }
 
+export interface CategoryStats {
+  readonly total: number;
+  readonly passRate: number;
+}
+
 export interface EvalAggregate {
   readonly total: number;
   readonly passRate: number;
@@ -97,6 +102,8 @@ export interface EvalAggregate {
   readonly meanCostUsd: number;
   readonly meanTurns: number;
   readonly stuckCount: number;
+  /** Per-category pass rate, keyed by {@link TaskCategory}. Only categories present in the run appear. */
+  readonly byCategory: Readonly<Record<string, CategoryStats>>;
 }
 
 export interface EvalReport {

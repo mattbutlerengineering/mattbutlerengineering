@@ -1,0 +1,21 @@
+{
+  "id": "new-route-health-detail",
+  "category": "new-route",
+  "prompt": "Add a `GET /api/v1/reservations/health/detail` endpoint to `services/reservations` that returns a JSON object with `{ status: 'ok' | 'degraded', db: boolean, uptime: number }`. `db` must be the result of a lightweight `SELECT 1` via Prisma. Return HTTP 200 when healthy, 503 when degraded. Add integration tests that stub Prisma and assert both the healthy and degraded responses.",
+  "fixtureRef": "services/reservations",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "The endpoint exists at the specified path and method",
+      "Response shape matches `{ status, db, uptime }` with correct types",
+      "Returns 503 when the Prisma query throws",
+      "Integration tests cover both the healthy and degraded paths"
+    ]
+  },
+  "budget": {
+    "maxTurns": 40,
+    "maxCostUsd": 1.0
+  }
+}

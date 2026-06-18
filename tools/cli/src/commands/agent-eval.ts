@@ -156,4 +156,16 @@ function printReport(report: EvalReport): void {
   console.log(`Mean cost:   $${a.meanCostUsd.toFixed(2)}`);
   console.log(`Mean turns:  ${a.meanTurns.toFixed(1)}`);
   console.log(`Failed to complete: ${a.stuckCount}`);
+
+  const categories = Object.keys(a.byCategory).sort();
+  if (categories.length > 0) {
+    console.log("");
+    console.log("By category:");
+    for (const cat of categories) {
+      const stats = a.byCategory[cat];
+      console.log(
+        `  ${cat}: ${(stats.passRate * 100).toFixed(1)}% (${stats.total} task${stats.total === 1 ? "" : "s"})`
+      );
+    }
+  }
 }

@@ -112,6 +112,7 @@ describe("runEvalSuite", () => {
       meanCostUsd: 0,
       meanTurns: 0,
       stuckCount: 0,
+      byCategory: {},
     });
   });
 
@@ -126,5 +127,32 @@ describe("runEvalSuite", () => {
     });
     expect(report.aggregate.meanCostUsd).toBeCloseTo(0.3);
     expect(report.aggregate.meanTurns).toBe(6);
+  });
+
+  it("breaks down pass rate by category in aggregate.byCategory", async () => {
+    const tasks = [
+      makeTask("a", { category: "bugfix" }),
+      makeTask("b", { category: "bugfix" }),
+      makeTask("c", { category: "refactor" }),
+    ];
+    const report = await runEvalSuite(tasks, {
+      runId: "r",
+      runTask: runnerFrom({
+        a: { checks: PASS },
+        b: { checks: FAIL },
+        c: { checks: PASS },
+      }),
+    });
+
+    const byCategory = report.aggregate.byCategory;
+    expect(byCategory["bugfix"]).toEqual({ total: 2, passRate: 0.5 });
+    expect(byCategory["refactor"]).toEqual({ total: 1, passRate: 1 });
+    // categories not in the suite should not appear
+    expect(byCategory["dep-bump"]).toBeUndefined();
+  });
+
+  it("byCategory is empty object for empty suite", async () => {
+    const report = await runEvalSuite([], { runId: "r", runTask: runnerFrom({}) });
+    expect(report.aggregate.byCategory).toEqual({});
   });
 });

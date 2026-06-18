@@ -1,0 +1,20 @@
+{
+  "id": "dep-bump-zod",
+  "category": "dep-bump",
+  "prompt": "Bump `zod` to the latest 3.x release across the monorepo. Update all `package.json` files that depend on `zod` to the new version, run `pnpm install --frozen-lockfile` to verify resolution, and confirm `pnpm typecheck` passes. Do not change any application code — only the version specifiers and the lockfile.",
+  "fixtureRef": "packages/agent-core",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "All `package.json` files referencing `zod` use the same bumped version specifier",
+      "No application source files are modified — only `package.json` and `pnpm-lock.yaml`",
+      "The lockfile resolves consistently (no duplicate zod versions)"
+    ]
+  },
+  "budget": {
+    "maxTurns": 20,
+    "maxCostUsd": 0.5
+  }
+}

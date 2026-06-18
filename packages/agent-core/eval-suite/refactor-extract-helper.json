@@ -1,0 +1,20 @@
+{
+  "id": "refactor-extract-helper",
+  "category": "refactor",
+  "prompt": "The `buildPrBody` function in `services/agent/src/routes/sessions.ts` has grown past 80 lines and mixes title-formatting, body-formatting, and label-lookup logic. Extract the label-lookup into a standalone pure function `resolveLabels(issue)` in the same file, add a unit test for it, and verify the existing tests still pass.",
+  "fixtureRef": "services/agent",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A pure `resolveLabels` function is extracted and exported",
+      "`buildPrBody` delegates to `resolveLabels` rather than inlining the logic",
+      "A unit test for `resolveLabels` is added covering at least the happy path and an empty-labels case"
+    ]
+  },
+  "budget": {
+    "maxTurns": 30,
+    "maxCostUsd": 0.75
+  }
+}
