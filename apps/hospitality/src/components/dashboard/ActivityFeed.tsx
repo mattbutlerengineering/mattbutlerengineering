@@ -1,5 +1,5 @@
 import { Card, Text } from "@mattbutlerengineering/rialto";
-import type { ReservationEvent } from "../../hooks/useReservationEvents";
+import type { ReservationEvent } from "../../hooks/useSSESync.js";
 import styles from "../../pages/HomePage.module.css";
 
 function formatEventTimestamp(timestamp: string): string {

@@ -914,6 +914,24 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/use-form-state.ts">
+    <item priority="low">
+      interface UseFormStateResult {
+        fields: T;
+        setField: <K extends keyof T>(key: K, value: T[K]) => void;
+        isPending: boolean;
+        error: string | null;
+        isDirty: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useFormState<T extends Record<string, unknown>>(
+        initialData: T,
+        onSubmit: (data: T) => Promise<void>,
+        schema: ZodSchema<T>
+      ): UseFormStateResult<T> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/use-theme.ts">
     <item priority="low">
       interface ThemeContextValue {
@@ -997,27 +1015,6 @@
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
   </file>
-  <file path="apps/hospitality/src/hooks/useReservationEvents.ts">
-    <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "guest:lapsing";
-    </item>
-    <item priority="low">
-      interface ReservationEvent {
-        type: ReservationEventType;
-        venueId: string;
-        timestamp: string;
-        data: Reservation | Table | ReservationHold | LapsingGuest[];
-      }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/hooks/useReservationQuerySync.ts">
-    <item priority="medium">
-      function canShowToast(): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function useReservationQuerySync() { /* ... */ }
-    </item>
-  </file>
   <file path="apps/hospitality/src/hooks/useReservations.ts">
     <item priority="high">
       export const RESERVATIONS_QUERY_KEY: unknown;
@@ -1026,22 +1023,6 @@
       interface UseReservationsParams {
         enabled?: boolean;
       }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/hooks/useSSEEventFeed.ts">
-    <item priority="high">
-      type EventFeedListener = (event: ReservationEvent) => void;
-    </item>
-    <item priority="high">
-      export function broadcastSSEEvent(event: ReservationEvent): void { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/hooks/useSSEStatus.ts">
-    <item priority="high">
-      type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
-    </item>
-    <item priority="high">
-      export function notifySSEStatus(isConnected: boolean, error: Error | null): void { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">

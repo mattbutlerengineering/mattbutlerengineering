@@ -5,8 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { HomePage } from "./HomePage.js";
 import { useAuth } from "@mbe/auth/react";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
-import { useSSEStatus } from "../hooks/useSSEStatus.js";
-import { useSSEEventFeed } from "../hooks/useSSEEventFeed.js";
+import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import React from "react";
 
 vi.mock("@mbe/auth/react", () => ({
@@ -17,12 +16,10 @@ vi.mock("../hooks/useDashboardStatsQuery.js", () => ({
   useDashboardStatsQuery: vi.fn(),
 }));
 
-vi.mock("../hooks/useSSEStatus.js", () => ({
+vi.mock("../hooks/useSSESync.js", () => ({
   useSSEStatus: vi.fn(),
-}));
-
-vi.mock("../hooks/useSSEEventFeed.js", () => ({
   useSSEEventFeed: vi.fn(),
+  useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
 }));
 
 vi.mock("../components/PageHeader", () => ({
