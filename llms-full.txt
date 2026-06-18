@@ -15180,6 +15180,8 @@
       budget?: number;
       maxTurns?: number;
       adapter?: AdapterType;
+      /** Tier to retry at when the initial run fails. One escalation max. */
+      escalate?: ModelTier;
     }
   </file>
   <file path="tools/cli/src/monorepo-root.ts">
@@ -15207,7 +15209,7 @@
       readonly modelId: string;
       readonly reason: string;
       /** Where the decision came from: an explicit issue override vs. the router. */
-      readonly source: "frontmatter" | "router";
+      readonly source: "frontmatter" | "router" | "escalate";
     }
   </file>
   </section>
