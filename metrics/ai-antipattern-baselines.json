@@ -14,7 +14,7 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 486,
+      "count": 490,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
