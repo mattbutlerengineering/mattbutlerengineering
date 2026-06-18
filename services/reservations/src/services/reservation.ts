@@ -204,20 +204,32 @@ export const reservationService = {
         }
       }
     } else {
-      // No venue scope — fall back to the table/date-scoped conflict check.
-      const conflict = await availabilityService.checkConflict(
-        data.tableId,
-        data.date,
-        startTime,
-        endTime
-      );
-
-      if (conflict.hasConflict) {
-        return {
-          success: false,
-          error: "Time slot has a conflict with an existing reservation or hold",
-          conflict,
-        };
+      // No venue in request — look up the table's venueId so we can use the
+      // same fetch-once + pure-rule path as the venueId branch above.
+      const table = await prisma.table.findUnique({
+        where: { id: data.tableId },
+        select: { venueId: true },
+      });
+      const tableVenueId = table?.venueId;
+      if (tableVenueId) {
+        const { reservations, holds } = await availabilityService.fetchConflictData(
+          tableVenueId,
+          data.date
+        );
+        const hasConflict = availabilityService.checkTableConflict(
+          data.tableId,
+          startTime,
+          endTime,
+          reservations,
+          holds
+        );
+        if (hasConflict) {
+          return {
+            success: false,
+            error: "Time slot has a conflict with an existing reservation or hold",
+            conflict: { hasConflict: true },
+          };
+        }
       }
     }
 
@@ -281,21 +293,36 @@ export const reservationService = {
       const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
       const tableId = data.tableId ?? existing.tableId;
 
-      // Check for conflicts, excluding the current reservation
-      const conflict = await availabilityService.checkConflict(
-        tableId,
-        date,
-        startTime,
-        endTime,
-        id // Exclude this reservation from conflict check
-      );
+      // Resolve venueId — prefer the reservation's own venueId, fall back to
+      // the table's venueId if the reservation was created without one.
+      const venueId =
+        existing.venueId ??
+        (await prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }))
+          ?.venueId;
 
-      if (conflict.hasConflict) {
-        return {
-          success: false,
-          error: "Time slot has a conflict with an existing reservation or hold",
-          conflict,
-        };
+      if (venueId) {
+        // Fetch conflict data once, then apply the pure rule.
+        // Exclude the current reservation from the slices so it doesn't
+        // conflict with itself (TOCTOU-safe: reservation row is still present
+        // in DB at this point, so we filter it client-side).
+        const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
+        const filteredReservations = reservations.filter((r) => r.id !== id);
+
+        const hasConflict = availabilityService.checkTableConflict(
+          tableId,
+          startTime,
+          endTime,
+          filteredReservations,
+          holds
+        );
+
+        if (hasConflict) {
+          return {
+            success: false,
+            error: "Time slot has a conflict with an existing reservation or hold",
+            conflict: { hasConflict: true },
+          };
+        }
       }
     }
 
@@ -319,49 +346,36 @@ export const reservationService = {
     const dateStr = toDateString(dateOnly);
 
     // Pre-check for conflicts and pacing before the transaction (which re-checks
-    // to prevent TOCTOU races). When the venue is known, fetch the slices once
-    // and use the canonical assertBookable predicate; otherwise fall back to the
-    // table/date-scoped query (no pacing — no venue context available).
-    if (data.venueId) {
-      const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
-      const settings = (venue?.settings ?? null) as VenueSettings | null;
-      const { reservations, holds } = await availabilityService.fetchConflictData(
-        data.venueId,
-        dateStr
-      );
+    // to prevent TOCTOU races). Fetch the conflict slices once and use the
+    // canonical assertBookable predicate (conflict + pacing in one call).
+    const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
+    const settings = (venue?.settings ?? null) as VenueSettings | null;
+    const { reservations, holds } = await availabilityService.fetchConflictData(
+      data.venueId,
+      dateStr
+    );
 
-      const bookingError = assertBookable({
-        tableId: data.tableId,
-        window: { startTime: now, endTime },
-        partySize: data.partySize,
-        settings,
-        reservations,
-        holds,
-      });
+    const bookingError = assertBookable({
+      tableId: data.tableId,
+      window: { startTime: now, endTime },
+      partySize: data.partySize,
+      settings,
+      reservations,
+      holds,
+    });
 
-      if (bookingError?.code === "CONFLICT") {
-        return {
-          success: false,
-          error: "Table is not available",
-          conflict: { hasConflict: true },
-        };
-      }
-      if (bookingError?.code === "PACING_EXCEEDED") {
-        return {
-          success: false,
-          error: bookingError.message,
-        };
-      }
-    } else {
-      const conflict = await availabilityService.checkConflict(data.tableId, dateStr, now, endTime);
-
-      if (conflict.hasConflict) {
-        return {
-          success: false,
-          error: "Table is not available",
-          conflict,
-        };
-      }
+    if (bookingError?.code === "CONFLICT") {
+      return {
+        success: false,
+        error: "Table is not available",
+        conflict: { hasConflict: true },
+      };
+    }
+    if (bookingError?.code === "PACING_EXCEEDED") {
+      return {
+        success: false,
+        error: bookingError.message,
+      };
     }
 
     const result = await prisma.$transaction(async (tx) => {
