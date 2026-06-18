@@ -9,7 +9,7 @@ import { EditReservationDrawer } from "../components/timeline/EditReservationDra
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { GuestCard } from "../components/crm/GuestCard.js";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useSSEStatus } from "../hooks/useSSEStatus.js";
+import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useReservations, RESERVATIONS_QUERY_KEY } from "../hooks/useReservations.js";
 import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
