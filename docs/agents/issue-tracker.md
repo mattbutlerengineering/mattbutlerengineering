@@ -31,12 +31,13 @@ model: haiku # haiku | sonnet | opus — overrides the model router
 budget: 0.50 # max USD (capped at 5.00)
 max_turns: 30 # positive integer
 adapter: auto # claude | gemini | opencode | auto
+verify: pnpm test # shell command; must exit 0 before issue-worker opens a PR
 ```
 ````
 
 All fields are optional. Unknown keys are ignored with a warning. Malformed yaml or invalid values never fail the loop — valid fields are kept, invalid ones are dropped with a stderr warning.
 
-To resolve a body into flags:
+To resolve a body into `mbe agent run` flags:
 
 ```bash
 gh issue view <number> --json body -q .body | mbe agent frontmatter
@@ -44,4 +45,17 @@ gh issue view <number> --json body -q .body | mbe agent frontmatter
 # → (empty line when no usable overrides)
 ```
 
-Append the output to the end of the `mbe agent run` invocation — later flags win, so frontmatter overrides heuristic defaults.
+To read a single field (e.g. the verify command):
+
+```bash
+gh issue view <number> --json body -q .body | mbe agent frontmatter --field verify
+# → pnpm test
+# → (empty line when no verify field)
+```
+
+Append the flags output to the end of the `mbe agent run` invocation — later flags win, so frontmatter overrides heuristic defaults.
+
+The `verify:` field is not a CLI flag. The issue-worker:
+
+1. Injects it into the agent task prompt as a done-requirement
+2. Re-runs it as a gate after the agent finishes — non-zero exit triggers the agent-failed flow instead of opening a PR

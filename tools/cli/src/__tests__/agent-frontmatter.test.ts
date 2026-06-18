@@ -96,4 +96,31 @@ describe("agent frontmatter subcommand", () => {
     expect(logSpy).toHaveBeenCalledWith("");
     expect(warnSpy).toHaveBeenCalled();
   });
+
+  it("prints the verify command when --field verify is set", async () => {
+    const file = writeBody("## Task\n\n```yaml agent\nmodel: haiku\nverify: pnpm test\n```\n");
+    await frontmatterCommand.parseAsync(["--body-file", file, "--field", "verify"], {
+      from: "user",
+    });
+    expect(logSpy).toHaveBeenCalledWith("pnpm test");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("prints empty string for --field verify when verify is absent", async () => {
+    const file = writeBody("## Task\n\n```yaml agent\nmodel: haiku\n```\n");
+    await frontmatterCommand.parseAsync(["--body-file", file, "--field", "verify"], {
+      from: "user",
+    });
+    expect(logSpy).toHaveBeenCalledWith("");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("prints empty string for --field verify when no agent block exists", async () => {
+    const file = writeBody("## Task\n\nNo agent block here.\n");
+    await frontmatterCommand.parseAsync(["--body-file", file, "--field", "verify"], {
+      from: "user",
+    });
+    expect(logSpy).toHaveBeenCalledWith("");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
 });
