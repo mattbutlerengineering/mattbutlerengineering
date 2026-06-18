@@ -24,7 +24,8 @@ export const frontmatterCommand = new Command("frontmatter")
     "Parse the yaml agent block from an issue body (stdin or --body-file) into mbe agent run flags"
   )
   .option("--body-file <path>", "Read the issue body from a file instead of stdin")
-  .action(async (options: { bodyFile?: string }) => {
+  .option("--field <name>", "Print a single field value instead of flags (e.g. --field verify)")
+  .action(async (options: { bodyFile?: string; field?: string }) => {
     if (!options.bodyFile && process.stdin.isTTY) {
       console.warn(
         "frontmatter: stdin is a terminal and no --body-file given; pipe an issue body in"
@@ -43,6 +44,13 @@ export const frontmatterCommand = new Command("frontmatter")
     }
 
     const { overrides, warnings } = parseAgentFrontmatter(body);
+
+    if (options.field !== undefined) {
+      const value = overrides ? (overrides as Record<string, unknown>)[options.field] : undefined;
+      console.log(typeof value === "string" ? value : "");
+      return;
+    }
+
     for (const warning of warnings) {
       console.warn(`frontmatter: ${warning}`);
     }

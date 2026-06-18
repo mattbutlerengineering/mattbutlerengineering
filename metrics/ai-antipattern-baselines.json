@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 750,
+      "count": 751,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {

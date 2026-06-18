@@ -82,9 +82,35 @@ describe("parseAgentFrontmatter", () => {
 
   it("warns on unknown keys without failing known ones", () => {
     const result = parseAgentFrontmatter(
-      body("```yaml agent\nmodel: sonnet\nverify: pnpm test\n```")
+      body("```yaml agent\nmodel: sonnet\nunknown_key: value\n```")
     );
     expect(result.overrides).toEqual({ model: "sonnet" });
+    expect(result.warnings.some((w) => w.includes("unknown_key"))).toBe(true);
+  });
+
+  it("parses a verify command as a string", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nverify: pnpm test\n```"));
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ verify: "pnpm test" });
+  });
+
+  it("parses verify alongside other fields", () => {
+    const result = parseAgentFrontmatter(
+      body("```yaml agent\nmodel: sonnet\nverify: pnpm lint && pnpm test\n```")
+    );
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ model: "sonnet", verify: "pnpm lint && pnpm test" });
+  });
+
+  it("rejects a non-string verify value with a warning", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nverify: 42\n```"));
+    expect(result.overrides).toBeNull();
+    expect(result.warnings.some((w) => w.includes("verify"))).toBe(true);
+  });
+
+  it("rejects an empty-string verify with a warning", () => {
+    const result = parseAgentFrontmatter(body('```yaml agent\nverify: ""\n```'));
+    expect(result.overrides).toBeNull();
     expect(result.warnings.some((w) => w.includes("verify"))).toBe(true);
   });
 
@@ -100,6 +126,33 @@ describe("parseAgentFrontmatter", () => {
     for (const evil of ["```yaml agent", "```yaml agent\n```", " ", ""]) {
       expect(() => parseAgentFrontmatter(evil)).not.toThrow();
     }
+  });
+});
+
+describe("parseAgentFrontmatter — escalate field (#2031)", () => {
+  it("parses escalate: sonnet", () => {
+    const result = parseAgentFrontmatter(
+      body("```yaml agent\nmodel: haiku\nescalate: sonnet\n```")
+    );
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ model: "haiku", escalate: "sonnet" });
+  });
+
+  it("parses escalate: opus", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: opus\n```"));
+    expect(result.warnings).toEqual([]);
+    expect(result.overrides).toEqual({ escalate: "opus" });
+  });
+
+  it("rejects an invalid escalate tier with a warning", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: gpt-5\n```"));
+    expect(result.overrides).toBeNull();
+    expect(result.warnings.some((w) => w.includes("escalate"))).toBe(true);
+  });
+
+  it("includes escalate in known-key list so it does not produce an 'unknown key' warning", () => {
+    const result = parseAgentFrontmatter(body("```yaml agent\nescalate: sonnet\n```"));
+    expect(result.warnings).toEqual([]);
   });
 });
 
