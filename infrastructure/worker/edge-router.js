@@ -19,10 +19,20 @@ import {
   recordFailure,
 } from "./circuit-breaker.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
-import { buildCspDirectives } from "./csp.js";
-import { STALENESS_THRESHOLD_MS, interpretDeployHealth } from "./deploy-health.js";
-import depGraph from "./dep-graph.json";
+import { AUTH0_ORIGIN } from "./csp.js";
 import topologyConfig from "./routes-config.json";
+import {
+  generateNonce,
+  readCspPolicy,
+  addHeaders,
+  brandedErrorPage,
+} from "./response-formatter.js";
+import { handleHealthSystem } from "./health/system.js";
+import { handleHealthUptime } from "./health/uptime.js";
+import { handleHealthPerformance } from "./health/performance.js";
+import { handleHealthLighthouse } from "./health/lighthouse.js";
+import { handleHealthDeps } from "./health/deps.js";
+import { readKvJson } from "./health/kv-access.js";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -43,9 +53,10 @@ function isAuditRequest(request, env) {
 }
 
 // ── Auth0 Tenant ──────────────────────────────────────────────────────
-// Single source of truth for the Auth0 tenant origin used in the CSP
-// connect-src directive. Must match AUTH_AUTHORITY in Pulumi and docker-compose.
-export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+// AUTH0_ORIGIN is defined in csp.js (the module that uses it) and
+// re-exported here for backward compatibility with consumers that
+// import it from edge-router.js.
+export { AUTH0_ORIGIN };
 
 // ── CORS Origin Allowlist ──────────────────────────────────────────────
 // Only these production origins may receive Access-Control-Allow-Origin.
@@ -65,311 +76,7 @@ function corsOriginFor(request) {
 }
 
 /**
- * Build security headers with a per-request nonce for CSP script-src.
- * The nonce replaces 'unsafe-inline', preventing injected scripts from
- * executing while allowing our own <script nonce="..."> tags to run.
- *
- * The CSP policy is read from KV key "security/csp" (JSON object mapping
- * directive names to values). If absent or unreadable, falls back to the
- * hardcoded defaults in buildCspDirectives. Rollback: delete the KV key.
- */
-function buildSecurityHeaders(nonce, kvPolicy) {
-  return {
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "X-Frame-Options": "DENY",
-    "X-Content-Type-Options": "nosniff",
-    "X-XSS-Protection": "0",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-    "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy }),
-  };
-}
-
-/**
- * Read the CSP policy override from KV ("security/csp").
- * Returns null on miss or error — callers treat null as "use hardcoded fallback".
- */
-async function readCspPolicy(kv) {
-  try {
-    return await kv.get("security/csp", "json");
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Determine the correct Cache-Control header based on the request path.
- *
- * Hashed assets (Vite outputs under /assets/ with content hashes) are
- * immutable by definition — cache them for one year.  HTML documents
- * must always revalidate so deploys take effect immediately.
- *
- * Cache policy values come from routes-config.json cacheClasses.
- */
-function cacheControlFor(pathname) {
-  const cls = topologyConfig.cacheClasses["static-site"];
-  if (pathname.includes("/assets/")) {
-    return cls.hashedAssets;
-  }
-  // HTML and other types are handled in addHeaders where Content-Type is available
-  return null;
-}
-
-/**
- * Generate a cryptographically random nonce for CSP.
- * Uses crypto.randomUUID() and strips hyphens for a compact base16 string.
- */
-function generateNonce() {
-  return crypto.randomUUID().replace(/-/g, "");
-}
-
-/**
- * Clone a response, append security headers, set cache headers,
- * and inject nonce into <script> tags for HTML responses.
- * Used for static site responses only (not API proxy).
- */
-function addHeaders(response, pathname, nonce, kvPolicy) {
-  const securityHeaders = buildSecurityHeaders(nonce, kvPolicy);
-  const headers = new Headers(response.headers);
-
-  for (const [key, value] of Object.entries(securityHeaders)) {
-    headers.set(key, value);
-  }
-
-  // Cache policy: hashed assets get immutable; HTML always revalidates
-  const cacheOverride = cacheControlFor(pathname);
-  if (cacheOverride) {
-    headers.set("Cache-Control", cacheOverride);
-  } else {
-    const contentType = headers.get("Content-Type") || "";
-    if (contentType.includes("text/html")) {
-      headers.set("Cache-Control", topologyConfig.cacheClasses["static-site"].html);
-    }
-  }
-
-  const contentType = headers.get("Content-Type") || "";
-  if (contentType.includes("text/html")) {
-    // Use HTMLRewriter to inject nonce into all <script> tags
-    const rewritten = new HTMLRewriter().on("script", new NonceInjector(nonce)).transform(
-      new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      })
-    );
-    return rewritten;
-  }
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-/**
- * HTMLRewriter element handler that adds a nonce attribute to <script> tags.
- * This allows Vite-injected inline scripts (module preloads, etc.) to execute
- * under the nonce-based CSP while blocking any attacker-injected scripts.
- */
-class NonceInjector {
-  constructor(nonce) {
-    this.nonce = nonce;
-  }
-
-  element(el) {
-    el.setAttribute("nonce", this.nonce);
-  }
-}
-
-/**
- * Return a branded error page for service failures.
- */
-function brandedErrorPage(statusCode, message, requestId, nonce = "", kvPolicy) {
-  const statusMessages = {
-    502: "Service temporarily unavailable",
-    503: "Service temporarily unavailable",
-    504: "Request timed out",
-    default: "Service unreachable",
-  };
-
-  const displayMessage = statusMessages[statusCode] || statusMessages.default;
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Service Unavailable - Matt Butler Engineering</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .container {
-      max-width: 500px;
-      text-align: center;
-    }
-    .logo {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #38bdf8;
-      margin-bottom: 2rem;
-      letter-spacing: -0.025em;
-    }
-    h1 {
-      font-size: 2rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: #f1f5f9;
-    }
-    p {
-      font-size: 1.125rem;
-      color: #94a3b8;
-      margin-bottom: 1.5rem;
-      line-height: 1.6;
-    }
-    .error-code {
-      font-size: 0.875rem;
-      color: #64748b;
-      font-family: monospace;
-      background: #1e293b;
-      padding: 0.25rem 0.75rem;
-      border-radius: 0.25rem;
-      display: inline-block;
-      margin-bottom: 1.5rem;
-    }
-    .link {
-      color: #38bdf8;
-      text-decoration: none;
-    }
-    .link:hover {
-      text-decoration: underline;
-    }
-    .refresh {
-      font-size: 0.875rem;
-      color: #64748b;
-      margin-top: 2rem;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">Matt Butler Engineering</div>
-    <h1>${displayMessage}</h1>
-    <p>We're experiencing some technical difficulties. Please try again shortly.</p>
-    <div class="error-code">Request ID: ${requestId}</div>
-    <p><a href="/" class="link">Return to homepage</a></p>
-    <p class="refresh">Refreshing automatically in 30 seconds...</p>
-  </div>
-  <script nonce="${nonce}">setTimeout(() => location.reload(), 30000);</script>
-</body>
-</html>`;
-
-  const securityHeaders = nonce ? buildSecurityHeaders(nonce, kvPolicy) : {};
-  return new Response(html, {
-    status: statusCode,
-    headers: {
-      "Content-Type": "text/html; charset=UTF-8",
-      "Cache-Control": "no-store",
-      ...securityHeaders,
-    },
-  });
-}
-
-// ── Health Aggregation ──────────────────────────────────────────────
-// /health/system fans out to all subsystems in parallel and returns a
-// unified JSON response.  Service health endpoints are fetched via HTTP,
-// static sites are probed via Service Bindings (in-process), and CI/deploy
-// status is read from KV (written by GitHub Actions).
-
-const HEALTH_TIMEOUT_MS = 5_000;
-// STALENESS_THRESHOLD_MS is imported from deploy-health.js (shared with the action)
-
-// ── Topology derived from routes-config.json ─────────────────────────
-// Single source of truth for route prefixes, cache classes, service
-// health paths, and deploy-KV keys. Edit routes-config.json — not here.
-
-const SERVICE_ENDPOINTS = Object.fromEntries(
-  topologyConfig.services.map((s) => [s.name, s.healthPath])
-);
-
-const STATIC_SITE_BINDINGS = topologyConfig.staticRoutes.map((r) => r.binding);
-
-const KV_KEYS = {
-  ...topologyConfig.kvKeys,
-  ...Object.fromEntries(
-    topologyConfig.services.map((s) => [
-      `migrate${s.name.charAt(0).toUpperCase()}${s.name.slice(1)}`,
-      s.kvMigrateKey,
-    ])
-  ),
-};
-
-/**
- * Fetch a service health endpoint with a timeout.
- * Returns { status, latency, version?, checks? }.
- */
-async function checkService(apiOrigin, path) {
-  const start = Date.now();
-  try {
-    const response = await fetch(`${apiOrigin}${path}`, {
-      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
-    });
-    const latency = Date.now() - start;
-    if (!response.ok) {
-      return { status: "error", latency };
-    }
-    const body = await response.json();
-    return {
-      status: body.status === "error" ? "error" : "ok",
-      latency,
-      version: body.version,
-      checks: body.checks,
-    };
-  } catch {
-    return { status: "timeout", latency: Date.now() - start };
-  }
-}
-
-/**
- * Probe a static site via Service Binding HEAD request.
- * Returns { status, latency }.
- */
-async function checkStaticSite(binding) {
-  const start = Date.now();
-  try {
-    const response = await binding.fetch(new Request("https://dummy/", { method: "HEAD" }), {
-      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
-    });
-    const latency = Date.now() - start;
-    return { status: response.ok ? "ok" : "error", latency };
-  } catch {
-    return { status: "timeout", latency: Date.now() - start };
-  }
-}
-
-/**
- * Read a KV key as JSON, returning null if missing.
- */
-async function readKvJson(kv, key) {
-  try {
-    return await kv.get(key, "json");
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Evaluate a feature flag for a given percentage rollout.
- * Returns true if the flag is enabled for the given seed (usually a user ID or session ID).
  */
 function evaluateFlag(flag, seed) {
   if (!flag || !flag.enabled) return false;
@@ -394,527 +101,16 @@ function hashCode(str) {
 
 /**
  * Get all feature flags from KV and inject into request context.
- * Returns map of flag name -> boolean (whether enabled for this request).
  */
 async function getFeatureFlags(env, seed) {
-  const flags = await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags);
+  const KV_KEY_FEATURE_FLAGS = topologyConfig.kvKeys.featureFlags;
+  const flags = await readKvJson(env.HEALTH_STATE, KV_KEY_FEATURE_FLAGS);
   if (!flags) return {};
   const result = {};
   for (const [name, flag] of Object.entries(flags)) {
     result[name] = evaluateFlag(flag, seed);
   }
   return result;
-}
-
-/**
- * Determine subsystem status from an array of individual check statuses.
- * "ok" checks are healthy; any "error"/"timeout" degrades the subsystem.
- */
-function subsystemStatus(checks) {
-  const statuses = Object.values(checks).map((c) => c.status);
-  const errorCount = statuses.filter((s) => s !== "ok").length;
-  if (errorCount === 0) return "healthy";
-  if (errorCount >= 2) return "unhealthy";
-  return "degraded";
-}
-
-/**
- * Determine CI health from KV data.
- * null or stale data → "stale"; failure → "unhealthy"; success → "healthy".
- */
-function ciStatus(kvData, now) {
-  if (!kvData) return { status: "stale", last_run: null };
-  const age = now - new Date(kvData.updated_at).getTime();
-  if (age > STALENESS_THRESHOLD_MS) {
-    return { status: "stale", last_run: kvData };
-  }
-  return {
-    status: kvData.conclusion === "success" ? "healthy" : "unhealthy",
-    last_run: kvData,
-  };
-}
-
-/**
- * Determine deploy health from KV data for all three pipelines.
- * Each pipeline's record is interpreted via the shared interpretDeployHealth().
- */
-function deployStatus(pipelines, now) {
-  let errorCount = 0;
-  let staleCount = 0;
-  for (const [, data] of Object.entries(pipelines)) {
-    const { status } = interpretDeployHealth(data, now);
-    if (status === "stale") staleCount++;
-    else if (status === "unhealthy") errorCount++;
-  }
-  const status = errorCount > 0 ? "unhealthy" : staleCount > 0 ? "degraded" : "healthy";
-  return { status, pipelines };
-}
-
-/**
- * Determine per-service migration health from KV data.
- * Each service writes its own status after its pre-deploy job completes.
- * Format: { conclusion: "success"|"failure", updated_at: ISO string, service: string }
- */
-function migrationStatus(services, now) {
-  const checks = {};
-  let errorCount = 0;
-  let staleCount = 0;
-  for (const [name, data] of Object.entries(services)) {
-    if (!data) {
-      checks[name] = { status: "unknown" };
-      staleCount++;
-    } else {
-      const age = now - new Date(data.updated_at).getTime();
-      if (age > STALENESS_THRESHOLD_MS) {
-        checks[name] = { status: "stale", last_run: data };
-        staleCount++;
-      } else if (data.conclusion !== "success") {
-        checks[name] = { status: "error", last_run: data };
-        errorCount++;
-      } else {
-        checks[name] = { status: "ok", last_run: data };
-      }
-    }
-  }
-  const status = errorCount > 0 ? "unhealthy" : staleCount > 0 ? "degraded" : "healthy";
-  return { status, checks };
-}
-
-/**
- * Compute the top-level system status from subsystem statuses.
- *
- * Policy (balanced):
- * - Any service unhealthy → unhealthy (users can't do their work)
- * - 2+ static sites down  → unhealthy (significant outage)
- * - Single static site / CI / one deploy pipeline failing → degraded
- * - All healthy → healthy
- */
-function computeSystemStatus(services, staticSites, ci, deploys) {
-  if (services.status === "unhealthy") return "unhealthy";
-  if (staticSites.status === "unhealthy") return "unhealthy";
-  if (deploys.status === "unhealthy") return "unhealthy";
-
-  const anyDegraded =
-    services.status === "degraded" ||
-    staticSites.status === "degraded" ||
-    ci.status === "stale" ||
-    ci.status === "unhealthy" ||
-    deploys.status === "degraded";
-
-  return anyDegraded ? "degraded" : "healthy";
-}
-
-/**
- * Check whether the request carries a valid health token.
- * Returns true only when HEALTH_TOKEN is configured and the request
- * includes a matching `Authorization: Bearer <token>` header.
- */
-function isHealthAuthorized(request, env) {
-  if (!env.HEALTH_TOKEN) return false;
-  return request.headers.get("Authorization") === `Bearer ${env.HEALTH_TOKEN}`;
-}
-
-/**
- * Return a coarse health response with per-subsystem STATUS rollup but no
- * sensitive infrastructure details (no commit SHAs, latencies, service names,
- * pipeline identifiers, or KV data).  This lets unauthenticated callers — e.g.
- * the synthetic monitoring workflow — determine WHY the system is degraded
- * without exposing internal topology.
- */
-function coarseHealthResponse(status, timestamp, requestId, request, subsystemStatuses) {
-  const corsOrigin = corsOriginFor(request);
-  const body = { status, timestamp, requestId };
-  if (subsystemStatuses) {
-    body.subsystems = {
-      services: { status: subsystemStatuses.services },
-      static_sites: { status: subsystemStatuses.static_sites },
-      ci: { status: subsystemStatuses.ci },
-      deploys: { status: subsystemStatuses.deploys },
-    };
-  }
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-      ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
-    },
-  });
-}
-
-/**
- * Handle GET /health/system — aggregate all subsystem health.
- *
- * Unauthenticated requests receive only a coarse { status, timestamp }
- * response.  Detailed subsystem data (service names, latencies, commit
- * SHAs, CI status) requires a valid Bearer token matching HEALTH_TOKEN.
- * If HEALTH_TOKEN is not configured, all requests get the coarse response
- * (safe by default).
- */
-async function handleHealthSystem(request, env, requestId) {
-  const now = Date.now();
-
-  // Fan out all checks in parallel
-  const [serviceResults, staticResults, kvResults] = await Promise.all([
-    // Service health endpoints (HTTP)
-    Promise.all(
-      Object.entries(SERVICE_ENDPOINTS).map(async ([name, path]) => {
-        const check = await checkService(env.API_ORIGIN, path);
-        return [name, check];
-      })
-    ),
-    // Static site probes (Service Binding)
-    Promise.all(
-      STATIC_SITE_BINDINGS.map(async (bindingName) => {
-        const check = await checkStaticSite(env[bindingName]);
-        return [bindingName.toLowerCase(), check];
-      })
-    ),
-    // KV reads (CI + deploy + per-service migration status)
-    Promise.all([
-      readKvJson(env.HEALTH_STATE, KV_KEYS.ci),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.deployStatic),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.deployServices),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.deployInfrastructure),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateUsers),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateReservations),
-      readKvJson(env.HEALTH_STATE, KV_KEYS.migrateAgent),
-    ]),
-  ]);
-
-  // Build subsystem objects
-  const serviceChecks = Object.fromEntries(serviceResults);
-  const staticChecks = Object.fromEntries(staticResults);
-
-  const services = { status: subsystemStatus(serviceChecks), checks: serviceChecks };
-  const staticSites = { status: subsystemStatus(staticChecks), checks: staticChecks };
-  const ci = ciStatus(kvResults[0], now);
-  const deploys = deployStatus(
-    { static: kvResults[1], services: kvResults[2], infrastructure: kvResults[3] },
-    now
-  );
-  const migrations = migrationStatus(
-    { users: kvResults[4], reservations: kvResults[5], agent: kvResults[6] },
-    now
-  );
-
-  const status = computeSystemStatus(services, staticSites, ci, deploys);
-  const timestamp = new Date(now).toISOString();
-
-  // Gate detailed output behind token auth (safe by default).
-  // Unauthenticated callers get per-subsystem STATUS rollup only — enough
-  // for monitoring scripts to know WHY the system is degraded without
-  // exposing commit SHAs, latencies, pipeline names, or service topology.
-  if (!isHealthAuthorized(request, env)) {
-    return coarseHealthResponse(status, timestamp, requestId, request, {
-      services: services.status,
-      static_sites: staticSites.status,
-      ci: ci.status,
-      deploys: deploys.status,
-    });
-  }
-
-  const corsOrigin = corsOriginFor(request);
-  return new Response(
-    JSON.stringify({
-      status,
-      timestamp,
-      requestId,
-      subsystems: { services, static_sites: staticSites, ci, deploys, migrations },
-    }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-        ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
-      },
-    }
-  );
-}
-
-/**
- * Handle GET /health/uptime — compute uptime percentages from daily snapshots.
- *
- * Reads the last 30 days of uptime/ keys from KV, computes overall and
- * per-subsystem uptime as (healthy / total) * 100.
- */
-async function handleHealthUptime(env) {
-  const days = 30;
-  const keys = [];
-  const today = new Date();
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(today);
-    d.setUTCDate(d.getUTCDate() - i);
-    keys.push(`uptime/${d.toISOString().slice(0, 10)}`);
-  }
-
-  const snapshots = await Promise.all(
-    keys.map(async (key) => {
-      const raw = await env.HEALTH_STATE.get(key, "json");
-      return raw;
-    })
-  );
-
-  const valid = snapshots.filter(Boolean);
-  const totalDays = valid.length;
-
-  if (totalDays === 0) {
-    return new Response(
-      JSON.stringify({
-        uptime: null,
-        message: "No snapshots available yet. Snapshots are recorded daily.",
-        daysTracked: 0,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Count healthy days per subsystem
-  const subsystemCounts = {};
-  let overallHealthy = 0;
-
-  for (const entry of valid) {
-    const snap = entry.snapshot ?? entry;
-    if (snap.status === "healthy") overallHealthy++;
-
-    // Count per-service health
-    if (snap.services) {
-      for (const [name, svc] of Object.entries(snap.services)) {
-        if (!subsystemCounts[name]) subsystemCounts[name] = { healthy: 0, total: 0 };
-        subsystemCounts[name].total++;
-        if (svc.status === "healthy" || svc.status === "ok") subsystemCounts[name].healthy++;
-      }
-    }
-  }
-
-  const subsystems = {};
-  for (const [name, counts] of Object.entries(subsystemCounts)) {
-    subsystems[name] = {
-      uptimePercent: parseFloat(((counts.healthy / counts.total) * 100).toFixed(2)),
-      healthyDays: counts.healthy,
-      totalDays: counts.total,
-    };
-  }
-
-  return new Response(
-    JSON.stringify({
-      uptimePercent: parseFloat(((overallHealthy / totalDays) * 100).toFixed(2)),
-      healthyDays: overallHealthy,
-      totalDays,
-      periodDays: days,
-      subsystems,
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },
-    }
-  );
-}
-
-/**
- * Handle feature flags admin API.
- * GET /api/flags - list all flags
- * PUT /api/flags/<name> - create/update a flag
- * DELETE /api/flags/<name> - delete a flag
- */
-/**
- * Handle GET /health/performance — 7-day latency trends per service.
- *
- * Reads latency/ KV keys for the last 7 days (up to 336 hourly samples),
- * computes per-service average and p95 latency, and flags regressions
- * where current p95 exceeds 1.5x the 7-day average.
- */
-async function handleHealthPerformance(env) {
-  const days = 7;
-  const keys = [];
-  const now = new Date();
-
-  // Generate hourly keys for the last 7 days
-  for (let h = 0; h < days * 24; h++) {
-    const d = new Date(now.getTime() - h * 3600_000);
-    keys.push(`latency/${d.toISOString().slice(0, 13).replace("T", "-")}`);
-  }
-
-  // Read all samples (KV list is faster but we know the keys)
-  // Batch in groups of 50 to avoid overwhelming KV
-  const samples = [];
-  for (let i = 0; i < keys.length; i += 50) {
-    const batch = keys.slice(i, i + 50);
-    const results = await Promise.all(batch.map((key) => env.HEALTH_STATE.get(key, "json")));
-    for (const r of results) {
-      if (r) samples.push(r);
-    }
-  }
-
-  if (samples.length === 0) {
-    return new Response(
-      JSON.stringify({
-        message: "No latency data available yet. Samples are recorded twice daily.",
-        samplesCollected: 0,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Aggregate per-service latencies
-  const serviceLatencies = {};
-  for (const sample of samples) {
-    const services = sample.services ?? {};
-    for (const [name, data] of Object.entries(services)) {
-      if (data.latency == null) continue;
-      if (!serviceLatencies[name]) serviceLatencies[name] = [];
-      serviceLatencies[name].push(data.latency);
-    }
-  }
-
-  // Compute stats per service
-  const serviceStats = {};
-  const alerts = [];
-
-  for (const [name, latencies] of Object.entries(serviceLatencies)) {
-    const sorted = [...latencies].sort((a, b) => a - b);
-    const avg = sorted.reduce((sum, v) => sum + v, 0) / sorted.length;
-    const p95Index = Math.floor(sorted.length * 0.95);
-    const p95 = sorted[p95Index] ?? sorted[sorted.length - 1];
-
-    // Recent p95 = last 10% of samples (most recent)
-    const recentCount = Math.max(1, Math.floor(sorted.length * 0.1));
-    const recentLatencies = latencies.slice(-recentCount);
-    const recentSorted = [...recentLatencies].sort((a, b) => a - b);
-    const recentP95Index = Math.floor(recentSorted.length * 0.95);
-    const recentP95 = recentSorted[recentP95Index] ?? recentSorted[recentSorted.length - 1];
-
-    const trend =
-      recentP95 > avg * 1.5 ? "degrading" : recentP95 < avg * 0.8 ? "improving" : "stable";
-
-    serviceStats[name] = {
-      avgMs: Math.round(avg),
-      p95Ms: Math.round(p95),
-      recentP95Ms: Math.round(recentP95),
-      samples: latencies.length,
-      trend,
-    };
-
-    if (trend === "degrading") {
-      alerts.push(
-        `${name}: p95 ${Math.round(recentP95)}ms exceeds 1.5x average (${Math.round(avg)}ms)`
-      );
-    }
-  }
-
-  return new Response(
-    JSON.stringify({
-      periodDays: days,
-      samplesCollected: samples.length,
-      services: serviceStats,
-      alerts,
-    }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300",
-      },
-    }
-  );
-}
-
-/**
- * Handle GET /health/lighthouse — 30-day Lighthouse score trends per app.
- *
- * Reads lighthouse/ KV keys, groups by app, computes average scores and
- * trend direction. Alerts if any category drops >5 points over 2 weeks.
- */
-async function handleHealthLighthouse(env) {
-  // List all lighthouse/ keys
-  const listResult = await env.HEALTH_STATE.list({ prefix: "lighthouse/" });
-  const keys = listResult.keys.map((k) => k.name);
-
-  if (keys.length === 0) {
-    return new Response(
-      JSON.stringify({
-        message: "No Lighthouse data available yet. Scores are recorded weekly.",
-        appsTracked: 0,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Read all scores
-  const entries = await Promise.all(
-    keys.map(async (key) => {
-      const data = await env.HEALTH_STATE.get(key, "json");
-      return data;
-    })
-  );
-  const scores = entries.filter(Boolean);
-
-  // Group by app
-  const byApp = {};
-  for (const score of scores) {
-    if (!byApp[score.app]) byApp[score.app] = [];
-    byApp[score.app].push(score);
-  }
-
-  // Compute trends per app
-  const apps = {};
-  const alerts = [];
-  const categories = ["performance", "accessibility", "bestPractices", "seo"];
-
-  for (const [app, appScores] of Object.entries(byApp)) {
-    const sorted = appScores.sort((a, b) => a.date.localeCompare(b.date));
-    const latest = sorted[sorted.length - 1];
-    const twoWeeksAgo =
-      sorted.find((s) => {
-        const d = new Date(s.date);
-        const cutoff = new Date(Date.now() - 14 * 86400_000);
-        return d <= cutoff;
-      }) ?? sorted[0];
-
-    const appStats = { latest: {}, trend: {}, dataPoints: sorted.length };
-
-    for (const cat of categories) {
-      appStats.latest[cat] = latest[cat] ?? null;
-      const diff = (latest[cat] ?? 0) - (twoWeeksAgo[cat] ?? 0);
-      appStats.trend[cat] = diff > 5 ? "improving" : diff < -5 ? "degrading" : "stable";
-
-      if (diff < -5) {
-        alerts.push(
-          `${app}: ${cat} dropped ${Math.abs(Math.round(diff))} points (${twoWeeksAgo[cat]} → ${latest[cat]})`
-        );
-      }
-    }
-
-    apps[app] = appStats;
-  }
-
-  return new Response(JSON.stringify({ periodDays: 30, apps, alerts }), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=3600",
-    },
-  });
-}
-
-/**
- * Handle GET /health/deps — return the auto-generated service dependency graph.
- *
- * The graph is built at CI time by `scripts/generate-dep-graph.mjs` and
- * imported as a static JSON module.  Cached for 5 minutes at the edge.
- */
-function handleHealthDeps(request) {
-  const corsOrigin = corsOriginFor(request);
-  return new Response(JSON.stringify(depGraph), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=300",
-      ...(corsOrigin ? { "Access-Control-Allow-Origin": corsOrigin } : {}),
-    },
-  });
 }
 
 async function handleFeatureFlags(request, env, url) {
@@ -928,7 +124,6 @@ async function handleFeatureFlags(request, env, url) {
     });
   }
 
-  // Validate actual token value against configured secret
   const token = authHeader.slice(7);
   if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -937,7 +132,8 @@ async function handleFeatureFlags(request, env, url) {
     });
   }
 
-  const flags = (await readKvJson(env.HEALTH_STATE, KV_KEYS.featureFlags)) || {};
+  const KV_KEY_FEATURE_FLAGS = topologyConfig.kvKeys.featureFlags;
+  const flags = (await readKvJson(env.HEALTH_STATE, KV_KEY_FEATURE_FLAGS)) || {};
 
   if (request.method === "GET") {
     return new Response(JSON.stringify(flags), {
@@ -949,12 +145,15 @@ async function handleFeatureFlags(request, env, url) {
   if (request.method === "PUT") {
     try {
       const body = await request.json();
-      flags[flagName] = {
-        enabled: body.enabled ?? true,
-        percentage: body.percentage ?? 100,
+      const updatedFlags = {
+        ...flags,
+        [flagName]: {
+          enabled: body.enabled ?? true,
+          percentage: body.percentage ?? 100,
+        },
       };
-      await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
-      return new Response(JSON.stringify({ success: true, flag: flags[flagName] }), {
+      await env.HEALTH_STATE.put(KV_KEY_FEATURE_FLAGS, JSON.stringify(updatedFlags));
+      return new Response(JSON.stringify({ success: true, flag: updatedFlags[flagName] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -967,8 +166,8 @@ async function handleFeatureFlags(request, env, url) {
   }
 
   if (request.method === "DELETE") {
-    delete flags[flagName];
-    await env.HEALTH_STATE.put(KV_KEYS.featureFlags, JSON.stringify(flags));
+    const { [flagName]: _removed, ...remainingFlags } = flags;
+    await env.HEALTH_STATE.put(KV_KEY_FEATURE_FLAGS, JSON.stringify(remainingFlags));
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -1020,7 +219,7 @@ export default {
       }
     }
 
-    // ── Health aggregation endpoint ───────────────────────────────────
+    // ── Health aggregation endpoints ──────────────────────────────────
     if (url.pathname === "/health/system") {
       return handleHealthSystem(request, env, requestId);
     }
@@ -1166,8 +365,6 @@ export default {
     const binding = env[matchedRoute.binding];
 
     // Strip path prefix before forwarding to the app Worker.
-    // Each app is built with base: "/<name>/" in Vite, but the Worker
-    // serves from root — so /hospitality/foo → /foo on the app Worker.
     const strippedPath = prefix ? url.pathname.slice(prefix.length) || "/" : url.pathname;
     const appUrl = new URL(strippedPath + url.search, bindingOrigin);
     const appHeaders = new Headers(request.headers);

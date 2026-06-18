@@ -20,7 +20,10 @@
  *   worker redeploy required.
  */
 
-import { AUTH0_ORIGIN } from "./edge-router.js";
+// Single source of truth for the Auth0 tenant origin used in the CSP
+// connect-src directive. Must match AUTH_AUTHORITY in Pulumi and docker-compose.
+// Re-exported from edge-router.js for backward compatibility.
+export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 
 /**
  * Default CSP directive map — matches current production policy exactly.
