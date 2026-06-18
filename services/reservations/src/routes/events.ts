@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { createProblemDetails } from "@mbe/types";
-import { reservationEvents, type ReservationEvent } from "../services/events.js";
+import type { ReservationEvent } from "../services/events.js";
 import {
   SseConnectionManager,
   type SseConnectionConfig,
@@ -186,9 +186,9 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       };
 
       // Subscribe to events
-      reservationEvents.onChange(handleEvent);
+      fastify.reservationEvents.onChange(handleEvent);
       fastify.log.info(
-        { connectionId, ip: clientIp, connections: reservationEvents.getConnectionCount() },
+        { connectionId, ip: clientIp, connections: fastify.reservationEvents.getConnectionCount() },
         "SSE client connected"
       );
 
@@ -196,10 +196,14 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       const cleanup = () => {
         clearInterval(pingInterval);
         clearTimeout(timeoutTimer);
-        reservationEvents.offChange(handleEvent);
+        fastify.reservationEvents.offChange(handleEvent);
         connectionManager.unregister(connectionId);
         fastify.log.info(
-          { connectionId, ip: clientIp, connections: reservationEvents.getConnectionCount() },
+          {
+            connectionId,
+            ip: clientIp,
+            connections: fastify.reservationEvents.getConnectionCount(),
+          },
           "SSE client disconnected"
         );
       };
@@ -248,7 +252,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
       async (request, reply) => {
         const { type, venueId, data } = request.body;
 
-        reservationEvents.emitChange({
+        fastify.reservationEvents.emitChange({
           type: type as ReservationEvent["type"],
           venueId,
           timestamp: new Date().toISOString(),
