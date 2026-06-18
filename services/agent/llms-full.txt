@@ -1100,14 +1100,6 @@
     }
   </file>
   <file path="src/services/session.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaSession(session: Session): AgentSession {
       return {
         id: session.id,
@@ -1133,6 +1125,15 @@
         completedAt: session.completedAt?.toISOString() ?? null,
         createdAt: session.createdAt.toISOString(),
         updatedAt: session.updatedAt.toISOString(),
+      };
+    }
+    function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
+      return {
+        id: event.id,
+        sessionId: event.sessionId,
+        type: event.type,
+        data: (event.data as Record<string, unknown>) ?? {},
+        createdAt: event.createdAt.toISOString(),
       };
     }
   </file>
