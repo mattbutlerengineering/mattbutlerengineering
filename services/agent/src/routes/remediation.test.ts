@@ -58,8 +58,8 @@ describe("Remediation Webhook Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
-    const body = response.json() as { message: string };
-    expect(body.message).toContain("not configured");
+    const body = response.json() as { detail: string };
+    expect(body.detail).toContain("not configured");
   });
 
   it("returns 401 for invalid signature", async () => {
@@ -74,8 +74,8 @@ describe("Remediation Webhook Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
-    const body = response.json() as { message: string };
-    expect(body.message).toContain("Invalid webhook signature");
+    const body = response.json() as { detail: string };
+    expect(body.detail).toContain("Invalid webhook signature");
   });
 
   it("returns 400 for invalid payload", async () => {
@@ -94,8 +94,8 @@ describe("Remediation Webhook Routes", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    const body = response.json() as { message: string };
-    expect(body.message).toContain("Invalid alert payload");
+    const body = response.json() as { detail: string };
+    expect(body.detail).toContain("Invalid alert payload");
   });
 
   it("returns 200 and skips session creation for 'info' severity", async () => {
@@ -138,8 +138,8 @@ describe("Remediation Webhook Routes", () => {
     });
 
     expect(response.statusCode).toBe(503);
-    const body = response.json() as { message: string };
-    expect(body.message).toBe("Too many recent failures");
+    const body = response.json() as { detail: string };
+    expect(body.detail).toBe("Too many recent failures");
   });
 
   it("creates and executes a session for critical/warning alerts", async () => {

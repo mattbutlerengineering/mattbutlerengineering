@@ -41,25 +41,40 @@ exports[`Agent service schemas > CreateSessionBodySchema matches snapshot 1`] = 
 
 exports[`Agent service schemas > ErrorSchema matches snapshot 1`] = `
 {
-  "$id": "AgentError",
+  "$id": "AgentProblemDetails",
   "properties": {
-    "error": {
-      "example": "Not Found",
+    "detail": {
       "type": "string",
     },
-    "message": {
-      "example": "Session not found",
+    "instance": {
       "type": "string",
     },
-    "statusCode": {
-      "example": 404,
-      "type": "number",
+    "status": {
+      "maximum": 599,
+      "minimum": 100,
+      "type": "integer",
+    },
+    "title": {
+      "type": "string",
+    },
+    "type": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "type": "string",
+        },
+        {
+          "const": "about:blank",
+          "type": "string",
+        },
+      ],
     },
   },
   "required": [
-    "error",
-    "message",
-    "statusCode",
+    "type",
+    "title",
+    "status",
+    "detail",
   ],
   "type": "object",
 }

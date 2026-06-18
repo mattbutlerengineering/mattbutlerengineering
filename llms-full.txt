@@ -4693,9 +4693,9 @@
                 type: "object",
                 properties: { sessionId: { type: "string" } },
               },
-              400: { $ref: "AgentError#" },
-              401: { $ref: "AgentError#" },
-              503: { $ref: "AgentError#" },
+              400: { $ref: "AgentProblemDetails#" },
+              401: { $ref: "AgentProblemDetails#" },
+              503: { $ref: "AgentProblemDetails#" },
             },
           },
           config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
@@ -4813,7 +4813,7 @@
                 description: "SSE event stream",
                 type: "string",
               },
-              404: { $ref: "AgentError#" },
+              404: { $ref: "AgentProblemDetails#" },
             },
           },
         },
@@ -4929,8 +4929,8 @@
                 type: "object",
                 properties: { data: { $ref: "Session#" } },
               },
-              400: { $ref: "AgentError#" },
-              429: { $ref: "AgentError#" },
+              400: { $ref: "AgentProblemDetails#" },
+              429: { $ref: "AgentProblemDetails#" },
             },
           },
         },
@@ -5034,7 +5034,7 @@
                 type: "object",
                 properties: { data: { $ref: "Session#" } },
               },
-              404: { $ref: "AgentError#" },
+              404: { $ref: "AgentProblemDetails#" },
             },
           },
         },
@@ -5069,8 +5069,8 @@
                 type: "object",
                 properties: { data: { $ref: "Session#" } },
               },
-              404: { $ref: "AgentError#" },
-              409: { $ref: "AgentError#" },
+              404: { $ref: "AgentProblemDetails#" },
+              409: { $ref: "AgentProblemDetails#" },
             },
           },
         },
@@ -5117,7 +5117,7 @@
             },
             response: {
               204: { description: "Session deleted", type: "null" },
-              404: { $ref: "AgentError#" },
+              404: { $ref: "AgentProblemDetails#" },
             },
           },
         },
@@ -9788,28 +9788,8 @@
     };
   </file>
   <file path="services/users/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
+      registerReadinessRoutes(fastify, { prisma, auth0Url });
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -14718,6 +14698,13 @@
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
     }
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    export type ReadinessRoutesOptions = StandardChecksOptions;
+    export const registerReadinessRoutes = fp(readinessRoutesPlugin, {
+      name: "readiness-routes",
+      fastify: "5.x",
+    });
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     export interface StartServiceServerOptions {

@@ -17,3 +17,5 @@ export type { FeatureContext, FeatureFlag } from "./feature-flags.js";
 export { errorHandlerPlugin, getTitleForStatus } from "./error-handler.js";
 export { classifyError } from "./classify-error.js";
 export type { ErrorClassification } from "./classify-error.js";
+export { registerReadinessRoutes } from "./readiness-routes.js";
+export type { ReadinessRoutesOptions } from "./readiness-routes.js";
