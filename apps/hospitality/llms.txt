@@ -80,6 +80,23 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/create-mutation-hook.ts">
+    <item priority="low">
+      interface CreateMutationHookOptions {
+        invalidateKey: string;
+        mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariab...;
+      }
+    </item>
+    <item priority="low">
+      interface MutationHookResult {
+        mutate: (variables: TVariables) => void;
+        mutateAsync: (variables: TVariables) => Promise<TData>;
+        isPending: boolean;
+        isSuccess: boolean;
+        isError: boolean;
+      }
+    </item>
+  </file>
   <file path="src/hooks/create-query-hook.ts">
     <item priority="low">
       interface QueryHookResult {

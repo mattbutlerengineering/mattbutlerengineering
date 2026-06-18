@@ -6,14 +6,6 @@ import type { createApiClient } from "@mbe/api-client";
 
 type ApiClient = ReturnType<typeof createApiClient>;
 
-export const WRITE_TOOLS = new Set([
-  "create_reservation",
-  "modify_reservation",
-  "cancel_reservation",
-  "seat_walk_in",
-  "update_table_status",
-]);
-
 export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
   return {
     // ── Read tools (instant, no confirmation) ──────────────
