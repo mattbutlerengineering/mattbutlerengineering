@@ -9,6 +9,9 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { transitionTable, TableTransitionError } from "./table-state-machine.js";
+
+export { TableTransitionError };
 
 const VALID_TABLE_STATUSES: TableStatus[] = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"];
 
@@ -133,6 +136,9 @@ export const tableService = {
     if (!VALID_TABLE_STATUSES.includes(status as TableStatus)) {
       return null;
     }
+    const current = await prisma.table.findUnique({ where: { id } });
+    if (!current) return null;
+    transitionTable(current.status as TableStatus, status as TableStatus);
     try {
       const table = await prisma.table.update({
         where: { id },

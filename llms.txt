@@ -2276,6 +2276,14 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/table-state-machine.ts">
+    <item priority="high">
+      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidTableTransition(from: TableStatus, to: TableStatus): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/table.ts">
     <item priority="high">
       export function mapPrismaTable(table: {

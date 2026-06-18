@@ -10,7 +10,7 @@ import type {
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
-import { tableService } from "../services/table.js";
+import { tableService, TableTransitionError } from "../services/table.js";
 import { emitTableUpdated } from "../services/events.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
@@ -353,14 +353,23 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const table = await tableService.updateStatus(request.params.id, request.body.status);
-      if (!table) {
-        const error = new Error("Table not found") as Error & { statusCode?: number };
-        error.statusCode = 404;
-        throw error;
+      try {
+        const table = await tableService.updateStatus(request.params.id, request.body.status);
+        if (!table) {
+          const error = new Error("Table not found") as Error & { statusCode?: number };
+          error.statusCode = 404;
+          throw error;
+        }
+        emitTableUpdated(table);
+        return { data: table };
+      } catch (err) {
+        if (err instanceof TableTransitionError) {
+          const error = new Error(err.message) as Error & { statusCode?: number };
+          error.statusCode = 409;
+          throw error;
+        }
+        throw err;
       }
-      emitTableUpdated(table);
-      return { data: table };
     }
   );
 

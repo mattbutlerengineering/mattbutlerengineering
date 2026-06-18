@@ -12,6 +12,16 @@ vi.mock("../services/table.js", () => ({
     updateStatus: vi.fn(),
     delete: vi.fn(),
   },
+  TableTransitionError: class TableTransitionError extends Error {
+    from: string;
+    to: string;
+    constructor(from: string, to: string) {
+      super(`Invalid table transition: cannot transition from '${from}' to '${to}'`);
+      this.name = "TableTransitionError";
+      this.from = from;
+      this.to = to;
+    }
+  },
 }));
 
 // Mock the events service
@@ -370,6 +380,30 @@ describe("Table Routes", () => {
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Not Found");
+    });
+
+    it("returns 409 on invalid state transition", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const { TableTransitionError } = await import("../services/table.js");
+      vi.mocked(tableService.updateStatus).mockRejectedValueOnce(
+        new TableTransitionError("AVAILABLE", "DIRTY")
+      );
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/tables/table-123/status",
+        headers: {
+          "x-auth-bypass": "true",
+        },
+        payload: {
+          status: "DIRTY",
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
     });
 
     it("returns 401 without auth", async () => {

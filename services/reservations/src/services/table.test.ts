@@ -197,6 +197,9 @@ describe("tableService", () => {
 
   describe("updateStatus", () => {
     it("transitions AVAILABLE to OCCUPIED", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
       const dbTable = makePrismaTable({ status: "OCCUPIED" });
       vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
 
@@ -210,6 +213,9 @@ describe("tableService", () => {
     });
 
     it("transitions OCCUPIED to DIRTY", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "OCCUPIED" }) as never
+      );
       const dbTable = makePrismaTable({ status: "DIRTY" });
       vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
 
@@ -219,6 +225,9 @@ describe("tableService", () => {
     });
 
     it("transitions DIRTY to READY", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "DIRTY" }) as never
+      );
       const dbTable = makePrismaTable({ status: "READY" });
       vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
 
@@ -228,6 +237,9 @@ describe("tableService", () => {
     });
 
     it("transitions READY to AVAILABLE", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "READY" }) as never
+      );
       const dbTable = makePrismaTable({ status: "AVAILABLE" });
       vi.mocked(prisma.table.update).mockResolvedValueOnce(dbTable as never);
 
@@ -243,22 +255,65 @@ describe("tableService", () => {
       expect(prisma.table.update).not.toHaveBeenCalled();
     });
 
-    it("returns null for P2025 (table not found)", async () => {
+    it("returns null when table not found on lookup", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(null as never);
+
+      const result = await tableService.updateStatus("missing", "OCCUPIED");
+
+      expect(result).toBeNull();
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
+    it("returns null for P2025 (table not found on update)", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
       vi.mocked(prisma.table.update).mockRejectedValueOnce({ code: "P2025" } as never);
 
-      const result = await tableService.updateStatus("missing", "AVAILABLE");
+      const result = await tableService.updateStatus("missing", "OCCUPIED");
 
       expect(result).toBeNull();
     });
 
-    it("accepts all four valid statuses", async () => {
-      const statuses = ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"] as const;
+    it("throws TableTransitionError for invalid transition AVAILABLE -> DIRTY", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "AVAILABLE" }) as never
+      );
 
-      for (const s of statuses) {
-        vi.mocked(prisma.table.update).mockResolvedValueOnce(
-          makePrismaTable({ status: s }) as never
+      const { TableTransitionError } = await import("./table-state-machine.js");
+      await expect(tableService.updateStatus("table-1", "DIRTY")).rejects.toThrow(
+        TableTransitionError
+      );
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
+    it("throws TableTransitionError for invalid transition OCCUPIED -> AVAILABLE (backward)", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+        makePrismaTable({ status: "OCCUPIED" }) as never
+      );
+
+      const { TableTransitionError } = await import("./table-state-machine.js");
+      await expect(tableService.updateStatus("table-1", "AVAILABLE")).rejects.toThrow(
+        TableTransitionError
+      );
+    });
+
+    it("accepts all four valid sequential statuses", async () => {
+      const transitions = [
+        { current: "AVAILABLE", next: "OCCUPIED" },
+        { current: "OCCUPIED", next: "DIRTY" },
+        { current: "DIRTY", next: "READY" },
+        { current: "READY", next: "AVAILABLE" },
+      ] as const;
+
+      for (const { current, next } of transitions) {
+        vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(
+          makePrismaTable({ status: current }) as never
         );
-        const result = await tableService.updateStatus("table-1", s);
+        vi.mocked(prisma.table.update).mockResolvedValueOnce(
+          makePrismaTable({ status: next }) as never
+        );
+        const result = await tableService.updateStatus("table-1", next);
         expect(result).not.toBeNull();
       }
     });
