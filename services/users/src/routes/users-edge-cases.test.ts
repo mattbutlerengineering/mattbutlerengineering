@@ -123,7 +123,7 @@ describe("User routes — edge cases", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBeDefined();
+      expect(body.title).toBeDefined();
     });
   });
 

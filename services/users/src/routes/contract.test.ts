@@ -107,7 +107,7 @@ describe("User Service API Contract", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
   });
 
