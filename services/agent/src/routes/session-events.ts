@@ -40,7 +40,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
             description: "SSE event stream",
             type: "string",
           },
-          404: { $ref: "AgentError#" },
+          404: { $ref: "AgentProblemDetails#" },
         },
       },
     },
