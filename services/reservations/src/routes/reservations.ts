@@ -12,7 +12,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
-import { reservationService } from "../services/reservation.js";
+import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import {
   emitReservationCancelled,
   emitReservationCreated,
@@ -604,50 +604,68 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if (request.body.status === "CANCELLED") {
-        const reservation = await reservationService.cancel(
-          request.params.id,
-          request.body.cancellationReason,
-          request.body.cancellationNote
-        );
+        try {
+          const cancelled = await reservationService.cancel(
+            request.params.id,
+            request.body.cancellationReason,
+            request.body.cancellationNote
+          );
 
-        if (!reservation) {
-          return reply
-            .code(404)
-            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          if (!cancelled) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          }
+
+          emitReservationCancelled(cancelled);
+          return { data: cancelled };
+        } catch (err) {
+          if (err instanceof ReservationTransitionError) {
+            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+          }
+          throw err;
         }
-
-        emitReservationCancelled(reservation);
-        return { data: reservation };
       }
 
-      const result = await reservationService.updateWithConflictCheck(
-        request.params.id,
-        request.body
-      );
+      try {
+        const result = await reservationService.updateWithConflictCheck(
+          request.params.id,
+          request.body
+        );
 
-      if (!result.success) {
-        if (result.error === "Reservation not found") {
-          return reply
-            .code(404)
-            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-        }
+        if (!result.success) {
+          if (result.error === "Reservation not found") {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          }
 
-        if (result.conflict?.hasConflict) {
+          if (result.conflict?.hasConflict) {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+              );
+          }
+
           return reply
-            .code(409)
+            .code(400)
             .send(
-              createProblemDetails(409, "Conflict", result.error ?? "Time slot has a conflict")
+              createProblemDetails(
+                400,
+                "Bad Request",
+                result.error ?? "Failed to update reservation"
+              )
             );
         }
 
-        return reply
-          .code(400)
-          .send(
-            createProblemDetails(400, "Bad Request", result.error ?? "Failed to update reservation")
-          );
+        return { data: result.reservation! };
+      } catch (err) {
+        if (err instanceof ReservationTransitionError) {
+          return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+        }
+        throw err;
       }
-
-      return { data: result.reservation! };
     }
   );
 
@@ -717,13 +735,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         );
       }
 
-      const cancelled = await reservationService.cancel(request.params.id);
-      if (!cancelled) {
-        return reply
-          .code(404)
-          .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+      try {
+        const cancelled = await reservationService.cancel(request.params.id);
+        if (!cancelled) {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+        }
+        return { data: cancelled };
+      } catch (err) {
+        if (err instanceof ReservationTransitionError) {
+          return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+        }
+        throw err;
       }
-      return { data: cancelled };
     }
   );
 };
