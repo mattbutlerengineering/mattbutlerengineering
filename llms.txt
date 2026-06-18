@@ -3813,6 +3813,14 @@
       }
     </item>
   </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    <item priority="low">
+      type ReadinessRoutesOptions = StandardChecksOptions;
+    </item>
+    <item priority="high">
+      export const registerReadinessRoutes: unknown;
+    </item>
+  </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     <item priority="low">
       interface StartServiceServerOptions {
