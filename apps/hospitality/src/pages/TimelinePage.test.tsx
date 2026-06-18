@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
-import { useSSEStatus } from "../hooks/useSSEStatus.js";
+import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useReservations } from "../hooks/useReservations.js";
 import type { UseReservationsResult } from "../hooks/useReservations.js";
 import { useTables } from "../hooks/useTables.js";
@@ -14,7 +14,11 @@ import type { Reservation, Table } from "@mbe/types";
 import React from "react";
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
-vi.mock("../hooks/useSSEStatus.js", () => ({ useSSEStatus: vi.fn() }));
+vi.mock("../hooks/useSSESync.js", () => ({
+  useSSEStatus: vi.fn(),
+  useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
+  useSSEEventFeed: vi.fn(() => []),
+}));
 vi.mock("../hooks/useReservations.js", () => ({
   useReservations: vi.fn(),
   RESERVATIONS_QUERY_KEY: "reservations",

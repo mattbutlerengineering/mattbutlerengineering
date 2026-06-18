@@ -21,7 +21,7 @@ import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
-import { useReservationQuerySync } from "../hooks/useReservationQuerySync.js";
+import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -56,7 +56,7 @@ function DashboardLayoutInner() {
   const { signOut, accessToken } = useAuth();
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
-  useReservationQuerySync();
+  useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
@@ -319,13 +319,15 @@ function DashboardLayoutInner() {
 }
 
 /**
- * Outer shell: wraps VenueProvider around DashboardLayoutInner so that
- * useVenueReadiness (which calls useVenue) can be used inside the layout.
+ * Outer shell: wraps VenueProvider + SSESyncProvider around DashboardLayoutInner.
+ * SSESyncProvider must be inside VenueProvider because useSSESync calls useVenue.
  */
 export function DashboardLayout() {
   return (
     <VenueProvider>
-      <DashboardLayoutInner />
+      <SSESyncProvider>
+        <DashboardLayoutInner />
+      </SSESyncProvider>
     </VenueProvider>
   );
 }

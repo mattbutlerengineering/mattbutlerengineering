@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import type { JobType, JobPayloadMap } from "./job-types.js";
+import { dispatchJob } from "./dispatch-job.js";
 
 const DEFAULT_QUEUE_NAME = "mbe-notifications";
 
@@ -25,12 +26,7 @@ export class JobWorker {
 
     this.worker = new Worker(
       config.queueName ?? DEFAULT_QUEUE_NAME,
-      async (job) => {
-        const handler = (config.handlers as Record<JobType, (data: unknown) => Promise<void>>)[
-          job.name as JobType
-        ];
-        await handler(job.data);
-      },
+      (job) => dispatchJob(config.handlers, job),
       { connection: this.redis }
     );
   }

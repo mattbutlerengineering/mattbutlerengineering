@@ -4,6 +4,7 @@ import {
   createListResponseSchema,
   paginate,
   toPaginationMeta,
+  buildPaginatedResponse,
 } from "./list-utils.js";
 
 describe("parseListQuery", () => {
@@ -135,6 +136,54 @@ describe("toPaginationMeta", () => {
       hasNext: false,
       hasPrev: true,
     });
+  });
+});
+
+describe("buildPaginatedResponse", () => {
+  it("returns data and pagination for a standard page", () => {
+    const items = [{ id: "a" }, { id: "b" }];
+    const result = buildPaginatedResponse(items, 1, 10, 25);
+    expect(result).toEqual({
+      data: items,
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 25,
+        totalPages: 3,
+        hasNext: true,
+        hasPrev: false,
+      },
+    });
+  });
+
+  it("returns correct pagination for page 1", () => {
+    const result = buildPaginatedResponse(["x"], 1, 5, 5);
+    expect(result.pagination.hasPrev).toBe(false);
+    expect(result.pagination.hasNext).toBe(false);
+    expect(result.pagination.totalPages).toBe(1);
+  });
+
+  it("returns correct pagination for last page", () => {
+    const result = buildPaginatedResponse(["x"], 3, 10, 25);
+    expect(result.pagination.hasPrev).toBe(true);
+    expect(result.pagination.hasNext).toBe(false);
+    expect(result.pagination.totalPages).toBe(3);
+  });
+
+  it("returns correct pagination for empty result set", () => {
+    const result = buildPaginatedResponse([], 1, 10, 0);
+    expect(result.data).toEqual([]);
+    expect(result.pagination.total).toBe(0);
+    expect(result.pagination.totalPages).toBe(0);
+    expect(result.pagination.hasNext).toBe(false);
+    expect(result.pagination.hasPrev).toBe(false);
+  });
+
+  it("preserves generic data type", () => {
+    type Item = { id: number; name: string };
+    const items: Item[] = [{ id: 1, name: "Alice" }];
+    const result = buildPaginatedResponse(items, 1, 10, 1);
+    expect(result.data[0].name).toBe("Alice");
   });
 });
 

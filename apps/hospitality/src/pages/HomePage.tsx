@@ -6,8 +6,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed } from "../components/dashboard";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
-import { useSSEStatus } from "../hooks/useSSEStatus.js";
-import { useSSEEventFeed } from "../hooks/useSSEEventFeed.js";
+import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import styles from "./HomePage.module.css";
 
 function StatsLoading() {

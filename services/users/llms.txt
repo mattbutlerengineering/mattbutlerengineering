@@ -54,9 +54,6 @@
   </file>
   <file path="src/services/user.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaUser(user: {
         id: string;
         email: string;
@@ -67,6 +64,9 @@
         createdAt: Date;
         updatedAt: Date;
       }): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userService: unknown;
     </item>
   </file>
   </section>
