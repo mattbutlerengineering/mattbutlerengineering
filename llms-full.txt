@@ -2948,6 +2948,61 @@
       readonly groups: string[];
     }
   </file>
+  <file path="apps/hospitality/src/hooks/use-form-state.ts">
+    export interface UseFormStateResult<T extends Record<string, unknown>> {
+      fields: T;
+      setField: <K extends keyof T>(key: K, value: T[K]) => void;
+      isPending: boolean;
+      error: string | null;
+      isDirty: boolean;
+      handleSubmit: () => Promise<void>;
+      reset: () => void;
+    }
+    export function useFormState<T extends Record<string, unknown>>(
+      initialData: T,
+      onSubmit: (data: T) => Promise<void>,
+      schema: ZodSchema<T>
+    ): UseFormStateResult<T> {
+      const [fields, setFields] = useState<T>(initialData);
+      const [isPending, setIsPending] = useState(false);
+      const [error, setError] = useState<string | null>(null);
+    
+      const setField = useCallback(<K extends keyof T>(key: K, value: T[K]) => {
+        setFields((prev) => ({ ...prev, [key]: value }));
+      }, []);
+    
+      const reset = useCallback(() => {
+        setFields(initialData);
+        setError(null);
+      }, [initialData]);
+    
+      const handleSubmit = useCallback(async () => {
+        if (isPending) return;
+        const parsed = schema.safeParse(fields);
+        if (!parsed.success) {
+          setError(parsed.error.issues[0]?.message ?? "Validation failed");
+          return;
+        }
+    
+        setIsPending(true);
+        setError(null);
+        try {
+          await onSubmit(parsed.data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "An error occurred");
+        } finally {
+          setIsPending(false);
+        }
+      }, [fields, onSubmit, schema, isPending]);
+    
+      const isDirty = useMemo(
+        () => Object.keys(initialData).some((key) => fields[key] !== initialData[key]),
+        [initialData, fields]
+      );
+    
+      return { fields, setField, isPending, error, isDirty, handleSubmit, reset };
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/use-theme.ts">
     export interface ThemeContextValue {
       readonly theme: ThemePreference;
@@ -3038,130 +3093,10 @@
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
   </file>
-  <file path="apps/hospitality/src/hooks/useReservationEvents.ts">
-    export type ReservationEventType =
-      | "reservation:created"
-      | "reservation:updated"
-      | "reservation:cancelled"
-      | "hold:created"
-      | "hold:released"
-      | "hold:confirmed"
-      | "table:updated"
-      | "guest:lapsing";
-    export interface ReservationEvent {
-      type: ReservationEventType;
-      venueId: string;
-      timestamp: string;
-      data: Reservation | Table | ReservationHold | LapsingGuest[];
-    }
-  </file>
-  <file path="apps/hospitality/src/hooks/useReservationQuerySync.ts">
-    function canShowToast(): boolean {
-      const now = Date.now();
-      _toastTimestamps = _toastTimestamps.filter((t) => now - t < TOAST_WINDOW_MS);
-      if (_toastTimestamps.length >= TOAST_MAX) return false;
-      _toastTimestamps.push(now);
-      return true;
-    }
-    export function useReservationQuerySync() {
-      const queryClient = useQueryClient();
-      const { selectedVenueId } = useVenue();
-      const { toast } = useToast();
-    
-      const makeEvent = (
-        type: ReservationEvent["type"],
-        data: ReservationEvent["data"]
-      ): ReservationEvent => ({
-        type,
-        venueId: selectedVenueId ?? "",
-        timestamp: new Date().toISOString(),
-        data,
-      });
-    
-      const invalidateReservations = () => {
-        queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-      };
-    
-      const invalidateTables = () => {
-        queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
-      };
-    
-      const result = useReservationEvents({
-        venueId: selectedVenueId ?? undefined,
-        onReservationCreated: (reservation: Reservation) => {
-          invalidateReservations();
-          broadcastSSEEvent(makeEvent("reservation:created", reservation));
-          if (canShowToast()) {
-            toast({
-              title: "New reservation",
-              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-              variant: "accent",
-              duration: 5000,
-            });
-          }
-        },
-        onReservationUpdated: (reservation: Reservation) => {
-          invalidateReservations();
-          broadcastSSEEvent(makeEvent("reservation:updated", reservation));
-        },
-        onReservationCancelled: (reservation: Reservation) => {
-          invalidateReservations();
-          broadcastSSEEvent(makeEvent("reservation:cancelled", reservation));
-          if (canShowToast()) {
-            toast({
-              title: "Reservation cancelled",
-              description: `${reservation.guestName ?? "Guest"}'s reservation was cancelled`,
-              variant: "error",
-              duration: 5000,
-            });
-          }
-        },
-        onHoldCreated: (hold) => {
-          broadcastSSEEvent(makeEvent("hold:created", hold));
-        },
-        onHoldReleased: (hold) => {
-          broadcastSSEEvent(makeEvent("hold:released", hold));
-        },
-        onHoldConfirmed: (reservation: Reservation) => {
-          invalidateReservations();
-          broadcastSSEEvent(makeEvent("hold:confirmed", reservation));
-        },
-        onTableUpdated: (table) => {
-          invalidateTables();
-          broadcastSSEEvent(makeEvent("table:updated", table));
-        },
-      });
-    
-      // Broadcast connection status changes to any subscribers (e.g. ActivityFeed, HomePage)
-      useEffect(() => {
-        notifySSEStatus(result.isConnected, result.error);
-      }, [result.isConnected, result.error]);
-    
-      return result;
-    }
-  </file>
   <file path="apps/hospitality/src/hooks/useReservations.ts">
     export const RESERVATIONS_QUERY_KEY = "reservations" as const;
     export interface UseReservationsParams extends ListReservationsParams {
       enabled?: boolean;
-    }
-  </file>
-  <file path="apps/hospitality/src/hooks/useSSEEventFeed.ts">
-    type EventFeedListener = (event: ReservationEvent) => void;
-    export function broadcastSSEEvent(event: ReservationEvent): void {
-      for (const listener of _feedListeners) {
-        listener(event);
-      }
-    }
-  </file>
-  <file path="apps/hospitality/src/hooks/useSSEStatus.ts">
-    type SSEStatusListener = (isConnected: boolean, error: Error | null) => void;
-    export function notifySSEStatus(isConnected: boolean, error: Error | null): void {
-      _isConnected = isConnected;
-      _error = error;
-      for (const listener of _listeners) {
-        listener(isConnected, error);
-      }
     }
   </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
@@ -10472,14 +10407,6 @@
     }
   </file>
   <file path="services/agent/src/services/session.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaSession(session: Session): AgentSession {
       return {
         id: session.id,
@@ -10505,6 +10432,15 @@
         completedAt: session.completedAt?.toISOString() ?? null,
         createdAt: session.createdAt.toISOString(),
         updatedAt: session.updatedAt.toISOString(),
+      };
+    }
+    function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
+      return {
+        id: event.id,
+        sessionId: event.sessionId,
+        type: event.type,
+        data: (event.data as Record<string, unknown>) ?? {},
+        createdAt: event.createdAt.toISOString(),
       };
     }
   </file>
@@ -11564,14 +11500,6 @@
     export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="services/users/src/services/user.ts">
-    function isPrismaNotFound(err: unknown): boolean {
-      return (
-        err !== null &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "P2025"
-      );
-    }
     function mapPrismaUser(user: {
       id: string;
       email: string;
@@ -11593,6 +11521,106 @@
         updatedAt: user.updatedAt.toISOString(),
       };
     }
+    export const userService = {
+      async list(page: number, limit: number): Promise<PaginatedResponse<User>> {
+        const [users, total] = await Promise.all([
+          prisma.user.findMany({
+            ...paginate({ page, limit }),
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.user.count(),
+        ]);
+    
+        return {
+          data: users.map(mapPrismaUser),
+          pagination: toPaginationMeta(page, limit, total),
+        };
+      },
+    
+      async getById(id: string): Promise<User | null> {
+        const user = await prisma.user.findUnique({ where: { id } });
+        return user ? mapPrismaUser(user) : null;
+      },
+    
+      async getByEmail(email: string): Promise<User | null> {
+        const user = await prisma.user.findUnique({ where: { email } });
+        return user ? mapPrismaUser(user) : null;
+      },
+    
+      async create(data: CreateUserRequest): Promise<User> {
+        const user = await prisma.user.create({
+          data: {
+            email: data.email,
+            name: data.name ?? null,
+            picture: data.picture ?? null,
+          },
+        });
+        return mapPrismaUser(user);
+      },
+    
+      /**
+       * Finds a user by email or creates one if not found.
+       * Uses upsert to prevent race conditions when two concurrent
+       * first-login requests arrive for the same email.
+       */
+      async findOrCreate(data: CreateUserRequest): Promise<User> {
+        const user = await prisma.user.upsert({
+          where: { email: data.email },
+          update: {}, // No-op if user already exists
+          create: {
+            email: data.email,
+            name: data.name ?? null,
+            picture: data.picture ?? null,
+          },
+        });
+        return mapPrismaUser(user);
+      },
+    
+      async update(id: string, data: UpdateUserRequest): Promise<User | null> {
+        try {
+          const user = await prisma.user.update({
+            where: { id },
+            data: {
+              ...(data.name !== undefined && { name: data.name }),
+              ...(data.picture !== undefined && { picture: data.picture }),
+            },
+          });
+          return mapPrismaUser(user);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.user.delete({ where: { id } });
+          return true;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return false;
+          throw err;
+        }
+      },
+    
+      async updatePreferences(id: string, preferences: UpdatePreferencesRequest): Promise<User | null> {
+        try {
+          const user = await prisma.user.findUnique({ where: { id } });
+          if (!user) return null;
+    
+          const currentPrefs = (user.preferences as UserPreferences) ?? {};
+          const newPrefs = { ...currentPrefs, ...preferences };
+    
+          const updated = await prisma.user.update({
+            where: { id },
+            data: { preferences: newPrefs },
+          });
+          return mapPrismaUser(updated);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    };
   </file>
   </section>
   <section priority="medium" role="src">

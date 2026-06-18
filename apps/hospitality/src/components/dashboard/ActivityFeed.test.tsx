@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "./ActivityFeed.js";
-import type { ReservationEvent } from "../../hooks/useReservationEvents";
+import type { ReservationEvent } from "../../hooks/useSSESync.js";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({

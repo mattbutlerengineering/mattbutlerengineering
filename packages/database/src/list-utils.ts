@@ -43,6 +43,20 @@ const PAGINATION_PROPERTIES: Record<keyof PaginationMeta, { type: string }> = {
   hasPrev: { type: "boolean" },
 };
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+export function buildPaginatedResponse<T>(
+  data: T[],
+  page: number,
+  limit: number,
+  total: number
+): PaginatedResponse<T> {
+  return { data, pagination: toPaginationMeta(page, limit, total) };
+}
+
 export function createListResponseSchema(entityRef: string) {
   return {
     type: "object" as const,

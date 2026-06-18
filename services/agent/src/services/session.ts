@@ -1,17 +1,8 @@
 import type { Prisma, Session, SessionEvent, SessionStatus } from "../generated/prisma/index.js";
 import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
-import { paginate, toPaginationMeta } from "@mbe/database";
+import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { getSessionEventEmitter } from "./session-event-emitter.js";
-
-function isPrismaNotFound(err: unknown): boolean {
-  return (
-    err !== null &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
-  );
-}
 
 function mapPrismaSession(session: Session): AgentSession {
   return {
