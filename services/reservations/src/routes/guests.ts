@@ -12,6 +12,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
+import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
@@ -582,7 +583,9 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       if (!guest) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Guest not found"));
       }
-      const sent = await sendWinBack(guest, fastify.notificationPort);
+      const venue = await venueService.getById(guest.venueId);
+      const venueName = venue?.name ?? guest.venueId;
+      const sent = await sendWinBack(guest, fastify.notificationPort, venueName);
       return { data: { sent } };
     }
   );
