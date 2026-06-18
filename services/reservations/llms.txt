@@ -621,7 +621,8 @@
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
-        notificationPort: NotificationDispatcher
+        notificationPort: NotificationDispatcher,
+        venueName: string
       ): Promise<boolean> { /* ... */ }
     </item>
   </file>

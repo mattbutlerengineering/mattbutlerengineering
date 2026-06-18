@@ -10,7 +10,8 @@ import { resolveChannel } from "./booking-notifications.js";
  */
 export async function sendWinBack(
   guest: Guest,
-  notificationPort: NotificationDispatcher
+  notificationPort: NotificationDispatcher,
+  venueName: string
 ): Promise<boolean> {
   const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
 
@@ -34,7 +35,7 @@ export async function sendWinBack(
     {
       guestName: guest.name,
       guestEmail: guest.email,
-      venueName: "your favourite restaurant",
+      venueName,
     },
     preference
   );
