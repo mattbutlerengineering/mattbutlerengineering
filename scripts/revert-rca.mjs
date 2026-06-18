@@ -11,21 +11,14 @@
  *   node scripts/revert-rca.mjs --pr <number> --revert-sha <sha>
  */
 
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-function gh(...args) {
-  try {
-    return execFileSync("gh", args, { encoding: "utf-8" }).trim();
-  } catch (e) {
-    console.error(`gh command failed: ${e.message}`);
-    return null;
-  }
-}
+const ghClient = createGhClient();
 
 function main() {
   const args = process.argv.slice(2);
@@ -43,13 +36,13 @@ function main() {
   console.log(`Triggering RCA for reverted PR #${prNumber}...`);
 
   // Fetch original PR details
-  const prJson = gh("pr", "view", prNumber, "--json", "title,body,author,headRefName,labels");
-  if (!prJson) {
-    console.error(`Could not find PR #${prNumber}`);
+  let pr;
+  try {
+    pr = ghClient.pr.view(Number(prNumber), ["--json", "title,body,author,headRefName,labels"]);
+  } catch (e) {
+    console.error(`Could not find PR #${prNumber}: ${e.message}`);
     process.exit(1);
   }
-
-  const pr = JSON.parse(prJson);
 
   // Check if it's an agent PR (based on labels or author)
   const isAgent =
@@ -84,20 +77,23 @@ The AI-generated PR #${prNumber} was reverted in commit ${revertSha}.
 
 Labels: \`meta-improvement\`, \`ready\`, \`critical\``;
 
-  const newIssue = gh(
-    "issue",
-    "create",
-    "--title",
-    rcaTitle,
-    "--body",
-    rcaBody,
-    "--label",
-    "meta-improvement",
-    "--label",
-    "ready",
-    "--label",
-    "critical"
-  );
+  let newIssue;
+  try {
+    newIssue = ghClient.issue.create([
+      "--title",
+      rcaTitle,
+      "--body",
+      rcaBody,
+      "--label",
+      "meta-improvement",
+      "--label",
+      "ready",
+      "--label",
+      "critical",
+    ]);
+  } catch (e) {
+    console.error(`gh command failed: ${e.message}`);
+  }
 
   if (newIssue) {
     console.log(`Created RCA issue: ${newIssue}`);

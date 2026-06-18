@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +15,14 @@ function makeTmpDir() {
 }
 
 describe("detectPatterns", () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-23T12:00:00Z"));
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("detects recurring failure pattern (3+ occurrences)", () => {
     const metrics = [
       { timestamp: "2026-05-20T10:00:00Z", fp_rate: 35, agent_success_rate: 60 },
