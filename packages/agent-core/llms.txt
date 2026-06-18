@@ -525,14 +525,6 @@
       }
     </item>
   </file>
-  <file path="src/pr-risk-classifier.ts">
-    <item priority="high">
-      export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function reviewersForDiff(files: readonly string[]): string[] { /* ... */ }
-    </item>
-  </file>
   <file path="src/prompt-builder.ts">
     <item priority="low">
       interface SourceFileEntry {

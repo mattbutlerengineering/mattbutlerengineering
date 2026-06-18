@@ -1541,18 +1541,6 @@
       readonly logSnippet: string;
     }
   </file>
-  <file path="src/pr-risk-classifier.ts">
-    export function isLowRiskPR(files: readonly string[]): boolean {
-      if (files.length === 0) {
-        return false;
-      }
-    
-      return files.every((file) => LOW_RISK_PATTERNS.some((matches) => matches(file)));
-    }
-    export function reviewersForDiff(files: readonly string[]): string[] {
-      return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
-    }
-  </file>
   <file path="src/prompt-builder.ts">
     export interface SourceFileEntry {
       readonly path: string;
