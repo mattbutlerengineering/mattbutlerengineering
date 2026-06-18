@@ -376,6 +376,8 @@ describe("availabilityService.getAvailableDates", () => {
       makePrismaVenue({ operatingHours: allClosed }) as never
     );
     vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
     const dates = await availabilityService.getAvailableDates(
       VENUE_ID,
@@ -404,6 +406,81 @@ describe("availabilityService.getAvailableDates", () => {
 
     expect(dates[0].hasAvailability).toBe(true);
     expect(dates[0].slotCount).toBeGreaterThan(0);
+  });
+
+  it("correctly buckets reservations across a multi-day range", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+
+    // 7-day range: 2026-05-04 through 2026-05-10 (7 entries).
+    // new Date("YYYY-MM-DD") parses as UTC midnight; getDay() runs in local time.
+    // In PDT (UTC-7): 2026-05-04 = Sun (closed), 2026-05-05 = Mon, 2026-05-06 = Tue,
+    //                  2026-05-07 = Wed, 2026-05-08 = Thu, 2026-05-09 = Fri, 2026-05-10 = Sat.
+    //
+    // toDateString uses UTC parts, so reservations are keyed by UTC date.
+    // Reservations on the two open days that have them: 2026-05-06 and 2026-05-08.
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
+      {
+        id: "res-a",
+        tableId: "table-1",
+        startTime: new Date("2026-05-06T22:00:00Z"), // blocks 2026-05-06 (Tue)
+        endTime: new Date("2026-05-06T23:15:00Z"),
+        partySize: 2,
+      },
+      {
+        id: "res-b",
+        tableId: "table-1",
+        startTime: new Date("2026-05-08T22:00:00Z"), // blocks 2026-05-08 (Thu)
+        endTime: new Date("2026-05-08T23:15:00Z"),
+        partySize: 2,
+      },
+    ] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-04",
+      "2026-05-10",
+      2
+    );
+
+    // Should return 7 entries
+    expect(dates).toHaveLength(7);
+
+    // 2026-05-04 = Sun (closed: true in fixture) — no availability
+    const d04 = dates.find((d) => d.date === "2026-05-04");
+    expect(d04).toBeDefined();
+    expect(d04!.hasAvailability).toBe(false);
+    expect(d04!.slotCount).toBe(0);
+
+    // 2026-05-05 = Mon (open, no reservation) — full slot count
+    const d05 = dates.find((d) => d.date === "2026-05-05");
+    expect(d05).toBeDefined();
+    expect(d05!.hasAvailability).toBe(true);
+    expect(d05!.slotCount).toBeGreaterThan(0);
+    const fullSlotCount = d05!.slotCount!;
+
+    // 2026-05-06 = Tue (open, has res-a) — fewer slots than 2026-05-05
+    const d06 = dates.find((d) => d.date === "2026-05-06");
+    expect(d06).toBeDefined();
+    expect(d06!.hasAvailability).toBe(true);
+    expect(d06!.slotCount).toBeLessThan(fullSlotCount);
+
+    // 2026-05-07 = Wed (open, no reservation) — same full count as Mon
+    const d07 = dates.find((d) => d.date === "2026-05-07");
+    expect(d07).toBeDefined();
+    expect(d07!.slotCount).toBe(fullSlotCount);
+
+    // 2026-05-08 = Thu (open, has res-b) — fewer slots than clean days
+    const d08 = dates.find((d) => d.date === "2026-05-08");
+    expect(d08).toBeDefined();
+    expect(d08!.hasAvailability).toBe(true);
+    expect(d08!.slotCount).toBeLessThan(fullSlotCount);
+
+    // 2026-05-09 = Fri (open, no reservation) — full count again
+    const d09 = dates.find((d) => d.date === "2026-05-09");
+    expect(d09).toBeDefined();
+    expect(d09!.slotCount).toBeGreaterThan(0);
   });
 });
 
