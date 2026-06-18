@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { FloorPlan, CreateTableRequest, Table } from "@mbe/types";
 import { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import { createMutationHook } from "./create-mutation-hook.js";
 
 export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
 export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
@@ -57,17 +58,10 @@ export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
 
 /* ── useCloneFloorPlan mutation ──────────────────────── */
 
-export function useCloneFloorPlan() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.floorPlans.clone(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLANS_QUERY_KEY] });
-    },
-  });
-}
+export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
+  invalidateKey: FLOOR_PLANS_QUERY_KEY,
+  mutationFn: (api, id) => api.floorPlans.clone(id),
+});
 
 /* ── useActivateFloorPlan mutation ───────────────────── */
 

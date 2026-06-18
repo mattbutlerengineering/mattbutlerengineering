@@ -878,6 +878,23 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/create-mutation-hook.ts">
+    <item priority="low">
+      interface CreateMutationHookOptions {
+        invalidateKey: string;
+        mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariab...;
+      }
+    </item>
+    <item priority="low">
+      interface MutationHookResult {
+        mutate: (variables: TVariables) => void;
+        mutateAsync: (variables: TVariables) => Promise<TData>;
+        isPending: boolean;
+        isSuccess: boolean;
+        isError: boolean;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/create-query-hook.ts">
     <item priority="low">
       interface QueryHookResult {
@@ -1957,10 +1974,10 @@
   </file>
   <file path="services/agent/src/services/session.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
+      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
     </item>
     <item priority="medium">
-      function mapPrismaSession(session: Session): AgentSession { /* ... */ }
+      function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
@@ -2393,9 +2410,6 @@
   </file>
   <file path="services/users/src/services/user.ts">
     <item priority="medium">
-      function isPrismaNotFound(err: unknown): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
       function mapPrismaUser(user: {
         id: string;
         email: string;
@@ -2406,6 +2420,9 @@
         createdAt: Date;
         updatedAt: Date;
       }): User { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userService: unknown;
     </item>
   </file>
   </section>
@@ -3465,6 +3482,19 @@
     </item>
     <item priority="low">
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
+  <file path="packages/jobs/src/dispatch-job.ts">
+    <item priority="high">
+      class UnknownJobTypeError {
+        
+      }
+    </item>
+    <item priority="high">
+      export async function dispatchJob(
+        handlers: JobHandlerMap,
+        job: { name: string; data: unknown }
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/job-types.ts">

@@ -86,6 +86,8 @@ eval "mbe agent run \"\$TASK\" --max-budget <budget> --adapter auto $FRONTMATTER
 
 Last flags win (override budget/adapter). Safe (enum/numeric).
 
+`--adapter auto` enables rate-limit failover: claude → gemini → opencode on 429. Applies to haiku/sonnet-tier runs. Opus-tier issues should include `--adapter claude` in their frontmatter `agent:` block to stay on the Claude provider.
+
 ## Success
 
 ```bash
