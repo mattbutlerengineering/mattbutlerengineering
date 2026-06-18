@@ -1,4 +1,5 @@
 import { useState, useCallback, useReducer, useEffect, type ChangeEvent } from "react";
+import { z } from "zod";
 import {
   Alert,
   Badge,
@@ -26,6 +27,7 @@ import { PageHeader } from "../components/PageHeader";
 import { useGuestDirectory, type UseGuestDirectoryResult } from "../hooks/useGuestDirectory.js";
 import { useReservations } from "../hooks/useReservations.js";
 import { GuestCard } from "../components/crm/GuestCard.js";
+import { useFormState } from "../hooks/use-form-state.js";
 import styles from "./GuestsPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
@@ -50,8 +52,17 @@ const DIETARY_RESTRICTION_OPTIONS = [
   "shellfish-free",
 ] as const;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[+\d\s\-().]{7,}$/;
+const guestFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Please enter a valid email address").or(z.literal("")),
+  phone: z
+    .string()
+    .regex(/^[+\d\s\-().]{7,}$/, "Please enter a valid phone number")
+    .or(z.literal("")),
+  notes: z.string(),
+});
+
+type GuestFormValues = z.infer<typeof guestFormSchema>;
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -73,35 +84,25 @@ function GuestsLoadingSkeleton() {
 
 /* ── Add Guest Dialog ──────────────────────── */
 
+const ADD_GUEST_INITIAL: GuestFormValues = { name: "", email: "", phone: "", notes: "" };
+
 interface AddGuestDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; email: string; phone: string; notes: string }) => Promise<void>;
-  isSubmitting: boolean;
-  error: string | null;
+  onSubmit: (data: GuestFormValues) => Promise<void>;
 }
 
-function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGuestDialogProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
+function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
+  const { fields, setField, isPending, error, reset, handleSubmit } = useFormState(
+    ADD_GUEST_INITIAL,
+    onSubmit,
+    guestFormSchema
+  );
 
   const handleClose = useCallback(() => {
-    setName("");
-    setEmail("");
-    setPhone("");
-    setNotes("");
+    reset();
     onClose();
-  }, [onClose]);
-
-  const handleFormSubmit = useCallback(async () => {
-    await onSubmit({ name, email, phone, notes });
-    setName("");
-    setEmail("");
-    setPhone("");
-    setNotes("");
-  }, [name, email, phone, notes, onSubmit]);
+  }, [reset, onClose]);
 
   return (
     <Dialog
@@ -110,15 +111,15 @@ function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGue
       title="Add Guest"
       footer={
         <Stack direction="row" gap="sm" justify="end">
-          <Button variant="ghost" onClick={handleClose} disabled={isSubmitting}>
+          <Button variant="ghost" onClick={handleClose} disabled={isPending}>
             Cancel
           </Button>
           <Button
             variant="primary"
-            onClick={handleFormSubmit}
-            disabled={isSubmitting || name.trim().length === 0}
+            onClick={handleSubmit}
+            disabled={isPending || fields.name.trim().length === 0}
           >
-            {isSubmitting ? "Adding..." : "Add Guest"}
+            {isPending ? "Adding..." : "Add Guest"}
           </Button>
         </Stack>
       }
@@ -129,29 +130,29 @@ function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGue
           label="Name"
           type="text"
           placeholder="Full name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={fields.name}
+          onChange={(e) => setField("name", e.target.value)}
         />
         <Input
           label="Email"
           type="email"
           placeholder="guest@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={fields.email}
+          onChange={(e) => setField("email", e.target.value)}
         />
         <Input
           label="Phone"
           type="tel"
           placeholder="+1 (555) 000-0000"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          value={fields.phone}
+          onChange={(e) => setField("phone", e.target.value)}
         />
         <Input
           label="Notes"
           type="text"
           placeholder="Preferences, allergies, etc."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          value={fields.notes}
+          onChange={(e) => setField("notes", e.target.value)}
         />
       </Stack>
     </Dialog>
@@ -159,16 +160,6 @@ function AddGuestDialog({ open, onClose, onSubmit, isSubmitting, error }: AddGue
 }
 
 /* ── Guest Detail Drawer ───────────────────── */
-
-interface GuestEditFormData {
-  name: string;
-  email: string;
-  phone: string;
-  notes: string;
-  tags: string[];
-  dietaryRestrictions: string[];
-  tagInput: string;
-}
 
 interface GuestDetailDrawerProps {
   guest: Guest | null;
@@ -179,51 +170,36 @@ interface GuestDetailDrawerProps {
   isLoadingHistory: boolean;
 }
 
+type DrawerExtras = {
+  tags: string[];
+  dietaryRestrictions: string[];
+  tagInput: string;
+};
+
 type DrawerState = {
   isEditing: boolean;
-  formData: GuestEditFormData;
-  isSaving: boolean;
-  saveError: string | null;
+  extras: DrawerExtras;
 };
 
 type DrawerAction =
   | { type: "reset"; guest: Guest }
   | { type: "set_editing"; isEditing: boolean }
-  | { type: "set_form_data"; formData: GuestEditFormData }
-  | { type: "update_field"; field: keyof GuestEditFormData; value: string }
+  | { type: "set_extras"; extras: DrawerExtras }
   | { type: "toggle_dietary"; restriction: string }
   | { type: "add_tag" }
   | { type: "remove_tag"; tag: string }
-  | { type: "save_start" }
-  | { type: "save_success" }
-  | { type: "save_error"; error: string }
-  | { type: "clear_save_error" };
+  | { type: "update_tag_input"; value: string };
 
-const INITIAL_DRAWER_STATE: DrawerState = {
-  isEditing: false,
-  formData: {
-    name: "",
-    email: "",
-    phone: "",
-    notes: "",
-    tags: [],
-    dietaryRestrictions: [],
-    tagInput: "",
-  },
-  isSaving: false,
-  saveError: null,
-};
+const INITIAL_EXTRAS: DrawerExtras = { tags: [], dietaryRestrictions: [], tagInput: "" };
+
+const INITIAL_DRAWER_STATE: DrawerState = { isEditing: false, extras: INITIAL_EXTRAS };
 
 function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
   switch (action.type) {
     case "reset":
       return {
-        ...INITIAL_DRAWER_STATE,
-        formData: {
-          name: action.guest.name,
-          email: action.guest.email ?? "",
-          phone: action.guest.phone ?? "",
-          notes: action.guest.notes ?? "",
+        isEditing: false,
+        extras: {
           tags: action.guest.tags ? [...action.guest.tags] : [],
           dietaryRestrictions: action.guest.dietaryRestrictions
             ? [...action.guest.dietaryRestrictions]
@@ -233,54 +209,42 @@ function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
       };
     case "set_editing":
       return { ...state, isEditing: action.isEditing };
-    case "set_form_data":
-      return { ...state, formData: action.formData };
-    case "update_field":
-      return {
-        ...state,
-        formData: { ...state.formData, [action.field]: action.value },
-      };
+    case "set_extras":
+      return { ...state, extras: action.extras };
     case "toggle_dietary": {
-      const current = state.formData.dietaryRestrictions;
+      const current = state.extras.dietaryRestrictions;
       const next = current.includes(action.restriction)
         ? current.filter((r) => r !== action.restriction)
         : [...current, action.restriction];
-      return {
-        ...state,
-        formData: { ...state.formData, dietaryRestrictions: next },
-      };
+      return { ...state, extras: { ...state.extras, dietaryRestrictions: next } };
     }
     case "add_tag": {
-      const trimmed = state.formData.tagInput.trim();
-      if (!trimmed || state.formData.tags.includes(trimmed)) {
-        return { ...state, formData: { ...state.formData, tagInput: "" } };
+      const trimmed = state.extras.tagInput.trim();
+      if (!trimmed || state.extras.tags.includes(trimmed)) {
+        return { ...state, extras: { ...state.extras, tagInput: "" } };
       }
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          tags: [...state.formData.tags, trimmed],
-          tagInput: "",
-        },
+        extras: { ...state.extras, tags: [...state.extras.tags, trimmed], tagInput: "" },
       };
     }
     case "remove_tag":
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          tags: state.formData.tags.filter((t) => t !== action.tag),
-        },
+        extras: { ...state.extras, tags: state.extras.tags.filter((t) => t !== action.tag) },
       };
-    case "save_start":
-      return { ...state, isSaving: true, saveError: null };
-    case "save_success":
-      return { ...state, isSaving: false, isEditing: false };
-    case "save_error":
-      return { ...state, isSaving: false, saveError: action.error };
-    case "clear_save_error":
-      return { ...state, saveError: null };
+    case "update_tag_input":
+      return { ...state, extras: { ...state.extras, tagInput: action.value } };
   }
+}
+
+function makeDrawerInitial(guest: Guest | null): GuestFormValues {
+  return {
+    name: guest?.name ?? "",
+    email: guest?.email ?? "",
+    phone: guest?.phone ?? "",
+    notes: guest?.notes ?? "",
+  };
 }
 
 function GuestDetailDrawer({
@@ -292,24 +256,42 @@ function GuestDetailDrawer({
   isLoadingHistory,
 }: GuestDetailDrawerProps) {
   const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
-  const { isEditing, formData, isSaving, saveError } = state;
+  const { isEditing, extras } = state;
   const { toast } = useToast();
+
+  const {
+    fields,
+    setField,
+    isPending,
+    error,
+    reset: resetForm,
+    handleSubmit,
+  } = useFormState(
+    makeDrawerInitial(guest),
+    async (data) => {
+      if (!guest) return;
+      await onSave(guest.id, {
+        name: data.name.trim(),
+        email: data.email.trim() || undefined,
+        phone: data.phone.trim() || undefined,
+        notes: data.notes.trim() || undefined,
+        tags: extras.tags,
+        dietaryRestrictions: extras.dietaryRestrictions,
+      });
+      drawerDispatch({ type: "set_editing", isEditing: false });
+      toast({ title: "Guest updated", variant: "success" });
+    },
+    guestFormSchema
+  );
 
   // Reset when guest/open changes
   useEffect(() => {
     if (guest && open) {
       drawerDispatch({ type: "reset", guest });
+      resetForm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [guest?.id, open]);
-
-  const handleFieldChange = useCallback(
-    (field: keyof GuestEditFormData) =>
-      (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        drawerDispatch({ type: "update_field", field, value: e.target.value });
-      },
-    []
-  );
 
   const handleTagInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
@@ -318,77 +300,28 @@ function GuestDetailDrawer({
     }
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!guest) return;
-    drawerDispatch({ type: "save_start" });
-    try {
-      await onSave(guest.id, {
-        name: formData.name.trim(),
-        email: formData.email.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        notes: formData.notes.trim() || undefined,
-        tags: formData.tags,
-        dietaryRestrictions: formData.dietaryRestrictions,
-      });
-      drawerDispatch({ type: "save_success" });
-      toast({ title: "Guest updated", variant: "success" });
-    } catch (err) {
-      drawerDispatch({
-        type: "save_error",
-        error: err instanceof Error ? err.message : "Failed to save guest",
-      });
-    }
-  }, [guest, formData, onSave, toast]);
-
   const handleCancelEdit = useCallback(() => {
     if (guest) {
       drawerDispatch({
-        type: "set_form_data",
-        formData: {
-          name: guest.name,
-          email: guest.email ?? "",
-          phone: guest.phone ?? "",
-          notes: guest.notes ?? "",
+        type: "set_extras",
+        extras: {
           tags: guest.tags ? [...guest.tags] : [],
           dietaryRestrictions: guest.dietaryRestrictions ? [...guest.dietaryRestrictions] : [],
           tagInput: "",
         },
       });
+      resetForm();
     }
     drawerDispatch({ type: "set_editing", isEditing: false });
-    drawerDispatch({ type: "clear_save_error" });
-  }, [guest]);
+  }, [guest, resetForm]);
 
   if (!guest) return null;
 
-  const formatDate = (isoString: string | null) => {
-    if (!isoString) return "Never";
-    return new Date(isoString).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const detailItems = [
-    { label: "Email", value: guest.email ?? "Not provided" },
-    { label: "Phone", value: guest.phone ?? "Not provided" },
-    { label: "Visits", value: String(guest.visitCount) },
-    { label: "Last Visit", value: formatDate(guest.lastVisit) },
-    { label: "Created", value: formatDate(guest.createdAt) },
-  ];
-
-  if (guest.lifetimeSpend) {
-    detailItems.push({
-      label: "Lifetime Spend",
-      value: `$${guest.lifetimeSpend}`,
-    });
-  }
-
-  const isNameValid = formData.name.trim().length > 0;
-  const isEmailValid = !formData.email.trim() || EMAIL_REGEX.test(formData.email.trim());
-  const isPhoneValid = !formData.phone.trim() || PHONE_REGEX.test(formData.phone.trim());
-  const isFormValid = isNameValid && isEmailValid && isPhoneValid;
+  const isEmailValid =
+    !fields.email.trim() || guestFormSchema.shape.email.safeParse(fields.email).success;
+  const isPhoneValid =
+    !fields.phone.trim() || guestFormSchema.shape.phone.safeParse(fields.phone).success;
+  const isFormValid = fields.name.trim().length > 0 && isEmailValid && isPhoneValid;
 
   return (
     <Drawer
@@ -400,11 +333,11 @@ function GuestDetailDrawer({
       footer={
         isEditing ? (
           <Stack direction="row" gap="sm" justify="end">
-            <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
+            <Button variant="ghost" onClick={handleCancelEdit} disabled={isPending}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSave} disabled={isSaving || !isFormValid}>
-              {isSaving ? "Saving..." : "Save"}
+            <Button variant="primary" onClick={handleSubmit} disabled={isPending || !isFormValid}>
+              {isPending ? "Saving..." : "Save"}
             </Button>
           </Stack>
         ) : (
@@ -424,20 +357,20 @@ function GuestDetailDrawer({
     >
       {isEditing ? (
         <Stack gap="md">
-          {saveError && <Alert variant="error">{saveError}</Alert>}
+          {error && <Alert variant="error">{error}</Alert>}
           <Input
             label="Name"
             type="text"
             placeholder="Full name"
-            value={formData.name}
-            onChange={handleFieldChange("name")}
+            value={fields.name}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("name", e.target.value)}
           />
           <Input
             label="Email"
             type="email"
             placeholder="guest@example.com"
-            value={formData.email}
-            onChange={handleFieldChange("email")}
+            value={fields.email}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("email", e.target.value)}
             error={!isEmailValid}
             hint={!isEmailValid ? "Please enter a valid email address" : undefined}
           />
@@ -445,16 +378,16 @@ function GuestDetailDrawer({
             label="Phone"
             type="tel"
             placeholder="+1 (555) 000-0000"
-            value={formData.phone}
-            onChange={handleFieldChange("phone")}
+            value={fields.phone}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("phone", e.target.value)}
             error={!isPhoneValid}
             hint={!isPhoneValid ? "Please enter a valid phone number" : undefined}
           />
           <TextArea
             label="Notes"
             placeholder="Preferences, allergies, etc."
-            value={formData.notes}
-            onChange={handleFieldChange("notes")}
+            value={fields.notes}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setField("notes", e.target.value)}
             rows={4}
             autoResize
           />
@@ -465,7 +398,7 @@ function GuestDetailDrawer({
               Tags
             </Text>
             <Stack direction="row" gap="xs" wrap>
-              {formData.tags.map((tag) => (
+              {extras.tags.map((tag) => (
                 <Button
                   key={tag}
                   variant="ghost"
@@ -480,8 +413,10 @@ function GuestDetailDrawer({
               label=""
               type="text"
               placeholder="Add tag (press Enter)"
-              value={formData.tagInput}
-              onChange={handleFieldChange("tagInput")}
+              value={extras.tagInput}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                drawerDispatch({ type: "update_tag_input", value: e.target.value })
+              }
               onKeyDown={handleTagInputKeyDown}
             />
           </Stack>
@@ -496,7 +431,7 @@ function GuestDetailDrawer({
                 <Checkbox
                   key={restriction}
                   label={restriction}
-                  checked={formData.dietaryRestrictions.includes(restriction)}
+                  checked={extras.dietaryRestrictions.includes(restriction)}
                   onCheckedChange={() => drawerDispatch({ type: "toggle_dietary", restriction })}
                 />
               ))}
@@ -624,12 +559,10 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     clearSelection,
     addGuest,
     updateGuest,
-    isAddingGuest,
   } = directory;
 
   // Add guest dialog state (local UI only)
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addDialogError, setAddDialogError] = useState<string | null>(null);
 
   // Fetch reservation history for selected guest
   const { data: guestReservations = [], isLoading: historyLoading } = useReservations({
@@ -649,25 +582,15 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     selectGuest(guestId);
   };
 
-  const handleAddGuest = async (data: {
-    name: string;
-    email: string;
-    phone: string;
-    notes: string;
-  }) => {
+  const handleAddGuest = async (data: GuestFormValues) => {
     if (!selectedVenueId) return;
-    setAddDialogError(null);
-    try {
-      await addGuest({
-        venueId: selectedVenueId,
-        name: data.name.trim(),
-        ...(data.email.trim() ? { email: data.email.trim() } : {}),
-        ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
-      });
-      setAddDialogOpen(false);
-    } catch (err) {
-      setAddDialogError(err instanceof Error ? err.message : "Failed to add guest");
-    }
+    await addGuest({
+      venueId: selectedVenueId,
+      name: data.name.trim(),
+      ...(data.email.trim() ? { email: data.email.trim() } : {}),
+      ...(data.phone.trim() ? { phone: data.phone.trim() } : {}),
+    });
+    setAddDialogOpen(false);
   };
 
   const handleEditGuest = async (guestId: string, data: UpdateGuestRequest) => {
@@ -853,13 +776,8 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
       {/* Add Guest Dialog */}
       <AddGuestDialog
         open={addDialogOpen}
-        onClose={() => {
-          setAddDialogOpen(false);
-          setAddDialogError(null);
-        }}
+        onClose={() => setAddDialogOpen(false)}
         onSubmit={handleAddGuest}
-        isSubmitting={isAddingGuest}
-        error={addDialogError}
       />
     </div>
   );
