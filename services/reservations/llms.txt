@@ -462,6 +462,17 @@
       export async function findReservationsNeedingReminder() { /* ... */ }
     </item>
   </file>
+  <file path="src/services/reservation-state-machine.ts">
+    <item priority="high">
+      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
+    </item>
+    <item priority="high">
+      export function isValidReservationTransition(
+        from: ReservationStatus,
+        to: ReservationStatus
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/reservation.ts">
     <item priority="low">
       interface ListReservationsOptions {

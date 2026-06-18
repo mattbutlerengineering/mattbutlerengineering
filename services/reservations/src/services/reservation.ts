@@ -18,6 +18,9 @@ import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
 import { tableAdvisoryLockSql } from "./confirm-hold.js";
 import { toReservation } from "./serializers.js";
+import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
+
+export { ReservationTransitionError };
 
 export interface ListReservationsOptions {
   page: number;
@@ -240,6 +243,17 @@ export const reservationService = {
 
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
     try {
+      // Guard status transitions through the state machine before writing.
+      if (data.status !== undefined) {
+        const existing = await prisma.reservation.findUnique({
+          where: { id },
+          select: { status: true },
+        });
+        if (!existing) return null;
+        // Throws ReservationTransitionError on invalid transition.
+        transitionReservation(existing.status as ReservationStatus, data.status);
+      }
+
       const reservation = await prisma.reservation.update({
         where: { id },
         data: {
@@ -447,6 +461,14 @@ export const reservationService = {
 
   async cancel(id: string, reason?: string, note?: string): Promise<Reservation | null> {
     try {
+      const existing = await prisma.reservation.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (!existing) return null;
+      // Throws ReservationTransitionError if current status cannot be cancelled.
+      transitionReservation(existing.status as ReservationStatus, "CANCELLED");
+
       const reservation = await prisma.reservation.update({
         where: { id },
         data: {
