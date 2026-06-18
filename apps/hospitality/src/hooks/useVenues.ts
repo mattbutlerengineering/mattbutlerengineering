@@ -1,7 +1,6 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Venue, UpdateVenueRequest } from "@mbe/types";
-import { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import { createMutationHook } from "./create-mutation-hook.js";
 
 export const VENUES_QUERY_KEY = "venues" as const;
 export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
@@ -30,18 +29,10 @@ export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
 
 /* ── useUpdateVenue mutation ─────────────────────────── */
 
-export function useUpdateVenue() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ venueId, data }: { venueId: string; data: UpdateVenueRequest }) =>
-      api.venues.update(venueId, data),
-    onSuccess: (_updatedVenue) => {
-      queryClient.invalidateQueries({ queryKey: [VENUES_QUERY_KEY] });
-    },
-  });
-}
+export const useUpdateVenue = createMutationHook<{ venueId: string; data: UpdateVenueRequest }>({
+  invalidateKey: VENUES_QUERY_KEY,
+  mutationFn: (api, { venueId, data }) => api.venues.update(venueId, data),
+});
 
 /* ── useVenueBySlug ──────────────────────────────────── */
 
