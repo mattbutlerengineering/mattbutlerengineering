@@ -14,11 +14,11 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 482,
+      "count": 483,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
-      "count": 395,
+      "count": 389,
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
@@ -30,7 +30,7 @@
       "description": "Function parameters that look unused (not prefixed with _)"
     },
     "mockShapeMismatch": {
-      "count": 28,
+      "count": 19,
       "description": "Test mocks using .mockResolvedValue({}) or .mockReturnValue({}) with empty objects (likely missing required fields)"
     }
   }
