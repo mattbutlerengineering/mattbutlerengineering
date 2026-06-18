@@ -93,6 +93,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
           EXPIRED: 410,
           SESSION_MISMATCH: 403,
           CONFLICT: 409,
+          PACING_EXCEEDED: 422,
         };
         const httpStatus = statusMap[result.errorCode] ?? 409;
         const titleMap: Record<string, string> = {
@@ -100,6 +101,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
           EXPIRED: "Hold Expired",
           SESSION_MISMATCH: "Forbidden",
           CONFLICT: "Booking Failed",
+          PACING_EXCEEDED: "Pacing Limit Reached",
         };
         return reply.status(httpStatus).send({
           type: `https://httpproblems.com/http-status/${httpStatus}`,
