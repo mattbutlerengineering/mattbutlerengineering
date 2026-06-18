@@ -3034,7 +3034,6 @@
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
     }
@@ -10734,7 +10733,6 @@
     export interface GuestRecognition {
       recognized: boolean;
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
       lastVisit: string | null;

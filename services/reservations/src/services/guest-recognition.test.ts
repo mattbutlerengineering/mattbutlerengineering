@@ -28,7 +28,7 @@ describe("recognizeGuest", () => {
     vi.clearAllMocks();
   });
 
-  it("returns recognized guest with first name, phone, visit count, and last visit", async () => {
+  it("returns recognized guest with first name, visit count, and last visit (no phone)", async () => {
     vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(mockVenue as never);
     vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce({
       id: "guest-1",
@@ -50,11 +50,32 @@ describe("recognizeGuest", () => {
     expect(result).toEqual({
       recognized: true,
       firstName: "Jane",
-      phone: "+1-555-999-1234",
       visitCount: 7,
       hasPreferences: false,
       lastVisit: "2026-05-01T18:00:00.000Z",
     });
+  });
+
+  it("does NOT include phone in recognition response", async () => {
+    vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(mockVenue as never);
+    vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce({
+      id: "guest-1",
+      venueId: "venue-123",
+      email: "jane@example.com",
+      phone: "+1-555-999-1234",
+      name: "Jane Smith",
+      notes: null,
+      visitCount: 7,
+      lifetimeSpend: null,
+      lastVisit: new Date("2026-05-01T18:00:00Z"),
+      tags: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    const result = await recognizeGuest("venue-123", "jane@example.com");
+
+    expect(result).not.toHaveProperty("phone");
   });
 
   it("returns { recognized: false } for unknown email", async () => {
@@ -66,7 +87,6 @@ describe("recognizeGuest", () => {
     expect(result).toEqual({
       recognized: false,
       firstName: null,
-      phone: null,
       visitCount: 0,
       hasPreferences: false,
       lastVisit: null,
@@ -95,7 +115,6 @@ describe("recognizeGuest", () => {
     expect(result).toEqual({
       recognized: true,
       firstName: "VIP",
-      phone: null,
       visitCount: 12,
       hasPreferences: true,
       lastVisit: "2026-05-10T20:00:00.000Z",
@@ -124,7 +143,6 @@ describe("recognizeGuest", () => {
     expect(result).toEqual({
       recognized: true,
       firstName: "Noted",
-      phone: "+1-555-000-0000",
       visitCount: 3,
       hasPreferences: true,
       lastVisit: "2026-04-15T19:00:00.000Z",
@@ -153,14 +171,13 @@ describe("recognizeGuest", () => {
     expect(result).toEqual({
       recognized: true,
       firstName: "New",
-      phone: null,
       visitCount: 0,
       hasPreferences: false,
       lastVisit: null,
     });
   });
 
-  it("never exposes sensitive data (id, notes, lifetimeSpend, tags, email)", async () => {
+  it("never exposes sensitive data (id, phone, notes, lifetimeSpend, tags, email)", async () => {
     vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(mockVenue as never);
     vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce({
       id: "guest-5",
@@ -182,6 +199,7 @@ describe("recognizeGuest", () => {
     // Should NOT have these fields
     expect(result).not.toHaveProperty("id");
     expect(result).not.toHaveProperty("email");
+    expect(result).not.toHaveProperty("phone");
     expect(result).not.toHaveProperty("notes");
     expect(result).not.toHaveProperty("lifetimeSpend");
     expect(result).not.toHaveProperty("tags");

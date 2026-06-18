@@ -200,7 +200,6 @@
     <item priority="low">
       interface GuestRecognitionResult {
         firstName: string | null;
-        phone: string | null;
         visitCount: number;
         hasPreferences: boolean;
       }
