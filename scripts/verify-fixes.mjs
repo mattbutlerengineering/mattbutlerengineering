@@ -13,10 +13,10 @@
  *   node scripts/verify-fixes.mjs --hours 72   # custom lookback window
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 import { run as runThresholdTuner } from "./threshold-tuner.mjs";
 import { getAllLabels } from "./sensors-registry.mjs";
 
@@ -32,19 +32,14 @@ const MAX_VERIFICATIONS = 5;
 
 const SENSOR_LABELS = getAllLabels();
 
+const ghClient = createGhClient();
+
 function safe(fn, fallback = null) {
   try {
     return fn();
   } catch {
     return fallback;
   }
-}
-
-function gh(...ghArgs) {
-  return execFileSync("gh", ghArgs, {
-    encoding: "utf-8",
-    timeout: 15_000,
-  }).trim();
 }
 
 function readJson(path) {
@@ -56,21 +51,18 @@ function readJson(path) {
 function findClosedIssuesWithSensorLabels() {
   const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000);
 
-  const raw = safe(() =>
-    gh(
-      "issue",
-      "list",
-      "--state",
-      "closed",
-      "--limit",
-      "30",
-      "--json",
-      "number,title,labels,closedAt,body"
-    )
+  const issues = safe(
+    () =>
+      ghClient.issue.list([
+        "--state",
+        "closed",
+        "--limit",
+        "30",
+        "--json",
+        "number,title,labels,closedAt,body",
+      ]),
+    []
   );
-  if (!raw) return [];
-
-  const issues = safe(() => JSON.parse(raw), []);
 
   return issues
     .filter((issue) => {
@@ -85,12 +77,19 @@ function findClosedIssuesWithSensorLabels() {
 /* ── Sensor-specific verifiers ───────────────────────── */
 
 function verifyCiFix() {
-  const raw = safe(() =>
-    gh("run", "list", "--limit", "10", "--branch", "main", "--json", "status,conclusion,createdAt")
+  const runs = safe(
+    () =>
+      ghClient.workflow.runs([
+        "--limit",
+        "10",
+        "--branch",
+        "main",
+        "--json",
+        "status,conclusion,createdAt",
+      ]),
+    null
   );
-  if (!raw) return { verified: false, reason: "Could not query CI runs" };
-
-  const runs = safe(() => JSON.parse(raw), []);
+  if (!runs) return { verified: false, reason: "Could not query CI runs" };
   const completed = runs.filter((r) => r.status === "completed");
   const passed = completed.filter((r) => r.conclusion === "success");
   const passRate = completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 0;
@@ -184,12 +183,13 @@ function verifySentry() {
 }
 
 function verifyBug() {
-  const raw = safe(() =>
-    gh("run", "list", "--limit", "5", "--branch", "main", "--json", "status,conclusion")
+  const runs = safe(
+    () =>
+      ghClient.workflow.runs(["--limit", "5", "--branch", "main", "--json", "status,conclusion"]),
+    null
   );
-  if (!raw) return { verified: false, reason: "Could not verify — CI unavailable" };
+  if (!runs) return { verified: false, reason: "Could not verify — CI unavailable" };
 
-  const runs = safe(() => JSON.parse(raw), []);
   const latestCompleted = runs.find((r) => r.status === "completed");
 
   if (latestCompleted?.conclusion === "success") {
@@ -269,21 +269,17 @@ for (const issue of issues) {
     const verb = result.verified ? "Verified" : "Not verified";
     const comment = `## ${emoji} Fix Verification (automated)\n\n**${verb}** — ${result.reason}\n\n_Checked ${LOOKBACK_HOURS}h after close by [\`scripts/verify-fixes.mjs\`](../blob/main/scripts/verify-fixes.mjs)_`;
 
-    safe(() => gh("issue", "comment", String(issue.number), "--body", comment));
+    safe(() => ghClient.issue.comment(issue.number, comment));
 
     if (!result.verified) {
       safe(() =>
-        gh(
-          "issue",
-          "edit",
-          String(issue.number),
-          "--remove-label",
-          "has-pr",
-          "--add-label",
-          "ready"
-        )
+        ghClient.label.apply({
+          issueNumber: issue.number,
+          add: ["ready"],
+          remove: ["has-pr"],
+        })
       );
-      safe(() => gh("issue", "reopen", String(issue.number)));
+      safe(() => ghClient.issue.reopen(issue.number));
       console.log(`     ↻ Reopened #${issue.number} for re-triage\n`);
     }
   }

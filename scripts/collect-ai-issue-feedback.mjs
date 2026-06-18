@@ -13,10 +13,10 @@
  *   node scripts/collect-ai-issue-feedback.mjs --json       # output raw JSON to stdout
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -148,12 +148,7 @@ export function readFeedbackFile() {
 // CLI / main
 // ---------------------------------------------------------------------------
 
-function gh(...ghArgs) {
-  return execFileSync("gh", ghArgs, {
-    encoding: "utf-8",
-    timeout: 30_000,
-  }).trim();
-}
+const ghClient = createGhClient({ timeoutMs: 30_000 });
 
 function safe(fn, fallback = null) {
   try {
@@ -170,22 +165,22 @@ export async function run() {
 
   // Query closed issues with AI-associated labels (last 90 days)
   const labelQuery = CATEGORIES.map((c) => `label:${c}`).join(" ");
-  const raw = safe(() =>
-    gh(
-      "issue",
-      "list",
-      "--state",
-      "closed",
-      "--limit",
-      "200",
-      "--json",
-      "number,state,labels,createdAt,closedAt,stateReason,linkedBranches",
-      "--search",
-      labelQuery
-    )
+  const issuesRaw = safe(
+    () =>
+      ghClient.issue.list([
+        "--state",
+        "closed",
+        "--limit",
+        "200",
+        "--json",
+        "number,state,labels,createdAt,closedAt,stateReason,linkedBranches",
+        "--search",
+        labelQuery,
+      ]),
+    null
   );
 
-  if (!raw) {
+  if (!issuesRaw) {
     const error = { error: "Failed to query GitHub issues" };
     if (JSON_ONLY) {
       process.stdout.write(JSON.stringify(error, null, 2) + "\n");
@@ -197,7 +192,6 @@ export async function run() {
 
   // gh issue list --json linkedBranches doesn't give PR state directly,
   // so we also query PRs to match
-  const issuesRaw = safe(() => JSON.parse(raw), []);
 
   // For each issue, try to find linked PRs via search
   const issues = issuesRaw.map((issue) => ({

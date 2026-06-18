@@ -25,6 +25,7 @@ flowchart TD
     auth["auth"]
     config["config"]
     database["database"]
+    gh_client["gh-client"]
     jobs["jobs"]
     mcp_server["mcp-server"]
     notifications["notifications"]
@@ -104,6 +105,7 @@ flowchart TD
   auth --> types
   auth --> config
   database --> config
+  gh_client --> config
   jobs --> config
   mcp_server --> config
   notifications --> api_client
@@ -150,6 +152,7 @@ flowchart TD
   class auth shared
   class config shared
   class database shared
+  class gh_client shared
   class jobs shared
   class mcp_server shared
   class notifications shared
