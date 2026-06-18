@@ -7044,12 +7044,14 @@
               EXPIRED: 410,
               SESSION_MISMATCH: 403,
               CONFLICT: 409,
+              PACING_EXCEEDED: 422,
             };
             const titleMap: Record<string, string> = {
               NOT_FOUND: "Not Found",
               EXPIRED: "Hold Expired",
               SESSION_MISMATCH: "Forbidden",
               CONFLICT: "Conflict",
+              PACING_EXCEEDED: "Pacing Limit Reached",
             };
             const statusCode = statusMap[result.errorCode] ?? 409;
             const title = titleMap[result.errorCode] ?? "Conflict";
@@ -14458,7 +14460,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

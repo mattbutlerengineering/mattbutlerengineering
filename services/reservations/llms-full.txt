@@ -1974,12 +1974,14 @@
               EXPIRED: 410,
               SESSION_MISMATCH: 403,
               CONFLICT: 409,
+              PACING_EXCEEDED: 422,
             };
             const titleMap: Record<string, string> = {
               NOT_FOUND: "Not Found",
               EXPIRED: "Hold Expired",
               SESSION_MISMATCH: "Forbidden",
               CONFLICT: "Conflict",
+              PACING_EXCEEDED: "Pacing Limit Reached",
             };
             const statusCode = statusMap[result.errorCode] ?? 409;
             const title = titleMap[result.errorCode] ?? "Conflict";

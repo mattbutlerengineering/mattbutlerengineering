@@ -489,5 +489,29 @@ describe("Hold Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.error).toBe("Conflict");
     });
+
+    it("should return 422 when pacing limit is exceeded", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: false,
+        error: "Pacing limit reached for this time slot",
+        errorCode: "PACING_EXCEEDED",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/holds/hold-123/confirm",
+        headers: {
+          "x-session-id": "session-abc",
+        },
+        payload: {
+          guestName: "John Doe",
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      const body = JSON.parse(response.body);
+      expect(body.error).toBe("Pacing Limit Reached");
+      expect(body.message).toBe("Pacing limit reached for this time slot");
+    });
   });
 });
