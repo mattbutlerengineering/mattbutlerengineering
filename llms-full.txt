@@ -3021,7 +3021,6 @@
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
     }
@@ -10717,7 +10716,6 @@
     export interface GuestRecognition {
       recognized: boolean;
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
       lastVisit: string | null;
@@ -14458,7 +14456,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

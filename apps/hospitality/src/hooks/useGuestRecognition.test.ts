@@ -127,7 +127,7 @@ describe("useGuestRecognition", () => {
     );
   });
 
-  it("populates result on recognized guest", async () => {
+  it("populates result on recognized guest (no phone)", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -153,10 +153,10 @@ describe("useGuestRecognition", () => {
 
     expect(result.current.result).toEqual({
       firstName: "Jane",
-      phone: "555-999-0000",
       visitCount: 5,
       hasPreferences: true,
     });
+    expect(result.current.result).not.toHaveProperty("phone");
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -230,7 +230,6 @@ describe("useGuestRecognition", () => {
         json: async () => ({
           recognized: true,
           firstName: "Jane",
-          phone: null,
           visitCount: 1,
           hasPreferences: false,
         }),

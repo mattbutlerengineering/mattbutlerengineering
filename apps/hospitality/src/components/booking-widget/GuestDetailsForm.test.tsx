@@ -96,46 +96,22 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Alert: ({
-    children,
-    variant,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-  }) => (
+  Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
     <div data-testid="alert" data-variant={variant}>
       {children}
     </div>
   ),
-  Text: ({
-    children,
-    className,
-  }: {
-    children?: React.ReactNode;
-    className?: string;
-  }) => (
+  Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
     <div data-testid="text" className={className}>
       {children}
     </div>
   ),
-  Banner: ({
-    children,
-    variant,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-  }) => (
+  Banner: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
     <div data-testid="recognition-banner" data-variant={variant}>
       {children}
     </div>
   ),
-  Badge: ({
-    children,
-    variant,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-  }) => (
+  Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
     <span data-testid="preferences-badge" data-variant={variant}>
       {children}
     </span>
@@ -226,9 +202,7 @@ describe("GuestDetailsForm", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     const notesInput = screen.getByTestId("special-requests");
     fireEvent.change(notesInput, { target: { value: "Birthday celebration" } });
-    expect((notesInput as HTMLTextAreaElement).value).toBe(
-      "Birthday celebration"
-    );
+    expect((notesInput as HTMLTextAreaElement).value).toBe("Birthday celebration");
   });
 
   it("should not submit when name is empty", () => {
@@ -320,13 +294,12 @@ describe("GuestDetailsForm", () => {
       );
     });
 
-    it("shows welcome banner and auto-fills fields when guest is recognized", async () => {
+    it("shows welcome banner when guest is recognized (phone field stays empty)", async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           recognized: true,
           firstName: "Jane",
-          phone: "555-999-0000",
           visitCount: 5,
           hasPreferences: false,
         }),
@@ -338,17 +311,11 @@ describe("GuestDetailsForm", () => {
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
       expect(screen.getByTestId("recognition-banner")).toBeDefined();
-      expect(screen.getByTestId("recognition-banner").textContent).toContain(
-        "Welcome back, Jane"
-      );
-      expect(screen.getByTestId("recognition-banner").textContent).toContain(
-        "5th visit"
-      );
+      expect(screen.getByTestId("recognition-banner").textContent).toContain("Welcome back, Jane");
+      expect(screen.getByTestId("recognition-banner").textContent).toContain("5th visit");
 
-      // Auto-filled phone
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
-        "555-999-0000"
-      );
+      // Phone is NOT pre-filled from recognition response
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("");
     });
 
     it("shows preferences badge when hasPreferences is true", async () => {
@@ -357,7 +324,6 @@ describe("GuestDetailsForm", () => {
         json: async () => ({
           recognized: true,
           firstName: "Jane",
-          phone: null,
           visitCount: 3,
           hasPreferences: true,
         }),
@@ -369,9 +335,7 @@ describe("GuestDetailsForm", () => {
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
       expect(screen.getByTestId("preferences-badge")).toBeDefined();
-      expect(screen.getByTestId("preferences-badge").textContent).toContain(
-        "Preferences on file"
-      );
+      expect(screen.getByTestId("preferences-badge").textContent).toContain("Preferences on file");
     });
 
     it("does not show badge when hasPreferences is false", async () => {
@@ -380,7 +344,6 @@ describe("GuestDetailsForm", () => {
         json: async () => ({
           recognized: true,
           firstName: "Jane",
-          phone: null,
           visitCount: 2,
           hasPreferences: false,
         }),
@@ -448,13 +411,12 @@ describe("GuestDetailsForm", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("auto-filled fields remain editable", async () => {
+    it("auto-filled name remains editable; phone is never pre-filled", async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           recognized: true,
           firstName: "Jane",
-          phone: "555-999-0000",
           visitCount: 1,
           hasPreferences: false,
         }),
@@ -465,17 +427,17 @@ describe("GuestDetailsForm", () => {
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
-        "555-999-0000"
-      );
+      // Name is auto-filled from recognition
+      expect((screen.getByTestId("name") as HTMLInputElement).value).toBe("Jane");
 
-      // User can override the auto-filled value
+      // Phone is NOT pre-filled — guest must enter it
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("");
+
+      // User can type in phone themselves
       fireEvent.change(screen.getByTestId("phone"), {
         target: { value: "555-111-2222" },
       });
-      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe(
-        "555-111-2222"
-      );
+      expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-111-2222");
     });
   });
 });

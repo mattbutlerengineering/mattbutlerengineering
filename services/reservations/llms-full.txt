@@ -4840,7 +4840,6 @@
     export interface GuestRecognition {
       recognized: boolean;
       firstName: string | null;
-      phone: string | null;
       visitCount: number;
       hasPreferences: boolean;
       lastVisit: string | null;

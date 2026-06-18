@@ -349,9 +349,9 @@
       interface GuestRecognition {
         recognized: boolean;
         firstName: string | null;
-        phone: string | null;
         visitCount: number;
         hasPreferences: boolean;
+        lastVisit: string | null;
       }
     </item>
     <item priority="medium">
