@@ -15037,7 +15037,7 @@
     }
   </file>
   <file path="services/reservations/src/notifications.ts">
-    export function createNotificationPort(): NotificationDispatcher {
+    export function createResendAdapter(): ResendNotificationAdapter {
       const resendClient = process.env.RESEND_API_KEY
         ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
             emails: {
@@ -15046,11 +15046,14 @@
           })
         : null;
     
-      const emailAdapter = new ResendNotificationAdapter({
+      return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
       });
+    }
+    export function createNotificationPort(): NotificationDispatcher {
+      const emailAdapter = createResendAdapter();
     
       const smsAdapter =
         process.env.TWILIO_ACCOUNT_SID &&
