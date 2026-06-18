@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import { ReservationEventEmitter } from "../services/events.js";
 import {
   createMockReservation,
   createMockJWTPayload,
@@ -34,17 +35,6 @@ vi.mock("../services/table.js", () => ({
     updateStatus: vi.fn(),
     delete: vi.fn(),
   },
-}));
-
-// Mock the events service
-vi.mock("../services/events.js", () => ({
-  emitTableUpdated: vi.fn(),
-  emitReservationCreated: vi.fn(),
-  emitReservationUpdated: vi.fn(),
-  emitReservationCancelled: vi.fn(),
-  emitHoldCreated: vi.fn(),
-  emitHoldReleased: vi.fn(),
-  emitHoldConfirmed: vi.fn(),
 }));
 
 // Mock the venue service (needed for app registration)
@@ -111,11 +101,11 @@ vi.mock("jose", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
-import { emitReservationCreated, emitTableUpdated } from "../services/events.js";
 import { jwtVerify } from "jose";
 
 describe("Reservation Routes", () => {
   let app: FastifyInstance;
+  let stubEvents: ReservationEventEmitter;
   const originalEnv = process.env;
 
   // Fresh fixtures per test — factories return frozen objects,
@@ -134,7 +124,11 @@ describe("Reservation Routes", () => {
       payload: mockJWTPayload,
       protectedHeader: { alg: "RS256" },
     } as never);
-    app = await buildApp({ logger: false });
+    stubEvents = new ReservationEventEmitter();
+    vi.spyOn(stubEvents, "emitReservationCreated");
+    vi.spyOn(stubEvents, "emitReservationCancelled");
+    vi.spyOn(stubEvents, "emitTableUpdated");
+    app = await buildApp({ logger: false, reservationEvents: stubEvents });
     await app.ready();
   });
 
@@ -728,8 +722,8 @@ describe("Reservation Routes", () => {
       // The route no longer issues a separate table status update; the service
       // flips the table inside the same transaction and returns it. The route
       // emits both SSE events only after that committed result comes back.
-      expect(emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
-      expect(emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
+      expect(stubEvents.emitReservationCreated).toHaveBeenCalledWith(walkInReservation);
+      expect(stubEvents.emitTableUpdated).toHaveBeenCalledWith(occupiedTable);
     });
 
     it("does not emit SSE events when createWalkIn fails (rolled back)", async () => {
@@ -759,8 +753,8 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(500);
-      expect(emitReservationCreated).not.toHaveBeenCalled();
-      expect(emitTableUpdated).not.toHaveBeenCalled();
+      expect(stubEvents.emitReservationCreated).not.toHaveBeenCalled();
+      expect(stubEvents.emitTableUpdated).not.toHaveBeenCalled();
     });
 
     it("creates walk-in with custom guest name and duration", async () => {

@@ -78,6 +78,11 @@ Avoid specific file paths or code snippets — they go stale fast. Exception: if
 
 Or "None - can start immediately" if no blockers.
 
+```yaml agent
+model: sonnet # AFK vertical slices touch multiple layers — sonnet by default; use haiku for trivial fixes, opus for deep architecture work
+budget: 1.00
+```
+
 </issue-template>
 
 Do NOT close or modify any parent issue.

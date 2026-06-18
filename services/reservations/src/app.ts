@@ -33,10 +33,12 @@ import {
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { prisma } from "./services/database.js";
 import { getStripeConfig } from "./config/stripe.js";
+import { ReservationEventEmitter } from "./services/events.js";
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
   bookingNotifier?: BookingNotifier;
+  reservationEvents?: ReservationEventEmitter;
 }
 
 /**
@@ -70,6 +72,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
   const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
   fastify.decorate("bookingNotifier", bookingNotifier);
+
+  // Wire reservation events emitter — injectable for testing, default singleton for production
+  const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
+  fastify.decorate("reservationEvents", reservationEvents);
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -122,5 +128,6 @@ declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
     bookingNotifier: BookingNotifier;
+    reservationEvents: ReservationEventEmitter;
   }
 }
