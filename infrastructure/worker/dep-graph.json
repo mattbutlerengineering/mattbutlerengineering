@@ -66,6 +66,11 @@
       "path": "packages/database"
     },
     {
+      "name": "@mbe/gh-client",
+      "type": "package",
+      "path": "packages/gh-client"
+    },
+    {
       "name": "@mbe/jobs",
       "type": "package",
       "path": "packages/jobs"
@@ -129,6 +134,11 @@
       "name": "@mbe/infrastructure",
       "type": "tool",
       "path": "infrastructure/pulumi"
+    },
+    {
+      "name": "@mbe/scripts",
+      "type": "package",
+      "path": "scripts"
     }
   ],
   "edges": [
@@ -448,6 +458,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/gh-client",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/jobs",
       "to": "@mbe/config",
       "type": "devDependency"
@@ -591,6 +606,11 @@
       "from": "@mbe/infrastructure",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/scripts",
+      "to": "@mbe/gh-client",
+      "type": "dependency"
     }
   ]
 }

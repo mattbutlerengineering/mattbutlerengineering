@@ -25,7 +25,7 @@ const MAX_SSE_LISTENERS = 100;
 /** Threshold (percentage of MAX_SSE_LISTENERS) at which we log a warning. */
 const LISTENER_WARNING_THRESHOLD = 0.8;
 
-class ReservationEventEmitter extends EventEmitter {
+export class ReservationEventEmitter extends EventEmitter {
   private connectionCount = 0;
 
   constructor() {
@@ -59,89 +59,127 @@ class ReservationEventEmitter extends EventEmitter {
     this.connectionCount = Math.max(0, this.connectionCount - 1);
     return super.off("change", listener);
   }
+
+  emitReservationCreated(reservation: Reservation): void {
+    this.emitChange({
+      type: "reservation:created",
+      venueId: reservation.venueId ?? "",
+      timestamp: new Date().toISOString(),
+      data: reservation,
+    });
+  }
+
+  emitReservationUpdated(reservation: Reservation): void {
+    this.emitChange({
+      type: "reservation:updated",
+      venueId: reservation.venueId ?? "",
+      timestamp: new Date().toISOString(),
+      data: reservation,
+    });
+  }
+
+  emitReservationCancelled(reservation: Reservation): void {
+    this.emitChange({
+      type: "reservation:cancelled",
+      venueId: reservation.venueId ?? "",
+      timestamp: new Date().toISOString(),
+      data: reservation,
+    });
+  }
+
+  emitHoldCreated(hold: ReservationHold): void {
+    this.emitChange({
+      type: "hold:created",
+      venueId: hold.venueId,
+      timestamp: new Date().toISOString(),
+      data: hold,
+    });
+  }
+
+  emitHoldReleased(hold: ReservationHold): void {
+    this.emitChange({
+      type: "hold:released",
+      venueId: hold.venueId,
+      timestamp: new Date().toISOString(),
+      data: hold,
+    });
+  }
+
+  emitHoldConfirmed(reservation: Reservation): void {
+    this.emitChange({
+      type: "hold:confirmed",
+      venueId: reservation.venueId ?? "",
+      timestamp: new Date().toISOString(),
+      data: reservation,
+    });
+  }
+
+  emitTableUpdated(table: Table): void {
+    this.emitChange({
+      type: "table:updated",
+      venueId: table.venueId ?? "",
+      timestamp: new Date().toISOString(),
+      data: table,
+    });
+  }
+
+  emitFloorPlanCreated(floorPlan: FloorPlan): void {
+    this.emitChange({
+      type: "floor-plan:created",
+      venueId: floorPlan.venueId,
+      timestamp: new Date().toISOString(),
+      data: floorPlan,
+    });
+  }
+
+  emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
+    this.emitChange({
+      type: "guest:lapsing",
+      venueId,
+      timestamp: new Date().toISOString(),
+      data: guests,
+    });
+  }
 }
 
 // Singleton event emitter for the service
 export const reservationEvents = new ReservationEventEmitter();
 
-// Helper functions to emit typed events
+// Singleton-backed helper functions for non-route service consumers
+// (confirm-hold, floor-plan, guest, lapsed-guest-cron).
+// Route handlers use fastify.reservationEvents.* instead.
 export function emitReservationCreated(reservation: Reservation): void {
-  reservationEvents.emitChange({
-    type: "reservation:created",
-    venueId: reservation.venueId ?? "",
-    timestamp: new Date().toISOString(),
-    data: reservation,
-  });
+  reservationEvents.emitReservationCreated(reservation);
 }
 
 export function emitReservationUpdated(reservation: Reservation): void {
-  reservationEvents.emitChange({
-    type: "reservation:updated",
-    venueId: reservation.venueId ?? "",
-    timestamp: new Date().toISOString(),
-    data: reservation,
-  });
+  reservationEvents.emitReservationUpdated(reservation);
 }
 
 export function emitReservationCancelled(reservation: Reservation): void {
-  reservationEvents.emitChange({
-    type: "reservation:cancelled",
-    venueId: reservation.venueId ?? "",
-    timestamp: new Date().toISOString(),
-    data: reservation,
-  });
+  reservationEvents.emitReservationCancelled(reservation);
 }
 
 export function emitHoldCreated(hold: ReservationHold): void {
-  reservationEvents.emitChange({
-    type: "hold:created",
-    venueId: hold.venueId,
-    timestamp: new Date().toISOString(),
-    data: hold,
-  });
+  reservationEvents.emitHoldCreated(hold);
 }
 
 export function emitHoldReleased(hold: ReservationHold): void {
-  reservationEvents.emitChange({
-    type: "hold:released",
-    venueId: hold.venueId,
-    timestamp: new Date().toISOString(),
-    data: hold,
-  });
+  reservationEvents.emitHoldReleased(hold);
 }
 
 export function emitHoldConfirmed(reservation: Reservation): void {
-  reservationEvents.emitChange({
-    type: "hold:confirmed",
-    venueId: reservation.venueId ?? "",
-    timestamp: new Date().toISOString(),
-    data: reservation,
-  });
+  reservationEvents.emitHoldConfirmed(reservation);
 }
 
 export function emitTableUpdated(table: Table): void {
-  reservationEvents.emitChange({
-    type: "table:updated",
-    venueId: table.venueId ?? "",
-    timestamp: new Date().toISOString(),
-    data: table,
-  });
+  reservationEvents.emitTableUpdated(table);
 }
 
 export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
-  reservationEvents.emitChange({
-    type: "floor-plan:created",
-    venueId: floorPlan.venueId,
-    timestamp: new Date().toISOString(),
-    data: floorPlan,
-  });
+  reservationEvents.emitFloorPlanCreated(floorPlan);
 }
 
 export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
-  reservationEvents.emitChange({
-    type: "guest:lapsing",
-    venueId,
-    timestamp: new Date().toISOString(),
-    data: guests,
-  });
+  reservationEvents.emitLapsingGuests(venueId, guests);
 }

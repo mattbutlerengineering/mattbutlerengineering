@@ -652,6 +652,7 @@
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
         bookingNotifier?: BookingNotifier;
+        reservationEvents?: ReservationEventEmitter;
       }
     </item>
     <item priority="high">

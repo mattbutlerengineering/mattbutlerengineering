@@ -3432,6 +3432,38 @@
       }
     </item>
   </file>
+  <file path="packages/gh-client/src/client.ts">
+    <item priority="low">
+      interface GhClientOptions {
+        runner?: ExecRunner;
+      }
+    </item>
+    <item priority="medium">
+      function buildLabelArgs(transition: LabelTransition): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/exec-runner.ts">
+    <item priority="low">
+      type ExecRunner = (
+        cmd: string,
+        args: string[],
+        opts: { encoding: "u...;
+    </item>
+    <item priority="low">
+      interface ExecRunnerOptions {
+        runner?: ExecRunner;
+        timeoutMs?: number;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/label-machine.ts">
+    <item priority="high">
+      export const COORDINATION_LABELS: unknown;
+    </item>
+    <item priority="low">
+      type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
   <file path="packages/jobs/src/job-types.ts">
     <item priority="high">
       export const JOB_TYPES: unknown;
@@ -4055,6 +4087,7 @@
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
         bookingNotifier?: BookingNotifier;
+        reservationEvents?: ReservationEventEmitter;
       }
     </item>
     <item priority="high">

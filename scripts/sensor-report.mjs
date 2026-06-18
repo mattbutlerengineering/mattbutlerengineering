@@ -12,10 +12,10 @@
  *   node scripts/sensor-report.mjs --json       # output raw JSON to stdout
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -36,19 +36,14 @@ const THRESHOLDS = {
 const now = new Date();
 const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
 
+const ghClient = createGhClient();
+
 function safe(fn, fallback = null) {
   try {
     return fn();
   } catch {
     return fallback;
   }
-}
-
-function gh(...ghArgs) {
-  return execFileSync("gh", ghArgs, {
-    encoding: "utf-8",
-    timeout: 15_000,
-  }).trim();
 }
 
 function readJson(path) {
@@ -126,12 +121,11 @@ function collectAgentCost() {
 }
 
 function collectCiHealth() {
-  const raw = safe(() =>
-    gh("run", "list", "--limit", "30", "--json", "status,conclusion,createdAt,name")
+  const runs = safe(
+    () => ghClient.workflow.runs(["--limit", "30", "--json", "status,conclusion,createdAt,name"]),
+    null
   );
-  if (!raw) return { available: false };
-
-  const runs = safe(() => JSON.parse(raw), []);
+  if (!runs) return { available: false };
   if (runs.length === 0) return { available: false };
 
   const completed = runs.filter((r) => r.status === "completed");
@@ -175,21 +169,19 @@ function collectLighthouse() {
 }
 
 function collectGitHubIssues() {
-  const raw = safe(() =>
-    gh(
-      "issue",
-      "list",
-      "--state",
-      "all",
-      "--limit",
-      "50",
-      "--json",
-      "number,state,labels,createdAt,closedAt"
-    )
+  const issues = safe(
+    () =>
+      ghClient.issue.list([
+        "--state",
+        "all",
+        "--limit",
+        "50",
+        "--json",
+        "number,state,labels,createdAt,closedAt",
+      ]),
+    null
   );
-  if (!raw) return { available: false };
-
-  const issues = safe(() => JSON.parse(raw), []);
+  if (!issues) return { available: false };
   const recentIssues = issues.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
   const recentClosed = issues.filter((i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo);
   const openReady = issues.filter(

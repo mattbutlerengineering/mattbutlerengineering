@@ -1,0 +1,42 @@
+<codebase path="packages/gh-client">
+  <section priority="medium" role="src">
+  <file path="src/client.ts">
+    export interface GhClientOptions extends ExecRunnerOptions {
+      runner?: ExecRunner;
+    }
+    function buildLabelArgs(transition: LabelTransition): string[] {
+      const args: string[] = [];
+      for (const label of transition.add) {
+        args.push("--add-label", label);
+      }
+      for (const label of transition.remove) {
+        args.push("--remove-label", label);
+      }
+      return args;
+    }
+  </file>
+  <file path="src/exec-runner.ts">
+    export type ExecRunner = (
+      cmd: string,
+      args: string[],
+      opts: { encoding: "utf-8"; timeout: number }
+    ) => string;
+    export interface ExecRunnerOptions {
+      /** Injected runner — defaults to node's execFileSync. */
+      runner?: ExecRunner;
+      /** Timeout in milliseconds. Defaults to 15 000. */
+      timeoutMs?: number;
+    }
+  </file>
+  <file path="src/label-machine.ts">
+    export const COORDINATION_LABELS = {
+      READY: "ready",
+      IN_PROGRESS: "in-progress",
+      HAS_PR: "has-pr",
+      AGENT_FAILED: "agent-failed",
+      AGENT_SKIP: "agent-skip",
+    } as const;
+    export type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LABELS];
+  </file>
+  </section>
+</codebase>

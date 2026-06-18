@@ -16,10 +16,10 @@
  *   metrics/process-metrics-weekly.json    — weekly aggregation with rolling 4-week trend
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -32,6 +32,8 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const JSON_ONLY = args.includes("--json");
 
+const ghClient = createGhClient();
+
 /* ── Helpers ─────────────────────────────────────────── */
 
 function safe(fn, fallback = null) {
@@ -40,13 +42,6 @@ function safe(fn, fallback = null) {
   } catch {
     return fallback;
   }
-}
-
-function gh(...ghArgs) {
-  return execFileSync("gh", ghArgs, {
-    encoding: "utf-8",
-    timeout: 15_000,
-  }).trim();
 }
 
 export function readJsonl(filePath) {
@@ -243,48 +238,41 @@ export function generateWeeklySummary(entries) {
 
 function fetchClosedIssues() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const raw = safe(() =>
-    gh(
-      "issue",
-      "list",
-      "--state",
-      "closed",
-      "--label",
-      "has-pr",
-      "--limit",
-      "50",
-      "--json",
-      "number,createdAt,closedAt,labels,state"
-    )
+  const issues = safe(
+    () =>
+      ghClient.issue.list([
+        "--state",
+        "closed",
+        "--label",
+        "has-pr",
+        "--limit",
+        "50",
+        "--json",
+        "number,createdAt,closedAt,labels,state",
+      ]),
+    []
   );
-  if (!raw) return [];
-
-  const issues = safe(() => JSON.parse(raw), []);
   return issues.filter((i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo);
 }
 
 function fetchAllRecentIssues() {
-  const raw = safe(() =>
-    gh(
-      "issue",
-      "list",
-      "--state",
-      "all",
-      "--limit",
-      "100",
-      "--json",
-      "number,labels,state,createdAt,closedAt"
-    )
+  return safe(
+    () =>
+      ghClient.issue.list([
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--json",
+        "number,labels,state,createdAt,closedAt",
+      ]),
+    []
   );
-  if (!raw) return [];
-  return safe(() => JSON.parse(raw), []);
 }
 
 function fetchIssueComments(issueNumbers) {
   return issueNumbers.map((num) => {
-    const raw = safe(() =>
-      gh("issue", "view", String(num), "--json", "comments", "--jq", ".comments")
-    );
+    const raw = safe(() => ghClient.issue.view(num, ["--json", "comments", "--jq", ".comments"]));
     const comments = safe(() => JSON.parse(raw), []);
     return { issueNumber: num, comments: comments ?? [] };
   });

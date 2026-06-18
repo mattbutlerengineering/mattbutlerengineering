@@ -21,9 +21,12 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+
+const ghClient = createGhClient();
 
 const BUG_TYPES = {
   "console-error": {
@@ -53,15 +56,6 @@ const BUG_TYPES = {
 };
 
 const TARGET_APPS = ["apps/marketing", "apps/hospitality", "apps/rialto-web"];
-
-function gh(...args) {
-  try {
-    return execFileSync("gh", args, { encoding: "utf-8" }).trim();
-  } catch (e) {
-    console.error(`gh command failed: ${e.message}`);
-    return null;
-  }
-}
 
 function findTargetFile(type) {
   const app = TARGET_APPS[Math.floor(Math.random() * TARGET_APPS.length)];
@@ -159,20 +153,22 @@ function main() {
       
       Labels: \`chaos-audit\`, \`ready\`, \`audit\``;
 
-      gh(
-        "pr",
-        "create",
-        "--title",
-        `chaos: synthetic ${type} bug in ${path.basename(targetFile)}`,
-        "--body",
-        prBody,
-        "--label",
-        "chaos-audit",
-        "--label",
-        "ready",
-        "--label",
-        "audit"
-      );
+      try {
+        ghClient.pr.create([
+          "--title",
+          `chaos: synthetic ${type} bug in ${path.basename(targetFile)}`,
+          "--body",
+          prBody,
+          "--label",
+          "chaos-audit",
+          "--label",
+          "ready",
+          "--label",
+          "audit",
+        ]);
+      } catch (e) {
+        console.error(`gh command failed: ${e.message}`);
+      }
     }
   } else {
     console.error("Failed to inject bug.");

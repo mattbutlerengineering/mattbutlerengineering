@@ -46,6 +46,45 @@ function createIssue(title, body, labels) {
 }
 
 /**
+ * Build the GitHub issue body for a failing ACMM criterion, including agent frontmatter.
+ *
+ * ACMM gap issues default to haiku tier (small, file-presence tasks).
+ * Humans can edit the agent block to override the tier before the issue-worker picks it up.
+ *
+ * @param {import("../sources/types.js").Criterion} c
+ * @returns {string}
+ */
+export function buildIssueBody(c) {
+  const patterns = Array.isArray(c.detection.pattern) ? c.detection.pattern : [c.detection.pattern];
+
+  return [
+    `**Missing canonical-ACMM criterion.**`,
+    ``,
+    `- **Source:** ${c.source}`,
+    `- **Level:** L${c.level}`,
+    `- **Category:** ${c.category}`,
+    `- **Name:** ${c.name}`,
+    ``,
+    `**Description:**`,
+    c.description,
+    ``,
+    `**Why it matters:**`,
+    c.rationale,
+    ``,
+    ...(c.details ? [`**Implementation note:**`, c.details, ``] : []),
+    `**Detection:** any of:`,
+    ...patterns.map((p) => `- \`${p}\``),
+    ``,
+    `_Filed automatically by \`/acmm-audit --apply\`. See \`.claude/acmm/report.md\` for the full scorecard._`,
+    ``,
+    `\`\`\`yaml agent`,
+    `model: haiku  # ACMM gap issues are typically small file-presence tasks`,
+    `budget: 0.25`,
+    `\`\`\``,
+  ].join("\n");
+}
+
+/**
  * Apply issues for failing canonical-ACMM criteria. Returns updated `issuesCreated` map.
  *
  * Dedup rules (match site-audit pattern):
@@ -74,30 +113,8 @@ export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
       // Closed or missing — fall through to create a fresh one.
     }
 
-    const patterns = Array.isArray(c.detection.pattern)
-      ? c.detection.pattern
-      : [c.detection.pattern];
     const title = `[ACMM ${c.id} · L${c.level} ${c.category}] ${c.name}`;
-    const body = [
-      `**Missing canonical-ACMM criterion.**`,
-      ``,
-      `- **Source:** ${c.source}`,
-      `- **Level:** L${c.level}`,
-      `- **Category:** ${c.category}`,
-      `- **Name:** ${c.name}`,
-      ``,
-      `**Description:**`,
-      c.description,
-      ``,
-      `**Why it matters:**`,
-      c.rationale,
-      ``,
-      ...(c.details ? [`**Implementation note:**`, c.details, ``] : []),
-      `**Detection:** any of:`,
-      ...patterns.map((p) => `- \`${p}\``),
-      ``,
-      `_Filed automatically by \`/acmm-audit --apply\`. See \`.claude/acmm/report.md\` for the full scorecard._`,
-    ].join("\n");
+    const body = buildIssueBody(c);
 
     if (opts.dryRun) {
       updated[c.id] = -1; // placeholder

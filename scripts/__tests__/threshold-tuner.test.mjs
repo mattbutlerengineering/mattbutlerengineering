@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   computePerSensorMetrics,
   computeWeeklyChange,
@@ -109,6 +109,14 @@ describe("computePerSensorMetrics", () => {
 // ---------------------------------------------------------------------------
 
 describe("computeWeeklyChange", () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("returns 0 when no changes in log", () => {
     expect(computeWeeklyChange([], "ci-fix")).toBe(0);
   });
@@ -314,6 +322,14 @@ describe("applyAdjustments — applies adjustments", () => {
 });
 
 describe("applyAdjustments — guard rails", () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("never drops sensitivity below the hard floor (0.1)", () => {
     const tuningAtFloor = {
       ...SEED_TUNING,

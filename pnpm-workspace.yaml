@@ -4,6 +4,7 @@ packages:
   - "packages/*"
   - "tools/*"
   - "infrastructure/pulumi"
+  - "scripts"
 
 catalog:
   zod: "^4.4.3"
