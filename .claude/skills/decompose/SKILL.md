@@ -109,7 +109,7 @@ pnpm turbo typecheck test --filter=...[HEAD~1]
 # <Add task-specific verification, e.g.:>
 # curl -s https://localhost:3001/api/v1/users | jq '.data | length'
 # npx vitest run src/routes/users.test.ts --grep "GET /api/v1/users"
-````
+```
 
 ## Dependencies
 
@@ -128,6 +128,11 @@ pnpm turbo typecheck test --filter=...[HEAD~1]
 ---
 
 _Created by /decompose for feature: <feature name>_
+
+```yaml agent
+model: sonnet  # feature slices touch multiple layers — sonnet by default
+budget: 1.00
+```
 EOF
 )"
 
@@ -160,7 +165,7 @@ gh issue create \
 
 ---
 *Decomposed by /decompose*"
-````
+```
 
 The tracking issue does NOT get the `ready` label — it's for visibility only.
 
