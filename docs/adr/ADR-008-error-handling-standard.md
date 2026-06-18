@@ -1,11 +1,11 @@
 ---
-id: ADR-003
+id: ADR-008
 title: Error Handling Standard
 status: active
 date: 2026-04-06
 ---
 
-# ADR-003: Error Handling Standard
+# ADR-008: Error Handling Standard
 
 ## Context
 

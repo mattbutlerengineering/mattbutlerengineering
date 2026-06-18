@@ -1,11 +1,11 @@
 ---
-id: ADR-004
+id: ADR-009
 title: Health Check Patterns
 status: active
 date: 2026-04-06
 ---
 
-# ADR-004: Health Check Patterns
+# ADR-009: Health Check Patterns
 
 ## Context
 

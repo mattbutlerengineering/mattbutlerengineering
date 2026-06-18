@@ -1,11 +1,11 @@
 ---
-id: ADR-005
+id: ADR-010
 title: Service Authentication
 status: active
 date: 2026-04-06
 ---
 
-# ADR-005: Service Authentication
+# ADR-010: Service Authentication
 
 ## Context
 

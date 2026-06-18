@@ -1,11 +1,11 @@
 ---
-id: ADR-002
+id: ADR-007
 title: API Versioning Strategy
 status: active
 date: 2026-04-06
 ---
 
-# ADR-002: API Versioning Strategy
+# ADR-007: API Versioning Strategy
 
 ## Context
 
