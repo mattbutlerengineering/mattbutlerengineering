@@ -116,17 +116,33 @@ Use the issue labels and description to set the right budget:
 Check the issue body for per-issue agent overrides (see `docs/agents/issue-tracker.md` → "Agent frontmatter"):
 
 ```bash
-FRONTMATTER_FLAGS=$(gh issue view <NUMBER> --json body -q .body | mbe agent frontmatter)
+ISSUE_BODY=$(gh issue view <NUMBER> --json body -q .body)
+FRONTMATTER_FLAGS=$(echo "$ISSUE_BODY" | mbe agent frontmatter)
+VERIFY_CMD=$(echo "$ISSUE_BODY" | mbe agent frontmatter --field verify)
 ```
 
-The command prints `mbe agent run` flags (e.g. `--model claude-haiku-4-5-20251001 --max-budget 0.5`) or an empty line when the issue has no usable agent block. Warnings go to stderr; the command always exits 0, so this step can never break the loop.
+`FRONTMATTER_FLAGS` prints `mbe agent run` flags (e.g. `--model claude-haiku-4-5-20251001 --max-budget 0.5`) or an empty line when the issue has no usable agent block. `VERIFY_CMD` prints the verify shell command string, or an empty line when no `verify:` field is present. Warnings go to stderr; both commands always exit 0, so this step can never break the loop.
 
 ### Step 4: Delegate to Agent
+
+Build the task description, appending the verify requirement when present:
+
+```bash
+TASK_WITH_VERIFY="$TASK_DESCRIPTION"
+if [ -n "$VERIFY_CMD" ]; then
+  TASK_WITH_VERIFY="$TASK_DESCRIPTION
+
+Before declaring done, run this verify command and confirm it exits 0:
+\`\`\`bash
+$VERIFY_CMD
+\`\`\`"
+fi
+```
 
 Run the implementation in an isolated worktree:
 
 ```bash
-eval "mbe agent run \"\$TASK_DESCRIPTION\" --max-budget <budget from step 3b> --adapter auto $FRONTMATTER_FLAGS"
+eval "mbe agent run \"\$TASK_WITH_VERIFY\" --max-budget <budget from step 3b> --adapter auto $FRONTMATTER_FLAGS"
 ```
 
 `$FRONTMATTER_FLAGS` goes last — later flags win, so issue frontmatter overrides the step 3b budget heuristic and the default adapter.
@@ -142,6 +158,26 @@ The `mbe agent run` command will:
 5. Create a PR
 
 Capture the output to determine success/failure and extract the PR URL if created.
+
+### Step 4b: Run Verify Gate (when verify command is present)
+
+If `$VERIFY_CMD` is non-empty, run it as a gate **after** the agent completes:
+
+```bash
+if [ -n "$VERIFY_CMD" ]; then
+  echo "Running verify gate: $VERIFY_CMD"
+  eval "$VERIFY_CMD"
+  VERIFY_EXIT=$?
+  if [ "$VERIFY_EXIT" -ne 0 ]; then
+    echo "Verify gate failed (exit $VERIFY_EXIT) — treating as agent failure"
+    # Proceed to Step 5b (failure path), do NOT open a PR
+    # Set a descriptive error summary
+    ERROR_SUMMARY="Verify command exited $VERIFY_EXIT: $VERIFY_CMD"
+  fi
+fi
+```
+
+A non-zero verify exit skips Step 5a entirely and goes directly to Step 5b with `$ERROR_SUMMARY` as the failure detail. When `$VERIFY_CMD` is empty, this step is skipped and the original success/failure from Step 4 applies.
 
 ### Step 5a: On Success (PR Created)
 

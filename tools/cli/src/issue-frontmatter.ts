@@ -18,6 +18,7 @@ export interface AgentOverrides {
   adapter?: AdapterType;
   /** Tier to retry at when the initial run fails. One escalation max. */
   escalate?: ModelTier;
+  verify?: string;
 }
 
 export interface ParseResult {
@@ -27,7 +28,7 @@ export interface ParseResult {
 
 const MODEL_TIERS: readonly string[] = ["haiku", "sonnet", "opus"];
 const ADAPTERS: readonly string[] = ["auto", "claude", "gemini", "opencode"];
-const KNOWN_KEYS: readonly string[] = ["model", "budget", "max_turns", "adapter", "escalate"];
+const KNOWN_KEYS: readonly string[] = ["model", "budget", "max_turns", "adapter", "escalate", "verify"];
 /** Safety ceiling: a typo'd budget must not exceed the daily spend limit. */
 const MAX_BUDGET_USD = 5;
 
@@ -114,6 +115,13 @@ function validateEscalate(value: unknown): FieldResult {
   return invalid(`invalid escalate "${String(value)}"; expected one of: ${MODEL_TIERS.join(", ")}`);
 }
 
+function validateVerify(value: unknown): FieldResult {
+  if (typeof value === "string" && value.length > 0) {
+    return { fields: { verify: value }, warnings: [] };
+  }
+  return invalid(`invalid verify "${String(value)}"; expected a non-empty shell command string`);
+}
+
 function validateField(key: string, value: unknown): FieldResult {
   switch (key) {
     case "model":
@@ -126,6 +134,8 @@ function validateField(key: string, value: unknown): FieldResult {
       return validateAdapter(value);
     case "escalate":
       return validateEscalate(value);
+    case "verify":
+      return validateVerify(value);
     default:
       return invalid(`unknown key "${key}" ignored (known: ${KNOWN_KEYS.join(", ")})`);
   }

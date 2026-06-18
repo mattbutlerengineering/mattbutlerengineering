@@ -4113,7 +4113,7 @@
         budget?: number;
         maxTurns?: number;
         adapter?: AdapterType;
-        escalate?: ModelTier;
+        verify?: string;
       }
     </item>
   </file>
@@ -4135,7 +4135,7 @@
         tier: ModelTier;
         modelId: string;
         reason: string;
-        source: "frontmatter" | "router" | "escalate";
+        source: "frontmatter" | "router";
       }
     </item>
   </file>
