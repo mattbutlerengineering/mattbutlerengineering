@@ -13,11 +13,6 @@ import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
-import {
-  emitReservationCancelled,
-  emitReservationCreated,
-  emitTableUpdated,
-} from "../services/events.js";
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -261,9 +256,9 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
       }
       // Emit only after the transaction has committed.
-      emitReservationCreated(result.reservation);
+      fastify.reservationEvents.emitReservationCreated(result.reservation);
       if (result.table) {
-        emitTableUpdated(result.table);
+        fastify.reservationEvents.emitTableUpdated(result.table);
       }
       return reply.code(201).send({ data: result.reservation });
     }
@@ -617,7 +612,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
 
-          emitReservationCancelled(cancelled);
+          fastify.reservationEvents.emitReservationCancelled(cancelled);
           return { data: cancelled };
         } catch (err) {
           if (err instanceof ReservationTransitionError) {
