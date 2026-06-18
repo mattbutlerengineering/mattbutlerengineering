@@ -1,11 +1,11 @@
 ---
-id: ADR-006
+id: ADR-011
 title: Edge Routing Architecture
 status: active
 date: 2026-04-06
 ---
 
-# ADR-006: Edge Routing Architecture
+# ADR-011: Edge Routing Architecture
 
 ## Context
 
