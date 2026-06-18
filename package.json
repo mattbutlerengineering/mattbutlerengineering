@@ -9,9 +9,10 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && turbo run dev",
+    "dev:local": "docker compose -f infrastructure/docker-compose.yml up postgres -d --wait && pnpm env:init && pnpm db:push && pnpm db:generate && turbo run dev",
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push",
+    "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && pnpm audit --audit-level=high",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
