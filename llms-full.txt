@@ -9763,28 +9763,8 @@
     };
   </file>
   <file path="services/users/src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.get<{ Reply: ReadinessResponse }>(
-        "/ready",
-        {
-          schema: { ...readinessSchema, operationId: "getReady" },
-          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-        },
-        async (_request, reply) => {
-          const snapshot = await readiness.evaluate();
-          const response: ReadinessResponse = {
-            ready: snapshot.ready,
-            timestamp: snapshot.timestamp,
-            checks: snapshot.checks.map((c) => ({
-              name: c.name,
-              status: c.status,
-              ...(c.message ? { message: c.message } : {}),
-            })),
-          };
-          return reply.status(snapshot.ready ? 200 : 503).send(response);
-        }
-      );
-    };
+    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
+      registerReadinessRoutes(fastify, { prisma, auth0Url });
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
@@ -14667,6 +14647,13 @@
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
     }
+  </file>
+  <file path="packages/service-bootstrap/src/readiness-routes.ts">
+    export type ReadinessRoutesOptions = StandardChecksOptions;
+    export const registerReadinessRoutes = fp(readinessRoutesPlugin, {
+      name: "readiness-routes",
+      fastify: "5.x",
+    });
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">
     export interface StartServiceServerOptions {
