@@ -302,8 +302,8 @@ jobs:
           else
             echo "deploy_result=success" >> "$GITHUB_OUTPUT"
           fi
-          # Build apps_deployed JSON for the action
-          APPS=$(jq -n \
+          # Build apps_deployed JSON for the action (compact output required for GITHUB_OUTPUT)
+          APPS=$(jq -cn \
             --arg marketing "$MARKETING_DEPLOYED" \
             --arg hospitality "$HOSPITALITY_DEPLOYED" \
             --arg rialto "$RIALTO_DEPLOYED" \
