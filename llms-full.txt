@@ -2695,9 +2695,6 @@
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
     
-      /** Set after evaluate() completes. Undefined before the gate runs. */
-      lastResult: EvaluationResult | undefined;
-    
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
       }
@@ -2708,8 +2705,6 @@
           const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
             commitTitle: context.commitMsg,
           });
-    
-          this.lastResult = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -2723,6 +2718,7 @@
               gateName: this.name,
               severity: "error",
               details: `Evaluation failed: ${evalResult.reasoning}`,
+              output: evalResult satisfies EvaluationResult,
             };
           }
     
@@ -2731,6 +2727,7 @@
             gateName: this.name,
             severity: "error",
             details: `confidence: ${evalResult.confidence.toFixed(2)}`,
+            output: evalResult satisfies EvaluationResult,
           };
         } finally {
           span.end();
@@ -2742,11 +2739,9 @@
     export class SecurityReviewGate implements QualityGate {
       readonly name = "security-review";
     
-      constructor(private readonly opts?: { skipWhen?: () => boolean }) {}
-    
-      shouldSkip(context: GateContext): boolean {
+      shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
         if (context.runSecurityReview === false) return true;
-        return this.opts?.skipWhen?.() ?? false;
+        return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -12256,6 +12251,12 @@
       readonly severity: "error" | "warning";
       /** Human-readable details about a failure or a skip reason. */
       readonly details?: string;
+      /**
+       * Optional typed domain output produced by this gate.
+       * Callers extract domain data from the results array by gate name rather
+       * than querying mutable instance state.
+       */
+      readonly output?: unknown;
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
