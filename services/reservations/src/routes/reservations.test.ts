@@ -664,6 +664,64 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(401);
     });
+
+    describe("PATCH /v1/reservations/:id — post-visit email on COMPLETED", () => {
+      it("triggers post-visit email when status transitions to COMPLETED", async () => {
+        const { venueService } = await import("../services/venue.js");
+
+        const completedReservation = createMockReservation({
+          id: "res-completed",
+          status: "COMPLETED",
+          venueId: "venue-1",
+          guestEmail: "jane@example.com",
+          guestName: "Jane Doe",
+          guestId: "guest-1",
+        });
+
+        // getById is called first to check ownership
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(completedReservation);
+        vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+          success: true,
+          reservation: completedReservation,
+        });
+
+        vi.mocked(venueService.getById).mockResolvedValueOnce({
+          id: "venue-1",
+          name: "The Oak Table",
+          slug: "the-oak-table",
+          ianaTimezone: "America/New_York",
+          settings: { postVisitEmailEnabled: true, feedbackUrl: null },
+        } as never);
+
+        const postVisitSpy = vi.fn().mockResolvedValue(undefined);
+        const appWithNotifier = await buildApp({
+          logger: false,
+          reservationEvents: stubEvents,
+          postVisitNotifier: { sendPostVisitEmail: postVisitSpy },
+        });
+        await appWithNotifier.ready();
+
+        await appWithNotifier.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-completed",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "COMPLETED" },
+        });
+
+        // Allow the fire-and-forget promise to settle
+        await new Promise((r) => setTimeout(r, 20));
+
+        expect(postVisitSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            reservationId: "res-completed",
+            guestEmail: "jane@example.com",
+            venuePostVisitEmailEnabled: true,
+          })
+        );
+
+        await appWithNotifier.close();
+      });
+    });
   });
 
   describe("POST /v1/reservations/walk-in", () => {

@@ -13,6 +13,7 @@ import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
+import { venueService } from "../services/venue.js";
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -651,6 +652,32 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
                 "Bad Request",
                 result.error ?? "Failed to update reservation"
               )
+            );
+        }
+
+        // Fire post-visit thank-you email when status transitions to COMPLETED
+        if (request.body.status === "COMPLETED" && result.reservation) {
+          const reservation = result.reservation;
+          const venue = reservation.venueId
+            ? await venueService.getById(reservation.venueId)
+            : null;
+          const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+          const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+
+          fastify.postVisitNotifier
+            .sendPostVisitEmail({
+              reservationId: reservation.id,
+              guestId: reservation.guestId ?? null,
+              guestEmail: reservation.guestEmail ?? null,
+              guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+              guestUnsubscribed: Boolean(reservation.guest?.unsubscribed),
+              venueName: venue?.name ?? "",
+              venuePostVisitEmailEnabled: postVisitEmailEnabled,
+              visitDate: reservation.date,
+              feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+            })
+            .catch((err) =>
+              fastify.log.error({ err }, "Failed to send post-visit thank-you email")
             );
         }
 

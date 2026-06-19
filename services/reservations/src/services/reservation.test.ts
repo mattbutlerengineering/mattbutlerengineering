@@ -943,7 +943,9 @@ describe("reservationService", () => {
         data: expect.objectContaining({ status: "CANCELLED" }),
         include: {
           table: true,
-          guest: { select: { visitCount: true, communicationPreference: true } },
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
         },
       });
     });

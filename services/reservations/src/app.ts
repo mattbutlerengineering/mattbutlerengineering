@@ -25,11 +25,16 @@ import { depositRoutes } from "./routes/deposits.js";
 import { publicDepositRoutes } from "./routes/public-deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
+import { publicUnsubscribeRoutes } from "./routes/public-unsubscribe.js";
 import { createNotificationPort } from "./notifications.js";
 import {
   createDefaultBookingNotifier,
   type BookingNotifier,
 } from "./services/booking-notifications.js";
+import {
+  createDefaultPostVisitNotifier,
+  type PostVisitNotifier,
+} from "./services/post-visit-notifier.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { prisma } from "./services/database.js";
 import { getStripeConfig } from "./config/stripe.js";
@@ -38,6 +43,7 @@ import { ReservationEventEmitter } from "./services/events.js";
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
   bookingNotifier?: BookingNotifier;
+  postVisitNotifier?: PostVisitNotifier;
   reservationEvents?: ReservationEventEmitter;
 }
 
@@ -72,6 +78,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
   const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
   fastify.decorate("bookingNotifier", bookingNotifier);
+
+  // Wire post-visit notifier — injectable for testing, default Resend-backed for production
+  const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
+  fastify.decorate("postVisitNotifier", postVisitNotifier);
 
   // Wire reservation events emitter — injectable for testing, default singleton for production
   const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
@@ -108,6 +118,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);
   await fastify.register(modifyReservationRoutes);
+  await fastify.register(publicUnsubscribeRoutes);
 
   // Deposit routes
   await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });
@@ -128,6 +139,7 @@ declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
     bookingNotifier: BookingNotifier;
+    postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
   }
 }

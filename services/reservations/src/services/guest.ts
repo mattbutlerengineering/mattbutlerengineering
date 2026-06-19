@@ -352,6 +352,13 @@ export const guestService = {
     ];
   },
 
+  async markUnsubscribed(id: string): Promise<void> {
+    await prisma.guest.update({
+      where: { id },
+      data: { unsubscribed: true },
+    });
+  },
+
   async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
     return runLapsedGuestScan(venueId, {
       findGuestsForScan: (vid) =>
