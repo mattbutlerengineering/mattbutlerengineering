@@ -1,3 +1,10 @@
+export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+
+export const DEFAULT_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: "exponential" as const, delay: 1000 },
+} as const;
+
 export const JOB_TYPES = {
   BOOKING_REMINDER: "booking-reminder",
   DAY_OF_REMINDER: "day-of-reminder",

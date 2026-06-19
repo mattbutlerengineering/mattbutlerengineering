@@ -806,7 +806,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastResult: EvaluationResult | undefined;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -2760,6 +2759,7 @@
         gateName: string;
         severity: "error" | "warning";
         details?: string;
+        output?: unknown;
       }
     </item>
   </file>
@@ -3484,10 +3484,10 @@
   </file>
   <file path="packages/jobs/src/job-types.ts">
     <item priority="high">
-      export const JOB_TYPES: unknown;
+      export const DEFAULT_QUEUE_NAME: unknown;
     </item>
-    <item priority="low">
-      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    <item priority="high">
+      export const DEFAULT_JOB_OPTIONS: unknown;
     </item>
   </file>
   <file path="packages/jobs/src/scheduler.ts">
