@@ -68,6 +68,10 @@ export {
 // Cost tracking
 export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-tracker.js";
 
+// Cost logging (automatic spend recording to .claude/agent-spend/sessions.jsonl)
+export { recordSessionCost } from "./cost-logger.js";
+export type { CostEntry, CostEntryInput } from "./cost-logger.js";
+
 // Context budget (proactive context management)
 export { createContextBudget, MODEL_CONTEXT_LIMITS } from "./context-budget.js";
 export type {
