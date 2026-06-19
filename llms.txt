@@ -806,7 +806,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastResult: EvaluationResult | undefined;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -2760,6 +2759,7 @@
         gateName: string;
         severity: "error" | "warning";
         details?: string;
+        output?: unknown;
       }
     </item>
   </file>
