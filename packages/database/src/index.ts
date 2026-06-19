@@ -92,15 +92,18 @@ export function createDatabase<T extends PrismaLike>(
     console.error("Postgres pool error:", err);
   });
 
-  function getSlowQueryStats(): SlowQueryStats {
+  function pruneSlowQueries(): void {
     const windowStart = Date.now() - SLOW_QUERY_WINDOW_MS;
     const recent = slowQueries.filter((q) => q.timestamp > windowStart);
     slowQueries.length = 0;
     slowQueries.push(...recent);
+  }
 
+  function getSlowQueryStats(): SlowQueryStats {
+    pruneSlowQueries();
     return {
-      count5min: recent.length,
-      slowestMs: recent.reduce((max, q) => Math.max(max, q.duration), 0),
+      count5min: slowQueries.length,
+      slowestMs: slowQueries.reduce((max, q) => Math.max(max, q.duration), 0),
     };
   }
 
@@ -116,20 +119,19 @@ export function createDatabase<T extends PrismaLike>(
       active,
       waiting,
       idle,
-      utilization: total > 0 ? active / connectionLimit : 0,
+      utilization: connectionLimit > 0 ? active / connectionLimit : 0,
     };
   }
 
   function getPoolMetrics(): PoolMetrics {
     const stats = getPoolStats();
-    const utilization = connectionLimit > 0 ? stats.active / connectionLimit : 0;
     return {
       active: stats.total,
       idle: stats.idle,
       busy: stats.active,
       size: connectionLimit,
-      utilization,
-      isDegraded: utilization >= poolUtilizationThreshold,
+      utilization: stats.utilization,
+      isDegraded: stats.utilization >= poolUtilizationThreshold,
     };
   }
 
