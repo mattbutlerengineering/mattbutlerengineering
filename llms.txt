@@ -366,7 +366,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner { /* ... */ }
+      function persistReport(report: EvalReport): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -3121,21 +3121,6 @@
     </item>
     <item priority="high">
       export function sanitizeForCommitMessage(text: string): string { /* ... */ }
-    </item>
-  </file>
-  <file path="packages/agent-core/src/verification-orchestrator.ts">
-    <item priority="low">
-      interface VerificationResult {
-        passed: boolean;
-        logPath?: string;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export async function orchestrateVerification(
-        worktreePath: string,
-        onEvent?: SessionEventCallback
-      ): Promise<VerificationResult> { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">

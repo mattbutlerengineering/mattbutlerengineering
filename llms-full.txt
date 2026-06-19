@@ -1082,6 +1082,8 @@
             runTask,
           });
     
+          persistReport(report);
+    
           if (options.json) {
             console.log(JSON.stringify(report, null, 2));
           } else {
@@ -1099,40 +1101,15 @@
           }
         }
       );
-    function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
-      return async (task: Task): Promise<TaskRunResult> => {
-        const config: SessionConfig = {
-          taskDescription: task.prompt,
-          repoPath,
-          baseBranch: DEFAULT_SESSION_CONFIG.baseBranch,
-          model,
-          maxTurns: task.budget.maxTurns,
-          maxBudgetUsd: task.budget.maxCostUsd,
-          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-          createPr: false,
-          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
-        };
-    
-        const session = await runSession(config, () => {});
-    
-        const withinBudget =
-          session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
-    
-        const checks: DeterministicChecks = {
-          withinBudget,
-          testsPass: task.rubric.testsMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-            : true,
-          typecheckPass: task.rubric.typecheckMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-            : true,
-          lintPass: task.rubric.lintMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-            : true,
-        };
-    
-        return { task, session, checks };
-      };
+    function persistReport(report: EvalReport): void {
+      const root = findMonorepoRoot(process.cwd());
+      const logDir = join(root, "docs/logs");
+      const logFile = join(logDir, "eval-reports.jsonl");
+      if (!existsSync(logDir)) {
+        mkdirSync(logDir, { recursive: true });
+      }
+      const record = { ...report, timestamp: new Date().toISOString() };
+      appendFileSync(logFile, JSON.stringify(record) + "\n");
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -13332,62 +13309,6 @@
     }
     export function sanitizeForCommitMessage(text: string): string {
       return text.replace(/[\n\r]/g, " ").slice(0, 72);
-    }
-  </file>
-  <file path="packages/agent-core/src/verification-orchestrator.ts">
-    export interface VerificationResult {
-      passed: boolean;
-      logPath?: string;
-      error?: string;
-    }
-    export async function orchestrateVerification(
-      worktreePath: string,
-      onEvent?: SessionEventCallback
-    ): Promise<VerificationResult> {
-      const verifySpan = tracer.startSpan("agent_core.verify_changes");
-      try {
-        const verification = await runVerification(worktreePath);
-        verifySpan.setAttribute("verify.passed", verification.passed);
-        verifySpan.setAttribute("verify.lint", verification.lintOk);
-        verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
-        verifySpan.setAttribute("verify.tests", verification.testsOk);
-    
-        // Store full verification output (not truncated)
-        const logSections: { label: string; output: string }[] = [];
-        if (verification.lintOutput)
-          logSections.push({ label: "Lint", output: verification.lintOutput });
-        if (verification.typecheckOutput)
-          logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
-        if (verification.testOutput)
-          logSections.push({ label: "Tests", output: verification.testOutput });
-    
-        let verificationLogPath: string | undefined;
-        if (logSections.length > 0) {
-          verificationLogPath = await storeVerificationLog(worktreePath, logSections);
-        }
-    
-        emitEvent(onEvent, "session:verification", {
-          message: verification.passed
-            ? "Verification passed (lint + typecheck + tests)"
-            : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
-        });
-    
-        if (!verification.passed) {
-          const parts: string[] = [];
-          if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
-          if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
-          if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
-          return {
-            passed: false,
-            logPath: verificationLogPath,
-            error: `Verification failed: ${parts.join("; ")}`,
-          };
-        }
-    
-        return { passed: true, logPath: verificationLogPath };
-      } finally {
-        verifySpan.end();
-      }
     }
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
