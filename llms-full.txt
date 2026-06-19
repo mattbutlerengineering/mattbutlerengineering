@@ -14091,15 +14091,11 @@
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
-    export const JOB_TYPES = {
-      BOOKING_REMINDER: "booking-reminder",
-      DAY_OF_REMINDER: "day-of-reminder",
-      POST_VISIT_FOLLOWUP: "post-visit-followup",
-      PRE_ARRIVAL_BRIEFING: "pre-arrival-briefing",
-      LAPSED_GUEST_SCAN: "lapsed-guest-scan",
-      WAITLIST_EXPIRY: "waitlist-expiry",
+    export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+    export const DEFAULT_JOB_OPTIONS = {
+      attempts: 3,
+      backoff: { type: "exponential" as const, delay: 1000 },
     } as const;
-    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
   </file>
   <file path="packages/jobs/src/scheduler.ts">
     export interface JobSchedulerConfig {
@@ -14135,11 +14131,7 @@
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 1000,
-          },
+          ...DEFAULT_JOB_OPTIONS,
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
           ...(jobId !== undefined ? { jobId } : {}),
@@ -14167,13 +14159,7 @@
           {
             name: jobType,
             data: payload,
-            opts: {
-              attempts: 3,
-              backoff: {
-                type: "exponential",
-                delay: 1000,
-              },
-            },
+            opts: { ...DEFAULT_JOB_OPTIONS },
           }
         );
       }
