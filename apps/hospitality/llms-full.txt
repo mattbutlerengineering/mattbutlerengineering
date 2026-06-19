@@ -388,6 +388,27 @@
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="src/lib/sse-client.ts">
+    export type EventSourceFactory = (url: string) => EventSource;
+    export interface SseClientOptions {
+      /** Base URL for the SSE stream (query params appended by SseClient). */
+      url: string;
+      /** Named event types to listen for (e.g. "reservation:created"). */
+      eventTypes: readonly string[];
+      /** Called with a parsed event payload on each successfully parsed message. */
+      onEvent: (type: string, payload: unknown) => void;
+      /** Called when a parse error occurs or the connection errors. */
+      onError: (error: Error) => void;
+      /** Called when the EventSource opens successfully. */
+      onConnected?: () => void;
+      /** Called when the EventSource closes due to an error. */
+      onDisconnected?: () => void;
+      /** Injectable factory — defaults to `(url) => new EventSource(url)`. */
+      eventSourceFactory?: EventSourceFactory;
+    }
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-sections.ts">
     export interface NavItem {
