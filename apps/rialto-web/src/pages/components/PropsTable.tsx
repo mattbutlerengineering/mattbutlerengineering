@@ -1,4 +1,4 @@
-import { Table } from "@mattbutlerengineering/rialto";
+import { Table, Text } from "@mattbutlerengineering/rialto";
 import { usePropsFromManifest } from "../../hooks/use-props-from-manifest.js";
 
 export interface PropDef {

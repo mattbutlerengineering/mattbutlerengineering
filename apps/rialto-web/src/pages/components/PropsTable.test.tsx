@@ -47,6 +47,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </tbody>
     </table>
   ),
+  Text: ({ children, style }: any) => <span style={style}>{children}</span>,
 }));
 
 const MOCK_PROPS: PropDef[] = [
