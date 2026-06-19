@@ -81,6 +81,10 @@ vi.mock("../worktree-reaper.js", () => ({
   scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 2 }),
 }));
 
+vi.mock("../cost-logger.js", () => ({
+  recordSessionCost: vi.fn(),
+}));
+
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
   return {
@@ -107,6 +111,7 @@ import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
 import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { buildSystemPrompt } from "../prompt-builder.js";
+import { recordSessionCost } from "../cost-logger.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { withRetry } from "../retry.js";
 import { scheduleWorktreeReap } from "../worktree-reaper.js";
@@ -876,6 +881,41 @@ describe("Langfuse tracing", () => {
           num_turns: "3",
           stuck: "0",
         }),
+      })
+    );
+  });
+
+  it("records cost to .claude/agent-spend/sessions.jsonl after a successful session", async () => {
+    const mockResult = createMockResultMessage();
+
+    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(hasChanges).mockResolvedValue(false);
+
+    await runSession(BASE_CONFIG);
+
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0.25,
+        model: BASE_CONFIG.model,
+        status: "succeeded",
+      })
+    );
+  });
+
+  it("records cost even when the session throws an unhandled error", async () => {
+    vi.mocked(query).mockImplementation(() => {
+      throw new Error("SDK connection failed");
+    });
+
+    const result = await runSession(BASE_CONFIG);
+
+    expect(result.status).toBe("failed");
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0,
+        status: "failed",
       })
     );
   });
