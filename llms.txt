@@ -1188,6 +1188,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/sse-client.ts">
+    <item priority="low">
+      type EventSourceFactory = (url: string) => EventSource;
+    </item>
+    <item priority="low">
+      interface SseClientOptions {
+        url: string;
+        eventTypes: readonly string[];
+        onEvent: (type: string, payload: unknown) => void;
+        onError: (error: Error) => void;
+        onConnected?: () => void;
+      }
+    </item>
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     <item priority="low">
       interface VerifiedWebhookOptions {
