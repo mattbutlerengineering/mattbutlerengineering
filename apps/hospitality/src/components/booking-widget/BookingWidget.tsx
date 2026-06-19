@@ -181,8 +181,30 @@ export function BookingWidget({
     [actions, api, venueId, data.selectedDate, data.partySize, holdDurationMinutes]
   );
 
+  const fetchGuestRisk = useCallback(
+    async (email?: string, phone?: string): Promise<boolean> => {
+      if (!venueSlug || (!email && !phone)) return false;
+      try {
+        const params = new URLSearchParams();
+        if (email) params.set("email", email);
+        else if (phone) params.set("phone", phone);
+        const resp = await fetch(
+          `${apiBaseUrl}/public/v1/venues/${venueSlug}/guest-risk?${params.toString()}`
+        );
+        if (!resp.ok) return false;
+        const body = (await resp.json()) as {
+          data?: { requiresDeposit?: boolean };
+        };
+        return body.data?.requiresDeposit ?? false;
+      } catch {
+        return false;
+      }
+    },
+    [venueSlug, apiBaseUrl]
+  );
+
   const handleConfirmReservation = useCallback(
-    (details: GuestDetails) => {
+    async (details: GuestDetails) => {
       if (!data.hold) return;
       const reservationPromise = api.holds.confirm(data.hold.id, {
         guestName: details.name,
@@ -190,13 +212,28 @@ export function BookingWidget({
         guestPhone: details.phone || undefined,
         notes: details.notes || undefined,
       });
-      const depositConfig =
+
+      // Determine effective deposit config:
+      // 1. Venue's general deposit config (if enabled)
+      // 2. Force deposit for risky guests (if Stripe is configured)
+      let depositConfig =
         data.depositConfig?.enabled && venueSlug && stripePublishableKey
           ? data.depositConfig
           : null;
+
+      if (!depositConfig && venueSlug && stripePublishableKey) {
+        const guestIsRisky = await fetchGuestRisk(
+          details.email || undefined,
+          details.phone || undefined
+        );
+        if (guestIsRisky && data.depositConfig) {
+          depositConfig = data.depositConfig;
+        }
+      }
+
       actions.confirmReservation(reservationPromise, depositConfig);
     },
-    [actions, api, data.hold, data.depositConfig, venueSlug, stripePublishableKey]
+    [actions, api, data.hold, data.depositConfig, venueSlug, stripePublishableKey, fetchGuestRisk]
   );
 
   const handleGoToDateParty = useCallback(() => {

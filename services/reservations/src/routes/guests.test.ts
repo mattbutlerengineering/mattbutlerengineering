@@ -103,6 +103,8 @@ const mockGuest = {
   name: "John Doe",
   notes: "VIP customer",
   visitCount: 5,
+  noShowCount: 0,
+  riskScore: "trusted" as const,
   lifetimeSpend: "500.00",
   lastVisit: "2026-01-25T19:00:00.000Z",
   tags: ["VIP", "Birthday Club"],

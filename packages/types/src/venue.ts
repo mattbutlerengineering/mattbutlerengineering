@@ -62,6 +62,12 @@ export interface VenueSettings {
   holdDurationMinutes?: number; // default 10
   pacingRules?: PacingRule[];
   durationRules?: DurationRule[];
+  /**
+   * Number of no-shows that triggers automatic deposit requirement.
+   * Risky guests (at or above this threshold) will always see the deposit step.
+   * Default: 2
+   */
+  autoDepositAfterNoShows?: number;
 }
 
 export type DepositType = "flat" | "per_person";

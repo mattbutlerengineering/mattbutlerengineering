@@ -33,6 +33,8 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     phone: "+1 555 000 0001",
     notes: null,
     visitCount: 5,
+    noShowCount: 0,
+    riskScore: "trusted",
     lifetimeSpend: "250.00",
     lastVisit: "2026-04-01T00:00:00.000Z",
     tags: ["vip"],
@@ -452,6 +454,49 @@ describe("GuestCard", () => {
     it("renders Edit Profile link when onEditProfile provided", () => {
       render(<GuestCard guestId="guest-1" onEditProfile={vi.fn()} />);
       expect(screen.getByRole("button", { name: /edit profile/i })).toBeDefined();
+    });
+  });
+
+  describe("no-show risk display", () => {
+    it("does not show no-show section when noShowCount is 0", () => {
+      render(<GuestCard guestId="guest-1" />);
+      expect(screen.queryByTestId("no-show-risk")).toBeNull();
+    });
+
+    it("shows no-show count and risk badge when noShowCount > 0", () => {
+      mockUseGuest.mockReturnValue({
+        data: makeGuest({ noShowCount: 1, riskScore: "standard" }),
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      render(<GuestCard guestId="guest-1" />);
+      const section = screen.getByTestId("no-show-risk");
+      expect(section).toBeDefined();
+      expect(section.textContent).toMatch(/1/);
+    });
+
+    it("shows risky badge for a guest with 2+ no-shows", () => {
+      mockUseGuest.mockReturnValue({
+        data: makeGuest({ noShowCount: 2, riskScore: "risky" }),
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      render(<GuestCard guestId="guest-1" />);
+      expect(screen.getByTestId("no-show-risk")).toBeDefined();
+      expect(screen.getByText(/risky/i)).toBeDefined();
+    });
+
+    it("shows standard badge for a guest with 1 no-show", () => {
+      mockUseGuest.mockReturnValue({
+        data: makeGuest({ noShowCount: 1, riskScore: "standard" }),
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      render(<GuestCard guestId="guest-1" />);
+      expect(screen.getByText(/standard/i)).toBeDefined();
     });
   });
 });

@@ -12,7 +12,7 @@ import {
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
-import type { Reservation } from "@mbe/types";
+import type { GuestRiskScore, Reservation } from "@mbe/types";
 import { useGuest, useAddStaffNote } from "../../hooks/useGuests.js";
 import { useReservations } from "../../hooks/useReservations.js";
 import styles from "./GuestCard.module.css";
@@ -46,6 +46,18 @@ function getSegmentVariant(label: string): "accent" | "success" | "neutral" {
   if (label === "VIP") return "accent";
   if (label === "Repeat") return "success";
   return "neutral";
+}
+
+function getRiskVariant(score: GuestRiskScore): "error" | "warning" | "neutral" {
+  if (score === "risky") return "error";
+  if (score === "standard") return "warning";
+  return "neutral";
+}
+
+function getRiskLabel(score: GuestRiskScore): string {
+  if (score === "risky") return "Risky";
+  if (score === "standard") return "Standard";
+  return "Trusted";
 }
 
 /* ── Props ───────────────────────────────────────────── */
@@ -149,6 +161,20 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
             {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
           </Text>
         </Stack>
+
+        {/* No-show risk indicator */}
+        {guest.noShowCount > 0 && (
+          <div data-testid="no-show-risk">
+            <Stack direction="row" gap="sm" align="center">
+              <Text variant="caption" color="secondary">
+                {guest.noShowCount} no-show{guest.noShowCount === 1 ? "" : "s"}
+              </Text>
+              <Badge variant={getRiskVariant(guest.riskScore)}>
+                {getRiskLabel(guest.riskScore)}
+              </Badge>
+            </Stack>
+          </div>
+        )}
 
         {/* Allergy warning banner */}
         {allergyRestrictions.length > 0 && (

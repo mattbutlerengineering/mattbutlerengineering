@@ -162,6 +162,18 @@
       export const publicGuestRecognitionRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-guest-risk.ts">
+    <item priority="low">
+      interface GuestRiskResult {
+        riskScore: GuestRiskScore;
+        noShowCount: number;
+        requiresDeposit: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const publicGuestRiskRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-holds.ts">
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
@@ -375,28 +387,45 @@
       function extractFirstName(fullName: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-risk.ts">
+    <item priority="low">
+      type GuestRiskScore = "trusted" | "standard" | "risky";
+    </item>
+    <item priority="low">
+      interface GuestRiskOptions {
+        riskyThreshold?: number;
+      }
+    </item>
+  </file>
   <file path="src/services/guest.ts">
     <item priority="medium">
-      function mapPrismaGuest(guest: {
-        id: string;
-        venueId: string;
-        email: string | null;
-        phone: string | null;
-        name: string;
-        notes: string | null;
-        visitCount: number;
-        lifetimeSpend: Prisma.Decimal | null;
-        lastVisit: Date | null;
-        tags: unknown;
-        communicationPreference: string;
-        dietaryRestrictions: unknown;
-        staffNotes: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): Guest { /* ... */ }
+      function mapPrismaGuest(
+        guest: {
+          id: string;
+          venueId: string;
+          email: string | null;
+          phone: string | null;
+          name: string;
+          notes: string | null;
+          visitCount: number;
+          lifetimeSpend: Prisma.Decimal | null;
+          lastVisit: Date | null;
+          tags: unknown;
+          communicationPreference: string;
+          dietaryRestrictions: unknown;
+          staffNotes: unknown;
+          createdAt: Date;
+          updatedAt: Date;
+        },
+        noShowCount = 0,
+        lastNoShowDate: Date | null = null
+      ): Guest { /* ... */ }
     </item>
-    <item priority="high">
-      export const guestService: unknown;
+    <item priority="low">
+      async function fetchNoShowStats(guestId: string): Promise<{
+        count: number;
+        lastNoShowDate: Date | null;
+      }> { /* ... */ }
     </item>
   </file>
   <file path="src/services/hold.ts">

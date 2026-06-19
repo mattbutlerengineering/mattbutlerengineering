@@ -2346,6 +2346,97 @@
       );
     };
   </file>
+  <file path="src/routes/public-guest-risk.ts">
+    export interface GuestRiskResult {
+      riskScore: GuestRiskScore;
+      noShowCount: number;
+      /** True when the guest's risk score warrants an automatic deposit requirement. */
+      requiresDeposit: boolean;
+    }
+    export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Params: { slug: string };
+        Querystring: { email?: string; phone?: string };
+        Reply: ApiResponse<GuestRiskResult>;
+      }>(
+        "/:slug/guest-risk",
+        {
+          config: {
+            rateLimit: { max: 20, timeWindow: "1 minute" },
+          },
+          schema: {
+            summary: "Get guest risk score (public)",
+            description:
+              "Returns guest risk score for the booking widget. Used to determine if a deposit step should be shown. Rate-limited to 20 req/min per IP.",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              properties: { slug: { type: "string" } },
+              required: ["slug"],
+            },
+            querystring: {
+              type: "object",
+              properties: {
+                email: { type: "string" },
+                phone: { type: "string" },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { slug } = request.params;
+          const { email, phone } = request.query;
+    
+          if (!email && !phone) {
+            return reply.status(400).send({
+              success: false,
+              error: "email or phone query parameter is required",
+            } as never);
+          }
+    
+          const venue = await venueService.getBySlug(slug);
+          if (!venue) {
+            return reply.status(404).send({
+              success: false,
+              error: "Venue not found",
+            } as never);
+          }
+    
+          const guest = email
+            ? await guestService.findByEmail(venue.id, email)
+            : phone
+              ? await guestService.findByPhone(venue.id, phone)
+              : null;
+    
+          if (!guest) {
+            // New guest — always trusted
+            return reply.send({
+              data: { riskScore: "trusted", noShowCount: 0, requiresDeposit: false },
+            });
+          }
+    
+          const threshold =
+            (venue.settings as { autoDepositAfterNoShows?: number } | null)?.autoDepositAfterNoShows ??
+            DEFAULT_AUTO_DEPOSIT_THRESHOLD;
+    
+          // Re-compute risk with venue-specific threshold
+          const lastNoShowDate =
+            guest.noShowCount > 0 && guest.lastVisit ? new Date(guest.lastVisit) : null;
+          const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
+            riskyThreshold: threshold,
+          });
+    
+          return reply.send({
+            data: {
+              riskScore,
+              noShowCount: guest.noShowCount,
+              requiresDeposit: riskScore === "risky",
+            },
+          });
+        }
+      );
+    };
+  </file>
   <file path="src/routes/public-holds.ts">
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
@@ -4883,24 +4974,35 @@
       return fullName.split(" ")[0];
     }
   </file>
+  <file path="src/services/guest-risk.ts">
+    export type GuestRiskScore = "trusted" | "standard" | "risky";
+    export interface GuestRiskOptions {
+      /** Number of no-shows that triggers "risky" classification. Default: 2 */
+      riskyThreshold?: number;
+    }
+  </file>
   <file path="src/services/guest.ts">
-    function mapPrismaGuest(guest: {
-      id: string;
-      venueId: string;
-      email: string | null;
-      phone: string | null;
-      name: string;
-      notes: string | null;
-      visitCount: number;
-      lifetimeSpend: Prisma.Decimal | null;
-      lastVisit: Date | null;
-      tags: unknown;
-      communicationPreference: string;
-      dietaryRestrictions: unknown;
-      staffNotes: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Guest {
+    function mapPrismaGuest(
+      guest: {
+        id: string;
+        venueId: string;
+        email: string | null;
+        phone: string | null;
+        name: string;
+        notes: string | null;
+        visitCount: number;
+        lifetimeSpend: Prisma.Decimal | null;
+        lastVisit: Date | null;
+        tags: unknown;
+        communicationPreference: string;
+        dietaryRestrictions: unknown;
+        staffNotes: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      },
+      noShowCount = 0,
+      lastNoShowDate: Date | null = null
+    ): Guest {
       const rawNotes = guest.staffNotes as StaffNote[] | null;
       // Return notes in reverse chronological order (newest first)
       const staffNotes = rawNotes
@@ -4908,6 +5010,8 @@
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
         : [];
+    
+      const riskScore = computeGuestRisk(noShowCount, guest.visitCount, lastNoShowDate);
     
       return {
         id: guest.id,
@@ -4917,6 +5021,8 @@
         name: guest.name,
         notes: guest.notes,
         visitCount: guest.visitCount,
+        noShowCount,
+        riskScore,
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
         tags: guest.tags as string[] | null,
@@ -4927,320 +5033,20 @@
         updatedAt: guest.updatedAt.toISOString(),
       };
     }
-    export const guestService = {
-      async list(venueId: string, page: number, limit: number): Promise<PaginatedResponse<Guest>> {
-        const [guests, total] = await Promise.all([
-          prisma.guest.findMany({
-            where: { venueId },
-            ...paginate({ page, limit }),
-            orderBy: { name: "asc" },
-          }),
-          prisma.guest.count({ where: { venueId } }),
-        ]);
-    
-        return {
-          data: guests.map(mapPrismaGuest),
-          pagination: toPaginationMeta(page, limit, total),
-        };
-      },
-    
-      async getById(id: string): Promise<Guest | null> {
-        const guest = await prisma.guest.findUnique({ where: { id } });
-        return guest ? mapPrismaGuest(guest) : null;
-      },
-    
-      async findByEmail(venueId: string, email: string): Promise<Guest | null> {
-        const guest = await prisma.guest.findUnique({
-          where: { venueId_email: { venueId, email } },
-        });
-        return guest ? mapPrismaGuest(guest) : null;
-      },
-    
-      async findByPhone(venueId: string, phone: string): Promise<Guest | null> {
-        const guest = await prisma.guest.findUnique({
-          where: { venueId_phone: { venueId, phone } },
-        });
-        return guest ? mapPrismaGuest(guest) : null;
-      },
-    
-      /**
-       * Identity resolution: Find existing guest by email or phone, or create new one.
-       * Merges dietary restrictions (union, no duplicates) when updating an existing guest.
-       */
-      async findOrCreate(
-        venueId: string,
-        data: { email?: string; phone?: string; name: string; dietaryRestrictions?: string[] }
-      ): Promise<Guest> {
-        // Resolve identity: email takes precedence over phone
-        const existing =
-          (data.email
-            ? await prisma.guest.findUnique({
-                where: { venueId_email: { venueId, email: data.email } },
-              })
-            : null) ??
-          (data.phone
-            ? await prisma.guest.findUnique({
-                where: { venueId_phone: { venueId, phone: data.phone } },
-              })
-            : null);
-    
-        if (existing) {
-          const snapshot = {
-            id: existing.id,
-            name: existing.name,
-            email: existing.email,
-            phone: existing.phone,
-            dietaryRestrictions: existing.dietaryRestrictions as string[] | null,
-          };
-          const updateData = buildGuestUpdateData(snapshot, data);
-          if (Object.keys(updateData).length > 0) {
-            const updated = await prisma.guest.update({
-              where: { id: existing.id },
-              data: updateData,
-            });
-            return mapPrismaGuest(updated);
-          }
-          return mapPrismaGuest(existing);
-        }
-    
-        // Create new guest
-        const guest = await prisma.guest.create({
-          data: {
-            venueId,
-            email: data.email,
-            phone: data.phone,
-            name: data.name,
-            ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
-              ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
-              : {}),
-          },
-        });
-        return mapPrismaGuest(guest);
-      },
-    
-      async create(data: CreateGuestRequest): Promise<Guest> {
-        const guest = await prisma.guest.create({
-          data: {
-            venueId: data.venueId,
-            email: data.email,
-            phone: data.phone,
-            name: data.name,
-            notes: data.notes,
-            tags: data.tags as Prisma.InputJsonValue | undefined,
-            ...(data.dietaryRestrictions !== undefined
-              ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
-              : {}),
-          },
-        });
-        return mapPrismaGuest(guest);
-      },
-    
-      async update(id: string, data: UpdateGuestRequest): Promise<Guest | null> {
-        try {
-          const updateData: Prisma.GuestUpdateInput = {};
-          if (data.email !== undefined) updateData.email = data.email;
-          if (data.phone !== undefined) updateData.phone = data.phone;
-          if (data.name !== undefined) updateData.name = data.name;
-          if (data.notes !== undefined) updateData.notes = data.notes;
-          if (data.tags !== undefined) updateData.tags = data.tags as Prisma.InputJsonValue;
-          if (data.dietaryRestrictions !== undefined) {
-            updateData.dietaryRestrictions =
-              data.dietaryRestrictions === null
-                ? Prisma.DbNull
-                : (data.dietaryRestrictions as Prisma.InputJsonValue);
-          }
-    
-          const guest = await prisma.guest.update({
-            where: { id },
-            data: updateData,
-          });
-          return mapPrismaGuest(guest);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
-      },
-    
-      async delete(id: string): Promise<boolean> {
-        try {
-          await prisma.guest.delete({ where: { id } });
-          return true;
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return false;
-          throw err;
-        }
-      },
-    
-      /**
-       * Append a staff note to a guest. Returns updated guest or null if not found.
-       * Notes are stored as a JSON array; the service always returns them newest-first.
-       */
-      async addNote(id: string, text: string, createdBy: string): Promise<Guest | null> {
-        try {
-          const existing = await prisma.guest.findUnique({ where: { id } });
-          if (!existing) return null;
-    
-          const existingNotes = (existing.staffNotes as StaffNote[] | null) ?? [];
-          const newNote: StaffNote = {
-            text,
-            createdBy,
-            createdAt: new Date().toISOString(),
-          };
-          const updatedNotes: StaffNote[] = [...existingNotes, newNote];
-    
-          const guest = await prisma.guest.update({
-            where: { id },
-            data: { staffNotes: updatedNotes as unknown as Prisma.InputJsonValue },
-          });
-          return mapPrismaGuest(guest);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
-      },
-    
-      /**
-       * Update visit statistics after a completed reservation.
-       */
-      async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
-        try {
-          const guest = await prisma.guest.update({
-            where: { id: guestId },
-            data: {
-              visitCount: { increment: 1 },
-              lastVisit: visitDate,
-              ...(spendAmount !== undefined && {
-                lifetimeSpend: { increment: spendAmount },
-              }),
-            },
-          });
-          return mapPrismaGuest(guest);
-        } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return null;
-          throw err;
-        }
-      },
-    
-      /**
-       * Search guests by name, email, or phone.
-       */
-      async search(params: GuestSearchParams): Promise<PaginatedResponse<Guest>> {
-        const { venueId, query, tags, hasNotVisitedInDays, minVisitCount, maxVisitCount } = params;
-    
-        const where: Prisma.GuestWhereInput = { venueId };
-    
-        // Text search on name, email, phone
-        const conditions: Record<string, unknown>[] = [];
-    
-        if (query) {
-          conditions.push({
-            OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-              { phone: { contains: query } },
-            ],
-          });
-        }
-    
-        // Filter by tags (JSON array contains)
-        if (tags && tags.length > 0) {
-          where.tags = { array_contains: tags };
-        }
-    
-        // Filter by last visit date
-        if (hasNotVisitedInDays) {
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - hasNotVisitedInDays);
-          conditions.push({
-            OR: [{ lastVisit: { lt: cutoffDate } }, { lastVisit: null }],
-          });
-        }
-    
-        if (conditions.length > 0) {
-          where.AND = conditions;
-        }
-    
-        // Filter by visit count
-        if (minVisitCount !== undefined) {
-          where.visitCount = { ...(where.visitCount as object), gte: minVisitCount };
-        }
-        if (maxVisitCount !== undefined) {
-          where.visitCount = { ...(where.visitCount as object), lte: maxVisitCount };
-        }
-    
-        const SEARCH_LIMIT = 50;
-        const [guests, total] = await Promise.all([
-          prisma.guest.findMany({
-            where,
-            ...paginate({ page: 1, limit: SEARCH_LIMIT }),
-            orderBy: { lastVisit: "desc" },
-          }),
-          prisma.guest.count({ where }),
-        ]);
-    
-        return {
-          data: guests.map(mapPrismaGuest),
-          pagination: toPaginationMeta(1, SEARCH_LIMIT, total),
-        };
-      },
-    
-      /**
-       * Get guest segments for a venue.
-       */
-      async getSegments(venueId: string): Promise<GuestSegment[]> {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    
-        const [totalGuests, vipGuests, recentVisitors, atRiskGuests, lapsedGuests, newGuests] =
-          await Promise.all([
-            prisma.guest.count({ where: { venueId } }),
-            prisma.guest.count({ where: { venueId, visitCount: { gte: 5 } } }),
-            prisma.guest.count({ where: { venueId, lastVisit: { gte: thirtyDaysAgo } } }),
-            prisma.guest.count({
-              where: { venueId, lastVisit: { lt: thirtyDaysAgo, gte: ninetyDaysAgo } },
-            }),
-            prisma.guest.count({
-              where: {
-                venueId,
-                OR: [{ lastVisit: { lt: ninetyDaysAgo } }, { lastVisit: null, visitCount: { gt: 0 } }],
-              },
-            }),
-            prisma.guest.count({ where: { venueId, visitCount: 0 } }),
-          ]);
-    
-        return [
-          { name: "All Guests", description: "Total guests in database", count: totalGuests },
-          { name: "VIP", description: "Guests with 5+ visits", count: vipGuests },
-          { name: "Recent", description: "Visited in the last 30 days", count: recentVisitors },
-          { name: "At Risk", description: "No visit in 30-90 days", count: atRiskGuests },
-          { name: "Lapsed", description: "No visit in 90+ days", count: lapsedGuests },
-          { name: "New", description: "Booked but never visited", count: newGuests },
-        ];
-      },
-    
-      async scanLapsedGuests(venueId: string): Promise<LapsingGuest[]> {
-        return runLapsedGuestScan(venueId, {
-          findGuestsForScan: (vid) =>
-            prisma.guest.findMany({
-              where: { venueId: vid, visitCount: { gte: 3 }, lastVisit: { not: null } },
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                communicationPreference: true,
-                reservations: {
-                  where: { status: "COMPLETED" },
-                  select: { startTime: true },
-                  orderBy: { startTime: "asc" },
-                },
-              },
-            }),
-          emitLapsingGuests,
-        });
-      },
-    };
+    async function fetchNoShowStats(guestId: string): Promise<{
+      count: number;
+      lastNoShowDate: Date | null;
+    }> {
+      const noShows = await prisma.reservation.findMany({
+        where: { guestId, status: "NO_SHOW" },
+        select: { startTime: true },
+        orderBy: { startTime: "desc" },
+      });
+      return {
+        count: noShows.length,
+        lastNoShowDate: noShows[0]?.startTime ?? null,
+      };
+    }
   </file>
   <file path="src/services/hold.ts">
     function mapPrismaHold(hold: PrismaHold): ReservationHold {
@@ -5799,6 +5605,7 @@
       await fastify.register(publicGuestRecognitionRoutes, {
         prefix: "/public/v1/venues",
       });
+      await fastify.register(publicGuestRiskRoutes, { prefix: "/public/v1/venues" });
       await fastify.register(confirmAttendanceRoutes);
       await fastify.register(manageReservationRoutes);
       await fastify.register(cancelReservationRoutes);
