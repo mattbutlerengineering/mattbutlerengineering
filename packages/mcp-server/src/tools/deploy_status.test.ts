@@ -1,23 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execSync } from "node:child_process";
-
-vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
-}));
-
+import { describe, it, expect, vi } from "vitest";
 import { deployStatus } from "./deploy_status.js";
 
 describe("deployStatus", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("parses doctl output into structured app list", async () => {
-    vi.mocked(execSync).mockReturnValue(
-      "abc123  my-app  ACTIVE  none\ndef456  other-app  DEPLOYING  DEPLOYING\n"
-    );
+    const run = vi
+      .fn()
+      .mockReturnValue("abc123  my-app  ACTIVE  none\ndef456  other-app  DEPLOYING  DEPLOYING");
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const parsed = JSON.parse(result) as {
       apps: Array<{ id: string; name: string; activePhase: string; inProgressPhase: string }>;
     };
@@ -30,18 +20,18 @@ describe("deployStatus", () => {
   });
 
   it("returns empty apps array when doctl output is empty", async () => {
-    vi.mocked(execSync).mockReturnValue("");
+    const run = vi.fn().mockReturnValue("");
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const parsed = JSON.parse(result) as { apps: unknown[] };
 
     expect(parsed.apps).toEqual([]);
   });
 
   it("sets inProgressPhase to 'none' when column is absent", async () => {
-    vi.mocked(execSync).mockReturnValue("abc123  my-app  ACTIVE\n");
+    const run = vi.fn().mockReturnValue("abc123  my-app  ACTIVE");
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const parsed = JSON.parse(result) as {
       apps: Array<{ inProgressPhase: string }>;
     };
@@ -49,24 +39,28 @@ describe("deployStatus", () => {
     expect(parsed.apps[0].inProgressPhase).toBe("none");
   });
 
-  it("returns error JSON when doctl command fails", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("doctl: not authenticated");
+  it("returns error JSON when runner returns error envelope", async () => {
+    const envelope = JSON.stringify({
+      error: "Failed to get deploy status",
+      message: "doctl: not authenticated",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get deploy status");
     expect(parsed.message).toBe("doctl: not authenticated");
   });
 
-  it("returns error JSON when non-Error is thrown", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw "auth expired";
+  it("returns error JSON when non-Error envelope is returned", async () => {
+    const envelope = JSON.stringify({
+      error: "Failed to get deploy status",
+      message: "auth expired",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get deploy status");
@@ -74,9 +68,9 @@ describe("deployStatus", () => {
   });
 
   it("result is a valid MCP text content string", async () => {
-    vi.mocked(execSync).mockReturnValue("");
+    const run = vi.fn().mockReturnValue("");
 
-    const result = await deployStatus();
+    const result = await deployStatus(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
     expect(mcpContent[0].type).toBe("text");
