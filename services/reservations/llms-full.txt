@@ -380,6 +380,10 @@
           },
         },
         async (request, reply) => {
+          // Venue authorization: this endpoint follows the same trust model as the existing
+          // /api/v1/reservations and /api/v1/guests endpoints — any authenticated operator
+          // may query any venueId. Per-venue access scoping is a separate app-wide initiative
+          // and does not exist yet in the codebase (no VenueUser relation or venue-access helper).
           const { date, venueId } = request.query;
     
           if (!date) {
@@ -4836,7 +4840,7 @@
     }
   </file>
   <file path="src/services/briefing.ts">
-    export interface BriefingEntry extends Reservation {
+    export interface BriefingEntry extends Omit<Reservation, "guestEmail" | "guestPhone"> {
       guest: BriefingGuest | null;
     }
     export interface BriefingGuest {

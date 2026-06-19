@@ -103,8 +103,6 @@ const makeEntry = (overrides = {}) => ({
   cancellationReason: null,
   cancellationNote: null,
   guestName: "Jane Doe",
-  guestEmail: "jane@example.com",
-  guestPhone: null,
   guestId: "guest-1",
   userId: null,
   occasion: null,

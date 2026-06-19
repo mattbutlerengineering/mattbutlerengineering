@@ -1,7 +1,7 @@
 import type { Reservation, Guest } from "@mbe/types";
 import { prisma } from "./database.js";
 
-export interface BriefingEntry extends Reservation {
+export interface BriefingEntry extends Omit<Reservation, "guestEmail" | "guestPhone"> {
   guest: BriefingGuest | null;
 }
 
@@ -71,8 +71,6 @@ async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> 
       cancellationReason: r.cancellationReason,
       cancellationNote: r.cancellationNote,
       guestName: r.guestName,
-      guestEmail: r.guestEmail,
-      guestPhone: r.guestPhone,
       guestId: r.guestId,
       userId: r.userId,
       occasion: r.occasion as Reservation["occasion"],

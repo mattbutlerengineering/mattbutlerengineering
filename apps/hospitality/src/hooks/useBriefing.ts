@@ -25,8 +25,6 @@ export interface BriefingEntry {
   cancellationReason: string | null;
   cancellationNote: string | null;
   guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
   guestId: string | null;
   userId: string | null;
   occasion: string | null;
