@@ -1,7 +1,8 @@
 import { Command } from "commander";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync, mkdirSync, appendFileSync } from "node:fs";
 import {
   runSession,
   runEvalSuite,
@@ -15,6 +16,7 @@ import {
   type DeterministicChecks,
   type EvalReport,
 } from "@mbe/agent-core";
+import { findMonorepoRoot } from "../monorepo-root.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -61,6 +63,8 @@ export const agentEvalCommand = new Command("eval")
         runTask,
       });
 
+      persistReport(report);
+
       if (options.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
@@ -78,6 +82,21 @@ export const agentEvalCommand = new Command("eval")
       }
     }
   );
+
+/**
+ * Appends the report to a JSONL file in docs/logs — mirrors the `mbe stats` record pattern.
+ * Each line is a complete {@link EvalReport} enriched with a timestamp.
+ */
+function persistReport(report: EvalReport): void {
+  const root = findMonorepoRoot(process.cwd());
+  const logDir = join(root, "docs/logs");
+  const logFile = join(logDir, "eval-reports.jsonl");
+  if (!existsSync(logDir)) {
+    mkdirSync(logDir, { recursive: true });
+  }
+  const record = { ...report, timestamp: new Date().toISOString() };
+  appendFileSync(logFile, JSON.stringify(record) + "\n");
+}
 
 /** Builds the live runner: run the agent on a task, then verify its branch. */
 function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {

@@ -796,21 +796,6 @@
       export function sanitizeForCommitMessage(text: string): string { /* ... */ }
     </item>
   </file>
-  <file path="src/verification-orchestrator.ts">
-    <item priority="low">
-      interface VerificationResult {
-        passed: boolean;
-        logPath?: string;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export async function orchestrateVerification(
-        worktreePath: string,
-        onEvent?: SessionEventCallback
-      ): Promise<VerificationResult> { /* ... */ }
-    </item>
-  </file>
   <file path="src/worktree-manager.ts">
     <item priority="high">
       export function validateGitRef(ref: string, label: string): void { /* ... */ }
