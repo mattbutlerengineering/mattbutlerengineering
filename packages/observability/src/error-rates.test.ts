@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createErrorRateTracker } from "./error-rates.js";
+import { createErrorRateTracker, createErrorRateHealthCheck } from "./error-rates.js";
 
 describe("createErrorRateTracker", () => {
   beforeEach(() => {
@@ -218,5 +218,65 @@ describe("createErrorRateTracker", () => {
     const rates = snap.endpoints.map((e) => e.rate);
     expect(rates[0]).toBeGreaterThanOrEqual(rates[1]);
     expect(rates[1]).toBeGreaterThanOrEqual(rates[2]);
+  });
+});
+
+describe("createErrorRateHealthCheck", () => {
+  it("returns status ok when no degraded endpoints", () => {
+    const snapshot = {
+      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 0, rate: 0 }],
+      degraded: false,
+    };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.status).toBe("ok");
+    expect(result.message).toBeUndefined();
+  });
+
+  it("returns status degraded when degraded=true", () => {
+    const snapshot = {
+      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 2, rate: 0.2 }],
+      degraded: true,
+    };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.status).toBe("degraded");
+  });
+
+  it("returns message listing degraded endpoints with percentages", () => {
+    const snapshot = {
+      endpoints: [
+        { endpoint: "/api/v1/users", total: 10, errors: 2, rate: 0.2 },
+        { endpoint: "/api/v1/ok", total: 10, errors: 0, rate: 0 },
+      ],
+      degraded: true,
+    };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.message).toContain("/api/v1/users");
+    expect(result.message).toContain("20%");
+  });
+
+  it("passes through endpoints from the snapshot", () => {
+    const snapshot = {
+      endpoints: [{ endpoint: "/api/v1/test", total: 5, errors: 1, rate: 0.2 }],
+      degraded: true,
+    };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.endpoints).toEqual(snapshot.endpoints);
+  });
+
+  it("returns ok with empty endpoints when snapshot has no data", () => {
+    const snapshot = { endpoints: [], degraded: false };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.status).toBe("ok");
+    expect(result.endpoints).toEqual([]);
+  });
+
+  it("low-sample: returns ok even with 100% error rate if fewer than 5 requests", () => {
+    // The degraded flag comes from the tracker — if tracker says not degraded, health check says ok
+    const snapshot = {
+      endpoints: [{ endpoint: "/api/v1/new", total: 3, errors: 3, rate: 1.0 }],
+      degraded: false,
+    };
+    const result = createErrorRateHealthCheck(snapshot);
+    expect(result.status).toBe("ok");
   });
 });
