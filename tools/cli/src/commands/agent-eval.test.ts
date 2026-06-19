@@ -3,6 +3,9 @@ import type * as AgentCore from "@mbe/agent-core";
 
 const mockLoadSuite = vi.fn();
 const mockRunSession = vi.fn();
+const mockAppendFileSync = vi.fn();
+const mockMkdirSync = vi.fn();
+const mockExistsSync = vi.fn();
 
 // Static import keeps the heavy module load (real @mbe/agent-core via
 // importOriginal) in file setup, outside the per-test timeout window.
@@ -33,6 +36,12 @@ vi.mock("node:child_process", () => ({
       stderr: "",
     });
   },
+}));
+
+vi.mock("node:fs", () => ({
+  existsSync: (...a: unknown[]) => mockExistsSync(...a),
+  mkdirSync: (...a: unknown[]) => mockMkdirSync(...a),
+  appendFileSync: (...a: unknown[]) => mockAppendFileSync(...a),
 }));
 
 function fakeSession(overrides: Record<string, unknown> = {}) {
@@ -70,6 +79,7 @@ describe("agent eval command", () => {
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.exitCode = 0;
+    mockExistsSync.mockReturnValue(true);
   });
 
   it("runs the suite and prints a report", async () => {
@@ -114,5 +124,32 @@ describe("agent eval command", () => {
     await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
     expect(process.exitCode).toBe(1);
+  });
+
+  it("appends the EvalReport as JSONL after each run", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    mockRunSession.mockResolvedValue(fakeSession());
+
+    await agentEvalCommand.parseAsync([], { from: "user" });
+
+    expect(mockAppendFileSync).toHaveBeenCalledOnce();
+    const [filePath, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+    expect(filePath).toMatch(/eval-reports\.jsonl$/);
+    const record = JSON.parse(line.trim());
+    expect(record.runId).toBeDefined();
+    expect(record.aggregate).toBeDefined();
+    expect(record.tasks).toHaveLength(1);
+    expect(record.timestamp).toBeDefined();
+  });
+
+  it("creates the log directory when it does not exist", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    mockRunSession.mockResolvedValue(fakeSession());
+    mockExistsSync.mockReturnValue(false);
+
+    await agentEvalCommand.parseAsync([], { from: "user" });
+
+    expect(mockMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(mockAppendFileSync).toHaveBeenCalledOnce();
   });
 });
