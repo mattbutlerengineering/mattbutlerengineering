@@ -1082,6 +1082,8 @@
             runTask,
           });
     
+          persistReport(report);
+    
           if (options.json) {
             console.log(JSON.stringify(report, null, 2));
           } else {
@@ -1099,40 +1101,15 @@
           }
         }
       );
-    function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
-      return async (task: Task): Promise<TaskRunResult> => {
-        const config: SessionConfig = {
-          taskDescription: task.prompt,
-          repoPath,
-          baseBranch: DEFAULT_SESSION_CONFIG.baseBranch,
-          model,
-          maxTurns: task.budget.maxTurns,
-          maxBudgetUsd: task.budget.maxCostUsd,
-          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-          createPr: false,
-          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
-        };
-    
-        const session = await runSession(config, () => {});
-    
-        const withinBudget =
-          session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
-    
-        const checks: DeterministicChecks = {
-          withinBudget,
-          testsPass: task.rubric.testsMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "test")
-            : true,
-          typecheckPass: task.rubric.typecheckMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "typecheck")
-            : true,
-          lintPass: task.rubric.lintMustPass
-            ? await verify(repoPath, session.branchName, task.fixtureRef, "lint")
-            : true,
-        };
-    
-        return { task, session, checks };
-      };
+    function persistReport(report: EvalReport): void {
+      const root = findMonorepoRoot(process.cwd());
+      const logDir = join(root, "docs/logs");
+      const logFile = join(logDir, "eval-reports.jsonl");
+      if (!existsSync(logDir)) {
+        mkdirSync(logDir, { recursive: true });
+      }
+      const record = { ...report, timestamp: new Date().toISOString() };
+      appendFileSync(logFile, JSON.stringify(record) + "\n");
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2718,9 +2695,6 @@
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
     
-      /** Set after evaluate() completes. Undefined before the gate runs. */
-      lastResult: EvaluationResult | undefined;
-    
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
       }
@@ -2731,8 +2705,6 @@
           const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
             commitTitle: context.commitMsg,
           });
-    
-          this.lastResult = evalResult;
     
           span.setAttribute("evaluation.passed", evalResult.passed);
           span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -2746,6 +2718,7 @@
               gateName: this.name,
               severity: "error",
               details: `Evaluation failed: ${evalResult.reasoning}`,
+              output: evalResult satisfies EvaluationResult,
             };
           }
     
@@ -2754,6 +2727,7 @@
             gateName: this.name,
             severity: "error",
             details: `confidence: ${evalResult.confidence.toFixed(2)}`,
+            output: evalResult satisfies EvaluationResult,
           };
         } finally {
           span.end();
@@ -2765,11 +2739,9 @@
     export class SecurityReviewGate implements QualityGate {
       readonly name = "security-review";
     
-      constructor(private readonly opts?: { skipWhen?: () => boolean }) {}
-    
-      shouldSkip(context: GateContext): boolean {
+      shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
         if (context.runSecurityReview === false) return true;
-        return this.opts?.skipWhen?.() ?? false;
+        return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -12279,6 +12251,12 @@
       readonly severity: "error" | "warning";
       /** Human-readable details about a failure or a skip reason. */
       readonly details?: string;
+      /**
+       * Optional typed domain output produced by this gate.
+       * Callers extract domain data from the results array by gate name rather
+       * than querying mutable instance state.
+       */
+      readonly output?: unknown;
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
@@ -13334,62 +13312,6 @@
       return text.replace(/[\n\r]/g, " ").slice(0, 72);
     }
   </file>
-  <file path="packages/agent-core/src/verification-orchestrator.ts">
-    export interface VerificationResult {
-      passed: boolean;
-      logPath?: string;
-      error?: string;
-    }
-    export async function orchestrateVerification(
-      worktreePath: string,
-      onEvent?: SessionEventCallback
-    ): Promise<VerificationResult> {
-      const verifySpan = tracer.startSpan("agent_core.verify_changes");
-      try {
-        const verification = await runVerification(worktreePath);
-        verifySpan.setAttribute("verify.passed", verification.passed);
-        verifySpan.setAttribute("verify.lint", verification.lintOk);
-        verifySpan.setAttribute("verify.typecheck", verification.typecheckOk);
-        verifySpan.setAttribute("verify.tests", verification.testsOk);
-    
-        // Store full verification output (not truncated)
-        const logSections: { label: string; output: string }[] = [];
-        if (verification.lintOutput)
-          logSections.push({ label: "Lint", output: verification.lintOutput });
-        if (verification.typecheckOutput)
-          logSections.push({ label: "Typecheck", output: verification.typecheckOutput });
-        if (verification.testOutput)
-          logSections.push({ label: "Tests", output: verification.testOutput });
-    
-        let verificationLogPath: string | undefined;
-        if (logSections.length > 0) {
-          verificationLogPath = await storeVerificationLog(worktreePath, logSections);
-        }
-    
-        emitEvent(onEvent, "session:verification", {
-          message: verification.passed
-            ? "Verification passed (lint + typecheck + tests)"
-            : `Verification failed — lint: ${verification.lintOk ? "OK" : "FAIL"}, typecheck: ${verification.typecheckOk ? "OK" : "FAIL"}, tests: ${verification.testsOk ? "OK" : "FAIL"}${verificationLogPath ? ` (full log: ${verificationLogPath})` : ""}`,
-        });
-    
-        if (!verification.passed) {
-          const parts: string[] = [];
-          if (!verification.lintOk) parts.push(`lint: ${verification.lintOutput}`);
-          if (!verification.typecheckOk) parts.push(`typecheck: ${verification.typecheckOutput}`);
-          if (!verification.testsOk) parts.push(`tests: ${verification.testOutput}`);
-          return {
-            passed: false,
-            logPath: verificationLogPath,
-            error: `Verification failed: ${parts.join("; ")}`,
-          };
-        }
-    
-        return { passed: true, logPath: verificationLogPath };
-      } finally {
-        verifySpan.end();
-      }
-    }
-  </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
     export function validateGitRef(ref: string, label: string): void {
       if (!ref || !SAFE_GIT_REF.test(ref)) {
@@ -14169,15 +14091,11 @@
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
-    export const JOB_TYPES = {
-      BOOKING_REMINDER: "booking-reminder",
-      DAY_OF_REMINDER: "day-of-reminder",
-      POST_VISIT_FOLLOWUP: "post-visit-followup",
-      PRE_ARRIVAL_BRIEFING: "pre-arrival-briefing",
-      LAPSED_GUEST_SCAN: "lapsed-guest-scan",
-      WAITLIST_EXPIRY: "waitlist-expiry",
+    export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+    export const DEFAULT_JOB_OPTIONS = {
+      attempts: 3,
+      backoff: { type: "exponential" as const, delay: 1000 },
     } as const;
-    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
   </file>
   <file path="packages/jobs/src/scheduler.ts">
     export interface JobSchedulerConfig {
@@ -14213,11 +14131,7 @@
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 1000,
-          },
+          ...DEFAULT_JOB_OPTIONS,
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
           ...(jobId !== undefined ? { jobId } : {}),
@@ -14245,13 +14159,7 @@
           {
             name: jobType,
             data: payload,
-            opts: {
-              attempts: 3,
-              backoff: {
-                type: "exponential",
-                delay: 1000,
-              },
-            },
+            opts: { ...DEFAULT_JOB_OPTIONS },
           }
         );
       }
@@ -14302,6 +14210,17 @@
       console.error("MBE Infra MCP Server running on stdio");
     }
   </file>
+  <file path="packages/mcp-server/src/shell-runner.ts">
+    export type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number }) => string;
+    export interface ShellRunnerOptions {
+      /** Injected runner — defaults to node's execSync. */
+      runner?: ShellRunner;
+      /** Timeout in milliseconds. Defaults to 15 000. */
+      timeoutMs?: number;
+      /** Label used in the error envelope's `error` field. Defaults to "Command failed". */
+      errorLabel?: string;
+    }
+  </file>
   <file path="packages/notifications/src/booking-email-content.ts">
     export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
     export interface BookingEmailContent {
@@ -14330,14 +14249,32 @@
     export interface NotificationDispatcherConfig {
       emailAdapter: NotificationPort;
       smsAdapter: SmsPort | null;
+      /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
+      smsManageBaseUrl?: string;
     }
     export class NotificationDispatcher {
       private readonly emailAdapter: NotificationPort;
       private readonly smsAdapter: SmsPort | null;
+      private readonly smsManageBaseUrl: string;
     
       constructor(config: NotificationDispatcherConfig) {
         this.emailAdapter = config.emailAdapter;
         this.smsAdapter = config.smsAdapter;
+        this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+      }
+    
+      private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
+        return {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestPhone: input.guestPhone ?? "",
+          venueName: input.venueName,
+          manageToken: input.manageToken,
+          manageBaseUrl: this.smsManageBaseUrl,
+        };
       }
     
       private shouldSendEmail(preference: CommunicationPreference): boolean {
@@ -14363,18 +14300,17 @@
     
       /** Booking reminder — transactional, sent via channel(s) matching preference. */
       async sendBookingReminder(
-        emailInput: BookingNotificationInput,
-        smsInput: SmsNotificationInput,
+        input: BookingNotificationInput,
         preference: CommunicationPreference
       ): Promise<void> {
         const sends: Promise<void>[] = [];
     
         if (this.shouldSendEmail(preference)) {
-          sends.push(this.emailAdapter.sendBookingReminder(emailInput));
+          sends.push(this.emailAdapter.sendBookingReminder(input));
         }
     
         if (this.shouldSendSms(preference)) {
-          sends.push(this.smsAdapter!.sendBookingReminder(smsInput));
+          sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
         }
     
         await Promise.all(sends);
@@ -15479,7 +15415,11 @@
             })
           : null;
     
-      return new NotificationDispatcher({ emailAdapter, smsAdapter });
+      return new NotificationDispatcher({
+        emailAdapter,
+        smsAdapter,
+        smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+      });
     }
   </file>
   <file path="services/users/src/app.ts">
@@ -15616,130 +15556,136 @@
   </section>
   <section priority="medium" role="tools">
   <file path="packages/mcp-server/src/tools/ci.ts">
-    export async function ciRunStatus(): Promise<string> {
+    export async function ciRunStatus(run = defaultRun): Promise<string> {
+      const output = run(`gh run list --limit 10 --json name,status,conclusion,workflowName`);
       try {
-        const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
-          encoding: "utf-8",
-        });
-        const runs = JSON.parse(output);
-        return JSON.stringify(runs, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get CI status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const parsed = JSON.parse(output) as unknown;
+        if (Array.isArray(parsed)) {
+          return JSON.stringify(parsed, null, 2);
+        }
+        return output;
+      } catch {
+        return output;
       }
     }
   </file>
   <file path="packages/mcp-server/src/tools/database.ts">
-    export async function dbListTables(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`,
-          { encoding: "utf-8" }
-        );
-        const tables = output.trim().split("\n").filter(Boolean);
-        return JSON.stringify({ tables }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to list tables",
-          message: error instanceof Error ? error.message : String(error),
-        });
+    export async function dbListTables(run = defaultListRun): Promise<string> {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        return JSON.stringify({ error: "DATABASE_URL not set" });
       }
+      const output = run(
+        `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`
+      );
+      try {
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as psql text output
+      }
+      const tables = output.trim().split("\n").filter(Boolean);
+      return JSON.stringify({ tables }, null, 2);
     }
-    export async function dbMigrationStatus(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
-          { encoding: "utf-8" }
-        );
-        const migrations = output
-          .trim()
-          .split("\n")
-          .filter(Boolean)
-          .map((line) => line.trim());
-        return JSON.stringify({ migrations }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get migration status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+    export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        return JSON.stringify({ error: "DATABASE_URL not set" });
       }
+      const output = run(
+        `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`
+      );
+      try {
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as psql text output
+      }
+      const migrations = output
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => line.trim());
+      return JSON.stringify({ migrations }, null, 2);
     }
   </file>
   <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    export async function deployStatus(): Promise<string> {
+    export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> {
+      const output = run(
+        `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`
+      );
       try {
-        const output = execSync(
-          `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`,
-          {
-            encoding: "utf-8",
-          }
-        );
-        const lines = output.trim().split("\n").filter(Boolean);
-        const apps = lines.map((line) => {
-          const parts = line.trim().split(/\s{2,}/);
-          return {
-            id: parts[0],
-            name: parts[1],
-            activePhase: parts[2] || "unknown",
-            inProgressPhase: parts[3] || "none",
-          };
-        });
-        return JSON.stringify({ apps }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get deploy status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as doctl tabular output
       }
+      const lines = output.trim().split("\n").filter(Boolean);
+      const apps = lines.map((line) => {
+        const parts = line.trim().split(/\s{2,}/);
+        return {
+          id: parts[0],
+          name: parts[1],
+          activePhase: parts[2] ?? "unknown",
+          inProgressPhase: parts[3] ?? "none",
+        };
+      });
+      return JSON.stringify({ apps }, null, 2);
     }
   </file>
   <file path="packages/mcp-server/src/tools/git.ts">
-    export async function gitWorkflowStatus(): Promise<string> {
+    function isErrorEnvelope(output: string): boolean {
       try {
-        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
-        const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
-        const commits = execSync("git log --oneline -5", { encoding: "utf-8" }).trim();
-    
-        let ciStatus = "unknown";
-        try {
-          const run = execSync("gh run list --branch main --limit 1 --json conclusion", {
-            encoding: "utf-8",
-          });
-          const result = JSON.parse(run);
-          ciStatus = result[0]?.conclusion || "unknown";
-        } catch {
-          // gh CLI not available or failed - ciStatus remains "unknown"
-        }
-    
-        return JSON.stringify(
-          {
-            currentBranch: branch,
-            hasUncommittedChanges: status.length > 0,
-            pendingChanges: status.split("\n").filter(Boolean),
-            recentCommits: commits.split("\n"),
-            mainBranchCI: ciStatus,
-          },
-          null,
-          2
-        );
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get git status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const parsed = JSON.parse(output) as { error?: unknown };
+        return parsed.error !== undefined;
+      } catch {
+        return false;
       }
+    }
+    export async function gitWorkflowStatus(run = defaultRun): Promise<string> {
+      const branch = run("git rev-parse --abbrev-ref HEAD");
+      if (isErrorEnvelope(branch)) {
+        return branch;
+      }
+    
+      const status = run("git status --porcelain");
+      if (isErrorEnvelope(status)) {
+        return status;
+      }
+    
+      const commits = run("git log --oneline -5");
+      if (isErrorEnvelope(commits)) {
+        return commits;
+      }
+    
+      let ciStatus = "unknown";
+      const ciOutput = run("gh run list --branch main --limit 1 --json conclusion");
+      if (!isErrorEnvelope(ciOutput)) {
+        try {
+          const result = JSON.parse(ciOutput) as Array<{ conclusion?: string }>;
+          ciStatus = result[0]?.conclusion ?? "unknown";
+        } catch {
+          // malformed output — ciStatus remains "unknown"
+        }
+      }
+    
+      return JSON.stringify(
+        {
+          currentBranch: branch,
+          hasUncommittedChanges: status.length > 0,
+          pendingChanges: status.split("\n").filter(Boolean),
+          recentCommits: commits.split("\n"),
+          mainBranchCI: ciStatus,
+        },
+        null,
+        2
+      );
     }
   </file>
   <file path="packages/mcp-server/src/tools/health.ts">
@@ -15791,19 +15737,8 @@
     }
   </file>
   <file path="packages/mcp-server/src/tools/pulumi.ts">
-    export async function pulumiStackOutputs(): Promise<string> {
-      try {
-        const output = execSync("pulumi stack output --json", {
-          encoding: "utf-8",
-          timeout: 30000,
-        });
-        return output;
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get Pulumi outputs",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
+    export async function pulumiStackOutputs(run = defaultRun): Promise<string> {
+      return run("pulumi stack output --json");
     }
   </file>
   </section>

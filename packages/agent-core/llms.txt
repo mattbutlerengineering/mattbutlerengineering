@@ -86,7 +86,6 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
-        lastResult: EvaluationResult | undefined;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -433,6 +432,7 @@
         gateName: string;
         severity: "error" | "warning";
         details?: string;
+        output?: unknown;
       }
     </item>
   </file>
@@ -794,21 +794,6 @@
     </item>
     <item priority="high">
       export function sanitizeForCommitMessage(text: string): string { /* ... */ }
-    </item>
-  </file>
-  <file path="src/verification-orchestrator.ts">
-    <item priority="low">
-      interface VerificationResult {
-        passed: boolean;
-        logPath?: string;
-        error?: string;
-      }
-    </item>
-    <item priority="high">
-      export async function orchestrateVerification(
-        worktreePath: string,
-        onEvent?: SessionEventCallback
-      ): Promise<VerificationResult> { /* ... */ }
     </item>
   </file>
   <file path="src/worktree-manager.ts">

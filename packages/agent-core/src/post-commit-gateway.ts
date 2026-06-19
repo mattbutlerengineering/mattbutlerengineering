@@ -3,7 +3,7 @@ import { runVerification } from "./worktree-manager.js";
 import { storeVerificationLog, emitEvent } from "./utils.js";
 import { isTrivialDepBump } from "./dep-bump-merger.js";
 import { GateRunner } from "./gate-runner.js";
-import type { GateContext, QualityGate } from "./gate-runner.js";
+import type { GateContext } from "./gate-runner.js";
 import { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
 import { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
 import { SecurityReviewGate } from "./gates/security-review-gate.js";
@@ -55,7 +55,7 @@ export interface PostCommitGatewayInput {
  *   2. Quality gates via GateRunner:
  *      a. Static analysis (regex-based, no AI)
  *      b. LLM evaluation (skip-policy absorbed inside evaluateSuccess)
- *      c. Security review (skipped when static analysis failed)
+ *      c. Security review (skips when static analysis failed, via previousResults)
  *
  * Returns a GatewayVerdict with:
  *   - `outcome`: "merge-direct" | "create-pr" | "create-draft-pr"
@@ -119,23 +119,8 @@ export async function runPostCommitGateway(
   }
 
   // ── Step 2: Quality gates via GateRunner ─────────────────────────────────
-  // SecurityReviewGate skips when static analysis failed — tracked via closure.
-  let staticAnalysisPassed = true;
-  const evalGate = new LlmEvaluationGate();
-  const secGate = new SecurityReviewGate({ skipWhen: () => !staticAnalysisPassed });
-  const staticGate = new StaticAnalysisGate();
-
-  // Wrap static gate to capture its pass result for the security gate dependency.
-  const trackingStaticGate: QualityGate = {
-    name: staticGate.name,
-    shouldSkip: (ctx) => staticGate.shouldSkip?.(ctx) ?? false,
-    evaluate: async (ctx) => {
-      const result = await staticGate.evaluate(ctx);
-      staticAnalysisPassed = result.passed;
-      return result;
-    },
-  };
-
+  // SecurityReviewGate skips when static analysis failed — expressed via
+  // shouldSkip(context, previousResults), no mutable closures needed.
   const gateContext: GateContext = {
     diff,
     taskDescription,
@@ -145,7 +130,7 @@ export async function runPostCommitGateway(
     runSecurityReview: config.runSecurityReview !== false,
   };
 
-  const runner = new GateRunner([trackingStaticGate, evalGate, secGate]);
+  const runner = new GateRunner([new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()]);
   const gateRunResult = await runner.run(gateContext);
 
   // Collect failures and errors from gate results; emit events per gate
@@ -174,8 +159,10 @@ export async function runPostCommitGateway(
     }
   }
 
-  // Read the EvaluationResult captured by the gate (no second LLM call)
-  const evaluation = evalGate.lastResult;
+  // Extract the EvaluationResult from the evaluation gate's output field.
+  // No mutable instance state: callers find domain data in the results array by gate name.
+  const evalGateResult = gateRunResult.results.find((r) => r.gateName === "evaluation");
+  const evaluation = evalGateResult?.output as EvaluationResult | undefined;
 
   const allGatesPass = gateFailures.length === 0;
 
