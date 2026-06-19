@@ -171,64 +171,7 @@ export function NumberInputPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label text above the field.",
-            },
-            {
-              name: "value",
-              type: "number",
-              description: "Controlled numeric value.",
-            },
-            {
-              name: "onChange",
-              type: "(value: number) => void",
-              description: "Called when value changes.",
-            },
-            {
-              name: "min",
-              type: "number",
-              description: "Minimum allowed value.",
-            },
-            {
-              name: "max",
-              type: "number",
-              description: "Maximum allowed value.",
-            },
-            {
-              name: "step",
-              type: "number",
-              default: "1",
-              description: "Increment/decrement amount.",
-            },
-            {
-              name: "size",
-              type: '"small" | "large"',
-              default: '"large"',
-              description: "Visual size of the input.",
-            },
-            {
-              name: "hint",
-              type: "string",
-              description: "Helper text below the field.",
-            },
-            {
-              name: "error",
-              type: "boolean",
-              default: "false",
-              description: "Shows error styling.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the input.",
-            },
-          ]}
-        />
+        <PropsTable component="NumberInput" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

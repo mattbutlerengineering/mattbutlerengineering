@@ -145,65 +145,7 @@ export function SliderPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label text above the slider.",
-            },
-            {
-              name: "value",
-              type: "number",
-              description: "Controlled value.",
-            },
-            {
-              name: "defaultValue",
-              type: "number",
-              description: "Uncontrolled initial value.",
-            },
-            {
-              name: "onChange",
-              type: "(value: number) => void",
-              description: "Called as the value changes.",
-            },
-            {
-              name: "min",
-              type: "number",
-              default: "0",
-              description: "Minimum value.",
-            },
-            {
-              name: "max",
-              type: "number",
-              default: "100",
-              description: "Maximum value.",
-            },
-            {
-              name: "step",
-              type: "number",
-              default: "1",
-              description: "Increment amount.",
-            },
-            {
-              name: "showValue",
-              type: "boolean",
-              default: "false",
-              description: "Shows the current value beside the label.",
-            },
-            {
-              name: "formatValue",
-              type: "(value: number) => string",
-              description: "Formats the displayed value (e.g. add units).",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the slider.",
-            },
-          ]}
-        />
+        <PropsTable component="Slider" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

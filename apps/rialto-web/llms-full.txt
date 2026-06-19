@@ -68,4 +68,19 @@
     }
   </file>
   </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/use-props-from-manifest.ts">
+    export function usePropsFromManifest(componentName: string): PropDef[] {
+      const entry = manifest.components.find((c) => c.name === componentName);
+      if (!entry) return [];
+    
+      return entry.props.map((p) => ({
+        name: p.name,
+        type: p.type.replace(/\s*\|\s*undefined$/, ""),
+        description: p.description ?? "",
+        required: p.required,
+      }));
+    }
+  </file>
+  </section>
 </codebase>

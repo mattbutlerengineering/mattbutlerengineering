@@ -1,7 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PropsTable, type PropDef } from "./PropsTable.js";
+
+vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
+  default: {
+    version: "0.2.0",
+    generatedAt: "2026-06-19T00:00:00.000Z",
+    components: [
+      {
+        name: "Button",
+        description: "A button component.",
+        props: [
+          {
+            name: "variant",
+            type: '"primary" | "secondary" | undefined',
+            required: false,
+            description: "Visual style.",
+          },
+          { name: "disabled", type: "boolean | undefined", required: false },
+        ],
+        slots: [],
+      },
+    ],
+  },
+}));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Table: ({ columns, data, rowKey }: any) => (
@@ -109,5 +132,24 @@ describe("PropsTable", () => {
     const table = screen.getByTestId("props-table");
     const rows = table.querySelectorAll("tbody tr");
     expect(rows.length).toBe(0);
+  });
+
+  it("reads props from manifest when component prop is provided", () => {
+    render(<PropsTable component="Button" />);
+
+    const table = screen.getByTestId("props-table");
+    const rows = table.querySelectorAll("tbody tr");
+    // Mock manifest has 2 props for Button
+    expect(rows.length).toBe(2);
+    expect(screen.getByText("variant")).toBeInTheDocument();
+    expect(screen.getByText("disabled")).toBeInTheDocument();
+  });
+
+  it("strips | undefined from types read from manifest", () => {
+    render(<PropsTable component="Button" />);
+
+    // The mock manifest type is '"primary" | "secondary" | undefined' — should be stripped
+    expect(screen.queryByText(/\| undefined/)).toBeNull();
+    expect(screen.getByText('"primary" | "secondary"')).toBeInTheDocument();
   });
 });

@@ -166,41 +166,7 @@ export function SelectPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label above the trigger.",
-            },
-            {
-              name: "options",
-              type: "Array<{ value: string; label: string; disabled?: boolean }>",
-              description: "List of selectable options.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Controlled selected value.",
-            },
-            {
-              name: "onChange",
-              type: "(value: string) => void",
-              description: "Called when selection changes.",
-            },
-            {
-              name: "placeholder",
-              type: "string",
-              description: "Shown when no value is selected.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the trigger.",
-            },
-          ]}
-        />
+        <PropsTable component="Select" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

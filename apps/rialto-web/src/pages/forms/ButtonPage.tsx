@@ -146,43 +146,7 @@ export function ButtonPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"primary" | "secondary" | "ghost"',
-              default: '"secondary"',
-              description: "Visual style of the button.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Size of the button — controls padding and font size.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the button and removes all interaction.",
-            },
-            {
-              name: "onClick",
-              type: "() => void",
-              description: "Click handler.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Button label content.",
-            },
-            {
-              name: "className",
-              type: "string",
-              description: "Additional CSS class name.",
-            },
-          ]}
-        />
+        <PropsTable component="Button" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
