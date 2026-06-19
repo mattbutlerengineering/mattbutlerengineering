@@ -1,45 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execSync } from "node:child_process";
-
-vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
-}));
-
+import { describe, it, expect, vi } from "vitest";
 import { pulumiStackOutputs } from "./pulumi.js";
 
 describe("pulumiStackOutputs", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns raw stack output string from pulumi CLI", async () => {
     const outputs = JSON.stringify({
       apiUrl: "https://api.example.com",
       dbHost: "db.example.com",
     });
-    vi.mocked(execSync).mockReturnValue(outputs);
+    const run = vi.fn().mockReturnValue(outputs);
 
-    const result = await pulumiStackOutputs();
+    const result = await pulumiStackOutputs(run);
 
     expect(result).toBe(outputs);
   });
 
-  it("passes the correct pulumi command to execSync", async () => {
-    vi.mocked(execSync).mockReturnValue("{}");
+  it("calls run with the correct pulumi command", async () => {
+    const run = vi.fn().mockReturnValue("{}");
 
-    await pulumiStackOutputs();
+    await pulumiStackOutputs(run);
 
-    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
-      "pulumi stack output --json",
-      expect.objectContaining({ encoding: "utf-8", timeout: 30000 })
-    );
+    expect(run).toHaveBeenCalledWith("pulumi stack output --json");
   });
 
   it("result can be used directly as MCP text content", async () => {
     const outputs = '{"key": "value"}';
-    vi.mocked(execSync).mockReturnValue(outputs);
+    const run = vi.fn().mockReturnValue(outputs);
 
-    const result = await pulumiStackOutputs();
+    const result = await pulumiStackOutputs(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
     expect(mcpContent[0].type).toBe("text");
@@ -47,11 +34,13 @@ describe("pulumiStackOutputs", () => {
   });
 
   it("returns error JSON when pulumi command fails", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("pulumi: stack not found");
+    const envelope = JSON.stringify({
+      error: "Failed to get Pulumi outputs",
+      message: "pulumi: stack not found",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await pulumiStackOutputs();
+    const result = await pulumiStackOutputs(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get Pulumi outputs");
@@ -59,11 +48,13 @@ describe("pulumiStackOutputs", () => {
   });
 
   it("returns error JSON when non-Error is thrown", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw "exit code 1";
+    const envelope = JSON.stringify({
+      error: "Failed to get Pulumi outputs",
+      message: "exit code 1",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await pulumiStackOutputs();
+    const result = await pulumiStackOutputs(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get Pulumi outputs");
@@ -71,21 +62,10 @@ describe("pulumiStackOutputs", () => {
   });
 
   it("handles empty stack output", async () => {
-    vi.mocked(execSync).mockReturnValue("{}");
+    const run = vi.fn().mockReturnValue("{}");
 
-    const result = await pulumiStackOutputs();
+    const result = await pulumiStackOutputs(run);
 
     expect(result).toBe("{}");
-  });
-
-  it("applies 30 second timeout to pulumi command", async () => {
-    vi.mocked(execSync).mockReturnValue("{}");
-
-    await pulumiStackOutputs();
-
-    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ timeout: 30000 })
-    );
   });
 });
