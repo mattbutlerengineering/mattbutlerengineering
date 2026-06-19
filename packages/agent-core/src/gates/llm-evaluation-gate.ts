@@ -12,14 +12,12 @@ const tracer = trace.getTracer("@mbe/agent-core");
  * fires, `evaluateSuccess` returns the inconclusive `skipped` result and
  * the gate passes.
  *
- * After `evaluate()` runs, `lastResult` holds the full EvaluationResult
- * so callers can read it without triggering a second LLM call.
+ * The full EvaluationResult is returned in `GateResult.output` so callers
+ * can extract it from the results array by gate name — no mutable instance
+ * state needed.
  */
 export class LlmEvaluationGate implements QualityGate {
   readonly name = "evaluation";
-
-  /** Set after evaluate() completes. Undefined before the gate runs. */
-  lastResult: EvaluationResult | undefined;
 
   shouldSkip(context: GateContext): boolean {
     return context.evaluateSuccess === false;
@@ -31,8 +29,6 @@ export class LlmEvaluationGate implements QualityGate {
       const evalResult = await evaluateSuccess(context.taskDescription, context.diff, {
         commitTitle: context.commitMsg,
       });
-
-      this.lastResult = evalResult;
 
       span.setAttribute("evaluation.passed", evalResult.passed);
       span.setAttribute("evaluation.confidence", evalResult.confidence);
@@ -46,6 +42,7 @@ export class LlmEvaluationGate implements QualityGate {
           gateName: this.name,
           severity: "error",
           details: `Evaluation failed: ${evalResult.reasoning}`,
+          output: evalResult satisfies EvaluationResult,
         };
       }
 
@@ -54,6 +51,7 @@ export class LlmEvaluationGate implements QualityGate {
         gateName: this.name,
         severity: "error",
         details: `confidence: ${evalResult.confidence.toFixed(2)}`,
+        output: evalResult satisfies EvaluationResult,
       };
     } finally {
       span.end();

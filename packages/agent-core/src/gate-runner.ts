@@ -30,6 +30,12 @@ export interface GateResult {
   readonly severity: "error" | "warning";
   /** Human-readable details about a failure or a skip reason. */
   readonly details?: string;
+  /**
+   * Optional typed domain output produced by this gate.
+   * Callers extract domain data from the results array by gate name rather
+   * than querying mutable instance state.
+   */
+  readonly output?: unknown;
 }
 
 /**
@@ -60,8 +66,12 @@ export interface QualityGate {
   /**
    * Optional predicate — return true to bypass evaluate() for this run.
    * Skipped gates contribute a passed=true result with details="skipped".
+   *
+   * `previousResults` contains results from all gates that ran before this one
+   * in the current run. Use it for cross-gate skip dependencies instead of
+   * capturing concrete instance state via closures.
    */
-  shouldSkip?(context: GateContext): boolean;
+  shouldSkip?(context: GateContext, previousResults: readonly GateResult[]): boolean;
 }
 
 // ── GateRunner ────────────────────────────────────────────────────────
@@ -80,7 +90,7 @@ export class GateRunner {
     const results: GateResult[] = [];
 
     for (const gate of this.gates) {
-      if (gate.shouldSkip?.(context)) {
+      if (gate.shouldSkip?.(context, [...results])) {
         results.push({
           passed: true,
           gateName: gate.name,

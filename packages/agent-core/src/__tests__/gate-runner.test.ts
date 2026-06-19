@@ -206,7 +206,7 @@ describe("GateRunner", () => {
       expect(result.passed).toBe(true);
     });
 
-    it("passes context to shouldSkip", async () => {
+    it("passes context and previousResults to shouldSkip", async () => {
       const ctx = makeContext({ evaluateSuccess: false });
       const gate: QualityGate = {
         name: "ctx-skip",
@@ -220,7 +220,7 @@ describe("GateRunner", () => {
 
       const runner = new GateRunner([gate]);
       await runner.run(ctx);
-      expect(gate.shouldSkip).toHaveBeenCalledWith(ctx);
+      expect(gate.shouldSkip).toHaveBeenCalledWith(ctx, []);
     });
 
     it("gates without shouldSkip always run", async () => {
@@ -415,34 +415,20 @@ describe("GateRunner integration with real gates", () => {
     expect(reviewDiff).not.toHaveBeenCalled();
   });
 
-  it("SecurityReviewGate skips when skipWhen callback returns true", async () => {
+  it("SecurityReviewGate skips when static-analysis gate failed in previousResults", async () => {
     const { StaticAnalysisGate } = await import("../gates/static-analysis-gate.js");
     const { LlmEvaluationGate } = await import("../gates/llm-evaluation-gate.js");
     const { SecurityReviewGate } = await import("../gates/security-review-gate.js");
 
-    // Static analysis fails — security review should be skipped via skipWhen
+    // Static analysis fails — security review should be skipped via previousResults
     analyzeDiff.mockReturnValue({
       clean: false,
       violations: [
         { file: "src/a.ts", line: 1, rule: "no-secret", message: "secret", severity: "error" },
       ],
     });
-    let staticPassed = true;
-    const staticGate = new StaticAnalysisGate();
-    const secGate = new SecurityReviewGate({ skipWhen: () => !staticPassed });
 
-    // First gate will fail and we track that
-    const patchedStatic: QualityGate = {
-      name: staticGate.name,
-      shouldSkip: staticGate.shouldSkip?.bind(staticGate),
-      evaluate: async (ctx) => {
-        const r = await staticGate.evaluate(ctx);
-        staticPassed = r.passed;
-        return r;
-      },
-    };
-
-    const runner = new GateRunner([new LlmEvaluationGate(), patchedStatic, secGate]);
+    const runner = new GateRunner([new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()]);
 
     const result = await runner.run(makeRealContext());
 
