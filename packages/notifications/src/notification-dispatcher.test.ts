@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NotificationDispatcher } from "./notification-dispatcher.js";
 import type { BookingNotificationInput } from "./port.js";
-import type { SmsNotificationInput } from "./sms-port.js";
+
+const SMS_MANAGE_BASE_URL = "https://app.mbe.dev/reservations/manage";
 
 const mockEmailAdapter = {
   sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
@@ -32,18 +33,6 @@ const emailInput: BookingNotificationInput = {
   manageToken: "tok_abc123",
 };
 
-const smsInput: SmsNotificationInput = {
-  reservationId: "res_abc123",
-  date: "2026-06-15",
-  startTime: "19:00",
-  partySize: 4,
-  guestName: "Jane Doe",
-  guestPhone: "+15551234567",
-  venueName: "The Oak Table",
-  manageToken: "tok_abc123",
-  manageBaseUrl: "https://app.mbe.dev/reservations/manage",
-};
-
 describe("NotificationDispatcher", () => {
   beforeEach(() => {
     Object.values(mockEmailAdapter).forEach((fn) => fn.mockClear());
@@ -54,9 +43,10 @@ describe("NotificationDispatcher", () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
-    await dispatcher.sendBookingReminder(emailInput, smsInput, "both");
+    await dispatcher.sendBookingReminder(emailInput, "both");
 
     expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
     expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledOnce();
@@ -66,9 +56,10 @@ describe("NotificationDispatcher", () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
-    await dispatcher.sendBookingReminder(emailInput, smsInput, "email_only");
+    await dispatcher.sendBookingReminder(emailInput, "email_only");
 
     expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
     expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
@@ -78,9 +69,10 @@ describe("NotificationDispatcher", () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
-    await dispatcher.sendBookingReminder(emailInput, smsInput, "sms_only");
+    await dispatcher.sendBookingReminder(emailInput, "sms_only");
 
     expect(mockEmailAdapter.sendBookingReminder).not.toHaveBeenCalled();
     expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledOnce();
@@ -90,10 +82,11 @@ describe("NotificationDispatcher", () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
     // sendBookingReminder is transactional — always sends
-    await dispatcher.sendBookingReminder(emailInput, smsInput, "transactional_only");
+    await dispatcher.sendBookingReminder(emailInput, "transactional_only");
 
     expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
     expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
@@ -103,6 +96,7 @@ describe("NotificationDispatcher", () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
     await dispatcher.sendBookingConfirmation(emailInput, "sms_only");
@@ -117,9 +111,31 @@ describe("NotificationDispatcher", () => {
       smsAdapter: null,
     });
 
-    await dispatcher.sendBookingReminder(emailInput, smsInput, "both");
+    await dispatcher.sendBookingReminder(emailInput, "both");
 
     expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+  });
+
+  it("derives SmsNotificationInput from BookingNotificationInput when sending SMS reminder", async () => {
+    const dispatcher = new NotificationDispatcher({
+      emailAdapter: mockEmailAdapter,
+      smsAdapter: mockSmsAdapter,
+      smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+    });
+
+    await dispatcher.sendBookingReminder(emailInput, "sms_only");
+
+    expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledWith({
+      reservationId: "res_abc123",
+      date: "2026-06-15",
+      startTime: "19:00",
+      partySize: 4,
+      guestName: "Jane Doe",
+      guestPhone: "+15551234567",
+      venueName: "The Oak Table",
+      manageToken: "tok_abc123",
+      manageBaseUrl: SMS_MANAGE_BASE_URL,
+    });
   });
 
   describe("sendBookingModified", () => {
