@@ -63,12 +63,13 @@ describe("buildNavSections", () => {
   });
 
   describe("operational readiness", () => {
-    it("returns primary items including Timeline first", () => {
+    it("returns primary items including briefing first", () => {
       const sections = buildNavSections(OPERATIONAL_READINESS);
       // First section has no label (primary nav)
       const primary = sections[0];
       expect(primary.label).toBeUndefined();
-      expect(primary.items[0].id).toBe("timeline");
+      expect(primary.items[0].id).toBe("briefing");
+      expect(primary.items.some((i) => i.id === "timeline")).toBe(true);
     });
 
     it("includes a Manage section", () => {

@@ -279,6 +279,20 @@
       );
     }
   </file>
+  <file path="src/hooks/useBriefing.ts">
+    export const BRIEFING_QUERY_KEY = "briefing" as const;
+    export interface BriefingGuest {
+      id: string;
+      name: string;
+      visitCount: number;
+      lastVisit: string | null;
+      dietaryRestrictions: string[] | null;
+      notes: string | null;
+      staffNotes: Array<{ text: string; createdBy: string; createdAt: string }>;
+      tags: string[] | null;
+      communicationPreference: string | null;
+    }
+  </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;

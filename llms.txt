@@ -964,6 +964,20 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useBriefing.ts">
+    <item priority="high">
+      export const BRIEFING_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
@@ -1493,6 +1507,11 @@
   <file path="services/reservations/src/routes/availability.ts">
     <item priority="high">
       export const availabilityRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
@@ -2030,6 +2049,22 @@
         email: string | null;
         phone: string | null;
         communicationPreference: string | null;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingEntry {
+        guest: BriefingGuest | null;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
       }
     </item>
   </file>
