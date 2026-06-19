@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { z } from "zod";
+import { useUrlParams } from "../hooks/use-url-params.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button, Divider, Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
@@ -15,6 +16,17 @@ import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
+
+/* ── URL filter schema ──────────────────────── */
+
+const timelineFilterSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .default(new Date().toLocaleDateString("en-CA")),
+});
+
+const TIMELINE_DEFAULTS = timelineFilterSchema.parse({});
 
 const MOBILE_BREAKPOINT = "(max-width: 768px)";
 
@@ -178,9 +190,9 @@ export function TimelinePage() {
   const api = useApiClient();
   const queryClient = useQueryClient();
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
-  const selectedDate = searchParams.get("date") ?? todayStr;
+  const selectedDate = params.date;
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
@@ -237,32 +249,18 @@ export function TimelinePage() {
   const handlePreviousDay = useCallback(() => {
     const prev = new Date(selectedDate + "T00:00:00");
     prev.setDate(prev.getDate() - 1);
-    const newDate = prev.toLocaleDateString("en-CA");
-    setSearchParams((p) => {
-      const next = new URLSearchParams(p);
-      next.set("date", newDate);
-      return next;
-    });
-  }, [selectedDate, setSearchParams]);
+    setParam("date", prev.toLocaleDateString("en-CA"));
+  }, [selectedDate, setParam]);
 
   const handleNextDay = useCallback(() => {
     const next = new Date(selectedDate + "T00:00:00");
     next.setDate(next.getDate() + 1);
-    const newDate = next.toLocaleDateString("en-CA");
-    setSearchParams((p) => {
-      const params = new URLSearchParams(p);
-      params.set("date", newDate);
-      return params;
-    });
-  }, [selectedDate, setSearchParams]);
+    setParam("date", next.toLocaleDateString("en-CA"));
+  }, [selectedDate, setParam]);
 
   const handleToday = useCallback(() => {
-    setSearchParams((p) => {
-      const next = new URLSearchParams(p);
-      next.set("date", new Date().toLocaleDateString("en-CA"));
-      return next;
-    });
-  }, [setSearchParams]);
+    setParam("date", new Date().toLocaleDateString("en-CA"));
+  }, [setParam]);
 
   const handleReservationClick = useCallback((reservation: Reservation) => {
     setSelectedReservation(reservation);
