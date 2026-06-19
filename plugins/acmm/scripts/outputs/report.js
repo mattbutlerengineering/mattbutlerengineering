@@ -25,10 +25,11 @@ import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
  * @param {import("../computeLevel.js").LevelComputation} args.computation
  * @param {{added: string[], removed: string[], levelDelta: number, countDelta: number, priorLevel: number, priorCount: number} | null} [args.diff]
  * @param {Array<{id: string, substanceEvidence: string}>} [args.hollowCriteria]
+ * @param {Map<string, 'local' | 'inherited' | 'not-found'>} [args.origins] Sub-project origin map; omit for root audits.
  */
 export function writeReport(
   cwd,
-  { state, criteria, sources, computation, diff, hollowCriteria = [] }
+  { state, criteria, sources, computation, diff, hollowCriteria = [], origins }
 ) {
   const detectedSet = new Set(state.detectedIds ?? []);
   const date = new Date().toISOString().slice(0, 10);
@@ -309,12 +310,25 @@ export function writeReport(
     const levelCriteria = criteria.filter((c) => c.level === level);
     if (levelCriteria.length === 0) continue;
     const det = levelCriteria.filter((c) => detectedSet.has(c.id)).length;
+
+    // Inheritance summary: only shown when origins map is provided (sub-project audits)
+    let inheritanceSummary = "";
+    if (origins) {
+      const localCount = levelCriteria.filter(
+        (c) => detectedSet.has(c.id) && origins.get(c.id) === "local"
+      ).length;
+      const inheritedCount = levelCriteria.filter(
+        (c) => detectedSet.has(c.id) && origins.get(c.id) === "inherited"
+      ).length;
+      inheritanceSummary = ` · ${localCount} local / ${inheritedCount} inherited`;
+    }
+
     const status =
       level === 0
-        ? `(prerequisite, ${det}/${levelCriteria.length})`
+        ? `(prerequisite, ${det}/${levelCriteria.length}${inheritanceSummary})`
         : computation.level >= level
-          ? `✓ achieved (${det}/${levelCriteria.length})`
-          : `✗ gaps (${det}/${levelCriteria.length})`;
+          ? `✓ achieved (${det}/${levelCriteria.length}${inheritanceSummary})`
+          : `✗ gaps (${det}/${levelCriteria.length}${inheritanceSummary})`;
     lines.push(`## Level ${level} ${status}`);
     lines.push("");
     for (const c of levelCriteria) {
@@ -322,7 +336,17 @@ export function writeReport(
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
-      lines.push(`- **${mark} \`${c.id}\`** \`${c.source}\` \`${c.category}\` — ${c.name}`);
+
+      // Per-criterion origin marker (sub-project audits only, detected criteria only)
+      const origin = origins?.get(c.id);
+      const originTag =
+        detectedSet.has(c.id) && (origin === "local" || origin === "inherited")
+          ? ` [${origin}]`
+          : "";
+
+      lines.push(
+        `- **${mark} \`${c.id}\`**${originTag} \`${c.source}\` \`${c.category}\` — ${c.name}`
+      );
       lines.push(`  _${c.description}_`);
       lines.push(
         `  Detection (${c.detection.type}): ${patterns.map((p) => `\`${p}\``).join(" · ")}`
