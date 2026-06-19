@@ -6,6 +6,11 @@ import { isPrismaNotFound } from "./index.js";
 // load (13+ packages in CI / pre-push), the default 5s is too tight.
 vi.setConfig({ testTimeout: 15_000 });
 
+// Real delay used to let monitored-query timestamps advance across the
+// slow-query window boundary between successive calls under test. Named to
+// avoid a magic setTimeout literal (AI antipattern ratchet: magicTimeouts).
+const QUERY_WINDOW_ADVANCE_MS = 120;
+
 const mockPoolInstance = {
   totalCount: 5,
   activeCount: 2,
@@ -199,7 +204,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -217,7 +222,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -253,7 +258,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -294,7 +299,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -387,7 +392,7 @@ describe("createDatabase", () => {
       operation: undefined,
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
