@@ -2245,16 +2245,26 @@
     ];
   </file>
   <file path="apps/rialto-web/src/data/nav-sections.ts">
+    export const NAV_SECTIONS = REGISTRY_NAV_SECTIONS;
+    export const COMPONENT_COUNT = NAV_SECTIONS.reduce(
+      (total, section) => total + section.items.length,
+      0
+    );
+  </file>
+  <file path="apps/rialto-web/src/data/page-registry.ts">
+    export interface PageEntry {
+      id: string;
+      label: string;
+      category: string;
+      path: string;
+      comingSoon?: boolean;
+      load: () => Promise<unknown>;
+    }
     export interface NavItem {
       id: string;
       label: string;
       path: string;
-      /** When true, item is rendered in a muted style with a "coming soon" indicator. */
       comingSoon?: boolean;
-    }
-    export interface NavSection {
-      label: string;
-      items: NavItem[];
     }
   </file>
   <file path="apps/rialto-web/src/data/tapechart-fixtures.ts">
@@ -14793,7 +14803,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
