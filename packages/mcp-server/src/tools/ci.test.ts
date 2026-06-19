@@ -1,25 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execSync } from "node:child_process";
-
-vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
-}));
-
+import { describe, it, expect, vi } from "vitest";
 import { ciRunStatus } from "./ci.js";
 
 describe("ciRunStatus", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns CI runs as formatted JSON string", async () => {
     const runs = [
       { name: "CI", status: "completed", conclusion: "success", workflowName: "CI" },
       { name: "Deploy", status: "in_progress", conclusion: null, workflowName: "Deploy" },
     ];
-    vi.mocked(execSync).mockReturnValue(JSON.stringify(runs));
+    const run = vi.fn().mockReturnValue(JSON.stringify(runs));
 
-    const result = await ciRunStatus();
+    const result = await ciRunStatus(run);
 
     expect(typeof result).toBe("string");
     const parsed = JSON.parse(result) as typeof runs;
@@ -28,33 +18,37 @@ describe("ciRunStatus", () => {
   });
 
   it("result can be used as MCP text content", async () => {
-    vi.mocked(execSync).mockReturnValue("[]");
+    const run = vi.fn().mockReturnValue("[]");
 
-    const result = await ciRunStatus();
+    const result = await ciRunStatus(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
     expect(mcpContent[0].type).toBe("text");
     expect(typeof mcpContent[0].text).toBe("string");
   });
 
-  it("returns error JSON when execSync throws an Error", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("gh: command not found");
+  it("returns error JSON when runner returns error envelope", async () => {
+    const envelope = JSON.stringify({
+      error: "Failed to get CI status",
+      message: "gh: command not found",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await ciRunStatus();
+    const result = await ciRunStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get CI status");
     expect(parsed.message).toBe("gh: command not found");
   });
 
-  it("returns error JSON when non-Error is thrown", async () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw "unexpected string error";
+  it("returns error JSON when runner returns non-Error envelope", async () => {
+    const envelope = JSON.stringify({
+      error: "Failed to get CI status",
+      message: "unexpected string error",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await ciRunStatus();
+    const result = await ciRunStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get CI status");
@@ -63,9 +57,9 @@ describe("ciRunStatus", () => {
 
   it("parses JSON output from gh CLI", async () => {
     const runs = [{ name: "Test", status: "queued", conclusion: null, workflowName: "Test" }];
-    vi.mocked(execSync).mockReturnValue(JSON.stringify(runs));
+    const run = vi.fn().mockReturnValue(JSON.stringify(runs));
 
-    const result = await ciRunStatus();
+    const result = await ciRunStatus(run);
     const parsed = JSON.parse(result) as typeof runs;
 
     expect(parsed[0].status).toBe("queued");
