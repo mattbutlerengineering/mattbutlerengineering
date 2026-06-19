@@ -5139,14 +5139,13 @@
           });
     
           if (!result.accepted) {
-            const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
             return reply
               .code(429)
               .send(
                 createProblemDetails(
                   429,
                   "Too Many Requests",
-                  `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`
+                  `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
                 )
               );
           }
@@ -10655,6 +10654,46 @@
         .join("\n");
     }
   </file>
+  <file path="services/agent/src/services/session-concurrency.ts">
+    export interface SessionConcurrency {
+      /** The configured maximum number of concurrent sessions. */
+      readonly limit: number;
+      /** True when a new session could be admitted right now (no reservation). */
+      canStart(): boolean;
+      /**
+       * Atomically reserve a slot for `sessionId`. Returns true if the slot was
+       * granted (or already held by this id), false if at capacity. Idempotent for
+       * an id that already holds a slot — never consumes a second slot.
+       */
+      acquire(sessionId: string): boolean;
+      /** Release the slot held by `sessionId`. No-op if it holds none. */
+      release(sessionId: string): void;
+      /** Number of currently reserved slots. */
+      activeCount(): number;
+    }
+    export function createSessionConcurrency(limit: number): SessionConcurrency {
+      const active = new Set<string>();
+    
+      return {
+        limit,
+        canStart() {
+          return active.size < limit;
+        },
+        acquire(sessionId: string) {
+          if (active.has(sessionId)) return true;
+          if (active.size >= limit) return false;
+          active.add(sessionId);
+          return true;
+        },
+        release(sessionId: string) {
+          active.delete(sessionId);
+        },
+        activeCount() {
+          return active.size;
+        },
+      };
+    }
+  </file>
   <file path="services/agent/src/services/session-event-emitter.ts">
     export type SessionEventListener = (event: AgentSessionEvent) => void;
     export interface SessionEventEmitter {
@@ -10669,7 +10708,8 @@
   </file>
   <file path="services/agent/src/services/session-executor.ts">
     export interface SessionExecutorConfig {
-      maxConcurrent: number;
+      /** The single gate that owns the max-concurrent-sessions policy. */
+      concurrency: SessionConcurrency;
       sessionService: typeof SessionServiceType;
     }
     export interface SessionExecutor {

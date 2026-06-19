@@ -3,6 +3,7 @@ import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { getSessionEventEmitter } from "./session-event-emitter.js";
+import { defaultConcurrency } from "./session-concurrency.js";
 
 function mapPrismaSession(session: Session): AgentSession {
   return {
@@ -65,8 +66,6 @@ export interface TriggerSessionResult {
   accepted: boolean;
 }
 
-const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
-
 export const sessionService = {
   async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
     const { page, limit, status } = options;
@@ -118,9 +117,12 @@ export const sessionService = {
   },
 
   async triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> {
-    const { executeSession, getActiveSessionCount } = await import("./session-executor.js");
+    const { executeSession } = await import("./session-executor.js");
 
-    if (getActiveSessionCount() >= MAX_CONCURRENT) {
+    // Early-reject through the single concurrency gate so we never create a DB
+    // row for a session that can't start. The executor performs the atomic
+    // acquire(); this check just avoids the wasted write on an obvious reject.
+    if (!defaultConcurrency.canStart()) {
       return { session: null, accepted: false };
     }
 
