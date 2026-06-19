@@ -3404,6 +3404,25 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/sse-client.ts">
+    export type EventSourceFactory = (url: string) => EventSource;
+    export interface SseClientOptions {
+      /** Base URL for the SSE stream (query params appended by SseClient). */
+      url: string;
+      /** Named event types to listen for (e.g. "reservation:created"). */
+      eventTypes: readonly string[];
+      /** Called with a parsed event payload on each successfully parsed message. */
+      onEvent: (type: string, payload: unknown) => void;
+      /** Called when a parse error occurs or the connection errors. */
+      onError: (error: Error) => void;
+      /** Called when the EventSource opens successfully. */
+      onConnected?: () => void;
+      /** Called when the EventSource closes due to an error. */
+      onDisconnected?: () => void;
+      /** Injectable factory — defaults to `(url) => new EventSource(url)`. */
+      eventSourceFactory?: EventSourceFactory;
+    }
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {
       header: string;
@@ -14793,7 +14812,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
