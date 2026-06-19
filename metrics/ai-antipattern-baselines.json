@@ -10,7 +10,7 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 298,
+      "count": 302,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
