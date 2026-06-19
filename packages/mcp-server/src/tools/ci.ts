@@ -1,16 +1,16 @@
-import { execSync } from "node:child_process";
+import { createShellRunner } from "../shell-runner.js";
 
-export async function ciRunStatus(): Promise<string> {
+const defaultRun = createShellRunner({ errorLabel: "Failed to get CI status" });
+
+export async function ciRunStatus(run = defaultRun): Promise<string> {
+  const output = run(`gh run list --limit 10 --json name,status,conclusion,workflowName`);
   try {
-    const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
-      encoding: "utf-8",
-    });
-    const runs = JSON.parse(output);
-    return JSON.stringify(runs, null, 2);
-  } catch (error) {
-    return JSON.stringify({
-      error: "Failed to get CI status",
-      message: error instanceof Error ? error.message : String(error),
-    });
+    const parsed = JSON.parse(output) as unknown;
+    if (Array.isArray(parsed)) {
+      return JSON.stringify(parsed, null, 2);
+    }
+    return output;
+  } catch {
+    return output;
   }
 }

@@ -16,29 +16,44 @@
       async function main() { /* ... */ }
     </item>
   </file>
+  <file path="src/shell-runner.ts">
+    <item priority="low">
+      type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number ...;
+    </item>
+    <item priority="low">
+      interface ShellRunnerOptions {
+        runner?: ShellRunner;
+        timeoutMs?: number;
+        errorLabel?: string;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="tools">
   <file path="src/tools/ci.ts">
     <item priority="high">
-      export async function ciRunStatus(): Promise<string> { /* ... */ }
+      export async function ciRunStatus(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/tools/database.ts">
     <item priority="high">
-      export async function dbListTables(): Promise<string> { /* ... */ }
+      export async function dbListTables(run = defaultListRun): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
-      export async function dbMigrationStatus(): Promise<string> { /* ... */ }
+      export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/tools/deploy_status.ts">
     <item priority="high">
-      export async function deployStatus(): Promise<string> { /* ... */ }
+      export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/tools/git.ts">
+    <item priority="medium">
+      function isErrorEnvelope(output: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
+      export async function gitWorkflowStatus(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/tools/health.ts">
@@ -53,7 +68,7 @@
   </file>
   <file path="src/tools/pulumi.ts">
     <item priority="high">
-      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
+      export async function pulumiStackOutputs(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

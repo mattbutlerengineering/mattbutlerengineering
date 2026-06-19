@@ -1,9 +1,8 @@
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
+import { DEFAULT_QUEUE_NAME } from "./job-types.js";
 import type { JobType, JobPayloadMap } from "./job-types.js";
 import { dispatchJob } from "./dispatch-job.js";
-
-const DEFAULT_QUEUE_NAME = "mbe-notifications";
 
 export type JobHandlerMap = {
   [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
