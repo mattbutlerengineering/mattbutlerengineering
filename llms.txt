@@ -2582,6 +2582,26 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/cost-logger.ts">
+    <item priority="low">
+      interface CostEntry {
+        timestamp: string;
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+        sessionId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface CostEntryInput {
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+        sessionId?: string;
+        status?: string;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/cost-tracker.ts">
     <item priority="high">
       export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* ... */ }
