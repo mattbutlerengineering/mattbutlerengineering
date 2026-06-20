@@ -224,6 +224,16 @@
       export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/reservation-owner.ts">
+    <item priority="high">
+      export function resolveReservationGuestEmail(
+        getById: (id: string) => Promise<{ guestEmail: string | null } | null>
+      ): OwnerResolver { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/reservations.ts">
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;

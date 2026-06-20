@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, Badge, Heading, Text, Button } from "@mattbutlerengineering/rialto";
 import { weeklyResources } from "../data/weekly-intake";
 import type { WeeklyResource } from "../data/weekly-intake";
-import { SOURCE_COLORS, SOURCE_LABELS } from "../utils/formatters.js";
+import { SOURCE_COLORS, SOURCE_LABELS, formatDate } from "../utils/formatters.js";
 import styles from "./WeeklyIntakePage.module.css";
 
 function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
@@ -20,13 +20,7 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
       </div>
       <Text className={styles.description}>{resource.description}</Text>
       <div className={styles.meta}>
-        <time dateTime={resource.publishedAt}>
-          {new Date(resource.publishedAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </time>
+        <time dateTime={resource.publishedAt}>{formatDate(resource.publishedAt)}</time>
         <div className={styles.tags}>
           {resource.tags.map((tag) => (
             <Badge key={tag} color="neutral" size="sm">

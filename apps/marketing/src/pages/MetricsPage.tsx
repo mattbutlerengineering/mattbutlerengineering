@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
 import { formatRatio, formatDate } from "../utils/formatters.js";
+import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./MetricsPage.module.css";
 
 interface BehavioralGate {
@@ -46,43 +46,18 @@ interface AcmmMetrics {
 }
 
 export function MetricsPage() {
-  const [metrics, setMetrics] = useState<AcmmMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const response = await fetch("/metrics.json");
-        if (!response.ok) {
-          throw new Error(`Failed to load metrics: ${response.status}`);
-        }
-        const data: AcmmMetrics = await response.json();
-        if (!cancelled) {
-          setMetrics(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error");
-        }
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: metrics, isLoading, error } = useDataFetch<AcmmMetrics>({ url: "/metrics.json" });
 
   if (error) {
     return (
       <div className={styles.container}>
         <Heading level={1}>Quality Metrics</Heading>
-        <Text className={styles.error}>Error loading metrics: {error}</Text>
+        <Text className={styles.error}>Error loading metrics: {error.message}</Text>
       </div>
     );
   }
 
-  if (!metrics) {
+  if (isLoading || !metrics) {
     return (
       <div className={styles.container}>
         <Heading level={1}>Quality Metrics</Heading>

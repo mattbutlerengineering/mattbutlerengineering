@@ -56,19 +56,22 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="utils">
-  <file path="src/utils/formatters.ts">
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useDataFetch.ts">
     <item priority="low">
-      interface ServiceStatus {
-        name: string;
+      interface UseDataFetchOptions {
         url: string;
-        status: "ok" | "degraded" | "error" | "loading";
-        version?: string;
-        latency?: number;
+        parser?: (data: unknown) => T;
+        deps?: DependencyList;
       }
     </item>
-    <item priority="high">
-      export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" { /* ... */ }
+    <item priority="low">
+      interface UseDataFetchReturn {
+        data: T | null;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<void>;
+      }
     </item>
   </file>
   </section>
