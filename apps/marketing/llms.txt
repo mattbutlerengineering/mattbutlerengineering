@@ -56,4 +56,23 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/useDataFetch.ts">
+    <item priority="low">
+      interface UseDataFetchOptions {
+        url: string;
+        parser?: (data: unknown) => T;
+        deps?: DependencyList;
+      }
+    </item>
+    <item priority="low">
+      interface UseDataFetchReturn {
+        data: T | null;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
+  </section>
 </codebase>
