@@ -127,4 +127,28 @@
     ];
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/formatters.ts">
+    export interface ServiceStatus {
+      readonly name: string;
+      readonly url: string;
+      readonly status: "ok" | "degraded" | "error" | "loading";
+      readonly version?: string;
+      readonly latency?: number;
+      readonly checkedAt?: string;
+    }
+    export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" {
+      switch (status) {
+        case "ok":
+          return "green";
+        case "degraded":
+          return "yellow";
+        case "error":
+          return "red";
+        default:
+          return "neutral";
+      }
+    }
+  </file>
+  </section>
 </codebase>

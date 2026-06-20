@@ -4555,6 +4555,20 @@
       export function ordinalVisit(n: number): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/utils/formatters.ts">
+    <item priority="low">
+      interface ServiceStatus {
+        name: string;
+        url: string;
+        status: "ok" | "degraded" | "error" | "loading";
+        version?: string;
+        latency?: number;
+      }
+    </item>
+    <item priority="high">
+      export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/utils/class-composer.ts">
     <item priority="high">
       export function cn(...classes: (string | false | null | undefined)[]): string { /* ... */ }

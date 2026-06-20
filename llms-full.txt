@@ -15074,7 +15074,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -16133,6 +16144,28 @@
       const suffix = ["th", "st", "nd", "rd"];
       const v = n % 100;
       return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]} visit`;
+    }
+  </file>
+  <file path="apps/marketing/src/utils/formatters.ts">
+    export interface ServiceStatus {
+      readonly name: string;
+      readonly url: string;
+      readonly status: "ok" | "degraded" | "error" | "loading";
+      readonly version?: string;
+      readonly latency?: number;
+      readonly checkedAt?: string;
+    }
+    export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" {
+      switch (status) {
+        case "ok":
+          return "green";
+        case "degraded":
+          return "yellow";
+        case "error":
+          return "red";
+        default:
+          return "neutral";
+      }
     }
   </file>
   <file path="packages/rialto/src/utils/class-composer.ts">

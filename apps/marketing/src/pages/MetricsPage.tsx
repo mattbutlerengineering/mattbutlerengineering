@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
+import { formatRatio, formatDate } from "../utils/formatters.js";
 import styles from "./MetricsPage.module.css";
 
 interface BehavioralGate {
@@ -42,18 +43,6 @@ interface AcmmMetrics {
   readonly history: readonly HistoryEntry[];
   readonly detectedByLevel: Record<string, number>;
   readonly behavioralGates: readonly BehavioralGate[];
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export function MetricsPage() {
@@ -161,9 +150,9 @@ export function MetricsPage() {
               <Text className={styles.gateValue}>
                 L{gate.level}:{" "}
                 {typeof gate.value === "number" && gate.value <= 1
-                  ? formatPercent(gate.value)
+                  ? formatRatio(gate.value)
                   : gate.value}{" "}
-                (threshold: {gate.threshold <= 1 ? formatPercent(gate.threshold) : gate.threshold})
+                (threshold: {gate.threshold <= 1 ? formatRatio(gate.threshold) : gate.threshold})
               </Text>
             </Card>
           ))}
@@ -176,26 +165,22 @@ export function MetricsPage() {
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PR Acceptance</Text>
             <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.agentPrAcceptanceRate)}
+              {formatRatio(metrics.behavioral.agentPrAcceptanceRate)}
             </Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PR Revert Rate</Text>
             <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.agentPrRevertRate)}
+              {formatRatio(metrics.behavioral.agentPrRevertRate)}
             </Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>CI Flake Rate</Text>
-            <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.ciFlakeRate)}
-            </Text>
+            <Text className={styles.statValue}>{formatRatio(metrics.behavioral.ciFlakeRate)}</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Eval Pass Rate</Text>
-            <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.evalPassRate)}
-            </Text>
+            <Text className={styles.statValue}>{formatRatio(metrics.behavioral.evalPassRate)}</Text>
           </Card>
         </div>
       </section>
