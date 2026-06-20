@@ -2,18 +2,19 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GuestTable } from "./GuestTable.js";
 import type { Guest } from "@mbe/types";
+import type { BadgeProps, ButtonProps, CardProps, TagProps, TextProps } from "@mattbutlerengineering/rialto";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
-  Button: ({ children, onClick, className }: any) => (
+  Badge: ({ children }: BadgeProps) => <span data-testid="badge">{children}</span>,
+  Button: ({ children, onClick, className }: ButtonProps) => (
     <button className={className} onClick={onClick}>
       {children}
     </button>
   ),
-  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
-  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
-  Text: ({ children }: any) => <span>{children}</span>,
+  Card: ({ children }: CardProps) => <div data-testid="card">{children}</div>,
+  Tag: ({ children }: TagProps) => <span data-testid="tag">{children}</span>,
+  Text: ({ children }: TextProps) => <span>{children}</span>,
 }));
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {

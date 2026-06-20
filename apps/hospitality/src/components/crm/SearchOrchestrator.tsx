@@ -11,6 +11,8 @@ export interface SearchOrchestratorProps {
   totalCount: number;
   isSearchActive: boolean;
   isEmpty: boolean;
+  /** While true, suppresses the result count and empty state to prevent a flash during initial load */
+  isLoading?: boolean;
 }
 
 /* ── Component ──────────────────────────────── */
@@ -23,6 +25,7 @@ export function SearchOrchestrator({
   totalCount,
   isSearchActive,
   isEmpty,
+  isLoading = false,
 }: SearchOrchestratorProps) {
   return (
     <>
@@ -38,13 +41,13 @@ export function SearchOrchestrator({
         </Button>
       </div>
 
-      {!isEmpty && (
+      {!isLoading && !isEmpty && (
         <Text variant="caption" color="secondary" className={styles.resultCount}>
           Showing {guestCount} of {totalCount} guests
         </Text>
       )}
 
-      {isEmpty && (
+      {!isLoading && isEmpty && (
         <div aria-live="polite" role="status">
           <EmptyState
             heading={isSearchActive ? "No guests found" : "No guests yet"}

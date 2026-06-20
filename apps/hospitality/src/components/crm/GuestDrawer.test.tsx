@@ -3,22 +3,34 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuestDrawer } from "./GuestDrawer.js";
 import type { Guest, Reservation } from "@mbe/types";
+import type {
+  AlertProps,
+  ButtonProps,
+  CheckboxProps,
+  DrawerProps,
+  InputProps,
+  StackProps,
+  TagProps,
+  TextProps,
+  TextAreaProps,
+} from "@mattbutlerengineering/rialto";
+import type { GuestCardProps } from "./GuestCard.js";
 import React from "react";
 
 const mockToast = vi.fn();
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Button: ({ children, onClick, disabled }: any) => (
+  Alert: ({ children }: AlertProps) => <div data-testid="alert">{children}</div>,
+  Button: ({ children, onClick, disabled }: ButtonProps) => (
     <button onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
-  Checkbox: ({ label, checked, onCheckedChange }: any) => (
+  Checkbox: ({ label, checked, onCheckedChange }: CheckboxProps) => (
     <label>
       <input
         type="checkbox"
-        aria-label={label}
+        aria-label={typeof label === "string" ? label : undefined}
         checked={checked ?? false}
         onChange={(e) => onCheckedChange?.(e.target.checked)}
       />
@@ -26,22 +38,25 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </label>
   ),
   Divider: () => <hr />,
-  Drawer: ({ children, open, footer }: any) =>
+  Drawer: ({ children, open, footer }: DrawerProps) =>
     open ? (
       <div data-testid="drawer">
         {children}
         {footer}
       </div>
     ) : null,
-  Input: (props: any) => {
-    const id = props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
+  Input: (props: InputProps) => {
+    const id =
+      (typeof props.label === "string" ? props.label : "")
+        .replace(/\s+/g, "-")
+        .toLowerCase() || "input";
     return (
       <div>
         {props.label && <label htmlFor={id}>{props.label}</label>}
         <input
           id={id}
           type={props.type}
-          value={props.value ?? ""}
+          value={(props.value as string) ?? ""}
           onChange={props.onChange}
           onKeyDown={props.onKeyDown}
           placeholder={props.placeholder}
@@ -50,17 +65,23 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     );
   },
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  TextArea: (props: any) => (
-    <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
+  Stack: ({ children }: StackProps) => <div>{children}</div>,
+  Tag: ({ children }: TagProps) => <span data-testid="tag">{children}</span>,
+  Text: ({ children }: TextProps) => <span>{children}</span>,
+  TextArea: (props: TextAreaProps) => (
+    <textarea
+      data-testid="textarea"
+      value={props.value}
+      onChange={(e) => props.onChange?.(e)}
+    />
   ),
   useToast: () => ({ toast: mockToast }),
 }));
 
 vi.mock("../crm/GuestCard.js", () => ({
-  GuestCard: ({ guestId }: any) => <div data-testid="guest-card" data-guest-id={guestId} />,
+  GuestCard: ({ guestId }: GuestCardProps) => (
+    <div data-testid="guest-card" data-guest-id={guestId} />
+  ),
 }));
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {

@@ -2,25 +2,26 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SearchOrchestrator } from "./SearchOrchestrator.js";
+import type { ButtonProps, EmptyStateProps, InputProps, TextProps } from "@mattbutlerengineering/rialto";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
-  EmptyState: ({ heading, description }: any) => (
+  Button: ({ children, onClick }: ButtonProps) => <button onClick={onClick}>{children}</button>,
+  EmptyState: ({ heading, description }: EmptyStateProps) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
     </div>
   ),
-  Input: (props: any) => (
+  Input: (props: InputProps) => (
     <input
       type={props.type}
-      value={props.value ?? ""}
+      value={(props.value as string) ?? ""}
       onChange={props.onChange}
       placeholder={props.placeholder}
     />
   ),
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children }: TextProps) => <span>{children}</span>,
 }));
 
 describe("SearchOrchestrator", () => {
@@ -165,5 +166,22 @@ describe("SearchOrchestrator", () => {
       />
     );
     expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it("does not show result count or empty state while isLoading", () => {
+    render(
+      <SearchOrchestrator
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onAddGuest={vi.fn()}
+        guestCount={0}
+        totalCount={0}
+        isSearchActive={false}
+        isEmpty={true}
+        isLoading={true}
+      />
+    );
+    expect(screen.queryByText(/Showing/)).toBeNull();
+    expect(screen.queryByTestId("empty-state")).toBeNull();
   });
 });

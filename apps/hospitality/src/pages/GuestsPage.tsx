@@ -225,7 +225,8 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
           guestCount={guests.length}
           totalCount={totalGuestCount}
           isSearchActive={isSearchActive}
-          isEmpty={!isLoading && !error && guests.length === 0}
+          isLoading={isLoading}
+          isEmpty={!error && guests.length === 0}
         />
       </div>
 
