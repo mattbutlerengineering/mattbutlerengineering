@@ -183,13 +183,7 @@
       export const BRIEFING_QUERY_KEY: unknown;
     </item>
     <item priority="low">
-      interface BriefingGuest {
-        id: string;
-        name: string;
-        visitCount: number;
-        lastVisit: string | null;
-        dietaryRestrictions: string[] | null;
-      }
+      type BriefingGuest = ApiBriefingGuest;
     </item>
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
