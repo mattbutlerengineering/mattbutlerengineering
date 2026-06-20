@@ -20,7 +20,8 @@ beforeEach(() => {
 });
 
 // Restore real timers so frozen fake time does not leak into other test files
-// sharded into the same worker (e.g. guest-risk's date-decay logic).
+// sharded into the same vitest worker (e.g. guest-risk's date-decay logic,
+// which flips risky→standard under a leaked setSystemTime).
 afterEach(() => {
   vi.useRealTimers();
 });
