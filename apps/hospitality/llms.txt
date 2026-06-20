@@ -273,6 +273,20 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useTimelineData.ts">
+    <item priority="low">
+      interface UseTimelineDataParams {
+        venueId: string | undefined;
+        date: string;
+      }
+    </item>
+    <item priority="low">
+      interface CancelArgs {
+        reason: string;
+        note: string;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useUsers.ts">
     <item priority="high">
       export const CURRENT_USER_QUERY_KEY: unknown;

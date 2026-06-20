@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-20T21:02:15.275Z",
+  "generatedAt": "2026-06-20T21:06:06.997Z",
   "patterns": {
     "magicTimeouts": {
       "count": 32,
@@ -14,7 +14,7 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 513,
+      "count": 516,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
@@ -30,7 +30,7 @@
       "description": "Function parameters that look unused (not prefixed with _)"
     },
     "mockShapeMismatch": {
-      "count": 19,
+      "count": 17,
       "description": "Test mocks using .mockResolvedValue({}) or .mockReturnValue({}) with empty objects (likely missing required fields)"
     }
   }

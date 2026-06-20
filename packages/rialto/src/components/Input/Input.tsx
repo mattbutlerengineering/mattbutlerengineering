@@ -2,6 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
+import { cn } from "../../utils/class-composer";
 import styles from "./Input.module.css";
 
 /**
@@ -50,16 +51,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     ref
   ) => {
     const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
-    const wrapperClass = [styles.wrapper, error && styles.error, className]
-      .filter(Boolean)
-      .join(" ");
-    const inputClass = [
+    const wrapperClass = cn(styles.wrapper, error && styles.error, className);
+    const inputClass = cn(
       styles.input,
-      startIcon && styles.inputWithStartIcon,
-      endIcon && styles.inputWithEndIcon,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      !!startIcon && styles.inputWithStartIcon,
+      !!endIcon && styles.inputWithEndIcon
+    );
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>

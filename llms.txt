@@ -1105,6 +1105,20 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useTimelineData.ts">
+    <item priority="low">
+      interface UseTimelineDataParams {
+        venueId: string | undefined;
+        date: string;
+      }
+    </item>
+    <item priority="low">
+      interface CancelArgs {
+        reason: string;
+        note: string;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
     <item priority="high">
       export const CURRENT_USER_QUERY_KEY: unknown;
@@ -2525,6 +2539,18 @@
         createdAt: Date;
         updatedAt: Date;
       }): Venue { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/waitlist-notifier.ts">
+    <item priority="low">
+      interface WaitlistNotifierLogger {
+        
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistNotifierScheduler {
+        
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
@@ -4326,6 +4352,7 @@
         bookingNotifier?: BookingNotifier;
         postVisitNotifier?: PostVisitNotifier;
         reservationEvents?: ReservationEventEmitter;
+        waitlistNotifier?: WaitlistNotifier;
       }
     </item>
     <item priority="high">
@@ -4536,6 +4563,18 @@
   <file path="apps/hospitality/src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/utils/class-composer.ts">
+    <item priority="high">
+      export function cn(...classes: (string | false | null | undefined)[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function variantClass(
+        styles: CSSModuleClasses,
+        current: string,
+        defaultValue: string
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/utils/feedback.ts">
