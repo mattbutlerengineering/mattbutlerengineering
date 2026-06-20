@@ -71,18 +71,29 @@ describe("useFormState - submit success", () => {
 
   it("ignores handleSubmit if already pending", async () => {
     let resolve!: () => void;
-    const onSubmit = vi.fn(() => new Promise<void>((r) => { resolve = r; }));
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((r) => {
+          resolve = r;
+        })
+    );
     const { result } = renderHook(() =>
       useFormState({ name: "Alice", email: "" }, onSubmit, guestSchema)
     );
 
-    act(() => { result.current.handleSubmit(); });
+    act(() => {
+      result.current.handleSubmit();
+    });
     expect(result.current.isPending).toBe(true);
 
-    await act(async () => { await result.current.handleSubmit(); });
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
     expect(onSubmit).toHaveBeenCalledTimes(1);
 
-    await act(async () => { resolve(); });
+    await act(async () => {
+      resolve();
+    });
   });
 });
 

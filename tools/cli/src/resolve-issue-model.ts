@@ -69,7 +69,7 @@ export function buildSpendAttempts(
   initialResult: IssueModelResult,
   initialCostUsd: number,
   escalatedResult?: IssueModelResult,
-  escalatedCostUsd?: number,
+  escalatedCostUsd?: number
 ): SpendAttempt[] {
   const first: SpendAttempt = {
     sessionId: `${baseSessionId}.attempt-1`,

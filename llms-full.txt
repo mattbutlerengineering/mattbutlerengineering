@@ -8028,6 +8028,86 @@
       }
     }
   </file>
+  <file path="services/reservations/src/routes/public-unsubscribe.ts">
+    function renderConfirmationPage(): string {
+      return `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Unsubscribed</title>
+      <style>
+        body { font-family: sans-serif; max-width: 480px; margin: 80px auto; text-align: center; color: #333; }
+        h1 { font-size: 1.5rem; }
+        p { color: #666; }
+      </style>
+    </head>
+    <body>
+      <h1>You have been unsubscribed</h1>
+      <p>You will no longer receive post-visit emails from us.</p>
+    </body>
+    </html>`;
+    }
+    export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Querystring: { token?: string } }>(
+        "/public/v1/guests/unsubscribe",
+        {
+          config: {
+            rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          schema: {
+            summary: "Unsubscribe guest from post-visit emails",
+            tags: ["Public"],
+            querystring: {
+              type: "object",
+              properties: {
+                token: { type: "string" },
+              },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { token } = request.query;
+    
+          if (!token) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Missing Token",
+              status: 400,
+              detail: "token query parameter is required",
+            });
+          }
+    
+          const result = verifyUnsubscribeToken(token);
+          if (!result.valid || !result.guestId) {
+            return reply.status(400).send({
+              type: "about:blank",
+              title: "Invalid Token",
+              status: 400,
+              detail: "Invalid or malformed unsubscribe token",
+            });
+          }
+    
+          try {
+            await guestService.markUnsubscribed(result.guestId);
+          } catch (err) {
+            request.log.error({ err }, "Failed to mark guest as unsubscribed");
+            return reply.status(500).send({
+              type: "about:blank",
+              title: "Server Error",
+              status: 500,
+              detail: "Failed to process unsubscribe request",
+            });
+          }
+    
+          return reply
+            .status(200)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .send(renderConfirmationPage());
+        }
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/public-venues.ts">
     interface PublicVenueResponse {
       name: string;
@@ -8752,6 +8832,32 @@
                     "Bad Request",
                     result.error ?? "Failed to update reservation"
                   )
+                );
+            }
+    
+            // Fire post-visit thank-you email when status transitions to COMPLETED
+            if (request.body.status === "COMPLETED" && result.reservation) {
+              const reservation = result.reservation;
+              const venue = reservation.venueId
+                ? await venueService.getById(reservation.venueId)
+                : null;
+              const settings = (venue?.settings ?? {}) as Record<string, unknown>;
+              const postVisitEmailEnabled = Boolean(settings.postVisitEmailEnabled);
+    
+              fastify.postVisitNotifier
+                .sendPostVisitEmail({
+                  reservationId: reservation.id,
+                  guestId: reservation.guestId ?? null,
+                  guestEmail: reservation.guestEmail ?? null,
+                  guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
+                  guestUnsubscribed: Boolean(reservation.guest?.unsubscribed),
+                  venueName: venue?.name ?? "",
+                  venuePostVisitEmailEnabled: postVisitEmailEnabled,
+                  visitDate: reservation.date,
+                  feedbackUrl: (settings.feedbackUrl as string | null) ?? null,
+                })
+                .catch((err) =>
+                  fastify.log.error({ err }, "Failed to send post-visit thank-you email")
                 );
             }
     
@@ -11447,6 +11553,37 @@
       emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
     }
   </file>
+  <file path="services/reservations/src/services/post-visit-notifier.ts">
+    export function generateUnsubscribeToken(guestId: string): string {
+      if (!guestId) throw new Error("guestId is required");
+      const signature = createHmac("sha256", UNSUBSCRIBE_SECRET).update(guestId).digest("hex");
+      return Buffer.from(`${guestId}:${signature}`).toString("base64url");
+    }
+    export function verifyUnsubscribeToken(token: string): { valid: boolean; guestId?: string } {
+      try {
+        if (!token) return { valid: false };
+        const decoded = Buffer.from(token, "base64url").toString("utf8");
+        const colonIndex = decoded.lastIndexOf(":");
+        if (colonIndex < 1) return { valid: false };
+    
+        const guestId = decoded.slice(0, colonIndex);
+        const signature = decoded.slice(colonIndex + 1);
+        if (!guestId || !signature) return { valid: false };
+    
+        const expected = createHmac("sha256", UNSUBSCRIBE_SECRET).update(guestId).digest("hex");
+    
+        // Constant-time compare to prevent timing attacks
+        const sigBuf = Buffer.from(signature, "hex");
+        const expBuf = Buffer.from(expected, "hex");
+        if (sigBuf.length !== expBuf.length) return { valid: false };
+        if (!timingSafeEqual(sigBuf, expBuf)) return { valid: false };
+    
+        return { valid: true, guestId };
+      } catch {
+        return { valid: false };
+      }
+    }
+  </file>
   <file path="services/reservations/src/services/reminder.ts">
     export async function findReservationsNeedingReminder() {
       const now = new Date();
@@ -11543,7 +11680,11 @@
       userId: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
-      guest?: { visitCount: number; communicationPreference: string | null } | null;
+      guest?: {
+        visitCount: number;
+        communicationPreference: string | null;
+        unsubscribed?: boolean;
+      } | null;
       venueId: string | null;
       createdAt: Date;
       updatedAt: Date;
@@ -15295,6 +15436,7 @@
     export interface ReservationsAppOptions extends AppOptions {
       notificationPort?: NotificationDispatcher;
       bookingNotifier?: BookingNotifier;
+      postVisitNotifier?: PostVisitNotifier;
       reservationEvents?: ReservationEventEmitter;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
@@ -15325,6 +15467,10 @@
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
       const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
       fastify.decorate("bookingNotifier", bookingNotifier);
+    
+      // Wire post-visit notifier — injectable for testing, default Resend-backed for production
+      const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
+      fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire reservation events emitter — injectable for testing, default singleton for production
       const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
@@ -15363,6 +15509,7 @@
       await fastify.register(manageReservationRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(modifyReservationRoutes);
+      await fastify.register(publicUnsubscribeRoutes);
     
       // Deposit routes
       await fastify.register(depositRoutes, { prefix: "/api/v1/deposits" });

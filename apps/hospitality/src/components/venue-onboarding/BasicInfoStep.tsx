@@ -25,8 +25,7 @@ export function BasicInfoStep({
 }: BasicInfoStepProps) {
   const handleNameChange = (value: string) => {
     const currentSlugIsAuto = data.slug === generateSlug(data.name);
-    const newSlug =
-      currentSlugIsAuto || data.slug === "" ? generateSlug(value) : data.slug;
+    const newSlug = currentSlugIsAuto || data.slug === "" ? generateSlug(value) : data.slug;
     onChange({ ...data, name: value, slug: newSlug });
   };
 
@@ -38,10 +37,10 @@ export function BasicInfoStep({
     slugStatus === "checking"
       ? "Checking availability..."
       : slugStatus === "available"
-      ? "Slug is available"
-      : slugStatus === "taken"
-      ? undefined // shown as error instead
-      : "URL-friendly identifier (auto-generated from name)";
+        ? "Slug is available"
+        : slugStatus === "taken"
+          ? undefined // shown as error instead
+          : "URL-friendly identifier (auto-generated from name)";
 
   const slugError = errors.slug !== undefined;
 

@@ -89,18 +89,10 @@ export function EditReservationDrawer({
   };
 
   const validationError =
-    errors.partySize?.message ??
-    errors.startTime?.message ??
-    errors.endTime?.message ??
-    error;
+    errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message ?? error;
 
   return (
-    <Drawer
-      open={true}
-      onClose={onClose}
-      title="Edit Reservation"
-      size="default"
-    >
+    <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
       <div data-testid="edit-reservation-drawer">
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg" style={{ padding: "var(--rialto-space-md)" }}>
@@ -111,9 +103,7 @@ export function EditReservationDrawer({
               </>
             )}
 
-            {validationError && (
-              <div className={styles.errorBanner}>{validationError}</div>
-            )}
+            {validationError && <div className={styles.errorBanner}>{validationError}</div>}
 
             <Stack gap="md">
               <div className={styles.fieldRow}>
@@ -136,8 +126,7 @@ export function EditReservationDrawer({
                       required: "Start and end times are required.",
                       validate: (value) => {
                         if (!value) return "Start and end times are required.";
-                        if (watchedStartTime >= value)
-                          return "End time must be after start time.";
+                        if (watchedStartTime >= value) return "End time must be after start time.";
                         return true;
                       },
                     })}
@@ -153,8 +142,7 @@ export function EditReservationDrawer({
                 {...register("partySize", {
                   validate: (value) => {
                     const parsed = parseInt(value, 10);
-                    if (isNaN(parsed) || parsed < 1)
-                      return "Party size must be a positive number.";
+                    if (isNaN(parsed) || parsed < 1) return "Party size must be a positive number.";
                     return true;
                   },
                 })}
@@ -168,12 +156,7 @@ export function EditReservationDrawer({
                 options={tableOptions}
               />
 
-              <TextArea
-                label="Notes"
-                rows={4}
-                disabled={isLoading}
-                {...register("notes")}
-              />
+              <TextArea label="Notes" rows={4} disabled={isLoading} {...register("notes")} />
             </Stack>
 
             <div className={styles.drawerActions}>

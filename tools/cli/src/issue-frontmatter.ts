@@ -28,7 +28,14 @@ export interface ParseResult {
 
 const MODEL_TIERS: readonly string[] = ["haiku", "sonnet", "opus"];
 const ADAPTERS: readonly string[] = ["auto", "claude", "gemini", "opencode"];
-const KNOWN_KEYS: readonly string[] = ["model", "budget", "max_turns", "adapter", "escalate", "verify"];
+const KNOWN_KEYS: readonly string[] = [
+  "model",
+  "budget",
+  "max_turns",
+  "adapter",
+  "escalate",
+  "verify",
+];
 /** Safety ceiling: a typo'd budget must not exceed the daily spend limit. */
 const MAX_BUDGET_USD = 5;
 

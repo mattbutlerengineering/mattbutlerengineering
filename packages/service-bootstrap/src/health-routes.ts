@@ -226,7 +226,10 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       sunsetDate,
       timestamp: new Date().toISOString(),
       checks,
-      error_rates: { endpoints: errorRateCheck.endpoints, degraded: errorRateCheck.status === "degraded" },
+      error_rates: {
+        endpoints: errorRateCheck.endpoints,
+        degraded: errorRateCheck.status === "degraded",
+      },
       ...(errorRateCheck.message && { message: errorRateCheck.message }),
     };
   };

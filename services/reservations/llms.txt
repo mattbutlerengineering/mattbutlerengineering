@@ -197,6 +197,14 @@
       } { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/public-unsubscribe.ts">
+    <item priority="medium">
+      function renderConfirmationPage(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const publicUnsubscribeRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-venues.ts">
     <item priority="high">
       interface PublicVenueResponse {
@@ -507,6 +515,14 @@
       }
     </item>
   </file>
+  <file path="src/services/post-visit-notifier.ts">
+    <item priority="high">
+      export function generateUnsubscribeToken(guestId: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyUnsubscribeToken(token: string): { valid: boolean; guestId?: string } { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/reminder.ts">
     <item priority="high">
       export async function findReservationsNeedingReminder() { /* ... */ }
@@ -702,6 +718,7 @@
       interface ReservationsAppOptions {
         notificationPort?: NotificationDispatcher;
         bookingNotifier?: BookingNotifier;
+        postVisitNotifier?: PostVisitNotifier;
         reservationEvents?: ReservationEventEmitter;
       }
     </item>

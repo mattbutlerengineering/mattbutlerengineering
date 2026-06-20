@@ -33,7 +33,15 @@ interface MockColumn {
 }
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Table: ({ columns, data, rowKey }: { columns: MockColumn[]; data: Record<string, unknown>[]; rowKey: (row: Record<string, unknown>) => string }) => (
+  Table: ({
+    columns,
+    data,
+    rowKey,
+  }: {
+    columns: MockColumn[];
+    data: Record<string, unknown>[];
+    rowKey: (row: Record<string, unknown>) => string;
+  }) => (
     <table data-testid="props-table">
       <thead>
         <tr>
@@ -53,7 +61,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </tbody>
     </table>
   ),
-  Text: ({ children, style }: { children: ReactNode; style?: CSSProperties }) => <span style={style}>{children}</span>,
+  Text: ({ children, style }: { children: ReactNode; style?: CSSProperties }) => (
+    <span style={style}>{children}</span>
+  ),
 }));
 
 const MOCK_PROPS: PropDef[] = [

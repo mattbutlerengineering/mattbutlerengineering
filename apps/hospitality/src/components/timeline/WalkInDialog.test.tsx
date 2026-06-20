@@ -131,12 +131,8 @@ describe("WalkInDialog", () => {
     render(<WalkInDialog {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: "5" }));
 
-    expect(
-      screen.getByRole("button", { name: "5" }).getAttribute("aria-pressed")
-    ).toBe("true");
-    expect(
-      screen.getByRole("button", { name: "2" }).getAttribute("aria-pressed")
-    ).toBe("false");
+    expect(screen.getByRole("button", { name: "5" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "2" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("should only show available tables with sufficient capacity", () => {
@@ -163,9 +159,7 @@ describe("WalkInDialog", () => {
     }));
     render(<WalkInDialog {...defaultProps} tables={occupiedTables} />);
 
-    expect(
-      screen.getByText(/no available tables for a party of 2/i)
-    ).toBeDefined();
+    expect(screen.getByText(/no available tables for a party of 2/i)).toBeDefined();
   });
 
   it("should disable Seat Now when no tables available", () => {

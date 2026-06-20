@@ -52,7 +52,11 @@ export interface PrismaReservationRow {
   userId: string | null;
   tableId: string;
   table?: PrismaTableRow | null;
-  guest?: { visitCount: number; communicationPreference: string | null } | null;
+  guest?: {
+    visitCount: number;
+    communicationPreference: string | null;
+    unsubscribed?: boolean;
+  } | null;
   venueId: string | null;
   createdAt: Date;
   updatedAt: Date;

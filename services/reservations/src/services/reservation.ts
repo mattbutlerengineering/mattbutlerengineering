@@ -78,7 +78,9 @@ export const reservationService = {
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: {
           table: true,
-          guest: { select: { visitCount: true, communicationPreference: true } },
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
         },
       }),
       prisma.reservation.count({ where }),
@@ -102,7 +104,9 @@ export const reservationService = {
         orderBy: [{ date: "desc" }, { startTime: "desc" }],
         include: {
           table: true,
-          guest: { select: { visitCount: true, communicationPreference: true } },
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
         },
       }),
       prisma.reservation.count({ where: { userId } }),
@@ -119,7 +123,7 @@ export const reservationService = {
       where: { id },
       include: {
         table: true,
-        guest: { select: { visitCount: true, communicationPreference: true } },
+        guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
       },
     });
     return reservation ? toReservation(reservation) : null;
@@ -143,7 +147,7 @@ export const reservationService = {
       },
       include: {
         table: true,
-        guest: { select: { visitCount: true, communicationPreference: true } },
+        guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
       },
     });
     return toReservation(reservation);
@@ -478,7 +482,9 @@ export const reservationService = {
         },
         include: {
           table: true,
-          guest: { select: { visitCount: true, communicationPreference: true } },
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
         },
       });
       return toReservation(reservation);

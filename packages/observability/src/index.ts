@@ -5,8 +5,16 @@ export { createRequestIdMiddleware, getRequestId, logWithRequestId } from "./req
 
 export { createReadinessTracker, registerStandardChecks } from "./readiness.js";
 
-export { errorRatePlugin_, createErrorRateTracker, createErrorRateHealthCheck } from "./error-rates.js";
-export type { EndpointErrorRate, ErrorRateSnapshot, ErrorRateHealthCheckResult } from "./error-rates.js";
+export {
+  errorRatePlugin_,
+  createErrorRateTracker,
+  createErrorRateHealthCheck,
+} from "./error-rates.js";
+export type {
+  EndpointErrorRate,
+  ErrorRateSnapshot,
+  ErrorRateHealthCheckResult,
+} from "./error-rates.js";
 export type {
   ReadinessTracker,
   ReadinessSnapshot,
