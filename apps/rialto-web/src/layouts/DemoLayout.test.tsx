@@ -1,17 +1,20 @@
+import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DemoLayout, FloatingControls } from "./DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  GlobalNav: ({ onThemeToggle }: any) => (
+  GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
     <nav data-testid="global-nav">
       <button onClick={onThemeToggle} data-testid="theme-toggle">
         toggle
       </button>
     </nav>
   ),
-  RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
+  RialtoProvider: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="rialto-provider">{children}</div>
+  ),
 }));
 
 vi.mock("../components/CookieConsent/useCookieConsent.js", () => ({
@@ -25,14 +28,32 @@ vi.mock("../components/CookieConsent/useCookieConsent.js", () => ({
 }));
 
 vi.mock("../components/CookieConsent/CookieConsent.js", () => ({
-  CookieBanner: ({ onAcceptAll, onRejectAll, onCustomize }: any) => (
+  CookieBanner: ({
+    onAcceptAll,
+    onRejectAll,
+    onCustomize,
+  }: {
+    onAcceptAll?: () => void;
+    onRejectAll?: () => void;
+    onCustomize?: () => void;
+  }) => (
     <div data-testid="cookie-banner">
       <button onClick={onAcceptAll}>Accept</button>
       <button onClick={onRejectAll}>Reject</button>
       <button onClick={onCustomize}>Customize</button>
     </div>
   ),
-  CookiePreferencesDialog: ({ open, onClose, onSave, onRejectAll }: any) =>
+  CookiePreferencesDialog: ({
+    open,
+    onClose,
+    onSave,
+    onRejectAll,
+  }: {
+    open?: boolean;
+    onClose?: () => void;
+    onSave?: () => void;
+    onRejectAll?: () => void;
+  }) =>
     open ? (
       <div data-testid="cookie-dialog">
         <button onClick={onClose}>Close</button>
