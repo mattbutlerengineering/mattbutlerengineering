@@ -34,6 +34,10 @@ import {
   type BookingNotifier,
 } from "./services/booking-notifications.js";
 import {
+  createDefaultWaitlistNotifier,
+  type WaitlistNotifier,
+} from "./services/waitlist-notifier.js";
+import {
   createDefaultPostVisitNotifier,
   type PostVisitNotifier,
 } from "./services/post-visit-notifier.js";
@@ -47,6 +51,7 @@ export interface ReservationsAppOptions extends AppOptions {
   bookingNotifier?: BookingNotifier;
   postVisitNotifier?: PostVisitNotifier;
   reservationEvents?: ReservationEventEmitter;
+  waitlistNotifier?: WaitlistNotifier;
 }
 
 /**
@@ -84,6 +89,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire post-visit notifier — injectable for testing, default Resend-backed for production
   const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
   fastify.decorate("postVisitNotifier", postVisitNotifier);
+
+  // Wire waitlist notifier — injectable for testing, default env-backed for production
+  const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier();
+  fastify.decorate("waitlistNotifier", waitlistNotifier);
 
   // Wire reservation events emitter — injectable for testing, default singleton for production
   const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
@@ -143,6 +152,7 @@ declare module "fastify" {
   interface FastifyInstance {
     notificationPort: NotificationDispatcher;
     bookingNotifier: BookingNotifier;
+    waitlistNotifier: WaitlistNotifier;
     postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
   }

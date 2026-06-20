@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
-import { useQueryClient } from "@tanstack/react-query";
 import { Drawer, Button, Divider, Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid, TimelineMobileView } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
@@ -11,9 +10,7 @@ import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { GuestCard } from "../components/crm/GuestCard.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
-import { useReservations, RESERVATIONS_QUERY_KEY } from "../hooks/useReservations.js";
-import { useTables, TABLES_QUERY_KEY } from "../hooks/useTables.js";
-import { useApiClient } from "../hooks/useApiClient.js";
+import { useTimelineData } from "../hooks/useTimelineData.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -62,6 +59,7 @@ function getStatusBadgeClass(status: Reservation["status"]): string {
 
 interface ReservationDetailsProps {
   reservation: Reservation;
+  tables: Table[];
   onEdit: () => void;
   onSeat: () => void;
   onCancel: () => void;
@@ -187,8 +185,6 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 export function TimelinePage() {
   const { selectedVenueId } = useVenue();
   const { isConnected } = useSSEStatus();
-  const api = useApiClient();
-  const queryClient = useQueryClient();
 
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
@@ -201,50 +197,18 @@ export function TimelinePage() {
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const isMobile = useIsMobile();
 
-  // Data fetching via TanStack Query hooks
   const {
-    data: allReservations,
-    isLoading: reservationsLoading,
-    error: reservationsError,
-  } = useReservations({
-    venueId: selectedVenueId ?? undefined,
-    date: selectedDate,
-    limit: 200,
-    enabled: !!selectedVenueId,
-  });
-
-  const {
-    data: rawTables,
-    isLoading: tablesLoading,
-    error: tablesError,
-  } = useTables({
-    venueId: selectedVenueId ?? undefined,
-    limit: 100,
-    enabled: !!selectedVenueId,
-  });
-
-  const isLoading = reservationsLoading || tablesLoading;
-  const fetchError = reservationsError ?? tablesError;
-
-  // Sort tables by priority, then by name
-  const tables = useMemo(() => {
-    if (!rawTables) return [];
-    return [...rawTables].sort((a, b) => {
-      if (a.priority !== b.priority) return b.priority - a.priority;
-      return (a.tableNumber || a.name).localeCompare(b.tableNumber || b.name);
-    });
-  }, [rawTables]);
-
-  // Filter reservations to the selected date
-  const reservations = useMemo(
-    () => (allReservations ?? []).filter((r) => r.date === selectedDate),
-    [allReservations, selectedDate]
-  );
-
-  const invalidateAll = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-    queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
-  }, [queryClient]);
+    reservations,
+    tables,
+    isLoading,
+    fetchError,
+    stats,
+    seatGuest,
+    cancelReservation,
+    updateReservation,
+    createWalkIn,
+    updateTableStatus,
+  } = useTimelineData({ venueId: selectedVenueId ?? undefined, date: selectedDate });
 
   const handlePreviousDay = useCallback(() => {
     const prev = new Date(selectedDate + "T00:00:00");
@@ -268,9 +232,7 @@ export function TimelinePage() {
 
   const handleSeat = async (reservation: Reservation) => {
     try {
-      await api.reservations.update(reservation.id, { status: "CONFIRMED" });
-      await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
-      invalidateAll();
+      await seatGuest(reservation);
       setSelectedReservation(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to seat guest");
@@ -280,11 +242,7 @@ export function TimelinePage() {
   const handleCancel = async (reason: string, note: string) => {
     if (!selectedReservation) return;
     try {
-      await api.reservations.cancelWithReason(selectedReservation.id, {
-        cancellationReason: reason,
-        cancellationNote: note,
-      });
-      invalidateAll();
+      await cancelReservation(selectedReservation.id, { reason, note });
       setShowCancelDialog(false);
       setSelectedReservation(null);
     } catch (err) {
@@ -294,8 +252,7 @@ export function TimelinePage() {
 
   const handleEdit = async (id: string, data: UpdateReservationRequest) => {
     try {
-      const updated = await api.reservations.update(id, data);
-      invalidateAll();
+      const updated = await updateReservation(id, data);
       setSelectedReservation(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update reservation");
@@ -309,16 +266,14 @@ export function TimelinePage() {
     guestName?: string;
   }) => {
     try {
-      await api.reservations.walkIn(data);
-      invalidateAll();
+      await createWalkIn(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create walk-in");
     }
   };
 
   const handleTableStatusChange = async (tableId: string, _status: TableStatus) => {
-    await api.tables.updateStatus(tableId, _status);
-    invalidateAll();
+    await updateTableStatus(tableId, _status);
   };
 
   // Format date for display
@@ -330,16 +285,6 @@ export function TimelinePage() {
   });
 
   const isToday = selectedDate === todayStr;
-
-  // Stats
-  const stats = useMemo(() => {
-    const confirmed = reservations.filter((r) => r.status === "CONFIRMED").length;
-    const pending = reservations.filter((r) => r.status === "PENDING").length;
-    const totalCovers = reservations
-      .filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW")
-      .reduce((sum, r) => sum + r.partySize, 0);
-    return { confirmed, pending, totalCovers, total: reservations.length };
-  }, [reservations]);
 
   return (
     <div className={styles.root}>
@@ -512,6 +457,7 @@ export function TimelinePage() {
 
             <ReservationDetails
               reservation={selectedReservation}
+              tables={tables}
               onEdit={() => setShowEditDrawer(true)}
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}
@@ -532,6 +478,7 @@ export function TimelinePage() {
           {selectedReservation && (
             <ReservationDetails
               reservation={selectedReservation}
+              tables={tables}
               onEdit={() => setShowEditDrawer(true)}
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}

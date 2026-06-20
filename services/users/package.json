@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "build:openapi": "tsx -e \"import { buildApp } from './src/app.js'; (async () => { const app = await buildApp({ logger: false }); await app.ready(); console.log(JSON.stringify(app.swagger(), null, 2)); })()\" > openapi.json",
     "start": "node dist/index.js",
     "test": "vitest run",

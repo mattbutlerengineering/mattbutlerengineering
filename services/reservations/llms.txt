@@ -687,6 +687,18 @@
       }): Venue { /* ... */ }
     </item>
   </file>
+  <file path="src/services/waitlist-notifier.ts">
+    <item priority="low">
+      interface WaitlistNotifierLogger {
+        
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistNotifierScheduler {
+        
+      }
+    </item>
+  </file>
   <file path="src/services/waitlist-utils.ts">
     <item priority="high">
       export function calculatePosition(existingCount: number): number { /* ... */ }
@@ -733,6 +745,7 @@
         bookingNotifier?: BookingNotifier;
         postVisitNotifier?: PostVisitNotifier;
         reservationEvents?: ReservationEventEmitter;
+        waitlistNotifier?: WaitlistNotifier;
       }
     </item>
     <item priority="high">
