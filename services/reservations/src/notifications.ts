@@ -57,8 +57,35 @@ export function createNotificationPort(): NotificationDispatcher {
 }
 
 /**
+ * Escapes characters that have special meaning in HTML.
+ * Used to prevent HTML/script injection from stored-data values.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Returns the URL if its scheme is http or https; otherwise returns null.
+ * Prevents javascript:, data:, and other dangerous schemes from entering the HTML.
+ */
+function sanitizeFeedbackUrl(raw: string): string | null {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Sends a post-visit thank-you email via Resend.
- * Uses the same RESEND_API_KEY / EMAIL_FROM env vars as the main notification adapter.
+ * Uses the same RESEND_API_KEY / EMAIL_FROM / MANAGE_BASE_URL env vars as the main notification adapter.
  * Returns without error when RESEND_API_KEY is not set (no-op).
  */
 export async function sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
@@ -71,23 +98,29 @@ export async function sendThankYouEmail(input: ThankYouEmailInput): Promise<void
 
   const { guestEmail, guestFirstName, venueName, visitDate, feedbackUrl, unsubscribeToken } = input;
 
-  const firstName = guestFirstName ?? "Guest";
-  const feedbackSection = feedbackUrl
-    ? `<p><a href="${feedbackUrl}">Share your feedback</a> — it helps us improve.</p>`
+  const safeName = escapeHtml(guestFirstName ?? "Guest");
+  const safeVenueName = escapeHtml(venueName);
+  const safeVisitDate = escapeHtml(visitDate);
+  const safeUnsubscribeUrl = escapeHtml(
+    `${baseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
+  );
+
+  const safeFeedbackUrl = feedbackUrl ? sanitizeFeedbackUrl(feedbackUrl) : null;
+  const feedbackSection = safeFeedbackUrl
+    ? `<p><a href="${escapeHtml(safeFeedbackUrl)}">Share your feedback</a> — it helps us improve.</p>`
     : "";
-  const unsubscribeUrl = `${baseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /><title>Thank you for visiting ${venueName}</title></head>
+<head><meta charset="UTF-8" /><title>Thank you for visiting ${safeVenueName}</title></head>
 <body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-  <h2>Thank you, ${firstName}!</h2>
-  <p>We loved having you at <strong>${venueName}</strong> on ${visitDate}.</p>
+  <h2>Thank you, ${safeName}!</h2>
+  <p>We loved having you at <strong>${safeVenueName}</strong> on ${safeVisitDate}.</p>
   <p>We hope to see you again soon.</p>
   ${feedbackSection}
   <hr style="margin-top:32px" />
   <p style="font-size:0.8em;color:#888">
-    <a href="${unsubscribeUrl}">Unsubscribe</a> from post-visit emails.
+    <a href="${safeUnsubscribeUrl}">Unsubscribe</a> from post-visit emails.
   </p>
 </body>
 </html>`;

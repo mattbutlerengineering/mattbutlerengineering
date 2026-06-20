@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Import lazily so we can control env vars before module evaluates
-async function importNotifications() {
-  return import("./notifications.js");
-}
+// ─── Module-level send mock — captured at factory time so all test groups see it ───
+
+const sendEmailMock = vi.fn().mockResolvedValue({ id: "email-id-123" });
 
 vi.mock("resend", () => {
   const ResendMock = vi.fn().mockImplementation(function (
@@ -11,7 +10,7 @@ vi.mock("resend", () => {
     apiKey: string
   ) {
     this._apiKey = apiKey;
-    this.emails = { send: vi.fn().mockResolvedValue({ id: "email-id-123" }) };
+    this.emails = { send: sendEmailMock };
   });
   return { Resend: ResendMock };
 });
@@ -36,6 +35,11 @@ vi.mock("@mbe/notifications", () => {
     NotificationDispatcher: NotificationDispatcherMock,
   };
 });
+
+// Import lazily so we can control env vars before module evaluates
+async function importNotifications() {
+  return import("./notifications.js");
+}
 
 describe("createResendAdapter", () => {
   const originalEnv = { ...process.env };
@@ -132,5 +136,132 @@ describe("createNotificationPort", () => {
     const { NotificationDispatcher } = await import("@mbe/notifications");
     expect(NotificationDispatcher).toHaveBeenCalled();
     expect(dispatcher).toBeDefined();
+  });
+});
+
+// ─── Security: sendThankYouEmail HTML injection prevention ────────────────────
+
+describe("sendThankYouEmail — HTML injection prevention", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    sendEmailMock.mockClear();
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.EMAIL_FROM = "from@example.com";
+    process.env.MANAGE_BASE_URL = "https://example.com";
+  });
+
+  afterEach(() => {
+    Object.keys(process.env).forEach((key) => {
+      if (!(key in originalEnv)) delete process.env[key];
+    });
+    Object.assign(process.env, originalEnv);
+  });
+
+  async function captureHtml(input: Record<string, unknown>): Promise<string> {
+    const { sendThankYouEmail } = await importNotifications();
+    await sendThankYouEmail(input as unknown as Parameters<typeof sendThankYouEmail>[0]);
+    const calls = sendEmailMock.mock.calls as Array<[{ html: string }]>;
+    if (calls.length === 0) throw new Error("sendEmailMock was not called");
+    return calls[calls.length - 1][0].html;
+  }
+
+  it("rejects a javascript: feedbackUrl and omits the feedback section", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: "javascript:alert(1)",
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).not.toContain("javascript:alert(1)");
+    expect(html).not.toContain("Share your feedback");
+  });
+
+  it("rejects a data: feedbackUrl and omits the feedback section", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: "data:text/html,<script>alert(1)</script>",
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).not.toContain("data:text/html");
+    expect(html).not.toContain("Share your feedback");
+  });
+
+  it("rejects a feedbackUrl with HTML-injection payload and does not emit raw script tag", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: '"><script>alert(1)</script>',
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain('"><script>alert(1)</script>');
+  });
+
+  it("includes feedback link for a safe https feedbackUrl", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: "https://feedback.example.com/survey?id=1",
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).toContain("Share your feedback");
+    expect(html).toContain("https://feedback.example.com/survey?id=1");
+  });
+
+  it("includes feedback link for a safe http feedbackUrl", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: "http://feedback.example.com/survey",
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).toContain("Share your feedback");
+    expect(html).toContain("http://feedback.example.com/survey");
+  });
+
+  it("HTML-escapes venueName containing angle brackets", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: "Alice",
+      venueName: "<script>evil</script>",
+      visitDate: "2026-06-15",
+      feedbackUrl: null,
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).not.toContain("<script>evil</script>");
+    expect(html).toContain("&lt;script&gt;evil&lt;/script&gt;");
+  });
+
+  it("HTML-escapes guestFirstName containing angle brackets", async () => {
+    const html = await captureHtml({
+      guestEmail: "g@example.com",
+      guestFirstName: '<img src=x onerror="alert(1)">',
+      venueName: "Cafe",
+      visitDate: "2026-06-15",
+      feedbackUrl: null,
+      unsubscribeToken: "tok",
+    });
+
+    expect(html).not.toContain('<img src=x onerror="alert(1)">');
+    expect(html).toContain("&lt;img");
   });
 });
