@@ -113,42 +113,7 @@ export function TogglePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label text beside the toggle.",
-            },
-            {
-              name: "checked",
-              type: "boolean",
-              description: "Controlled on/off state.",
-            },
-            {
-              name: "defaultChecked",
-              type: "boolean",
-              default: "false",
-              description: "Uncontrolled initial state.",
-            },
-            {
-              name: "onCheckedChange",
-              type: "(checked: boolean) => void",
-              description: "Called when state changes.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the toggle.",
-            },
-            {
-              name: "disabledReason",
-              type: "string",
-              description: "Tooltip shown on hover when disabled.",
-            },
-          ]}
-        />
+        <PropsTable component="Toggle" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

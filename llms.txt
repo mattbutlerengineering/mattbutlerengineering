@@ -638,18 +638,29 @@
     </item>
   </file>
   <file path="apps/rialto-web/src/data/nav-sections.ts">
+    <item priority="high">
+      export const NAV_SECTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const COMPONENT_COUNT: unknown;
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/data/page-registry.ts">
+    <item priority="low">
+      interface PageEntry {
+        id: string;
+        label: string;
+        category: string;
+        path: string;
+        comingSoon?: boolean;
+      }
+    </item>
     <item priority="low">
       interface NavItem {
         id: string;
         label: string;
         path: string;
         comingSoon?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface NavSection {
-        label: string;
-        items: NavItem[];
       }
     </item>
   </file>
@@ -1104,6 +1115,11 @@
     </item>
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    <item priority="high">
+      export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">

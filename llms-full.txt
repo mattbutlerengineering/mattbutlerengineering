@@ -2312,16 +2312,26 @@
     ];
   </file>
   <file path="apps/rialto-web/src/data/nav-sections.ts">
+    export const NAV_SECTIONS = REGISTRY_NAV_SECTIONS;
+    export const COMPONENT_COUNT = NAV_SECTIONS.reduce(
+      (total, section) => total + section.items.length,
+      0
+    );
+  </file>
+  <file path="apps/rialto-web/src/data/page-registry.ts">
+    export interface PageEntry {
+      id: string;
+      label: string;
+      category: string;
+      path: string;
+      comingSoon?: boolean;
+      load: () => Promise<unknown>;
+    }
     export interface NavItem {
       id: string;
       label: string;
       path: string;
-      /** When true, item is rendered in a muted style with a "coming soon" indicator. */
       comingSoon?: boolean;
-    }
-    export interface NavSection {
-      label: string;
-      items: NavItem[];
     }
   </file>
   <file path="apps/rialto-web/src/data/tapechart-fixtures.ts">
@@ -3187,6 +3197,19 @@
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+  </file>
+  <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    export function usePropsFromManifest(componentName: string): PropDef[] {
+      const entry = manifest.components.find((c) => c.name === componentName);
+      if (!entry) return [];
+    
+      return entry.props.map((p) => ({
+        name: p.name,
+        type: p.type.replace(/\s*\|\s*undefined$/, ""),
+        description: p.description ?? "",
+        required: p.required,
+      }));
+    }
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     export function useBoop(): {

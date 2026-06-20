@@ -19,18 +19,29 @@
   </section>
   <section priority="medium" role="data">
   <file path="src/data/nav-sections.ts">
+    <item priority="high">
+      export const NAV_SECTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const COMPONENT_COUNT: unknown;
+    </item>
+  </file>
+  <file path="src/data/page-registry.ts">
+    <item priority="low">
+      interface PageEntry {
+        id: string;
+        label: string;
+        category: string;
+        path: string;
+        comingSoon?: boolean;
+      }
+    </item>
     <item priority="low">
       interface NavItem {
         id: string;
         label: string;
         path: string;
         comingSoon?: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface NavSection {
-        label: string;
-        items: NavItem[];
       }
     </item>
   </file>
@@ -62,6 +73,13 @@
         updateDriver: (id: string, updates: Partial<Omit<Driver, "id">>) => void;
         deleteDriver: (id: string) => void;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/use-props-from-manifest.ts">
+    <item priority="high">
+      export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
   </file>
   </section>
