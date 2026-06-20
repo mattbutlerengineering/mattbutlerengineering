@@ -84,6 +84,7 @@ export type {
 // Guest types
 export type {
   Guest,
+  GuestRiskScore,
   StaffNote,
   CommunicationPreference,
   CreateGuestRequest,

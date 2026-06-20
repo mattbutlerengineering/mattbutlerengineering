@@ -137,4 +137,80 @@ describe("BookingWidget", () => {
 
     await waitFor(() => expect(screen.getByText("API Down")).toBeDefined());
   });
+
+  it("shows payment step for risky guest even when venue has no deposit policy", async () => {
+    // Mock global fetch for both venue config and guest risk endpoints
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes("/guest-risk")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: { riskScore: "risky", noShowCount: 2, requiresDeposit: true },
+            }),
+        });
+      }
+      // Venue config endpoint — deposit enabled with amount (required for payment step)
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: {
+              deposit: {
+                enabled: true,
+                depositType: "flat",
+                amountCents: 5000,
+                freeCancellationHours: null,
+                lateCancellationFeePercent: null,
+                noShowFeePercent: null,
+              },
+              currencyCode: "USD",
+            },
+          }),
+      });
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    render(
+      <BookingWidget venueId="v1" venueSlug="the-oak-table" stripePublishableKey="pk_test_abc" />
+    );
+
+    // Step 1: Date & Party
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    // Step 2: Time
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(screen.getByText(/6:00 PM/i));
+
+    // Step 3: Details
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Risky Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "risky@example.com" },
+    });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-456",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    // Should go to Payment step (not skip to Confirmation)
+    await waitFor(() => expect(screen.getByText("Payment")).toBeDefined());
+
+    vi.unstubAllGlobals();
+  });
 });

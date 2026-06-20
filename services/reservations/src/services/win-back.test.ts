@@ -12,6 +12,8 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     phone: null,
     notes: null,
     visitCount: 3,
+    noShowCount: 0,
+    riskScore: "trusted",
     lifetimeSpend: null,
     lastVisit: null,
     tags: null,

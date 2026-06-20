@@ -97,6 +97,8 @@ const mockGuestWithDietary = {
   name: "Jane Doe",
   notes: null,
   visitCount: 0,
+  noShowCount: 0,
+  riskScore: "trusted" as const,
   lifetimeSpend: null,
   lastVisit: null,
   tags: null,

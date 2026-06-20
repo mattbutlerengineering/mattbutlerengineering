@@ -9,6 +9,8 @@ export interface StaffNote {
   createdAt: string;
 }
 
+export type GuestRiskScore = "trusted" | "standard" | "risky";
+
 export interface Guest {
   id: string;
   venueId: string;
@@ -18,6 +20,10 @@ export interface Guest {
   name: string;
   notes: string | null;
   visitCount: number;
+  /** Number of NO_SHOW reservations for this guest at this venue. */
+  noShowCount: number;
+  /** Computed risk score based on no-show history. */
+  riskScore: GuestRiskScore;
   lifetimeSpend: string | null; // Decimal as string for precision
   lastVisit: string | null;
   tags: string[] | null;
