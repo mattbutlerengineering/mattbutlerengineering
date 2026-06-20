@@ -14,6 +14,17 @@ vi.mock("../services/waitlist.js", () => ({
   },
 }));
 
+// Mock the waitlist notifier
+vi.mock("../services/waitlist-notifier.js", () => ({
+  createDefaultWaitlistNotifier: vi.fn(() => ({
+    notifyAdded: vi.fn().mockResolvedValue(undefined),
+    notifyPositionUpdate: vi.fn().mockResolvedValue(undefined),
+    notifyTableReady: vi.fn().mockResolvedValue(undefined),
+    handleExpiry: vi.fn().mockResolvedValue(undefined),
+  })),
+  validatePhone: vi.fn().mockReturnValue(true),
+}));
+
 // Mock the database
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -406,6 +417,55 @@ describe("Waitlist Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("PUT /api/v1/waitlist/:id/notify", () => {
+    it("returns 200 and notifies the guest when entry exists", async () => {
+      vi.mocked(waitlistService.getById).mockResolvedValue(mockEntry as never);
+
+      const response = await app.inject({
+        method: "PUT",
+        url: "/api/v1/waitlist/entry-1/notify",
+        headers: AUTH_HEADERS,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data.id).toBe("entry-1");
+    });
+
+    it("returns 404 when entry not found", async () => {
+      vi.mocked(waitlistService.getById).mockResolvedValue(null);
+
+      const response = await app.inject({
+        method: "PUT",
+        url: "/api/v1/waitlist/bad-id/notify",
+        headers: AUTH_HEADERS,
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("POST /api/v1/waitlist — phone validation", () => {
+    it("returns 400 when guestPhone fails validation", async () => {
+      const { validatePhone } = await import("../services/waitlist-notifier.js");
+      vi.mocked(validatePhone).mockReturnValueOnce(false);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/waitlist",
+        headers: AUTH_HEADERS,
+        payload: {
+          venueId: "venue-1",
+          partySize: 2,
+          guestName: "Alice",
+          guestPhone: "123",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
     });
   });
 });

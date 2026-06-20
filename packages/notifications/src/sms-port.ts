@@ -27,8 +27,30 @@ export interface WinbackMessageInput {
   manageBaseUrl: string;
 }
 
+export interface WaitlistAddedInput {
+  guestPhone: string;
+  guestName: string | null;
+  position: number;
+  estimatedWaitMinutes: number;
+}
+
+export interface WaitlistPositionUpdateInput {
+  guestPhone: string;
+  guestName: string | null;
+  position: number;
+  estimatedWaitMinutes: number;
+}
+
+export interface WaitlistTableReadyInput {
+  guestPhone: string;
+  guestName: string | null;
+}
+
 export interface SmsPort {
   sendBookingReminder(input: SmsNotificationInput): Promise<void>;
   sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void>;
   sendWinbackMessage(input: WinbackMessageInput): Promise<void>;
+  sendWaitlistAdded(input: WaitlistAddedInput): Promise<void>;
+  sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void>;
+  sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void>;
 }

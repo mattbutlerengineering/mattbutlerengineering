@@ -10,6 +10,9 @@ export type {
   SmsNotificationInput,
   WaitlistUpdateInput,
   WinbackMessageInput,
+  WaitlistAddedInput,
+  WaitlistPositionUpdateInput,
+  WaitlistTableReadyInput,
 } from "./sms-port.js";
 export { TwilioSmsAdapter } from "./twilio-sms-adapter.js";
 export type { TwilioSmsAdapterConfig } from "./twilio-sms-adapter.js";
