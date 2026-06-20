@@ -4,8 +4,8 @@ import {
   getSensorColor,
   formatPercent,
   formatTimestamp,
-  type SensorReport,
-} from "../data/ai-health.js";
+} from "../utils/formatters.js";
+import type { SensorReport } from "../data/ai-health.js";
 import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./AiHealthPage.module.css";
 

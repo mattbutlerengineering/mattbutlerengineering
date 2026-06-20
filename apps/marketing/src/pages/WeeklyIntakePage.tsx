@@ -2,21 +2,8 @@ import { useState } from "react";
 import { Card, Badge, Heading, Text, Button } from "@mattbutlerengineering/rialto";
 import { weeklyResources } from "../data/weekly-intake";
 import type { WeeklyResource } from "../data/weekly-intake";
+import { SOURCE_COLORS, SOURCE_LABELS, formatDate } from "../utils/formatters.js";
 import styles from "./WeeklyIntakePage.module.css";
-
-const sourceColors: Record<WeeklyResource["source"], "yellow" | "blue" | "purple" | "neutral"> = {
-  "js-weekly": "yellow",
-  "react-weekly": "blue",
-  "ai-weekly": "purple",
-  other: "neutral",
-};
-
-const sourceLabels: Record<WeeklyResource["source"], string> = {
-  "js-weekly": "JS Weekly",
-  "react-weekly": "React Weekly",
-  "ai-weekly": "AI Weekly",
-  other: "Other",
-};
 
 function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
   return (
@@ -27,19 +14,13 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
             {resource.title}
           </Heading>
         </a>
-        <Badge color={sourceColors[resource.source]} size="sm">
-          {sourceLabels[resource.source]}
+        <Badge color={SOURCE_COLORS[resource.source]} size="sm">
+          {SOURCE_LABELS[resource.source]}
         </Badge>
       </div>
       <Text className={styles.description}>{resource.description}</Text>
       <div className={styles.meta}>
-        <time dateTime={resource.publishedAt}>
-          {new Date(resource.publishedAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </time>
+        <time dateTime={resource.publishedAt}>{formatDate(resource.publishedAt)}</time>
         <div className={styles.tags}>
           {resource.tags.map((tag) => (
             <Badge key={tag} color="neutral" size="sm">
