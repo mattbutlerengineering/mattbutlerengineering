@@ -132,7 +132,21 @@ jobs:
             exit 1
           fi
           echo "Triggering deployment for app $APP_ID"
-          doctl apps create-deployment "$APP_ID" --wait
+          # Retry to absorb transient DO build failures (BuildRateLimit from concurrent
+          # builds / the doctl+Pulumi dual-deploy race). create-deployment is safe to
+          # re-issue: each call starts a fresh deployment and the latest one wins.
+          for attempt in 1 2 3; do
+            if doctl apps create-deployment "$APP_ID" --wait; then
+              echo "Deployment succeeded on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Deployment attempt $attempt failed (likely transient DO BuildRateLimit); retrying after backoff"
+              sleep $((attempt * 60))
+            fi
+          done
+          echo "::error::Deployment failed after 3 attempts"
+          exit 1
 
   verify:
     name: Post-Deploy Verification
