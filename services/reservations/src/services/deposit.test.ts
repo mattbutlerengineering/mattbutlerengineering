@@ -255,6 +255,18 @@ describe("DepositService", () => {
         })
       );
     });
+
+    it("surfaces the original Stripe error when the rollback DB write also fails", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(makeDeposit({ status: "applied", appliedAt: new Date() }))
+        .mockRejectedValueOnce(new Error("db down")); // rollback write fails
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+
+      // The caller must see the original Stripe failure, not the rollback DB error.
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+    });
   });
 
   describe("refund (held -> refunded)", () => {

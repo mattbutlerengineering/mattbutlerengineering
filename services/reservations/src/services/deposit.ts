@@ -132,7 +132,10 @@ export class DepositService {
       try {
         await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
       } catch (error) {
-        await this._rollbackToHeld(depositId, "refundedAt");
+        // Best-effort rollback. If the rollback itself fails (e.g. DB down),
+        // surface the original Stripe error rather than masking it — never
+        // swallow the cause of the failure.
+        await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
         throw error;
       }
     }
@@ -178,7 +181,10 @@ export class DepositService {
           `${depositId}:${action}`
         );
       } catch (error) {
-        await this._rollbackToHeld(depositId, timestampField);
+        // Best-effort rollback. If the rollback itself fails (e.g. DB down),
+        // surface the original Stripe error rather than masking it — never
+        // swallow the cause of the failure.
+        await this._rollbackToHeld(depositId, timestampField).catch(() => {});
         throw error;
       }
     }
