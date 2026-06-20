@@ -1324,22 +1324,6 @@
       readonly reason?: string;
     }
   </file>
-  <file path="src/services/sdk-event-mapper.ts">
-    function truncate(text: string, maxLen: number): string {
-      if (text.length <= maxLen) return text;
-      return text.slice(0, maxLen - 1) + "…";
-    }
-    function extractText(content: unknown): string {
-      if (typeof content === "string") return content;
-      if (!Array.isArray(content)) return "";
-      return content
-        .filter(
-          (block: Record<string, unknown>) => block.type === "text" && typeof block.text === "string"
-        )
-        .map((block: Record<string, unknown>) => block.text as string)
-        .join("\n");
-    }
-  </file>
   <file path="src/services/session-concurrency.ts">
     export interface SessionConcurrency {
       /** The configured maximum number of concurrent sessions. */
@@ -1440,6 +1424,33 @@
         data: (event.data as Record<string, unknown>) ?? {},
         createdAt: event.createdAt.toISOString(),
       };
+    }
+  </file>
+  <file path="src/services/storage-event-mapper.ts">
+    function truncate(text: string, maxLen: number): string {
+      if (text.length <= maxLen) return text;
+      return text.slice(0, maxLen - 1) + "…";
+    }
+    function summarizeToolInput(input: Record<string, unknown>): Record<string, unknown> {
+      const summary: Record<string, unknown> = {};
+    
+      if (typeof input.file_path === "string") {
+        summary.file_path = input.file_path;
+      }
+    
+      if (typeof input.command === "string") {
+        summary.command = truncate(input.command, 200);
+      }
+    
+      if (typeof input.pattern === "string") {
+        summary.pattern = input.pattern;
+      }
+    
+      if (typeof input.path === "string" && !("file_path" in summary)) {
+        summary.path = input.path;
+      }
+    
+      return summary;
     }
   </file>
   <file path="src/services/stored-spec.ts">

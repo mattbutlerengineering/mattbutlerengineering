@@ -4,11 +4,12 @@ import {
   DEFAULT_SESSION_CONFIG,
   type SessionConfig,
   type SessionEvent,
+  type MappedEvent,
 } from "@mbe/agent-core";
 import type { AgentSession } from "@mbe/types";
 import type { sessionService as SessionServiceType } from "./session.js";
 import type { SessionConcurrency } from "./session-concurrency.js";
-import { mapSdkEvent } from "./sdk-event-mapper.js";
+import { mapForStorage } from "./storage-event-mapper.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -73,8 +74,26 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
 
       const onEvent = async (event: SessionEvent) => {
         try {
-          const mapped = mapSdkEvent(event);
-          await sessionService.addEvent(session.id, mapped.type, mapped.data);
+          const eventData = event.data as { message?: string };
+          if (typeof eventData.message === "string") {
+            // Try to parse as a MappedEvent (emitted by run-hardened-query as JSON)
+            try {
+              const parsed = JSON.parse(eventData.message) as MappedEvent;
+              if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
+                const stored = mapForStorage(parsed);
+                await sessionService.addEvent(session.id, stored.type, stored.data);
+                return;
+              }
+            } catch {
+              // Not JSON — fall through to plain message storage
+            }
+          }
+          // Plain message events (session:start, session:error, etc.) — store as-is
+          await sessionService.addEvent(
+            session.id,
+            event.type,
+            event.data as Record<string, unknown>
+          );
         } catch {
           // Event logging is best-effort
         }
