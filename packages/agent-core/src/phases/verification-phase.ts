@@ -1,24 +1,26 @@
-import { hasChanges, commitChanges, pushBranch } from "../worktree-manager.js";
-import { getGitDiff } from "../success-evaluator.js";
-import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { withRetry } from "../retry.js";
 import { emitEvent, sanitizeForCommitMessage } from "../utils.js";
-import type { PipelineContext, PipelinePhase, PhaseResult } from "./pipeline-types.js";
+import type { GatewayVerdict } from "../post-commit-gateway.js";
+import type { EvaluationResult } from "../success-evaluator.js";
+import type {
+  Phase,
+  PhaseDeps,
+  PhaseExecution,
+  VerificationPhaseInput,
+  VerificationPhaseOutput,
+} from "./pipeline-types.js";
 
-export class VerificationPhase implements PipelinePhase {
+export class VerificationPhase implements Phase<VerificationPhaseInput, VerificationPhaseOutput> {
   readonly name = "verification" as const;
 
-  async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-    const { config, onEvent, worktree, resultMessage, stuckReason } = ctx;
+  async run(
+    input: VerificationPhaseInput,
+    deps: PhaseDeps
+  ): Promise<PhaseExecution<VerificationPhaseOutput>> {
+    const { config, onEvent, worktree, resultMessage, stuckReason } = input;
+    const { worktreeManager, successEvaluator, gateway } = deps;
 
-    if (!worktree) {
-      return {
-        result: { phase: this.name, status: "skipped", errors: [] },
-        ctx,
-      };
-    }
-
-    const changed = await hasChanges(worktree.path);
+    const changed = await worktreeManager.hasChanges(worktree.path);
 
     if (!changed) {
       emitEvent(onEvent, "session:result", {
@@ -26,7 +28,7 @@ export class VerificationPhase implements PipelinePhase {
       });
       return {
         result: { phase: this.name, status: "success", errors: [] },
-        ctx: { ...ctx, hasChanges: false },
+        output: { hasChanges: false },
       };
     }
 
@@ -34,20 +36,22 @@ export class VerificationPhase implements PipelinePhase {
     const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
     const prefix = isSuccess ? "feat" : "wip";
     const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-    await commitChanges(worktree.path, commitMsg);
+    await worktreeManager.commitChanges(worktree.path, commitMsg);
 
     // Push with retry for transient network failures
-    await withRetry(() => pushBranch(worktree.path, worktree.branchName), { maxRetries: 3 });
+    await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+      maxRetries: 3,
+    });
 
     // Run post-commit gateway (verification + quality gates) only on success
     const errors: string[] = [];
-    let gatewayVerdict;
-    let gatewayEvaluation;
+    let gatewayVerdict: GatewayVerdict | undefined;
+    let gatewayEvaluation: EvaluationResult | undefined;
     let cachedDiff: string | undefined;
 
     if (isSuccess) {
-      cachedDiff = await getGitDiff(worktree.path);
-      gatewayVerdict = await runPostCommitGateway(
+      cachedDiff = await successEvaluator.getGitDiff(worktree.path);
+      gatewayVerdict = await gateway.runPostCommitGateway(
         {
           worktreePath: worktree.path,
           diff: cachedDiff,
@@ -67,14 +71,12 @@ export class VerificationPhase implements PipelinePhase {
 
     return {
       result: { phase: this.name, status: "success", errors },
-      ctx: {
-        ...ctx,
+      output: {
         hasChanges: true,
         commitMsg,
         cachedDiff,
         gatewayVerdict,
         gatewayEvaluation,
-        errors: [...ctx.errors, ...errors],
       },
     };
   }

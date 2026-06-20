@@ -1,21 +1,20 @@
 import { trace } from "@opentelemetry/api";
-import { runFeedbackLoop } from "../feedback-loop.js";
 import { getFeedbackLoopModel } from "../model-router.js";
 import { emitEvent } from "../utils.js";
-import type { PipelineContext, PipelinePhase, PhaseResult } from "./pipeline-types.js";
+import type { Phase, PhaseDeps, PhaseExecution, FeedbackPhaseInput } from "./pipeline-types.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
-export class FeedbackPhase implements PipelinePhase {
+export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
   readonly name = "feedback" as const;
 
-  async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-    const { config, onEvent, worktree, resultMessage, prNumber } = ctx;
+  async run(input: FeedbackPhaseInput, deps: PhaseDeps): Promise<PhaseExecution<void>> {
+    const { config, onEvent, worktree, resultMessage, prNumber, prUrl } = input;
 
-    if (!config.feedbackLoop?.enabled || !prNumber || !ctx.prUrl || !worktree) {
+    if (!config.feedbackLoop?.enabled || !prNumber || !prUrl) {
       return {
         result: { phase: this.name, status: "skipped", errors: [] },
-        ctx,
+        output: null,
       };
     }
 
@@ -26,7 +25,7 @@ export class FeedbackPhase implements PipelinePhase {
     const fbSpan = tracer.startSpan("agent_core.feedback_loop");
     let feedbackResult;
     try {
-      feedbackResult = await runFeedbackLoop(
+      feedbackResult = await deps.feedbackLoop.runFeedbackLoop(
         {
           prNumber,
           branchName: worktree.branchName,
@@ -52,7 +51,7 @@ export class FeedbackPhase implements PipelinePhase {
 
     return {
       result: { phase: this.name, status: "success", errors: [] },
-      ctx,
+      output: undefined,
     };
   }
 }

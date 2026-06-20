@@ -376,6 +376,73 @@
     }
   </file>
   </section>
+  <section priority="medium" role="__tests__">
+  <file path="packages/agent-core/src/__tests__/fake-phase-deps.ts">
+    export function makeFakePhaseDeps(): PhaseDeps {
+      return {
+        worktreeManager: {
+          createWorktree: vi.fn().mockResolvedValue({
+            path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
+            branchName: "agent/fix-bug-abc123",
+            mode: "full",
+          }),
+          hasChanges: vi.fn().mockResolvedValue(false),
+          commitChanges: vi.fn().mockResolvedValue("abc123"),
+          pushBranch: vi.fn().mockResolvedValue(undefined),
+          removeWorktree: vi.fn().mockResolvedValue(undefined),
+        },
+        promptBuilder: {
+          buildSystemPrompt: vi.fn().mockResolvedValue("system prompt"),
+          loadSourceFiles: vi.fn().mockResolvedValue([]),
+          loadProjectContext: vi.fn().mockResolvedValue(null),
+        },
+        failureMemory: {
+          loadMemory: vi.fn().mockResolvedValue({ records: [] }),
+          queryPastFailures: vi.fn().mockReturnValue([]),
+          buildFailureContext: vi.fn().mockReturnValue(""),
+        },
+        queryRunner: {
+          runHardenedQuery: vi.fn().mockResolvedValue({
+            resultMessage: null,
+            stuckReason: null,
+            rawTurnMetrics: [],
+            rawToolCallMetrics: [],
+            errorMessage: null,
+            contextMetrics: null,
+          }),
+        },
+        successEvaluator: {
+          getGitDiff: vi.fn().mockResolvedValue("diff --git a/file.ts\n+change"),
+        },
+        gateway: {
+          runPostCommitGateway: vi.fn().mockResolvedValue({
+            outcome: "create-pr",
+            passed: true,
+            gateFailures: [],
+            errors: [],
+          }),
+        },
+        prCreator: {
+          createPullRequest: vi.fn().mockResolvedValue({
+            url: "https://github.com/repo/pull/1",
+            number: 1,
+          }),
+          buildPrTitle: vi.fn().mockReturnValue("feat: test"),
+          buildPrBody: vi.fn().mockReturnValue("body"),
+          buildFailurePrBody: vi.fn().mockReturnValue("failure body"),
+          mergeDirectly: vi.fn().mockResolvedValue("https://github.com/repo/pull/merged"),
+        },
+        feedbackLoop: {
+          runFeedbackLoop: vi.fn().mockResolvedValue({
+            resolved: false,
+            retriesUsed: 0,
+            lastFingerprint: null,
+          }),
+        },
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="adapters">
   <file path="packages/agent-core/src/adapters/claude-adapter.ts">
     function deriveHasChanges(result: SessionResult): boolean {
@@ -2245,16 +2312,26 @@
     ];
   </file>
   <file path="apps/rialto-web/src/data/nav-sections.ts">
+    export const NAV_SECTIONS = REGISTRY_NAV_SECTIONS;
+    export const COMPONENT_COUNT = NAV_SECTIONS.reduce(
+      (total, section) => total + section.items.length,
+      0
+    );
+  </file>
+  <file path="apps/rialto-web/src/data/page-registry.ts">
+    export interface PageEntry {
+      id: string;
+      label: string;
+      category: string;
+      path: string;
+      comingSoon?: boolean;
+      load: () => Promise<unknown>;
+    }
     export interface NavItem {
       id: string;
       label: string;
       path: string;
-      /** When true, item is rendered in a muted style with a "coming soon" indicator. */
       comingSoon?: boolean;
-    }
-    export interface NavSection {
-      label: string;
-      items: NavItem[];
     }
   </file>
   <file path="apps/rialto-web/src/data/tapechart-fixtures.ts">
@@ -3001,6 +3078,13 @@
       setTheme: () => {},
     });
   </file>
+  <file path="apps/hospitality/src/hooks/use-url-params.ts">
+    type SchemaOutput<S extends ZodObject<ZodRawShape>> = z.infer<S>;
+    export interface UseUrlParamsResult<S extends ZodObject<ZodRawShape>> {
+      params: SchemaOutput<S>;
+      setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOutput<S>[K]) => void;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     export function useApiClient() {
       const { accessToken } = useAuth();
@@ -3109,6 +3193,19 @@
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+  </file>
+  <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    export function usePropsFromManifest(componentName: string): PropDef[] {
+      const entry = manifest.components.find((c) => c.name === componentName);
+      if (!entry) return [];
+    
+      return entry.props.map((p) => ({
+        name: p.name,
+        type: p.type.replace(/\s*\|\s*undefined$/, ""),
+        description: p.description ?? "",
+        required: p.required,
+      }));
+    }
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     export function useBoop(): {
@@ -3404,6 +3501,25 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/sse-client.ts">
+    export type EventSourceFactory = (url: string) => EventSource;
+    export interface SseClientOptions {
+      /** Base URL for the SSE stream (query params appended by SseClient). */
+      url: string;
+      /** Named event types to listen for (e.g. "reservation:created"). */
+      eventTypes: readonly string[];
+      /** Called with a parsed event payload on each successfully parsed message. */
+      onEvent: (type: string, payload: unknown) => void;
+      /** Called when a parse error occurs or the connection errors. */
+      onError: (error: Error) => void;
+      /** Called when the EventSource opens successfully. */
+      onConnected?: () => void;
+      /** Called when the EventSource closes due to an error. */
+      onDisconnected?: () => void;
+      /** Injectable factory — defaults to `(url) => new EventSource(url)`. */
+      eventSourceFactory?: EventSourceFactory;
+    }
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {
       header: string;
@@ -3477,17 +3593,59 @@
   </file>
   </section>
   <section priority="medium" role="phases">
+  <file path="packages/agent-core/src/phases/default-deps.ts">
+    export function createDefaultPhaseDeps(): PhaseDeps {
+      return {
+        worktreeManager: {
+          createWorktree,
+          hasChanges,
+          commitChanges,
+          pushBranch,
+          removeWorktree,
+        },
+        promptBuilder: {
+          buildSystemPrompt,
+          loadSourceFiles,
+          loadProjectContext,
+        },
+        failureMemory: {
+          loadMemory,
+          queryPastFailures,
+          buildFailureContext,
+        },
+        queryRunner: {
+          runHardenedQuery,
+        },
+        successEvaluator: {
+          getGitDiff,
+        },
+        gateway: {
+          runPostCommitGateway,
+        },
+        prCreator: {
+          createPullRequest,
+          buildPrTitle,
+          buildPrBody,
+          buildFailurePrBody,
+          mergeDirectly,
+        },
+        feedbackLoop: {
+          runFeedbackLoop,
+        },
+      };
+    }
+  </file>
   <file path="packages/agent-core/src/phases/feedback-phase.ts">
-    export class FeedbackPhase implements PipelinePhase {
+    export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
       readonly name = "feedback" as const;
     
-      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-        const { config, onEvent, worktree, resultMessage, prNumber } = ctx;
+      async run(input: FeedbackPhaseInput, deps: PhaseDeps): Promise<PhaseExecution<void>> {
+        const { config, onEvent, worktree, resultMessage, prNumber, prUrl } = input;
     
-        if (!config.feedbackLoop?.enabled || !prNumber || !ctx.prUrl || !worktree) {
+        if (!config.feedbackLoop?.enabled || !prNumber || !prUrl) {
           return {
             result: { phase: this.name, status: "skipped", errors: [] },
-            ctx,
+            output: null,
           };
         }
     
@@ -3498,7 +3656,7 @@
         const fbSpan = tracer.startSpan("agent_core.feedback_loop");
         let feedbackResult;
         try {
-          feedbackResult = await runFeedbackLoop(
+          feedbackResult = await deps.feedbackLoop.runFeedbackLoop(
             {
               prNumber,
               branchName: worktree.branchName,
@@ -3524,50 +3682,56 @@
     
         return {
           result: { phase: this.name, status: "success", errors: [] },
-          ctx,
+          output: undefined,
         };
       }
     }
   </file>
   <file path="packages/agent-core/src/phases/pipeline-types.ts">
-    export type PhaseStatus = "success" | "failed" | "skipped";
-    export interface PhaseResult {
-      readonly phase: string;
-      readonly status: PhaseStatus;
-      readonly errors: readonly string[];
+    export interface MergeDirectlyOptions {
+      readonly branchName: string;
+      readonly baseBranch: string;
+      readonly repoPath: string;
+      readonly commitTitle: string;
     }
+    export type PhaseStatus = "success" | "failed" | "skipped";
   </file>
   <file path="packages/agent-core/src/phases/publish-phase.ts">
-    export class PublishPhase implements PipelinePhase {
+    export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput> {
       readonly name = "publish" as const;
     
-      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-        const { config, worktree } = ctx;
+      async run(
+        input: PublishPhaseInput,
+        deps: PhaseDeps
+      ): Promise<PhaseExecution<PublishPhaseOutput>> {
+        const { config, worktree, hasChanges } = input;
     
-        if (!config.createPr || !ctx.hasChanges || !worktree) {
+        if (!config.createPr || !hasChanges) {
           return {
             result: { phase: this.name, status: "skipped", errors: [] },
-            ctx,
+            output: null,
           };
         }
     
-        const { prUrl, prNumber } = await this.createOrMergePr(ctx, worktree);
+        const { prUrl, prNumber } = await this.createOrMergePr(input, worktree, deps);
     
         return {
           result: { phase: this.name, status: "success", errors: [] },
-          ctx: { ...ctx, prUrl, prNumber },
+          output: { prUrl, prNumber },
         };
       }
     
       private async createOrMergePr(
-        ctx: PipelineContext,
-        worktree: WorktreeInfo
+        input: PublishPhaseInput,
+        worktree: WorktreeInfo,
+        deps: PhaseDeps
       ): Promise<{ prUrl: string | null; prNumber?: number }> {
-        const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = ctx;
+        const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = input;
+        const { prCreator } = deps;
     
         if (gatewayVerdict?.outcome === "merge-direct") {
-          const commitTitle = buildPrTitle(config.taskDescription);
-          const mergedUrl = await mergeDirectly({
+          const commitTitle = prCreator.buildPrTitle(config.taskDescription);
+          const mergedUrl = await prCreator.mergeDirectly({
             branchName: worktree.branchName,
             baseBranch: config.baseBranch,
             repoPath: worktree.path,
@@ -3580,21 +3744,25 @@
         }
     
         if (!gatewayVerdict || gatewayVerdict.outcome === "create-pr") {
-          const title = buildPrTitle(config.taskDescription);
+          const title = prCreator.buildPrTitle(config.taskDescription);
           const body = resultMessage
-            ? buildPrBody(
+            ? prCreator.buildPrBody(
                 config.taskDescription,
                 resultMessage.session_id,
                 resultMessage.total_cost_usd,
                 resultMessage.num_turns
               )
-            : buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+            : prCreator.buildFailurePrBody(
+                config.taskDescription,
+                [...input.errors],
+                stuckReason?.type
+              );
     
           const prSpan = tracer.startSpan("agent_core.create_pr");
           try {
             const { value: pr } = await withRetry(
               () =>
-                createPullRequest({
+                prCreator.createPullRequest({
                   title,
                   body,
                   baseBranch: config.baseBranch,
@@ -3619,11 +3787,15 @@
     
         // verdict.outcome === "create-draft-pr" — quality gates failed
         const title = `wip: ${config.taskDescription.slice(0, 57)}`;
-        const body = buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+        const body = prCreator.buildFailurePrBody(
+          config.taskDescription,
+          [...input.errors],
+          stuckReason?.type
+        );
     
         const { value: pr } = await withRetry(
           () =>
-            createPullRequest({
+            prCreator.createPullRequest({
               title,
               body,
               baseBranch: config.baseBranch,
@@ -3642,19 +3814,11 @@
     }
   </file>
   <file path="packages/agent-core/src/phases/query-phase.ts">
-    export class QueryPhase implements PipelinePhase {
+    export class QueryPhase implements Phase<QueryPhaseInput, QueryPhaseOutput> {
       readonly name = "query" as const;
     
-      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-        const { config, onEvent, worktree, systemPrompt } = ctx;
-    
-        if (!worktree || !systemPrompt) {
-          const msg = "QueryPhase requires worktree and systemPrompt in context";
-          return {
-            result: { phase: this.name, status: "failed", errors: [msg] },
-            ctx: { ...ctx, errors: [...ctx.errors, msg] },
-          };
-        }
+      async run(input: QueryPhaseInput, deps: PhaseDeps): Promise<PhaseExecution<QueryPhaseOutput>> {
+        const { config, onEvent, worktree, systemPrompt } = input;
     
         // Fail fast if the circuit breaker is open
         if (apiCircuitBreaker.getState() === CircuitState.Open) {
@@ -3663,7 +3827,7 @@
           emitEvent(onEvent, "session:error", { message: circuitMsg });
           return {
             result: { phase: this.name, status: "failed", errors: [circuitMsg] },
-            ctx: { ...ctx, errors: [...ctx.errors, circuitMsg] },
+            output: null,
           };
         }
     
@@ -3674,7 +3838,7 @@
           rawToolCallMetrics,
           errorMessage,
           contextMetrics,
-        } = await runHardenedQuery(
+        } = await deps.queryRunner.runHardenedQuery(
           {
             prompt: config.taskDescription,
             cwd: worktree.path,
@@ -3692,7 +3856,7 @@
         if (errorMessage) {
           return {
             result: { phase: this.name, status: "failed", errors: [errorMessage] },
-            ctx: { ...ctx, errors: [...ctx.errors, errorMessage] },
+            output: null,
           };
         }
     
@@ -3700,8 +3864,7 @@
     
         return {
           result: { phase: this.name, status: "success", errors: [] },
-          ctx: {
-            ...ctx,
+          output: {
             resultMessage: resultMessage ?? undefined,
             stuckReason: stuckReason ?? undefined,
             turnMetrics: buildTurnMetricsList(rawTurnMetrics),
@@ -3713,20 +3876,17 @@
     }
   </file>
   <file path="packages/agent-core/src/phases/verification-phase.ts">
-    export class VerificationPhase implements PipelinePhase {
+    export class VerificationPhase implements Phase<VerificationPhaseInput, VerificationPhaseOutput> {
       readonly name = "verification" as const;
     
-      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-        const { config, onEvent, worktree, resultMessage, stuckReason } = ctx;
+      async run(
+        input: VerificationPhaseInput,
+        deps: PhaseDeps
+      ): Promise<PhaseExecution<VerificationPhaseOutput>> {
+        const { config, onEvent, worktree, resultMessage, stuckReason } = input;
+        const { worktreeManager, successEvaluator, gateway } = deps;
     
-        if (!worktree) {
-          return {
-            result: { phase: this.name, status: "skipped", errors: [] },
-            ctx,
-          };
-        }
-    
-        const changed = await hasChanges(worktree.path);
+        const changed = await worktreeManager.hasChanges(worktree.path);
     
         if (!changed) {
           emitEvent(onEvent, "session:result", {
@@ -3734,7 +3894,7 @@
           });
           return {
             result: { phase: this.name, status: "success", errors: [] },
-            ctx: { ...ctx, hasChanges: false },
+            output: { hasChanges: false },
           };
         }
     
@@ -3742,20 +3902,22 @@
         const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
         const prefix = isSuccess ? "feat" : "wip";
         const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
-        await commitChanges(worktree.path, commitMsg);
+        await worktreeManager.commitChanges(worktree.path, commitMsg);
     
         // Push with retry for transient network failures
-        await withRetry(() => pushBranch(worktree.path, worktree.branchName), { maxRetries: 3 });
+        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+          maxRetries: 3,
+        });
     
         // Run post-commit gateway (verification + quality gates) only on success
         const errors: string[] = [];
-        let gatewayVerdict;
-        let gatewayEvaluation;
+        let gatewayVerdict: GatewayVerdict | undefined;
+        let gatewayEvaluation: EvaluationResult | undefined;
         let cachedDiff: string | undefined;
     
         if (isSuccess) {
-          cachedDiff = await getGitDiff(worktree.path);
-          gatewayVerdict = await runPostCommitGateway(
+          cachedDiff = await successEvaluator.getGitDiff(worktree.path);
+          gatewayVerdict = await gateway.runPostCommitGateway(
             {
               worktreePath: worktree.path,
               diff: cachedDiff,
@@ -3775,25 +3937,27 @@
     
         return {
           result: { phase: this.name, status: "success", errors },
-          ctx: {
-            ...ctx,
+          output: {
             hasChanges: true,
             commitMsg,
             cachedDiff,
             gatewayVerdict,
             gatewayEvaluation,
-            errors: [...ctx.errors, ...errors],
           },
         };
       }
     }
   </file>
   <file path="packages/agent-core/src/phases/worktree-phase.ts">
-    export class WorktreePhase implements PipelinePhase {
+    export class WorktreePhase implements Phase<WorktreePhaseInput, WorktreePhaseOutput> {
       readonly name = "worktree" as const;
     
-      async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-        const { config, onEvent } = ctx;
+      async run(
+        input: WorktreePhaseInput,
+        deps: PhaseDeps
+      ): Promise<PhaseExecution<WorktreePhaseOutput>> {
+        const { config, onEvent } = input;
+        const { worktreeManager, promptBuilder, failureMemory } = deps;
     
         // Classify the task once so downstream consumers reuse the result instead
         // of re-scanning the description.
@@ -3805,7 +3969,12 @@
         try {
           // 1. Create isolated worktree (with retry for transient git failures)
           const { value: worktree } = await withRetry(
-            () => createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+            () =>
+              worktreeManager.createWorktree(
+                config.repoPath,
+                config.baseBranch,
+                config.taskDescription
+              ),
             { maxRetries: 2 }
           );
           wtSpan.setAttribute("worktree.branch", worktree.branchName);
@@ -3813,9 +3982,9 @@
           wtSpan.end();
     
           // 2. Build system prompt with failure context, source files, and PR examples
-          const failureMemory = await loadMemory(config.repoPath);
-          const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
-          const failureContext = buildFailureContext(pastFailures);
+          const memory = await failureMemory.loadMemory(config.repoPath);
+          const pastFailures = failureMemory.queryPastFailures(memory, config.taskDescription);
+          const failureContext = failureMemory.buildFailureContext(pastFailures);
     
           // Auto-resolve source files from task description if none provided
           const resolvedSourcePaths =
@@ -3824,11 +3993,12 @@
               const { resolveSourceFiles } = await import("../source-resolver.js");
               return resolveSourceFiles(config.taskDescription);
             })();
-    
           const finalSourcePaths = await resolvedSourcePaths;
     
           const sourceFileEntries =
-            finalSourcePaths.length > 0 ? await loadSourceFiles(finalSourcePaths) : undefined;
+            finalSourcePaths.length > 0
+              ? await promptBuilder.loadSourceFiles(finalSourcePaths)
+              : undefined;
     
           // Fetch recent successful PRs as examples (non-blocking)
           const { fetchRecentPrExamples, formatPrExamples } = await import("../budget-calculator.js");
@@ -3836,13 +4006,15 @@
           const prExamplesSection = formatPrExamples(prExamples);
     
           // Load project CLAUDE.md for coding conventions (non-blocking)
-          const projectContext = await loadProjectContext(worktree.path).catch(() => null);
+          const projectContext = await promptBuilder
+            .loadProjectContext(worktree.path)
+            .catch(() => null);
           const projectSection = projectContext
             ? `\n\n## Project Conventions (from CLAUDE.md)\n\n${projectContext}`
             : "";
     
           const systemPrompt =
-            (await buildSystemPrompt(config.taskDescription, {
+            (await promptBuilder.buildSystemPrompt(config.taskDescription, {
               sourceFileEntries,
               prExamplesSection,
               failureContext,
@@ -3854,14 +4026,14 @@
     
           return {
             result: { phase: this.name, status: "success", errors: [] },
-            ctx: { ...ctx, worktree, systemPrompt, taskSignals },
+            output: { worktree, systemPrompt, taskSignals },
           };
         } catch (error) {
           wtSpan.end();
           const errorMessage = error instanceof Error ? error.message : String(error);
           return {
             result: { phase: this.name, status: "failed", errors: [errorMessage] },
-            ctx: { ...ctx, errors: [...ctx.errors, errorMessage] },
+            output: null,
           };
         }
       }
@@ -5120,14 +5292,13 @@
           });
     
           if (!result.accepted) {
-            const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
             return reply
               .code(429)
               .send(
                 createProblemDetails(
                   429,
                   "Too Many Requests",
-                  `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`
+                  `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
                 )
               );
           }
@@ -10727,6 +10898,46 @@
         .join("\n");
     }
   </file>
+  <file path="services/agent/src/services/session-concurrency.ts">
+    export interface SessionConcurrency {
+      /** The configured maximum number of concurrent sessions. */
+      readonly limit: number;
+      /** True when a new session could be admitted right now (no reservation). */
+      canStart(): boolean;
+      /**
+       * Atomically reserve a slot for `sessionId`. Returns true if the slot was
+       * granted (or already held by this id), false if at capacity. Idempotent for
+       * an id that already holds a slot — never consumes a second slot.
+       */
+      acquire(sessionId: string): boolean;
+      /** Release the slot held by `sessionId`. No-op if it holds none. */
+      release(sessionId: string): void;
+      /** Number of currently reserved slots. */
+      activeCount(): number;
+    }
+    export function createSessionConcurrency(limit: number): SessionConcurrency {
+      const active = new Set<string>();
+    
+      return {
+        limit,
+        canStart() {
+          return active.size < limit;
+        },
+        acquire(sessionId: string) {
+          if (active.has(sessionId)) return true;
+          if (active.size >= limit) return false;
+          active.add(sessionId);
+          return true;
+        },
+        release(sessionId: string) {
+          active.delete(sessionId);
+        },
+        activeCount() {
+          return active.size;
+        },
+      };
+    }
+  </file>
   <file path="services/agent/src/services/session-event-emitter.ts">
     export type SessionEventListener = (event: AgentSessionEvent) => void;
     export interface SessionEventEmitter {
@@ -10741,7 +10952,8 @@
   </file>
   <file path="services/agent/src/services/session-executor.ts">
     export interface SessionExecutorConfig {
-      maxConcurrent: number;
+      /** The single gate that owns the max-concurrent-sessions policy. */
+      concurrency: SessionConcurrency;
       sessionService: typeof SessionServiceType;
     }
     export interface SessionExecutor {
@@ -11844,6 +12056,23 @@
       readonly percentUsed: number;
     }
   </file>
+  <file path="packages/agent-core/src/cost-logger.ts">
+    export interface CostEntry {
+      readonly timestamp: string;
+      readonly costUsd: number;
+      readonly issueNumber?: number | null;
+      readonly model?: string;
+      readonly sessionId?: string;
+      readonly status?: string;
+    }
+    export interface CostEntryInput {
+      readonly costUsd: number;
+      readonly issueNumber?: number | null;
+      readonly model?: string;
+      readonly sessionId?: string;
+      readonly status?: string;
+    }
+  </file>
   <file path="packages/agent-core/src/cost-tracker.ts">
     export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
       return {
@@ -12675,9 +12904,27 @@
     }
   </file>
   <file path="packages/agent-core/src/session-runner.ts">
+    interface SessionState {
+      worktree?: WorktreeInfo;
+      systemPrompt?: string;
+      resultMessage?: SDKResultMessage;
+      stuckReason?: StuckPattern;
+      turnMetrics: readonly TurnMetrics[];
+      toolCallMetrics: readonly ToolCallMetrics[];
+      contextMetrics?: ContextMetrics;
+      hasChanges: boolean;
+      commitMsg?: string;
+      cachedDiff?: string;
+      gatewayVerdict?: GatewayVerdict;
+      gatewayEvaluation?: EvaluationResult;
+      prUrl: string | null;
+      prNumber?: number;
+      errors: string[];
+    }
     export async function runSession(
       config: SessionConfig,
-      onEvent?: SessionEventCallback
+      onEvent?: SessionEventCallback,
+      deps: PhaseDeps = createDefaultPhaseDeps()
     ): Promise<SessionResult> {
       return startActiveObservation(
         "agent-session",
@@ -12693,76 +12940,26 @@
               },
             },
             async (): Promise<SessionResult> => {
-              // Apply QA tuning defaults from .github/auto-qa-tuning.json
-              const tuning = loadQaTuning(config.repoPath);
-              const tuningOverrides = tuning
-                ? applyTuningDefaults(
-                    {
-                      maxBudgetUsd: config.maxBudgetUsd,
-                      stuckDetectorConfig: config.stuckDetectorConfig,
-                    },
-                    tuning,
-                    DEFAULT_SESSION_CONFIG.maxBudgetUsd
-                  )
-                : null;
-    
-              const effectiveConfig = tuningOverrides
-                ? {
-                    ...config,
-                    maxBudgetUsd: tuningOverrides.maxBudgetUsd,
-                    stuckDetectorConfig: {
-                      ...config.stuckDetectorConfig,
-                      ...tuningOverrides.stuckDetectorConfig,
-                    },
-                  }
-                : config;
+              const effectiveConfig = applyEffectiveConfig(config);
     
               const rootSpan = tracer.startSpan("agent_core.run_session", {
-                attributes: {
-                  "session.task": effectiveConfig.taskDescription.slice(0, 200),
-                  "session.model": effectiveConfig.model,
-                  "session.max_turns": effectiveConfig.maxTurns,
-                  "session.max_budget_usd": effectiveConfig.maxBudgetUsd,
-                  "session.base_branch": effectiveConfig.baseBranch,
-                  ...(tuning ? { "session.qa_tuning_applied": true } : {}),
-                  ...(effectiveConfig.modelRoutingReason
-                    ? { "session.model_routing_reason": effectiveConfig.modelRoutingReason }
-                    : {}),
-                  ...(effectiveConfig.modelRoutingTier
-                    ? { "session.model_routing_tier": effectiveConfig.modelRoutingTier }
-                    : {}),
-                },
+                attributes: buildRootSpanAttributes(effectiveConfig, loadQaTuning(config.repoPath)),
               });
     
               const cleanupErrors: string[] = [];
-              let ctx: PipelineContext = {
-                config: effectiveConfig,
-                onEvent,
+              const state: SessionState = {
+                turnMetrics: [],
+                toolCallMetrics: [],
+                hasChanges: false,
+                prUrl: null,
                 errors: [],
               };
     
               let pendingResult: SessionResult | undefined;
     
               try {
-                // Run pipeline phases sequentially
-                for (const phase of phases) {
-                  const { result, ctx: nextCtx } = await phase.run(ctx);
-                  ctx = nextCtx;
-    
-                  if (result.status === "failed") {
-                    // Phase failure — attempt partial work push then abort
-                    if (ctx.worktree && effectiveConfig.createPr) {
-                      const errorMsg = result.errors[0] ?? "Phase failed";
-                      const prUrl = await pushPartialWork(ctx, errorMsg);
-                      if (prUrl) {
-                        ctx = { ...ctx, prUrl };
-                      }
-                    }
-                    break;
-                  }
-                }
-    
-                pendingResult = buildFinalResult(ctx, rootSpan);
+                await runPipeline(effectiveConfig, onEvent, deps, state);
+                pendingResult = buildFinalResult(effectiveConfig, state, rootSpan, onEvent);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 emitEvent(onEvent, "session:error", { message: errorMessage });
@@ -12770,13 +12967,19 @@
                 rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
     
                 // Attempt to push partial work from failed sessions
-                const prUrl = await pushPartialWork(ctx, errorMessage);
+                const prUrl = await pushPartialWork(
+                  effectiveConfig,
+                  state,
+                  deps,
+                  errorMessage,
+                  onEvent
+                );
     
                 rootSpan.setAttribute("session.status", "failed");
                 pendingResult = {
                   sessionId: "",
                   status: "failed",
-                  branchName: ctx.worktree?.branchName ?? "",
+                  branchName: state.worktree?.branchName ?? "",
                   prUrl,
                   costUsd: 0,
                   tokenUsage: { inputTokens: 0, outputTokens: 0 },
@@ -12784,18 +12987,20 @@
                   numTurns: 0,
                   resultText: "",
                   errors: [errorMessage],
-                  stuckPattern: ctx.stuckReason?.type,
+                  stuckPattern: state.stuckReason?.type,
                 };
               } finally {
-                // Clean up worktree when PR was created (branch is pushed)
-                // Keep worktree when --no-pr so user can inspect
-                if (ctx.worktree && effectiveConfig.createPr) {
+                // Clean up worktree when PR was created (branch is pushed).
+                // Keep worktree when --no-pr so user can inspect.
+                if (state.worktree && effectiveConfig.createPr) {
                   try {
-                    await removeWorktree(effectiveConfig.repoPath, ctx.worktree.path);
+                    await deps.worktreeManager.removeWorktree(
+                      effectiveConfig.repoPath,
+                      state.worktree.path
+                    );
                   } catch (cleanupErr) {
                     const cleanupMsg =
                       cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-                    // Record the error in the result (unchanged behavior)
                     cleanupErrors.push(cleanupMsg);
                     console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
                     emitEvent(onEvent, "session:cleanup_warning", {
@@ -12806,158 +13011,34 @@
                     // level (never silent) and is not treated as a session failure.
                     await scheduleWorktreeReap({
                       repoPath: effectiveConfig.repoPath,
-                      worktreePath: ctx.worktree.path,
-                      mode: ctx.worktree.mode,
+                      worktreePath: state.worktree.path,
+                      mode: state.worktree.mode,
                     });
                   }
                 }
                 rootSpan.end();
               }
     
-              // Attach cleanup errors to the final result (immutable spread)
-              return cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+              const finalResultWithCleanup =
+                cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+    
+              // Record spend so progress-tracker / learning-loop sensors have data
+              try {
+                recordSessionCost(effectiveConfig.repoPath, {
+                  costUsd: finalResultWithCleanup.costUsd,
+                  sessionId: finalResultWithCleanup.sessionId || undefined,
+                  model: effectiveConfig.model,
+                  status: finalResultWithCleanup.status,
+                });
+              } catch {
+                // Best-effort — never fail a session over spend logging
+              }
+    
+              return finalResultWithCleanup;
             }
           );
         }
       );
-    }
-    function buildFinalResult(
-      ctx: PipelineContext,
-      rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
-    ): SessionResult {
-      const {
-        resultMessage,
-        stuckReason,
-        gatewayEvaluation,
-        turnMetrics,
-        toolCallMetrics,
-        contextMetrics,
-      } = ctx;
-      const errors = [...ctx.errors];
-    
-      if (stuckReason) {
-        // Deduplicate — stuck error may already be in ctx.errors
-        const stuckMsg = `Stuck: ${stuckReason.description}`;
-        if (!errors.includes(stuckMsg)) {
-          errors.push(stuckMsg);
-        }
-      }
-      if (!resultMessage) {
-        const noResultMsg = "No result message received from agent";
-        if (!errors.includes(noResultMsg)) {
-          errors.push(noResultMsg);
-        }
-      }
-    
-      const evalSummary = gatewayEvaluation
-        ? {
-            passed: gatewayEvaluation.passed,
-            confidence: gatewayEvaluation.confidence,
-            reasoning: gatewayEvaluation.reasoning,
-          }
-        : undefined;
-    
-      const collectedTurnMetrics = turnMetrics ?? [];
-      const collectedToolCallMetrics = toolCallMetrics ?? [];
-    
-      if (resultMessage) {
-        const sessionResult = buildSessionResult(
-          resultMessage,
-          ctx.worktree?.branchName ?? "",
-          ctx.prUrl ?? null
-        );
-    
-        const isFailed = sessionResult.status === "failed" || !!stuckReason;
-        const failureCategory = isFailed ? categorizeFailure(errors, stuckReason?.type) : undefined;
-    
-        const finalResult: SessionResult = {
-          ...sessionResult,
-          ...(stuckReason ? { status: "failed" as const, stuckPattern: stuckReason.type } : {}),
-          ...(evalSummary ? { evaluation: evalSummary } : {}),
-          ...(failureCategory ? { failureCategory } : {}),
-          turnMetrics: collectedTurnMetrics,
-          toolCallMetrics: collectedToolCallMetrics,
-        };
-    
-        // Record failure for future context
-        if (finalResult.status === "failed") {
-          recordFailure(ctx.config.repoPath, {
-            taskDescription: ctx.config.taskDescription,
-            timestamp: new Date().toISOString(),
-            stuckPattern: stuckReason?.type,
-            errors,
-            approach: finalResult.resultText || "Unknown approach",
-          }).catch(() => {});
-        }
-    
-        // Set final span attributes
-        rootSpan.setAttribute("session.status", finalResult.status);
-        rootSpan.setAttribute("session.cost_usd", finalResult.costUsd);
-        rootSpan.setAttribute("session.num_turns", finalResult.numTurns);
-        rootSpan.setAttribute("session.branch", finalResult.branchName);
-        if (finalResult.prUrl) rootSpan.setAttribute("session.pr_url", finalResult.prUrl);
-        if (finalResult.stuckPattern)
-          rootSpan.setAttribute("session.stuck_pattern", finalResult.stuckPattern);
-        if (failureCategory) rootSpan.setAttribute("session.failure_category", failureCategory);
-        rootSpan.setAttribute("session.turn_count", collectedTurnMetrics.length);
-        rootSpan.setAttribute("session.tool_call_count", collectedToolCallMetrics.length);
-        if (contextMetrics) {
-          rootSpan.setAttribute("session.context_percent_at_exit", contextMetrics.contextPercentAtExit);
-          rootSpan.setAttribute("session.peak_context_percent", contextMetrics.peakContextPercent);
-          rootSpan.setAttribute("session.context_compaction_count", contextMetrics.compactionCount);
-        }
-    
-        emitEvent(ctx.onEvent, "session:result", {
-          message: `Session completed: ${finalResult.status}`,
-        });
-    
-        // Attach session metrics to the Langfuse trace
-        updateActiveObservation({
-          metadata: {
-            success: String(finalResult.status === "succeeded" ? 1 : 0),
-            cost_usd: String(finalResult.costUsd),
-            num_turns: String(finalResult.numTurns),
-            stuck: String(stuckReason ? 1 : 0),
-            ...(evalSummary
-              ? {
-                  evaluation_confidence: String(evalSummary.confidence),
-                  evaluation_reasoning: evalSummary.reasoning,
-                }
-              : {}),
-            ...(contextMetrics
-              ? {
-                  context_percent_at_exit: String(contextMetrics.contextPercentAtExit),
-                  peak_context_percent: String(contextMetrics.peakContextPercent),
-                  context_compaction_count: String(contextMetrics.compactionCount),
-                }
-              : {}),
-          },
-        });
-    
-        return finalResult;
-      }
-    
-      // No result message — build a failure result
-      const failureCategoryNoResult = categorizeFailure(errors, stuckReason?.type);
-      rootSpan.setAttribute("session.status", "failed");
-    
-      return {
-        sessionId: "",
-        status: "failed",
-        branchName: ctx.worktree?.branchName ?? "",
-        prUrl: ctx.prUrl ?? null,
-        costUsd: 0,
-        tokenUsage: { inputTokens: 0, outputTokens: 0 },
-        durationMs: 0,
-        numTurns: 0,
-        resultText: "",
-        errors,
-        stuckPattern: stuckReason?.type,
-        evaluation: evalSummary,
-        ...(failureCategoryNoResult ? { failureCategory: failureCategoryNoResult } : {}),
-        turnMetrics: collectedTurnMetrics,
-        toolCallMetrics: collectedToolCallMetrics,
-      };
     }
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">
@@ -13897,15 +13978,11 @@
     }
   </file>
   <file path="packages/jobs/src/job-types.ts">
-    export const JOB_TYPES = {
-      BOOKING_REMINDER: "booking-reminder",
-      DAY_OF_REMINDER: "day-of-reminder",
-      POST_VISIT_FOLLOWUP: "post-visit-followup",
-      PRE_ARRIVAL_BRIEFING: "pre-arrival-briefing",
-      LAPSED_GUEST_SCAN: "lapsed-guest-scan",
-      WAITLIST_EXPIRY: "waitlist-expiry",
+    export const DEFAULT_QUEUE_NAME = "mbe-notifications";
+    export const DEFAULT_JOB_OPTIONS = {
+      attempts: 3,
+      backoff: { type: "exponential" as const, delay: 1000 },
     } as const;
-    export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
   </file>
   <file path="packages/jobs/src/scheduler.ts">
     export interface JobSchedulerConfig {
@@ -13941,11 +14018,7 @@
       ): Promise<string> {
         const job = await this.queue.add(jobType, payload, {
           delay: delayMs,
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 1000,
-          },
+          ...DEFAULT_JOB_OPTIONS,
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
           ...(jobId !== undefined ? { jobId } : {}),
@@ -13973,13 +14046,7 @@
           {
             name: jobType,
             data: payload,
-            opts: {
-              attempts: 3,
-              backoff: {
-                type: "exponential",
-                delay: 1000,
-              },
-            },
+            opts: { ...DEFAULT_JOB_OPTIONS },
           }
         );
       }
@@ -14030,6 +14097,17 @@
       console.error("MBE Infra MCP Server running on stdio");
     }
   </file>
+  <file path="packages/mcp-server/src/shell-runner.ts">
+    export type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number }) => string;
+    export interface ShellRunnerOptions {
+      /** Injected runner — defaults to node's execSync. */
+      runner?: ShellRunner;
+      /** Timeout in milliseconds. Defaults to 15 000. */
+      timeoutMs?: number;
+      /** Label used in the error envelope's `error` field. Defaults to "Command failed". */
+      errorLabel?: string;
+    }
+  </file>
   <file path="packages/notifications/src/booking-email-content.ts">
     export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
     export interface BookingEmailContent {
@@ -14058,14 +14136,32 @@
     export interface NotificationDispatcherConfig {
       emailAdapter: NotificationPort;
       smsAdapter: SmsPort | null;
+      /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
+      smsManageBaseUrl?: string;
     }
     export class NotificationDispatcher {
       private readonly emailAdapter: NotificationPort;
       private readonly smsAdapter: SmsPort | null;
+      private readonly smsManageBaseUrl: string;
     
       constructor(config: NotificationDispatcherConfig) {
         this.emailAdapter = config.emailAdapter;
         this.smsAdapter = config.smsAdapter;
+        this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+      }
+    
+      private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
+        return {
+          reservationId: input.reservationId,
+          date: input.date,
+          startTime: input.startTime,
+          partySize: input.partySize,
+          guestName: input.guestName,
+          guestPhone: input.guestPhone ?? "",
+          venueName: input.venueName,
+          manageToken: input.manageToken,
+          manageBaseUrl: this.smsManageBaseUrl,
+        };
       }
     
       private shouldSendEmail(preference: CommunicationPreference): boolean {
@@ -14091,18 +14187,17 @@
     
       /** Booking reminder — transactional, sent via channel(s) matching preference. */
       async sendBookingReminder(
-        emailInput: BookingNotificationInput,
-        smsInput: SmsNotificationInput,
+        input: BookingNotificationInput,
         preference: CommunicationPreference
       ): Promise<void> {
         const sends: Promise<void>[] = [];
     
         if (this.shouldSendEmail(preference)) {
-          sends.push(this.emailAdapter.sendBookingReminder(emailInput));
+          sends.push(this.emailAdapter.sendBookingReminder(input));
         }
     
         if (this.shouldSendSms(preference)) {
-          sends.push(this.smsAdapter!.sendBookingReminder(smsInput));
+          sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
         }
     
         await Promise.all(sends);
@@ -15208,7 +15303,11 @@
             })
           : null;
     
-      return new NotificationDispatcher({ emailAdapter, smsAdapter });
+      return new NotificationDispatcher({
+        emailAdapter,
+        smsAdapter,
+        smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+      });
     }
   </file>
   <file path="services/users/src/app.ts">
@@ -15345,130 +15444,136 @@
   </section>
   <section priority="medium" role="tools">
   <file path="packages/mcp-server/src/tools/ci.ts">
-    export async function ciRunStatus(): Promise<string> {
+    export async function ciRunStatus(run = defaultRun): Promise<string> {
+      const output = run(`gh run list --limit 10 --json name,status,conclusion,workflowName`);
       try {
-        const output = execSync(`gh run list --limit 10 --json name,status,conclusion,workflowName`, {
-          encoding: "utf-8",
-        });
-        const runs = JSON.parse(output);
-        return JSON.stringify(runs, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get CI status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const parsed = JSON.parse(output) as unknown;
+        if (Array.isArray(parsed)) {
+          return JSON.stringify(parsed, null, 2);
+        }
+        return output;
+      } catch {
+        return output;
       }
     }
   </file>
   <file path="packages/mcp-server/src/tools/database.ts">
-    export async function dbListTables(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`,
-          { encoding: "utf-8" }
-        );
-        const tables = output.trim().split("\n").filter(Boolean);
-        return JSON.stringify({ tables }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to list tables",
-          message: error instanceof Error ? error.message : String(error),
-        });
+    export async function dbListTables(run = defaultListRun): Promise<string> {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        return JSON.stringify({ error: "DATABASE_URL not set" });
       }
+      const output = run(
+        `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`
+      );
+      try {
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as psql text output
+      }
+      const tables = output.trim().split("\n").filter(Boolean);
+      return JSON.stringify({ tables }, null, 2);
     }
-    export async function dbMigrationStatus(): Promise<string> {
-      try {
-        const dbUrl = process.env.DATABASE_URL;
-        if (!dbUrl) {
-          return JSON.stringify({ error: "DATABASE_URL not set" });
-        }
-    
-        const output = execSync(
-          `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`,
-          { encoding: "utf-8" }
-        );
-        const migrations = output
-          .trim()
-          .split("\n")
-          .filter(Boolean)
-          .map((line) => line.trim());
-        return JSON.stringify({ migrations }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get migration status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+    export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        return JSON.stringify({ error: "DATABASE_URL not set" });
       }
+      const output = run(
+        `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`
+      );
+      try {
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as psql text output
+      }
+      const migrations = output
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => line.trim());
+      return JSON.stringify({ migrations }, null, 2);
     }
   </file>
   <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    export async function deployStatus(): Promise<string> {
+    export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> {
+      const output = run(
+        `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`
+      );
       try {
-        const output = execSync(
-          `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`,
-          {
-            encoding: "utf-8",
-          }
-        );
-        const lines = output.trim().split("\n").filter(Boolean);
-        const apps = lines.map((line) => {
-          const parts = line.trim().split(/\s{2,}/);
-          return {
-            id: parts[0],
-            name: parts[1],
-            activePhase: parts[2] || "unknown",
-            inProgressPhase: parts[3] || "none",
-          };
-        });
-        return JSON.stringify({ apps }, null, 2);
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get deploy status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const asJson = JSON.parse(output) as { error?: string };
+        if (asJson.error !== undefined) {
+          return output;
+        }
+      } catch {
+        // not JSON — treat as doctl tabular output
       }
+      const lines = output.trim().split("\n").filter(Boolean);
+      const apps = lines.map((line) => {
+        const parts = line.trim().split(/\s{2,}/);
+        return {
+          id: parts[0],
+          name: parts[1],
+          activePhase: parts[2] ?? "unknown",
+          inProgressPhase: parts[3] ?? "none",
+        };
+      });
+      return JSON.stringify({ apps }, null, 2);
     }
   </file>
   <file path="packages/mcp-server/src/tools/git.ts">
-    export async function gitWorkflowStatus(): Promise<string> {
+    function isErrorEnvelope(output: string): boolean {
       try {
-        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
-        const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
-        const commits = execSync("git log --oneline -5", { encoding: "utf-8" }).trim();
-    
-        let ciStatus = "unknown";
-        try {
-          const run = execSync("gh run list --branch main --limit 1 --json conclusion", {
-            encoding: "utf-8",
-          });
-          const result = JSON.parse(run);
-          ciStatus = result[0]?.conclusion || "unknown";
-        } catch {
-          // gh CLI not available or failed - ciStatus remains "unknown"
-        }
-    
-        return JSON.stringify(
-          {
-            currentBranch: branch,
-            hasUncommittedChanges: status.length > 0,
-            pendingChanges: status.split("\n").filter(Boolean),
-            recentCommits: commits.split("\n"),
-            mainBranchCI: ciStatus,
-          },
-          null,
-          2
-        );
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get git status",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        const parsed = JSON.parse(output) as { error?: unknown };
+        return parsed.error !== undefined;
+      } catch {
+        return false;
       }
+    }
+    export async function gitWorkflowStatus(run = defaultRun): Promise<string> {
+      const branch = run("git rev-parse --abbrev-ref HEAD");
+      if (isErrorEnvelope(branch)) {
+        return branch;
+      }
+    
+      const status = run("git status --porcelain");
+      if (isErrorEnvelope(status)) {
+        return status;
+      }
+    
+      const commits = run("git log --oneline -5");
+      if (isErrorEnvelope(commits)) {
+        return commits;
+      }
+    
+      let ciStatus = "unknown";
+      const ciOutput = run("gh run list --branch main --limit 1 --json conclusion");
+      if (!isErrorEnvelope(ciOutput)) {
+        try {
+          const result = JSON.parse(ciOutput) as Array<{ conclusion?: string }>;
+          ciStatus = result[0]?.conclusion ?? "unknown";
+        } catch {
+          // malformed output — ciStatus remains "unknown"
+        }
+      }
+    
+      return JSON.stringify(
+        {
+          currentBranch: branch,
+          hasUncommittedChanges: status.length > 0,
+          pendingChanges: status.split("\n").filter(Boolean),
+          recentCommits: commits.split("\n"),
+          mainBranchCI: ciStatus,
+        },
+        null,
+        2
+      );
     }
   </file>
   <file path="packages/mcp-server/src/tools/health.ts">
@@ -15520,19 +15625,8 @@
     }
   </file>
   <file path="packages/mcp-server/src/tools/pulumi.ts">
-    export async function pulumiStackOutputs(): Promise<string> {
-      try {
-        const output = execSync("pulumi stack output --json", {
-          encoding: "utf-8",
-          timeout: 30000,
-        });
-        return output;
-      } catch (error) {
-        return JSON.stringify({
-          error: "Failed to get Pulumi outputs",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
+    export async function pulumiStackOutputs(run = defaultRun): Promise<string> {
+      return run("pulumi stack output --json");
     }
   </file>
   </section>

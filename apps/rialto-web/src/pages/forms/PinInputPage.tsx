@@ -186,71 +186,7 @@ export function PinInputPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label above the input cells.",
-            },
-            {
-              name: "length",
-              type: "number",
-              default: "4",
-              description: "Number of input cells.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Controlled value string.",
-            },
-            {
-              name: "onChange",
-              type: "(value: string) => void",
-              description: "Called as each cell is filled.",
-            },
-            {
-              name: "onComplete",
-              type: "(value: string) => void",
-              description: "Called when all cells are filled.",
-            },
-            {
-              name: "type",
-              type: '"numeric" | "alphanumeric"',
-              default: '"numeric"',
-              description: "Allowed character types.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Size of the input cells.",
-            },
-            {
-              name: "mask",
-              type: "boolean",
-              default: "false",
-              description: "Hides input like a password.",
-            },
-            {
-              name: "error",
-              type: "boolean",
-              default: "false",
-              description: "Shows error styling.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables all cells.",
-            },
-            {
-              name: "hint",
-              type: "string",
-              description: "Helper text below the cells.",
-            },
-          ]}
-        />
+        <PropsTable component="PinInput" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -174,31 +174,7 @@ export function SegmentedControlPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "segments",
-              type: "Array<{ id: string; label: string; disabled?: boolean }>",
-              description: "List of segments to render.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Currently selected segment id.",
-            },
-            {
-              name: "onChange",
-              type: "(value: string) => void",
-              description: "Called when selection changes.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md"',
-              default: '"md"',
-              description: "Size of the control.",
-            },
-          ]}
-        />
+        <PropsTable component="SegmentedControl" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

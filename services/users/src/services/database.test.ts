@@ -151,6 +151,7 @@ describe("database module", () => {
 
     it("returns utilization 0 when pool has no connections open", () => {
       mockPoolProps.totalCount = 0;
+      mockPoolProps.activeCount = 0;
       mockPoolProps.idleCount = 0;
       const stats = getPoolStats();
       expect(stats.utilization).toBe(0);
