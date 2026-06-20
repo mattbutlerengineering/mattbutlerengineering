@@ -264,6 +264,13 @@
       setTheme: () => {},
     });
   </file>
+  <file path="src/hooks/use-url-params.ts">
+    type SchemaOutput<S extends ZodObject<ZodRawShape>> = z.infer<S>;
+    export interface UseUrlParamsResult<S extends ZodObject<ZodRawShape>> {
+      params: SchemaOutput<S>;
+      setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOutput<S>[K]) => void;
+    }
+  </file>
   <file path="src/hooks/useApiClient.ts">
     export function useApiClient() {
       const { accessToken } = useAuth();

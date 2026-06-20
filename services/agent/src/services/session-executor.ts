@@ -7,12 +7,14 @@ import {
 } from "@mbe/agent-core";
 import type { AgentSession } from "@mbe/types";
 import type { sessionService as SessionServiceType } from "./session.js";
+import type { SessionConcurrency } from "./session-concurrency.js";
 import { mapSdkEvent } from "./sdk-event-mapper.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
 export interface SessionExecutorConfig {
-  maxConcurrent: number;
+  /** The single gate that owns the max-concurrent-sessions policy. */
+  concurrency: SessionConcurrency;
   sessionService: typeof SessionServiceType;
 }
 
@@ -25,7 +27,9 @@ export interface SessionExecutor {
 // ── Factory ───────────────────────────────────────────────────────────
 
 export function createSessionExecutor(config: SessionExecutorConfig): SessionExecutor {
-  const { maxConcurrent, sessionService } = config;
+  const { concurrency, sessionService } = config;
+  // AbortControllers keyed by session id, used purely for cancellation handles.
+  // The active-slot COUNT is owned by the injected `concurrency` gate, not here.
   const activeControllers = new Map<string, AbortController>();
 
   function getRepoPath(): string {
@@ -33,13 +37,16 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
   }
 
   function getActiveSessionCount(): number {
-    return activeControllers.size;
+    return concurrency.activeCount();
   }
 
   async function executeSession(session: AgentSession): Promise<void> {
-    if (activeControllers.size >= maxConcurrent) {
+    // Atomic check-and-reserve through the single gate. A slot freed elsewhere
+    // (e.g. the liveness monitor cancelling a stale session) can be claimed
+    // here exactly once — no over-subscription.
+    if (!concurrency.acquire(session.id)) {
       await sessionService.updateStatus(session.id, "FAILED", {
-        errors: [`Max concurrent sessions (${maxConcurrent}) reached`],
+        errors: [`Max concurrent sessions (${concurrency.limit}) reached`],
       });
       return;
     }
@@ -107,6 +114,7 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
       });
     } finally {
       activeControllers.delete(session.id);
+      concurrency.release(session.id);
     }
   }
 
@@ -118,6 +126,7 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
 
     controller.abort();
     activeControllers.delete(sessionId);
+    concurrency.release(sessionId);
 
     await sessionService.updateStatus(sessionId, "CANCELLED", {
       errors: ["Cancelled by user"],
@@ -136,9 +145,10 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
 // ── Default instance (backward-compat module-level exports) ───────────
 
 import { sessionService } from "./session.js";
+import { defaultConcurrency } from "./session-concurrency.js";
 
 const _defaultExecutor = createSessionExecutor({
-  maxConcurrent: parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10),
+  concurrency: defaultConcurrency,
   sessionService,
 });
 
