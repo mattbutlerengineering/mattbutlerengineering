@@ -71,18 +71,17 @@
   </file>
   <file path="src/health-routes.ts">
     <item priority="low">
-      interface HealthRouteConfig {
-        path: string;
-        operationId: string;
-      }
-    </item>
-    <item priority="low">
-      interface HealthRoutesOptions {
-        prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+      interface HealthDb {
+        prisma: { $queryRaw: (...args: any[]) => Promise<unknown> };
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;
-        latencyTracker: LatencyTracker;
+      }
+    </item>
+    <item priority="low">
+      interface HealthRouteConfig {
+        path: string;
+        operationId: string;
       }
     </item>
   </file>

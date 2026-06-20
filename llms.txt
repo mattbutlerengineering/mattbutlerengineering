@@ -2019,10 +2019,10 @@
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
     <item priority="high">
-      export const prisma: unknown;
+      export const db: unknown;
     </item>
     <item priority="high">
-      export const getSlowQueryStats: unknown;
+      export const prisma: unknown;
     </item>
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
@@ -2187,10 +2187,10 @@
   </file>
   <file path="services/reservations/src/services/database.ts">
     <item priority="high">
-      export const prisma: unknown;
+      export const db: unknown;
     </item>
     <item priority="high">
-      export const getSlowQueryStats: unknown;
+      export const prisma: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/deposit-state-machine.ts">
@@ -2582,10 +2582,10 @@
   </file>
   <file path="services/users/src/services/database.ts">
     <item priority="high">
-      export const prisma: unknown;
+      export const db: unknown;
     </item>
     <item priority="high">
-      export const getSlowQueryStats: unknown;
+      export const prisma: unknown;
     </item>
   </file>
   <file path="services/users/src/services/user.ts">
@@ -3653,6 +3653,9 @@
     <item priority="low">
       interface MockDatabaseService {
         prisma: MockPrisma;
+        db: {
+          prisma: MockPrisma;
+          getSlowQueryStats: ReturnTy...;
         getSlowQueryStats: ReturnType<typeof vi.fn>;
         getServiceStatus: ReturnType<typeof vi.fn>;
         getPoolMetrics: ReturnType<typeof vi.fn>;
@@ -4080,18 +4083,17 @@
   </file>
   <file path="packages/service-bootstrap/src/health-routes.ts">
     <item priority="low">
-      interface HealthRouteConfig {
-        path: string;
-        operationId: string;
-      }
-    </item>
-    <item priority="low">
-      interface HealthRoutesOptions {
-        prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unk...;
+      interface HealthDb {
+        prisma: { $queryRaw: (...args: any[]) => Promise<unknown> };
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;
-        latencyTracker: LatencyTracker;
+      }
+    </item>
+    <item priority="low">
+      interface HealthRouteConfig {
+        path: string;
+        operationId: string;
       }
     </item>
   </file>

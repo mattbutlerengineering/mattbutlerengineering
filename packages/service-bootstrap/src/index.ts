@@ -7,7 +7,7 @@ export type { StartServiceServerOptions } from "./start-service-server.js";
 export { createLatencyTracker, checkAuth0 } from "./health.js";
 export type { LatencyTracker, LatencyAnomalyResult, Auth0CheckResult } from "./health.js";
 export { registerHealthRoutes } from "./health-routes.js";
-export type { HealthRoutesOptions, HealthRouteConfig } from "./health-routes.js";
+export type { HealthRoutesOptions, HealthRouteConfig, HealthDb } from "./health-routes.js";
 export {
   createFeatureContext,
   createFeatureFlagsPlugin,

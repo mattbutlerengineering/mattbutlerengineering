@@ -8,16 +8,19 @@ const mockPrisma = {
   $queryRaw: vi.fn(),
 };
 
-const mockGetSlowQueryStats = vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 });
-const mockGetServiceStatus = vi.fn().mockReturnValue("ok");
-const mockGetPoolMetrics = vi.fn().mockReturnValue({
-  active: 1,
-  idle: 4,
-  busy: 1,
-  size: 5,
-  utilization: 0.2,
-  isDegraded: false,
-});
+const mockDb = {
+  prisma: mockPrisma as never,
+  getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
+  getServiceStatus: vi.fn().mockReturnValue("ok"),
+  getPoolMetrics: vi.fn().mockReturnValue({
+    active: 1,
+    idle: 4,
+    busy: 1,
+    size: 5,
+    utilization: 0.2,
+    isDegraded: false,
+  }),
+};
 
 const mockRateLimitMonitor = {
   recordHit: vi.fn(),
@@ -28,27 +31,17 @@ const mockRateLimitMonitor = {
   reset: vi.fn(),
 };
 
-const mockGetErrorRates = vi.fn().mockReturnValue({
-  endpoints: [],
-  degraded: false,
-});
-
-const mockCheckAuth0 = vi.fn().mockResolvedValue({ status: "ok", latency: 50 });
 const mockLatencyTracker = {
   record: vi.fn(),
   checkAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
 };
 
+const mockCheckAuth0 = vi.fn().mockResolvedValue({ status: "ok", latency: 50 });
+
 function createTestOptions(overrides?: Partial<HealthRoutesOptions>): HealthRoutesOptions {
   return {
-    prisma: mockPrisma as never,
-    getSlowQueryStats: mockGetSlowQueryStats,
-    getServiceStatus: mockGetServiceStatus,
-    getPoolMetrics: mockGetPoolMetrics,
-    latencyTracker: mockLatencyTracker,
+    db: mockDb,
     checkAuth0: mockCheckAuth0,
-    rateLimitMonitor: mockRateLimitMonitor,
-    getErrorRates: mockGetErrorRates,
     routes: [
       { path: "/health", operationId: "getHealth" },
       { path: "/api/v1/test/health", operationId: "getTestHealth" },
@@ -66,6 +59,10 @@ describe("registerHealthRoutes", () => {
     // Decorate with apiVersion (simulating what services do)
     app.decorate("apiVersion", "v1");
     app.decorate("sunsetDate", "2027-01-01");
+    // Decorate with shared observability (from createServiceApp)
+    app.decorate("rateLimitMonitor", mockRateLimitMonitor);
+    app.decorate("latencyTracker", mockLatencyTracker);
+    app.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
   });
 
   afterEach(async () => {
@@ -132,7 +129,7 @@ describe("registerHealthRoutes", () => {
 
   it("returns degraded when pool utilization is high", async () => {
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
-    mockGetPoolMetrics.mockReturnValueOnce({
+    mockDb.getPoolMetrics.mockReturnValueOnce({
       active: 5,
       idle: 0,
       busy: 5,
@@ -153,16 +150,23 @@ describe("registerHealthRoutes", () => {
 
   it("returns degraded when error rates are high", async () => {
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
-    mockGetErrorRates.mockReturnValueOnce({
+    // Override getErrorRates on the fastify instance for this test
+    const appWithHighErrors = Fastify({ logger: false });
+    appWithHighErrors.decorate("apiVersion", "v1");
+    appWithHighErrors.decorate("sunsetDate", "2027-01-01");
+    appWithHighErrors.decorate("rateLimitMonitor", mockRateLimitMonitor);
+    appWithHighErrors.decorate("latencyTracker", mockLatencyTracker);
+    appWithHighErrors.decorate("getErrorRates", () => ({
       endpoints: [{ endpoint: "/api/v1/test", total: 20, errors: 5, rate: 0.25 }],
       degraded: true,
-    });
-    await app.register(registerHealthRoutes, createTestOptions());
-    await app.ready();
+    }));
+    await appWithHighErrors.register(registerHealthRoutes, createTestOptions());
+    await appWithHighErrors.ready();
 
-    const response = await app.inject({ method: "GET", url: "/health" });
+    const response = await appWithHighErrors.inject({ method: "GET", url: "/health" });
     const body = JSON.parse(response.body);
 
+    await appWithHighErrors.close();
     expect(body.status).toBe("degraded");
   });
 

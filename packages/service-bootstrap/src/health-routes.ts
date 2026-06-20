@@ -2,9 +2,18 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastif
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
 import { createErrorRateHealthCheck } from "@mbe/observability";
-import type { RateLimitMonitor, ErrorRateSnapshot } from "@mbe/observability";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
-import type { LatencyTracker, Auth0CheckResult } from "./health.js";
+import { checkAuth0 as defaultCheckAuth0 } from "./health.js";
+import type { Auth0CheckResult } from "./health.js";
+
+/** Minimal database interface health routes need — satisfied by DatabaseInstance<T>. */
+export interface HealthDb {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly prisma: { $queryRaw: (...args: any[]) => Promise<unknown> };
+  readonly getSlowQueryStats: () => SlowQueryStats;
+  readonly getServiceStatus: () => ServiceStatus;
+  readonly getPoolMetrics: () => PoolMetrics;
+}
 
 export interface HealthRouteConfig {
   readonly path: string;
@@ -12,24 +21,15 @@ export interface HealthRouteConfig {
 }
 
 export interface HealthRoutesOptions {
-  /** Prisma client instance — must support $queryRaw */
-  readonly prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
-  /** Returns slow query stats from the database module */
-  readonly getSlowQueryStats: () => SlowQueryStats;
-  /** Returns overall service status from the database module */
-  readonly getServiceStatus: () => ServiceStatus;
-  /** Returns pool metrics from the database module */
-  readonly getPoolMetrics: () => PoolMetrics;
-  /** Latency tracker instance for DB ping anomaly detection */
-  readonly latencyTracker: LatencyTracker;
-  /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
-  readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
-  /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
-  readonly rateLimitMonitor: RateLimitMonitor;
-  /** Error rate snapshot getter — from errorRatePlugin_ decoration */
-  readonly getErrorRates: () => ErrorRateSnapshot;
+  /** Database instance — prisma + stats are derived from it internally */
+  readonly db: HealthDb;
   /** Routes to register — each gets the same health handler */
   readonly routes: readonly HealthRouteConfig[];
+  /**
+   * Auth0 JWKS check — defaults to the shared checkAuth0 from @mbe/service-bootstrap.
+   * Overrideable for testing without real network calls.
+   */
+  readonly checkAuth0?: () => Promise<Auth0CheckResult>;
 }
 
 const healthSchema = {
@@ -120,17 +120,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
   fastify: FastifyInstance,
   opts: HealthRoutesOptions
 ) => {
-  const {
-    prisma,
-    getSlowQueryStats,
-    getServiceStatus,
-    getPoolMetrics,
-    latencyTracker,
-    checkAuth0: checkAuth0Fn,
-    rateLimitMonitor,
-    getErrorRates,
-    routes,
-  } = opts;
+  const { db, routes, checkAuth0 = defaultCheckAuth0 } = opts;
 
   const healthHandler = async (request: FastifyRequest): Promise<HealthResponse> => {
     const checks: Record<string, { status: string; latency?: number; message?: string }> = {};
@@ -140,13 +130,13 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       sunsetDate: string;
     };
 
-    // Database ping
+    // Database ping — latency tracker comes from the fastify decorator set by createServiceApp
     const dbStart = Date.now();
     try {
-      await prisma.$queryRaw`SELECT 1`;
+      await db.prisma.$queryRaw`SELECT 1`;
       const dbLatency = Date.now() - dbStart;
-      const anomaly = latencyTracker.checkAnomaly(dbLatency);
-      latencyTracker.record(dbLatency);
+      const anomaly = fastify.latencyTracker.checkAnomaly(dbLatency);
+      fastify.latencyTracker.record(dbLatency);
       checks.database = {
         status: anomaly.isAnomaly ? "error" : "ok",
         latency: dbLatency,
@@ -163,9 +153,9 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     }
 
     // Slow queries
-    const slowQueries = getSlowQueryStats();
+    const slowQueries = db.getSlowQueryStats();
     const dbStatus = checks.database?.status ?? "ok";
-    const slowQueryStatus = getServiceStatus();
+    const slowQueryStatus = db.getServiceStatus();
 
     checks.slow_queries = {
       status: slowQueryStatus,
@@ -173,16 +163,16 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       latency: slowQueries.slowestMs,
     };
 
-    // Auth0 JWKS
-    const auth0Result = await checkAuth0Fn();
+    // Auth0 JWKS — default uses shared checkAuth0; overrideable for tests
+    const auth0Result = await checkAuth0();
     checks.auth0 = {
       status: auth0Result.status,
       latency: auth0Result.latency,
       ...(auth0Result.message && { message: auth0Result.message }),
     };
 
-    // Rate limits
-    const rateLimitSnapshot = rateLimitMonitor.getSnapshot();
+    // Rate limits — from fastify.rateLimitMonitor (set by createServiceApp)
+    const rateLimitSnapshot = fastify.rateLimitMonitor.getSnapshot();
     checks.rate_limits = {
       status: rateLimitSnapshot.isDegraded ? "degraded" : "ok",
       ...rateLimitSnapshot.stats,
@@ -192,7 +182,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     };
 
     // Pool metrics
-    const poolMetrics = getPoolMetrics();
+    const poolMetrics = db.getPoolMetrics();
     checks.pool = {
       status: poolMetrics.isDegraded ? "degraded" : "ok",
       ...(poolMetrics.isDegraded && {
@@ -207,8 +197,8 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       },
     };
 
-    // Error rates
-    const errorRateCheck = createErrorRateHealthCheck(getErrorRates());
+    // Error rates — from fastify.getErrorRates() (set by errorRatePlugin_ in createServiceApp)
+    const errorRateCheck = createErrorRateHealthCheck(fastify.getErrorRates());
 
     const hasErrors =
       dbStatus === "error" ||
