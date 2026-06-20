@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Badge.module.css";
 
 /**
@@ -21,9 +22,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ variant = "neutral", size = "md", dot, className, children, ...props }, ref) => {
-    const classes = [styles.badge, styles[variant], size === "sm" ? styles.sm : "", className]
-      .filter(Boolean)
-      .join(" ");
+    const classes = cn(styles.badge, styles[variant], variantClass(styles, size, "md"), className);
 
     return (
       <span ref={ref} className={classes} {...props}>
