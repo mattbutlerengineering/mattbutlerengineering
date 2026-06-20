@@ -3194,6 +3194,19 @@
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
+  <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    export function usePropsFromManifest(componentName: string): PropDef[] {
+      const entry = manifest.components.find((c) => c.name === componentName);
+      if (!entry) return [];
+    
+      return entry.props.map((p) => ({
+        name: p.name,
+        type: p.type.replace(/\s*\|\s*undefined$/, ""),
+        description: p.description ?? "",
+        required: p.required,
+      }));
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     export function useBoop(): {
       style: MotionStyle;

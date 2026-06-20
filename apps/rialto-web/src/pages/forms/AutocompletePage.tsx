@@ -196,63 +196,7 @@ export function AutocompletePage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "options",
-              type: "AutocompleteOption[]",
-              description: "Array of { value, label } options to display in the dropdown.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Controlled input value.",
-            },
-            {
-              name: "onChange",
-              type: "(value: string) => void",
-              description: "Called on every keystroke with the current input string.",
-            },
-            {
-              name: "onSelect",
-              type: "(option: AutocompleteOption) => void",
-              description: "Called when the user selects an option from the list.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Label text rendered above the input.",
-            },
-            {
-              name: "hint",
-              type: "string",
-              description: "Helper text rendered below the input.",
-            },
-            {
-              name: "placeholder",
-              type: "string",
-              description: "Input placeholder text.",
-            },
-            {
-              name: "emptyText",
-              type: "string",
-              default: '"No results"',
-              description: "Message shown when no options match the current input.",
-            },
-            {
-              name: "required",
-              type: "boolean",
-              default: "false",
-              description: "Marks the field as required with an asterisk.",
-            },
-            {
-              name: "showOptional",
-              type: "boolean",
-              default: "false",
-              description: 'Appends "(optional)" label when the field is not required.',
-            },
-          ]}
-        />
+        <PropsTable component="Autocomplete" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}

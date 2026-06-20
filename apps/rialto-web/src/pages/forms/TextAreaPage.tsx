@@ -167,54 +167,7 @@ export function TextAreaPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Visible label text above the field.",
-            },
-            {
-              name: "placeholder",
-              type: "string",
-              description: "Placeholder shown when empty.",
-            },
-            {
-              name: "rows",
-              type: "number",
-              default: "3",
-              description: "Initial number of visible rows.",
-            },
-            {
-              name: "autoResize",
-              type: "boolean",
-              default: "false",
-              description: "Automatically grows with content.",
-            },
-            {
-              name: "maxLength",
-              type: "number",
-              description: "Character limit — shows monospace counter.",
-            },
-            {
-              name: "hint",
-              type: "string",
-              description: "Helper text shown below the field.",
-            },
-            {
-              name: "error",
-              type: "boolean",
-              default: "false",
-              description: "Shows error styling.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the textarea.",
-            },
-          ]}
-        />
+        <PropsTable component="TextArea" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

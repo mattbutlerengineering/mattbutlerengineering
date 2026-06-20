@@ -194,26 +194,7 @@ export function InputGroupPage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "children",
-              type: "ReactNode",
-              description:
-                "Adjacent form controls (Input, Button, Select) to visually join together.",
-            },
-            {
-              name: "className",
-              type: "string",
-              description: "Additional CSS class for the group wrapper.",
-            },
-            {
-              name: "...HTMLDivAttributes",
-              type: "HTMLAttributes<HTMLDivElement>",
-              description: "All standard div attributes are forwarded to the wrapper element.",
-            },
-          ]}
-        />
+        <PropsTable component="InputGroup" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}
