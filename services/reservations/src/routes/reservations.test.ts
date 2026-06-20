@@ -721,7 +721,9 @@ describe("Reservation Routes", () => {
         );
 
         await appWithNotifier.close();
-      });
+        // Builds a fresh Fastify app (buildApp + ready), which can exceed the
+        // 5s default on a loaded CI runner — give it generous headroom.
+      }, 15000);
     });
   });
 
