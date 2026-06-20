@@ -3240,6 +3240,19 @@
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
+  <file path="apps/marketing/src/hooks/useDataFetch.ts">
+    export interface UseDataFetchOptions<T> {
+      url: string;
+      parser?: (data: unknown) => T;
+      deps?: DependencyList;
+    }
+    export interface UseDataFetchReturn<T> {
+      data: T | null;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => Promise<void>;
+    }
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     export function usePropsFromManifest(componentName: string): PropDef[] {
       const entry = manifest.components.find((c) => c.name === componentName);

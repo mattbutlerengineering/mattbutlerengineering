@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MetricsPage } from "./MetricsPage.js";
@@ -138,7 +138,7 @@ describe("MetricsPage", () => {
     render(<MetricsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load metrics: 404/)).toBeInTheDocument();
+      expect(screen.getByText(/Error loading metrics:.*404/)).toBeInTheDocument();
     });
   });
 
