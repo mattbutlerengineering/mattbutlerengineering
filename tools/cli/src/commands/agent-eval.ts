@@ -7,6 +7,7 @@ import {
   runSession,
   runEvalSuite,
   loadSuite,
+  calibrate,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type SessionConfig,
@@ -15,6 +16,7 @@ import {
   type TaskRunResult,
   type DeterministicChecks,
   type EvalReport,
+  type CalibrationSummary,
 } from "@mbe/agent-core";
 import { findMonorepoRoot } from "../monorepo-root.js";
 
@@ -26,8 +28,7 @@ const execFileAsync = promisify(execFile);
  * The agent invocation + post-run verification (the {@link TaskRunner}) is the
  * integration seam: it runs the real `runSession` and executes the fixture's
  * verify scripts. The scoring/aggregation core it feeds is unit-tested in
- * @mbe/agent-core. Out of scope for this slice: the LLM-judge half of scoring
- * (#1945) and calibration (#1946).
+ * @mbe/agent-core.
  */
 export const agentEvalCommand = new Command("eval")
   .description("Run the golden-task eval suite through the agent and score the results")
@@ -36,6 +37,7 @@ export const agentEvalCommand = new Command("eval")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
   .option("--json", "Emit the EvalReport as JSON", false)
   .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+  .option("--calibrate", "Print self-grade vs ground-truth calibration summary", false)
   .action(
     async (options: {
       suite: string;
@@ -43,6 +45,7 @@ export const agentEvalCommand = new Command("eval")
       model: string;
       json: boolean;
       threshold?: string;
+      calibrate: boolean;
     }) => {
       const repoPath = resolve(process.cwd());
       const suiteDir = resolve(repoPath, options.suite);
@@ -69,6 +72,10 @@ export const agentEvalCommand = new Command("eval")
         console.log(JSON.stringify(report, null, 2));
       } else {
         printReport(report);
+      }
+
+      if (options.calibrate) {
+        printCalibration(calibrate(report));
       }
 
       if (options.threshold !== undefined) {
@@ -154,6 +161,30 @@ async function verify(
     return true;
   } catch {
     return false;
+  }
+}
+
+function printCalibration(summary: CalibrationSummary): void {
+  console.log("");
+  console.log("Calibration Summary (self-grade vs ground-truth)");
+  console.log("─────────────────────────────────────────────────");
+
+  const fmtBucket = (label: string, b: { count: number; passRate: number }): void => {
+    if (b.count === 0) {
+      console.log(`  ${label}: no tasks`);
+    } else {
+      console.log(
+        `  ${label}: ${b.count} task${b.count === 1 ? "" : "s"}, actual pass rate ${(b.passRate * 100).toFixed(1)}%`
+      );
+    }
+  };
+
+  fmtBucket("High confidence (>=70%)", summary.high);
+  fmtBucket("Med  confidence (40-69%)", summary.medium);
+  fmtBucket("Low  confidence (<40%)", summary.low);
+  console.log(`  Tasks with self-eval: ${summary.totalWithSelfEval}`);
+  if (summary.totalWithoutSelfEval > 0) {
+    console.log(`  Tasks without self-eval (excluded): ${summary.totalWithoutSelfEval}`);
   }
 }
 

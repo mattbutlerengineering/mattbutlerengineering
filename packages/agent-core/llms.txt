@@ -51,6 +51,23 @@
   </file>
   </section>
   <section priority="medium" role="eval">
+  <file path="src/eval/calibrate.ts">
+    <item priority="low">
+      interface CalibrationBucket {
+        count: number;
+        passRate: number;
+      }
+    </item>
+    <item priority="low">
+      interface CalibrationSummary {
+        high: CalibrationBucket;
+        medium: CalibrationBucket;
+        low: CalibrationBucket;
+        totalWithSelfEval: number;
+        totalWithoutSelfEval: number;
+      }
+    </item>
+  </file>
   <file path="src/eval/eval-harness.ts">
     <item priority="low">
       interface RunEvalSuiteOptions {
