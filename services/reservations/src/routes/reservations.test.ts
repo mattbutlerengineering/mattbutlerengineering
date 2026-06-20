@@ -260,6 +260,54 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(401);
     });
+
+    it("allows owner (guestEmail matches JWT email) to view reservation", async () => {
+      const ownerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "john@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: ownerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call + handler call
+      vi.mocked(reservationService.getById)
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it("denies non-owner non-admin with 403", async () => {
+      const nonOwnerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "other@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: nonOwnerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call — no handler call since preHandler denies
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
   });
 
   describe("POST /v1/reservations", () => {
@@ -665,6 +713,60 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(401);
     });
 
+    it("allows owner (guestEmail matches JWT email) to update reservation", async () => {
+      const ownerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "john@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: ownerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call + handler call
+      vi.mocked(reservationService.getById)
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ id: "res-123", partySize: 6 }),
+      });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { partySize: 6 },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it("denies non-owner non-admin PATCH with 403", async () => {
+      const nonOwnerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "other@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: nonOwnerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call — preHandler denies, handler not reached
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { partySize: 6 },
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+
     describe("PATCH /v1/reservations/:id — post-visit email on COMPLETED", () => {
       it("triggers post-visit email when status transitions to COMPLETED", async () => {
         const { venueService } = await import("../services/venue.js");
@@ -963,6 +1065,57 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(401);
+    });
+
+    it("allows owner (guestEmail matches JWT email) to cancel reservation", async () => {
+      const ownerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "john@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: ownerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call + handler call
+      vi.mocked(reservationService.getById)
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
+        .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
+      vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+        createMockReservation({ id: "res-123", status: "CANCELLED" })
+      );
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it("denies non-owner non-admin DELETE with 403", async () => {
+      const nonOwnerPayload = createMockJWTPayload({
+        permissions: [],
+        email: "other@example.com",
+      });
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: nonOwnerPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      // preHandler owner-resolver call — preHandler denies, handler not reached
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(
+        createMockReservation({ guestEmail: "john@example.com" })
+      );
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(403);
     });
   });
 });
