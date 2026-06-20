@@ -222,7 +222,7 @@ describe("session-executor", () => {
       expect(getActiveSessionCount()).toBe(0);
     });
 
-    it("invokes onEvent callback for session events", async () => {
+    it("stores plain message events (session:start etc.) as-is", async () => {
       vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
         const fn = onEvent as (event: unknown) => Promise<void>;
         await fn({
@@ -239,15 +239,18 @@ describe("session-executor", () => {
       });
     });
 
-    it("handles tool_use events with summarized input", async () => {
+    it("handles tool_use MappedEvents (JSON in message) with summarized input", async () => {
+      const mappedEvent = {
+        type: "session:tool_use",
+        toolName: "Read",
+        toolInput: { file_path: "/src/auth.ts" },
+        toolUseId: "tu_1",
+      };
       vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
         const fn = onEvent as (event: unknown) => Promise<void>;
         await fn({
           type: "session:tool_use",
-          data: {
-            tool_name: "Read",
-            input: { file_path: "/src/auth.ts" },
-          },
+          data: { message: JSON.stringify(mappedEvent) },
         });
         return makeSuccessResult();
       });
@@ -264,15 +267,16 @@ describe("session-executor", () => {
       );
     });
 
-    it("handles assistant message events with text preview", async () => {
+    it("handles assistant MappedEvents (JSON in message) with text preview", async () => {
+      const mappedEvent = {
+        type: "session:assistant",
+        text: "I will fix the bug",
+      };
       vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
         const fn = onEvent as (event: unknown) => Promise<void>;
         await fn({
-          type: "session:sdk_message",
-          data: {
-            type: "assistant",
-            content: [{ type: "text", text: "I will fix the bug" }],
-          },
+          type: "session:assistant",
+          data: { message: JSON.stringify(mappedEvent) },
         });
         return makeSuccessResult();
       });

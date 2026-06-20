@@ -2044,14 +2044,6 @@
       }
     </item>
   </file>
-  <file path="services/agent/src/services/sdk-event-mapper.ts">
-    <item priority="medium">
-      function truncate(text: string, maxLen: number): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function extractText(content: unknown): string { /* ... */ }
-    </item>
-  </file>
   <file path="services/agent/src/services/session-concurrency.ts">
     <item priority="low">
       interface SessionConcurrency {
@@ -2091,6 +2083,14 @@
     </item>
     <item priority="medium">
       function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/storage-event-mapper.ts">
+    <item priority="medium">
+      function truncate(text: string, maxLen: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function summarizeToolInput(input: Record<string, unknown>): Record<string, unknown> { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/stored-spec.ts">
