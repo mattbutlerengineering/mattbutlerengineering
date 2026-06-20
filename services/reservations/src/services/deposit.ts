@@ -142,6 +142,33 @@ export class DepositService {
   }
 
   /**
+   * Transitions deposit from `held` → `refunded` with a partial Stripe refund.
+   * Captures the PaymentIntent for the fee amount, then issues a partial refund
+   * for the remainder. Used for late cancellations.
+   */
+  async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
+    const deposit = await this._requireDeposit(depositId);
+    transitionDeposit(deposit.status, "refunded"); // throws if invalid
+
+    if (deposit.stripePaymentIntentId) {
+      // Capture the full hold first so we can then partially refund
+      await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId);
+      // Refund only the portion that should go back to the guest
+      if (refundAmountCents > 0) {
+        await this.stripe.createPartialRefund(deposit.stripePaymentIntentId, refundAmountCents);
+      }
+    }
+
+    return prisma.deposit.update({
+      where: { id: depositId },
+      data: {
+        status: "refunded",
+        refundedAt: new Date(),
+      },
+    });
+  }
+
+  /**
    * Transitions deposit from `held` → `forfeited`.
    * Captures the Stripe PaymentIntent (charges the card as forfeit).
    */

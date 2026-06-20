@@ -5892,6 +5892,41 @@
             });
           }
     
+          // Apply cancellation policy to any held deposit
+          const deposit = await depositService.getByReservationId(reservation.id);
+          if (deposit && deposit.status === "held") {
+            const rawVenue = reservation.venueId
+              ? await venueService.getRawById(reservation.venueId)
+              : null;
+    
+            const policy =
+              rawVenue?.freeCancellationHours != null
+                ? {
+                    depositAmountCents: deposit.amountCents,
+                    freeCancellationHours: rawVenue.freeCancellationHours,
+                    lateCancellationFeePercent: rawVenue.lateCancellationFeePercent ?? null,
+                    noShowFeePercent: rawVenue.noShowFeePercent ?? null,
+                  }
+                : null;
+    
+            const reservationTime = new Date(reservation.startTime);
+            const cancellationTime = new Date();
+            const feeResult = evaluateCancellationFee(policy, reservationTime, cancellationTime);
+    
+            try {
+              if (feeResult.depositAction === "refund_full") {
+                await depositService.refund(deposit.id);
+              } else if (feeResult.depositAction === "forfeit") {
+                await depositService.forfeit(deposit.id);
+              } else {
+                // refund_partial: capture then partially refund
+                await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+              }
+            } catch (err) {
+              request.log.error({ err }, "Failed to process deposit on cancellation");
+            }
+          }
+    
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           // Cancel any pending reminder jobs for this reservation
@@ -11317,6 +11352,15 @@
       communicationPreference: Guest["communicationPreference"] | null;
     }
   </file>
+  <file path="services/reservations/src/services/cancellation-policy.ts">
+    export interface CancellationPolicy {
+      depositAmountCents: number;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export type FeeType = "none" | "late" | "noshow";
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       | "NOT_FOUND"
@@ -14975,7 +15019,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

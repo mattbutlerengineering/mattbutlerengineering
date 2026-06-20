@@ -1,7 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { depositService } from "../services/deposit.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
+import { evaluateCancellationFee } from "../services/cancellation-policy.js";
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Querystring: { token?: string } }>(
@@ -52,6 +54,41 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           status: 500,
           detail: "Failed to cancel reservation",
         });
+      }
+
+      // Apply cancellation policy to any held deposit
+      const deposit = await depositService.getByReservationId(reservation.id);
+      if (deposit && deposit.status === "held") {
+        const rawVenue = reservation.venueId
+          ? await venueService.getRawById(reservation.venueId)
+          : null;
+
+        const policy =
+          rawVenue?.freeCancellationHours != null
+            ? {
+                depositAmountCents: deposit.amountCents,
+                freeCancellationHours: rawVenue.freeCancellationHours,
+                lateCancellationFeePercent: rawVenue.lateCancellationFeePercent ?? null,
+                noShowFeePercent: rawVenue.noShowFeePercent ?? null,
+              }
+            : null;
+
+        const reservationTime = new Date(reservation.startTime);
+        const cancellationTime = new Date();
+        const feeResult = evaluateCancellationFee(policy, reservationTime, cancellationTime);
+
+        try {
+          if (feeResult.depositAction === "refund_full") {
+            await depositService.refund(deposit.id);
+          } else if (feeResult.depositAction === "forfeit") {
+            await depositService.forfeit(deposit.id);
+          } else {
+            // refund_partial: capture then partially refund
+            await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+          }
+        } catch (err) {
+          request.log.error({ err }, "Failed to process deposit on cancellation");
+        }
       }
 
       const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;

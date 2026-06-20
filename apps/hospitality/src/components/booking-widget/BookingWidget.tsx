@@ -49,6 +49,19 @@ const BOOKING_STEPS_WITH_DEPOSIT: StepItem[] = [
   { label: "Payment" },
 ];
 
+/**
+ * Returns a plain-language cancellation policy summary for display in the
+ * booking widget confirmation step. Returns null when no policy is configured.
+ */
+function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+  if (!config || config.freeCancellationHours == null) return null;
+  const feePercent = config.lateCancellationFeePercent ?? 0;
+  return (
+    `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
+    `After that, a ${feePercent}% fee applies.`
+  );
+}
+
 export function BookingWidget({
   venueId,
   venueSlug,
@@ -339,6 +352,7 @@ export function BookingWidget({
             data.depositPaymentIntentId ? (data.depositConfig?.amountCents ?? null) : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
+          cancellationPolicySummary={formatDepositCancellationTerms(data.depositConfig ?? null)}
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
