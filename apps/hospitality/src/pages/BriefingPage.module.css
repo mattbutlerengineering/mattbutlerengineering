@@ -1,0 +1,47 @@
+.container {
+  /* Padding provided by DashboardLayout .content — no extra wrapper padding needed */
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  margin-block-end: var(--rialto-space-lg);
+  flex-wrap: wrap;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.cardInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  flex-wrap: wrap;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.dietary {
+  margin-block-start: var(--rialto-space-xs);
+}
+
+.notes {
+  color: var(--rialto-text-secondary);
+  font-style: italic;
+}

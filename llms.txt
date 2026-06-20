@@ -993,6 +993,14 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useBriefing.ts">
+    <item priority="high">
+      export const BRIEFING_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      type BriefingGuest = ApiBriefingGuest;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
@@ -1549,6 +1557,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
@@ -2094,6 +2107,22 @@
         email: string | null;
         phone: string | null;
         communicationPreference: string | null;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingEntry {
+        guest: BriefingGuest | null;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
       }
     </item>
   </file>
@@ -3327,6 +3356,23 @@
         startDate: string;
         endDate: string;
         partySize: number;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/briefing.ts">
+    <item priority="low">
+      interface GetBriefingParams {
+        date: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
       }
     </item>
   </file>
