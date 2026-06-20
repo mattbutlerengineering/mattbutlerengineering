@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-20T04:54:18.978Z",
+  "generatedAt": "2026-06-20T05:46:53.047Z",
   "patterns": {
     "magicTimeouts": {
-      "count": 35,
+      "count": 32,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
@@ -10,11 +10,11 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 298,
+      "count": 302,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 491,
+      "count": 498,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {

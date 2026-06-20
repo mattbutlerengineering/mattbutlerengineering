@@ -114,23 +114,25 @@ mbe up                                           # Start dev servers
 
 Managed at https://claude.ai/code/scheduled
 
-| Trigger             | Schedule (PT)                                                     |
-| ------------------- | ----------------------------------------------------------------- |
-| `mbe-deep-audit`    | Mon 8:23am (weekly full site audit)                               |
-| `mbe-morning`       | Daily 9:03am (light audit + ACMM audit + issue-worker)            |
-| `mbe-midday`        | Daily 1:07pm (issue-worker + CI monitor)                          |
-| `mbe-evening`       | Daily 5:11pm (issue-worker + progress-tracker)                    |
-| `mbe-learning-loop` | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+| Trigger                  | Schedule (PT)                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `mbe-deep-audit`         | Mon 8:23am (weekly full site audit)                                             |
+| `mbe-morning`            | Daily 9:03am (light audit + ACMM audit + issue-worker)                          |
+| `mbe-midday`             | Daily 1:07pm (issue-worker + CI monitor)                                        |
+| `mbe-evening`            | Daily 5:11pm (issue-worker + progress-tracker)                                  |
+| `mbe-learning-loop`      | Daily 11:00am (sensor report → verify fixes → triage regressions)               |
+| `mbe-weekly-improve`     | Fri 7:00am (improve + improve-codebase-architecture → 1 PR + `ready` issues)    |
+| `mbe-monthly-meta-audit` | 1st of month 7:00am (claude-md-improver + claude-automation-recommender → 1 PR) |
 
-> **Max 5x plan**: 5 scheduled runs/day. The above fits exactly. `mbe-deep-audit` only fires Mon so Tue-Sun has 4 daily runs + headroom.
+> **Max 5x plan**: 5 scheduled runs/day. Daily baseline is 4 (`mbe-morning`/`midday`/`evening`/`learning-loop`). The weekly/occasional triggers add a 5th run on their day: `mbe-deep-audit` (Mon), `mbe-weekly-improve` (Fri). `mbe-monthly-meta-audit` adds one run on the 1st of each month and may briefly hit 6 runs if the 1st lands on a Mon/Fri — acceptable, or shift its date if throttled.
+
+> **Full catalog + prompts:** [docs/scheduled-tasks.md](./docs/scheduled-tasks.md).
 
 ---
 
 ## Dispatching Worktree Agents
 
-When spawning subagents with `isolation: "worktree"`, always include `pnpm install --frozen-lockfile` as the first step in the agent prompt. Worktrees are bare checkouts without `node_modules` — without this, every `vitest`/`pnpm test`/`pnpm build` call fails with `command not found`. The retry cost of a failed agent (wasted tokens + time) far exceeds the 15s install step.
-
-**Agents must run `pnpm typecheck` on affected packages before declaring done.** Vitest does not typecheck — tests can pass with completely wrong mock shapes (wrong property names, missing required fields). This has broken CI on main repeatedly. Always include typecheck verification in agent prompts.
+Worktrees are bare checkouts without `node_modules`. Always include `pnpm install --frozen-lockfile` as the first step in agent prompts, and run `pnpm typecheck` before declaring done. See [gotchas.md#build--pnpm--turbo](./.claude/rules/gotchas.md) for recurring agent failure patterns.
 
 ---
 

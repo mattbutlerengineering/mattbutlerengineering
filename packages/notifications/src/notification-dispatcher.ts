@@ -9,6 +9,8 @@ import type { CommunicationPreference } from "@mbe/types";
 export interface NotificationDispatcherConfig {
   emailAdapter: NotificationPort;
   smsAdapter: SmsPort | null;
+  /** Base URL for manage links in SMS messages. Required when smsAdapter is non-null. */
+  smsManageBaseUrl?: string;
 }
 
 /**
@@ -26,10 +28,26 @@ export interface NotificationDispatcherConfig {
 export class NotificationDispatcher {
   private readonly emailAdapter: NotificationPort;
   private readonly smsAdapter: SmsPort | null;
+  private readonly smsManageBaseUrl: string;
 
   constructor(config: NotificationDispatcherConfig) {
     this.emailAdapter = config.emailAdapter;
     this.smsAdapter = config.smsAdapter;
+    this.smsManageBaseUrl = config.smsManageBaseUrl ?? "";
+  }
+
+  private toSmsInput(input: BookingNotificationInput): SmsNotificationInput {
+    return {
+      reservationId: input.reservationId,
+      date: input.date,
+      startTime: input.startTime,
+      partySize: input.partySize,
+      guestName: input.guestName,
+      guestPhone: input.guestPhone ?? "",
+      venueName: input.venueName,
+      manageToken: input.manageToken,
+      manageBaseUrl: this.smsManageBaseUrl,
+    };
   }
 
   private shouldSendEmail(preference: CommunicationPreference): boolean {
@@ -55,18 +73,17 @@ export class NotificationDispatcher {
 
   /** Booking reminder — transactional, sent via channel(s) matching preference. */
   async sendBookingReminder(
-    emailInput: BookingNotificationInput,
-    smsInput: SmsNotificationInput,
+    input: BookingNotificationInput,
     preference: CommunicationPreference
   ): Promise<void> {
     const sends: Promise<void>[] = [];
 
     if (this.shouldSendEmail(preference)) {
-      sends.push(this.emailAdapter.sendBookingReminder(emailInput));
+      sends.push(this.emailAdapter.sendBookingReminder(input));
     }
 
     if (this.shouldSendSms(preference)) {
-      sends.push(this.smsAdapter!.sendBookingReminder(smsInput));
+      sends.push(this.smsAdapter!.sendBookingReminder(this.toSmsInput(input)));
     }
 
     await Promise.all(sends);

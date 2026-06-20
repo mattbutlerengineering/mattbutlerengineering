@@ -49,7 +49,11 @@ export function createNotificationPort(): NotificationDispatcher {
         })
       : null;
 
-  return new NotificationDispatcher({ emailAdapter, smsAdapter });
+  return new NotificationDispatcher({
+    emailAdapter,
+    smsAdapter,
+    smsManageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+  });
 }
 
 /**
