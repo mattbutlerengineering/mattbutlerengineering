@@ -6,10 +6,8 @@ import { TimelinePage } from "./TimelinePage.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
-import { useReservations } from "../hooks/useReservations.js";
-import type { UseReservationsResult } from "../hooks/useReservations.js";
-import { useTables } from "../hooks/useTables.js";
-import type { UseTablesResult } from "../hooks/useTables.js";
+import { useTimelineData } from "../hooks/useTimelineData.js";
+import type { UseTimelineDataResult } from "../hooks/useTimelineData.js";
 import type { Reservation, Table } from "@mbe/types";
 import React from "react";
 
@@ -19,19 +17,14 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
   useSSEEventFeed: vi.fn(() => []),
 }));
+vi.mock("../hooks/useTimelineData.js", () => ({ useTimelineData: vi.fn() }));
+// Block transitive resolution of packages unavailable in this worktree environment
+vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({
   useReservations: vi.fn(),
   RESERVATIONS_QUERY_KEY: "reservations",
 }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn(), TABLES_QUERY_KEY: "tables" }));
-
-const mockApiClient = {
-  tables: { list: vi.fn(), updateStatus: vi.fn() },
-  reservations: { list: vi.fn(), update: vi.fn(), cancelWithReason: vi.fn(), walkIn: vi.fn() },
-};
-vi.mock("../hooks/useApiClient.js", () => ({
-  useApiClient: () => mockApiClient,
-}));
 
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
@@ -200,6 +193,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
+  Divider: () => <hr />,
 }));
 
 // Mock matchMedia for useIsMobile hook
@@ -280,52 +274,41 @@ function makeTable(overrides: Partial<Table> = {}): Table {
   };
 }
 
+function makeTimelineData(overrides: Partial<UseTimelineDataResult> = {}): UseTimelineDataResult {
+  const todayStr = new Date().toLocaleDateString("en-CA");
+  const defaultReservation = makeReservation({ date: todayStr });
+  const defaultTable = makeTable();
+  return {
+    reservations: [defaultReservation],
+    tables: [defaultTable],
+    isLoading: false,
+    fetchError: null,
+    stats: { confirmed: 1, pending: 0, totalCovers: 4, total: 1 },
+    seatGuest: vi.fn().mockResolvedValue(defaultReservation),
+    cancelReservation: vi.fn().mockResolvedValue(undefined),
+    updateReservation: vi.fn().mockResolvedValue(defaultReservation),
+    createWalkIn: vi.fn().mockResolvedValue(undefined),
+    updateTableStatus: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 describe("TimelinePage", () => {
   const todayStr = new Date().toLocaleDateString("en-CA");
-
   const defaultReservation = makeReservation({ guestName: "Alice", date: todayStr });
-  const defaultTable = makeTable();
 
-  function mockHooksWithData(
-    overrides: {
-      reservations?: Reservation[] | undefined;
-      tables?: Table[] | undefined;
-      isConnected?: boolean;
-      reservationsLoading?: boolean;
-      tablesLoading?: boolean;
-      reservationsError?: Error | null;
-      tablesError?: Error | null;
-    } = {}
-  ) {
-    const {
-      reservations = [defaultReservation],
-      tables = [defaultTable],
-      isConnected = true,
-      reservationsLoading = false,
-      tablesLoading = false,
-      reservationsError = null,
-      tablesError = null,
-    } = overrides;
+  const testQueryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 
-    vi.mocked(useReservations).mockReturnValue({
-      data: reservations,
-      isLoading: reservationsLoading,
-      error: reservationsError,
-      refetch: vi.fn(),
-    } satisfies UseReservationsResult);
-
-    vi.mocked(useTables).mockReturnValue({
-      data: tables,
-      isLoading: tablesLoading,
-      error: tablesError,
-      refetch: vi.fn(),
-    } satisfies UseTablesResult);
-
-    vi.mocked(useSSEStatus).mockReturnValue({
-      isConnected,
-      error: null,
-    });
-  }
+  const renderPage = () =>
+    render(
+      <QueryClientProvider client={testQueryClient}>
+        <MemoryRouter>
+          <TimelinePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -361,21 +344,9 @@ describe("TimelinePage", () => {
       })
     );
 
-    mockHooksWithData();
+    vi.mocked(useSSEStatus).mockReturnValue({ isConnected: true, error: null });
+    vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
   });
-
-  const testQueryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-
-  const renderPage = () =>
-    render(
-      <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter>
-          <TimelinePage />
-        </MemoryRouter>
-      </QueryClientProvider>
-    );
 
   it("renders the timeline page header", async () => {
     renderPage();
@@ -406,13 +377,10 @@ describe("TimelinePage", () => {
     expect(screen.getByTestId("walkin-dialog")).toBeDefined();
   });
 
-  it("passes venue and date params to TQ hooks on mount", async () => {
+  it("passes venue and date params to useTimelineData", async () => {
     renderPage();
-    expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
+    expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
       expect.objectContaining({ venueId: "venue-1", date: todayStr })
-    );
-    expect(vi.mocked(useTables)).toHaveBeenCalledWith(
-      expect.objectContaining({ venueId: "venue-1" })
     );
   });
 
@@ -456,7 +424,7 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByLabelText("Previous day"));
       await waitFor(() => {
-        expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
+        expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
           expect.objectContaining({ date: "2026-05-09" })
         );
       });
@@ -469,7 +437,7 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByLabelText("Next day"));
       await waitFor(() => {
-        expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
+        expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
           expect.objectContaining({ date: "2026-05-11" })
         );
       });
@@ -499,7 +467,7 @@ describe("TimelinePage", () => {
       fireEvent.click(screen.getByText("Today"));
       const today = new Date().toLocaleDateString("en-CA");
       await waitFor(() => {
-        expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
+        expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
           expect.objectContaining({ date: today })
         );
       });
@@ -520,9 +488,11 @@ describe("TimelinePage", () => {
     });
 
     it("displays guest email when present", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, guestEmail: "alice@example.com" }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, guestEmail: "alice@example.com" }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -534,9 +504,11 @@ describe("TimelinePage", () => {
     });
 
     it("displays guest phone when present", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, guestPhone: "555-1234" }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, guestPhone: "555-1234" }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -548,9 +520,11 @@ describe("TimelinePage", () => {
     });
 
     it("displays notes when present", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, notes: "Window seat preferred" }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, notes: "Window seat preferred" }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -562,9 +536,11 @@ describe("TimelinePage", () => {
     });
 
     it("shows party size with correct pluralization", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, guestName: "Solo", partySize: 1 }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, guestName: "Solo", partySize: 1 }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -591,9 +567,11 @@ describe("TimelinePage", () => {
     });
 
     it("does not show Seat Guest button for non-CONFIRMED reservations", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, status: "PENDING" as const }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, status: "PENDING" as const }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -606,9 +584,11 @@ describe("TimelinePage", () => {
     });
 
     it("does not show Cancel Reservation button for CANCELLED reservations", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, status: "CANCELLED" as const }],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, status: "CANCELLED" as const }],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -622,18 +602,9 @@ describe("TimelinePage", () => {
   });
 
   describe("seat guest flow", () => {
-    it("calls API to update reservation and table status", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, table: { tableNumber: "T1", name: "Table 1" } }],
-      });
-      const updatedRes = {
-        id: "r1",
-        guestName: "Alice",
-        status: "CONFIRMED",
-        tableId: "t1",
-      };
-      mockApiClient.reservations.update.mockResolvedValue(updatedRes);
-      mockApiClient.tables.updateStatus.mockResolvedValue({});
+    it("calls seatGuest from useTimelineData", async () => {
+      const seatGuest = vi.fn().mockResolvedValue(defaultReservation);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
 
       renderPage();
       await waitFor(() => {
@@ -645,15 +616,13 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByText("Seat Guest"));
       await waitFor(() => {
-        expect(mockApiClient.reservations.update).toHaveBeenCalledWith("r1", {
-          status: "CONFIRMED",
-        });
+        expect(seatGuest).toHaveBeenCalledWith(expect.objectContaining({ id: "r1" }));
       });
-      expect(mockApiClient.tables.updateStatus).toHaveBeenCalledWith("t1", "OCCUPIED");
     });
 
-    it("sets error when seat API fails", async () => {
-      mockApiClient.reservations.update.mockRejectedValue(new Error("Seat failed"));
+    it("sets error when seatGuest fails", async () => {
+      const seatGuest = vi.fn().mockRejectedValue(new Error("Seat failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
 
       renderPage();
       await waitFor(() => {
@@ -672,11 +641,9 @@ describe("TimelinePage", () => {
   });
 
   describe("cancel reservation flow", () => {
-    it("opens cancel dialog and calls API on confirm", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, table: { tableNumber: "T1", name: "Table 1" } }],
-      });
-      mockApiClient.reservations.cancelWithReason.mockResolvedValue({});
+    it("opens cancel dialog and calls cancelReservation on confirm", async () => {
+      const cancelReservation = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
 
       renderPage();
       await waitFor(() => {
@@ -692,9 +659,9 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("cancel-confirm"));
       await waitFor(() => {
-        expect(mockApiClient.reservations.cancelWithReason).toHaveBeenCalledWith("r1", {
-          cancellationReason: "no_show",
-          cancellationNote: "test note",
+        expect(cancelReservation).toHaveBeenCalledWith("r1", {
+          reason: "no_show",
+          note: "test note",
         });
       });
     });
@@ -718,8 +685,9 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when cancel API fails", async () => {
-      mockApiClient.reservations.cancelWithReason.mockRejectedValue(new Error("Cancel failed"));
+    it("sets error when cancelReservation fails", async () => {
+      const cancelReservation = vi.fn().mockRejectedValue(new Error("Cancel failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
 
       renderPage();
       await waitFor(() => {
@@ -742,12 +710,10 @@ describe("TimelinePage", () => {
   });
 
   describe("edit reservation flow", () => {
-    it("opens edit drawer and calls API on save", async () => {
-      mockHooksWithData({
-        reservations: [{ ...defaultReservation, table: { tableNumber: "T1", name: "Table 1" } }],
-      });
-      const updatedRes = { id: "r1", guestName: "Alice", partySize: 6, status: "CONFIRMED" };
-      mockApiClient.reservations.update.mockResolvedValue(updatedRes);
+    it("opens edit drawer and calls updateReservation on save", async () => {
+      const updated = { ...defaultReservation, partySize: 6 };
+      const updateReservation = vi.fn().mockResolvedValue(updated);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
 
       renderPage();
       await waitFor(() => {
@@ -763,7 +729,7 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("edit-save"));
       await waitFor(() => {
-        expect(mockApiClient.reservations.update).toHaveBeenCalledWith("r1", { partySize: 6 });
+        expect(updateReservation).toHaveBeenCalledWith("r1", { partySize: 6 });
       });
     });
 
@@ -786,8 +752,9 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when edit API fails", async () => {
-      mockApiClient.reservations.update.mockRejectedValue(new Error("Update failed"));
+    it("sets error when updateReservation fails", async () => {
+      const updateReservation = vi.fn().mockRejectedValue(new Error("Update failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
 
       renderPage();
       await waitFor(() => {
@@ -810,10 +777,11 @@ describe("TimelinePage", () => {
   });
 
   describe("walk-in flow", () => {
-    it("calls API to create walk-in", async () => {
-      mockHooksWithData({ reservations: [] });
-      const walkInRes = { id: "r-walkin", guestName: "Walk-in Guest", partySize: 2 };
-      mockApiClient.reservations.walkIn.mockResolvedValue(walkInRes);
+    it("calls createWalkIn from useTimelineData", async () => {
+      const createWalkIn = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], createWalkIn })
+      );
 
       renderPage();
       await waitFor(() => {
@@ -825,14 +793,15 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("walkin-confirm"));
       await waitFor(() => {
-        expect(mockApiClient.reservations.walkIn).toHaveBeenCalledWith(
+        expect(createWalkIn).toHaveBeenCalledWith(
           expect.objectContaining({ partySize: 2, tableId: "t1", venueId: "venue-1" })
         );
       });
     });
 
-    it("sets error when walk-in API fails", async () => {
-      mockApiClient.reservations.walkIn.mockRejectedValue(new Error("Walk-in failed"));
+    it("sets error when createWalkIn fails", async () => {
+      const createWalkIn = vi.fn().mockRejectedValue(new Error("Walk-in failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ createWalkIn }));
 
       renderPage();
       await waitFor(() => {
@@ -866,22 +835,24 @@ describe("TimelinePage", () => {
   });
 
   describe("table status changes", () => {
-    it("calls API to update table status", async () => {
-      mockApiClient.tables.updateStatus.mockResolvedValue({});
+    it("calls updateTableStatus from useTimelineData", async () => {
+      const updateTableStatus = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("table-status-t1")).toBeDefined();
       });
       fireEvent.click(screen.getByTestId("table-status-t1"));
       await waitFor(() => {
-        expect(mockApiClient.tables.updateStatus).toHaveBeenCalledWith("t1", "OCCUPIED");
+        expect(updateTableStatus).toHaveBeenCalledWith("t1", "OCCUPIED");
       });
     });
   });
 
   describe("SSE connection indicator", () => {
     it("shows Offline when disconnected", async () => {
-      mockHooksWithData({ isConnected: false });
+      vi.mocked(useSSEStatus).mockReturnValue({ isConnected: false, error: null });
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("Offline")).toBeDefined();
@@ -891,10 +862,12 @@ describe("TimelinePage", () => {
 
   describe("error and empty states", () => {
     it("shows error message when data fetch fails", async () => {
-      mockHooksWithData({
-        reservationsError: new Error("Network error"),
-        reservations: undefined,
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          fetchError: new Error("Network error"),
+          reservations: [],
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByRole("alert")).toBeDefined();
@@ -902,58 +875,35 @@ describe("TimelinePage", () => {
       expect(screen.getByText("Network error")).toBeDefined();
     });
 
-    it("shows error from tables hook", async () => {
-      mockHooksWithData({
-        tablesError: new Error("Tables failed"),
-        tables: undefined,
-      });
-      renderPage();
-      await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
-      });
-      expect(screen.getByText("Tables failed")).toBeDefined();
-    });
-
     it("shows empty state when no tables exist", async () => {
-      mockHooksWithData({ reservations: [], tables: [] });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], tables: [] })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("No tables configured for this venue.")).toBeDefined();
       });
     });
 
-    it("disables hooks when no venue is selected", async () => {
+    it("passes disabled params to useTimelineData when no venue is selected", async () => {
       vi.mocked(useVenue).mockReturnValue(makeVenueContext({ selectedVenueId: null, venues: [] }));
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("page-header")).toBeDefined();
       });
-      expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
-        expect.objectContaining({ enabled: false })
-      );
-      expect(vi.mocked(useTables)).toHaveBeenCalledWith(
-        expect.objectContaining({ enabled: false })
+      expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: undefined })
       );
     });
   });
 
   describe("stats display", () => {
     it("shows pending count when there are pending reservations", async () => {
-      mockHooksWithData({
-        reservations: [
-          defaultReservation,
-          {
-            id: "r2",
-            guestName: "Bob",
-            date: todayStr,
-            startTime: "2026-05-10T19:00:00",
-            endTime: "2026-05-10T21:00:00",
-            partySize: 2,
-            status: "PENDING" as const,
-            tableId: "t1",
-          },
-        ],
-      });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          stats: { confirmed: 1, pending: 1, totalCovers: 6, total: 2 },
+        })
+      );
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("pending")).toBeDefined();
@@ -1014,8 +964,8 @@ describe("TimelinePage", () => {
 
     it("opens edit drawer from mobile reservation details", async () => {
       setMobile();
-      const updatedRes = { id: "r1", guestName: "Alice", partySize: 6, status: "CONFIRMED" };
-      mockApiClient.reservations.update.mockResolvedValue(updatedRes);
+      const updateReservation = vi.fn().mockResolvedValue(defaultReservation);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
 
       renderPage();
       await waitFor(() => {
@@ -1031,8 +981,6 @@ describe("TimelinePage", () => {
 
     it("opens cancel dialog from mobile reservation details", async () => {
       setMobile();
-      mockApiClient.reservations.cancelWithReason.mockResolvedValue({});
-
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId("res-r1")).toBeDefined();
@@ -1047,9 +995,8 @@ describe("TimelinePage", () => {
 
     it("seats guest from mobile reservation details", async () => {
       setMobile();
-      const updatedRes = { id: "r1", guestName: "Alice", status: "CONFIRMED", tableId: "t1" };
-      mockApiClient.reservations.update.mockResolvedValue(updatedRes);
-      mockApiClient.tables.updateStatus.mockResolvedValue({});
+      const seatGuest = vi.fn().mockResolvedValue(defaultReservation);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
 
       renderPage();
       await waitFor(() => {
@@ -1059,9 +1006,7 @@ describe("TimelinePage", () => {
       const drawer = await waitFor(() => screen.getByTestId("drawer"));
       fireEvent.click(within(drawer).getByText("Seat Guest"));
       await waitFor(() => {
-        expect(mockApiClient.reservations.update).toHaveBeenCalledWith("r1", {
-          status: "CONFIRMED",
-        });
+        expect(seatGuest).toHaveBeenCalledWith(expect.objectContaining({ id: "r1" }));
       });
     });
   });
