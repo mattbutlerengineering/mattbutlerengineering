@@ -1973,6 +1973,16 @@
       function extractText(content: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/services/session-concurrency.ts">
+    <item priority="low">
+      interface SessionConcurrency {
+        limit: number;
+      }
+    </item>
+    <item priority="high">
+      export function createSessionConcurrency(limit: number): SessionConcurrency { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/services/session-event-emitter.ts">
     <item priority="low">
       type SessionEventListener = (event: AgentSessionEvent) => void;
@@ -1986,7 +1996,7 @@
   <file path="services/agent/src/services/session-executor.ts">
     <item priority="low">
       interface SessionExecutorConfig {
-        maxConcurrent: number;
+        concurrency: SessionConcurrency;
         sessionService: typeof SessionServiceType;
       }
     </item>
