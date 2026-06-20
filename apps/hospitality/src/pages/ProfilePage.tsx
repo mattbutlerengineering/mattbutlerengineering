@@ -87,9 +87,7 @@ export function ProfilePage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setSaveError(
-        err instanceof Error ? err.message : "Failed to save profile"
-      );
+      setSaveError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
     }
@@ -174,10 +172,7 @@ export function ProfilePage() {
 
   return (
     <div>
-      <PageHeader
-        title="Profile"
-        description="View and manage your profile information"
-      />
+      <PageHeader title="Profile" description="View and manage your profile information" />
 
       <Stack gap="lg">
         {saveSuccess && (
@@ -192,12 +187,7 @@ export function ProfilePage() {
         )}
 
         {saveError && (
-          <Alert
-            variant="error"
-            title="Error"
-            dismissible
-            onDismiss={() => setSaveError(null)}
-          >
+          <Alert variant="error" title="Error" dismissible onDismiss={() => setSaveError(null)}>
             {saveError}
           </Alert>
         )}
@@ -206,12 +196,7 @@ export function ProfilePage() {
         <Card>
           <div className={styles.hero}>
             <div className={styles.heroAvatar}>
-              <Avatar
-                src={avatarSrc}
-                name={displayName}
-                size="xl"
-                className={styles.avatarRing}
-              />
+              <Avatar src={avatarSrc} name={displayName} size="xl" className={styles.avatarRing} />
             </div>
 
             <div className={styles.heroInfo}>
@@ -234,11 +219,7 @@ export function ProfilePage() {
         </Card>
 
         {/* Edit form */}
-        <div
-          className={`${styles.editPanel} ${
-            isEditing ? styles.editPanelOpen : ""
-          }`}
-        >
+        <div className={`${styles.editPanel} ${isEditing ? styles.editPanelOpen : ""}`}>
           {isEditing && (
             <Card>
               <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
@@ -266,11 +247,7 @@ export function ProfilePage() {
                   />
                   <Divider spacing="compact" />
                   <Stack gap="sm" direction="row">
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      disabled={isSaving || isNameEmpty}
-                    >
+                    <Button variant="primary" type="submit" disabled={isSaving || isNameEmpty}>
                       {isSaving ? "Saving..." : "Save Changes"}
                     </Button>
                     <Button
@@ -311,9 +288,7 @@ export function ProfilePage() {
                 Member Since
               </Text>
               <Text variant="body" color="primary">
-                {user?.createdAt
-                  ? formatMemberSince(user.createdAt)
-                  : "Unknown"}
+                {user?.createdAt ? formatMemberSince(user.createdAt) : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>
@@ -321,9 +296,7 @@ export function ProfilePage() {
                 Last Updated
               </Text>
               <Text variant="body" color="primary">
-                {user?.updatedAt
-                  ? formatRelativeTime(user.updatedAt)
-                  : "Unknown"}
+                {user?.updatedAt ? formatRelativeTime(user.updatedAt) : "Unknown"}
               </Text>
             </div>
             <div className={styles.activityItem}>

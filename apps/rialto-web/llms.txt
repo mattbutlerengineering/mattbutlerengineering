@@ -76,4 +76,11 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hooks">
+  <file path="src/hooks/use-props-from-manifest.ts">
+    <item priority="high">
+      export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>

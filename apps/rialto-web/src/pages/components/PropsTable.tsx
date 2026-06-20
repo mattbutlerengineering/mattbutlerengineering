@@ -1,4 +1,5 @@
-import { Table } from "@mattbutlerengineering/rialto";
+import { Table, Text } from "@mattbutlerengineering/rialto";
+import { usePropsFromManifest } from "../../hooks/use-props-from-manifest.js";
 
 export interface PropDef {
   name: string;
@@ -8,16 +9,22 @@ export interface PropDef {
   [key: string]: unknown;
 }
 
-interface PropsTableProps {
-  props: PropDef[];
-}
+type PropsTableProps =
+  | { component: string; props?: never }
+  | { props: PropDef[]; component?: never };
 
 /**
  * Renders a typed props/API documentation table using the Rialto Table component.
  *
+ * Accepts either:
+ * - `component="Button"` — reads props from the compiled rialto manifest
+ * - `props={[...]}` — explicit prop definitions (legacy; prefer component=)
+ *
  * Columns: Prop, Type, Default, Description
  */
-export function PropsTable({ props: propDefs }: PropsTableProps) {
+export function PropsTable({ props, component }: PropsTableProps) {
+  const manifestProps = usePropsFromManifest(component ?? "");
+  const propDefs = component ? manifestProps : (props ?? []);
   return (
     <Table<PropDef>
       columns={[
@@ -72,14 +79,14 @@ export function PropsTable({ props: propDefs }: PropsTableProps) {
                 {row.default as string}
               </code>
             ) : (
-              <span
+              <Text
                 style={{
                   fontSize: "var(--rialto-text-xs)",
                   color: "var(--rialto-text-tertiary)",
                 }}
               >
                 —
-              </span>
+              </Text>
             ),
         },
         {

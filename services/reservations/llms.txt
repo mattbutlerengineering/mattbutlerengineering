@@ -60,6 +60,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
@@ -160,6 +165,18 @@
   <file path="src/routes/public-guest-recognition.ts">
     <item priority="high">
       export const publicGuestRecognitionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/public-guest-risk.ts">
+    <item priority="low">
+      interface GuestRiskResult {
+        riskScore: GuestRiskScore;
+        noShowCount: number;
+        requiresDeposit: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const publicGuestRiskRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/public-holds.ts">
@@ -287,6 +304,22 @@
       }
     </item>
   </file>
+  <file path="src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingEntry {
+        guest: BriefingGuest | null;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
+      }
+    </item>
+  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -383,28 +416,45 @@
       function extractFirstName(fullName: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-risk.ts">
+    <item priority="low">
+      type GuestRiskScore = "trusted" | "standard" | "risky";
+    </item>
+    <item priority="low">
+      interface GuestRiskOptions {
+        riskyThreshold?: number;
+      }
+    </item>
+  </file>
   <file path="src/services/guest.ts">
     <item priority="medium">
-      function mapPrismaGuest(guest: {
-        id: string;
-        venueId: string;
-        email: string | null;
-        phone: string | null;
-        name: string;
-        notes: string | null;
-        visitCount: number;
-        lifetimeSpend: Prisma.Decimal | null;
-        lastVisit: Date | null;
-        tags: unknown;
-        communicationPreference: string;
-        dietaryRestrictions: unknown;
-        staffNotes: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): Guest { /* ... */ }
+      function mapPrismaGuest(
+        guest: {
+          id: string;
+          venueId: string;
+          email: string | null;
+          phone: string | null;
+          name: string;
+          notes: string | null;
+          visitCount: number;
+          lifetimeSpend: Prisma.Decimal | null;
+          lastVisit: Date | null;
+          tags: unknown;
+          communicationPreference: string;
+          dietaryRestrictions: unknown;
+          staffNotes: unknown;
+          createdAt: Date;
+          updatedAt: Date;
+        },
+        noShowCount = 0,
+        lastNoShowDate: Date | null = null
+      ): Guest { /* ... */ }
     </item>
-    <item priority="high">
-      export const guestService: unknown;
+    <item priority="low">
+      async function fetchNoShowStats(guestId: string): Promise<{
+        count: number;
+        lastNoShowDate: Date | null;
+      }> { /* ... */ }
     </item>
   </file>
   <file path="src/services/hold.ts">

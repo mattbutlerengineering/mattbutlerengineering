@@ -1,12 +1,6 @@
 import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import {
-  Button,
-  Input,
-  Select,
-  Stack,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Table } from "@mbe/types";
 import styles from "./WalkInDialog.module.css";
 
@@ -35,16 +29,9 @@ function findBestTable(tables: Table[], partySize: number): string {
   return eligible[0]?.id ?? "";
 }
 
-export function WalkInDialog({
-  tables,
-  venueId,
-  onConfirm,
-  onClose,
-}: WalkInDialogProps) {
+export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDialogProps) {
   const [partySize, setPartySize] = useState(2);
-  const [tableId, setTableId] = useState<string>(() =>
-    findBestTable(tables, 2)
-  );
+  const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,9 +122,7 @@ export function WalkInDialog({
               </div>
 
               {availableTables.length === 0 ? (
-                <Text color="secondary">
-                  No available tables for a party of {partySize}.
-                </Text>
+                <Text color="secondary">No available tables for a party of {partySize}.</Text>
               ) : (
                 <Select
                   label="Table"
@@ -158,12 +143,7 @@ export function WalkInDialog({
             </Stack>
 
             <div className={styles.actions}>
-              <Button
-                variant="secondary"
-                type="button"
-                onClick={onClose}
-                disabled={isLoading}
-              >
+              <Button variant="secondary" type="button" onClick={onClose} disabled={isLoading}>
                 Cancel
               </Button>
               <Button

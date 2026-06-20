@@ -38,6 +38,23 @@
       }
     </item>
   </file>
+  <file path="src/briefing.ts">
+    <item priority="low">
+      interface GetBriefingParams {
+        date: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
+      }
+    </item>
+  </file>
   <file path="src/client.ts">
     <item priority="low">
       type QueryParams = Record<string, string | number | boolean | undefined | null>;

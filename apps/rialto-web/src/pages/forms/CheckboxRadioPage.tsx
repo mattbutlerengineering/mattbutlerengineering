@@ -159,75 +159,12 @@ export function CheckboxRadioPage() {
 
       {/* ── Props Table (Checkbox) ─────────────────────────────────── */}
       <Section title="Checkbox Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Label text next to the checkbox.",
-            },
-            {
-              name: "checked",
-              type: "boolean",
-              description: "Controlled checked state.",
-            },
-            {
-              name: "indeterminate",
-              type: "boolean",
-              default: "false",
-              description: "Shows dash for partial selection.",
-            },
-            {
-              name: "onCheckedChange",
-              type: "(checked: boolean) => void",
-              description: "Called when state changes.",
-            },
-            {
-              name: "description",
-              type: "string",
-              description: "Helper text below the label.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the checkbox.",
-            },
-          ]}
-        />
+        <PropsTable component="Checkbox" />
       </Section>
 
       {/* ── Props Table (RadioGroup) ───────────────────────────────── */}
       <Section title="RadioGroup Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Fieldset legend / group label.",
-            },
-            {
-              name: "name",
-              type: "string",
-              description: "HTML name attribute shared by all radios in the group.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Currently selected radio value.",
-            },
-            {
-              name: "onChange",
-              type: "(value: string) => void",
-              description: "Called when selection changes.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Radio elements.",
-            },
-          ]}
-        />
+        <PropsTable component="RadioGroup" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

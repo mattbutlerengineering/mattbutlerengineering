@@ -286,6 +286,10 @@
       );
     }
   </file>
+  <file path="src/hooks/useBriefing.ts">
+    export const BRIEFING_QUERY_KEY = "briefing" as const;
+    export type BriefingGuest = ApiBriefingGuest;
+  </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;

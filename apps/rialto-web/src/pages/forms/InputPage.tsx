@@ -147,58 +147,7 @@ export function InputPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "label",
-              type: "string",
-              description: "Visible label text displayed above the field.",
-            },
-            {
-              name: "placeholder",
-              type: "string",
-              description: "Placeholder text shown when the field is empty.",
-            },
-            {
-              name: "hint",
-              type: "string",
-              description: "Helper text displayed below the field.",
-            },
-            {
-              name: "error",
-              type: "boolean",
-              default: "false",
-              description: "Shows error styling and red border.",
-            },
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "Disables the input.",
-            },
-            {
-              name: "disabledReason",
-              type: "string",
-              description: "Tooltip shown on hover when the field is disabled.",
-            },
-            {
-              name: "type",
-              type: '"text" | "email" | "password" | "number" | "search"',
-              default: '"text"',
-              description: "HTML input type.",
-            },
-            {
-              name: "value",
-              type: "string",
-              description: "Controlled value.",
-            },
-            {
-              name: "onChange",
-              type: "React.ChangeEventHandler<HTMLInputElement>",
-              description: "Change handler.",
-            },
-          ]}
-        />
+        <PropsTable component="Input" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

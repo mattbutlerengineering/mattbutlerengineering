@@ -428,7 +428,11 @@ describe("GateRunner integration with real gates", () => {
       ],
     });
 
-    const runner = new GateRunner([new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()]);
+    const runner = new GateRunner([
+      new StaticAnalysisGate(),
+      new LlmEvaluationGate(),
+      new SecurityReviewGate(),
+    ]);
 
     const result = await runner.run(makeRealContext());
 

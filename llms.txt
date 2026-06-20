@@ -993,6 +993,14 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useBriefing.ts">
+    <item priority="high">
+      export const BRIEFING_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      type BriefingGuest = ApiBriefingGuest;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
@@ -1107,6 +1115,11 @@
     </item>
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    <item priority="high">
+      export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
@@ -1544,6 +1557,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
@@ -1644,6 +1662,18 @@
   <file path="services/reservations/src/routes/public-guest-recognition.ts">
     <item priority="high">
       export const publicGuestRecognitionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-guest-risk.ts">
+    <item priority="low">
+      interface GuestRiskResult {
+        riskScore: GuestRiskScore;
+        noShowCount: number;
+        requiresDeposit: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const publicGuestRiskRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
@@ -2100,6 +2130,22 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingEntry {
+        guest: BriefingGuest | null;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -2196,28 +2242,45 @@
       function extractFirstName(fullName: string): string { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-risk.ts">
+    <item priority="low">
+      type GuestRiskScore = "trusted" | "standard" | "risky";
+    </item>
+    <item priority="low">
+      interface GuestRiskOptions {
+        riskyThreshold?: number;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest.ts">
     <item priority="medium">
-      function mapPrismaGuest(guest: {
-        id: string;
-        venueId: string;
-        email: string | null;
-        phone: string | null;
-        name: string;
-        notes: string | null;
-        visitCount: number;
-        lifetimeSpend: Prisma.Decimal | null;
-        lastVisit: Date | null;
-        tags: unknown;
-        communicationPreference: string;
-        dietaryRestrictions: unknown;
-        staffNotes: unknown;
-        createdAt: Date;
-        updatedAt: Date;
-      }): Guest { /* ... */ }
+      function mapPrismaGuest(
+        guest: {
+          id: string;
+          venueId: string;
+          email: string | null;
+          phone: string | null;
+          name: string;
+          notes: string | null;
+          visitCount: number;
+          lifetimeSpend: Prisma.Decimal | null;
+          lastVisit: Date | null;
+          tags: unknown;
+          communicationPreference: string;
+          dietaryRestrictions: unknown;
+          staffNotes: unknown;
+          createdAt: Date;
+          updatedAt: Date;
+        },
+        noShowCount = 0,
+        lastNoShowDate: Date | null = null
+      ): Guest { /* ... */ }
     </item>
-    <item priority="high">
-      export const guestService: unknown;
+    <item priority="low">
+      async function fetchNoShowStats(guestId: string): Promise<{
+        count: number;
+        lastNoShowDate: Date | null;
+      }> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
@@ -3338,6 +3401,23 @@
         startDate: string;
         endDate: string;
         partySize: number;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/briefing.ts">
+    <item priority="low">
+      interface GetBriefingParams {
+        date: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
       }
     </item>
   </file>

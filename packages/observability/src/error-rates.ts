@@ -124,12 +124,16 @@ export const errorRatePlugin_ = fp(errorRatePlugin, {
  * Interprets an ErrorRateSnapshot as a health-check result.
  * Single owner for degradation judgement — callers do not re-implement thresholds.
  */
-export function createErrorRateHealthCheck(snapshot: ErrorRateSnapshot): ErrorRateHealthCheckResult {
+export function createErrorRateHealthCheck(
+  snapshot: ErrorRateSnapshot
+): ErrorRateHealthCheckResult {
   if (!snapshot.degraded) {
     return { status: "ok", endpoints: snapshot.endpoints };
   }
 
-  const degradedEndpoints = snapshot.endpoints.filter((e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5);
+  const degradedEndpoints = snapshot.endpoints.filter(
+    (e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5
+  );
   const message = `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`;
 
   return { status: "degraded", endpoints: snapshot.endpoints, message };

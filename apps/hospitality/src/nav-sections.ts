@@ -83,6 +83,7 @@ function buildSetupSections(readiness: VenueReadiness): readonly NavSection[] {
 function buildOperationalSections(): readonly NavSection[] {
   const PRIMARY: NavSection = {
     items: [
+      { id: "briefing", label: "Tonight's Service", path: "/briefing" },
       { id: "timeline", label: "Timeline", path: "/timeline" },
       { id: "reservations", label: "Reservations", path: "/reservations" },
       { id: "guests", label: "Guests", path: "/guests" },

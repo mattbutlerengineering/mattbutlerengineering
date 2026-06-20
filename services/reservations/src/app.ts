@@ -17,6 +17,7 @@ import { publicAvailabilityRoutes } from "./routes/public-availability.js";
 import { publicHoldRoutes } from "./routes/public-holds.js";
 import { publicReservationRoutes } from "./routes/public-reservations.js";
 import { publicGuestRecognitionRoutes } from "./routes/public-guest-recognition.js";
+import { publicGuestRiskRoutes } from "./routes/public-guest-risk.js";
 import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
@@ -26,6 +27,7 @@ import { publicDepositRoutes } from "./routes/public-deposits.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { publicUnsubscribeRoutes } from "./routes/public-unsubscribe.js";
+import { briefingRoutes } from "./routes/briefing.js";
 import { createNotificationPort } from "./notifications.js";
 import {
   createDefaultBookingNotifier,
@@ -101,6 +103,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
   await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
+  await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -114,6 +117,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(publicGuestRecognitionRoutes, {
     prefix: "/public/v1/venues",
   });
+  await fastify.register(publicGuestRiskRoutes, { prefix: "/public/v1/venues" });
   await fastify.register(confirmAttendanceRoutes);
   await fastify.register(manageReservationRoutes);
   await fastify.register(cancelReservationRoutes);

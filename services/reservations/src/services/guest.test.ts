@@ -12,6 +12,9 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
+      reservation: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     },
   });
 });

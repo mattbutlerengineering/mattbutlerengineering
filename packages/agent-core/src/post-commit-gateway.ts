@@ -130,7 +130,11 @@ export async function runPostCommitGateway(
     runSecurityReview: config.runSecurityReview !== false,
   };
 
-  const runner = new GateRunner([new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()]);
+  const runner = new GateRunner([
+    new StaticAnalysisGate(),
+    new LlmEvaluationGate(),
+    new SecurityReviewGate(),
+  ]);
   const gateRunResult = await runner.run(gateContext);
 
   // Collect failures and errors from gate results; emit events per gate

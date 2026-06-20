@@ -20,12 +20,7 @@ export interface AddTableDialogProps {
   onClose: () => void;
 }
 
-export function AddTableDialog({
-  venueId,
-  floorPlanId,
-  onSubmit,
-  onClose,
-}: AddTableDialogProps) {
+export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddTableDialogProps) {
   const [shape, setShape] = useState<TableShape>("rectangle");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,33 +75,16 @@ export function AddTableDialog({
   };
 
   const validationError =
-    errors.name?.message ??
-    errors.capacity?.message ??
-    errors.minCovers?.message ??
-    error;
+    errors.name?.message ?? errors.capacity?.message ?? errors.minCovers?.message ?? error;
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div
-      className={styles.overlay}
-      onClick={handleOverlayClick}
-      onKeyDown={handleOverlayKeyDown}
-    >
+    <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
       <div className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
           <Heading className={styles.dialogTitle}>Add Table</Heading>
-          <Button
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close dialog"
-          >
-            <svg
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -117,15 +95,9 @@ export function AddTableDialog({
           </Button>
         </div>
 
-        {validationError && (
-          <div className={styles.errorBanner}>{validationError}</div>
-        )}
+        {validationError && <div className={styles.errorBanner}>{validationError}</div>}
 
-        <form
-          noValidate
-          onSubmit={handleSubmit(onFormSubmit)}
-          className={styles.form}
-        >
+        <form noValidate onSubmit={handleSubmit(onFormSubmit)} className={styles.form}>
           <div className={styles.fieldGroup}>
             <label htmlFor="table-name" className={styles.label}>
               Table Name <Text className={styles.required}>*</Text>
@@ -137,8 +109,7 @@ export function AddTableDialog({
               placeholder="e.g. Table 1"
               disabled={isSubmitting}
               {...register("name", {
-                validate: (value) =>
-                  value.trim().length > 0 || "Table name is required.",
+                validate: (value) => value.trim().length > 0 || "Table name is required.",
               })}
             />
           </div>
@@ -186,9 +157,7 @@ export function AddTableDialog({
                 <Button
                   key={s}
                   type="button"
-                  className={`${styles.shapeButton} ${
-                    shape === s ? styles.shapeButtonActive : ""
-                  }`}
+                  className={`${styles.shapeButton} ${shape === s ? styles.shapeButtonActive : ""}`}
                   onClick={() => setShape(s)}
                   disabled={isSubmitting}
                   aria-pressed={shape === s}
@@ -213,11 +182,7 @@ export function AddTableDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className={styles.submitButton}
-              disabled={isSubmitting}
-            >
+            <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
               {isSubmitting ? "Adding..." : "Add Table"}
             </Button>
           </div>
@@ -233,13 +198,7 @@ function capitalize(s: string) {
 
 function RectangleIcon() {
   return (
-    <svg
-      width="28"
-      height="20"
-      viewBox="0 0 28 20"
-      fill="none"
-      stroke="currentColor"
-    >
+    <svg width="28" height="20" viewBox="0 0 28 20" fill="none" stroke="currentColor">
       <rect x="2" y="4" width="24" height="12" rx="2" strokeWidth="2" />
     </svg>
   );
@@ -247,13 +206,7 @@ function RectangleIcon() {
 
 function SquareIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-    >
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
       <rect x="2" y="2" width="16" height="16" rx="2" strokeWidth="2" />
     </svg>
   );
@@ -261,13 +214,7 @@ function SquareIcon() {
 
 function CircleIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-    >
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
       <circle cx="10" cy="10" r="8" strokeWidth="2" />
     </svg>
   );
