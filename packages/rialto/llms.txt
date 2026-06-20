@@ -418,6 +418,18 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/class-composer.ts">
+    <item priority="high">
+      export function cn(...classes: (string | false | null | undefined)[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function variantClass(
+        styles: CSSModuleClasses,
+        current: string,
+        defaultValue: string
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/feedback.ts">
     <item priority="high">
       export function triggerHapticFeedback(): void { /* ... */ }
