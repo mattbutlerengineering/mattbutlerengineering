@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import type { CSSProperties, ReactNode } from "react";
 import { PropsTable, type PropDef } from "./PropsTable.js";
 
 vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
@@ -26,28 +26,34 @@ vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
   },
 }));
 
+interface MockColumn {
+  key: string;
+  header: string;
+  render?: (row: Record<string, unknown>) => ReactNode;
+}
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Table: ({ columns, data, rowKey }: any) => (
+  Table: ({ columns, data, rowKey }: { columns: MockColumn[]; data: Record<string, unknown>[]; rowKey: (row: Record<string, unknown>) => string }) => (
     <table data-testid="props-table">
       <thead>
         <tr>
-          {columns.map((col: any) => (
+          {columns.map((col) => (
             <th key={col.key}>{col.header}</th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {data.map((row: any) => (
+        {data.map((row) => (
           <tr key={rowKey(row)}>
-            {columns.map((col: any) => (
-              <td key={col.key}>{col.render ? col.render(row) : (row[col.key] ?? "")}</td>
+            {columns.map((col) => (
+              <td key={col.key}>{col.render ? col.render(row) : String(row[col.key] ?? "")}</td>
             ))}
           </tr>
         ))}
       </tbody>
     </table>
   ),
-  Text: ({ children, style }: any) => <span style={style}>{children}</span>,
+  Text: ({ children, style }: { children: ReactNode; style?: CSSProperties }) => <span style={style}>{children}</span>,
 }));
 
 const MOCK_PROPS: PropDef[] = [
