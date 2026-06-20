@@ -338,6 +338,7 @@ export type {
   TaskRunResult,
   TaskScore,
   TaskRunner,
+  JudgeFunction,
   EvalAggregate,
   EvalReport,
 } from "./eval/types.js";
