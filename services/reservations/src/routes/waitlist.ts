@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
+import { validatePhone } from "../services/waitlist-notifier.js";
 
 /** Shared schema for a WaitlistEntry response object */
 const WaitlistEntrySchema = {
@@ -65,7 +66,28 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      const { guestPhone } = request.body;
+      if (!validatePhone(guestPhone)) {
+        return reply
+          .code(400)
+          .send(createProblemDetails(400, "Bad Request", "Invalid phone number"));
+      }
+
       const entry = await waitlistService.create(request.body);
+
+      // Fire-and-forget: SMS delivery failures must not block the response
+      fastify.waitlistNotifier
+        .notifyAdded({
+          id: entry.id,
+          guestPhone: entry.guestPhone,
+          guestName: entry.guestName,
+          position: entry.position,
+          estimatedWaitMinutes: entry.estimatedWaitMinutes,
+        })
+        .catch(() => {
+          // Already logged inside the notifier
+        });
+
       return reply.code(201).send({ data: entry });
     }
   );
@@ -137,6 +159,49 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
           .code(404)
           .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
       }
+      return reply.send({ data: entry });
+    }
+  );
+
+  // PUT /:id/notify — send "table ready" SMS and schedule 5-min claim window
+  fastify.put<{
+    Params: { id: string };
+  }>(
+    "/:id/notify",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Notify guest table is ready",
+        operationId: "notifyWaitlistEntry",
+        tags: ["Waitlist"],
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string" } },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: { data: WaitlistEntrySchema },
+          },
+          404: { $ref: "Error#" },
+        },
+      },
+    },
+    async (request, reply) => {
+      const entry = await waitlistService.getById(request.params.id);
+      if (!entry) {
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "Waitlist entry not found"));
+      }
+
+      await fastify.waitlistNotifier.notifyTableReady({
+        id: entry.id,
+        guestPhone: entry.guestPhone,
+        guestName: entry.guestName,
+      });
+
       return reply.send({ data: entry });
     }
   );
