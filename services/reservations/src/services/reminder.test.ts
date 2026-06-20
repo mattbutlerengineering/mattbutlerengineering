@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { findReservationsNeedingReminder } from "./reminder.js";
 
 vi.mock("./database.js", async () => {
@@ -17,6 +17,13 @@ import { prisma } from "./database.js";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
+});
+
+// Restore real timers so frozen fake time does not leak into other test files
+// sharded into the same vitest worker (e.g. guest-risk's date-decay logic,
+// which flips risky→standard under a leaked setSystemTime).
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("findReservationsNeedingReminder", () => {
