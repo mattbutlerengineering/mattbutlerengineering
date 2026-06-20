@@ -72,7 +72,8 @@
   <file path="src/health-routes.ts">
     <item priority="low">
       interface HealthDb {
-        prisma: { $queryRaw: (...args: any[]) => Promise<unknown> };
+        prisma: {
+          $queryRaw: (query: TemplateStringsArray, ...values:...;
         getSlowQueryStats: () => SlowQueryStats;
         getServiceStatus: () => ServiceStatus;
         getPoolMetrics: () => PoolMetrics;

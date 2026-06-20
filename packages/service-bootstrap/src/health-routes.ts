@@ -8,8 +8,9 @@ import type { Auth0CheckResult } from "./health.js";
 
 /** Minimal database interface health routes need — satisfied by DatabaseInstance<T>. */
 export interface HealthDb {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  readonly prisma: { $queryRaw: (...args: any[]) => Promise<unknown> };
+  readonly prisma: {
+    $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+  };
   readonly getSlowQueryStats: () => SlowQueryStats;
   readonly getServiceStatus: () => ServiceStatus;
   readonly getPoolMetrics: () => PoolMetrics;
