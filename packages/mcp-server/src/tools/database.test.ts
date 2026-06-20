@@ -1,15 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { execSync } from "node:child_process";
-
-vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
-}));
-
 import { dbListTables, dbMigrationStatus } from "./database.js";
 
 describe("dbListTables", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     delete process.env["DATABASE_URL"];
   });
 
@@ -19,18 +12,20 @@ describe("dbListTables", () => {
   });
 
   it("returns error JSON when DATABASE_URL is not set", async () => {
-    const result = await dbListTables();
+    const run = vi.fn();
+
+    const result = await dbListTables(run);
     const parsed = JSON.parse(result) as { error: string };
 
     expect(parsed.error).toBe("DATABASE_URL not set");
-    expect(vi.mocked(execSync)).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("returns tables list when query succeeds", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockReturnValue("users\norders\nproducts\n");
+    const run = vi.fn().mockReturnValue("users\norders\nproducts");
 
-    const result = await dbListTables();
+    const result = await dbListTables(run);
     const parsed = JSON.parse(result) as { tables: string[] };
 
     expect(Array.isArray(parsed.tables)).toBe(true);
@@ -41,22 +36,24 @@ describe("dbListTables", () => {
 
   it("filters empty lines from psql output", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockReturnValue("users\n\norders\n\n");
+    const run = vi.fn().mockReturnValue("users\n\norders");
 
-    const result = await dbListTables();
+    const result = await dbListTables(run);
     const parsed = JSON.parse(result) as { tables: string[] };
 
     expect(parsed.tables).not.toContain("");
     expect(parsed.tables).toHaveLength(2);
   });
 
-  it("returns error JSON when psql command fails", async () => {
+  it("returns error JSON when runner returns error envelope", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("psql: connection refused");
+    const envelope = JSON.stringify({
+      error: "Failed to list tables",
+      message: "psql: connection refused",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await dbListTables();
+    const result = await dbListTables(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to list tables");
@@ -65,9 +62,9 @@ describe("dbListTables", () => {
 
   it("result is a valid MCP text content string", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockReturnValue(" users\n");
+    const run = vi.fn().mockReturnValue("users");
 
-    const result = await dbListTables();
+    const result = await dbListTables(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
     expect(mcpContent[0].type).toBe("text");
@@ -77,7 +74,6 @@ describe("dbListTables", () => {
 
 describe("dbMigrationStatus", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     delete process.env["DATABASE_URL"];
   });
 
@@ -87,20 +83,24 @@ describe("dbMigrationStatus", () => {
   });
 
   it("returns error JSON when DATABASE_URL is not set", async () => {
-    const result = await dbMigrationStatus();
+    const run = vi.fn();
+
+    const result = await dbMigrationStatus(run);
     const parsed = JSON.parse(result) as { error: string };
 
     expect(parsed.error).toBe("DATABASE_URL not set");
-    expect(vi.mocked(execSync)).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("returns migrations list when query succeeds", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockReturnValue(
-      " 20240101_initial | 2024-01-01 00:00:00\n 20240201_users | 2024-02-01 00:00:00\n"
-    );
+    const run = vi
+      .fn()
+      .mockReturnValue(
+        " 20240101_initial | 2024-01-01 00:00:00\n 20240201_users | 2024-02-01 00:00:00"
+      );
 
-    const result = await dbMigrationStatus();
+    const result = await dbMigrationStatus(run);
     const parsed = JSON.parse(result) as { migrations: string[] };
 
     expect(Array.isArray(parsed.migrations)).toBe(true);
@@ -109,35 +109,39 @@ describe("dbMigrationStatus", () => {
 
   it("filters empty lines from psql output", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockReturnValue(" 20240101_initial | 2024-01-01\n\n");
+    const run = vi.fn().mockReturnValue(" 20240101_initial | 2024-01-01");
 
-    const result = await dbMigrationStatus();
+    const result = await dbMigrationStatus(run);
     const parsed = JSON.parse(result) as { migrations: string[] };
 
     expect(parsed.migrations).not.toContain("");
     expect(parsed.migrations).toHaveLength(1);
   });
 
-  it("returns error JSON when psql command fails", async () => {
+  it("returns error JSON when runner returns error envelope", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error("connection error");
+    const envelope = JSON.stringify({
+      error: "Failed to get migration status",
+      message: "connection error",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await dbMigrationStatus();
+    const result = await dbMigrationStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get migration status");
     expect(parsed.message).toBe("connection error");
   });
 
-  it("handles non-Error thrown values", async () => {
+  it("handles non-Error message in envelope", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://localhost/test");
-    vi.mocked(execSync).mockImplementation(() => {
-      throw 42;
+    const envelope = JSON.stringify({
+      error: "Failed to get migration status",
+      message: "42",
     });
+    const run = vi.fn().mockReturnValue(envelope);
 
-    const result = await dbMigrationStatus();
+    const result = await dbMigrationStatus(run);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get migration status");

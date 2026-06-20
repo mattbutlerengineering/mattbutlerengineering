@@ -970,6 +970,17 @@
       export const ThemeContext: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/use-url-params.ts">
+    <item priority="high">
+      type SchemaOutput = z.infer<S>;
+    </item>
+    <item priority="low">
+      interface UseUrlParamsResult {
+        params: SchemaOutput<S>;
+        setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOu...;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
@@ -1199,6 +1210,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/sse-client.ts">
+    <item priority="low">
+      type EventSourceFactory = (url: string) => EventSource;
+    </item>
+    <item priority="low">
+      interface SseClientOptions {
+        url: string;
+        eventTypes: readonly string[];
+        onEvent: (type: string, payload: unknown) => void;
+        onError: (error: Error) => void;
+        onConnected?: () => void;
+      }
+    </item>
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     <item priority="low">
       interface VerifiedWebhookOptions {
@@ -1959,6 +1984,16 @@
       function extractText(content: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/services/session-concurrency.ts">
+    <item priority="low">
+      interface SessionConcurrency {
+        limit: number;
+      }
+    </item>
+    <item priority="high">
+      export function createSessionConcurrency(limit: number): SessionConcurrency { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/services/session-event-emitter.ts">
     <item priority="low">
       type SessionEventListener = (event: AgentSessionEvent) => void;
@@ -1972,7 +2007,7 @@
   <file path="services/agent/src/services/session-executor.ts">
     <item priority="low">
       interface SessionExecutorConfig {
-        maxConcurrent: number;
+        concurrency: SessionConcurrency;
         sessionService: typeof SessionServiceType;
       }
     </item>
@@ -2590,6 +2625,26 @@
         limit: number;
         remaining: number;
         percentUsed: number;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/cost-logger.ts">
+    <item priority="low">
+      interface CostEntry {
+        timestamp: string;
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+        sessionId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface CostEntryInput {
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+        sessionId?: string;
+        status?: string;
       }
     </item>
   </file>
@@ -3495,10 +3550,10 @@
   </file>
   <file path="packages/jobs/src/job-types.ts">
     <item priority="high">
-      export const JOB_TYPES: unknown;
+      export const DEFAULT_QUEUE_NAME: unknown;
     </item>
-    <item priority="low">
-      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    <item priority="high">
+      export const DEFAULT_JOB_OPTIONS: unknown;
     </item>
   </file>
   <file path="packages/jobs/src/scheduler.ts">
@@ -3546,6 +3601,18 @@
       async function main() { /* ... */ }
     </item>
   </file>
+  <file path="packages/mcp-server/src/shell-runner.ts">
+    <item priority="low">
+      type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number ...;
+    </item>
+    <item priority="low">
+      interface ShellRunnerOptions {
+        runner?: ShellRunner;
+        timeoutMs?: number;
+        errorLabel?: string;
+      }
+    </item>
+  </file>
   <file path="packages/notifications/src/booking-email-content.ts">
     <item priority="low">
       type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
@@ -3578,14 +3645,15 @@
       interface NotificationDispatcherConfig {
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
+        smsManageBaseUrl?: string;
       }
     </item>
     <item priority="high">
       class NotificationDispatcher {
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
-        async shouldSendEmail(): Promise<unknown>;
-        async shouldSendSms(): Promise<unknown>;
+        smsManageBaseUrl: string;
+        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>
@@ -4233,25 +4301,28 @@
   <section priority="medium" role="tools">
   <file path="packages/mcp-server/src/tools/ci.ts">
     <item priority="high">
-      export async function ciRunStatus(): Promise<string> { /* ... */ }
+      export async function ciRunStatus(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/database.ts">
     <item priority="high">
-      export async function dbListTables(): Promise<string> { /* ... */ }
+      export async function dbListTables(run = defaultListRun): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
-      export async function dbMigrationStatus(): Promise<string> { /* ... */ }
+      export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/deploy_status.ts">
     <item priority="high">
-      export async function deployStatus(): Promise<string> { /* ... */ }
+      export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/git.ts">
+    <item priority="medium">
+      function isErrorEnvelope(output: string): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export async function gitWorkflowStatus(): Promise<string> { /* ... */ }
+      export async function gitWorkflowStatus(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/health.ts">
@@ -4266,7 +4337,7 @@
   </file>
   <file path="packages/mcp-server/src/tools/pulumi.ts">
     <item priority="high">
-      export async function pulumiStackOutputs(): Promise<string> { /* ... */ }
+      export async function pulumiStackOutputs(run = defaultRun): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

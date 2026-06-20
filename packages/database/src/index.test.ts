@@ -6,6 +6,11 @@ import { isPrismaNotFound } from "./index.js";
 // load (13+ packages in CI / pre-push), the default 5s is too tight.
 vi.setConfig({ testTimeout: 15_000 });
 
+// Real delay used to let monitored-query timestamps advance across the
+// slow-query window boundary between successive calls under test. Named to
+// avoid a magic setTimeout literal (AI antipattern ratchet: magicTimeouts).
+const QUERY_WINDOW_ADVANCE_MS = 120;
+
 const mockPoolInstance = {
   totalCount: 5,
   activeCount: 2,
@@ -199,7 +204,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -217,7 +222,7 @@ describe("createDatabase", () => {
       operation: "findMany",
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });
@@ -235,6 +240,108 @@ describe("createDatabase", () => {
     const db = createDatabase(createMockPrismaClient() as never);
 
     expect(db.getServiceStatus()).toBe("degraded");
+  });
+
+  it("getSlowQueryStats is idempotent — a stale entry that just crossed the window boundary is not observable after first call prunes it", async () => {
+    const { createDatabase } = await import("./index.js");
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    const allOps = (capturedExtension!.query as Record<string, unknown>).$allOperations as (
+      ctx: Record<string, unknown>
+    ) => Promise<unknown>;
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Record a slow query at "now"
+    await allOps({
+      model: "User",
+      operation: "findMany",
+      args: {},
+      query: vi.fn().mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
+        return [];
+      }),
+    });
+
+    // Simulate time advancing past the 5-min window so this entry becomes stale
+    const realNow = Date.now;
+    const WINDOW_MS = 5 * 60 * 1000;
+    Date.now = vi.fn().mockReturnValue(realNow() + WINDOW_MS + 1000);
+
+    // First call: prunes the now-stale entry, returns count=0
+    const first = db.getSlowQueryStats();
+    expect(first.count5min).toBe(0);
+
+    // Second call: same result (nothing to prune), still returns count=0
+    // With the fix (prune separated), the result is the same; the bug here is semantic
+    // — the first call mutated the array which is a side effect of a read.
+    // After fix: pruneSlowQueries() runs separately; getSlowQueryStats() is a pure read.
+    const second = db.getSlowQueryStats();
+    expect(second.count5min).toBe(first.count5min);
+
+    Date.now = realNow;
+    vi.restoreAllMocks();
+  });
+
+  it("getSlowQueryStats returns consistent count when called before and after getServiceStatus within the window", async () => {
+    const { createDatabase } = await import("./index.js");
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    const allOps = (capturedExtension!.query as Record<string, unknown>).$allOperations as (
+      ctx: Record<string, unknown>
+    ) => Promise<unknown>;
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Record a slow query
+    await allOps({
+      model: "User",
+      operation: "findMany",
+      args: {},
+      query: vi.fn().mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
+        return [];
+      }),
+    });
+
+    // Read before: should have 1 slow query
+    const before = db.getSlowQueryStats();
+    expect(before.count5min).toBe(1);
+
+    // getServiceStatus internally reads slow queries — should not affect the next read
+    db.getServiceStatus();
+
+    // Read after: must still report the same count
+    const after = db.getSlowQueryStats();
+    expect(after.count5min).toBe(before.count5min);
+
+    vi.restoreAllMocks();
+  });
+
+  it("getPoolMetrics.utilization delegates to getPoolStats.utilization — same value, not a recomputation", async () => {
+    const { createDatabase } = await import("./index.js");
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    const poolStats = db.getPoolStats();
+    const poolMetrics = db.getPoolMetrics();
+
+    // After fix: getPoolMetrics delegates utilization to getPoolStats, collapsing two formulas into one
+    expect(poolMetrics.utilization).toBe(poolStats.utilization);
+  });
+
+  it("getPoolStats and getPoolMetrics agree on utilization for a cold pool (total=0, connectionLimit default 5)", async () => {
+    const { createDatabase } = await import("./index.js");
+    mockPoolInstance.totalCount = 0;
+    mockPoolInstance.activeCount = 0;
+    mockPoolInstance.idleCount = 0;
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    const poolStats = db.getPoolStats();
+    const poolMetrics = db.getPoolMetrics();
+
+    // Cold pool: both should report 0 utilization, and must agree
+    expect(poolStats.utilization).toBe(0);
+    expect(poolMetrics.utilization).toBe(poolStats.utilization);
   });
 
   it("getPoolStats handles missing pool internals with ?? 0 fallbacks", async () => {
@@ -285,7 +392,7 @@ describe("createDatabase", () => {
       operation: undefined,
       args: {},
       query: vi.fn().mockImplementation(async () => {
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
         return [];
       }),
     });

@@ -32,6 +32,12 @@ export interface ErrorRateSnapshot {
   readonly degraded: boolean;
 }
 
+export interface ErrorRateHealthCheckResult {
+  readonly status: "ok" | "degraded";
+  readonly endpoints: readonly EndpointErrorRate[];
+  readonly message?: string;
+}
+
 const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const DEGRADATION_THRESHOLD = 0.1; // 10% error rate
 const IGNORED_PATHS = new Set(["/health", "/docs", "/reference"]);
@@ -113,5 +119,20 @@ export const errorRatePlugin_ = fp(errorRatePlugin, {
   name: "error-rate-tracker",
   fastify: "5.x",
 });
+
+/**
+ * Interprets an ErrorRateSnapshot as a health-check result.
+ * Single owner for degradation judgement — callers do not re-implement thresholds.
+ */
+export function createErrorRateHealthCheck(snapshot: ErrorRateSnapshot): ErrorRateHealthCheckResult {
+  if (!snapshot.degraded) {
+    return { status: "ok", endpoints: snapshot.endpoints };
+  }
+
+  const degradedEndpoints = snapshot.endpoints.filter((e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5);
+  const message = `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`;
+
+  return { status: "degraded", endpoints: snapshot.endpoints, message };
+}
 
 export { createErrorRateTracker };

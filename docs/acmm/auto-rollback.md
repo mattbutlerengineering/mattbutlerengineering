@@ -2,124 +2,141 @@
 
 ## How It Works
 
-When the Post-Deploy Check workflow fails:
+The auto-rollback mechanism closes the autonomous loop: when an AI-authored change breaks
+production, the system detects the regression and opens a revert PR for fast human merge —
+without waiting for manual triage.
 
-1. The `auto-rollback.yml` workflow triggers automatically
-2. It checks if the failing commit was authored by an agent (branch name or author)
-3. If agent-authored: creates a revert PR with `agent-regression` label
-4. If revert fails (merge conflict): creates an issue for manual intervention
-5. Non-agent failures are skipped (human-authored code is not auto-reverted)
+### Deploy pipeline and health signals
 
-## Flow
+Deploys flow through two GitHub Actions workflows:
+
+- **Deploy Services** (`.github/workflows/deploy-services.yml`) — pushes to DO App Platform
+  for `services/users`, `services/reservations`, `services/agent`, and shared packages.
+- **Deploy Static Sites** (`.github/workflows/deploy-static.yml`) — pushes to Cloudflare Workers
+  for `apps/marketing`, `apps/hospitality`, and `apps/rialto-web`.
+
+Both trigger **Post-Deploy Check** (`.github/workflows/post-deploy-check.yml`) on completion.
+Post-Deploy Check runs two parallel health-check jobs:
+
+| Job                | Signal                                                                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `smoke-test`       | HTTP checks for marketing, hospitality, rialto storybook, Users API `/api/v1/users/health` (DB-backed), and Users `/health` (liveness) |
+| `playwright-smoke` | Playwright browser tests in `tests/smoke/` against the live site                                                                       |
+
+If either job fails, Post-Deploy Check concludes with `failure`, which triggers `auto-rollback.yml`.
+
+### Rollback sequence
 
 ```
-Deploy → Post-Deploy Smoke Tests → FAIL
-                                     ↓
-                              Is agent commit?
-                             ╱              ╲
-                           Yes               No
-                            ↓                ↓
-                     git revert HEAD    Log & skip
-                     ╱           ╲
-                  Clean        Conflict
-                    ↓              ↓
-              Create PR       Create issue
-              (agent-        (agent-regression
-              regression)      + urgent)
+Deploy Services / Deploy Static Sites
+           ↓ (on push to main)
+   Post-Deploy Check → FAIL
+           ↓ (workflow_run conclusion=failure)
+   auto-rollback.yml
+           ↓
+    Is HEAD commit agent-authored?
+   ╱                            ╲
+ Yes                              No
+  ↓                               ↓
+git revert HEAD              Log & skip
+  ╱           ╲
+Clean        Conflict
+  ↓              ↓
+Create PR    Create issue
+(agent-      (agent-regression
+regression)   + urgent)
 ```
 
 ## Agent Detection
 
-A commit is classified as agent-authored if ANY of:
+A commit is classified as agent-authored if ANY of the following signals match:
 
-| Signal      | Pattern                                                 | Example                      |
-| ----------- | ------------------------------------------------------- | ---------------------------- |
-| Branch name | `agent-*` or `worktree-agent-*`                         | `agent-fix-login-bug-a4f2b1` |
-| Author name | Contains `bot`, `agent`, or `claude` (case-insensitive) | `mbe-agent[bot]`             |
-
-## Labels
-
-| Label              | Meaning                                       | Auto-created      |
-| ------------------ | --------------------------------------------- | ----------------- |
-| `agent-regression` | PR or issue from an agent-caused regression   | Yes (by workflow) |
-| `urgent`           | Auto-revert failed, needs manual intervention | Yes (by workflow) |
-
-## What Happens After a Revert PR is Created
-
-1. **The revert PR requires human review** — it is NOT auto-merged
-2. A human reviews the revert to confirm it's safe
-3. After merge, the original issue should be re-opened or a new issue filed
-4. The original agent change should be investigated before retrying
+| Signal         | Pattern                                                      | Example                      |
+| -------------- | ------------------------------------------------------------ | ---------------------------- |
+| Branch name    | `agent-*`, `worktree-agent-*`, `fix/agent-*`, `feat/agent-*` | `worktree-agent-a4f2b1`      |
+| Commit message | `Co-Authored-By: Claude` (case-insensitive)                  | Standard agent commit footer |
+| PR label       | PR has `has-pr` label (set by the implement-queue)           | Agent-created PRs            |
 
 ## Safety Guarantees
 
-- Only agent commits are auto-reverted — human commits require manual rollback
-- Revert PRs still require review before merge (not auto-merged)
-- If `git revert` fails due to conflicts, an issue is created instead of a broken revert
-- The workflow only triggers on Post-Deploy Check failures, not CI failures
-- A single revert is attempted — no cascading reverts
+- Only agent commits are auto-reverted — human commits require manual rollback.
+- Revert PRs require human review before merge — they are **never auto-merged**.
+- No force-push is used at any point.
+- If `git revert` fails due to conflicts, an issue is created instead of a partial revert.
+- The `no-auto-rollback` label on a PR suppresses auto-revert creation (see Opt-out below).
+- A single revert is attempted — no cascading reverts.
+- Permissions are scoped per job (least privilege): `rollback-drill` needs only `contents: write`;
+  `check-and-rollback` needs `contents: write`, `pull-requests: write`, `issues: write`.
+
+## What Happens After a Revert PR Is Created
+
+1. The revert PR is labeled `agent-regression` and is visible in the PR queue.
+2. A human reviews the diff — it should be the inverse of the offending commit.
+3. Merge the revert PR to restore stability.
+4. Re-open (or file) an issue to retry the original change with a fix.
+
+## Labels
+
+| Label              | Meaning                                                             | Auto-created |
+| ------------------ | ------------------------------------------------------------------- | ------------ |
+| `agent-regression` | PR or issue created by auto-rollback for an agent-caused regression | Yes          |
+| `urgent`           | Auto-revert failed (conflict) — manual intervention needed          | Yes          |
+| `no-auto-rollback` | Applied to a PR before merge to suppress auto-rollback on failure   | No (manual)  |
 
 ## Edge Cases
 
-| Scenario                              | Behavior                                           |
-| ------------------------------------- | -------------------------------------------------- |
-| Multiple agent commits in one deploy  | Only the HEAD commit is reverted                   |
-| Agent commit followed by human commit | HEAD is human → skipped (no auto-revert)           |
-| Post-deploy check is flaky            | Revert PR created, but reviewer can close if flake |
-| Revert itself fails CI                | Normal CI process — human investigates             |
-
-## Monitoring
-
-- Check for `agent-regression` labeled PRs: `gh pr list --label agent-regression`
-- Check for failed reverts: `gh issue list --label agent-regression,urgent`
-- Trend tracking via `/progress-tracker` regression count
+| Scenario                              | Behavior                                                       |
+| ------------------------------------- | -------------------------------------------------------------- |
+| Multiple agent commits in one deploy  | Only HEAD commit is reverted                                   |
+| Agent commit followed by human commit | HEAD is human → skipped                                        |
+| Post-deploy check is flaky            | Revert PR created; reviewer closes if it is a false positive   |
+| Revert itself fails CI                | Normal CI process — human investigates                         |
+| Revert branch already exists          | `git checkout -b` fails; workflow fails → `ci-fix` issue filed |
 
 ## Manual Override / Opt-out
-
-Auto-rollback only fires for agent commits — human-authored commits are never auto-reverted. For cases where the automatic revert should be suppressed:
 
 | Scenario                                         | Action                                                          |
 | ------------------------------------------------ | --------------------------------------------------------------- |
 | Known flaky post-deploy check                    | Close the revert PR without merging; fix the flake separately   |
-| Intentional breaking change (coordinated deploy) | Add the `no-auto-rollback` label to the PR before merging       |
+| Intentional breaking change (coordinated deploy) | Apply `no-auto-rollback` to the PR **before merging**           |
 | Revert would itself be dangerous                 | Close the auto-created revert PR; create a targeted fix instead |
 
-### `no-auto-rollback` label
+## Monitoring
 
-Apply this label to any PR before it merges to suppress automatic revert creation if post-deploy checks fail. The workflow checks for this label on the originating PR before creating the revert.
+```bash
+# Open revert PRs from agent regressions
+gh pr list --label agent-regression
 
-### Testing the mechanism without a real failure
+# Failed auto-reverts requiring manual intervention
+gh issue list --label agent-regression --label urgent
 
-Trigger `auto-rollback.yml` with `workflow_dispatch` and `drill: true` for a dry-run that simulates rollback without creating a live revert PR. The weekly Monday schedule also exercises the drill path automatically.
+# Recent workflow runs
+gh run list --workflow=auto-rollback.yml --limit 10
+```
 
-## Testing
+## Drill Mode
 
-To test the workflow without a real production failure:
-
-1. Create a branch that deliberately breaks a smoke test endpoint
-2. Push it with an `agent-` branch prefix
-3. Merge to main (admin merge to skip checks)
-4. Wait for post-deploy-check to run and fail
-5. Verify: `auto-rollback.yml` triggers, detects agent commit, creates revert PR
-6. Clean up: close the revert PR, revert your deliberate break
+Trigger `auto-rollback.yml` manually with `workflow_dispatch` and `drill: true` for a dry-run
+that validates the mechanism without creating a real revert PR. The weekly Monday 10:17 UTC
+schedule also exercises the drill path automatically — this keeps the `acmm:auto-rollback`
+ACMM criterion active during quiet periods.
 
 ## Workflow File
 
-Located at `.github/workflows/auto-rollback.yml`. Triggers on:
+Located at `.github/workflows/auto-rollback.yml`. Triggers:
 
 ```yaml
 on:
   schedule:
-    - cron: "17 10 * * 1" # Weekly Monday drill — keeps ACMM criterion active
+    - cron: "17 10 * * 1" # Weekly Monday drill
   workflow_dispatch:
     inputs:
       drill:
-        type: boolean # Set true for a dry-run drill
+        type: boolean # true = dry-run, no revert PR created
   workflow_run:
     workflows: ["Post-Deploy Check"]
     types: [completed]
 ```
 
-The `workflow_run` path only activates when the Post-Deploy Check workflow **fails** (`conclusion == 'failure'`).
-
-The `schedule` path runs the drill job automatically every Monday at 10:17 UTC. This ensures the `acmm:auto-rollback` ACMM criterion stays active even during quiet periods with no real regressions — the ACMM scanner checks `gh run list --workflow=auto-rollback.yml` for a successful run within 365 days.
+The `workflow_run` path only activates when Post-Deploy Check **fails**
+(`conclusion == 'failure'`). A passing deploy produces no rollback action.

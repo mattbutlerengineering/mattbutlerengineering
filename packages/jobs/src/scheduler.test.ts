@@ -34,7 +34,7 @@ vi.mock("ioredis", () => {
 });
 
 import { JobScheduler } from "./scheduler.js";
-import { JOB_TYPES } from "./job-types.js";
+import { JOB_TYPES, DEFAULT_QUEUE_NAME, DEFAULT_JOB_OPTIONS } from "./job-types.js";
 import type { BookingReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
 
 const bookingPayload: BookingReminderPayload = {
@@ -154,5 +154,37 @@ describe("JobScheduler", () => {
     await scheduler.cancel(knownId);
 
     expect(mocks.remove).toHaveBeenCalledWith(knownId);
+  });
+
+  it("DEFAULT_QUEUE_NAME is exported from job-types and equals 'mbe-notifications'", () => {
+    expect(DEFAULT_QUEUE_NAME).toBe("mbe-notifications");
+  });
+
+  it("DEFAULT_JOB_OPTIONS is exported from job-types with attempts: 3 and exponential backoff", () => {
+    expect(DEFAULT_JOB_OPTIONS).toMatchObject({
+      attempts: 3,
+      backoff: { type: "exponential", delay: 1000 },
+    });
+  });
+
+  it("schedule() passes attempts: 3 retry policy to BullMQ", async () => {
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    await scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, bookingPayload, 3600000);
+
+    const [, , opts] = mocks.add.mock.calls[0];
+    expect(opts).toMatchObject({ attempts: 3, backoff: { type: "exponential", delay: 1000 } });
+  });
+
+  it("scheduleCron() passes attempts: 3 retry policy to BullMQ", async () => {
+    const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    await scheduler.scheduleCron(JOB_TYPES.LAPSED_GUEST_SCAN, lapsedPayload, "0 9 * * *");
+
+    const [, , template] = mocks.upsertJobScheduler.mock.calls[0];
+    expect(template.opts).toMatchObject({
+      attempts: 3,
+      backoff: { type: "exponential", delay: 1000 },
+    });
   });
 });
