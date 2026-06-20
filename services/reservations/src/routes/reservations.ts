@@ -10,10 +10,17 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, optionalAuth, hasPermission } from "@mbe/auth/fastify";
+import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
+
 import { parseListQuery } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
+
+const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
+  resolveReservationGuestEmail((id) => reservationService.getById(id)),
+  resolveCurrentUserEmail
+);
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // List reservations
@@ -272,7 +279,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireReservationOwnerOrAdmin],
       schema: {
         summary: "Get reservation by ID",
         operationId: "getReservationById",
@@ -313,17 +320,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-      }
-
-      const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
-      const isOwner = reservation.guestEmail === authUser?.email;
-
-      if (!adminAccess && !isOwner) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never
-        );
       }
 
       return { data: reservation };
@@ -476,7 +472,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireReservationOwnerOrAdmin],
       schema: {
         summary: "Update a reservation",
         operationId: "updateReservation",
@@ -584,21 +580,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(404, "Not Found", "Reservation not found"));
       }
 
-      const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
-      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
-
-      if (!adminAccess && !isOwner) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(
-            403,
-            "Forbidden",
-            "You can only update your own reservations"
-          ) as never
-        );
-      }
-
       if (request.body.status === "CANCELLED") {
         try {
           const cancelled = await reservationService.cancel(
@@ -698,7 +679,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireReservationOwnerOrAdmin],
       schema: {
         summary: "Cancel a reservation",
         operationId: "cancelReservation",
@@ -740,21 +721,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .code(404)
           .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-      }
-
-      const authUser = request.user;
-      const adminAccess = hasPermission(authUser, "admin");
-      const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
-
-      if (!adminAccess && !isOwner) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(
-            403,
-            "Forbidden",
-            "You can only cancel your own reservations"
-          ) as never
-        );
       }
 
       try {

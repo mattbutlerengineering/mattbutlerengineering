@@ -57,6 +57,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   }),
   optionalAuth: vi.fn(async () => {}),
   hasPermission: vi.fn(() => true),
+  requireOwnershipOrAdmin: vi.fn().mockReturnValue(vi.fn(async () => {})),
 }));
 
 import { buildApp } from "../app.js";
