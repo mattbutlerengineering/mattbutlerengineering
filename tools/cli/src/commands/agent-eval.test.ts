@@ -152,34 +152,4 @@ describe("agent eval command", () => {
     expect(mockMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
     expect(mockAppendFileSync).toHaveBeenCalledOnce();
   });
-
-  it("prints calibration summary with --calibrate", async () => {
-    mockLoadSuite.mockResolvedValue([task]);
-    // costUsd 0.2, maxCostUsd 1 → withinBudget true → task passes
-    mockRunSession.mockResolvedValue(
-      fakeSession({ evaluation: { passed: true, confidence: 0.9, reasoning: "ok" } })
-    );
-
-    await agentEvalCommand.parseAsync(["--calibrate"], { from: "user" });
-
-    const out = logSpy.mock.calls.flat().join("\n");
-    expect(out).toContain("Calibration Summary");
-    expect(out).toContain("High confidence");
-    expect(out).toContain("Med  confidence");
-    expect(out).toContain("Low  confidence");
-    expect(out).toContain("Tasks with self-eval: 1");
-    expect(process.exitCode).toBe(0);
-  });
-
-  it("calibration summary omits 'without self-eval' line when all tasks have self-eval", async () => {
-    mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(
-      fakeSession({ evaluation: { passed: true, confidence: 0.9, reasoning: "ok" } })
-    );
-
-    await agentEvalCommand.parseAsync(["--calibrate"], { from: "user" });
-
-    const out = logSpy.mock.calls.flat().join("\n");
-    expect(out).not.toContain("without self-eval");
-  });
 });
