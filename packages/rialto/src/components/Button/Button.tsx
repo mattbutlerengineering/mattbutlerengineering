@@ -2,6 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { precision, boop } from "../../tokens/motion";
+import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Button.module.css";
 
 type MotionButtonProps = HTMLMotionProps<"button">;
@@ -49,16 +50,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const shouldReduceMotion = useReducedMotion();
 
-    const sizeClass = size !== "md" ? styles[size] : "";
-    const classes = [
+    const classes = cn(
       styles.button,
       styles[variant],
-      sizeClass,
+      variantClass(styles, size, "md"),
       isLoading && styles.isLoading,
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      className
+    );
 
     const isDisabled = disabled || isLoading;
 

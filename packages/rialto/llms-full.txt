@@ -1097,6 +1097,19 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/class-composer.ts">
+    export function cn(...classes: (string | false | null | undefined)[]): string {
+      return classes.filter(Boolean).join(" ");
+    }
+    export function variantClass(
+      styles: CSSModuleClasses,
+      current: string,
+      defaultValue: string
+    ): string {
+      if (current === defaultValue) return "";
+      return styles[current] ?? "";
+    }
+  </file>
   <file path="src/utils/feedback.ts">
     export function triggerHapticFeedback(): void {
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
