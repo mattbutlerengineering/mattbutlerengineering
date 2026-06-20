@@ -32,14 +32,15 @@
       interface NotificationDispatcherConfig {
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
+        smsManageBaseUrl?: string;
       }
     </item>
     <item priority="high">
       class NotificationDispatcher {
         emailAdapter: NotificationPort;
         smsAdapter: SmsPort | null;
-        async shouldSendEmail(): Promise<unknown>;
-        async shouldSendSms(): Promise<unknown>;
+        smsManageBaseUrl: string;
+        async toSmsInput(): Promise<unknown>;
       }
     </item>
   </file>

@@ -26,6 +26,7 @@ import {
   updateActiveObservation,
 } from "@langfuse/tracing";
 
+import { recordSessionCost } from "./cost-logger.js";
 import type { PhaseDeps } from "./phases/index.js";
 import {
   createDefaultPhaseDeps,
@@ -169,8 +170,22 @@ export async function runSession(
             rootSpan.end();
           }
 
-          // Attach cleanup errors to the final result (immutable spread)
-          return cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+          const finalResultWithCleanup =
+            cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+
+          // Record spend so progress-tracker / learning-loop sensors have data
+          try {
+            recordSessionCost(effectiveConfig.repoPath, {
+              costUsd: finalResultWithCleanup.costUsd,
+              sessionId: finalResultWithCleanup.sessionId || undefined,
+              model: effectiveConfig.model,
+              status: finalResultWithCleanup.status,
+            });
+          } catch {
+            // Best-effort — never fail a session over spend logging
+          }
+
+          return finalResultWithCleanup;
         }
       );
     }

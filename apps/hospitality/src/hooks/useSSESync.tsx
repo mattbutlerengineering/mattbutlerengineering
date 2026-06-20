@@ -5,6 +5,8 @@
  * connection-status, and event feed. Replaces the former useReservationEvents +
  * useReservationQuerySync + useSSEStatus + useSSEEventFeed split.
  *
+ * Transport (backoff, resumption, parse-error surfacing) is delegated to SseClient.
+ *
  * Usage:
  *   // In DashboardLayout — mount once per app session:
  *   <SSESyncProvider>...</SSESyncProvider>
@@ -26,7 +28,6 @@ import {
   useMemo,
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useRef,
   type MutableRefObject,
@@ -37,6 +38,7 @@ import { useToast } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
+import { SseClient } from "../lib/sse-client.js";
 import type { Reservation, Table, ReservationHold, LapsingGuest } from "@mbe/types";
 
 /* ── Types ─────────────────────────────────────────────────────── */
@@ -68,17 +70,21 @@ type SSEConnectionAction =
   | { type: "disconnected" }
   | { type: "error"; error: Error };
 
-/* ── Backoff constants ──────────────────────────────────────────── */
-
-const INITIAL_BACKOFF_MS = 1_000;
-const MAX_BACKOFF_MS = 30_000;
-const RATE_LIMIT_COOLDOWN_MS = 60_000;
-const MAX_BACKOFF_ATTEMPTS = 8;
-
 /* ── Toast rate limiter ──────────────────────────────────────────── */
 
 const TOAST_WINDOW_MS = 10_000;
 const TOAST_MAX = 3;
+
+const SSE_EVENT_TYPES: readonly ReservationEventType[] = [
+  "reservation:created",
+  "reservation:updated",
+  "reservation:cancelled",
+  "hold:created",
+  "hold:released",
+  "hold:confirmed",
+  "table:updated",
+  "guest:lapsing",
+];
 
 /* ── Context ────────────────────────────────────────────────────── */
 
@@ -113,13 +119,14 @@ export function SSESyncProvider({ children }: { children: ReactNode }) {
   });
 
   // Stable Set — useMemo gives a stable reference without touching .current in render
-   
   const feedListeners = useMemo(() => new Set<(event: ReservationEvent) => void>(), []);
 
   const toastTimestampsRef = useRef<number[]>([]);
 
   return (
-    <SSESyncContext.Provider value={{ connectionState, dispatchConnection, feedListeners, toastTimestampsRef }}>
+    <SSESyncContext.Provider
+      value={{ connectionState, dispatchConnection, feedListeners, toastTimestampsRef }}
+    >
       {children}
     </SSESyncContext.Provider>
   );
@@ -134,7 +141,7 @@ function useSSESyncContext(): SSESyncContextValue {
 /* ── useSSESync ─────────────────────────────────────────────────── */
 
 /**
- * Owns the EventSource lifecycle. Call once inside DashboardLayoutInner.
+ * Owns the EventSource lifecycle via SseClient. Call once inside DashboardLayoutInner.
  * Returns reconnect() for manual reconnect (e.g. retry button).
  */
 export function useSSESync(): { reconnect: () => void } {
@@ -143,185 +150,174 @@ export function useSSESync(): { reconnect: () => void } {
   const { toast } = useToast();
   const { selectedVenueId } = useVenue();
 
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectAttempts = useRef(0);
-  const connectRef = useRef<(() => void) | null>(null);
-
-  // Keep refs to avoid reconnecting on closure changes
+  // Keep refs to avoid recreating SseClient on closure changes
   const queryClientRef = useRef(queryClient);
   const toastRef = useRef(toast);
   const dispatchRef = useRef(dispatchConnection);
+  const selectedVenueIdRef = useRef(selectedVenueId);
 
   useEffect(() => {
     queryClientRef.current = queryClient;
     toastRef.current = toast;
     dispatchRef.current = dispatchConnection;
+    selectedVenueIdRef.current = selectedVenueId;
   });
 
-  // feedListeners is a stable Set (useMemo in provider) — safe to close over directly
-  const broadcastEvent = useCallback(
-    (event: ReservationEvent) => {
-      for (const listener of feedListeners) {
-        listener(event);
-      }
-    },
-    [feedListeners]
-  );
-
-  const makeEvent = useCallback(
-    (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
-      type,
-      venueId: selectedVenueId ?? "",
-      timestamp: new Date().toISOString(),
-      data,
-    }),
-    [selectedVenueId]
-  );
-
-  const canShowToast = useCallback(() => {
+  const canShowToast = useCallback((): boolean => {
     const now = Date.now();
-    toastTimestampsRef.current = toastTimestampsRef.current.filter((t) => now - t < TOAST_WINDOW_MS);
+    toastTimestampsRef.current = toastTimestampsRef.current.filter(
+      (t) => now - t < TOAST_WINDOW_MS
+    );
     if (toastTimestampsRef.current.length >= TOAST_MAX) return false;
     toastTimestampsRef.current = [...toastTimestampsRef.current, now];
     return true;
   }, [toastTimestampsRef]);
 
-  const closeConnection = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-  }, []);
-
-  const connect = useCallback(() => {
-    // Close any existing connection first to prevent duplicates
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-
-    const baseUrl = import.meta.env.VITE_API_URL ?? "";
-    const url = new URL(`${baseUrl}/api/v1/events/stream`);
-    if (selectedVenueId) {
-      url.searchParams.set("venueId", selectedVenueId);
-    }
-
-    const eventSource = new EventSource(url.toString());
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      dispatchRef.current({ type: "connected" });
-      reconnectAttempts.current = 0;
-    };
-
-    eventSource.onerror = () => {
-      // Close immediately to prevent browser auto-reconnect racing with our backoff
-      eventSource.close();
-      eventSourceRef.current = null;
-
-      const err = new Error("SSE connection error");
-      dispatchRef.current({ type: "error", error: err });
-
-      const attempts = reconnectAttempts.current;
-      const delay =
-        attempts >= MAX_BACKOFF_ATTEMPTS
-          ? RATE_LIMIT_COOLDOWN_MS
-          : Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempts), MAX_BACKOFF_MS);
-      reconnectAttempts.current = attempts + 1;
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connectRef.current?.();
-      }, delay);
-    };
-
-    eventSource.addEventListener("connected", () => {
-      dispatchRef.current({ type: "connected" });
-    });
-
-    eventSource.addEventListener("reservation:created", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      const reservation = payload.data as Reservation;
-      queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-      broadcastEvent(makeEvent("reservation:created", reservation));
-      if (canShowToast()) {
-        toastRef.current({
-          title: "New reservation",
-          description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-          variant: "accent",
-          duration: 5000,
-        });
-      }
-    });
-
-    eventSource.addEventListener("reservation:updated", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-      broadcastEvent(makeEvent("reservation:updated", payload.data as Reservation));
-    });
-
-    eventSource.addEventListener("reservation:cancelled", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      const reservation = payload.data as Reservation;
-      queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-      broadcastEvent(makeEvent("reservation:cancelled", reservation));
-      if (canShowToast()) {
-        toastRef.current({
-          title: "Reservation cancelled",
-          description: `${reservation.guestName ?? "Guest"}'s reservation was cancelled`,
-          variant: "error",
-          duration: 5000,
-        });
-      }
-    });
-
-    eventSource.addEventListener("hold:created", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      broadcastEvent(makeEvent("hold:created", payload.data as ReservationHold));
-    });
-
-    eventSource.addEventListener("hold:released", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      broadcastEvent(makeEvent("hold:released", payload.data as ReservationHold));
-    });
-
-    eventSource.addEventListener("hold:confirmed", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
-      broadcastEvent(makeEvent("hold:confirmed", payload.data as Reservation));
-    });
-
-    eventSource.addEventListener("table:updated", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      queryClientRef.current.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
-      broadcastEvent(makeEvent("table:updated", payload.data as Table));
-    });
-
-    eventSource.addEventListener("guest:lapsing", (event) => {
-      const payload = JSON.parse(event.data) as ReservationEvent;
-      broadcastEvent(makeEvent("guest:lapsing", payload.data as LapsingGuest[]));
-    });
-  }, [selectedVenueId, broadcastEvent, makeEvent, canShowToast]);
-
-  // Keep connectRef in sync so the backoff timeout calls the latest connect
-  useLayoutEffect(() => {
-    connectRef.current = connect;
+  const canShowToastRef = useRef(canShowToast);
+  useEffect(() => {
+    canShowToastRef.current = canShowToast;
   });
 
+  const makeEvent = useCallback(
+    (type: ReservationEvent["type"], data: ReservationEvent["data"]): ReservationEvent => ({
+      type,
+      venueId: selectedVenueIdRef.current ?? "",
+      timestamp: new Date().toISOString(),
+      data,
+    }),
+    []
+  );
+
+  const handleEvent = useCallback(
+    (type: string, payload: unknown) => {
+      const event = payload as ReservationEvent;
+      const eventType = type as ReservationEventType;
+
+      switch (eventType) {
+        case "reservation:created": {
+          const reservation = event.data as Reservation;
+          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+          for (const listener of feedListeners) {
+            listener(makeEvent("reservation:created", reservation));
+          }
+          if (canShowToastRef.current()) {
+            toastRef.current({
+              title: "New reservation",
+              description: `${reservation.guestName ?? "Guest"} — ${new Date(reservation.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+              variant: "accent",
+              duration: 5000,
+            });
+          }
+          break;
+        }
+        case "reservation:updated": {
+          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+          for (const listener of feedListeners) {
+            listener(makeEvent("reservation:updated", event.data as Reservation));
+          }
+          break;
+        }
+        case "reservation:cancelled": {
+          const reservation = event.data as Reservation;
+          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+          for (const listener of feedListeners) {
+            listener(makeEvent("reservation:cancelled", reservation));
+          }
+          if (canShowToastRef.current()) {
+            toastRef.current({
+              title: "Reservation cancelled",
+              description: `${reservation.guestName ?? "Guest"}&apos;s reservation was cancelled`,
+              variant: "error",
+              duration: 5000,
+            });
+          }
+          break;
+        }
+        case "hold:created": {
+          for (const listener of feedListeners) {
+            listener(makeEvent("hold:created", event.data as ReservationHold));
+          }
+          break;
+        }
+        case "hold:released": {
+          for (const listener of feedListeners) {
+            listener(makeEvent("hold:released", event.data as ReservationHold));
+          }
+          break;
+        }
+        case "hold:confirmed": {
+          queryClientRef.current.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+          for (const listener of feedListeners) {
+            listener(makeEvent("hold:confirmed", event.data as Reservation));
+          }
+          break;
+        }
+        case "table:updated": {
+          queryClientRef.current.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
+          for (const listener of feedListeners) {
+            listener(makeEvent("table:updated", event.data as Table));
+          }
+          break;
+        }
+        case "guest:lapsing": {
+          for (const listener of feedListeners) {
+            listener(makeEvent("guest:lapsing", event.data as LapsingGuest[]));
+          }
+          break;
+        }
+      }
+    },
+    [feedListeners, makeEvent]
+  );
+
+  const handleEventRef = useRef(handleEvent);
   useEffect(() => {
-    connect();
-    return closeConnection;
-  }, [connect, closeConnection]);
+    handleEventRef.current = handleEvent;
+  });
+
+  const clientRef = useRef<SseClient | null>(null);
+
+  const buildClient = useCallback((venueId: string | undefined): SseClient => {
+    const baseUrl = import.meta.env.VITE_API_URL ?? "";
+    const url = new URL(`${baseUrl}/api/v1/events/stream`);
+    if (venueId) {
+      url.searchParams.set("venueId", venueId);
+    }
+    return new SseClient({
+      url: url.toString(),
+      eventTypes: SSE_EVENT_TYPES,
+      onEvent: (type, payload) => handleEventRef.current(type, payload),
+      onError: (error) => {
+        dispatchRef.current({ type: "error", error });
+      },
+      onConnected: () => {
+        dispatchRef.current({ type: "connected" });
+      },
+      onDisconnected: () => {
+        dispatchRef.current({ type: "disconnected" });
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    const client = buildClient(selectedVenueId ?? undefined);
+    clientRef.current = client;
+    client.connect();
+
+    return () => {
+      client.disconnect();
+      clientRef.current = null;
+    };
+  }, [selectedVenueId, buildClient]);
 
   const reconnect = useCallback(() => {
-    closeConnection();
-    reconnectAttempts.current = 0;
-    connect();
-  }, [connect, closeConnection]);
+    clientRef.current?.disconnect();
+    dispatchRef.current({ type: "disconnected" });
+
+    const client = buildClient(selectedVenueIdRef.current ?? undefined);
+    clientRef.current = client;
+    client.connect();
+  }, [buildClient]);
 
   return { reconnect };
 }

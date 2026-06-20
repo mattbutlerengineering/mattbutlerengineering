@@ -12,6 +12,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { parseListQuery } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import { cancelSession } from "../services/session-executor.js";
+import { defaultConcurrency } from "../services/session-concurrency.js";
 
 export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
@@ -49,14 +50,13 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!result.accepted) {
-        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
         return reply
           .code(429)
           .send(
             createProblemDetails(
               429,
               "Too Many Requests",
-              `Maximum concurrent sessions (${maxConcurrent}) reached. Try again later.`
+              `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
             )
           );
       }

@@ -42,6 +42,10 @@ vi.mock("../worktree-reaper.js", () => ({
   scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 2 }),
 }));
 
+vi.mock("../cost-logger.js", () => ({
+  recordSessionCost: vi.fn(),
+}));
+
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
   return {
@@ -625,6 +629,41 @@ describe("Langfuse tracing", () => {
           num_turns: "3",
           stuck: "0",
         }),
+      })
+    );
+  });
+
+  it("records cost to .claude/agent-spend/sessions.jsonl after a successful session", async () => {
+    const { recordSessionCost } = await import("../cost-logger.js");
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    await runSession(BASE_CONFIG, undefined, deps);
+
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0.25,
+        model: BASE_CONFIG.model,
+        status: "succeeded",
+      })
+    );
+  });
+
+  it("records cost even when the session throws an unhandled error", async () => {
+    const { recordSessionCost } = await import("../cost-logger.js");
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("SDK connection failed")
+    );
+
+    const result = await runSession(BASE_CONFIG, undefined, deps);
+
+    expect(result.status).toBe("failed");
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0,
+        status: "failed",
       })
     );
   });

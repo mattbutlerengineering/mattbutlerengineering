@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import type { HealthResponse } from "@mbe/types";
+import { createErrorRateHealthCheck } from "@mbe/observability";
 import type { RateLimitMonitor, ErrorRateSnapshot } from "@mbe/observability";
 import type { SlowQueryStats, PoolMetrics, ServiceStatus } from "@mbe/database";
 import type { LatencyTracker, Auth0CheckResult } from "./health.js";
@@ -207,8 +208,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     };
 
     // Error rates
-    const errorRates = getErrorRates();
-    const degradedEndpoints = errorRates.endpoints.filter((e) => e.rate > 0.1 && e.total >= 5);
+    const errorRateCheck = createErrorRateHealthCheck(getErrorRates());
 
     const hasErrors =
       dbStatus === "error" ||
@@ -216,7 +216,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       auth0Result.status === "degraded" ||
       rateLimitSnapshot.isDegraded ||
       poolMetrics.isDegraded ||
-      errorRates.degraded;
+      errorRateCheck.status === "degraded";
 
     return {
       status: hasErrors ? "degraded" : "ok",
@@ -226,10 +226,8 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       sunsetDate,
       timestamp: new Date().toISOString(),
       checks,
-      error_rates: errorRates,
-      ...(errorRates.degraded && {
-        message: `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`,
-      }),
+      error_rates: { endpoints: errorRateCheck.endpoints, degraded: errorRateCheck.status === "degraded" },
+      ...(errorRateCheck.message && { message: errorRateCheck.message }),
     };
   };
 
