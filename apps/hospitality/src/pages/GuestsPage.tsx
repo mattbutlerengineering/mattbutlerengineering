@@ -1,33 +1,27 @@
-import { useState, useCallback, useReducer, useEffect, type ChangeEvent } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import {
   Alert,
-  Badge,
   Button,
   Card,
-  Checkbox,
   Dialog,
-  Divider,
-  Drawer,
-  EmptyState,
   Input,
   Skeleton,
   SkeletonGroup,
   Stack,
   Stat,
-  Tag,
   Text,
-  TextArea,
-  useToast,
 } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
-import type { Guest, GuestSegment, Reservation, UpdateGuestRequest } from "@mbe/types";
+import type { GuestSegment } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { useGuestDirectory, type UseGuestDirectoryResult } from "../hooks/useGuestDirectory.js";
 import { useReservations } from "../hooks/useReservations.js";
-import { GuestCard } from "../components/crm/GuestCard.js";
 import { useFormState } from "../hooks/use-form-state.js";
+import { GuestTable } from "../components/crm/GuestTable.js";
+import { GuestDrawer } from "../components/crm/GuestDrawer.js";
+import { SearchOrchestrator } from "../components/crm/SearchOrchestrator.js";
 import styles from "./GuestsPage.module.css";
 
 /* ── Constants ─────────────────────────────── */
@@ -41,16 +35,7 @@ const SEGMENT_ACCENT_COLORS = [
   "var(--rialto-info, var(--rialto-accent))",
 ] as const;
 
-const DIETARY_RESTRICTION_OPTIONS = [
-  "vegetarian",
-  "vegan",
-  "gluten-free",
-  "dairy-free",
-  "nut-free",
-  "halal",
-  "kosher",
-  "shellfish-free",
-] as const;
+/* ── Schema ─────────────────────────────────── */
 
 const guestFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -63,6 +48,8 @@ const guestFormSchema = z.object({
 });
 
 type GuestFormValues = z.infer<typeof guestFormSchema>;
+
+const ADD_GUEST_INITIAL: GuestFormValues = { name: "", email: "", phone: "", notes: "" };
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -84,8 +71,6 @@ function GuestsLoadingSkeleton() {
 
 /* ── Add Guest Dialog ──────────────────────── */
 
-const ADD_GUEST_INITIAL: GuestFormValues = { name: "", email: "", phone: "", notes: "" };
-
 interface AddGuestDialogProps {
   open: boolean;
   onClose: () => void;
@@ -99,10 +84,10 @@ function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
     guestFormSchema
   );
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     reset();
     onClose();
-  }, [reset, onClose]);
+  };
 
   return (
     <Dialog
@@ -159,377 +144,6 @@ function AddGuestDialog({ open, onClose, onSubmit }: AddGuestDialogProps) {
   );
 }
 
-/* ── Guest Detail Drawer ───────────────────── */
-
-interface GuestDetailDrawerProps {
-  guest: Guest | null;
-  open: boolean;
-  onClose: () => void;
-  onSave: (guestId: string, data: UpdateGuestRequest) => Promise<void>;
-  guestReservations: Reservation[];
-  isLoadingHistory: boolean;
-}
-
-type DrawerExtras = {
-  tags: string[];
-  dietaryRestrictions: string[];
-  tagInput: string;
-};
-
-type DrawerState = {
-  isEditing: boolean;
-  extras: DrawerExtras;
-};
-
-type DrawerAction =
-  | { type: "reset"; guest: Guest }
-  | { type: "set_editing"; isEditing: boolean }
-  | { type: "set_extras"; extras: DrawerExtras }
-  | { type: "toggle_dietary"; restriction: string }
-  | { type: "add_tag" }
-  | { type: "remove_tag"; tag: string }
-  | { type: "update_tag_input"; value: string };
-
-const INITIAL_EXTRAS: DrawerExtras = { tags: [], dietaryRestrictions: [], tagInput: "" };
-
-const INITIAL_DRAWER_STATE: DrawerState = { isEditing: false, extras: INITIAL_EXTRAS };
-
-function drawerReducer(state: DrawerState, action: DrawerAction): DrawerState {
-  switch (action.type) {
-    case "reset":
-      return {
-        isEditing: false,
-        extras: {
-          tags: action.guest.tags ? [...action.guest.tags] : [],
-          dietaryRestrictions: action.guest.dietaryRestrictions
-            ? [...action.guest.dietaryRestrictions]
-            : [],
-          tagInput: "",
-        },
-      };
-    case "set_editing":
-      return { ...state, isEditing: action.isEditing };
-    case "set_extras":
-      return { ...state, extras: action.extras };
-    case "toggle_dietary": {
-      const current = state.extras.dietaryRestrictions;
-      const next = current.includes(action.restriction)
-        ? current.filter((r) => r !== action.restriction)
-        : [...current, action.restriction];
-      return { ...state, extras: { ...state.extras, dietaryRestrictions: next } };
-    }
-    case "add_tag": {
-      const trimmed = state.extras.tagInput.trim();
-      if (!trimmed || state.extras.tags.includes(trimmed)) {
-        return { ...state, extras: { ...state.extras, tagInput: "" } };
-      }
-      return {
-        ...state,
-        extras: { ...state.extras, tags: [...state.extras.tags, trimmed], tagInput: "" },
-      };
-    }
-    case "remove_tag":
-      return {
-        ...state,
-        extras: { ...state.extras, tags: state.extras.tags.filter((t) => t !== action.tag) },
-      };
-    case "update_tag_input":
-      return { ...state, extras: { ...state.extras, tagInput: action.value } };
-  }
-}
-
-function makeDrawerInitial(guest: Guest | null): GuestFormValues {
-  return {
-    name: guest?.name ?? "",
-    email: guest?.email ?? "",
-    phone: guest?.phone ?? "",
-    notes: guest?.notes ?? "",
-  };
-}
-
-function GuestDetailDrawer({
-  guest,
-  open,
-  onClose,
-  onSave,
-  guestReservations,
-  isLoadingHistory,
-}: GuestDetailDrawerProps) {
-  const [state, drawerDispatch] = useReducer(drawerReducer, INITIAL_DRAWER_STATE);
-  const { isEditing, extras } = state;
-  const { toast } = useToast();
-
-  const {
-    fields,
-    setField,
-    isPending,
-    error,
-    reset: resetForm,
-    handleSubmit,
-  } = useFormState(
-    makeDrawerInitial(guest),
-    async (data) => {
-      if (!guest) return;
-      await onSave(guest.id, {
-        name: data.name.trim(),
-        email: data.email.trim() || undefined,
-        phone: data.phone.trim() || undefined,
-        notes: data.notes.trim() || undefined,
-        tags: extras.tags,
-        dietaryRestrictions: extras.dietaryRestrictions,
-      });
-      drawerDispatch({ type: "set_editing", isEditing: false });
-      toast({ title: "Guest updated", variant: "success" });
-    },
-    guestFormSchema
-  );
-
-  // Reset when guest/open changes
-  useEffect(() => {
-    if (guest && open) {
-      drawerDispatch({ type: "reset", guest });
-      resetForm();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
-  }, [guest?.id, open]);
-
-  const handleTagInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      drawerDispatch({ type: "add_tag" });
-    }
-  }, []);
-
-  const handleCancelEdit = useCallback(() => {
-    if (guest) {
-      drawerDispatch({
-        type: "set_extras",
-        extras: {
-          tags: guest.tags ? [...guest.tags] : [],
-          dietaryRestrictions: guest.dietaryRestrictions ? [...guest.dietaryRestrictions] : [],
-          tagInput: "",
-        },
-      });
-      resetForm();
-    }
-    drawerDispatch({ type: "set_editing", isEditing: false });
-  }, [guest, resetForm]);
-
-  if (!guest) return null;
-
-  const isEmailValid =
-    !fields.email.trim() || guestFormSchema.shape.email.safeParse(fields.email).success;
-  const isPhoneValid =
-    !fields.phone.trim() || guestFormSchema.shape.phone.safeParse(fields.phone).success;
-  const isFormValid = fields.name.trim().length > 0 && isEmailValid && isPhoneValid;
-
-  return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      title={isEditing ? `Edit ${guest.name}` : guest.name}
-      side="right"
-      size="default"
-      footer={
-        isEditing ? (
-          <Stack direction="row" gap="sm" justify="end">
-            <Button variant="ghost" onClick={handleCancelEdit} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={isPending || !isFormValid}>
-              {isPending ? "Saving..." : "Save"}
-            </Button>
-          </Stack>
-        ) : (
-          <Stack direction="row" gap="sm" justify="end">
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => drawerDispatch({ type: "set_editing", isEditing: true })}
-            >
-              Edit Guest
-            </Button>
-          </Stack>
-        )
-      }
-    >
-      {isEditing ? (
-        <Stack gap="md">
-          {error && <Alert variant="error">{error}</Alert>}
-          <Input
-            label="Name"
-            type="text"
-            placeholder="Full name"
-            value={fields.name}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("name", e.target.value)}
-          />
-          <Input
-            label="Email"
-            type="email"
-            placeholder="guest@example.com"
-            value={fields.email}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("email", e.target.value)}
-            error={!isEmailValid}
-            hint={!isEmailValid ? "Please enter a valid email address" : undefined}
-          />
-          <Input
-            label="Phone"
-            type="tel"
-            placeholder="+1 (555) 000-0000"
-            value={fields.phone}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setField("phone", e.target.value)}
-            error={!isPhoneValid}
-            hint={!isPhoneValid ? "Please enter a valid phone number" : undefined}
-          />
-          <TextArea
-            label="Notes"
-            placeholder="Preferences, allergies, etc."
-            value={fields.notes}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setField("notes", e.target.value)}
-            rows={4}
-            autoResize
-          />
-
-          {/* Tags editing */}
-          <Stack gap="xs">
-            <Text variant="label" color="secondary">
-              Tags
-            </Text>
-            <Stack direction="row" gap="xs" wrap>
-              {extras.tags.map((tag) => (
-                <Button
-                  key={tag}
-                  variant="ghost"
-                  onClick={() => drawerDispatch({ type: "remove_tag", tag })}
-                  aria-label={`Remove tag ${tag}`}
-                >
-                  {tag} ×
-                </Button>
-              ))}
-            </Stack>
-            <Input
-              label=""
-              type="text"
-              placeholder="Add tag (press Enter)"
-              value={extras.tagInput}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                drawerDispatch({ type: "update_tag_input", value: e.target.value })
-              }
-              onKeyDown={handleTagInputKeyDown}
-            />
-          </Stack>
-
-          {/* Dietary restrictions */}
-          <Stack gap="xs">
-            <Text variant="label" color="secondary">
-              Dietary Restrictions
-            </Text>
-            <Stack gap="xs">
-              {DIETARY_RESTRICTION_OPTIONS.map((restriction) => (
-                <Checkbox
-                  key={restriction}
-                  label={restriction}
-                  checked={extras.dietaryRestrictions.includes(restriction)}
-                  onCheckedChange={() => drawerDispatch({ type: "toggle_dietary", restriction })}
-                />
-              ))}
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : (
-        <Stack gap="lg">
-          {/* Unified CRM display via GuestCard */}
-          <GuestCard
-            guestId={guest.id}
-            onEditProfile={() => drawerDispatch({ type: "set_editing", isEditing: true })}
-          />
-
-          {guest.tags && guest.tags.length > 0 && (
-            <>
-              <Divider />
-              <Stack gap="xs">
-                <Text variant="label" color="secondary">
-                  Tags
-                </Text>
-                <Stack direction="row" gap="xs" wrap>
-                  {guest.tags.map((tag) => (
-                    <Tag key={tag}>{tag}</Tag>
-                  ))}
-                </Stack>
-              </Stack>
-            </>
-          )}
-
-          {isLoadingHistory && (
-            <Text variant="caption" color="secondary">
-              Loading reservation history...
-            </Text>
-          )}
-
-          {!isLoadingHistory && guestReservations.length > 0 && (
-            <>
-              <Divider />
-              <Stack gap="xs">
-                <Text variant="label" color="secondary">
-                  Recent Reservations
-                </Text>
-                {guestReservations.slice(0, 5).map((r: Reservation) => (
-                  <Text key={r.id} variant="caption" color="secondary">
-                    {r.date} &middot; {r.partySize} guests
-                  </Text>
-                ))}
-              </Stack>
-            </>
-          )}
-        </Stack>
-      )}
-    </Drawer>
-  );
-}
-
-/* ── Mobile Guest Card ─────────────────────── */
-
-interface MobileGuestCardProps {
-  guest: Guest;
-  onClick: () => void;
-}
-
-function MobileGuestCard({ guest, onClick }: MobileGuestCardProps) {
-  return (
-    <Button type="button" className={styles.mobileCard} onClick={onClick}>
-      <div className={styles.mobileCardHeader}>
-        <Text variant="body" color="primary" className={styles.guestName}>
-          {guest.name}
-        </Text>
-        <Badge variant="neutral" size="sm">
-          {guest.visitCount} {guest.visitCount === 1 ? "visit" : "visits"}
-        </Badge>
-      </div>
-      <div className={styles.mobileCardContact}>
-        {guest.email && (
-          <Text variant="caption" color="secondary">
-            {guest.email}
-          </Text>
-        )}
-        {guest.phone && (
-          <Text variant="caption" color="secondary">
-            {guest.phone}
-          </Text>
-        )}
-      </div>
-      {guest.tags && guest.tags.length > 0 && (
-        <div className={styles.tagList}>
-          {guest.tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </div>
-      )}
-    </Button>
-  );
-}
-
 /* ── Main component ─────────────────────────── */
 
 // Allow injecting a fake hook in tests
@@ -561,26 +175,18 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     updateGuest,
   } = directory;
 
-  // Add guest dialog state (local UI only)
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  // Fetch reservation history for selected guest
   const { data: guestReservations = [], isLoading: historyLoading } = useReservations({
     guestId: selectedGuestId ?? undefined,
     limit: 10,
     enabled: !!selectedGuestId,
   });
 
-  const drawerOpen = selectedGuestId !== null;
-
-  const formatDate = (isoString: string | null) => {
-    if (!isoString) return "Never";
-    return new Date(isoString).toLocaleDateString();
-  };
-
-  const handleRowClick = (guestId: string) => {
-    selectGuest(guestId);
-  };
+  const totalGuestCount = (segments ?? []).reduce(
+    (sum: number, s: GuestSegment) => sum + s.count,
+    0
+  );
 
   const handleAddGuest = async (data: GuestFormValues) => {
     if (!selectedVenueId) return;
@@ -592,15 +198,6 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     });
     setAddDialogOpen(false);
   };
-
-  const handleEditGuest = async (guestId: string, data: UpdateGuestRequest) => {
-    await updateGuest(guestId, data);
-  };
-
-  const totalGuestCount = (segments ?? []).reduce(
-    (sum: number, s: GuestSegment) => sum + s.count,
-    0
-  );
 
   if (!selectedVenueId && !isLoading) {
     return (
@@ -621,17 +218,15 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     <div className={styles.container}>
       <div className={styles.header}>
         <PageHeader title="Guests" description="Manage your guest directory" />
-        <div className={styles.headerControls}>
-          <Input
-            type="text"
-            placeholder="Search guests..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Button variant="primary" onClick={() => setAddDialogOpen(true)}>
-            Add Guest
-          </Button>
-        </div>
+        <SearchOrchestrator
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onAddGuest={() => setAddDialogOpen(true)}
+          guestCount={guests.length}
+          totalCount={totalGuestCount}
+          isSearchActive={isSearchActive}
+          isEmpty={!isLoading && !error && guests.length === 0}
+        />
       </div>
 
       {/* Segments Overview */}
@@ -657,123 +252,19 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
         {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}
       </Text>
 
-      {!isLoading && !error && guests.length === 0 && (
-        <div aria-live="polite" role="status">
-          <EmptyState
-            heading={isSearchActive ? "No guests found" : "No guests yet"}
-            description={
-              isSearchActive
-                ? "Try adjusting your search query."
-                : "Guests will appear here once they make a reservation."
-            }
-          />
-        </div>
-      )}
-
       {!isLoading && !error && guests.length > 0 && (
-        <>
-          <Text variant="caption" color="secondary" className={styles.resultCount}>
-            Showing {guests.length} of {totalGuestCount} guests
-          </Text>
-
-          {/* Desktop table */}
-          <Card className={styles.desktopTable}>
-            <div className={styles.tableWrapper}>
-              {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
-              <table className={styles.table}>
-                <thead className={styles.thead}>
-                  <tr>
-                    <th className={styles.th}>Guest</th>
-                    <th className={styles.th}>Contact</th>
-                    <th className={styles.th}>Visits</th>
-                    <th className={styles.th}>Last Visit</th>
-                    <th className={styles.th}>Tags</th>
-                  </tr>
-                </thead>
-                <tbody className={styles.tbody}>
-                  {guests.map((guest: Guest) => (
-                    <tr
-                      key={guest.id}
-                      className={[
-                        styles.tableRow,
-                        selectedGuestId === guest.id ? styles.tableRowActive : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      onClick={() => handleRowClick(guest.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleRowClick(guest.id);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`View details for ${guest.name}`}
-                    >
-                      <td className={styles.td}>
-                        <Text variant="body" color="primary" className={styles.guestName}>
-                          {guest.name}
-                        </Text>
-                        {guest.notes && (
-                          <Text variant="caption" color="secondary" className={styles.guestNotes}>
-                            {guest.notes}
-                          </Text>
-                        )}
-                      </td>
-                      <td className={styles.td}>
-                        {guest.email && (
-                          <Text variant="caption" color="primary">
-                            {guest.email}
-                          </Text>
-                        )}
-                        {guest.phone && (
-                          <Text variant="caption" color="secondary">
-                            {guest.phone}
-                          </Text>
-                        )}
-                      </td>
-                      <td className={styles.td}>{guest.visitCount}</td>
-                      <td className={styles.tdMuted}>{formatDate(guest.lastVisit)}</td>
-                      <td className={styles.tdTags}>
-                        <div className={styles.tagList}>
-                          {guest.tags?.map((tag: string) => (
-                            <Tag key={tag}>{tag}</Tag>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {/* eslint-enable mbe-local/prefer-rialto-components */}
-            </div>
-          </Card>
-
-          {/* Mobile cards */}
-          <div className={styles.mobileCards}>
-            {guests.map((guest: Guest) => (
-              <MobileGuestCard
-                key={guest.id}
-                guest={guest}
-                onClick={() => handleRowClick(guest.id)}
-              />
-            ))}
-          </div>
-        </>
+        <GuestTable guests={guests} selectedGuestId={selectedGuestId} onRowClick={selectGuest} />
       )}
 
-      {/* Guest Detail Drawer */}
-      <GuestDetailDrawer
+      <GuestDrawer
         guest={selectedGuest}
-        open={drawerOpen}
+        open={selectedGuestId !== null}
         onClose={clearSelection}
-        onSave={handleEditGuest}
+        onSave={updateGuest}
         guestReservations={guestReservations}
         isLoadingHistory={historyLoading}
       />
 
-      {/* Add Guest Dialog */}
       <AddGuestDialog
         open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
