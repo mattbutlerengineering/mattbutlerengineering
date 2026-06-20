@@ -1,4 +1,11 @@
 <codebase path="packages/agent-core">
+  <section priority="medium" role="__tests__">
+  <file path="src/__tests__/fake-phase-deps.ts">
+    <item priority="high">
+      export function makeFakePhaseDeps(): PhaseDeps { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="adapters">
   <file path="src/adapters/claude-adapter.ts">
     <item priority="medium">
@@ -111,6 +118,11 @@
   </file>
   </section>
   <section priority="medium" role="phases">
+  <file path="src/phases/default-deps.ts">
+    <item priority="high">
+      export function createDefaultPhaseDeps(): PhaseDeps { /* ... */ }
+    </item>
+  </file>
   <file path="src/phases/feedback-phase.ts">
     <item priority="high">
       class FeedbackPhase {
@@ -121,14 +133,15 @@
   </file>
   <file path="src/phases/pipeline-types.ts">
     <item priority="low">
-      type PhaseStatus = "success" | "failed" | "skipped";
+      interface MergeDirectlyOptions {
+        branchName: string;
+        baseBranch: string;
+        repoPath: string;
+        commitTitle: string;
+      }
     </item>
     <item priority="low">
-      interface PhaseResult {
-        phase: string;
-        status: PhaseStatus;
-        errors: readonly string[];
-      }
+      type PhaseStatus = "success" | "failed" | "skipped";
     </item>
   </file>
   <file path="src/phases/publish-phase.ts">
@@ -701,16 +714,20 @@
   </file>
   <file path="src/session-runner.ts">
     <item priority="high">
+      interface SessionState {
+        worktree?: WorktreeInfo;
+        systemPrompt?: string;
+        resultMessage?: SDKResultMessage;
+        stuckReason?: StuckPattern;
+        turnMetrics: readonly TurnMetrics[];
+      }
+    </item>
+    <item priority="high">
       export async function runSession(
         config: SessionConfig,
-        onEvent?: SessionEventCallback
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps()
       ): Promise<SessionResult> { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildFinalResult(
-        ctx: PipelineContext,
-        rootSpan: ReturnType<ReturnType<typeof trace.getTracer>["startSpan"]>
-      ): SessionResult { /* ... */ }
     </item>
   </file>
   <file path="src/source-resolver.ts">

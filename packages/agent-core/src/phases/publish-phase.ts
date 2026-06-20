@@ -1,43 +1,52 @@
 import { trace } from "@opentelemetry/api";
-import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "../pr-creator.js";
-import { mergeDirectly } from "../dep-bump-merger.js";
 import { withRetry } from "../retry.js";
 import { emitEvent } from "../utils.js";
 import type { WorktreeInfo } from "../types.js";
-import type { PipelineContext, PipelinePhase, PhaseResult } from "./pipeline-types.js";
+import type {
+  Phase,
+  PhaseDeps,
+  PhaseExecution,
+  PublishPhaseInput,
+  PublishPhaseOutput,
+} from "./pipeline-types.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
-export class PublishPhase implements PipelinePhase {
+export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput> {
   readonly name = "publish" as const;
 
-  async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-    const { config, worktree } = ctx;
+  async run(
+    input: PublishPhaseInput,
+    deps: PhaseDeps
+  ): Promise<PhaseExecution<PublishPhaseOutput>> {
+    const { config, worktree, hasChanges } = input;
 
-    if (!config.createPr || !ctx.hasChanges || !worktree) {
+    if (!config.createPr || !hasChanges) {
       return {
         result: { phase: this.name, status: "skipped", errors: [] },
-        ctx,
+        output: null,
       };
     }
 
-    const { prUrl, prNumber } = await this.createOrMergePr(ctx, worktree);
+    const { prUrl, prNumber } = await this.createOrMergePr(input, worktree, deps);
 
     return {
       result: { phase: this.name, status: "success", errors: [] },
-      ctx: { ...ctx, prUrl, prNumber },
+      output: { prUrl, prNumber },
     };
   }
 
   private async createOrMergePr(
-    ctx: PipelineContext,
-    worktree: WorktreeInfo
+    input: PublishPhaseInput,
+    worktree: WorktreeInfo,
+    deps: PhaseDeps
   ): Promise<{ prUrl: string | null; prNumber?: number }> {
-    const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = ctx;
+    const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = input;
+    const { prCreator } = deps;
 
     if (gatewayVerdict?.outcome === "merge-direct") {
-      const commitTitle = buildPrTitle(config.taskDescription);
-      const mergedUrl = await mergeDirectly({
+      const commitTitle = prCreator.buildPrTitle(config.taskDescription);
+      const mergedUrl = await prCreator.mergeDirectly({
         branchName: worktree.branchName,
         baseBranch: config.baseBranch,
         repoPath: worktree.path,
@@ -50,21 +59,25 @@ export class PublishPhase implements PipelinePhase {
     }
 
     if (!gatewayVerdict || gatewayVerdict.outcome === "create-pr") {
-      const title = buildPrTitle(config.taskDescription);
+      const title = prCreator.buildPrTitle(config.taskDescription);
       const body = resultMessage
-        ? buildPrBody(
+        ? prCreator.buildPrBody(
             config.taskDescription,
             resultMessage.session_id,
             resultMessage.total_cost_usd,
             resultMessage.num_turns
           )
-        : buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+        : prCreator.buildFailurePrBody(
+            config.taskDescription,
+            [...input.errors],
+            stuckReason?.type
+          );
 
       const prSpan = tracer.startSpan("agent_core.create_pr");
       try {
         const { value: pr } = await withRetry(
           () =>
-            createPullRequest({
+            prCreator.createPullRequest({
               title,
               body,
               baseBranch: config.baseBranch,
@@ -89,11 +102,15 @@ export class PublishPhase implements PipelinePhase {
 
     // verdict.outcome === "create-draft-pr" — quality gates failed
     const title = `wip: ${config.taskDescription.slice(0, 57)}`;
-    const body = buildFailurePrBody(config.taskDescription, [...ctx.errors], stuckReason?.type);
+    const body = prCreator.buildFailurePrBody(
+      config.taskDescription,
+      [...input.errors],
+      stuckReason?.type
+    );
 
     const { value: pr } = await withRetry(
       () =>
-        createPullRequest({
+        prCreator.createPullRequest({
           title,
           body,
           baseBranch: config.baseBranch,
