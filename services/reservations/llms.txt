@@ -60,6 +60,11 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/briefing.ts">
+    <item priority="high">
+      export const briefingRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/cancel-reservation.ts">
     <item priority="high">
       export const cancelReservationRoutes: FastifyPluginAsync;
@@ -288,6 +293,22 @@
         email: string | null;
         phone: string | null;
         communicationPreference: string | null;
+      }
+    </item>
+  </file>
+  <file path="src/services/briefing.ts">
+    <item priority="low">
+      interface BriefingEntry {
+        guest: BriefingGuest | null;
+      }
+    </item>
+    <item priority="low">
+      interface BriefingGuest {
+        id: string;
+        name: string;
+        visitCount: number;
+        lastVisit: string | null;
+        dietaryRestrictions: string[] | null;
       }
     </item>
   </file>

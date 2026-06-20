@@ -33,6 +33,23 @@
       partySize: number;
     }
   </file>
+  <file path="src/briefing.ts">
+    export interface GetBriefingParams {
+      date: string;
+      venueId: string;
+    }
+    export interface BriefingGuest {
+      id: string;
+      name: string;
+      visitCount: number;
+      lastVisit: string | null;
+      dietaryRestrictions: string[] | null;
+      notes: string | null;
+      staffNotes: Array<{ text: string; createdBy: string; createdAt: string }>;
+      tags: string[] | null;
+      communicationPreference: string | null;
+    }
+  </file>
   <file path="src/client.ts">
     export type QueryParams = Record<string, string | number | boolean | undefined | null>;
     export function buildQueryString(params: QueryParams): string {
@@ -162,6 +179,7 @@
         floorPlans: new FloorPlansClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
+        briefing: new BriefingClient(client),
       };
     }
   </file>

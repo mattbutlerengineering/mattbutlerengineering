@@ -334,6 +334,76 @@
       );
     };
   </file>
+  <file path="src/routes/briefing.ts">
+    export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Querystring: { date?: string; venueId?: string };
+        Reply: { data: BriefingEntry[] } | ApiError;
+      }>(
+        "/",
+        {
+          preHandler: requireAuth,
+          schema: {
+            summary: "Get tonight's service briefing",
+            operationId: "getServiceBriefing",
+            description:
+              "Returns PENDING and CONFIRMED reservations for the given date and venue, enriched with full guest CRM data.",
+            tags: ["Briefing"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              required: ["date", "venueId"],
+              properties: {
+                date: {
+                  type: "string",
+                  format: "date",
+                  description: "Date for the briefing (YYYY-MM-DD)",
+                },
+                venueId: {
+                  type: "string",
+                  description: "Venue ID to scope the briefing to",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Service briefing with enriched reservation data",
+                type: "object",
+                properties: {
+                  data: { type: "array" },
+                },
+              },
+              400: { description: "Missing required query parameters", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              500: { description: "Internal server error", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          // Venue authorization: this endpoint follows the same trust model as the existing
+          // /api/v1/reservations and /api/v1/guests endpoints — any authenticated operator
+          // may query any venueId. Per-venue access scoping is a separate app-wide initiative
+          // and does not exist yet in the codebase (no VenueUser relation or venue-access helper).
+          const { date, venueId } = request.query;
+    
+          if (!date) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "date query parameter is required"));
+          }
+    
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
+          }
+    
+          const data = await briefingService.getBriefing({ date, venueId });
+          return { data };
+        }
+      );
+    };
+  </file>
   <file path="src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.delete<{ Querystring: { token?: string } }>(
@@ -4860,6 +4930,22 @@
       communicationPreference: string | null;
     }
   </file>
+  <file path="src/services/briefing.ts">
+    export interface BriefingEntry extends Omit<Reservation, "guestEmail" | "guestPhone"> {
+      guest: BriefingGuest | null;
+    }
+    export interface BriefingGuest {
+      id: string;
+      name: string;
+      visitCount: number;
+      lastVisit: string | null;
+      dietaryRestrictions: string[] | null;
+      notes: string | null;
+      staffNotes: Array<{ text: string; createdBy: string; createdAt: string }>;
+      tags: string[] | null;
+      communicationPreference: Guest["communicationPreference"] | null;
+    }
+  </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       | "NOT_FOUND"
@@ -5592,6 +5678,7 @@
       await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
+      await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });

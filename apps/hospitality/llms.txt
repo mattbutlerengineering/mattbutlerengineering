@@ -178,6 +178,14 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useBriefing.ts">
+    <item priority="high">
+      export const BRIEFING_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      type BriefingGuest = ApiBriefingGuest;
+    </item>
+  </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
