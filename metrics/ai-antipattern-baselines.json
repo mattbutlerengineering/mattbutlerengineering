@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T02:01:24.908Z",
+  "generatedAt": "2026-06-20T04:54:18.978Z",
   "patterns": {
     "magicTimeouts": {
       "count": 35,
@@ -14,11 +14,11 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 490,
+      "count": 491,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
-      "count": 389,
+      "count": 385,
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {

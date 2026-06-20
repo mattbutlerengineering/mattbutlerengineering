@@ -709,7 +709,8 @@ describe("Reservation Routes", () => {
         });
 
         // Allow the fire-and-forget promise to settle
-        await new Promise((r) => setTimeout(r, 20));
+        const FIRE_AND_FORGET_TICK_MS = 20;
+        await new Promise((r) => setTimeout(r, FIRE_AND_FORGET_TICK_MS));
 
         expect(postVisitSpy).toHaveBeenCalledWith(
           expect.objectContaining({
