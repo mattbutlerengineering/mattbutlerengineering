@@ -1,4 +1,29 @@
-export type { PhaseStatus, PhaseResult, PipelineContext, PipelinePhase } from "./pipeline-types.js";
+export type {
+  PhaseStatus,
+  PhaseResult,
+  PhaseExecution,
+  Phase,
+  PhaseDeps,
+  WorktreeManagerDeps,
+  PromptBuilderDeps,
+  FailureMemoryDeps,
+  QueryRunnerDeps,
+  SuccessEvaluatorDeps,
+  GatewayDeps,
+  PrCreatorDeps,
+  FeedbackLoopDeps,
+  WorktreePhaseInput,
+  WorktreePhaseOutput,
+  QueryPhaseInput,
+  QueryPhaseOutput,
+  VerificationPhaseInput,
+  VerificationPhaseOutput,
+  PublishPhaseInput,
+  PublishPhaseOutput,
+  FeedbackPhaseInput,
+} from "./pipeline-types.js";
+
+export { createDefaultPhaseDeps } from "./default-deps.js";
 
 export { WorktreePhase } from "./worktree-phase.js";
 export { QueryPhase } from "./query-phase.js";
