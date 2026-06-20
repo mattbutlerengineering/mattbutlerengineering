@@ -2,7 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GuestTable } from "./GuestTable.js";
 import type { Guest } from "@mbe/types";
-import type { BadgeProps, ButtonProps, CardProps, TagProps, TextProps } from "@mattbutlerengineering/rialto";
+import type {
+  BadgeProps,
+  ButtonProps,
+  CardProps,
+  TagProps,
+  TextProps,
+} from "@mattbutlerengineering/rialto";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({

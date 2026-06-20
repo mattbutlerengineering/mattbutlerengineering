@@ -47,9 +47,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     ) : null,
   Input: (props: InputProps) => {
     const id =
-      (typeof props.label === "string" ? props.label : "")
-        .replace(/\s+/g, "-")
-        .toLowerCase() || "input";
+      (typeof props.label === "string" ? props.label : "").replace(/\s+/g, "-").toLowerCase() ||
+      "input";
     return (
       <div>
         {props.label && <label htmlFor={id}>{props.label}</label>}
@@ -69,11 +68,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Tag: ({ children }: TagProps) => <span data-testid="tag">{children}</span>,
   Text: ({ children }: TextProps) => <span>{children}</span>,
   TextArea: (props: TextAreaProps) => (
-    <textarea
-      data-testid="textarea"
-      value={props.value}
-      onChange={(e) => props.onChange?.(e)}
-    />
+    <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
   useToast: () => ({ toast: mockToast }),
 }));
