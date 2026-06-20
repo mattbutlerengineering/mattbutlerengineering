@@ -102,63 +102,102 @@ export class DepositService {
   /**
    * Transitions deposit from `held` → `applied`.
    * Captures the Stripe PaymentIntent (charges the card).
+   *
+   * DB-first: the status row moves to `applied` before Stripe is called, so a
+   * DB failure never leaves a charged card with a `held` row. The Stripe call
+   * uses an idempotency key so retries don't double-capture. If Stripe fails
+   * after the DB write, the row is rolled back to `held` (retryable).
    */
   async apply(depositId: string): Promise<Deposit> {
-    const deposit = await this._requireDeposit(depositId);
-    transitionDeposit(deposit.status, "applied"); // throws if invalid
-
-    if (deposit.stripePaymentIntentId) {
-      await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId);
-    }
-
-    return prisma.deposit.update({
-      where: { id: depositId },
-      data: {
-        status: "applied",
-        appliedAt: new Date(),
-      },
-    });
+    return this._captureAndTransition(depositId, "applied", "appliedAt", "apply");
   }
 
   /**
    * Transitions deposit from `held` → `refunded`.
    * Cancels the Stripe PaymentIntent (releases the authorization).
+   *
+   * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
+   * cancel fails after the DB write.
    */
   async refund(depositId: string): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "refunded"); // throws if invalid
 
+    const updated = await prisma.deposit.update({
+      where: { id: depositId },
+      data: { status: "refunded", refundedAt: new Date() },
+    });
+
     if (deposit.stripePaymentIntentId) {
-      await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId);
+      try {
+        await this.stripe.cancelPaymentIntent(deposit.stripePaymentIntentId, `${depositId}:refund`);
+      } catch (error) {
+        await this._rollbackToHeld(depositId, "refundedAt");
+        throw error;
+      }
     }
 
-    return prisma.deposit.update({
-      where: { id: depositId },
-      data: {
-        status: "refunded",
-        refundedAt: new Date(),
-      },
-    });
+    return updated;
   }
 
   /**
    * Transitions deposit from `held` → `forfeited`.
    * Captures the Stripe PaymentIntent (charges the card as forfeit).
+   *
+   * DB-first with a Stripe idempotency key; rolls back to `held` if the Stripe
+   * capture fails after the DB write.
    */
   async forfeit(depositId: string): Promise<Deposit> {
+    return this._captureAndTransition(depositId, "forfeited", "forfeitedAt", "forfeit");
+  }
+
+  /**
+   * Shared DB-first capture flow for the two capture-based transitions
+   * (`apply` and `forfeit`). Updates the DB status first, then captures the
+   * Stripe PaymentIntent with an idempotency key, rolling the DB back to `held`
+   * if Stripe fails after the write.
+   */
+  private async _captureAndTransition(
+    depositId: string,
+    targetStatus: "applied" | "forfeited",
+    timestampField: "appliedAt" | "forfeitedAt",
+    action: string
+  ): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
-    transitionDeposit(deposit.status, "forfeited"); // throws if invalid
+    transitionDeposit(deposit.status, targetStatus); // throws if invalid
+
+    const updated = await prisma.deposit.update({
+      where: { id: depositId },
+      data: { status: targetStatus, [timestampField]: new Date() },
+    });
 
     if (deposit.stripePaymentIntentId) {
-      await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId);
+      try {
+        await this.stripe.capturePaymentIntent(
+          deposit.stripePaymentIntentId,
+          `${depositId}:${action}`
+        );
+      } catch (error) {
+        await this._rollbackToHeld(depositId, timestampField);
+        throw error;
+      }
     }
 
-    return prisma.deposit.update({
+    return updated;
+  }
+
+  /**
+   * Rolls a deposit back to `held` after a Stripe failure, clearing the
+   * transition timestamp so the row stays consistent and the action is
+   * retryable.
+   */
+  private async _rollbackToHeld(
+    depositId: string,
+    timestampField: "appliedAt" | "refundedAt" | "forfeitedAt"
+  ): Promise<void> {
+    await prisma.deposit.update({
       where: { id: depositId },
-      data: {
-        status: "forfeited",
-        forfeitedAt: new Date(),
-      },
+      data: { status: "held", [timestampField]: null },
     });
   }
 
