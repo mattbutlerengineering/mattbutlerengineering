@@ -1,6 +1,7 @@
 import { forwardRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Alert.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -114,7 +115,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
         {visible && (
           <motion.div
             ref={ref}
-            className={`${styles.alert} ${styles[variant]} ${className}`}
+            className={cn(styles.alert, styles[variant], className)}
             role={role}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
