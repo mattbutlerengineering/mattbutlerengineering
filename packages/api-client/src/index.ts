@@ -15,6 +15,12 @@ export {
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
 export {
+  BriefingClient,
+  type GetBriefingParams,
+  type BriefingEntry as ApiBriefingEntry,
+  type BriefingGuest as ApiBriefingGuest,
+} from "./briefing.js";
+export {
   AvailabilityClient,
   HoldsClient,
   type GetTimeSlotsParams,
@@ -39,6 +45,7 @@ import { TablesClient } from "./tables.js";
 import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
 import { AvailabilityClient, HoldsClient } from "./availability.js";
+import { BriefingClient } from "./briefing.js";
 /**
  * Create a configured API client for the MBE platform
  */
@@ -68,5 +75,6 @@ export function createApiClient(config: {
     floorPlans: new FloorPlansClient(client),
     availability: new AvailabilityClient(client),
     holds: new HoldsClient(client),
+    briefing: new BriefingClient(client),
   };
 }

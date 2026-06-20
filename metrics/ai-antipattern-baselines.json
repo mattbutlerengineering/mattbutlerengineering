@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-19T15:30:59.556Z",
+  "generatedAt": "2026-06-20T04:42:41.593Z",
   "patterns": {
     "magicTimeouts": {
-      "count": 35,
+      "count": 32,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
@@ -14,7 +14,7 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 505,
+      "count": 506,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
