@@ -7,32 +7,32 @@
     ".": {
       "types": "./src/index.ts",
       "production": "./dist/index.js",
-      "default": "./src/index.ts"
+      "default": "./dist/index.js"
     },
     "./api": {
       "types": "./src/api.ts",
       "production": "./dist/api.js",
-      "default": "./src/api.ts"
+      "default": "./dist/api.js"
     },
     "./user": {
       "types": "./src/user.ts",
       "production": "./dist/user.js",
-      "default": "./src/user.ts"
+      "default": "./dist/user.js"
     },
     "./agent": {
       "types": "./src/agent.ts",
       "production": "./dist/agent.js",
-      "default": "./src/agent.ts"
+      "default": "./dist/agent.js"
     },
     "./schemas": {
       "types": "./src/schemas/index.ts",
       "production": "./dist/schemas/index.js",
-      "default": "./src/schemas/index.ts"
+      "default": "./dist/schemas/index.js"
     },
     "./schema-compat": {
       "types": "./src/schema-compat.ts",
       "production": "./dist/schema-compat.js",
-      "default": "./src/schema-compat.ts"
+      "default": "./dist/schema-compat.js"
     }
   },
   "scripts": {
