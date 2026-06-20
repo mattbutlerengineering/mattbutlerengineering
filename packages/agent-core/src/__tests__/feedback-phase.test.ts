@@ -1,35 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionConfig, SessionEvent } from "../types.js";
-import type { PipelineContext } from "../phases/pipeline-types.js";
+import type { PhaseDeps, FeedbackPhaseInput } from "../phases/index.js";
+import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
-
-vi.mock("../feedback-loop.js", () => ({
-  runFeedbackLoop: vi.fn(),
-}));
+//
+// model-router resolves the feedback model; the feedback loop itself is
+// injected via `PhaseDeps`.
 
 vi.mock("../model-router.js", () => ({
   getFeedbackLoopModel: vi.fn().mockReturnValue("claude-haiku-4-5"),
   resolveModelId: vi.fn().mockReturnValue("claude-sonnet-4-6"),
 }));
 
-vi.mock("@opentelemetry/api", () => ({
-  trace: {
-    getTracer: () => ({
-      startSpan: () => ({
-        setAttribute: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      }),
-    }),
-  },
-  SpanStatusCode: { ERROR: 2 },
-}));
-
 // ── Imports (after mocks) ───────────────────────────────────────────
 
-import { runFeedbackLoop } from "../feedback-loop.js";
 import { FeedbackPhase } from "../phases/feedback-phase.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -75,18 +60,15 @@ function createMockResultMessage() {
   };
 }
 
-function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
+function makeInput(overrides?: Partial<FeedbackPhaseInput>): FeedbackPhaseInput {
   return {
     config: BASE_CONFIG,
-    errors: [],
     worktree: {
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     },
-    systemPrompt: "system prompt",
-    resultMessage: createMockResultMessage() as PipelineContext["resultMessage"],
-    hasChanges: true,
+    resultMessage: createMockResultMessage() as FeedbackPhaseInput["resultMessage"],
     prUrl: "https://github.com/repo/pull/1",
     prNumber: 1,
     ...overrides,
@@ -97,10 +79,16 @@ function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
 
 describe("FeedbackPhase", () => {
   const phase = new FeedbackPhase();
+  let deps: PhaseDeps;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: true, retriesUsed: 1 });
+    deps = makeFakePhaseDeps();
+    vi.mocked(deps.feedbackLoop.runFeedbackLoop).mockResolvedValue({
+      resolved: true,
+      retriesUsed: 1,
+      lastFingerprint: null,
+    });
   });
 
   it("has name 'feedback'", () => {
@@ -108,24 +96,25 @@ describe("FeedbackPhase", () => {
   });
 
   it("runs feedback loop when enabled and PR exists", async () => {
-    const { result } = await phase.run(makeCtx());
+    const { result } = await phase.run(makeInput(), deps);
 
     expect(result.status).toBe("success");
-    expect(runFeedbackLoop).toHaveBeenCalled();
+    expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalled();
   });
 
   it("skips when feedbackLoop is not enabled", async () => {
     const { result } = await phase.run(
-      makeCtx({ config: { ...BASE_CONFIG, feedbackLoop: undefined } })
+      makeInput({ config: { ...BASE_CONFIG, feedbackLoop: undefined } }),
+      deps
     );
 
     expect(result.status).toBe("skipped");
-    expect(runFeedbackLoop).not.toHaveBeenCalled();
+    expect(deps.feedbackLoop.runFeedbackLoop).not.toHaveBeenCalled();
   });
 
   it("skips when feedbackLoop.enabled is false", async () => {
     const { result } = await phase.run(
-      makeCtx({
+      makeInput({
         config: {
           ...BASE_CONFIG,
           feedbackLoop: {
@@ -135,24 +124,25 @@ describe("FeedbackPhase", () => {
             pollTimeoutMs: 300_000,
           },
         },
-      })
+      }),
+      deps
     );
 
     expect(result.status).toBe("skipped");
-    expect(runFeedbackLoop).not.toHaveBeenCalled();
+    expect(deps.feedbackLoop.runFeedbackLoop).not.toHaveBeenCalled();
   });
 
   it("skips when no PR was created", async () => {
-    const { result } = await phase.run(makeCtx({ prUrl: null, prNumber: undefined }));
+    const { result } = await phase.run(makeInput({ prUrl: null, prNumber: undefined }), deps);
 
     expect(result.status).toBe("skipped");
-    expect(runFeedbackLoop).not.toHaveBeenCalled();
+    expect(deps.feedbackLoop.runFeedbackLoop).not.toHaveBeenCalled();
   });
 
   it("uses remaining budget (total - session cost)", async () => {
-    await phase.run(makeCtx());
+    await phase.run(makeInput(), deps);
 
-    const fbCall = vi.mocked(runFeedbackLoop).mock.calls[0][0];
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
     // maxBudgetUsd = 1.0, resultMessage.total_cost_usd = 0.25 → remaining = 0.75
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
@@ -161,7 +151,7 @@ describe("FeedbackPhase", () => {
     const events: SessionEvent[] = [];
     const onEvent = (event: SessionEvent) => events.push(event);
 
-    await phase.run(makeCtx({ onEvent }));
+    await phase.run(makeInput({ onEvent }), deps);
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);

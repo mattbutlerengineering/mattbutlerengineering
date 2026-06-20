@@ -1,19 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionConfig, SessionEvent } from "../types.js";
-import type { PipelineContext } from "../phases/pipeline-types.js";
+import type { PhaseDeps, PublishPhaseInput } from "../phases/index.js";
+import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
-
-vi.mock("../pr-creator.js", () => ({
-  createPullRequest: vi.fn(),
-  buildPrTitle: vi.fn(),
-  buildPrBody: vi.fn(),
-  buildFailurePrBody: vi.fn(),
-}));
-
-vi.mock("../dep-bump-merger.js", () => ({
-  mergeDirectly: vi.fn(),
-}));
+//
+// Only retry (skip delays) is module-mocked; pr-creator / dep-bump-merger
+// collaborators are injected via `PhaseDeps`.
 
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
@@ -26,24 +19,8 @@ vi.mock("../retry.js", async () => {
   };
 });
 
-vi.mock("@opentelemetry/api", () => ({
-  trace: {
-    getTracer: () => ({
-      startSpan: () => ({
-        setAttribute: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      }),
-    }),
-  },
-  SpanStatusCode: { ERROR: 2 },
-}));
-
 // ── Imports (after mocks) ───────────────────────────────────────────
 
-import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "../pr-creator.js";
-import { mergeDirectly } from "../dep-bump-merger.js";
 import { PublishPhase } from "../phases/publish-phase.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -83,18 +60,17 @@ function createMockResultMessage() {
   };
 }
 
-function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
+function makeInput(overrides?: Partial<PublishPhaseInput>): PublishPhaseInput {
   return {
     config: BASE_CONFIG,
-    errors: [],
     worktree: {
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     },
-    systemPrompt: "system prompt",
-    resultMessage: createMockResultMessage() as PipelineContext["resultMessage"],
+    resultMessage: createMockResultMessage() as PublishPhaseInput["resultMessage"],
     hasChanges: true,
+    errors: [],
     gatewayVerdict: {
       outcome: "create-pr",
       passed: true,
@@ -109,13 +85,14 @@ function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
 
 describe("PublishPhase", () => {
   const phase = new PublishPhase();
+  let deps: PhaseDeps;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(buildPrTitle).mockReturnValue("feat: Fix the login bug");
-    vi.mocked(buildPrBody).mockReturnValue("PR body");
-    vi.mocked(buildFailurePrBody).mockReturnValue("Failure body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    deps = makeFakePhaseDeps();
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: Fix the login bug");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("PR body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
@@ -126,73 +103,80 @@ describe("PublishPhase", () => {
   });
 
   it("creates PR when gates pass", async () => {
-    const { result, ctx } = await phase.run(makeCtx());
+    const { result, output } = await phase.run(makeInput(), deps);
 
     expect(result.status).toBe("success");
-    expect(ctx.prUrl).toBe("https://github.com/repo/pull/1");
-    expect(ctx.prNumber).toBe(1);
-    expect(createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ draft: false }));
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
+    expect(output?.prNumber).toBe(1);
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: false })
+    );
   });
 
   it("skips when createPr is false", async () => {
-    const { result, ctx } = await phase.run(
-      makeCtx({ config: { ...BASE_CONFIG, createPr: false } })
+    const { result, output } = await phase.run(
+      makeInput({ config: { ...BASE_CONFIG, createPr: false } }),
+      deps
     );
 
     expect(result.status).toBe("skipped");
-    expect(ctx.prUrl).toBeUndefined();
-    expect(createPullRequest).not.toHaveBeenCalled();
+    expect(output).toBeNull();
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
   });
 
   it("skips when no changes", async () => {
-    const { result } = await phase.run(makeCtx({ hasChanges: false }));
+    const { result } = await phase.run(makeInput({ hasChanges: false }), deps);
 
     expect(result.status).toBe("skipped");
-    expect(createPullRequest).not.toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
   });
 
   it("creates draft PR when gates fail", async () => {
-    const { result, ctx } = await phase.run(
-      makeCtx({
+    const { result, output } = await phase.run(
+      makeInput({
         gatewayVerdict: {
           outcome: "create-draft-pr",
           passed: false,
           gateFailures: ["verification"],
           errors: ["typecheck failed"],
         },
-      })
+      }),
+      deps
     );
 
     expect(result.status).toBe("success");
-    expect(ctx.prUrl).toBe("https://github.com/repo/pull/1");
-    expect(createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ draft: true }));
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true })
+    );
   });
 
   it("direct-merges trivial dep bumps", async () => {
-    vi.mocked(mergeDirectly).mockResolvedValue("https://github.com/repo/pull/2");
+    vi.mocked(deps.prCreator.mergeDirectly).mockResolvedValue("https://github.com/repo/pull/2");
 
-    const { result, ctx } = await phase.run(
-      makeCtx({
+    const { result, output } = await phase.run(
+      makeInput({
         gatewayVerdict: {
           outcome: "merge-direct",
           passed: true,
           gateFailures: [],
           errors: [],
         },
-      })
+      }),
+      deps
     );
 
     expect(result.status).toBe("success");
-    expect(ctx.prUrl).toBe("https://github.com/repo/pull/2");
-    expect(mergeDirectly).toHaveBeenCalled();
-    expect(createPullRequest).not.toHaveBeenCalled();
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/2");
+    expect(deps.prCreator.mergeDirectly).toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
   });
 
   it("emits session:result events", async () => {
     const events: SessionEvent[] = [];
     const onEvent = (event: SessionEvent) => events.push(event);
 
-    await phase.run(makeCtx({ onEvent }));
+    await phase.run(makeInput({ onEvent }), deps);
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);
@@ -200,10 +184,12 @@ describe("PublishPhase", () => {
   });
 
   it("creates PR without gateway verdict (failed session with changes)", async () => {
-    const { result, ctx } = await phase.run(makeCtx({ gatewayVerdict: undefined }));
+    const { result, output } = await phase.run(makeInput({ gatewayVerdict: undefined }), deps);
 
     expect(result.status).toBe("success");
-    expect(ctx.prUrl).toBe("https://github.com/repo/pull/1");
-    expect(createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ draft: false }));
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: false })
+    );
   });
 });

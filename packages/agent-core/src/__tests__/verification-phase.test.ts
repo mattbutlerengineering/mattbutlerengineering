@@ -1,24 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionConfig, SessionEvent } from "../types.js";
-import type { PipelineContext } from "../phases/pipeline-types.js";
+import type { PhaseDeps, VerificationPhaseInput } from "../phases/index.js";
+import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
-
-vi.mock("../worktree-manager.js", () => ({
-  createWorktree: vi.fn(),
-  commitChanges: vi.fn(),
-  pushBranch: vi.fn(),
-  hasChanges: vi.fn(),
-  removeWorktree: vi.fn(),
-}));
-
-vi.mock("../success-evaluator.js", () => ({
-  getGitDiff: vi.fn(),
-}));
-
-vi.mock("../post-commit-gateway.js", () => ({
-  runPostCommitGateway: vi.fn(),
-}));
+//
+// Only retry (skip delays) is module-mocked; all collaborators are
+// injected via `PhaseDeps`.
 
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
@@ -31,25 +19,8 @@ vi.mock("../retry.js", async () => {
   };
 });
 
-vi.mock("@opentelemetry/api", () => ({
-  trace: {
-    getTracer: () => ({
-      startSpan: () => ({
-        setAttribute: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-        setStatus: vi.fn(),
-      }),
-    }),
-  },
-  SpanStatusCode: { ERROR: 2 },
-}));
-
 // ── Imports (after mocks) ───────────────────────────────────────────
 
-import { commitChanges, pushBranch, hasChanges } from "../worktree-manager.js";
-import { getGitDiff } from "../success-evaluator.js";
-import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { VerificationPhase } from "../phases/verification-phase.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -89,17 +60,15 @@ function createMockResultMessage() {
   };
 }
 
-function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
+function makeInput(overrides?: Partial<VerificationPhaseInput>): VerificationPhaseInput {
   return {
     config: BASE_CONFIG,
-    errors: [],
     worktree: {
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     },
-    systemPrompt: "system prompt",
-    resultMessage: createMockResultMessage() as PipelineContext["resultMessage"],
+    resultMessage: createMockResultMessage() as VerificationPhaseInput["resultMessage"],
     ...overrides,
   };
 }
@@ -108,19 +77,12 @@ function makeCtx(overrides?: Partial<PipelineContext>): PipelineContext {
 
 describe("VerificationPhase", () => {
   const phase = new VerificationPhase();
+  let deps: PhaseDeps;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
-      outcome: "create-pr",
-      passed: true,
-      gateFailures: [],
-      errors: [],
-    });
+    deps = makeFakePhaseDeps();
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
   });
 
   it("has name 'verification'", () => {
@@ -128,79 +90,74 @@ describe("VerificationPhase", () => {
   });
 
   it("commits, pushes, and runs gateway when changes exist", async () => {
-    const { result, ctx } = await phase.run(makeCtx());
+    const { result, output } = await phase.run(makeInput(), deps);
 
     expect(result.status).toBe("success");
-    expect(commitChanges).toHaveBeenCalled();
-    expect(pushBranch).toHaveBeenCalled();
-    expect(ctx.hasChanges).toBe(true);
-    expect(ctx.gatewayVerdict).toBeDefined();
-    expect(ctx.gatewayVerdict?.outcome).toBe("create-pr");
+    expect(deps.worktreeManager.commitChanges).toHaveBeenCalled();
+    expect(deps.worktreeManager.pushBranch).toHaveBeenCalled();
+    expect(output?.hasChanges).toBe(true);
+    expect(output?.gatewayVerdict).toBeDefined();
+    expect(output?.gatewayVerdict?.outcome).toBe("create-pr");
   });
 
   it("skips commit/push when no changes", async () => {
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    const { result, ctx } = await phase.run(makeCtx());
+    const { result, output } = await phase.run(makeInput(), deps);
 
     expect(result.status).toBe("success");
-    expect(ctx.hasChanges).toBe(false);
-    expect(commitChanges).not.toHaveBeenCalled();
-    expect(pushBranch).not.toHaveBeenCalled();
-  });
-
-  it("skips when no worktree in context", async () => {
-    const { result } = await phase.run(makeCtx({ worktree: undefined }));
-
-    expect(result.status).toBe("skipped");
+    expect(output?.hasChanges).toBe(false);
+    expect(deps.worktreeManager.commitChanges).not.toHaveBeenCalled();
+    expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
   });
 
   it("runs gateway only when session succeeded (no stuck)", async () => {
-    const { ctx } = await phase.run(
-      makeCtx({
+    const { output } = await phase.run(
+      makeInput({
         stuckReason: {
           type: "repeated_action_observation",
           count: 4,
           threshold: 4,
           description: "stuck",
           severity: "error",
-        },
-      })
+        } as VerificationPhaseInput["stuckReason"],
+      }),
+      deps
     );
 
     // Should still commit/push, but not run gateway
-    expect(commitChanges).toHaveBeenCalled();
-    expect(runPostCommitGateway).not.toHaveBeenCalled();
-    expect(ctx.gatewayVerdict).toBeUndefined();
+    expect(deps.worktreeManager.commitChanges).toHaveBeenCalled();
+    expect(deps.gateway.runPostCommitGateway).not.toHaveBeenCalled();
+    expect(output?.gatewayVerdict).toBeUndefined();
   });
 
-  it("collects errors from gateway failures", async () => {
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
+  it("collects gateway errors into the phase result", async () => {
+    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
       errors: ["Verification failed: typecheck errors"],
     });
 
-    const { ctx } = await phase.run(makeCtx());
+    const { result, output } = await phase.run(makeInput(), deps);
 
-    expect(ctx.errors).toContain("Verification failed: typecheck errors");
-    expect(ctx.gatewayVerdict?.outcome).toBe("create-draft-pr");
+    expect(result.errors).toContain("Verification failed: typecheck errors");
+    expect(output?.gatewayVerdict?.outcome).toBe("create-draft-pr");
   });
 
   it("caches git diff (only calls getGitDiff once)", async () => {
-    await phase.run(makeCtx());
+    await phase.run(makeInput(), deps);
 
-    expect(getGitDiff).toHaveBeenCalledTimes(1);
+    expect(deps.successEvaluator.getGitDiff).toHaveBeenCalledTimes(1);
   });
 
   it("emits 'no changes' event when nothing changed", async () => {
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     const events: SessionEvent[] = [];
     const onEvent = (event: SessionEvent) => events.push(event);
 
-    await phase.run(makeCtx({ onEvent }));
+    await phase.run(makeInput({ onEvent }), deps);
 
     const resultEvents = events.filter((e) => e.type === "session:result");
     expect(resultEvents.length).toBeGreaterThan(0);

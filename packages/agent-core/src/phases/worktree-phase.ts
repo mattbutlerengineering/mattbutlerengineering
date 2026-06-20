@@ -1,19 +1,26 @@
 import { trace } from "@opentelemetry/api";
-import { createWorktree } from "../worktree-manager.js";
-import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "../prompt-builder.js";
-import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { withRetry } from "../retry.js";
 import { emitEvent } from "../utils.js";
 import { classifyTask } from "../task-signal-registry.js";
-import type { PipelineContext, PipelinePhase, PhaseResult } from "./pipeline-types.js";
+import type {
+  Phase,
+  PhaseDeps,
+  PhaseExecution,
+  WorktreePhaseInput,
+  WorktreePhaseOutput,
+} from "./pipeline-types.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
-export class WorktreePhase implements PipelinePhase {
+export class WorktreePhase implements Phase<WorktreePhaseInput, WorktreePhaseOutput> {
   readonly name = "worktree" as const;
 
-  async run(ctx: PipelineContext): Promise<{ result: PhaseResult; ctx: PipelineContext }> {
-    const { config, onEvent } = ctx;
+  async run(
+    input: WorktreePhaseInput,
+    deps: PhaseDeps
+  ): Promise<PhaseExecution<WorktreePhaseOutput>> {
+    const { config, onEvent } = input;
+    const { worktreeManager, promptBuilder, failureMemory } = deps;
 
     // Classify the task once so downstream consumers reuse the result instead
     // of re-scanning the description.
@@ -25,7 +32,12 @@ export class WorktreePhase implements PipelinePhase {
     try {
       // 1. Create isolated worktree (with retry for transient git failures)
       const { value: worktree } = await withRetry(
-        () => createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+        () =>
+          worktreeManager.createWorktree(
+            config.repoPath,
+            config.baseBranch,
+            config.taskDescription
+          ),
         { maxRetries: 2 }
       );
       wtSpan.setAttribute("worktree.branch", worktree.branchName);
@@ -33,9 +45,9 @@ export class WorktreePhase implements PipelinePhase {
       wtSpan.end();
 
       // 2. Build system prompt with failure context, source files, and PR examples
-      const failureMemory = await loadMemory(config.repoPath);
-      const pastFailures = queryPastFailures(failureMemory, config.taskDescription);
-      const failureContext = buildFailureContext(pastFailures);
+      const memory = await failureMemory.loadMemory(config.repoPath);
+      const pastFailures = failureMemory.queryPastFailures(memory, config.taskDescription);
+      const failureContext = failureMemory.buildFailureContext(pastFailures);
 
       // Auto-resolve source files from task description if none provided
       const resolvedSourcePaths =
@@ -44,11 +56,12 @@ export class WorktreePhase implements PipelinePhase {
           const { resolveSourceFiles } = await import("../source-resolver.js");
           return resolveSourceFiles(config.taskDescription);
         })();
-
       const finalSourcePaths = await resolvedSourcePaths;
 
       const sourceFileEntries =
-        finalSourcePaths.length > 0 ? await loadSourceFiles(finalSourcePaths) : undefined;
+        finalSourcePaths.length > 0
+          ? await promptBuilder.loadSourceFiles(finalSourcePaths)
+          : undefined;
 
       // Fetch recent successful PRs as examples (non-blocking)
       const { fetchRecentPrExamples, formatPrExamples } = await import("../budget-calculator.js");
@@ -56,13 +69,15 @@ export class WorktreePhase implements PipelinePhase {
       const prExamplesSection = formatPrExamples(prExamples);
 
       // Load project CLAUDE.md for coding conventions (non-blocking)
-      const projectContext = await loadProjectContext(worktree.path).catch(() => null);
+      const projectContext = await promptBuilder
+        .loadProjectContext(worktree.path)
+        .catch(() => null);
       const projectSection = projectContext
         ? `\n\n## Project Conventions (from CLAUDE.md)\n\n${projectContext}`
         : "";
 
       const systemPrompt =
-        (await buildSystemPrompt(config.taskDescription, {
+        (await promptBuilder.buildSystemPrompt(config.taskDescription, {
           sourceFileEntries,
           prExamplesSection,
           failureContext,
@@ -74,14 +89,14 @@ export class WorktreePhase implements PipelinePhase {
 
       return {
         result: { phase: this.name, status: "success", errors: [] },
-        ctx: { ...ctx, worktree, systemPrompt, taskSignals },
+        output: { worktree, systemPrompt, taskSignals },
       };
     } catch (error) {
       wtSpan.end();
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         result: { phase: this.name, status: "failed", errors: [errorMessage] },
-        ctx: { ...ctx, errors: [...ctx.errors, errorMessage] },
+        output: null,
       };
     }
   }
