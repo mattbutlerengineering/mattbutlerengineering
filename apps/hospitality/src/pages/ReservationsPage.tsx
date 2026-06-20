@@ -1,5 +1,7 @@
 import { useState, useMemo, useReducer, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { z } from "zod";
+import { useUrlParams } from "../hooks/use-url-params.js";
 import {
   Alert,
   Badge,
@@ -18,6 +20,18 @@ import { useReservations } from "../hooks/useReservations.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
+
+/* ── URL filter schema ──────────────────────── */
+
+const reservationsFilterSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .default(new Date().toLocaleDateString("en-CA")),
+  status: z.enum(["all", "CONFIRMED", "PENDING", "CANCELLED"]).default("all"),
+});
+
+const RESERVATIONS_DEFAULTS = reservationsFilterSchema.parse({});
 
 /* ── Status → Badge mapping ────────────────── */
 
@@ -77,9 +91,9 @@ function formatRelativeTime(date: Date): string {
 export function ReservationsPage() {
   const navigate = useNavigate();
   const { selectedVenueId } = useVenue();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
-  const statusFilter = searchParams.get("status") ?? "all";
+  const { params, setParam } = useUrlParams(reservationsFilterSchema, RESERVATIONS_DEFAULTS);
+  const selectedDate = params.date;
+  const statusFilter = params.status;
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -171,11 +185,7 @@ export function ReservationsPage() {
           segments={[...STATUS_SEGMENTS]}
           value={statusFilter}
           onChange={(value) => {
-            setSearchParams((prev) => {
-              const next = new URLSearchParams(prev);
-              next.set("status", value);
-              return next;
-            });
+            setParam("status", value as typeof params.status);
           }}
           size="sm"
         />
@@ -188,11 +198,7 @@ export function ReservationsPage() {
           type="date"
           value={selectedDate}
           onChange={(e) => {
-            setSearchParams((prev) => {
-              const next = new URLSearchParams(prev);
-              next.set("date", e.target.value);
-              return next;
-            });
+            setParam("date", e.target.value);
           }}
         />
       </div>
