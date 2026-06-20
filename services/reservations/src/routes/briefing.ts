@@ -49,6 +49,10 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      // Venue authorization: this endpoint follows the same trust model as the existing
+      // /api/v1/reservations and /api/v1/guests endpoints — any authenticated operator
+      // may query any venueId. Per-venue access scoping is a separate app-wide initiative
+      // and does not exist yet in the codebase (no VenueUser relation or venue-access helper).
       const { date, venueId } = request.query;
 
       if (!date) {

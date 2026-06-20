@@ -99,8 +99,11 @@ import { jwtVerify } from "jose";
 
 const mockReservation = createMockReservation({ venueId: "venue-abc" });
 
+// Destructure to exclude PII fields (guestEmail, guestPhone) that the briefing service omits
+const { guestEmail: _email, guestPhone: _phone, ...mockReservationBase } = mockReservation;
+
 const mockBriefingEntry = {
-  ...mockReservation,
+  ...mockReservationBase,
   guest: {
     id: "guest-1",
     name: "Jane Doe",
@@ -185,6 +188,21 @@ describe("GET /api/v1/briefing", () => {
     expect(body.data[0].guest).toBeDefined();
     expect(body.data[0].guest.visitCount).toBe(5);
     expect(body.data[0].guest.dietaryRestrictions).toContain("gluten-free");
+  });
+
+  it("does not expose guestEmail or guestPhone in briefing response (PII)", async () => {
+    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([mockBriefingEntry]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.data[0]).not.toHaveProperty("guestEmail");
+    expect(body.data[0]).not.toHaveProperty("guestPhone");
   });
 
   it("passes date and venueId to briefing service", async () => {
