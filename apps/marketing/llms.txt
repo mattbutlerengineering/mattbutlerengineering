@@ -75,4 +75,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="utils">
+  <file path="src/utils/formatters.ts">
+    <item priority="low">
+      interface ServiceStatus {
+        name: string;
+        url: string;
+        status: "ok" | "degraded" | "error" | "loading";
+        version?: string;
+        latency?: number;
+      }
+    </item>
+    <item priority="high">
+      export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>
