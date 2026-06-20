@@ -114,6 +114,19 @@ describe("mapForStorage", () => {
       const result = mapForStorage(event);
       expect((result.data.textPreview as string).endsWith("…")).toBe(true);
     });
+
+    // Cardinality contract: the old SDK-message parser joined every text block within
+    // one assistant message into a single textPreview. agent-core now emits one
+    // AssistantTextEvent per text block, and mapForStorage is a pure per-event
+    // projection — by design it does NOT coalesce across events. So a multi-text-block
+    // message becomes multiple stored entries, each independently truncated. This is
+    // intentional finer granularity; critically, no assistant text is dropped.
+    it("projects each assistant text event independently (no cross-event coalescing)", () => {
+      const first: AssistantTextEvent = { type: "session:assistant", text: "First block" };
+      const second: AssistantTextEvent = { type: "session:assistant", text: "Second block" };
+      expect(mapForStorage(first).data.textPreview).toBe("First block");
+      expect(mapForStorage(second).data.textPreview).toBe("Second block");
+    });
   });
 
   describe("ToolResultEvent", () => {

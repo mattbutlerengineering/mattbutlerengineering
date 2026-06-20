@@ -47,6 +47,9 @@ export function mapForStorage(event: MappedEvent): { type: string; data: Record<
   }
 
   if (event.type === "session:assistant") {
+    // Per-event projection: agent-core emits one AssistantTextEvent per text block,
+    // so each is stored separately (no coalescing of blocks within a message). This is
+    // an intentional granularity change from the old SDK-message-level text join.
     return {
       type: event.type,
       data: {
