@@ -1148,6 +1148,23 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/marketing/src/hooks/useDataFetch.ts">
+    <item priority="low">
+      interface UseDataFetchOptions {
+        url: string;
+        parser?: (data: unknown) => T;
+        deps?: DependencyList;
+      }
+    </item>
+    <item priority="low">
+      interface UseDataFetchReturn {
+        data: T | null;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
@@ -1750,6 +1767,16 @@
   <file path="services/reservations/src/routes/ready.ts">
     <item priority="high">
       export const readinessRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/reservation-owner.ts">
+    <item priority="high">
+      export function resolveReservationGuestEmail(
+        getById: (id: string) => Promise<{ guestEmail: string | null } | null>
+      ): OwnerResolver { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/reservations.ts">

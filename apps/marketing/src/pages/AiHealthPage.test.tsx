@@ -75,14 +75,19 @@ describe("AiHealthPage", () => {
     mockFetch.mockResolvedValue({ ok: false, status: 404 });
     render(<AiHealthPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Failed to load.*404/)).toBeInTheDocument();
+      expect(screen.getByText(/Error loading.*404/)).toBeInTheDocument();
     });
   });
 
   it("fetches /sensor-report.json", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     render(<AiHealthPage />);
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith("/sensor-report.json"));
+    await waitFor(() =>
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/sensor-report.json",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+    );
   });
 
   it("renders key metric cards on success", async () => {
