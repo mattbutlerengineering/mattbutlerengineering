@@ -367,6 +367,16 @@
       enabled?: boolean;
     }
   </file>
+  <file path="src/hooks/useTimelineData.ts">
+    export interface UseTimelineDataParams {
+      venueId: string | undefined;
+      date: string;
+    }
+    export interface CancelArgs {
+      reason: string;
+      note: string;
+    }
+  </file>
   <file path="src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
