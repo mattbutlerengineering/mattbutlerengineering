@@ -1,54 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionConfig, SessionEvent } from "../types.js";
+import type { PhaseDeps } from "../phases/index.js";
+import type { HardenedQueryResult } from "../run-hardened-query.js";
+import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
-// Mock all dependencies
-vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: vi.fn(),
-}));
-
-vi.mock("../worktree-manager.js", () => ({
-  createWorktree: vi.fn(),
-  commitChanges: vi.fn(),
-  pushBranch: vi.fn(),
-  hasChanges: vi.fn(),
-  removeWorktree: vi.fn(),
-}));
-
-vi.mock("../pr-creator.js", () => ({
-  createPullRequest: vi.fn(),
-  buildPrTitle: vi.fn(),
-  buildPrBody: vi.fn(),
-  buildFailurePrBody: vi.fn(),
-}));
-
-vi.mock("../success-evaluator.js", () => ({
-  getGitDiff: vi.fn(),
-}));
-
-vi.mock("../post-commit-gateway.js", () => ({
-  runPostCommitGateway: vi.fn(),
-}));
-
-vi.mock("../feedback-loop.js", () => ({
-  runFeedbackLoop: vi.fn(),
-}));
-
-vi.mock("../failure-memory.js", () => ({
-  loadMemory: vi.fn(),
-  queryPastFailures: vi.fn(),
-  buildFailureContext: vi.fn(),
-  recordFailure: vi.fn(),
-}));
-
-vi.mock("../prompt-builder.js", () => ({
-  buildSystemPrompt: vi.fn(),
-  loadSourceFiles: vi.fn().mockResolvedValue([]),
-  loadProjectContext: vi.fn().mockResolvedValue(null),
-}));
-
-vi.mock("../tool-permissions.js", () => ({
-  createToolPermissionHandler: vi.fn(),
-}));
+// ── Mocks ───────────────────────────────────────────────────────────
+//
+// Phase collaborators are injected through `PhaseDeps` (no `vi.mock`).
+// Only the three pieces of session-runner *infrastructure* are mocked:
+// Langfuse tracing, the worktree reaper, and retry (to skip backoff
+// delays and assert retry wrapping).
 
 vi.mock("@langfuse/tracing", () => ({
   startActiveObservation: vi
@@ -81,6 +42,10 @@ vi.mock("../worktree-reaper.js", () => ({
   scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 2 }),
 }));
 
+vi.mock("../cost-logger.js", () => ({
+  recordSessionCost: vi.fn(),
+}));
+
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
   return {
@@ -93,26 +58,10 @@ vi.mock("../retry.js", async () => {
   };
 });
 
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import {
-  createWorktree,
-  commitChanges,
-  pushBranch,
-  hasChanges,
-  removeWorktree,
-} from "../worktree-manager.js";
-import { createPullRequest, buildPrTitle, buildPrBody } from "../pr-creator.js";
-import { getGitDiff } from "../success-evaluator.js";
-import { runPostCommitGateway } from "../post-commit-gateway.js";
-import { runFeedbackLoop } from "../feedback-loop.js";
-import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
-import { buildSystemPrompt } from "../prompt-builder.js";
-import { createToolPermissionHandler } from "../tool-permissions.js";
 import { withRetry } from "../retry.js";
 import { scheduleWorktreeReap } from "../worktree-reaper.js";
 import {
   startActiveObservation,
-  startObservation,
   propagateAttributes,
   updateActiveObservation,
 } from "@langfuse/tracing";
@@ -129,7 +78,7 @@ const BASE_CONFIG: SessionConfig = {
   createPr: true,
 };
 
-function createMockResultMessage() {
+function createMockResultMessage(overrides?: Record<string, unknown>) {
   return {
     type: "result" as const,
     subtype: "success" as const,
@@ -150,204 +99,172 @@ function createMockResultMessage() {
     },
     modelUsage: {},
     permission_denials: [],
+    ...overrides,
   };
 }
 
-// Helper to create an async generator from an array of messages
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
+function hardenedResult(overrides?: Partial<HardenedQueryResult>): HardenedQueryResult {
+  return {
+    resultMessage: null,
+    stuckReason: null,
+    rawTurnMetrics: [],
+    rawToolCallMetrics: [],
+    errorMessage: null,
+    contextMetrics: null,
+    ...overrides,
+  };
+}
+
+/** Configures `deps` so the query runner resolves with `resultMessage`. */
+function withResult(deps: PhaseDeps, resultMessage: unknown): void {
+  vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+    hardenedResult({ resultMessage: resultMessage as never })
+  );
 }
 
 describe("runSession", () => {
+  let deps: PhaseDeps;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    deps = makeFakePhaseDeps();
 
-    // Reset withRetry to default pass-through
     vi.mocked(withRetry).mockImplementation(async (fn) => {
       const value = await fn();
       return { value, attempts: 1 };
     });
 
-    // Reset reaper to default success
     vi.mocked(scheduleWorktreeReap).mockResolvedValue({ succeeded: true, attempts: 2 });
 
-    vi.mocked(createWorktree).mockResolvedValue({
+    vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
       branchName: "agent/fix-bug-abc123",
+      mode: "full",
     });
-
-    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
-    vi.mocked(createToolPermissionHandler).mockReturnValue(
-      vi.fn().mockResolvedValue({ behavior: "allow" })
-    );
-
-    vi.mocked(loadMemory).mockResolvedValue({ records: [] });
-    vi.mocked(queryPastFailures).mockReturnValue([]);
-    vi.mocked(buildFailureContext).mockReturnValue("");
-
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
-      outcome: "create-pr",
-      passed: true,
-      gateFailures: [],
-      errors: [],
-    });
-
-    vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: false, retriesUsed: 0 });
-
-    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
   });
 
   it("runs a successful session with PR creation", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: Fix the login bug");
-    vi.mocked(buildPrBody).mockReturnValue("PR body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: Fix the login bug");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("PR body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBe("https://github.com/repo/pull/1");
     expect(result.branchName).toBe("agent/fix-bug-abc123");
     expect(result.costUsd).toBe(0.25);
     expect(result.numTurns).toBe(5);
-    expect(commitChanges).toHaveBeenCalled();
+    expect(deps.worktreeManager.commitChanges).toHaveBeenCalled();
   });
 
   it("skips PR creation when no changes are made", async () => {
-    const mockResult = createMockResultMessage();
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(false);
-
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBeNull();
-    expect(commitChanges).not.toHaveBeenCalled();
-    expect(pushBranch).not.toHaveBeenCalled();
-    expect(createPullRequest).not.toHaveBeenCalled();
+    expect(deps.worktreeManager.commitChanges).not.toHaveBeenCalled();
+    expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
   });
 
   it("skips PR when createPr is false", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
     const config = { ...BASE_CONFIG, createPr: false };
-    const result = await runSession(config);
+    const result = await runSession(config, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBeNull();
-    expect(createPullRequest).not.toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
   });
 
   it("returns failed result when no result message is received", async () => {
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([{ type: "system", subtype: "init" }]) as ReturnType<typeof query>
-    );
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    withResult(deps, null);
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("No result message received from agent");
   });
 
   it("handles errors and returns failed result", async () => {
-    vi.mocked(query).mockImplementation(() => {
-      throw new Error("SDK connection failed");
-    });
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("SDK connection failed")
+    );
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("SDK connection failed");
   });
 
   it("emits events when callback is provided", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     const events: SessionEvent[] = [];
-    await runSession(BASE_CONFIG, (event) => events.push(event));
+    await runSession(BASE_CONFIG, (event) => events.push(event), deps);
 
     expect(events.length).toBeGreaterThan(0);
     expect(events[0].type).toBe("session:start");
   });
 
   it("cleans up worktree after successful PR creation", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
-    expect(removeWorktree).toHaveBeenCalledWith(
+    expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledWith(
       "/repo",
       "/repo/.agent-worktrees/agent-fix-bug-abc123"
     );
   });
 
   it("preserves worktree when createPr is false (--no-pr)", async () => {
-    const mockResult = createMockResultMessage();
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
+    await runSession({ ...BASE_CONFIG, createPr: false }, undefined, deps);
 
-    await runSession({ ...BASE_CONFIG, createPr: false });
-
-    expect(removeWorktree).not.toHaveBeenCalled();
+    expect(deps.worktreeManager.removeWorktree).not.toHaveBeenCalled();
   });
 
   it("surfaces cleanup errors in cleanupErrors when removeWorktree fails", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
+    vi.mocked(deps.worktreeManager.removeWorktree).mockRejectedValue(
+      new Error("fatal: worktree is locked")
+    );
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
-    // Session itself should still succeed
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBe("https://github.com/repo/pull/1");
-
-    // Cleanup error should be surfaced
     expect(result.cleanupErrors).toEqual(["fatal: worktree is locked"]);
     expect(warnSpy).toHaveBeenCalledWith("Worktree cleanup failed: fatal: worktree is locked");
 
@@ -355,23 +272,21 @@ describe("runSession", () => {
   });
 
   it("emits session:cleanup_warning event when removeWorktree fails", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
+    vi.mocked(deps.worktreeManager.removeWorktree).mockRejectedValue(
+      new Error("fatal: worktree is locked")
+    );
 
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const events: SessionEvent[] = [];
-    await runSession(BASE_CONFIG, (event) => events.push(event));
+    await runSession(BASE_CONFIG, (event) => events.push(event), deps);
 
     const cleanupEvents = events.filter((e) => e.type === "session:cleanup_warning");
     expect(cleanupEvents).toHaveLength(1);
@@ -383,47 +298,39 @@ describe("runSession", () => {
   });
 
   it("omits cleanupErrors when removeWorktree succeeds", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    vi.mocked(deps.worktreeManager.removeWorktree).mockResolvedValue(undefined);
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(result.cleanupErrors).toBeUndefined();
   });
 
   it("schedules a worktree reap retry when removeWorktree fails", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockRejectedValue(new Error("fatal: worktree is locked"));
+    vi.mocked(deps.worktreeManager.removeWorktree).mockRejectedValue(
+      new Error("fatal: worktree is locked")
+    );
 
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
-    // Error is still recorded in the result (unchanged behavior)
     expect(result.cleanupErrors).toEqual(["fatal: worktree is locked"]);
-    // And a follow-up reap retry is scheduled for the same worktree
     expect(scheduleWorktreeReap).toHaveBeenCalledWith(
       expect.objectContaining({
         repoPath: "/repo",
@@ -435,30 +342,28 @@ describe("runSession", () => {
   });
 
   it("does not schedule a reap when removeWorktree succeeds first try", async () => {
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(removeWorktree).mockResolvedValue(undefined);
+    vi.mocked(deps.worktreeManager.removeWorktree).mockResolvedValue(undefined);
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(scheduleWorktreeReap).not.toHaveBeenCalled();
   });
 
   it("handles createWorktree failure gracefully", async () => {
-    vi.mocked(createWorktree).mockRejectedValue(new Error("git worktree add failed"));
+    vi.mocked(deps.worktreeManager.createWorktree).mockRejectedValue(
+      new Error("git worktree add failed")
+    );
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("git worktree add failed");
@@ -466,122 +371,102 @@ describe("runSession", () => {
   });
 
   it("creates draft PR when verification fails", async () => {
-    const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
       errors: ["Verification failed: typecheck errors"],
     });
-    vi.mocked(buildPrTitle).mockReturnValue("wip: Fix the login bug");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("wip: Fix the login bug");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/2",
       number: 2,
     });
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
-    // Should still produce a PR URL even when verification fails
     expect(result.prUrl).toBe("https://github.com/repo/pull/2");
-    expect(createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ draft: true }));
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true })
+    );
   });
 
   it("attempts to push partial work when session throws mid-execution", async () => {
-    // Simulate worktree creation succeeding then query throwing
-    vi.mocked(query).mockImplementation(() => {
-      throw new Error("Unexpected API error");
-    });
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("partial-commit");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(createPullRequest).mockResolvedValue({
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("Unexpected API error")
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/3",
       number: 3,
     });
 
     const events: SessionEvent[] = [];
-    const result = await runSession(BASE_CONFIG, (event) => events.push(event));
+    const result = await runSession(BASE_CONFIG, (event) => events.push(event), deps);
 
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("Unexpected API error");
-    // Partial work should be pushed and a draft PR created
     expect(result.prUrl).toBe("https://github.com/repo/pull/3");
   });
 
   it("handles partial work push failure gracefully (best-effort)", async () => {
-    vi.mocked(query).mockImplementation(() => {
-      throw new Error("Unexpected API error");
-    });
-    // hasChanges returns true but pushBranch fails
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("partial-commit");
-    vi.mocked(pushBranch).mockRejectedValue(new Error("git push failed"));
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("Unexpected API error")
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.worktreeManager.pushBranch).mockRejectedValue(new Error("git push failed"));
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
-    // Should still return failed with original error, not the push error
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("Unexpected API error");
     expect(result.prUrl).toBeNull();
   });
 
   it("handles partial work when no changes exist after crash", async () => {
-    vi.mocked(query).mockImplementation(() => {
-      throw new Error("Unexpected API error");
-    });
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("Unexpected API error")
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("Unexpected API error");
     expect(result.prUrl).toBeNull();
-    // commitChanges should not be called since there are no changes
-    expect(commitChanges).not.toHaveBeenCalled();
+    expect(deps.worktreeManager.commitChanges).not.toHaveBeenCalled();
   });
 
   // ── Retry logic tests ──────────────────────────────────────────────
 
   it("uses withRetry for createWorktree", async () => {
-    const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
-    // withRetry should have been called for createWorktree
     expect(withRetry).toHaveBeenCalled();
-    const calls = vi.mocked(withRetry).mock.calls;
-    // First call is for createWorktree
-    expect(calls.length).toBeGreaterThanOrEqual(1);
+    expect(vi.mocked(withRetry).mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("uses withRetry for pushBranch with 3 retries", async () => {
-    const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
-    // withRetry should be called for push and PR creation
     const retryCalls = vi.mocked(withRetry).mock.calls;
-    // At least: createWorktree, pushBranch, createPullRequest
     expect(retryCalls.length).toBeGreaterThanOrEqual(3);
 
-    // Verify push retry has maxRetries: 3
     const pushRetryCall = retryCalls.find(
       (call) => call[1] && (call[1] as { maxRetries?: number }).maxRetries === 3
     );
@@ -589,68 +474,46 @@ describe("runSession", () => {
   });
 
   it("uses withRetry for createPullRequest", async () => {
-    const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
-    // Verify createPullRequest was called through withRetry
-    expect(createPullRequest).toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalled();
   });
 
   // ── Context window exhaustion detection tests ──────────────────────
 
-  it("detects context exhaustion when compaction threshold exceeded", async () => {
-    // Create 5 compact_boundary messages followed by a result
-    const compactMessages = Array.from({ length: 5 }, () => ({
-      type: "system",
-      subtype: "compact_boundary",
-    }));
-    const mockResult = createMockResultMessage();
-
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([...compactMessages, mockResult]) as ReturnType<typeof query>
+  it("detects context exhaustion when stuck reason is context_window_loop", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+      hardenedResult({
+        resultMessage: createMockResultMessage() as never,
+        stuckReason: {
+          type: "context_window_loop",
+          description: "Context window exhaustion detected",
+          severity: "error",
+        } as never,
+      })
     );
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    const events: SessionEvent[] = [];
-    const result = await runSession(BASE_CONFIG, (event) => events.push(event));
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
     expect(result.stuckPattern).toBe("context_window_loop");
-
-    // Verify context exhaustion stuck event was emitted
-    const stuckEvents = events.filter((e) => e.type === "session:stuck");
-    expect(stuckEvents.length).toBeGreaterThan(0);
-    const exhaustionEvent = stuckEvents.find((e) =>
-      (e.data as { message: string }).message.includes("Context window exhaustion")
-    );
-    expect(exhaustionEvent).toBeDefined();
   });
 
-  it("does not abort when compaction count is below threshold", async () => {
-    // 3 compactions (below threshold of 5)
-    const compactMessages = Array.from({ length: 3 }, () => ({
-      type: "system",
-      subtype: "compact_boundary",
-    }));
-    const mockResult = createMockResultMessage();
+  it("does not abort when no stuck reason is reported", async () => {
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-    vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([...compactMessages, mockResult]) as ReturnType<typeof query>
-    );
-    vi.mocked(hasChanges).mockResolvedValue(false);
-
-    const result = await runSession(BASE_CONFIG);
+    const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("succeeded");
     expect(result.stuckPattern).toBeUndefined();
@@ -659,18 +522,19 @@ describe("runSession", () => {
   // ── Feedback loop budget tests ─────────────────────────────────────
 
   it("uses remaining budget for feedback loop instead of fixed 50%", async () => {
-    const mockResult = createMockResultMessage(); // cost: 0.25
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage()); // cost: 0.25
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
-    vi.mocked(runFeedbackLoop).mockResolvedValue({ resolved: true, retriesUsed: 1 });
+    vi.mocked(deps.feedbackLoop.runFeedbackLoop).mockResolvedValue({
+      resolved: true,
+      retriesUsed: 1,
+      lastFingerprint: null,
+    });
 
     const config = {
       ...BASE_CONFIG,
@@ -683,10 +547,10 @@ describe("runSession", () => {
       },
     };
 
-    await runSession(config);
+    await runSession(config, undefined, deps);
 
-    expect(runFeedbackLoop).toHaveBeenCalled();
-    const fbCall = vi.mocked(runFeedbackLoop).mock.calls[0][0];
+    expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalled();
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
     // Remaining budget: 1.0 - 0.25 = 0.75 (not 0.50 from fixed ratio)
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
@@ -694,67 +558,47 @@ describe("runSession", () => {
   // ── Cached git diff tests ─────────────────────────────────────────
 
   it("caches git diff across evaluation, static analysis, and security review", async () => {
-    const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
-    vi.mocked(hasChanges).mockResolvedValue(true);
-    vi.mocked(commitChanges).mockResolvedValue("abc123");
-    vi.mocked(pushBranch).mockResolvedValue(undefined);
-    vi.mocked(buildPrTitle).mockReturnValue("feat: test");
-    vi.mocked(buildPrBody).mockReturnValue("body");
-    vi.mocked(createPullRequest).mockResolvedValue({
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+    vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
       url: "https://github.com/repo/pull/1",
       number: 1,
     });
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
     // getGitDiff should only be called once despite multiple stages using it
-    // (evaluation, static analysis, security review, dep-bump check)
-    expect(getGitDiff).toHaveBeenCalledTimes(1);
+    expect(deps.successEvaluator.getGitDiff).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("Langfuse tracing", () => {
-  it("wraps session with startActiveObservation", async () => {
-    vi.mocked(createWorktree).mockResolvedValue({
+  let deps: PhaseDeps;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    deps = makeFakePhaseDeps();
+    vi.mocked(withRetry).mockImplementation(async (fn) => {
+      const value = await fn();
+      return { value, attempts: 1 };
+    });
+    vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
       path: "/worktree",
       branchName: "agent/fix-login",
       mode: "full",
     });
-    vi.mocked(loadMemory).mockResolvedValue({ failures: [] });
-    vi.mocked(queryPastFailures).mockReturnValue([]);
-    vi.mocked(buildFailureContext).mockReturnValue("");
-    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
-    vi.mocked(createToolPermissionHandler).mockReturnValue(async () => true);
-    vi.mocked(hasChanges).mockResolvedValue(false);
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+  });
 
-    const resultMessage = {
-      type: "result" as const,
-      subtype: "success" as const,
-      uuid: "test-uuid",
-      session_id: "sess-1",
-      result: "Done",
-      total_cost_usd: 0.05,
-      duration_ms: 1000,
-      duration_api_ms: 800,
-      is_error: false,
-      num_turns: 3,
-      stop_reason: "end_turn",
-      usage: {
-        input_tokens: 100,
-        output_tokens: 50,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-      },
-    };
-
-    vi.mocked(query).mockReturnValue(
-      (async function* () {
-        yield resultMessage;
-      })() as ReturnType<typeof query>
+  it("wraps session with startActiveObservation", async () => {
+    withResult(
+      deps,
+      createMockResultMessage({ session_id: "sess-1", total_cost_usd: 0.05, num_turns: 3 })
     );
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
     expect(startActiveObservation).toHaveBeenCalledWith("agent-session", expect.any(Function));
     expect(propagateAttributes).toHaveBeenCalledWith(
@@ -769,104 +613,13 @@ describe("Langfuse tracing", () => {
     );
   });
 
-  it("creates generation observations for assistant messages", async () => {
-    vi.mocked(createWorktree).mockResolvedValue({
-      path: "/worktree",
-      branchName: "agent/fix-login",
-      mode: "full",
-    });
-    vi.mocked(loadMemory).mockResolvedValue({ failures: [] });
-    vi.mocked(queryPastFailures).mockReturnValue([]);
-    vi.mocked(buildFailureContext).mockReturnValue("");
-    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
-    vi.mocked(createToolPermissionHandler).mockReturnValue(async () => true);
-    vi.mocked(hasChanges).mockResolvedValue(false);
-
-    const assistantMessage = {
-      type: "assistant" as const,
-      message: {
-        role: "assistant",
-        content: [{ type: "text", text: "I'll fix the bug" }],
-        usage: { input_tokens: 50, output_tokens: 25 },
-      },
-    };
-
-    const resultMessage = {
-      type: "result" as const,
-      subtype: "success" as const,
-      uuid: "test-uuid",
-      session_id: "sess-1",
-      result: "Done",
-      total_cost_usd: 0.05,
-      duration_ms: 1000,
-      duration_api_ms: 800,
-      is_error: false,
-      num_turns: 3,
-      stop_reason: "end_turn",
-      usage: {
-        input_tokens: 100,
-        output_tokens: 50,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-      },
-    };
-
-    vi.mocked(query).mockReturnValue(
-      (async function* () {
-        yield assistantMessage;
-        yield resultMessage;
-      })() as ReturnType<typeof query>
-    );
-
-    await runSession(BASE_CONFIG);
-
-    expect(startObservation).toHaveBeenCalledWith(
-      "llm-turn-1",
-      expect.objectContaining({ model: BASE_CONFIG.model }),
-      { asType: "generation" }
-    );
-  });
-
   it("attaches session metrics to the Langfuse trace", async () => {
-    vi.mocked(createWorktree).mockResolvedValue({
-      path: "/worktree",
-      branchName: "agent/fix-login",
-      mode: "full",
-    });
-    vi.mocked(loadMemory).mockResolvedValue({ failures: [] });
-    vi.mocked(queryPastFailures).mockReturnValue([]);
-    vi.mocked(buildFailureContext).mockReturnValue("");
-    vi.mocked(buildSystemPrompt).mockReturnValue("system prompt");
-    vi.mocked(createToolPermissionHandler).mockReturnValue(async () => true);
-    vi.mocked(hasChanges).mockResolvedValue(false);
-
-    const resultMessage = {
-      type: "result" as const,
-      subtype: "success" as const,
-      uuid: "test-uuid",
-      session_id: "sess-1",
-      result: "Done",
-      total_cost_usd: 0.05,
-      duration_ms: 1000,
-      duration_api_ms: 800,
-      is_error: false,
-      num_turns: 3,
-      stop_reason: "end_turn",
-      usage: {
-        input_tokens: 100,
-        output_tokens: 50,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-      },
-    };
-
-    vi.mocked(query).mockReturnValue(
-      (async function* () {
-        yield resultMessage;
-      })() as ReturnType<typeof query>
+    withResult(
+      deps,
+      createMockResultMessage({ session_id: "sess-1", total_cost_usd: 0.05, num_turns: 3 })
     );
 
-    await runSession(BASE_CONFIG);
+    await runSession(BASE_CONFIG, undefined, deps);
 
     expect(updateActiveObservation).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -876,6 +629,41 @@ describe("Langfuse tracing", () => {
           num_turns: "3",
           stuck: "0",
         }),
+      })
+    );
+  });
+
+  it("records cost to .claude/agent-spend/sessions.jsonl after a successful session", async () => {
+    const { recordSessionCost } = await import("../cost-logger.js");
+    withResult(deps, createMockResultMessage());
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    await runSession(BASE_CONFIG, undefined, deps);
+
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0.25,
+        model: BASE_CONFIG.model,
+        status: "succeeded",
+      })
+    );
+  });
+
+  it("records cost even when the session throws an unhandled error", async () => {
+    const { recordSessionCost } = await import("../cost-logger.js");
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
+      new Error("SDK connection failed")
+    );
+
+    const result = await runSession(BASE_CONFIG, undefined, deps);
+
+    expect(result.status).toBe("failed");
+    expect(recordSessionCost).toHaveBeenCalledWith(
+      BASE_CONFIG.repoPath,
+      expect.objectContaining({
+        costUsd: 0,
+        status: "failed",
       })
     );
   });

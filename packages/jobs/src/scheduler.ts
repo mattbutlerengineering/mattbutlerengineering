@@ -1,13 +1,12 @@
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
+import { DEFAULT_QUEUE_NAME, DEFAULT_JOB_OPTIONS } from "./job-types.js";
 import type { JobType, JobPayloadMap } from "./job-types.js";
 
 export interface JobSchedulerConfig {
   redisUrl: string;
   queueName?: string;
 }
-
-const DEFAULT_QUEUE_NAME = "mbe-notifications";
 
 export class JobScheduler {
   private readonly queue: Queue;
@@ -38,11 +37,7 @@ export class JobScheduler {
   ): Promise<string> {
     const job = await this.queue.add(jobType, payload, {
       delay: delayMs,
-      attempts: 3,
-      backoff: {
-        type: "exponential",
-        delay: 1000,
-      },
+      ...DEFAULT_JOB_OPTIONS,
       removeOnComplete: { count: 100 },
       removeOnFail: { count: 50 },
       ...(jobId !== undefined ? { jobId } : {}),
@@ -70,13 +65,7 @@ export class JobScheduler {
       {
         name: jobType,
         data: payload,
-        opts: {
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 1000,
-          },
-        },
+        opts: { ...DEFAULT_JOB_OPTIONS },
       }
     );
   }

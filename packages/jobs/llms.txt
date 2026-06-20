@@ -15,10 +15,10 @@
   </file>
   <file path="src/job-types.ts">
     <item priority="high">
-      export const JOB_TYPES: unknown;
+      export const DEFAULT_QUEUE_NAME: unknown;
     </item>
-    <item priority="low">
-      type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+    <item priority="high">
+      export const DEFAULT_JOB_OPTIONS: unknown;
     </item>
   </file>
   <file path="src/scheduler.ts">
