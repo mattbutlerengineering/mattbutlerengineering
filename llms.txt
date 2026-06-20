@@ -1134,6 +1134,23 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/marketing/src/hooks/useDataFetch.ts">
+    <item priority="low">
+      interface UseDataFetchOptions {
+        url: string;
+        parser?: (data: unknown) => T;
+        deps?: DependencyList;
+      }
+    </item>
+    <item priority="low">
+      interface UseDataFetchReturn {
+        data: T | null;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }

@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
 import {
   formatSensorStatus,
@@ -7,42 +6,26 @@ import {
   formatTimestamp,
   type SensorReport,
 } from "../data/ai-health.js";
+import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./AiHealthPage.module.css";
 
 export function AiHealthPage() {
-  const [report, setReport] = useState<SensorReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const response = await fetch("/sensor-report.json");
-        if (!response.ok) {
-          throw new Error(`Failed to load sensor report: ${response.status}`);
-        }
-        const data: SensorReport = await response.json();
-        if (!cancelled) setReport(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unknown error");
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data: report,
+    isLoading,
+    error,
+  } = useDataFetch<SensorReport>({ url: "/sensor-report.json" });
 
   if (error) {
     return (
       <div className={styles.container}>
         <Heading level={1}>AI Health Dashboard</Heading>
-        <Text className={styles.error}>Error loading sensor report: {error}</Text>
+        <Text className={styles.error}>Error loading sensor report: {error.message}</Text>
       </div>
     );
   }
 
-  if (!report) {
+  if (isLoading || !report) {
     return (
       <div className={styles.container}>
         <Heading level={1}>AI Health Dashboard</Heading>
