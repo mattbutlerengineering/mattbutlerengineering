@@ -114,15 +114,19 @@ mbe up                                           # Start dev servers
 
 Managed at https://claude.ai/code/scheduled
 
-| Trigger             | Schedule (PT)                                                     |
-| ------------------- | ----------------------------------------------------------------- |
-| `mbe-deep-audit`    | Mon 8:23am (weekly full site audit)                               |
-| `mbe-morning`       | Daily 9:03am (light audit + ACMM audit + issue-worker)            |
-| `mbe-midday`        | Daily 1:07pm (issue-worker + CI monitor)                          |
-| `mbe-evening`       | Daily 5:11pm (issue-worker + progress-tracker)                    |
-| `mbe-learning-loop` | Daily 11:00am (sensor report → verify fixes → triage regressions) |
+| Trigger                  | Schedule (PT)                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `mbe-deep-audit`         | Mon 8:23am (weekly full site audit)                                             |
+| `mbe-morning`            | Daily 9:03am (light audit + ACMM audit + issue-worker)                          |
+| `mbe-midday`             | Daily 1:07pm (issue-worker + CI monitor)                                        |
+| `mbe-evening`            | Daily 5:11pm (issue-worker + progress-tracker)                                  |
+| `mbe-learning-loop`      | Daily 11:00am (sensor report → verify fixes → triage regressions)               |
+| `mbe-weekly-improve`     | Fri 7:00am (improve + improve-codebase-architecture → 1 PR + `ready` issues)    |
+| `mbe-monthly-meta-audit` | 1st of month 7:00am (claude-md-improver + claude-automation-recommender → 1 PR) |
 
-> **Max 5x plan**: 5 scheduled runs/day. The above fits exactly. `mbe-deep-audit` only fires Mon so Tue-Sun has 4 daily runs + headroom.
+> **Max 5x plan**: 5 scheduled runs/day. Daily baseline is 4 (`mbe-morning`/`midday`/`evening`/`learning-loop`). The weekly/occasional triggers add a 5th run on their day: `mbe-deep-audit` (Mon), `mbe-weekly-improve` (Fri). `mbe-monthly-meta-audit` adds one run on the 1st of each month and may briefly hit 6 runs if the 1st lands on a Mon/Fri — acceptable, or shift its date if throttled.
+
+> **Full catalog + prompts:** [docs/scheduled-tasks.md](./docs/scheduled-tasks.md).
 
 ---
 
