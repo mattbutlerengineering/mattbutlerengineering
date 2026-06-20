@@ -4,6 +4,9 @@ import type {
   SmsNotificationInput,
   WaitlistUpdateInput,
   WinbackMessageInput,
+  WaitlistAddedInput,
+  WaitlistPositionUpdateInput,
+  WaitlistTableReadyInput,
 } from "./sms-port.js";
 
 interface TwilioMessages {
@@ -81,6 +84,36 @@ export class TwilioSmsAdapter implements SmsPort {
     const url = input.manageBaseUrl;
 
     const body = `${name}, we miss you at ${input.venueName}! Book your next visit: ${url}`;
+    const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+
+    await this.sendWithRetry(input.guestPhone, trimmed);
+  }
+
+  async sendWaitlistAdded(input: WaitlistAddedInput): Promise<void> {
+    if (!this.client) return;
+
+    const name = input.guestName ?? "Guest";
+    const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+    const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+
+    await this.sendWithRetry(input.guestPhone, trimmed);
+  }
+
+  async sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void> {
+    if (!this.client) return;
+
+    const name = input.guestName ?? "Guest";
+    const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+    const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+
+    await this.sendWithRetry(input.guestPhone, trimmed);
+  }
+
+  async sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void> {
+    if (!this.client) return;
+
+    const name = input.guestName ?? "Guest";
+    const body = `${name}, your table is ready! Please check in within 5 minutes.`;
     const trimmed = body.length > 160 ? body.slice(0, 160) : body;
 
     await this.sendWithRetry(input.guestPhone, trimmed);

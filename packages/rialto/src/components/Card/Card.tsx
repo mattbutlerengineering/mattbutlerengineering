@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, type HTMLAttributes, type ReactNode } from "react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { useTilt } from "../../hooks/useTilt";
+import { cn } from "../../utils/class-composer";
 import styles from "./Card.module.css";
 
 /**
@@ -48,10 +49,10 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       [forwardedRef, tiltRef]
     );
 
-    const variantClass =
+    const variantStyle =
       variant === "glass" ? styles.glass : variant === "flat" ? styles.flat : styles.card;
 
-    const classes = [variantClass, className].filter(Boolean).join(" ");
+    const classes = cn(variantStyle, className);
 
     return (
       <motion.div
