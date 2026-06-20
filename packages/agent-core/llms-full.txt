@@ -357,6 +357,23 @@
   </file>
   </section>
   <section priority="medium" role="eval">
+  <file path="src/eval/calibrate.ts">
+    export interface CalibrationBucket {
+      /** Number of tasks in this confidence bucket (with self-evaluation). */
+      readonly count: number;
+      /** Fraction of tasks in this bucket that actually passed (ground-truth). 0 when count is 0. */
+      readonly passRate: number;
+    }
+    export interface CalibrationSummary {
+      readonly high: CalibrationBucket;
+      readonly medium: CalibrationBucket;
+      readonly low: CalibrationBucket;
+      /** Tasks that had a selfEvaluation field. */
+      readonly totalWithSelfEval: number;
+      /** Tasks that had no selfEvaluation field (not counted in any bucket). */
+      readonly totalWithoutSelfEval: number;
+    }
+  </file>
   <file path="src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
       /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */

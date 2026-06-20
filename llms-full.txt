@@ -1122,6 +1122,7 @@
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
       .option("--json", "Emit the EvalReport as JSON", false)
       .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+      .option("--calibrate", "Print self-grade vs ground-truth calibration summary", false)
       .action(
         async (options: {
           suite: string;
@@ -1129,6 +1130,7 @@
           model: string;
           json: boolean;
           threshold?: string;
+          calibrate: boolean;
         }) => {
           const repoPath = resolve(process.cwd());
           const suiteDir = resolve(repoPath, options.suite);
@@ -1155,6 +1157,10 @@
             console.log(JSON.stringify(report, null, 2));
           } else {
             printReport(report);
+          }
+    
+          if (options.calibrate) {
+            printCalibration(calibrate(report));
           }
     
           if (options.threshold !== undefined) {
@@ -2491,6 +2497,23 @@
   </file>
   </section>
   <section priority="medium" role="eval">
+  <file path="packages/agent-core/src/eval/calibrate.ts">
+    export interface CalibrationBucket {
+      /** Number of tasks in this confidence bucket (with self-evaluation). */
+      readonly count: number;
+      /** Fraction of tasks in this bucket that actually passed (ground-truth). 0 when count is 0. */
+      readonly passRate: number;
+    }
+    export interface CalibrationSummary {
+      readonly high: CalibrationBucket;
+      readonly medium: CalibrationBucket;
+      readonly low: CalibrationBucket;
+      /** Tasks that had a selfEvaluation field. */
+      readonly totalWithSelfEval: number;
+      /** Tasks that had no selfEvaluation field (not counted in any bucket). */
+      readonly totalWithoutSelfEval: number;
+    }
+  </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
       /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */
@@ -14952,7 +14975,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
