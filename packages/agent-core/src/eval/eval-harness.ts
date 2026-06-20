@@ -26,7 +26,7 @@ export async function runEvalSuite(
   for (const task of selected) {
     try {
       const runResult = await opts.runTask(task);
-      scores.push(scoreTask(runResult));
+      scores.push(await scoreTask(runResult));
     } catch (err) {
       scores.push(failedScore(task, err));
     }

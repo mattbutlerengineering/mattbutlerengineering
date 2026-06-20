@@ -76,7 +76,7 @@
   </file>
   <file path="src/eval/task-scorer.ts">
     <item priority="high">
-      export function scoreTask(run: TaskRunResult): TaskScore { /* ... */ }
+      export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> { /* ... */ }
     </item>
   </file>
   <file path="src/eval/types.ts">

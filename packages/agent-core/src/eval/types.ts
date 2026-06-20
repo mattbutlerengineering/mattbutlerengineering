@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { SessionResult } from "../types.js";
+import type { EvaluationResult } from "../success-evaluator.js";
 
 /**
  * Golden-task eval harness types.
@@ -84,6 +85,8 @@ export interface TaskScore {
   readonly deterministic: DeterministicChecks;
   /** Self-reported agent evaluation, when present — used for calibration. */
   readonly selfEvaluation?: SessionResult["evaluation"];
+  /** LLM-judge result, present when `rubric.judgeCriteria` is non-empty and a judge was provided. */
+  readonly judgeResult?: EvaluationResult;
   readonly costUsd: number;
   readonly turns: number;
   /** Set when the task crashed mid-run rather than completing. */
@@ -107,3 +110,15 @@ export interface EvalReport {
 
 /** Injected agent-invocation seam. Real impl runs `runSession` + checks; tests stub it. */
 export type TaskRunner = (task: Task) => Promise<TaskRunResult>;
+
+/**
+ * Injectable LLM-judge seam for `scoreTask`.
+ *
+ * Receives the task prompt and a concatenated string of all rubric
+ * `judgeCriteria`; returns an {@link EvaluationResult}.  Tests stub this
+ * instead of making live LLM calls.
+ *
+ * Production implementations delegate to {@link evaluateSuccess} from
+ * `success-evaluator.ts`.
+ */
+export type JudgeFunction = (taskPrompt: string, criteria: string) => Promise<EvaluationResult>;

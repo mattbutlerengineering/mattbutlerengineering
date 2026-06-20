@@ -2510,7 +2510,7 @@
       for (const task of selected) {
         try {
           const runResult = await opts.runTask(task);
-          scores.push(scoreTask(runResult));
+          scores.push(await scoreTask(runResult));
         } catch (err) {
           scores.push(failedScore(task, err));
         }
@@ -2563,7 +2563,7 @@
     }
   </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">
-    export function scoreTask(run: TaskRunResult): TaskScore {
+    export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> {
       const { task, session, checks } = run;
       const { rubric } = task;
     
@@ -2573,6 +2573,14 @@
       if (rubric.lintMustPass) signals.push(checks.lintPass);
       // Budget is always an applicable signal.
       signals.push(checks.withinBudget);
+    
+      // LLM-judge signals — only when criteria are specified and a judge is injected.
+      let judgeResult: TaskScore["judgeResult"];
+      if (rubric.judgeCriteria.length > 0 && judge !== undefined) {
+        const criteria = rubric.judgeCriteria.join("\n");
+        judgeResult = await judge(task.prompt, criteria);
+        signals.push(judgeResult.passed);
+      }
     
       const satisfied = signals.filter(Boolean).length;
       const score = signals.length === 0 ? 0 : satisfied / signals.length;
@@ -2584,6 +2592,7 @@
         passed,
         score,
         deterministic: checks,
+        judgeResult,
         selfEvaluation: session.evaluation,
         costUsd: session.costUsd,
         turns: session.numTurns,
@@ -14943,7 +14952,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
