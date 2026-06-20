@@ -28,6 +28,7 @@ import {
   getActiveSessionCount,
   createSessionExecutor,
 } from "./session-executor.js";
+import { createSessionConcurrency } from "./session-concurrency.js";
 import type { AgentSession } from "@mbe/types";
 
 const makeSession = (overrides: Partial<AgentSession> = {}): AgentSession => ({
@@ -352,7 +353,10 @@ describe("session-executor", () => {
     });
 
     it("returns an object with executeSession, cancelSession, getActiveSessionCount", () => {
-      const executor = createSessionExecutor({ maxConcurrent: 2, sessionService });
+      const executor = createSessionExecutor({
+        concurrency: createSessionConcurrency(2),
+        sessionService,
+      });
       expect(typeof executor.executeSession).toBe("function");
       expect(typeof executor.cancelSession).toBe("function");
       expect(typeof executor.getActiveSessionCount).toBe("function");
@@ -367,8 +371,14 @@ describe("session-executor", () => {
         return makeSuccessResult();
       });
 
-      const instanceA = createSessionExecutor({ maxConcurrent: 5, sessionService });
-      const instanceB = createSessionExecutor({ maxConcurrent: 5, sessionService });
+      const instanceA = createSessionExecutor({
+        concurrency: createSessionConcurrency(5),
+        sessionService,
+      });
+      const instanceB = createSessionExecutor({
+        concurrency: createSessionConcurrency(5),
+        sessionService,
+      });
 
       const sessionA = makeSession({ id: "iso-a" });
       const promiseA = instanceA.executeSession(sessionA);
@@ -385,7 +395,7 @@ describe("session-executor", () => {
       await promiseA;
     });
 
-    it("respects its own maxConcurrent config independent of other instances", async () => {
+    it("respects its own concurrency gate independent of other instances", async () => {
       const resolvers: (() => void)[] = [];
       vi.mocked(runSession).mockImplementation(async () => {
         await new Promise<void>((resolve) => {
@@ -395,7 +405,10 @@ describe("session-executor", () => {
       });
 
       // Instance with cap of 1
-      const tightExecutor = createSessionExecutor({ maxConcurrent: 1, sessionService });
+      const tightExecutor = createSessionExecutor({
+        concurrency: createSessionConcurrency(1),
+        sessionService,
+      });
 
       const first = makeSession({ id: "tight-0" });
       const firstPromise = tightExecutor.executeSession(first);
@@ -431,8 +444,14 @@ describe("session-executor", () => {
         return makeSuccessResult();
       });
 
-      const instanceA = createSessionExecutor({ maxConcurrent: 5, sessionService });
-      const instanceB = createSessionExecutor({ maxConcurrent: 5, sessionService });
+      const instanceA = createSessionExecutor({
+        concurrency: createSessionConcurrency(5),
+        sessionService,
+      });
+      const instanceB = createSessionExecutor({
+        concurrency: createSessionConcurrency(5),
+        sessionService,
+      });
 
       const sessionA = makeSession({ id: "cross-cancel" });
       const promiseA = instanceA.executeSession(sessionA);

@@ -25,9 +25,16 @@ vi.mock("./session-executor.js", () => ({
   getActiveSessionCount: vi.fn().mockReturnValue(0),
 }));
 
+vi.mock("./session-concurrency.js", () => ({
+  defaultConcurrency: {
+    canStart: vi.fn().mockReturnValue(true),
+  },
+}));
+
 import { prisma } from "./database.js";
 import { sessionService } from "./session.js";
-import { executeSession, getActiveSessionCount } from "./session-executor.js";
+import { executeSession } from "./session-executor.js";
+import { defaultConcurrency } from "./session-concurrency.js";
 
 const baseDate = new Date("2026-03-01T12:00:00Z");
 
@@ -253,7 +260,7 @@ describe("sessionService", () => {
 
   describe("triggerSession", () => {
     beforeEach(() => {
-      vi.mocked(getActiveSessionCount).mockReturnValue(0);
+      vi.mocked(defaultConcurrency.canStart).mockReturnValue(true);
     });
 
     it("creates session, dispatches execution, returns accepted=true", async () => {
@@ -284,7 +291,7 @@ describe("sessionService", () => {
     });
 
     it("returns accepted=false when concurrency cap is hit", async () => {
-      vi.mocked(getActiveSessionCount).mockReturnValue(5);
+      vi.mocked(defaultConcurrency.canStart).mockReturnValue(false);
 
       const result = await sessionService.triggerSession({
         taskDescription: "Another task",

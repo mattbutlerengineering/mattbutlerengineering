@@ -162,6 +162,17 @@
       export const ThemeContext: unknown;
     </item>
   </file>
+  <file path="src/hooks/use-url-params.ts">
+    <item priority="high">
+      type SchemaOutput = z.infer<S>;
+    </item>
+    <item priority="low">
+      interface UseUrlParamsResult {
+        params: SchemaOutput<S>;
+        setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOu...;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useApiClient.ts">
     <item priority="high">
       export function useApiClient() { /* ... */ }
@@ -295,6 +306,22 @@
     </item>
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="lib">
+  <file path="src/lib/sse-client.ts">
+    <item priority="low">
+      type EventSourceFactory = (url: string) => EventSource;
+    </item>
+    <item priority="low">
+      interface SseClientOptions {
+        url: string;
+        eventTypes: readonly string[];
+        onEvent: (type: string, payload: unknown) => void;
+        onError: (error: Error) => void;
+        onConnected?: () => void;
+      }
     </item>
   </file>
   </section>

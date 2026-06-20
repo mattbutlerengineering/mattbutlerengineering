@@ -1,5 +1,6 @@
-import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
+import { useUrlParams } from "../hooks/use-url-params.js";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import { ApiClient, ApiClientError } from "@mbe/api-client";
 
@@ -44,6 +45,14 @@ class ManageTokenError extends Error {
   }
 }
 
+/* ── URL param schema ───────────────────────── */
+
+const manageParamsSchema = z.object({
+  token: z.string().default(""),
+});
+
+const MANAGE_DEFAULTS = manageParamsSchema.parse({});
+
 async function fetchManageReservation(token: string): Promise<ManageReservationData> {
   try {
     const json = await publicApiClient.get<{ data: ManageReservationData }>(
@@ -59,8 +68,8 @@ async function fetchManageReservation(token: string): Promise<ManageReservationD
 }
 
 export function ManageReservationPage() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
+  const token = params.token || null;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["manageReservation", token],
