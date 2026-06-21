@@ -104,8 +104,13 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         await webhookRouter.dispatch(event);
       } catch (err) {
-        // Log but don't fail — return 200 to prevent Stripe retrying
+        // Handler threw — likely a transient failure (DB blip, network error).
+        // Return 5xx so Stripe retries. Idempotency guards in the deposit service
+        // (CAS updateMany + Stripe idempotency keys) make retries safe.
         fastify.log.error({ err, eventType: event.type }, "Error handling Stripe webhook event");
+        return reply
+          .code(500)
+          .send(createProblemDetails(500, "Internal Server Error", "Webhook handler failed"));
       }
 
       return reply.code(200).send({ received: true });
