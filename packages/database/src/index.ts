@@ -67,8 +67,7 @@ export interface DatabaseInstance<T> {
 export interface PrismaLike {
   $extends: (extension: unknown) => unknown;
   $disconnect: () => Promise<void>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  $queryRaw: (...args: any[]) => Promise<unknown>;
+  $queryRaw: (...args: unknown[]) => Promise<unknown>;
 }
 
 interface PrismaConstructor {
