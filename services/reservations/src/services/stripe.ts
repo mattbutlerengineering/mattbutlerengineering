@@ -66,17 +66,35 @@ export class StripeService {
 
   /**
    * Captures a previously authorized PaymentIntent (authorize → charge).
+   * An optional idempotency key makes safe retries — Stripe returns the
+   * original result instead of double-charging.
    */
-  async capturePaymentIntent(paymentIntentId: string): Promise<{ id: string; status: string }> {
-    const intent = await this.stripe.paymentIntents.capture(paymentIntentId);
+  async capturePaymentIntent(
+    paymentIntentId: string,
+    idempotencyKey?: string
+  ): Promise<{ id: string; status: string }> {
+    const intent = await this.stripe.paymentIntents.capture(
+      paymentIntentId,
+      undefined,
+      idempotencyKey ? { idempotencyKey } : undefined
+    );
     return { id: intent.id, status: intent.status };
   }
 
   /**
    * Cancels a PaymentIntent (releases the authorization hold).
+   * An optional idempotency key makes safe retries — Stripe returns the
+   * original result instead of erroring on an already-cancelled intent.
    */
-  async cancelPaymentIntent(paymentIntentId: string): Promise<{ id: string; status: string }> {
-    const intent = await this.stripe.paymentIntents.cancel(paymentIntentId);
+  async cancelPaymentIntent(
+    paymentIntentId: string,
+    idempotencyKey?: string
+  ): Promise<{ id: string; status: string }> {
+    const intent = await this.stripe.paymentIntents.cancel(
+      paymentIntentId,
+      undefined,
+      idempotencyKey ? { idempotencyKey } : undefined
+    );
     return { id: intent.id, status: intent.status };
   }
 
