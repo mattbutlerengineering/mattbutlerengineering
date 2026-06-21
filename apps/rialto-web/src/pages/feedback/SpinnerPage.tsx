@@ -1,4 +1,12 @@
-import { DataList, Select, Spinner, Stack, Text } from "@mattbutlerengineering/rialto";
+import {
+  Checkbox,
+  DataList,
+  Input,
+  Select,
+  Spinner,
+  Stack,
+  Text,
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -31,51 +39,13 @@ function SpinnerPlayground() {
             { value: "lg", label: "lg" },
           ]}
         />
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--rialto-space-xs)" }}>
-          <label
-            htmlFor="spinner-label-input"
-            style={{
-              fontSize: "var(--rialto-text-sm)",
-              color: "var(--rialto-text-secondary)",
-              fontWeight: "var(--rialto-weight-medium)",
-            }}
-          >
-            Label text
-          </label>
-          <input
-            id="spinner-label-input"
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            style={{
-              padding: "var(--rialto-space-xs) var(--rialto-space-sm)",
-              border: "1px solid var(--rialto-border)",
-              borderRadius: "var(--rialto-radius-default)",
-              background: "var(--rialto-surface-recessed)",
-              color: "var(--rialto-text-primary)",
-              fontSize: "var(--rialto-text-sm)",
-              fontFamily: "var(--rialto-font-sans)",
-            }}
-          />
-        </div>
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--rialto-space-xs)",
-            fontSize: "var(--rialto-text-sm)",
-            color: "var(--rialto-text-secondary)",
-            cursor: "pointer",
-            marginTop: "auto",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={showLabel}
-            onChange={(e) => setShowLabel(e.target.checked)}
-          />
-          Show label
-        </label>
+        <Input
+          label="Label text"
+          id="spinner-label-input"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+        <Checkbox label="Show label" checked={showLabel} onCheckedChange={setShowLabel} />
       </div>
     </Stack>
   );
@@ -170,21 +140,7 @@ export function SpinnerPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Size of the spinner ring.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Screen reader text and optional visible label below the spinner.",
-            },
-          ]}
-        />
+        <PropsTable component="Spinner" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -5,6 +5,7 @@ import {
   Skeleton,
   SkeletonGroup,
   Stack,
+  Text,
 } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
@@ -28,35 +29,35 @@ export function SkeletonPage() {
         <div className={styles.row} style={{ alignItems: "center", flexWrap: "wrap" }}>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="circle" width={40} />
-            <span
+            <Text
               style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
             >
               circle
-            </span>
+            </Text>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="text" width={120} />
-            <span
+            <Text
               style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
             >
               text
-            </span>
+            </Text>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="heading" width={180} />
-            <span
+            <Text
               style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
             >
               heading
-            </span>
+            </Text>
           </div>
           <div className={styles.stack} style={{ alignItems: "center" }}>
             <Skeleton variant="rect" width={80} height={40} />
-            <span
+            <Text
               style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}
             >
               rect
-            </span>
+            </Text>
           </div>
         </div>
       </Section>
@@ -182,7 +183,7 @@ export function SkeletonPage() {
                     CL
                   </div>
                   <div>
-                    <p
+                    <Text
                       style={{
                         margin: 0,
                         fontSize: "var(--rialto-text-sm)",
@@ -191,8 +192,8 @@ export function SkeletonPage() {
                       }}
                     >
                       Charles Leclerc
-                    </p>
-                    <p
+                    </Text>
+                    <Text
                       style={{
                         margin: "2px 0 0",
                         fontSize: "var(--rialto-text-xs)",
@@ -200,10 +201,10 @@ export function SkeletonPage() {
                       }}
                     >
                       Lead Driver
-                    </p>
+                    </Text>
                   </div>
                 </div>
-                <p
+                <Text
                   style={{
                     margin: 0,
                     fontSize: "var(--rialto-text-sm)",
@@ -212,7 +213,7 @@ export function SkeletonPage() {
                   }}
                 >
                   Fastest lap: 1:24.892. Sector 3 personal best by 0.3s.
-                </p>
+                </Text>
               </div>
             )}
           </Card>
@@ -221,44 +222,12 @@ export function SkeletonPage() {
 
       {/* ── Props Table (Skeleton) ────────────────────────────────── */}
       <Section title="Skeleton Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"text" | "heading" | "circle" | "rect"',
-              default: '"text"',
-              description: "Shape of the skeleton placeholder.",
-            },
-            {
-              name: "width",
-              type: "number | string",
-              description: "Width of the skeleton (px or CSS value like '100%').",
-            },
-            {
-              name: "height",
-              type: "number | string",
-              description: "Height for rect variant.",
-            },
-            {
-              name: "lines",
-              type: "number",
-              description: "Renders multiple stacked text lines when > 1.",
-            },
-          ]}
-        />
+        <PropsTable component="Skeleton" />
       </Section>
 
       {/* ── Props Table (SkeletonGroup) ───────────────────────────── */}
       <Section title="SkeletonGroup Props">
-        <PropsTable
-          props={[
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Skeleton children. Synchronizes shimmer animation across all children.",
-            },
-          ]}
-        />
+        <PropsTable component="SkeletonGroup" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
