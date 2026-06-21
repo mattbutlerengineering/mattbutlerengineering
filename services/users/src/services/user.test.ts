@@ -358,6 +358,16 @@ describe("userService", () => {
       expect(callData).not.toHaveProperty("picture");
     });
 
+    it("excludes name key entirely when name is not provided", async () => {
+      vi.mocked(prisma.user.update).mockResolvedValueOnce(makePrismaUser() as never);
+
+      await userService.update("user-1", { picture: "https://example.com/new.jpg" });
+
+      const callData = vi.mocked(prisma.user.update).mock.calls[0][0].data;
+      expect(callData).not.toHaveProperty("name");
+      expect(callData).toHaveProperty("picture", "https://example.com/new.jpg");
+    });
+
     it("sends empty data object when called with no fields", async () => {
       vi.mocked(prisma.user.update).mockResolvedValueOnce(makePrismaUser() as never);
 

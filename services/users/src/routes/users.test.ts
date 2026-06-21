@@ -209,6 +209,35 @@ describe("User Routes", () => {
   });
 
   describe("PATCH /api/v1/users/:id", () => {
+    it("returns 401 when JWT has no email (resolveCurrentUserId returns null)", async () => {
+      // Covers OptionalChaining mutant on `request.user?.email` (line 18) and
+      // ConditionalExpression mutant on `if (!email) return null` (line 19).
+      //
+      // When email is absent, resolveCurrentUserId should return null early
+      // WITHOUT calling getByEmail. If the `if (!email) return null` guard is
+      // mutated to `if (false) return null`, the function calls getByEmail(undefined)
+      // instead. We mock getByEmail to return a real user to make the two code
+      // paths observably different: real code → null → 401; mutant → user found
+      // → non-null currentId → 403 (different user id than target "user-123").
+      // Note: permissions must NOT include "admin" — admins bypass identity check.
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, email: undefined, permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      // Return a user from getByEmail so mutant path (false-guard) produces a
+      // non-null currentId — differentiating it from the real code path (401).
+      vi.mocked(userService.getByEmail).mockResolvedValue({ ...mockUser, id: "different-id" });
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/user-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { name: "New Name" },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
     it("updates user", async () => {
       const updatedUser = { ...mockUser, name: "Updated Name" };
       vi.mocked(userService.update).mockResolvedValueOnce(updatedUser);

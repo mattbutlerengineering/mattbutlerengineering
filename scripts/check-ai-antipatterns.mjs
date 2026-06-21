@@ -17,7 +17,15 @@ import path from "node:path";
 const BASELINE_PATH = path.resolve(process.cwd(), "metrics/ai-antipattern-baselines.json");
 
 /** Directories to skip during file scanning. */
-const SKIP_DIRS = new Set(["node_modules", "dist", "generated", ".git", "coverage", ".turbo"]);
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "generated",
+  ".git",
+  "coverage",
+  ".turbo",
+  ".stryker-tmp",
+]);
 
 /** File extensions to scan. */
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
