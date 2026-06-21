@@ -8,6 +8,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed` (the last one regenerates `llms.txt` / `llms-full.txt` in affected packages — expect them to appear in `git status` after your commit lands)
 - JSX strings with `'` fail `react/no-unescaped-entities` at commit time — use `&apos;`
+- **Rialto components must NOT call `setState` inside a `useEffect` body** (pre-commit hook bans it in `packages/rialto`). Setting state re-renders → re-runs the effect → sets state again = render loop. Use render-time derivation (compute during render, the snapshot pattern) or event handlers (set state only on user actions). LLMs default to the forbidden useEffect+setState sync pattern from general React tutorials — it's a correctness bug in Rialto's rendering model
 - **lint-staged passes generated files to ESLint as explicit CLI args** — ESLint 10's `ignores` array in config only applies to glob-resolved files, not explicit paths. When lint-staged stages a Prisma generated file (`services/*/src/generated/**`), it passes the path directly to `eslint`, bypassing the ignore. `lint-staged.config.js` filters `/generated/` paths before grouping to prevent this
 
 ## Pre-push / typecheck
