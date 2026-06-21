@@ -203,4 +203,65 @@ describe("StripeService", () => {
       ).toThrow("No signatures found");
     });
   });
+
+  describe("typed Stripe errors (isRetriable)", () => {
+    it("wraps a StripeCardError as non-retriable", async () => {
+      const cardError = Object.assign(new Error("Your card was declined."), {
+        type: "StripeCardError",
+        code: "card_declined",
+      });
+      mockPaymentIntents.capture.mockRejectedValueOnce(cardError);
+
+      await expect(stripeService.capturePaymentIntent("pi_test_123")).rejects.toMatchObject({
+        isRetriable: false,
+        stripeType: "StripeCardError",
+      });
+    });
+
+    it("wraps a StripeConnectionError as retriable", async () => {
+      const connError = Object.assign(new Error("Connection error."), {
+        type: "StripeConnectionError",
+      });
+      mockPaymentIntents.capture.mockRejectedValueOnce(connError);
+
+      await expect(stripeService.capturePaymentIntent("pi_test_123")).rejects.toMatchObject({
+        isRetriable: true,
+        stripeType: "StripeConnectionError",
+      });
+    });
+
+    it("wraps a StripeRateLimitError as retriable", async () => {
+      const rateLimitError = Object.assign(new Error("Too many requests."), {
+        type: "StripeRateLimitError",
+      });
+      mockPaymentIntents.capture.mockRejectedValueOnce(rateLimitError);
+
+      await expect(stripeService.capturePaymentIntent("pi_test_123")).rejects.toMatchObject({
+        isRetriable: true,
+        stripeType: "StripeRateLimitError",
+      });
+    });
+
+    it("wraps an unknown Stripe error as non-retriable", async () => {
+      const apiError = Object.assign(new Error("API error."), {
+        type: "StripeAPIError",
+      });
+      mockPaymentIntents.capture.mockRejectedValueOnce(apiError);
+
+      await expect(stripeService.capturePaymentIntent("pi_test_123")).rejects.toMatchObject({
+        isRetriable: false,
+        stripeType: "StripeAPIError",
+      });
+    });
+
+    it("re-throws non-Stripe errors unchanged (no isRetriable injected)", async () => {
+      // A plain Error has no `.type` property — it must pass through unwrapped.
+      const genericError = new Error("Network timeout");
+      mockPaymentIntents.capture.mockRejectedValueOnce(genericError);
+
+      const rejection = await stripeService.capturePaymentIntent("pi_test_123").catch((e) => e);
+      expect(rejection).toBe(genericError); // same object, not a wrapper
+      expect(rejection).not.toHaveProperty("isRetriable");
+    });
+  });
 });

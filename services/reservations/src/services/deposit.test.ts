@@ -60,6 +60,8 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    feeAmountCents: null,
+    refundAmountCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
     updatedAt: new Date("2026-01-25T00:00:00.000Z"),
     ...overrides,
@@ -678,6 +680,32 @@ describe("DepositService", () => {
 
       await expect(depositService.refundPartial("dep-123", -1)).rejects.toThrow(/invalid.*amount/i);
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("persists feeAmountCents and refundAmountCents on the deposit row at transition time", async () => {
+      // The persisted amounts enable safe retry across the no-show boundary.
+      const heldDeposit = makeDeposit({
+        status: "held",
+        amountCents: 10000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 6000 });
+
+      await depositService.refundPartial("dep-123", 6000);
+
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            feeAmountCents: 4000, // 10000 - 6000
+            refundAmountCents: 6000,
+          }),
+        })
+      );
     });
 
     it("does not call Stripe refund when refundAmountCents is 0 (still transitions + captures)", async () => {

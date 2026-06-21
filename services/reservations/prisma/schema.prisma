@@ -236,6 +236,12 @@ model Deposit {
   appliedAt             DateTime?     @map("applied_at")
   refundedAt            DateTime?     @map("refunded_at")
   forfeitedAt           DateTime?     @map("forfeited_at")
+  /// Persisted fee amount (in cents) at the time of a partial refund transition.
+  /// Used to replay refundPartial on retry without re-deriving from the current clock.
+  feeAmountCents        Int?          @map("fee_amount_cents")
+  /// Persisted refund amount (in cents) at the time of a partial refund transition.
+  /// Used to replay refundPartial on retry without re-deriving from the current clock.
+  refundAmountCents     Int?          @map("refund_amount_cents")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 

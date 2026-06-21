@@ -481,5 +481,68 @@ describe("DELETE /public/v1/reservations/manage", () => {
       expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000); // 50% of $100
       expect(depositService.forfeit).not.toHaveBeenCalled();
     });
+
+    it("replays refundPartial from persisted amounts when deposit is already partial_refunded (no-show boundary retry)", async () => {
+      // Scenario: first attempt succeeded (capture ok) but Stripe refund failed.
+      // Deposit row is left partial_refunded with persisted refundAmountCents = 5000.
+      // A retry now crosses the reservation start time, so the clock-derived action
+      // would be `forfeit` — but that MUST NOT happen. The route must replay
+      // refundPartial using the persisted amount and return 200.
+      const token = generateManageToken("res_1", "jane@example.com");
+      const partialRefundedDeposit = {
+        ...heldDeposit,
+        status: "partial_refunded",
+        feeAmountCents: 5000,
+        refundAmountCents: 5000,
+      };
+      // Retry arrives after the reservation start time (no-show territory)
+      setupCancelMocks(pastReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
+        partialRefundedDeposit as never
+      );
+      // getRawById must NOT be called — we don't re-derive the fee
+      vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+        ...partialRefundedDeposit,
+        status: "partial_refunded",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      // Must replay refundPartial with the PERSISTED refund amount, not the clock-derived one
+      expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000);
+      // Must NOT re-derive the fee from the clock (no raw venue lookup)
+      expect(venueService.getRawById).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+      expect(depositService.refund).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when partial_refunded deposit has no persisted refund amount (data integrity guard)", async () => {
+      // A partial_refunded deposit without persisted amounts cannot be safely replayed.
+      // Surface a 500 rather than guessing or using a stale clock-derived amount.
+      const token = generateManageToken("res_1", "jane@example.com");
+      const partialRefundedNoAmounts = {
+        ...heldDeposit,
+        status: "partial_refunded",
+        feeAmountCents: null,
+        refundAmountCents: null,
+      };
+      setupCancelMocks(pastReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
+        partialRefundedNoAmounts as never
+      );
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+      expect(reservationService.update).not.toHaveBeenCalled();
+    });
   });
 });

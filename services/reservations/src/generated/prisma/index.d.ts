@@ -10722,10 +10722,14 @@ export namespace Prisma {
 
   export type DepositAvgAggregateOutputType = {
     amountCents: number | null;
+    feeAmountCents: number | null;
+    refundAmountCents: number | null;
   };
 
   export type DepositSumAggregateOutputType = {
     amountCents: number | null;
+    feeAmountCents: number | null;
+    refundAmountCents: number | null;
   };
 
   export type DepositMinAggregateOutputType = {
@@ -10740,6 +10744,8 @@ export namespace Prisma {
     appliedAt: Date | null;
     refundedAt: Date | null;
     forfeitedAt: Date | null;
+    feeAmountCents: number | null;
+    refundAmountCents: number | null;
     createdAt: Date | null;
     updatedAt: Date | null;
   };
@@ -10756,6 +10762,8 @@ export namespace Prisma {
     appliedAt: Date | null;
     refundedAt: Date | null;
     forfeitedAt: Date | null;
+    feeAmountCents: number | null;
+    refundAmountCents: number | null;
     createdAt: Date | null;
     updatedAt: Date | null;
   };
@@ -10772,6 +10780,8 @@ export namespace Prisma {
     appliedAt: number;
     refundedAt: number;
     forfeitedAt: number;
+    feeAmountCents: number;
+    refundAmountCents: number;
     createdAt: number;
     updatedAt: number;
     _all: number;
@@ -10779,10 +10789,14 @@ export namespace Prisma {
 
   export type DepositAvgAggregateInputType = {
     amountCents?: true;
+    feeAmountCents?: true;
+    refundAmountCents?: true;
   };
 
   export type DepositSumAggregateInputType = {
     amountCents?: true;
+    feeAmountCents?: true;
+    refundAmountCents?: true;
   };
 
   export type DepositMinAggregateInputType = {
@@ -10797,6 +10811,8 @@ export namespace Prisma {
     appliedAt?: true;
     refundedAt?: true;
     forfeitedAt?: true;
+    feeAmountCents?: true;
+    refundAmountCents?: true;
     createdAt?: true;
     updatedAt?: true;
   };
@@ -10813,6 +10829,8 @@ export namespace Prisma {
     appliedAt?: true;
     refundedAt?: true;
     forfeitedAt?: true;
+    feeAmountCents?: true;
+    refundAmountCents?: true;
     createdAt?: true;
     updatedAt?: true;
   };
@@ -10829,6 +10847,8 @@ export namespace Prisma {
     appliedAt?: true;
     refundedAt?: true;
     forfeitedAt?: true;
+    feeAmountCents?: true;
+    refundAmountCents?: true;
     createdAt?: true;
     updatedAt?: true;
     _all?: true;
@@ -10933,6 +10953,8 @@ export namespace Prisma {
     appliedAt: Date | null;
     refundedAt: Date | null;
     forfeitedAt: Date | null;
+    feeAmountCents: number | null;
+    refundAmountCents: number | null;
     createdAt: Date;
     updatedAt: Date;
     _count: DepositCountAggregateOutputType | null;
@@ -10968,6 +10990,8 @@ export namespace Prisma {
         appliedAt?: boolean;
         refundedAt?: boolean;
         forfeitedAt?: boolean;
+        feeAmountCents?: boolean;
+        refundAmountCents?: boolean;
         createdAt?: boolean;
         updatedAt?: boolean;
         reservation?: boolean | ReservationDefaultArgs<ExtArgs>;
@@ -10990,6 +11014,8 @@ export namespace Prisma {
       appliedAt?: boolean;
       refundedAt?: boolean;
       forfeitedAt?: boolean;
+      feeAmountCents?: boolean;
+      refundAmountCents?: boolean;
       createdAt?: boolean;
       updatedAt?: boolean;
       reservation?: boolean | ReservationDefaultArgs<ExtArgs>;
@@ -11012,6 +11038,8 @@ export namespace Prisma {
       appliedAt?: boolean;
       refundedAt?: boolean;
       forfeitedAt?: boolean;
+      feeAmountCents?: boolean;
+      refundAmountCents?: boolean;
       createdAt?: boolean;
       updatedAt?: boolean;
       reservation?: boolean | ReservationDefaultArgs<ExtArgs>;
@@ -11031,6 +11059,8 @@ export namespace Prisma {
     appliedAt?: boolean;
     refundedAt?: boolean;
     forfeitedAt?: boolean;
+    feeAmountCents?: boolean;
+    refundAmountCents?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
   };
@@ -11048,6 +11078,8 @@ export namespace Prisma {
       | "appliedAt"
       | "refundedAt"
       | "forfeitedAt"
+      | "feeAmountCents"
+      | "refundAmountCents"
       | "createdAt"
       | "updatedAt",
       ExtArgs["result"]["deposit"]
@@ -11085,6 +11117,16 @@ export namespace Prisma {
           appliedAt: Date | null;
           refundedAt: Date | null;
           forfeitedAt: Date | null;
+          /**
+           * Persisted fee amount (in cents) at the time of a partial refund transition.
+           * Used to replay refundPartial on retry without re-deriving from the current clock.
+           */
+          feeAmountCents: number | null;
+          /**
+           * Persisted refund amount (in cents) at the time of a partial refund transition.
+           * Used to replay refundPartial on retry without re-deriving from the current clock.
+           */
+          refundAmountCents: number | null;
           createdAt: Date;
           updatedAt: Date;
         },
@@ -11629,6 +11671,8 @@ export namespace Prisma {
     readonly appliedAt: FieldRef<"Deposit", "DateTime">;
     readonly refundedAt: FieldRef<"Deposit", "DateTime">;
     readonly forfeitedAt: FieldRef<"Deposit", "DateTime">;
+    readonly feeAmountCents: FieldRef<"Deposit", "Int">;
+    readonly refundAmountCents: FieldRef<"Deposit", "Int">;
     readonly createdAt: FieldRef<"Deposit", "DateTime">;
     readonly updatedAt: FieldRef<"Deposit", "DateTime">;
   }
@@ -14903,6 +14947,8 @@ export namespace Prisma {
     appliedAt: "appliedAt";
     refundedAt: "refundedAt";
     forfeitedAt: "forfeitedAt";
+    feeAmountCents: "feeAmountCents";
+    refundAmountCents: "refundAmountCents";
     createdAt: "createdAt";
     updatedAt: "updatedAt";
   };
@@ -15912,6 +15958,8 @@ export namespace Prisma {
     appliedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
     refundedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
     forfeitedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
+    feeAmountCents?: IntNullableFilter<"Deposit"> | number | null;
+    refundAmountCents?: IntNullableFilter<"Deposit"> | number | null;
     createdAt?: DateTimeFilter<"Deposit"> | Date | string;
     updatedAt?: DateTimeFilter<"Deposit"> | Date | string;
     reservation?: XOR<ReservationScalarRelationFilter, ReservationWhereInput>;
@@ -15929,6 +15977,8 @@ export namespace Prisma {
     appliedAt?: SortOrderInput | SortOrder;
     refundedAt?: SortOrderInput | SortOrder;
     forfeitedAt?: SortOrderInput | SortOrder;
+    feeAmountCents?: SortOrderInput | SortOrder;
+    refundAmountCents?: SortOrderInput | SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
     reservation?: ReservationOrderByWithRelationInput;
@@ -15950,6 +16000,8 @@ export namespace Prisma {
       appliedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
       refundedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
       forfeitedAt?: DateTimeNullableFilter<"Deposit"> | Date | string | null;
+      feeAmountCents?: IntNullableFilter<"Deposit"> | number | null;
+      refundAmountCents?: IntNullableFilter<"Deposit"> | number | null;
       createdAt?: DateTimeFilter<"Deposit"> | Date | string;
       updatedAt?: DateTimeFilter<"Deposit"> | Date | string;
       reservation?: XOR<ReservationScalarRelationFilter, ReservationWhereInput>;
@@ -15969,6 +16021,8 @@ export namespace Prisma {
     appliedAt?: SortOrderInput | SortOrder;
     refundedAt?: SortOrderInput | SortOrder;
     forfeitedAt?: SortOrderInput | SortOrder;
+    feeAmountCents?: SortOrderInput | SortOrder;
+    refundAmountCents?: SortOrderInput | SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
     _count?: DepositCountOrderByAggregateInput;
@@ -15993,6 +16047,8 @@ export namespace Prisma {
     appliedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null;
     refundedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null;
     forfeitedAt?: DateTimeNullableWithAggregatesFilter<"Deposit"> | Date | string | null;
+    feeAmountCents?: IntNullableWithAggregatesFilter<"Deposit"> | number | null;
+    refundAmountCents?: IntNullableWithAggregatesFilter<"Deposit"> | number | null;
     createdAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string;
     updatedAt?: DateTimeWithAggregatesFilter<"Deposit"> | Date | string;
   };
@@ -16969,6 +17025,8 @@ export namespace Prisma {
     appliedAt?: Date | string | null;
     refundedAt?: Date | string | null;
     forfeitedAt?: Date | string | null;
+    feeAmountCents?: number | null;
+    refundAmountCents?: number | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
     reservation: ReservationCreateNestedOneWithoutDepositInput;
@@ -16986,6 +17044,8 @@ export namespace Prisma {
     appliedAt?: Date | string | null;
     refundedAt?: Date | string | null;
     forfeitedAt?: Date | string | null;
+    feeAmountCents?: number | null;
+    refundAmountCents?: number | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
   };
@@ -17001,6 +17061,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     reservation?: ReservationUpdateOneRequiredWithoutDepositNestedInput;
@@ -17018,6 +17080,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
@@ -17034,6 +17098,8 @@ export namespace Prisma {
     appliedAt?: Date | string | null;
     refundedAt?: Date | string | null;
     forfeitedAt?: Date | string | null;
+    feeAmountCents?: number | null;
+    refundAmountCents?: number | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
   };
@@ -17049,6 +17115,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
@@ -17065,6 +17133,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
@@ -18238,12 +18308,16 @@ export namespace Prisma {
     appliedAt?: SortOrder;
     refundedAt?: SortOrder;
     forfeitedAt?: SortOrder;
+    feeAmountCents?: SortOrder;
+    refundAmountCents?: SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
   };
 
   export type DepositAvgOrderByAggregateInput = {
     amountCents?: SortOrder;
+    feeAmountCents?: SortOrder;
+    refundAmountCents?: SortOrder;
   };
 
   export type DepositMaxOrderByAggregateInput = {
@@ -18258,6 +18332,8 @@ export namespace Prisma {
     appliedAt?: SortOrder;
     refundedAt?: SortOrder;
     forfeitedAt?: SortOrder;
+    feeAmountCents?: SortOrder;
+    refundAmountCents?: SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
   };
@@ -18274,12 +18350,16 @@ export namespace Prisma {
     appliedAt?: SortOrder;
     refundedAt?: SortOrder;
     forfeitedAt?: SortOrder;
+    feeAmountCents?: SortOrder;
+    refundAmountCents?: SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
   };
 
   export type DepositSumOrderByAggregateInput = {
     amountCents?: SortOrder;
+    feeAmountCents?: SortOrder;
+    refundAmountCents?: SortOrder;
   };
 
   export type EnumDepositStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -21359,6 +21439,8 @@ export namespace Prisma {
     appliedAt?: Date | string | null;
     refundedAt?: Date | string | null;
     forfeitedAt?: Date | string | null;
+    feeAmountCents?: number | null;
+    refundAmountCents?: number | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
   };
@@ -21374,6 +21456,8 @@ export namespace Prisma {
     appliedAt?: Date | string | null;
     refundedAt?: Date | string | null;
     forfeitedAt?: Date | string | null;
+    feeAmountCents?: number | null;
+    refundAmountCents?: number | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
   };
@@ -21587,6 +21671,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
@@ -21602,6 +21688,8 @@ export namespace Prisma {
     appliedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     refundedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     forfeitedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    feeAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
+    refundAmountCents?: NullableIntFieldUpdateOperationsInput | number | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
   };

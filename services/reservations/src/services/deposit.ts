@@ -204,11 +204,18 @@ export class DepositService {
     if (deposit.status !== "partial_refunded") {
       transitionDeposit(deposit.status, "partial_refunded"); // throws if invalid
 
+      const feeAmountCents = deposit.amountCents - refundAmountCents;
+
       // Atomic compare-and-swap: only update if the row is still in the observed
       // status. count === 0 means another concurrent transition won the race.
       const { count } = await prisma.deposit.updateMany({
         where: { id: depositId, status: deposit.status },
-        data: { status: "partial_refunded", refundedAt: new Date() },
+        data: {
+          status: "partial_refunded",
+          refundedAt: new Date(),
+          feeAmountCents,
+          refundAmountCents,
+        },
       });
 
       if (count === 0) {
