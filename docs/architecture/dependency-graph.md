@@ -23,6 +23,7 @@ flowchart TD
     agent_test_utils["agent-test-utils"]
     api_client["api-client"]
     auth["auth"]
+    cancellation_policy["cancellation-policy"]
     config["config"]
     database["database"]
     gh_client["gh-client"]
@@ -52,6 +53,7 @@ flowchart TD
   hospitality --> @mattbutlerengineering/rialto
   hospitality --> api_client
   hospitality --> auth
+  hospitality --> cancellation_policy
   hospitality --> observability
   hospitality --> rialto_catalog
   hospitality --> sentry
@@ -77,6 +79,7 @@ flowchart TD
   agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> auth
+  reservations_service --> cancellation_policy
   reservations_service --> database
   reservations_service --> service_bootstrap
   reservations_service --> jobs
@@ -104,6 +107,7 @@ flowchart TD
   api_client --> config
   auth --> types
   auth --> config
+  cancellation_policy --> config
   database --> config
   gh_client --> config
   jobs --> config
@@ -150,6 +154,7 @@ flowchart TD
   class agent_test_utils shared
   class api_client shared
   class auth shared
+  class cancellation_policy shared
   class config shared
   class database shared
   class gh_client shared

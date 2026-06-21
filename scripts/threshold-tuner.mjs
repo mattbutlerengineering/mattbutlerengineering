@@ -73,8 +73,8 @@ function safe(fn, fallback = null) {
  * @param {number}   lookbackDays   — default 30
  * @returns {Record<string, { fpRate: number, effectiveness: number, total: number, verified: number }>}
  */
-export function computePerSensorMetrics(verifications, lookbackDays = 30) {
-  const cutoff = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+export function computePerSensorMetrics(verifications, lookbackDays = 30, now = Date.now()) {
+  const cutoff = new Date(now - lookbackDays * 24 * 60 * 60 * 1000);
 
   const bySensor = {};
 

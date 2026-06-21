@@ -56,6 +56,11 @@
       "path": "packages/auth"
     },
     {
+      "name": "@mbe/cancellation-policy",
+      "type": "package",
+      "path": "packages/cancellation-policy"
+    },
+    {
       "name": "@mbe/config",
       "type": "package",
       "path": "packages/config"
@@ -194,6 +199,11 @@
     },
     {
       "from": "@mbe/hospitality",
+      "to": "@mbe/cancellation-policy",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -315,6 +325,11 @@
     {
       "from": "@mbe/reservations-service",
       "to": "@mbe/auth",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/cancellation-policy",
       "type": "dependency"
     },
     {
@@ -449,6 +464,11 @@
     },
     {
       "from": "@mbe/auth",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/cancellation-policy",
       "to": "@mbe/config",
       "type": "devDependency"
     },

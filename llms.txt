@@ -2235,19 +2235,6 @@
       }
     </item>
   </file>
-  <file path="services/reservations/src/services/cancellation-policy.ts">
-    <item priority="low">
-      interface CancellationPolicy {
-        depositAmountCents: number;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }
-    </item>
-    <item priority="low">
-      type FeeType = "none" | "late" | "noshow";
-    </item>
-  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
@@ -3706,6 +3693,19 @@
       }
     </item>
   </file>
+  <file path="packages/cancellation-policy/src/cancellation-policy.ts">
+    <item priority="low">
+      interface CancellationPolicy {
+        depositAmountCents: number;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      }
+    </item>
+    <item priority="low">
+      type FeeType = "none" | "late" | "noshow";
+    </item>
+  </file>
   <file path="packages/database/src/index.ts">
     <item priority="high">
       export function isPrismaNotFound(err: unknown): boolean { /* ... */ }
@@ -4645,19 +4645,6 @@
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/hospitality/src/utils/cancellation-fee.ts">
-    <item priority="low">
-      interface CancellationPolicy {
-        depositAmountCents: number;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }
-    </item>
-    <item priority="low">
-      type FeeType = "none" | "late" | "noshow";
     </item>
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
