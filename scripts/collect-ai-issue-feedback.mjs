@@ -40,6 +40,13 @@ export const CATEGORIES = [
 /** Default max issues per run for each category */
 export const DEFAULT_BUDGET_PER_CATEGORY = 3;
 
+/**
+ * Fields passed to `gh issue list --json`.
+ * Must only contain fields valid for `gh issue list --json`
+ * (`linkedBranches` is NOT a valid field — use `stateReason`/`state` instead).
+ */
+export const ISSUE_JSON_FIELDS = "number,state,labels,createdAt,closedAt,stateReason";
+
 /** Rejection rate above which the budget is halved */
 export const REJECTION_THRESHOLD = 0.4;
 
@@ -173,7 +180,7 @@ export async function run() {
         "--limit",
         "200",
         "--json",
-        "number,state,labels,createdAt,closedAt,stateReason,linkedBranches",
+        ISSUE_JSON_FIELDS,
         "--search",
         labelQuery,
       ]),
@@ -190,17 +197,10 @@ export async function run() {
     process.exit(1);
   }
 
-  // gh issue list --json linkedBranches doesn't give PR state directly,
-  // so we also query PRs to match
-
-  // For each issue, try to find linked PRs via search
-  const issues = issuesRaw.map((issue) => ({
-    ...issue,
-    linkedPrs: (issue.linkedBranches ?? []).map((b) => ({
-      number: b.number ?? 0,
-      state: b.mergedAt ? "MERGED" : "CLOSED",
-    })),
-  }));
+  // gh issue list --json does not expose linked PRs; classify by stateReason only.
+  // COMPLETED → wontfix (or accepted if we could detect merged PRs),
+  // NOT_PLANNED → rejected.
+  const issues = issuesRaw.map((issue) => ({ ...issue, linkedPrs: [] }));
 
   const rates = computeCategoryRates(issues);
 
