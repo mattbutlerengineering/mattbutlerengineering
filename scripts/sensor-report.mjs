@@ -15,8 +15,10 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
+import { computeCodeChurn, CODE_CHURN_THRESHOLD } from "./collect-code-churn.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -32,6 +34,7 @@ const THRESHOLDS = {
   agent_success_rate_drop: 10,
   error_rate_increase: 20,
   service_uptime_min: 99.5,
+  code_churn_rate_max: CODE_CHURN_THRESHOLD,
 };
 
 const now = new Date();
@@ -92,6 +95,56 @@ function collectPrMetrics() {
 function collectAgentCostSensor() {
   const spendPath = resolve(ROOT, ".claude", "agent-spend.jsonl");
   return collectAgentCost(spendPath, now);
+}
+
+/**
+ * Parse `git log --numstat` output into commit objects.
+ * Each commit block looks like:
+ *   <hash> <iso-timestamp>
+ *   <added>\t<deleted>\t<file>
+ *   ...
+ *   (blank line)
+ *
+ * Uses execFileSync with an arg array — no shell interpolation, no injection risk.
+ */
+function parseGitNumstat(root) {
+  const raw = safe(
+    () =>
+      execFileSync(
+        "git",
+        ["-C", root, "log", "--numstat", "--format=%H %aI", "--no-merges", "--since=8 days ago"],
+        { encoding: "utf-8", timeout: 10000 }
+      ),
+    null
+  );
+  if (!raw) return [];
+
+  const commits = [];
+  let current = null;
+
+  for (const line of raw.split("\n")) {
+    const headerMatch = line.match(/^([0-9a-f]{40})\s+(\S+)$/);
+    if (headerMatch) {
+      if (current) commits.push(current);
+      current = { hash: headerMatch[1], timestamp: headerMatch[2], linesAdded: 0, linesDeleted: 0 };
+      continue;
+    }
+    if (current && line.match(/^\d/)) {
+      const parts = line.split("\t");
+      const added = parseInt(parts[0], 10);
+      const deleted = parseInt(parts[1], 10);
+      if (!isNaN(added)) current = { ...current, linesAdded: current.linesAdded + added };
+      if (!isNaN(deleted)) current = { ...current, linesDeleted: current.linesDeleted + deleted };
+    }
+  }
+  if (current) commits.push(current);
+
+  return commits;
+}
+
+function collectCodeChurnSensor() {
+  const commits = parseGitNumstat(ROOT);
+  return computeCodeChurn(commits, now);
 }
 
 function collectCiHealth() {
@@ -279,6 +332,23 @@ function detectRegressions(current, previous) {
     }
   }
 
+  if (current.codeChurn?.available) {
+    if (current.codeChurn.churn_rate > THRESHOLDS.code_churn_rate_max) {
+      regressions.push({
+        sensor: "codeChurn",
+        metric: "churn_rate",
+        current: current.codeChurn.churn_rate,
+        previous: previous?.codeChurn?.churn_rate ?? null,
+        delta:
+          previous?.codeChurn?.churn_rate != null
+            ? Math.round((current.codeChurn.churn_rate - previous.codeChurn.churn_rate) * 1000) /
+              1000
+            : null,
+        severity: current.codeChurn.churn_rate > 0.5 ? "high" : "medium",
+      });
+    }
+  }
+
   return regressions;
 }
 
@@ -299,6 +369,7 @@ const report = {
     issues: collectGitHubIssues(),
     issueFeedback: collectIssueFeedback(),
     sessionLogs: collectSessionLogs(),
+    codeChurn: collectCodeChurnSensor(),
   },
   thresholds: THRESHOLDS,
   regressions: [],
@@ -367,6 +438,11 @@ if (JSON_ONLY) {
       case "issueFeedback":
         console.log(
           `   ${name}: ${data.category_count} categories, ${data.unhealthy_categories.length} unhealthy (>${Math.round(0.4 * 100)}% rejected)`
+        );
+        break;
+      case "codeChurn":
+        console.log(
+          `   ${name}: ${Math.round(data.churn_rate * 100)}% churn rate (${data.lines_churned_7d} deleted / ${data.total_lines_added_7d} added, 7d)`
         );
         break;
       default:
