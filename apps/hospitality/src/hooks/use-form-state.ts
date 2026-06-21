@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import type { ZodSchema } from "zod";
+import { ApiClientError } from "@mbe/api-client";
 
 export interface UseFormStateResult<T extends Record<string, unknown>> {
   fields: T;
@@ -42,7 +43,11 @@ export function useFormState<T extends Record<string, unknown>>(
     try {
       await onSubmit(parsed.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      if (err instanceof ApiClientError) {
+        setError(err.problemDetails.detail ?? err.response.message);
+      } else {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      }
     } finally {
       setIsPending(false);
     }
