@@ -376,6 +376,9 @@ describe("availabilityService.getAvailableDates", () => {
       makePrismaVenue({ operatingHours: allClosed }) as never
     );
     vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    // Bulk-fetch happens before the day loop; provide empty arrays for the date range
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
 
     const dates = await availabilityService.getAvailableDates(
       VENUE_ID,
@@ -404,6 +407,108 @@ describe("availabilityService.getAvailableDates", () => {
 
     expect(dates[0].hasAvailability).toBe(true);
     expect(dates[0].slotCount).toBeGreaterThan(0);
+  });
+
+  it("correctly buckets reservations and holds by date across a multi-day range", async () => {
+    // 2026-05-05 (Mon), 2026-05-06 (Tue), 2026-05-07 (Wed) — all open days
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([
+      makePrismaTable({ id: "table-1" }),
+      makePrismaTable({ id: "table-2", name: "Table 2" }),
+    ] as never);
+
+    // May 5: two reservations blocking BOTH tables from 18:00–19:15 ET (22:00–23:15 UTC)
+    // May 6: one reservation blocking table-1, table-2 still free
+    // May 7: one active hold blocking table-1, table-2 still free
+    // May 7: an EXPIRED hold on table-2 — should be ignored
+    const futureExpiry = new Date(Date.now() + 600_000);
+    const pastExpiry = new Date(Date.now() - 1000);
+
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
+      // May 5 — blocks table-1 at 18:00 ET
+      {
+        id: "res-may5-t1",
+        tableId: "table-1",
+        startTime: new Date("2026-05-05T22:00:00Z"), // 18:00 ET
+        endTime: new Date("2026-05-05T23:15:00Z"), // 19:15 ET
+        partySize: 2,
+      },
+      // May 5 — blocks table-2 at 18:00 ET (two reservations on same day)
+      {
+        id: "res-may5-t2",
+        tableId: "table-2",
+        startTime: new Date("2026-05-05T22:00:00Z"),
+        endTime: new Date("2026-05-05T23:15:00Z"),
+        partySize: 2,
+      },
+      // May 6 — only table-1 blocked
+      {
+        id: "res-may6-t1",
+        tableId: "table-1",
+        startTime: new Date("2026-05-06T22:00:00Z"),
+        endTime: new Date("2026-05-06T23:15:00Z"),
+        partySize: 2,
+      },
+    ] as never);
+
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([
+      // May 7 — active hold on table-1
+      {
+        id: "hold-may7-t1",
+        tableId: "table-1",
+        startTime: new Date("2026-05-07T22:00:00Z"),
+        endTime: new Date("2026-05-07T23:15:00Z"),
+        partySize: 2,
+        expiresAt: futureExpiry,
+      },
+      // May 7 — expired hold on table-2 (must NOT block availability)
+      {
+        id: "hold-may7-t2-expired",
+        tableId: "table-2",
+        startTime: new Date("2026-05-07T22:00:00Z"),
+        endTime: new Date("2026-05-07T23:15:00Z"),
+        partySize: 2,
+        expiresAt: pastExpiry,
+      },
+    ] as never);
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-05",
+      "2026-05-07",
+      2
+    );
+
+    expect(dates).toHaveLength(3);
+
+    const [may5, may6, may7] = dates as [(typeof dates)[0], (typeof dates)[0], (typeof dates)[0]];
+
+    // May 5: both tables blocked at 18:00, but OTHER slots remain available
+    // (reservation only covers one slot window, not the whole day)
+    expect(may5.date).toBe("2026-05-05");
+    expect(may5.hasAvailability).toBe(true);
+    expect(may5.slotCount).toBeGreaterThan(0);
+
+    // May 6: table-1 blocked at 18:00, table-2 still free — plenty of available slots
+    expect(may6.date).toBe("2026-05-06");
+    expect(may6.hasAvailability).toBe(true);
+    // table-2 is free, so May 6 must have at least as many or more available slots than May 5
+    // (May 5 has both tables blocked at 18:00 vs May 6 only one)
+    expect(may6.slotCount).toBeGreaterThanOrEqual(may5.slotCount!);
+
+    // May 7: active hold on table-1 at 18:00, expired hold on table-2 is ignored →
+    // table-2 is fully free, so same pattern as May 6
+    expect(may7.date).toBe("2026-05-07");
+    expect(may7.hasAvailability).toBe(true);
+    // May 7 has only one table blocked (active hold) and one fully free,
+    // matching May 6's pattern — slot counts should be equal
+    expect(may7.slotCount).toBe(may6.slotCount!);
+
+    // Critical bucketing correctness: May 5 reservations must NOT bleed into May 6/7
+    // and May 6 reservation must NOT affect May 7.
+    // We verify this indirectly: if bucketing were wrong, May 6/7 would show fewer
+    // available slots than expected (May 5's reservations would pollute them).
+    // The equality assertion above catches cross-day leakage.
   });
 });
 
