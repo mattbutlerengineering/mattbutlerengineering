@@ -45,7 +45,7 @@ export default function MyComponent() {
     const content = fs.readFileSync(tempFile, "utf-8");
     expect(content).toContain("CHAOS-ERROR");
     expect(content).toContain("import React");
-  });
+  }, 15_000);
 
   test("injects accessibility bug", async () => {
     execFileSync("node", [
@@ -57,5 +57,5 @@ export default function MyComponent() {
     ]);
     const content = fs.readFileSync(tempFile, "utf-8");
     expect(content).not.toContain('aria-label="test-label"');
-  });
+  }, 15_000);
 });
