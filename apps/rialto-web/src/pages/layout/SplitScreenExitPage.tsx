@@ -102,30 +102,7 @@ export function SplitScreenExitPage() {
 
       {/* ── Props ─────────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "active",
-              type: "boolean",
-              description: "Set to true to trigger the exit animation.",
-            },
-            {
-              name: "onExitComplete",
-              type: "() => void",
-              description: "Fires once after both halves finish — use it to navigate.",
-            },
-            {
-              name: "announcement",
-              type: "string",
-              description: "Polite live-region text that plays during the transition.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Content to display and split on exit.",
-            },
-          ]}
-        />
+        <PropsTable component="SplitScreenExit" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

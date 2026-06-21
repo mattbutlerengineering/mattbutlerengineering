@@ -90,20 +90,7 @@ export function BreadcrumbPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "items",
-              type: "Array<{ label: string; href?: string }>",
-              description: "Breadcrumb trail. Last item without href is the current page.",
-            },
-            {
-              name: "maxItems",
-              type: "number",
-              description: "Collapses middle items with ellipsis when trail exceeds this count.",
-            },
-          ]}
-        />
+        <PropsTable component="Breadcrumb" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

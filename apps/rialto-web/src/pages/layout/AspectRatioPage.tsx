@@ -1,4 +1,4 @@
-import { AspectRatio, DataList, Stack } from "@mattbutlerengineering/rialto";
+import { AspectRatio, DataList, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
@@ -80,14 +80,14 @@ export function AspectRatioPage() {
                 <path d="M12 14l4-4 4 4" />
                 <path d="M16 10v10" />
               </svg>
-              <span
+              <Text
                 style={{
                   fontSize: "var(--rialto-text-xs)",
                   color: "var(--rialto-text-tertiary)",
                 }}
               >
                 Telemetry replay
-              </span>
+              </Text>
             </div>
           </AspectRatio>
         </div>
@@ -96,7 +96,7 @@ export function AspectRatioPage() {
       {/* ── Responsive ────────────────────────────────────────────── */}
       <Section title="Responsive (fills container)">
         <Stack gap="sm">
-          <p
+          <Text
             style={{
               margin: 0,
               fontSize: "var(--rialto-text-sm)",
@@ -104,7 +104,7 @@ export function AspectRatioPage() {
             }}
           >
             AspectRatio fills its parent container width. Resize the window to see it respond.
-          </p>
+          </Text>
           <AspectRatio ratio={16 / 9}>
             <div
               style={{
@@ -126,21 +126,7 @@ export function AspectRatioPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "ratio",
-              type: "number",
-              default: "1",
-              description: "Width / height ratio. E.g., 16/9, 4/3, 1.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Content absolutely positioned to fill the container.",
-            },
-          ]}
-        />
+        <PropsTable component="AspectRatio" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -138,39 +138,7 @@ export function TextPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"display" | "body" | "caption" | "detail" | "label"',
-              default: '"body"',
-              description: "Typography preset controlling size, weight, and tracking.",
-            },
-            {
-              name: "color",
-              type: '"primary" | "secondary" | "tertiary" | "accent" | "success" | "error"',
-              description: "Text color token. Defaults to each variant's canonical color.",
-            },
-            {
-              name: "as",
-              type: "ElementType",
-              default: '"p"',
-              description: "HTML element to render (polymorphic).",
-            },
-            {
-              name: "mono",
-              type: "boolean",
-              default: "false",
-              description: "Switches to the monospace font family.",
-            },
-            {
-              name: "truncate",
-              type: "boolean",
-              default: "false",
-              description: "Truncates text with ellipsis on overflow.",
-            },
-          ]}
-        />
+        <PropsTable component="Text" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

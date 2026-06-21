@@ -99,16 +99,13 @@
     </item>
   </file>
   <file path="src/routes/events.ts">
-    <item priority="medium">
-      class EventBuffer {
-        maxSize: number;
-        buffer: readonly ReservationEvent[];
-        _droppedCount: unknown;
-        async push(): Promise<unknown>;
-      }
-    </item>
     <item priority="high">
       export function getConnectionManager(): SseConnectionManager { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createConnectionManager(
+        config?: Partial<SseConnectionConfig>
+      ): SseConnectionManager { /* ... */ }
     </item>
   </file>
   <file path="src/routes/floor-plans.ts">
@@ -626,6 +623,21 @@
     </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+  </file>
+  <file path="src/services/sse-connection.ts">
+    <item priority="low">
+      interface ReplyRaw {
+        writableEnded: boolean;
+      }
+    </item>
+    <item priority="medium">
+      class EventBuffer {
+        maxSize: number;
+        buffer: readonly ReservationEvent[];
+        _droppedCount: unknown;
+        async push(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="src/services/stripe.ts">

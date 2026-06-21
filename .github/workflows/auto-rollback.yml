@@ -149,6 +149,11 @@ jobs:
         with:
           fetch-depth: 10
 
+      - name: Configure git identity
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+
       - name: Identify agent commits
         id: agent-check
         env:
@@ -206,6 +211,7 @@ jobs:
             git push origin "$REVERT_BRANCH"
 
             gh pr create \
+              --base main \
               --title "revert: auto-rollback agent commit ${SHORT_SHA}" \
               --body "## Auto-Rollback
 

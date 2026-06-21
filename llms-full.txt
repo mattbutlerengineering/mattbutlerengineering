@@ -6303,44 +6303,13 @@
     };
   </file>
   <file path="services/reservations/src/routes/events.ts">
-    class EventBuffer {
-      private readonly maxSize: number;
-      private buffer: readonly ReservationEvent[] = [];
-      private _droppedCount = 0;
-    
-      constructor(maxSize: number) {
-        this.maxSize = maxSize;
-      }
-    
-      /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
-      push(event: ReservationEvent): boolean {
-        if (this.buffer.length >= this.maxSize) {
-          // Drop oldest, append new — immutable replacement
-          this.buffer = [...this.buffer.slice(1), event];
-          this._droppedCount += 1;
-          return true;
-        }
-        this.buffer = [...this.buffer, event];
-        return false;
-      }
-    
-      /** Drain all buffered events, resetting the buffer. */
-      drain(): readonly ReservationEvent[] {
-        const events = this.buffer;
-        this.buffer = [];
-        return events;
-      }
-    
-      get length(): number {
-        return this.buffer.length;
-      }
-    
-      get droppedCount(): number {
-        return this._droppedCount;
-      }
-    }
     export function getConnectionManager(): SseConnectionManager {
       return connectionManager;
+    }
+    export function createConnectionManager(
+      config?: Partial<SseConnectionConfig>
+    ): SseConnectionManager {
+      return new SseConnectionManager(config);
     }
   </file>
   <file path="services/reservations/src/routes/floor-plans.ts">
@@ -11881,6 +11850,45 @@
       maxEventBufferSize: 100,
       heartbeatIntervalMs: 30_000, // 30 seconds
     });
+  </file>
+  <file path="services/reservations/src/services/sse-connection.ts">
+    export interface ReplyRaw {
+      readonly writableEnded: boolean;
+      writeHead(statusCode: number, headers: OutgoingHttpHeaders): void;
+      write(chunk: string): boolean;
+      end(): void;
+    }
+    class EventBuffer {
+      private readonly maxSize: number;
+      private buffer: readonly ReservationEvent[] = [];
+      private _droppedCount = 0;
+    
+      constructor(maxSize: number) {
+        this.maxSize = maxSize;
+      }
+    
+      /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
+      push(event: ReservationEvent): boolean {
+        if (this.buffer.length >= this.maxSize) {
+          this.buffer = [...this.buffer.slice(1), event];
+          this._droppedCount += 1;
+          return true;
+        }
+        this.buffer = [...this.buffer, event];
+        return false;
+      }
+    
+      /** Drain all buffered events, resetting the buffer. */
+      drain(): readonly ReservationEvent[] {
+        const events = this.buffer;
+        this.buffer = [];
+        return events;
+      }
+    
+      get droppedCount(): number {
+        return this._droppedCount;
+      }
+    }
   </file>
   <file path="services/reservations/src/services/stripe.ts">
     export interface CreatePaymentIntentOptions {

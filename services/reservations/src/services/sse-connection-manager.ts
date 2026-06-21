@@ -9,6 +9,9 @@
  * All state is immutable — lookups return copies, updates produce new maps.
  */
 
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { SseConnection } from "./sse-connection.js";
+
 /** Configuration for SSE resource limits. */
 export interface SseConnectionConfig {
   /** Maximum concurrent SSE connections per IP address. */
@@ -29,8 +32,8 @@ export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
   heartbeatIntervalMs: 30_000, // 30 seconds
 });
 
-/** Immutable record for a tracked SSE connection. */
-export interface SseConnection {
+/** Immutable record for a tracked SSE connection (internal registry entry). */
+export interface SseConnectionRecord {
   readonly id: string;
   readonly ip: string;
   readonly connectedAt: number;
@@ -38,7 +41,7 @@ export interface SseConnection {
 
 /** Result of attempting to register a new SSE connection. */
 export type ConnectionResult =
-  | { readonly allowed: true; readonly connection: SseConnection }
+  | { readonly allowed: true; readonly connection: SseConnectionRecord }
   | { readonly allowed: false; readonly reason: string };
 
 /**
@@ -49,7 +52,7 @@ export type ConnectionResult =
  */
 export class SseConnectionManager {
   private readonly config: SseConnectionConfig;
-  private connections: ReadonlyMap<string, SseConnection> = new Map();
+  private connections: ReadonlyMap<string, SseConnectionRecord> = new Map();
   private nextId = 0;
 
   constructor(config: Partial<SseConnectionConfig> = {}) {
@@ -59,6 +62,45 @@ export class SseConnectionManager {
   /** Current configuration (frozen copy). */
   getConfig(): SseConnectionConfig {
     return this.config;
+  }
+
+  /**
+   * Accept an incoming SSE request: enforce per-IP limits, then return
+   * an `SseConnection` that owns buffering, heartbeat, timeout, and teardown.
+   *
+   * Returns `{ ok: false, reason }` when the per-IP limit is exceeded (caller sends 429).
+   */
+  accept(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ):
+    | { readonly ok: true; readonly connection: SseConnection }
+    | { readonly ok: false; readonly reason: string } {
+    const ip = request.ip;
+    const ipCount = this.countByIp(ip);
+    if (ipCount >= this.config.maxConnectionsPerIp) {
+      return {
+        ok: false,
+        reason: `Too many SSE connections from ${ip} (${ipCount}/${this.config.maxConnectionsPerIp})`,
+      };
+    }
+
+    const id = String(++this.nextId);
+    const record: SseConnectionRecord = Object.freeze({
+      id,
+      ip,
+      connectedAt: Date.now(),
+    });
+
+    const updated = new Map(this.connections);
+    updated.set(id, record);
+    this.connections = updated;
+
+    const connection = new SseConnection(id, request, reply, this.config, () => {
+      this.unregister(id);
+    });
+
+    return { ok: true, connection };
   }
 
   /** Register a new connection. Returns allowed: false if limit exceeded. */
@@ -72,7 +114,7 @@ export class SseConnectionManager {
     }
 
     const id = String(++this.nextId);
-    const connection: SseConnection = Object.freeze({
+    const connection: SseConnectionRecord = Object.freeze({
       id,
       ip,
       connectedAt: Date.now(),
