@@ -502,9 +502,7 @@ describe("DepositService", () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.update
-        .mockResolvedValueOnce(
-          makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
-        )
+        .mockResolvedValueOnce(makeDeposit({ status: "partial_refunded", refundedAt: new Date() }))
         .mockResolvedValueOnce(heldDeposit);
       mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe capture boom"));
 
@@ -580,7 +578,9 @@ describe("DepositService", () => {
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
 
-      await expect(depositService.refundPartial("dep-123", 6000)).rejects.toThrow(/invalid.*amount/i);
+      await expect(depositService.refundPartial("dep-123", 6000)).rejects.toThrow(
+        /invalid.*amount/i
+      );
       expect(mockDepositDb.update).not.toHaveBeenCalled();
       expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
     });

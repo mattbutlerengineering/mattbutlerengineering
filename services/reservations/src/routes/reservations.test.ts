@@ -8,6 +8,7 @@ import {
   createMockPagination,
   ERROR_UNAUTHORIZED,
   ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
 } from "../test/mocks.js";
 
 // Mock the reservation service
@@ -1116,6 +1117,150 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(403);
+    });
+  });
+
+  /**
+   * End-to-end ownership enforcement — real seam, no ownership mock.
+   *
+   * These tests exercise the full `requireAuth → requireReservationOwnerOrAdmin`
+   * preHandler chain without stubbing out the ownership middleware.  Only the
+   * DB layer (reservationService.getById) and the JWT layer (jwtVerify) are
+   * mocked — everything in between runs for real.
+   *
+   * Non-vacuousness contract: if `requireOwnershipOrAdmin` were replaced with a
+   * no-op allow-all stub, every "deny" case below would receive a 2xx instead of
+   * 403, causing the assertion to fail.  The "allow" cases would still pass, so
+   * the deny assertions are the security-load-bearing ones.
+   */
+  describe("ownership enforcement — end-to-end (real seam, no ownership mock)", () => {
+    const ownerEmail = "owner@example.com";
+    const nonOwnerEmail = "stranger@example.com";
+
+    function setupOwnerJWT() {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: createMockJWTPayload({ permissions: [], email: ownerEmail }),
+        protectedHeader: { alg: "RS256" },
+      } as never);
+    }
+
+    function setupNonOwnerJWT() {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: createMockJWTPayload({ permissions: [], email: nonOwnerEmail }),
+        protectedHeader: { alg: "RS256" },
+      } as never);
+    }
+
+    const ownerReservation = () => createMockReservation({ guestEmail: ownerEmail });
+
+    describe("GET /v1/reservations/:id", () => {
+      it("allows owner through and returns 200", async () => {
+        setupOwnerJWT();
+        // resolver call (preHandler) + handler call
+        vi.mocked(reservationService.getById)
+          .mockResolvedValueOnce(ownerReservation())
+          .mockResolvedValueOnce(ownerReservation());
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(200);
+      });
+
+      it("denies non-owner with 403 and correct error envelope", async () => {
+        setupNonOwnerJWT();
+        // resolver call only — handler is never reached
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = JSON.parse(response.body);
+        expect(body.title).toBe(ERROR_FORBIDDEN);
+        expect(body.detail).toBe("You do not have access to this resource");
+      });
+    });
+
+    describe("PATCH /v1/reservations/:id", () => {
+      it("allows owner through and returns 200", async () => {
+        setupOwnerJWT();
+        vi.mocked(reservationService.getById)
+          .mockResolvedValueOnce(ownerReservation())
+          .mockResolvedValueOnce(ownerReservation());
+        vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+          success: true,
+          reservation: createMockReservation({ partySize: 3 }),
+        });
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 3 },
+        });
+
+        expect(response.statusCode).toBe(200);
+      });
+
+      it("denies non-owner with 403 and correct error envelope", async () => {
+        setupNonOwnerJWT();
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 3 },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = JSON.parse(response.body);
+        expect(body.title).toBe(ERROR_FORBIDDEN);
+        expect(body.detail).toBe("You do not have access to this resource");
+      });
+    });
+
+    describe("DELETE /v1/reservations/:id", () => {
+      it("allows owner through and returns 200", async () => {
+        setupOwnerJWT();
+        vi.mocked(reservationService.getById)
+          .mockResolvedValueOnce(ownerReservation())
+          .mockResolvedValueOnce(ownerReservation());
+        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+          createMockReservation({ status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "DELETE",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(200);
+      });
+
+      it("denies non-owner with 403 and correct error envelope", async () => {
+        setupNonOwnerJWT();
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(ownerReservation());
+
+        const response = await app.inject({
+          method: "DELETE",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        const body = JSON.parse(response.body);
+        expect(body.title).toBe(ERROR_FORBIDDEN);
+        expect(body.detail).toBe("You do not have access to this resource");
+      });
     });
   });
 });

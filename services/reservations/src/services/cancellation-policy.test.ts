@@ -97,7 +97,11 @@ describe("evaluateCancellationFee", () => {
       };
       const cancellationTime = new Date("2026-06-20T19:00:00Z"); // at reservation time
 
-      const result = evaluateCancellationFee(partialNoShowPolicy, reservationTime, cancellationTime);
+      const result = evaluateCancellationFee(
+        partialNoShowPolicy,
+        reservationTime,
+        cancellationTime
+      );
 
       expect(result.feeType).toBe("noshow");
       expect(result.feeAmountCents).toBe(5000); // 50% of $100
