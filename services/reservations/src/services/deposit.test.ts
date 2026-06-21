@@ -635,6 +635,28 @@ describe("DepositService", () => {
       expect(result.status).toBe("partial_refunded");
     });
 
+    it("does NOT roll back to held when a re-entrant retry's capture fails (card already captured)", async () => {
+      // The first attempt already captured the card and moved the row to
+      // partial_refunded. A transient failure on the re-entrant capture replay
+      // must NOT roll back to `held` — that would lie about the charge and let a
+      // later `refund`/`forfeit` act on an already-captured intent.
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("transient network blip"));
+
+      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
+        /transient network blip/
+      );
+
+      // Re-entrant path: no transition (updateMany) and — crucially — no rollback (update).
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
+    });
+
     it("rejects a refund amount greater than the deposit", async () => {
       const heldDeposit = makeDeposit({
         status: "held",

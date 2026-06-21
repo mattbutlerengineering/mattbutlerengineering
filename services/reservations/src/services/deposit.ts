@@ -200,6 +200,7 @@ export class DepositService {
     // Re-entry guard: a retry after a refund failure arrives already in
     // `partial_refunded`. Only transition + write the row when coming from `held`.
     let updated = deposit;
+    let didTransition = false;
     if (deposit.status !== "partial_refunded") {
       transitionDeposit(deposit.status, "partial_refunded"); // throws if invalid
 
@@ -216,6 +217,7 @@ export class DepositService {
 
       // Fetch the updated row to return consistent state.
       updated = await this._requireDeposit(depositId);
+      didTransition = true;
     }
 
     if (deposit.stripePaymentIntentId) {
@@ -227,7 +229,13 @@ export class DepositService {
       try {
         await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
       } catch (error) {
-        await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        // Only roll back if THIS invocation transitioned the row. On a re-entrant
+        // retry (already `partial_refunded`), the card was captured on the first
+        // attempt — rolling back to `held` would corrupt state (held row, captured
+        // card). The same idempotency key makes the capture retry safe.
+        if (didTransition) {
+          await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        }
         throw error;
       }
 
