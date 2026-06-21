@@ -10,6 +10,15 @@ export class DepositNotFoundError extends Error {
   }
 }
 
+export class DepositConcurrentUpdateError extends Error {
+  constructor(id: string, action: string) {
+    super(
+      `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
+    );
+    this.name = "DepositConcurrentUpdateError";
+  }
+}
+
 export interface CreateDepositOptions {
   reservationId: string;
   amountCents: number;
@@ -123,10 +132,19 @@ export class DepositService {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "refunded"); // throws if invalid
 
-    const updated = await prisma.deposit.update({
-      where: { id: depositId },
+    // Atomic compare-and-swap: only update if the row is still in the observed
+    // status. count === 0 means another concurrent transition won the race.
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: deposit.status },
       data: { status: "refunded", refundedAt: new Date() },
     });
+
+    if (count === 0) {
+      throw new DepositConcurrentUpdateError(depositId, "refund");
+    }
+
+    // Fetch the updated row to return consistent state.
+    const updated = await this._requireDeposit(depositId);
 
     if (deposit.stripePaymentIntentId) {
       try {
@@ -182,12 +200,24 @@ export class DepositService {
     // Re-entry guard: a retry after a refund failure arrives already in
     // `partial_refunded`. Only transition + write the row when coming from `held`.
     let updated = deposit;
+    let didTransition = false;
     if (deposit.status !== "partial_refunded") {
       transitionDeposit(deposit.status, "partial_refunded"); // throws if invalid
-      updated = await prisma.deposit.update({
-        where: { id: depositId },
+
+      // Atomic compare-and-swap: only update if the row is still in the observed
+      // status. count === 0 means another concurrent transition won the race.
+      const { count } = await prisma.deposit.updateMany({
+        where: { id: depositId, status: deposit.status },
         data: { status: "partial_refunded", refundedAt: new Date() },
       });
+
+      if (count === 0) {
+        throw new DepositConcurrentUpdateError(depositId, "refundPartial");
+      }
+
+      // Fetch the updated row to return consistent state.
+      updated = await this._requireDeposit(depositId);
+      didTransition = true;
     }
 
     if (deposit.stripePaymentIntentId) {
@@ -199,7 +229,13 @@ export class DepositService {
       try {
         await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
       } catch (error) {
-        await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        // Only roll back if THIS invocation transitioned the row. On a re-entrant
+        // retry (already `partial_refunded`), the card was captured on the first
+        // attempt — rolling back to `held` would corrupt state (held row, captured
+        // card). The same idempotency key makes the capture retry safe.
+        if (didTransition) {
+          await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        }
         throw error;
       }
 
@@ -244,10 +280,19 @@ export class DepositService {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, targetStatus); // throws if invalid
 
-    const updated = await prisma.deposit.update({
-      where: { id: depositId },
+    // Atomic compare-and-swap: only update if the row is still in the observed
+    // status. count === 0 means another concurrent transition won the race.
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: deposit.status },
       data: { status: targetStatus, [timestampField]: new Date() },
     });
+
+    if (count === 0) {
+      throw new DepositConcurrentUpdateError(depositId, action);
+    }
+
+    // Fetch the updated row to return consistent state.
+    const updated = await this._requireDeposit(depositId);
 
     if (deposit.stripePaymentIntentId) {
       try {

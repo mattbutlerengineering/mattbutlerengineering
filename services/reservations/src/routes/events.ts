@@ -6,44 +6,6 @@ import {
   type SseConnectionConfig,
 } from "../services/sse-connection-manager.js";
 
-/** Per-connection event buffer that drops oldest events when full. */
-class EventBuffer {
-  private readonly maxSize: number;
-  private buffer: readonly ReservationEvent[] = [];
-  private _droppedCount = 0;
-
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
-  }
-
-  /** Push an event, dropping the oldest if the buffer is full. Returns true if an event was dropped. */
-  push(event: ReservationEvent): boolean {
-    if (this.buffer.length >= this.maxSize) {
-      // Drop oldest, append new — immutable replacement
-      this.buffer = [...this.buffer.slice(1), event];
-      this._droppedCount += 1;
-      return true;
-    }
-    this.buffer = [...this.buffer, event];
-    return false;
-  }
-
-  /** Drain all buffered events, resetting the buffer. */
-  drain(): readonly ReservationEvent[] {
-    const events = this.buffer;
-    this.buffer = [];
-    return events;
-  }
-
-  get length(): number {
-    return this.buffer.length;
-  }
-
-  get droppedCount(): number {
-    return this._droppedCount;
-  }
-}
-
 /** Shared connection manager — one per process. */
 const connectionManager = new SseConnectionManager();
 
@@ -102,11 +64,10 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
     ) => {
       const { venueId, testClose } = request.query;
       const clientIp = request.ip;
-      const config = connectionManager.getConfig();
 
       // --- Guard: max connections per IP ---
-      const result = connectionManager.register(clientIp);
-      if (!result.allowed) {
+      const result = connectionManager.accept(request, reply);
+      if (!result.ok) {
         request.log.warn(
           { ip: clientIp, reason: result.reason },
           "SSE connection rejected: per-IP limit reached"
@@ -116,102 +77,37 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
           .send(createProblemDetails(429, "Too Many Connections", result.reason));
       }
 
-      const connectionId = result.connection.id;
+      const { connection } = result;
 
-      // Event buffer to cap memory per connection
-      const eventBuffer = new EventBuffer(config.maxEventBufferSize);
-
-      // Set SSE headers
-      reply.raw.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-      });
-
-      // Send initial connection event
-      reply.raw.write(
-        `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`
-      );
-
-      // --- Heartbeat: keep-alive ping ---
-      const pingInterval = setInterval(() => {
-        if (!reply.raw.writableEnded) {
-          reply.raw.write(`: ping\n\n`);
-        }
-      }, config.heartbeatIntervalMs);
-
-      // --- Connection timeout: close idle connections after max lifetime ---
-      const timeoutTimer = setTimeout(() => {
-        if (!reply.raw.writableEnded) {
-          request.log.info(
-            { connectionId, ip: clientIp, lifetimeMs: config.connectionTimeoutMs },
-            "SSE connection closed: max lifetime reached"
-          );
-          reply.raw.write(
-            `event: timeout\ndata: ${JSON.stringify({ message: "Connection timeout — please reconnect" })}\n\n`
-          );
-          reply.raw.end();
-        }
-      }, config.connectionTimeoutMs);
-
-      // Event handler with buffer protection
+      // Domain event handler — filter by venueId, write to connection
       const handleEvent = (event: ReservationEvent) => {
-        // Filter by venueId if specified
-        if (venueId && event.venueId !== venueId) {
-          return;
-        }
-
-        // Check if stream is still writable
-        if (reply.raw.writableEnded) {
-          return;
-        }
-
-        // Buffer the event (drops oldest if over limit)
-        const dropped = eventBuffer.push(event);
-        if (dropped && eventBuffer.droppedCount % 10 === 0) {
-          request.log.warn(
-            { connectionId, ip: clientIp, droppedTotal: eventBuffer.droppedCount },
-            "SSE event buffer overflow — dropping oldest events"
-          );
-        }
-
-        // Drain and send all buffered events
-        const events = eventBuffer.drain();
-        for (const bufferedEvent of events) {
-          reply.raw.write(
-            `event: ${bufferedEvent.type}\ndata: ${JSON.stringify(bufferedEvent)}\n\n`
-          );
-        }
+        if (venueId && event.venueId !== venueId) return;
+        connection.write(event);
       };
 
-      // Subscribe to events
+      // Subscribe to domain events
       fastify.reservationEvents.onChange(handleEvent);
       fastify.log.info(
-        { connectionId, ip: clientIp, connections: fastify.reservationEvents.getConnectionCount() },
+        {
+          connectionId: connection.id,
+          ip: clientIp,
+          connections: fastify.reservationEvents.getConnectionCount(),
+        },
         "SSE client connected"
       );
 
-      // Cleanup on disconnect
-      const cleanup = () => {
-        clearInterval(pingInterval);
-        clearTimeout(timeoutTimer);
+      // Unsubscribe and log on disconnect
+      request.raw.on("close", () => {
         fastify.reservationEvents.offChange(handleEvent);
-        connectionManager.unregister(connectionId);
         fastify.log.info(
           {
-            connectionId,
+            connectionId: connection.id,
             ip: clientIp,
             connections: fastify.reservationEvents.getConnectionCount(),
           },
           "SSE client disconnected"
         );
-      };
-
-      request.raw.on("close", cleanup);
-
-      // Don't end the response - keep the connection open
-      // The response will be ended when the client disconnects or timeout fires
+      });
 
       // TEST-ONLY: automatically close after a fixed delay to allow app.inject to complete.
       // The testClose param is a boolean flag — its value is ignored to prevent

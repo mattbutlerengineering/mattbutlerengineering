@@ -1,5 +1,18 @@
 <codebase path="services/reservations">
   <section priority="medium" role="config">
+  <file path="src/config/manage-token.ts">
+    <item priority="low">
+      interface ManageTokenConfig {
+        secret: string;
+      }
+    </item>
+    <item priority="high">
+      interface ManageTokenConfigInput {
+        nodeEnv: string | undefined;
+        secret: string | undefined;
+      }
+    </item>
+  </file>
   <file path="src/config/stripe.ts">
     <item priority="low">
       interface StripeConfig {
@@ -86,16 +99,13 @@
     </item>
   </file>
   <file path="src/routes/events.ts">
-    <item priority="medium">
-      class EventBuffer {
-        maxSize: number;
-        buffer: readonly ReservationEvent[];
-        _droppedCount: unknown;
-        async push(): Promise<unknown>;
-      }
-    </item>
     <item priority="high">
       export function getConnectionManager(): SseConnectionManager { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createConnectionManager(
+        config?: Partial<SseConnectionConfig>
+      ): SseConnectionManager { /* ... */ }
     </item>
   </file>
   <file path="src/routes/floor-plans.ts">
@@ -373,11 +383,9 @@
         
       }
     </item>
-    <item priority="low">
-      interface CreateDepositOptions {
-        reservationId: string;
-        amountCents: number;
-        currency?: string;
+    <item priority="high">
+      class DepositConcurrentUpdateError {
+        
       }
     </item>
   </file>
@@ -613,6 +621,21 @@
     </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+  </file>
+  <file path="src/services/sse-connection.ts">
+    <item priority="low">
+      interface ReplyRaw {
+        writableEnded: boolean;
+      }
+    </item>
+    <item priority="medium">
+      class EventBuffer {
+        maxSize: number;
+        buffer: readonly ReservationEvent[];
+        _droppedCount: unknown;
+        async push(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="src/services/stripe.ts">

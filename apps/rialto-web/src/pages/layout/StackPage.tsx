@@ -141,43 +141,7 @@ export function StackPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "direction",
-              type: '"row" | "column"',
-              default: '"column"',
-              description: "Flex direction.",
-            },
-            {
-              name: "gap",
-              type: '"xs" | "sm" | "md" | "lg" | "xl"',
-              default: '"md"',
-              description: "Space between children, mapped to spacing tokens.",
-            },
-            {
-              name: "align",
-              type: '"start" | "center" | "end" | "stretch"',
-              description: "Cross-axis alignment (align-items).",
-            },
-            {
-              name: "justify",
-              type: '"start" | "center" | "end" | "between"',
-              description: "Main-axis justification (justify-content).",
-            },
-            {
-              name: "wrap",
-              type: "boolean",
-              default: "false",
-              description: "Allows children to wrap to multiple lines.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Content to lay out.",
-            },
-          ]}
-        />
+        <PropsTable component="Stack" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

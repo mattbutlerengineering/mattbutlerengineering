@@ -1,4 +1,11 @@
-import { Button, ConfirmDialog, DataList, Stack, useToast } from "@mattbutlerengineering/rialto";
+import {
+  Button,
+  ConfirmDialog,
+  DataList,
+  Stack,
+  Text,
+  useToast,
+} from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -87,7 +94,7 @@ export function ConfirmDialogPage() {
       {/* ── Usage Example ─────────────────────────────────────────── */}
       <Section title="Usage Example">
         <Stack gap="sm">
-          <p
+          <Text
             style={{
               margin: 0,
               fontSize: "var(--rialto-text-sm)",
@@ -97,60 +104,13 @@ export function ConfirmDialogPage() {
             Use <strong>default</strong> variant for confirmations where the action is reversible.
             Use <strong>destructive</strong> when the action is permanent — the cancel button
             receives initial focus to prevent accidental confirmation.
-          </p>
+          </Text>
         </Stack>
       </Section>
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "open",
-              type: "boolean",
-              description: "Controls dialog visibility.",
-            },
-            {
-              name: "onConfirm",
-              type: "() => void",
-              description: "Called when the confirm button is clicked.",
-            },
-            {
-              name: "onCancel",
-              type: "() => void",
-              description: "Called when the cancel button is clicked or dialog is dismissed.",
-            },
-            {
-              name: "title",
-              type: "string",
-              description: "Dialog heading.",
-            },
-            {
-              name: "description",
-              type: "string",
-              description: "Supporting text explaining what the action will do.",
-            },
-            {
-              name: "confirmLabel",
-              type: "string",
-              default: '"Confirm"',
-              description: "Label for the confirm button.",
-            },
-            {
-              name: "cancelLabel",
-              type: "string",
-              default: '"Cancel"',
-              description: "Label for the cancel button.",
-            },
-            {
-              name: "variant",
-              type: '"default" | "destructive"',
-              default: '"default"',
-              description:
-                "Destructive styles the confirm button as danger and auto-focuses cancel.",
-            },
-          ]}
-        />
+        <PropsTable component="ConfirmDialog" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
