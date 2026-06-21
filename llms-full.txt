@@ -11442,15 +11442,6 @@
       communicationPreference: Guest["communicationPreference"] | null;
     }
   </file>
-  <file path="services/reservations/src/services/cancellation-policy.ts">
-    export interface CancellationPolicy {
-      depositAmountCents: number;
-      freeCancellationHours: number | null;
-      lateCancellationFeePercent: number | null;
-      noShowFeePercent: number | null;
-    }
-    export type FeeType = "none" | "late" | "noshow";
-  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       | "NOT_FOUND"
@@ -14388,6 +14379,15 @@
       }
     }
   </file>
+  <file path="packages/cancellation-policy/src/cancellation-policy.ts">
+    export interface CancellationPolicy {
+      depositAmountCents: number;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export type FeeType = "none" | "late" | "noshow";
+  </file>
   <file path="packages/database/src/index.ts">
     export function isPrismaNotFound(err: unknown): boolean {
       return (
@@ -15229,7 +15229,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -16266,15 +16277,6 @@
       const diffHours = Math.round(diffMins / 60);
       return rtf.format(diffHours, "hour");
     }
-  </file>
-  <file path="apps/hospitality/src/utils/cancellation-fee.ts">
-    export interface CancellationPolicy {
-      depositAmountCents: number;
-      freeCancellationHours: number | null;
-      lateCancellationFeePercent: number | null;
-      noShowFeePercent: number | null;
-    }
-    export type FeeType = "none" | "late" | "noshow";
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {
