@@ -239,7 +239,13 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
   }
 };
 
+// Note: dependencies: ["error-rate-tracker"] was considered but omitted — the fp
+// `dependencies` check requires the named plugin to already be registered, which
+// breaks package-level tests that set decorators manually without errorRatePlugin_.
+// The decorators guard below is the safe win: it catches missing decorators at
+// registration time without requiring a full plugin chain.
 export const registerHealthRoutes = fp(healthRoutesPlugin, {
   name: "health-routes",
   fastify: "5.x",
+  decorators: { fastify: ["latencyTracker", "rateLimitMonitor", "getErrorRates"] },
 });
