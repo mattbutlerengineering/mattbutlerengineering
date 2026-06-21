@@ -11458,17 +11458,9 @@
     export const prisma = db.prisma as unknown as PrismaClient;
   </file>
   <file path="services/reservations/src/services/deposit-state-machine.ts">
-    export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
-      pending: ["held"],
-      held: ["applied", "refunded", "partial_refunded", "forfeited"],
-      applied: [],
-      refunded: [],
-      partial_refunded: [],
-      forfeited: [],
-    };
-    export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
-      return VALID_TRANSITIONS[from].includes(to);
-    }
+    export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
+    export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> =
+      DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
   </file>
   <file path="services/reservations/src/services/deposit.ts">
     export class DepositNotFoundError extends Error {
@@ -11766,19 +11758,12 @@
     }
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
-    export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
-      PENDING: ["CONFIRMED", "CANCELLED"],
-      CONFIRMED: ["COMPLETED", "CANCELLED", "NO_SHOW"],
-      COMPLETED: [],
-      CANCELLED: [],
-      NO_SHOW: [],
-    };
-    export function isValidReservationTransition(
-      from: ReservationStatus,
-      to: ReservationStatus
-    ): boolean {
-      return RESERVATION_VALID_TRANSITIONS[from].includes(to);
-    }
+    export const reservationMachine = createStateMachine<ReservationStatus>(
+      RESERVATION_TRANSITIONS,
+      "reservation"
+    );
+    export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
+      RESERVATION_TRANSITIONS as Record<ReservationStatus, ReservationStatus[]>;
   </file>
   <file path="services/reservations/src/services/reservation.ts">
     export interface ListReservationsOptions {
@@ -11908,6 +11893,31 @@
       }
     }
   </file>
+  <file path="services/reservations/src/services/state-machine.ts">
+    export interface StateMachine<State extends string> {
+      transition(from: State, to: State): void;
+      canTransition(from: State, to: State): boolean;
+      allowedTransitions(from: State): State[];
+    }
+    export class TransitionError extends Error {
+      readonly from: string;
+      readonly to: string;
+      readonly allowed: string[];
+      readonly entityType: string | undefined;
+    
+      constructor(from: string, to: string, allowed: string[], entityType?: string) {
+        const label = entityType ? `${entityType} ` : "";
+        super(
+          `Invalid ${label}transition: cannot transition from '${from}' to '${to}'. Valid transitions from '${from}': [${allowed.join(", ") || "none"}]`
+        );
+        this.name = "TransitionError";
+        this.from = from;
+        this.to = to;
+        this.allowed = allowed;
+        this.entityType = entityType;
+      }
+    }
+  </file>
   <file path="services/reservations/src/services/stripe.ts">
     export class StripeOperationError extends Error {
       readonly isRetriable: boolean;
@@ -11933,15 +11943,9 @@
     }
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">
-    export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
-      AVAILABLE: ["OCCUPIED"],
-      OCCUPIED: ["DIRTY"],
-      DIRTY: ["READY"],
-      READY: ["AVAILABLE"],
-    };
-    export function isValidTableTransition(from: TableStatus, to: TableStatus): boolean {
-      return TABLE_VALID_TRANSITIONS[from].includes(to);
-    }
+    export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
+    export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> =
+      TABLE_TRANSITIONS as Record<TableStatus, TableStatus[]>;
   </file>
   <file path="services/reservations/src/services/table.ts">
     export function mapPrismaTable(table: {
