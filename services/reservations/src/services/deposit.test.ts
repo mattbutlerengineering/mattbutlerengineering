@@ -5,6 +5,7 @@ const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
     findUnique: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   mockGuestDb: {
     findUnique: vi.fn(),
@@ -185,14 +186,15 @@ describe("DepositService", () => {
         appliedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(appliedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(appliedDeposit);
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
 
       const result = await depositService.apply("dep-123");
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "held" },
           data: expect.objectContaining({
             status: "applied",
             appliedAt: expect.any(Date),
@@ -211,10 +213,22 @@ describe("DepositService", () => {
       );
     });
 
+    it("throws a conflict error if the CAS races (updateMany returns count 0) without calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+    });
+
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
 
       await depositService.apply("dep-123");
@@ -228,10 +242,11 @@ describe("DepositService", () => {
       const order: string[] = [];
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockImplementationOnce(async () => {
+      mockDepositDb.updateMany.mockImplementationOnce(async () => {
         order.push("db");
-        return makeDeposit({ status: "applied" });
+        return { count: 1 };
       });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
       mockPaymentIntents.capture.mockImplementationOnce(async () => {
         order.push("stripe");
         return { id: "pi_test_123", status: "succeeded" };
@@ -245,15 +260,17 @@ describe("DepositService", () => {
     it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update
-        .mockResolvedValueOnce(makeDeposit({ status: "applied", appliedAt: new Date() }))
-        .mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
-      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
           data: expect.objectContaining({ status: "held", appliedAt: null }),
@@ -264,9 +281,11 @@ describe("DepositService", () => {
     it("surfaces the original Stripe error when the rollback DB write also fails", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update
-        .mockResolvedValueOnce(makeDeposit({ status: "applied", appliedAt: new Date() }))
-        .mockRejectedValueOnce(new Error("db down")); // rollback write fails
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "applied", appliedAt: new Date() })
+      );
+      mockDepositDb.update.mockRejectedValueOnce(new Error("db down")); // rollback write fails
       mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
 
       // The caller must see the original Stripe failure, not the rollback DB error.
@@ -279,14 +298,15 @@ describe("DepositService", () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       const refundedDeposit = makeDeposit({ status: "refunded", refundedAt: new Date() });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(refundedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(refundedDeposit);
       mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
 
       const result = await depositService.refund("dep-123");
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "held" },
           data: expect.objectContaining({
             status: "refunded",
             refundedAt: expect.any(Date),
@@ -305,10 +325,22 @@ describe("DepositService", () => {
       );
     });
 
+    it("throws a conflict error if the CAS races (updateMany returns count 0) without calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      await expect(depositService.refund("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+      expect(mockPaymentIntents.cancel).not.toHaveBeenCalled();
+    });
+
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "refunded" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "refunded" }));
       mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
 
       await depositService.refund("dep-123");
@@ -321,15 +353,17 @@ describe("DepositService", () => {
     it("rolls back DB to held when Stripe cancel fails after the DB update", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update
-        .mockResolvedValueOnce(makeDeposit({ status: "refunded", refundedAt: new Date() }))
-        .mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "refunded", refundedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockPaymentIntents.cancel.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
-      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
           data: expect.objectContaining({ status: "held", refundedAt: null }),
@@ -343,14 +377,15 @@ describe("DepositService", () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       const forfeitedDeposit = makeDeposit({ status: "forfeited", forfeitedAt: new Date() });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(forfeitedDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
 
       const result = await depositService.forfeit("dep-123");
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "held" },
           data: expect.objectContaining({
             status: "forfeited",
             forfeitedAt: expect.any(Date),
@@ -369,10 +404,22 @@ describe("DepositService", () => {
       );
     });
 
+    it("throws a conflict error if the CAS races (updateMany returns count 0) without calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      await expect(depositService.forfeit("dep-123")).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+    });
+
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "forfeited" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "forfeited" }));
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
 
       await depositService.forfeit("dep-123");
@@ -385,15 +432,17 @@ describe("DepositService", () => {
     it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update
-        .mockResolvedValueOnce(makeDeposit({ status: "forfeited", forfeitedAt: new Date() }))
-        .mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "forfeited", forfeitedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
 
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
-      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
           data: expect.objectContaining({ status: "held", forfeitedAt: null }),
@@ -410,16 +459,17 @@ describe("DepositService", () => {
         refundedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(partialDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
       mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
       mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
 
       const result = await depositService.refundPartial("dep-123", 3000);
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "held" },
           data: expect.objectContaining({
             status: "partial_refunded",
             refundedAt: expect.any(Date),
@@ -444,14 +494,26 @@ describe("DepositService", () => {
       await expect(depositService.refundPartial("dep-nope", 3000)).rejects.toThrow(/not found/i);
     });
 
+    it("throws a conflict error if the CAS races (updateMany returns count 0) without calling Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
+        /conflict|lost.*race|concurrent/i
+      );
+      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+    });
+
     it("updates DB to partial_refunded before calling Stripe (DB-first ordering)", async () => {
       const order: string[] = [];
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockImplementationOnce(async () => {
+      mockDepositDb.updateMany.mockImplementationOnce(async () => {
         order.push("db");
-        return makeDeposit({ status: "partial_refunded" });
+        return { count: 1 };
       });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
       mockPaymentIntents.capture.mockImplementationOnce(async () => {
         order.push("capture");
         return { id: "pi_test_123", status: "succeeded" };
@@ -470,7 +532,8 @@ describe("DepositService", () => {
     it("passes a stable idempotency key on the capture", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
       mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
       mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
@@ -485,7 +548,8 @@ describe("DepositService", () => {
     it("passes a stable idempotency key on the refund", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
       mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
       mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
@@ -501,18 +565,21 @@ describe("DepositService", () => {
     it("rolls back DB to held when the CAPTURE fails (no money moved)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update
-        .mockResolvedValueOnce(makeDeposit({ status: "partial_refunded", refundedAt: new Date() }))
-        .mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
+        makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
+      );
+      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
       mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe capture boom"));
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /stripe capture boom/
       );
 
-      // First update = partial_refunded (DB-first); second update = rollback to held.
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
-      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+      // CAS write via updateMany + rollback via update.
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "dep-123" },
           data: expect.objectContaining({ status: "held", refundedAt: null }),
@@ -528,7 +595,8 @@ describe("DepositService", () => {
       // the error surface so the refund can be retried idempotently.
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
       );
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
@@ -539,13 +607,9 @@ describe("DepositService", () => {
         /stripe refund boom/
       );
 
-      // Only the DB-first write happened — no rollback to held.
-      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: "partial_refunded" }),
-        })
-      );
+      // Only the CAS write happened — no rollback to held.
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
     });
 
     it("is re-entrant: a retry already in partial_refunded replays Stripe without re-transitioning", async () => {
@@ -562,6 +626,7 @@ describe("DepositService", () => {
       const result = await depositService.refundPartial("dep-123", 3000);
 
       // No DB write on the retry — the row is already partial_refunded.
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
       expect(mockDepositDb.update).not.toHaveBeenCalled();
       // Stripe steps replay with their idempotency keys.
       expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
@@ -581,7 +646,7 @@ describe("DepositService", () => {
       await expect(depositService.refundPartial("dep-123", 6000)).rejects.toThrow(
         /invalid.*amount/i
       );
-      expect(mockDepositDb.update).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
       expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
     });
 
@@ -590,19 +655,65 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
 
       await expect(depositService.refundPartial("dep-123", -1)).rejects.toThrow(/invalid.*amount/i);
-      expect(mockDepositDb.update).not.toHaveBeenCalled();
+      expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
     });
 
     it("does not call Stripe refund when refundAmountCents is 0 (still transitions + captures)", async () => {
       const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
       mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
 
       await depositService.refundPartial("dep-123", 0);
 
       expect(mockPaymentIntents.capture).toHaveBeenCalled();
       expect(mockRefunds.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("CAS concurrency: two different actions on the same held deposit", () => {
+    it("exactly one wins the race; the loser throws before calling Stripe", async () => {
+      // Simulate: apply races refund on the same held deposit.
+      // The winner's updateMany returns { count: 1 }; the loser's returns { count: 0 }.
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      const appliedDeposit = makeDeposit({ status: "applied", appliedAt: new Date() });
+
+      // Both reads see the same held row (concurrent fetch).
+      mockDepositDb.findUnique
+        .mockResolvedValueOnce(heldDeposit) // apply reads
+        .mockResolvedValueOnce(heldDeposit) // refund reads
+        .mockResolvedValueOnce(appliedDeposit); // apply's post-CAS fetch
+
+      // apply wins the CAS; refund loses.
+      mockDepositDb.updateMany
+        .mockResolvedValueOnce({ count: 1 }) // apply wins
+        .mockResolvedValueOnce({ count: 0 }); // refund loses
+
+      mockPaymentIntents.capture.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      const applyPromise = depositService.apply("dep-123");
+      const refundPromise = depositService.refund("dep-123");
+
+      const [applyResult, refundError] = await Promise.allSettled([applyPromise, refundPromise]);
+
+      expect(applyResult.status).toBe("fulfilled");
+      expect(
+        (applyResult as PromiseFulfilledResult<Awaited<ReturnType<typeof depositService.apply>>>)
+          .value.status
+      ).toBe("applied");
+
+      expect(refundError.status).toBe("rejected");
+      expect((refundError as PromiseRejectedResult).reason.message).toMatch(
+        /conflict|lost.*race|concurrent/i
+      );
+
+      // Stripe called exactly once (the winner's capture); the loser never reached Stripe.
+      expect(mockPaymentIntents.capture).toHaveBeenCalledTimes(1);
+      expect(mockPaymentIntents.cancel).not.toHaveBeenCalled();
     });
   });
 });

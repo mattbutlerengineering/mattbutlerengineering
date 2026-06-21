@@ -6,6 +6,7 @@ const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
     findUnique: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   mockGuestDb: {
     findUnique: vi.fn(),
@@ -195,11 +196,12 @@ describe("Deposit API routes", () => {
       });
       const appliedDeposit = makeDeposit({ status: "applied", appliedAt: new Date() });
 
-      // getById (route check) + apply (service getById + service update)
+      // getById (route check) + apply (service._requireDeposit + CAS + post-CAS fetch)
       mockDepositDb.findUnique
         .mockResolvedValueOnce(heldDeposit) // route existence check
-        .mockResolvedValueOnce(heldDeposit); // service._requireDeposit
-      mockDepositDb.update.mockResolvedValueOnce(appliedDeposit);
+        .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
+        .mockResolvedValueOnce(appliedDeposit); // post-CAS fetch
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPaymentIntents.capture.mockResolvedValueOnce({
         id: "pi_test_123",
         status: "succeeded",
@@ -267,9 +269,10 @@ describe("Deposit API routes", () => {
       const refundedDeposit = makeDeposit({ status: "refunded", refundedAt: new Date() });
 
       mockDepositDb.findUnique
-        .mockResolvedValueOnce(heldDeposit)
-        .mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(refundedDeposit);
+        .mockResolvedValueOnce(heldDeposit) // route existence check
+        .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
+        .mockResolvedValueOnce(refundedDeposit); // post-CAS fetch
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPaymentIntents.cancel.mockResolvedValueOnce({
         id: "pi_test_123",
         status: "canceled",
@@ -320,9 +323,10 @@ describe("Deposit API routes", () => {
       const forfeitedDeposit = makeDeposit({ status: "forfeited", forfeitedAt: new Date() });
 
       mockDepositDb.findUnique
-        .mockResolvedValueOnce(heldDeposit)
-        .mockResolvedValueOnce(heldDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(forfeitedDeposit);
+        .mockResolvedValueOnce(heldDeposit) // route existence check
+        .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
+        .mockResolvedValueOnce(forfeitedDeposit); // post-CAS fetch
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPaymentIntents.capture.mockResolvedValueOnce({
         id: "pi_test_123",
         status: "succeeded",

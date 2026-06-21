@@ -11480,10 +11480,13 @@
         this.name = "DepositNotFoundError";
       }
     }
-    export interface CreateDepositOptions {
-      reservationId: string;
-      amountCents: number;
-      currency?: string;
+    export class DepositConcurrentUpdateError extends Error {
+      constructor(id: string, action: string) {
+        super(
+          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
+        );
+        this.name = "DepositConcurrentUpdateError";
+      }
     }
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -15159,7 +15162,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
