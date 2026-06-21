@@ -1148,6 +1148,19 @@
       export const USERS_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
+    <item priority="high">
+      interface PublicVenueDepositResponse {
+        data?: {
+          deposit?: {
+            enabled: boolean;
+            amountCen...;
+      }
+    </item>
+    <item priority="high">
+      export const VENUE_POLICY_QUERY_KEY: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
     <item priority="low">
       type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
@@ -4632,6 +4645,19 @@
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/cancellation-fee.ts">
+    <item priority="low">
+      interface CancellationPolicy {
+        depositAmountCents: number;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      }
+    </item>
+    <item priority="low">
+      type FeeType = "none" | "late" | "noshow";
     </item>
   </file>
   <file path="apps/hospitality/src/utils/format.ts">

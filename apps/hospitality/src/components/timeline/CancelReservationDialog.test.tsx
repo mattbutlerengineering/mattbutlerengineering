@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CancelReservationDialog } from "./CancelReservationDialog.js";
+import type { CancellationPolicy } from "../../utils/cancellation-fee.js";
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -124,6 +125,70 @@ describe("CancelReservationDialog", () => {
 
     await waitFor(() => {
       resolveConfirm!(undefined);
+    });
+  });
+
+  describe("cancellation fee display", () => {
+    // reservationTime is 4 hours from now → within a 24h free window (free)
+    const futureReservation = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    // pastReservation is 1 hour ago → no-show
+    const pastReservation = new Date(Date.now() - 1 * 60 * 60 * 1000);
+    // lateReservation is 1 hour from now → within free window... let&apos;s use 2h free window
+    // so "late" = 1h from now with 2h free window (too late but before reservation)
+    const lateReservation = new Date(Date.now() + 1 * 60 * 60 * 1000);
+
+    const basePolicy: CancellationPolicy = {
+      depositAmountCents: 5000,
+      freeCancellationHours: 2,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    };
+
+    it("shows no fee for free cancellation (within free window)", () => {
+      // 4h from now with 2h free window → free
+      render(
+        <CancelReservationDialog
+          {...defaultProps}
+          policy={basePolicy}
+          reservationTime={futureReservation}
+          currency="usd"
+        />
+      );
+      expect(screen.getByText(/no cancellation fee/i)).toBeDefined();
+      expect(screen.getByText(/\$50\.00/)).toBeDefined();
+    });
+
+    it("shows late cancellation fee", () => {
+      // 1h from now with 2h free window → late
+      render(
+        <CancelReservationDialog
+          {...defaultProps}
+          policy={basePolicy}
+          reservationTime={lateReservation}
+          currency="usd"
+        />
+      );
+      expect(screen.getByText(/late cancellation fee/i)).toBeDefined();
+      expect(screen.getByText(/\$25\.00/)).toBeDefined();
+    });
+
+    it("shows no-show fee", () => {
+      render(
+        <CancelReservationDialog
+          {...defaultProps}
+          policy={basePolicy}
+          reservationTime={pastReservation}
+          currency="usd"
+        />
+      );
+      expect(screen.getByText(/no-show fee/i)).toBeDefined();
+      expect(screen.getByText(/\$50\.00 forfeited/i)).toBeDefined();
+    });
+
+    it("shows no fee when policy is not provided", () => {
+      render(<CancelReservationDialog {...defaultProps} />);
+      // No fee section at all
+      expect(screen.queryByText(/cancellation fee/i)).toBeNull();
     });
   });
 });

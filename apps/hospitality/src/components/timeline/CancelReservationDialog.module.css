@@ -155,3 +155,18 @@
   background: color-mix(in srgb, var(--rialto-error) 40%, transparent);
   cursor: not-allowed;
 }
+
+.feeBanner {
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.feeBannerWarning {
+  background: var(--rialto-warning-muted, var(--rialto-surface-recessed));
+  border-color: var(--rialto-warning, var(--rialto-border));
+  color: var(--rialto-text-primary);
+}
