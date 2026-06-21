@@ -59,25 +59,64 @@ export function estimateDuration(partySize: number, venueSettings?: VenueSetting
 }
 
 /**
+ * Minimal table shape required for the pure filterSuitableTables rule.
+ */
+export interface TableFilter {
+  id: string;
+  capacity: number;
+  minCovers: number;
+  maxCovers: number | null;
+  isActive: boolean;
+}
+
+/**
+ * Pure rule: given a list of pre-fetched tables, returns only those that can
+ * seat the given party size. No DB access.
+ */
+export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
+  return tables.filter(
+    (t) =>
+      t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
+  );
+}
+
+const DAY_NAMES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
+
+function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null {
+  const schedule = operatingHours[DAY_NAMES[dayIndex]];
+  if (!schedule || schedule.closed) return null;
+  return schedule;
+}
+
+/**
+ * Pure rule: returns the DaySchedule for the given YYYY-MM-DD date string
+ * from the venue's operating hours, or null if closed / not configured.
+ * Uses local-timezone day-of-week (matches how date strings are interpreted
+ * throughout the availability pipeline). No DB access.
+ */
+export function parseOperatingHours(
+  operatingHours: OperatingHours | null,
+  date: string
+): DaySchedule | null {
+  if (!operatingHours) return null;
+  return scheduleForDay(operatingHours, new Date(date).getDay());
+}
+
+/**
  * Gets the operating hours for a specific day of the week.
+ * Internal callers hold a Date object — delegates to scheduleForDay directly.
  */
 function getDaySchedule(operatingHours: OperatingHours | null, date: Date): DaySchedule | null {
   if (!operatingHours) return null;
-
-  const dayNames = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-  ] as const;
-  const dayName = dayNames[date.getDay()];
-  const schedule = operatingHours[dayName];
-
-  if (!schedule || schedule.closed) return null;
-  return schedule;
+  return scheduleForDay(operatingHours, date.getDay());
 }
 
 /**
@@ -580,4 +619,6 @@ export const availabilityService = {
   checkPacingForSlot,
   selectBestTable,
   estimateDuration,
+  parseOperatingHours,
+  filterSuitableTables,
 };
