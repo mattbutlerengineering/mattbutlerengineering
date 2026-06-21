@@ -1,0 +1,46 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+}
+
+.noAvailability {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-default);
+}
+
+.noAvailabilityHeading {
+  font-weight: var(--rialto-weight-semibold);
+  color: var(--rialto-text-primary);
+}
+
+.noAvailabilityDetail {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.waitEstimate {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-warning);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.formHeading {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}

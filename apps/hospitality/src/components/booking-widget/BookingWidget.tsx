@@ -8,6 +8,8 @@ import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
 import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
+import { WaitlistJoinView } from "./WaitlistJoinView";
+import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
 import { useBookingFlow } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
@@ -25,6 +27,8 @@ export interface BookingWidgetProps {
   onCancellation?: () => void;
   className?: string;
   stripePublishableKey?: string;
+  /** Default estimated wait minutes shown when no slots are available (before API response) */
+  defaultWaitMinutes?: number;
 }
 
 type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
@@ -63,6 +67,7 @@ export function BookingWidget({
   onCancellation,
   className = "",
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
+  defaultWaitMinutes = 30,
 }: BookingWidgetProps) {
   const { state, data, actions } = useBookingFlow();
 
@@ -254,6 +259,8 @@ export function BookingWidget({
   const bookingSteps = hasDeposit ? BOOKING_STEPS_WITH_DEPOSIT : BOOKING_STEPS_NO_DEPOSIT;
   const currentStepIndex = stepKeys.indexOf(state as (typeof stepKeys)[number]);
 
+  const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
+
   return (
     <div className={[styles.widget, className].filter(Boolean).join(" ")}>
       {/* Header */}
@@ -261,7 +268,7 @@ export function BookingWidget({
         <Text variant="display" as="h2" align="center">
           Make a Reservation
         </Text>
-        {state !== "confirmation" && (
+        {state !== "confirmation" && !isWaitlistState && (
           <Text variant="caption" color="secondary" align="center">
             {state === "date-party" && "Select your date and party size"}
             {state === "time-slot" && "Choose an available time"}
@@ -271,8 +278,8 @@ export function BookingWidget({
         )}
       </div>
 
-      {/* Step indicator */}
-      {state !== "confirmation" && (
+      {/* Step indicator — hidden during waitlist flow */}
+      {state !== "confirmation" && !isWaitlistState && (
         <Steps steps={bookingSteps} currentStep={currentStepIndex} compact />
       )}
 
@@ -303,6 +310,8 @@ export function BookingWidget({
           onBack={handleGoToDateParty}
           date={data.selectedDate}
           partySize={data.partySize}
+          onJoinWaitlist={venueSlug ? actions.goToWaitlistJoin : undefined}
+          estimatedWaitMinutes={defaultWaitMinutes}
         />
       )}
 
@@ -344,6 +353,27 @@ export function BookingWidget({
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
+        />
+      )}
+
+      {state === "waitlist-join" && venueSlug && data.selectedDate && (
+        <WaitlistJoinView
+          requestedTime={data.selectedDate + "T19:00:00"}
+          partySize={data.partySize}
+          estimatedWaitMinutes={defaultWaitMinutes}
+          venueSlug={venueSlug}
+          venueId={venueId}
+          apiBaseUrl={apiBaseUrl}
+          onJoined={actions.handleWaitlistJoined}
+          onBack={handleGoToTimeSlot}
+        />
+      )}
+
+      {state === "waitlist-confirmation" && data.waitlistResult && (
+        <WaitlistConfirmationView
+          position={data.waitlistResult.position}
+          estimatedWaitMinutes={data.waitlistResult.estimatedWaitMinutes}
+          onNewBooking={handleNewBooking}
         />
       )}
     </div>

@@ -346,15 +346,12 @@
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
-      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
     </item>
     <item priority="low">
-      interface BookingFlowData {
-        selectedDate: string | null;
-        selectedEndDate: string | null;
-        partySize: number;
-        slots: TimeSlot[];
-        selectedSlot: TimeSlot | null;
+      interface WaitlistResult {
+        position: number;
+        estimatedWaitMinutes: number;
       }
     </item>
   </file>
