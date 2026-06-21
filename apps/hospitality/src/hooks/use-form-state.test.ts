@@ -137,7 +137,7 @@ describe("useFormState - submit failure", () => {
         status: 422,
       },
       "PATCH",
-      "/api/v1/guests/123"
+      "/guests/123"
     );
     const onSubmit = vi.fn().mockRejectedValue(apiError);
     const { result } = renderHook(() =>
@@ -148,9 +148,9 @@ describe("useFormState - submit failure", () => {
       await result.current.handleSubmit();
     });
 
-    // Should show the clean detail, not the debug string like "PATCH /api/v1/guests/123 failed: 422 ..."
+    // Should show the clean detail, not the debug string like "PATCH /guests/123 failed: 422 ..."
     expect(result.current.error).toBe("Name is required");
-    expect(result.current.error).not.toContain("PATCH /api/v1/guests/123 failed");
+    expect(result.current.error).not.toContain("PATCH /guests/123 failed");
   });
 });
 
