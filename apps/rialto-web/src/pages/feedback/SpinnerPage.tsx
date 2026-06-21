@@ -42,7 +42,7 @@ function SpinnerPlayground() {
           >
             Label text
           </label>
-          <input
+          <Input
             id="spinner-label-input"
             type="text"
             value={label}
@@ -59,6 +59,7 @@ function SpinnerPlayground() {
           />
         </div>
         <label
+          htmlFor="spinner-show-label"
           style={{
             display: "flex",
             alignItems: "center",
@@ -69,7 +70,8 @@ function SpinnerPlayground() {
             marginTop: "auto",
           }}
         >
-          <input
+          <Input
+            id="spinner-show-label"
             type="checkbox"
             checked={showLabel}
             onChange={(e) => setShowLabel(e.target.checked)}
@@ -170,21 +172,7 @@ export function SpinnerPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Size of the spinner ring.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Screen reader text and optional visible label below the spinner.",
-            },
-          ]}
-        />
+        <PropsTable component="Spinner" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -77,37 +77,7 @@ export function AlertPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"info" | "success" | "warning" | "error"',
-              default: '"info"',
-              description: "Color and icon variant.",
-            },
-            {
-              name: "title",
-              type: "string",
-              description: "Bold heading text.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Body content below the title.",
-            },
-            {
-              name: "dismissible",
-              type: "boolean",
-              default: "false",
-              description: "Shows a dismiss button to hide the alert.",
-            },
-            {
-              name: "actions",
-              type: "ReactNode",
-              description: "Optional action buttons rendered below the body.",
-            },
-          ]}
-        />
+        <PropsTable component="Alert" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -105,7 +105,7 @@ export function EmptyStatePage() {
               }}
             >
               {["Driver", "Team", "Lap Time", "Gap"].map((col) => (
-                <span
+                <Text
                   key={col}
                   style={{
                     fontSize: "var(--rialto-text-xs)",
@@ -115,7 +115,7 @@ export function EmptyStatePage() {
                   }}
                 >
                   {col}
-                </span>
+                </Text>
               ))}
             </div>
             {/* Empty body */}
@@ -132,42 +132,7 @@ export function EmptyStatePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "heading",
-              type: "string",
-              description: "Primary heading text.",
-            },
-            {
-              name: "description",
-              type: "string",
-              description: "Supporting text below the heading.",
-            },
-            {
-              name: "icon",
-              type: "ReactNode",
-              description: "Custom icon element. Defaults to a system icon if omitted.",
-            },
-            {
-              name: "action",
-              type: "ReactNode",
-              description: "Optional action element (e.g. a Button) below the description.",
-            },
-            {
-              name: "variant",
-              type: '"default" | "elevated"',
-              default: '"default"',
-              description: "Surface variant. Elevated adds a card-like background.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md"',
-              default: '"md"',
-              description: "Controls spacing and text size.",
-            },
-          ]}
-        />
+        <PropsTable component="EmptyState" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
