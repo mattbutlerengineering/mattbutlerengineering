@@ -1,4 +1,4 @@
-import { AspectRatio, DataList, Stack } from "@mattbutlerengineering/rialto";
+import { AspectRatio, DataList, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 

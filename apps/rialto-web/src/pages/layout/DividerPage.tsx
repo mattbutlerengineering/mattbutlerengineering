@@ -1,4 +1,4 @@
-import { DataList, Divider, Stack } from "@mattbutlerengineering/rialto";
+import { DataList, Divider, Stack, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";

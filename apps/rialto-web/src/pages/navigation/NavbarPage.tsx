@@ -1,4 +1,4 @@
-import { Button, DataList, Navbar } from "@mattbutlerengineering/rialto";
+import { Button, DataList, Navbar, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
