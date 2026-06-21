@@ -18,6 +18,9 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: vi.fn(() => []),
 }));
 vi.mock("../hooks/useTimelineData.js", () => ({ useTimelineData: vi.fn() }));
+vi.mock("../hooks/useVenuePolicy.js", () => ({
+  useVenuePolicy: vi.fn().mockReturnValue({ policy: null, isLoading: false }),
+}));
 // Block transitive resolution of packages unavailable in this worktree environment
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({

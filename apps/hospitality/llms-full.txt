@@ -391,6 +391,20 @@
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
   </file>
+  <file path="src/hooks/useVenuePolicy.ts">
+    interface PublicVenueDepositResponse {
+      data?: {
+        deposit?: {
+          enabled: boolean;
+          amountCents: number | null;
+          freeCancellationHours: number | null;
+          lateCancellationFeePercent: number | null;
+          noShowFeePercent: number | null;
+        };
+      };
+    }
+    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
+  </file>
   <file path="src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
     export interface VenueReadiness {
@@ -455,6 +469,15 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/cancellation-fee.ts">
+    export interface CancellationPolicy {
+      depositAmountCents: number;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export type FeeType = "none" | "late" | "noshow";
+  </file>
   <file path="src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {

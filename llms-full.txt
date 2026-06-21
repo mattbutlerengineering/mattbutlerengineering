@@ -3257,6 +3257,20 @@
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
   </file>
+  <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
+    interface PublicVenueDepositResponse {
+      data?: {
+        deposit?: {
+          enabled: boolean;
+          amountCents: number | null;
+          freeCancellationHours: number | null;
+          lateCancellationFeePercent: number | null;
+          noShowFeePercent: number | null;
+        };
+      };
+    }
+    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
+  </file>
   <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
     export interface VenueReadiness {
@@ -15215,7 +15229,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -16252,6 +16277,15 @@
       const diffHours = Math.round(diffMins / 60);
       return rtf.format(diffHours, "hour");
     }
+  </file>
+  <file path="apps/hospitality/src/utils/cancellation-fee.ts">
+    export interface CancellationPolicy {
+      depositAmountCents: number;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export type FeeType = "none" | "late" | "noshow";
   </file>
   <file path="apps/hospitality/src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {

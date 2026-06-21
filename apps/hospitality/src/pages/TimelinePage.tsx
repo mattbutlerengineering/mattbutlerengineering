@@ -11,6 +11,7 @@ import { GuestCard } from "../components/crm/GuestCard.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
+import { useVenuePolicy } from "../hooks/useVenuePolicy.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -183,8 +184,11 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
 }
 
 export function TimelinePage() {
-  const { selectedVenueId } = useVenue();
+  const { selectedVenueId, selectedVenue } = useVenue();
   const { isConnected } = useSSEStatus();
+
+  // Fetch cancellation policy for the selected venue — used by CancelReservationDialog
+  const { policy: venuePolicy } = useVenuePolicy(selectedVenue?.slug);
 
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
@@ -494,6 +498,9 @@ export function TimelinePage() {
           guestName={selectedReservation.guestName}
           onConfirm={handleCancel}
           onClose={() => setShowCancelDialog(false)}
+          policy={venuePolicy}
+          reservationTime={new Date(selectedReservation.startTime)}
+          currency={selectedVenue?.currencyCode?.toLowerCase() ?? "usd"}
         />
       )}
       {showEditDrawer && selectedReservation && (
