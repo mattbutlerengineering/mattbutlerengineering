@@ -1,4 +1,5 @@
 import type { ReservationStatus } from "@mbe/types";
+import { createStateMachine, TransitionError } from "./state-machine.js";
 
 /**
  * Valid transitions for the reservation state machine.
@@ -6,13 +7,24 @@ import type { ReservationStatus } from "@mbe/types";
  * CONFIRMED → COMPLETED | CANCELLED | NO_SHOW
  * COMPLETED, CANCELLED, NO_SHOW are terminal states (no valid outgoing transitions).
  */
-export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
+const RESERVATION_TRANSITIONS: Partial<Record<ReservationStatus, ReservationStatus[]>> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["COMPLETED", "CANCELLED", "NO_SHOW"],
   COMPLETED: [],
   CANCELLED: [],
   NO_SHOW: [],
 };
+
+export const reservationMachine = createStateMachine<ReservationStatus>(
+  RESERVATION_TRANSITIONS,
+  "reservation"
+);
+
+/**
+ * The allowed-transitions map — kept for callers that reference it directly.
+ */
+export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
+  RESERVATION_TRANSITIONS as Record<ReservationStatus, ReservationStatus[]>;
 
 /**
  * Returns true if `from -> to` is a valid reservation state transition.
@@ -21,36 +33,23 @@ export function isValidReservationTransition(
   from: ReservationStatus,
   to: ReservationStatus
 ): boolean {
-  return RESERVATION_VALID_TRANSITIONS[from].includes(to);
+  return reservationMachine.canTransition(from, to);
 }
 
 /**
- * Custom error thrown when an invalid reservation state transition is attempted.
+ * Thrown when an invalid reservation state transition is attempted.
+ * Alias of {@link TransitionError} for backward compatibility.
  */
-export class ReservationTransitionError extends Error {
-  readonly from: ReservationStatus;
-  readonly to: ReservationStatus;
-
-  constructor(from: ReservationStatus, to: ReservationStatus) {
-    super(
-      `Invalid reservation transition: cannot transition from '${from}' to '${to}'. Valid transitions from '${from}': [${RESERVATION_VALID_TRANSITIONS[from].join(", ") || "none"}]`
-    );
-    this.name = "ReservationTransitionError";
-    this.from = from;
-    this.to = to;
-  }
-}
+export { TransitionError as ReservationTransitionError };
 
 /**
  * Pure function that validates and returns the new state for a reservation transition.
- * Throws ReservationTransitionError if the transition is invalid.
+ * Throws TransitionError (exported as ReservationTransitionError) if the transition is invalid.
  */
 export function transitionReservation(
   from: ReservationStatus,
   to: ReservationStatus
 ): ReservationStatus {
-  if (!isValidReservationTransition(from, to)) {
-    throw new ReservationTransitionError(from, to);
-  }
+  reservationMachine.transition(from, to);
   return to;
 }

@@ -381,7 +381,7 @@ describe("Table Routes", () => {
       } as never);
       const { TableTransitionError } = await import("../services/table.js");
       vi.mocked(tableService.updateStatus).mockRejectedValueOnce(
-        new TableTransitionError("AVAILABLE", "DIRTY")
+        new TableTransitionError("AVAILABLE", "DIRTY", ["OCCUPIED"])
       );
 
       const response = await app.inject({
