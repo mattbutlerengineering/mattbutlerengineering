@@ -52,6 +52,7 @@ enum DepositStatus {
   held
   applied
   refunded
+  partial_refunded
   forfeited
 }
 

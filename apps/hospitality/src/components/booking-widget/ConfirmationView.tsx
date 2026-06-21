@@ -10,6 +10,7 @@ export interface ConfirmationViewProps {
   onCancellation?: () => void;
   depositAmountCents?: number | null;
   depositCurrency?: string | null;
+  cancellationPolicySummary?: string | null;
 }
 
 export function ConfirmationView({
@@ -19,6 +20,7 @@ export function ConfirmationView({
   onCancellation,
   depositAmountCents,
   depositCurrency,
+  cancellationPolicySummary,
 }: ConfirmationViewProps) {
   const formattedDate = formatLongDateWithYear(reservation.date);
   const formattedTime = formatTime(reservation.startTime);
@@ -130,6 +132,18 @@ export function ConfirmationView({
             Your card has been authorized for{" "}
             {formatCurrencyFromCents(depositAmountCents, depositCurrency ?? "usd")}. The hold will
             be released or captured based on your cancellation timeline.
+          </Text>
+        </div>
+      )}
+
+      {/* Cancellation policy summary */}
+      {cancellationPolicySummary && (
+        <div className={styles.detailsCard}>
+          <Text variant="label" as="h3" className={styles.detailsTitle}>
+            Cancellation Policy
+          </Text>
+          <Text variant="caption" color="secondary">
+            {cancellationPolicySummary}
           </Text>
         </div>
       )}

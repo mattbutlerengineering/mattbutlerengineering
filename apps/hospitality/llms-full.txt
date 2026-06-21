@@ -1,5 +1,17 @@
 <codebase path="apps/hospitality">
   <section priority="medium" role="booking-widget">
+  <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
+    export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+      if (!config || config.freeCancellationHours == null) return null;
+      const feePercent = config.lateCancellationFeePercent ?? 0;
+      const feeAmountCents = Math.floor(((config.amountCents ?? 0) * feePercent) / 100);
+      const formattedFee = formatCurrencyFromCents(feeAmountCents, config.currency);
+      return (
+        `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
+        `After that, a ${feePercent}% fee (${formattedFee}) applies.`
+      );
+    }
+  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
     export interface BookingFlowData {

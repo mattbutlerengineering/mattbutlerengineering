@@ -175,6 +175,14 @@ export const venueService = {
     return prisma.venue.findFirst({ where: { slug } });
   },
 
+  /**
+   * Returns the raw Prisma venue record by ID, including deposit/cancellation policy fields.
+   * Use in routes that need policy fields not on the mapped Venue type.
+   */
+  async getRawById(id: string) {
+    return prisma.venue.findUnique({ where: { id } });
+  },
+
   async create(data: CreateVenueRequest): Promise<Venue> {
     const venue = await prisma.venue.create({
       data: {

@@ -99,6 +99,40 @@ export class StripeService {
   }
 
   /**
+   * Creates a partial refund on a captured charge associated with a PaymentIntent.
+   * Used for late cancellation: capture the hold then refund the un-charged portion.
+   * An optional idempotency key makes safe retries — Stripe returns the original
+   * refund instead of issuing a duplicate.
+   */
+  async createPartialRefund(
+    paymentIntentId: string,
+    refundAmountCents: number,
+    idempotencyKey?: string
+  ): Promise<{ id: string; status: string; amount: number }> {
+    const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+    const chargeId =
+      typeof intent.latest_charge === "string"
+        ? intent.latest_charge
+        : (intent.latest_charge?.id ?? null);
+
+    if (!chargeId) {
+      throw new Error(
+        `PaymentIntent ${paymentIntentId} has no associated charge for partial refund`
+      );
+    }
+
+    const refund = await this.stripe.refunds.create(
+      {
+        charge: chargeId,
+        amount: refundAmountCents,
+      },
+      idempotencyKey ? { idempotencyKey } : undefined
+    );
+
+    return { id: refund.id, status: refund.status ?? "unknown", amount: refund.amount };
+  }
+
+  /**
    * Creates a new Stripe customer linked to a guest.
    */
   async createCustomer(options: CreateCustomerOptions): Promise<CustomerResult> {

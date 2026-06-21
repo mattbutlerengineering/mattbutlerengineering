@@ -9,6 +9,7 @@ import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
 import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { useBookingFlow } from "./useBookingFlow.js";
+import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
@@ -339,6 +340,7 @@ export function BookingWidget({
             data.depositPaymentIntentId ? (data.depositConfig?.amountCents ?? null) : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
+          cancellationPolicySummary={formatDepositCancellationTerms(data.depositConfig ?? null)}
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}

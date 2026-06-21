@@ -20,6 +20,16 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
+    getRawById: vi.fn(),
+  },
+}));
+
+vi.mock("../services/deposit.js", () => ({
+  depositService: {
+    getByReservationId: vi.fn(),
+    refund: vi.fn(),
+    refundPartial: vi.fn(),
+    forfeit: vi.fn(),
   },
 }));
 
@@ -30,6 +40,7 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { depositService } from "../services/deposit.js";
 
 const mockReservation = {
   id: "res_1",
@@ -216,35 +227,259 @@ describe("DELETE /public/v1/reservations/manage", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("cancels reminder jobs via injected bookingNotifier", async () => {
-    const stubNotifier: BookingNotifier = {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+  describe("booking notifier injection", () => {
+    // Isolated app instance to test BookingNotifier injection without rate-limit bleed
+    let notifierApp: FastifyInstance;
+    let stubNotifier: BookingNotifier;
+
+    beforeAll(async () => {
+      stubNotifier = {
+        scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+        rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+      };
+      notifierApp = await buildApp({
+        logger: false,
+        notificationPort: createStubNotificationDispatcher() as never,
+        bookingNotifier: stubNotifier,
+      });
+      await notifierApp.ready();
+    });
+
+    afterAll(async () => {
+      await notifierApp.close();
+    });
+
+    it("cancels reminder jobs via injected bookingNotifier", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...mockReservation,
+        status: "CANCELLED",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+      const response = await notifierApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(stubNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+    });
+  });
+
+  describe("cancellation policy + deposit integration", () => {
+    // Fresh app instance so the outer suite's 10-request rate limit does not bleed in
+    let depositApp: FastifyInstance;
+
+    beforeAll(async () => {
+      depositApp = await buildApp({
+        logger: false,
+        notificationPort: createStubNotificationDispatcher() as never,
+      });
+      await depositApp.ready();
+    });
+
+    afterAll(async () => {
+      await depositApp.close();
+    });
+
+    const heldDeposit = {
+      id: "dep_1",
+      reservationId: "res_1",
+      amountCents: 10000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_test_123",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
-    const stubApp = await buildApp({
-      logger: false,
-      notificationPort: createStubNotificationDispatcher() as never,
-      bookingNotifier: stubNotifier,
-    });
-    await stubApp.ready();
 
-    const token = generateManageToken("res_1", "jane@example.com");
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.update).mockResolvedValueOnce({
+    // Reservation well in the future — cancellation is within the free window
+    const futureReservation = {
       ...mockReservation,
-      status: "CANCELLED",
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+      startTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    };
 
-    const response = await stubApp.inject({
-      method: "DELETE",
-      url: `/public/v1/reservations/manage?token=${token}`,
+    // Reservation starting soon — cancellation is outside the free window
+    const soonReservation = {
+      ...mockReservation,
+      startTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    };
+
+    // Reservation already started — no-show
+    const pastReservation = {
+      ...mockReservation,
+      startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    };
+
+    const rawVenueWithPolicy = {
+      id: "venue_1",
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    };
+
+    function setupCancelMocks(reservation: typeof mockReservation) {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(reservation as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...reservation,
+        status: "CANCELLED",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+    }
+
+    it("calls depositService.refund for free cancellation (within window)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(futureReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(depositService.refund).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "refunded",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(stubNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+    it("calls depositService.refundPartial for late cancellation (outside window)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(soonReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "refunded",
+      } as never);
 
-    await stubApp.close();
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000); // 50% refund of $100
+      expect(depositService.refund).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+    });
+
+    it("calls depositService.forfeit for no-show (reservation already started)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(pastReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "forfeited",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+      expect(depositService.refund).not.toHaveBeenCalled();
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+    });
+
+    it("calls depositService.refund when no policy is configured (freeCancellationHours is null)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(soonReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+        id: "venue_1",
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      } as never);
+      vi.mocked(depositService.refund).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "refunded",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+    });
+
+    it("skips deposit processing when no deposit exists", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(futureReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refund).not.toHaveBeenCalled();
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+    });
+
+    it("does NOT cancel the reservation when deposit processing fails (no ghost state)", async () => {
+      // Money path: if the deposit cannot be resolved, the reservation must not
+      // be flipped to CANCELLED — that would strand a `held` deposit forever.
+      const token = generateManageToken("res_1", "jane@example.com");
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(500);
+      // The reservation status must NOT have been updated to CANCELLED.
+      expect(reservationService.update).not.toHaveBeenCalled();
+    });
+
+    it("calls depositService.refundPartial for a partial no-show (noShowFeePercent < 100)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(pastReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+        id: "venue_1",
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 50, // partial no-show — guest owed 50% back
+      } as never);
+      vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "partial_refunded",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000); // 50% of $100
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+    });
   });
 });

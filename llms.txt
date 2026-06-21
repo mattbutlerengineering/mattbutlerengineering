@@ -339,6 +339,11 @@
   </file>
   </section>
   <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
+    <item priority="high">
+      export function formatDepositCancellationTerms(config: DepositConfig | null): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
@@ -2202,6 +2207,19 @@
         lastVisit: string | null;
         dietaryRestrictions: string[] | null;
       }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/cancellation-policy.ts">
+    <item priority="low">
+      interface CancellationPolicy {
+        depositAmountCents: number;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      }
+    </item>
+    <item priority="low">
+      type FeeType = "none" | "late" | "noshow";
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -4300,7 +4318,7 @@
       type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     </item>
     <item priority="low">
-      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
+      type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
     </item>
   </file>
   <file path="packages/types/src/schema-compat.ts">

@@ -287,7 +287,13 @@
   </file>
   <file path="src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
-    export type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
+    export type DepositStatus =
+      | "pending"
+      | "held"
+      | "applied"
+      | "refunded"
+      | "partial_refunded"
+      | "forfeited";
   </file>
   <file path="src/schema-compat.ts">
     interface JsonSchemaProperty {

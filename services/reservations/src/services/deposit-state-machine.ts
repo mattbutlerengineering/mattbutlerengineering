@@ -2,14 +2,16 @@ import type { DepositStatus } from "../generated/prisma/index.js";
 
 /**
  * Valid transitions for the deposit state machine.
- * pending → held → applied | refunded | forfeited
- * applied, refunded, forfeited are terminal states (no valid outgoing transitions).
+ * pending → held → applied | refunded | partial_refunded | forfeited
+ * applied, refunded, partial_refunded, forfeited are terminal states
+ * (no valid outgoing transitions).
  */
 export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
   pending: ["held"],
-  held: ["applied", "refunded", "forfeited"],
+  held: ["applied", "refunded", "partial_refunded", "forfeited"],
   applied: [],
   refunded: [],
+  partial_refunded: [],
   forfeited: [],
 };
 

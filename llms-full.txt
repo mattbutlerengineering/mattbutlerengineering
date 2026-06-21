@@ -1072,6 +1072,18 @@
   </file>
   </section>
   <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
+    export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+      if (!config || config.freeCancellationHours == null) return null;
+      const feePercent = config.lateCancellationFeePercent ?? 0;
+      const feeAmountCents = Math.floor(((config.amountCents ?? 0) * feePercent) / 100);
+      const formattedFee = formatCurrencyFromCents(feeAmountCents, config.currency);
+      return (
+        `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
+        `After that, a ${feePercent}% fee (${formattedFee}) applies.`
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
     export interface BookingFlowData {
@@ -5894,6 +5906,58 @@
               status: 409,
               detail: "Cannot cancel a completed reservation",
             });
+          }
+    
+          // Resolve any held deposit BEFORE flipping the reservation to CANCELLED.
+          // A deposit and a reservation must never diverge: cancelling the
+          // reservation while leaving the deposit `held` would strand the guest's
+          // money (a "ghost" charge with no path to refund). On a money-path
+          // failure we surface a 500 and leave both records untouched so the guest
+          // can retry rather than silently swallowing the error.
+          const deposit = await depositService.getByReservationId(reservation.id);
+          if (deposit && deposit.status === "held") {
+            const rawVenue = reservation.venueId
+              ? await venueService.getRawById(reservation.venueId)
+              : null;
+    
+            const policy =
+              rawVenue?.freeCancellationHours != null
+                ? {
+                    depositAmountCents: deposit.amountCents,
+                    freeCancellationHours: rawVenue.freeCancellationHours,
+                    lateCancellationFeePercent: rawVenue.lateCancellationFeePercent ?? null,
+                    noShowFeePercent: rawVenue.noShowFeePercent ?? null,
+                  }
+                : null;
+    
+            const reservationTime = new Date(reservation.startTime);
+            const cancellationTime = new Date();
+            const feeResult = evaluateCancellationFee(policy, reservationTime, cancellationTime);
+    
+            try {
+              if (feeResult.depositAction === "refund_full") {
+                await depositService.refund(deposit.id);
+              } else if (feeResult.depositAction === "forfeit") {
+                await depositService.forfeit(deposit.id);
+              } else {
+                // refund_partial: capture then partially refund (also covers a
+                // partial no-show where noShowFeePercent < 100).
+                await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
+              }
+            } catch (err) {
+              // Do NOT cancel the reservation — keep deposit + reservation
+              // consistent. Log structured context for triage and surface an error.
+              request.log.error(
+                { err, reservationId: reservation.id, depositId: deposit.id },
+                "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
+              );
+              return reply.status(500).send({
+                type: "about:blank",
+                title: "Cancellation Failed",
+                status: 500,
+                detail: "Could not process the deposit refund. The reservation was not cancelled.",
+              });
+            }
           }
     
           const updated = await reservationService.update(reservation.id, {
@@ -11372,6 +11436,15 @@
       communicationPreference: Guest["communicationPreference"] | null;
     }
   </file>
+  <file path="services/reservations/src/services/cancellation-policy.ts">
+    export interface CancellationPolicy {
+      depositAmountCents: number;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export type FeeType = "none" | "late" | "noshow";
+  </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       | "NOT_FOUND"
@@ -11390,9 +11463,10 @@
   <file path="services/reservations/src/services/deposit-state-machine.ts">
     export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
       pending: ["held"],
-      held: ["applied", "refunded", "forfeited"],
+      held: ["applied", "refunded", "partial_refunded", "forfeited"],
       applied: [],
       refunded: [],
+      partial_refunded: [],
       forfeited: [],
     };
     export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
@@ -15445,7 +15519,13 @@
   </file>
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
-    export type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
+    export type DepositStatus =
+      | "pending"
+      | "held"
+      | "applied"
+      | "refunded"
+      | "partial_refunded"
+      | "forfeited";
   </file>
   <file path="packages/types/src/schema-compat.ts">
     interface JsonSchemaProperty {
