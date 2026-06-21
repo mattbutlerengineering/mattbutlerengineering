@@ -3098,7 +3098,11 @@
         try {
           await onSubmit(parsed.data);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "An error occurred");
+          if (err instanceof ApiClientError) {
+            setError(err.problemDetails.detail ?? err.response.message);
+          } else {
+            setError(err instanceof Error ? err.message : "An error occurred");
+          }
         } finally {
           setIsPending(false);
         }
@@ -15159,7 +15163,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

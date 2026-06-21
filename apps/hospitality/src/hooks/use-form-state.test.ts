@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { z } from "zod";
+import { ApiClientError } from "@mbe/api-client";
 import { useFormState } from "./use-form-state.js";
 
 const guestSchema = z.object({
@@ -124,6 +125,32 @@ describe("useFormState - submit failure", () => {
 
     expect(typeof result.current.error).toBe("string");
     expect((result.current.error?.length ?? 0) > 0).toBe(true);
+  });
+
+  it("uses problemDetails.detail (not debug message) when error is ApiClientError", async () => {
+    const apiError = new ApiClientError(
+      {
+        error: "Validation Error",
+        message: "Validation failed",
+        statusCode: 422,
+        detail: "Name is required",
+        status: 422,
+      },
+      "PATCH",
+      "/api/v1/guests/123"
+    );
+    const onSubmit = vi.fn().mockRejectedValue(apiError);
+    const { result } = renderHook(() =>
+      useFormState({ name: "Alice", email: "" }, onSubmit, guestSchema)
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    // Should show the clean detail, not the debug string like "PATCH /api/v1/guests/123 failed: 422 ..."
+    expect(result.current.error).toBe("Name is required");
+    expect(result.current.error).not.toContain("PATCH /api/v1/guests/123 failed");
   });
 });
 
