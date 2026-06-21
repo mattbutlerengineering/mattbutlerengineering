@@ -38,9 +38,14 @@ const mockLatencyTracker = {
 
 const mockCheckAuth0 = vi.fn().mockResolvedValue({ status: "ok", latency: 50 });
 
+/**
+ * Always pass an explicit checkAuth0 stub — omitting it lets the default fall
+ * through to the real JWKS fetch and makes tests flaky on network outages.
+ */
 function createTestOptions(overrides?: Partial<HealthRoutesOptions>): HealthRoutesOptions {
   return {
     db: mockDb,
+    // Explicit stub: prevents live Auth0 JWKS calls in any package-level test.
     checkAuth0: mockCheckAuth0,
     routes: [
       { path: "/health", operationId: "getHealth" },
@@ -68,6 +73,18 @@ describe("registerHealthRoutes", () => {
   afterEach(async () => {
     await app.close();
     vi.clearAllMocks();
+  });
+
+  it("throws when required fastify decorators are missing", async () => {
+    const bareApp = Fastify({ logger: false });
+    bareApp.decorate("apiVersion", "v1");
+    bareApp.decorate("sunsetDate", "2027-01-01");
+    // Intentionally omit latencyTracker, rateLimitMonitor, getErrorRates
+    await expect(async () => {
+      await bareApp.register(registerHealthRoutes, createTestOptions());
+      await bareApp.ready();
+    }).rejects.toThrow();
+    await bareApp.close();
   });
 
   it("registers all specified routes", async () => {
@@ -234,6 +251,18 @@ describe("registerHealthRoutes", () => {
 
     expect(mockLatencyTracker.record).toHaveBeenCalledWith(expect.any(Number));
     expect(mockLatencyTracker.checkAnomaly).toHaveBeenCalledWith(expect.any(Number));
+  });
+
+  it("uses the provided checkAuth0 stub and does not call the real JWKS endpoint", async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+    await app.register(registerHealthRoutes, createTestOptions());
+    await app.ready();
+
+    await app.inject({ method: "GET", url: "/health" });
+
+    // The stub must have been called — not the real JWKS fetch
+    expect(mockCheckAuth0).toHaveBeenCalledTimes(1);
+    expect(mockCheckAuth0).toHaveBeenCalledWith();
   });
 
   it("detects latency anomaly and marks database check as error", async () => {
