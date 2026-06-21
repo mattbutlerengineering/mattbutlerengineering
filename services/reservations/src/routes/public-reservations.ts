@@ -5,8 +5,12 @@ import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
+import { getManageTokenConfig } from "../config/manage-token.js";
 
-const TOKEN_SECRET = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
+const TOKEN_SECRET = getManageTokenConfig({
+  nodeEnv: process.env.NODE_ENV,
+  secret: process.env.MANAGE_TOKEN_SECRET,
+}).secret;
 
 export function generateManageToken(reservationId: string, guestEmail: string): string {
   const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;

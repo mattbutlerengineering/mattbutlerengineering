@@ -248,38 +248,7 @@ export function FooterPage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"minimal" | "rich"',
-              default: '"minimal"',
-              description:
-                "Layout variant. Minimal is a horizontal row; rich is a centered column.",
-            },
-            {
-              name: "columns",
-              type: "FooterColumn[]",
-              description: "Multi-column link groups. Only rendered in the rich variant.",
-            },
-            {
-              name: "copyright",
-              type: "string",
-              description: "Bottom copyright line. Only rendered in the rich variant.",
-            },
-            {
-              name: "logo",
-              type: "ReactNode",
-              description:
-                'Logo slot for the rich variant. Defaults to the "Rialto" accent wordmark.',
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Arbitrary content for the minimal variant.",
-            },
-          ]}
-        />
+        <PropsTable component="Footer" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}

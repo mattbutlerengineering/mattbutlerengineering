@@ -36,7 +36,7 @@ function HeroPlayground() {
           eyebrow={showEyebrow ? "Design System" : undefined}
           title={
             <>
-              Precision meets <span className="accent">warmth</span>
+              Precision meets <Text className="accent">warmth</Text>
             </>
           }
           subtitle={showSubtitle ? "A component library for premium digital products." : undefined}
@@ -86,7 +86,7 @@ export function HeroPage() {
               eyebrow="Design System"
               title={
                 <>
-                  Precision meets <span className="accent">warmth</span>
+                  Precision meets <Text className="accent">warmth</Text>
                 </>
               }
               subtitle="A component library for premium digital products built to last."
@@ -135,7 +135,7 @@ export function HeroPage() {
             eyebrow="v2.0 Released"
             title={
               <>
-                Something <span className="accent">new</span> is here
+                Something <Text className="accent">new</Text> is here
               </>
             }
             actions={<Button variant="primary">Read the announcement</Button>}
@@ -170,43 +170,7 @@ export function HeroPage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "title",
-              type: "ReactNode",
-              description:
-                'Main heading. Use <span className="accent"> inside for the gold accent color.',
-            },
-            {
-              name: "eyebrow",
-              type: "string",
-              description: "Small uppercase label rendered above the title.",
-            },
-            {
-              name: "subtitle",
-              type: "string",
-              description: "Description paragraph rendered below the title.",
-            },
-            {
-              name: "actions",
-              type: "ReactNode",
-              description: "CTA buttons or links rendered below the divider.",
-            },
-            {
-              name: "minHeight",
-              type: "string",
-              default: '"85vh"',
-              description: "CSS min-height for the section. Override for compact usage.",
-            },
-            {
-              name: "showDivider",
-              type: "boolean",
-              default: "true",
-              description: "Show the gold accent divider between subtitle and actions.",
-            },
-          ]}
-        />
+        <PropsTable component="Hero" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}

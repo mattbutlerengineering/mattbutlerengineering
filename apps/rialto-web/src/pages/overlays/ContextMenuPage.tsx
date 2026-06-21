@@ -101,7 +101,7 @@ export function ContextMenuPage() {
                   background: "var(--rialto-surface-elevated)",
                 }}
               >
-                <span
+                <Text
                   style={{
                     flex: 2,
                     fontSize: "var(--rialto-text-sm)",
@@ -109,8 +109,8 @@ export function ContextMenuPage() {
                   }}
                 >
                   {row.driver}
-                </span>
-                <span
+                </Text>
+                <Text
                   style={{
                     flex: 1,
                     fontFamily: "var(--rialto-font-mono)",
@@ -119,8 +119,8 @@ export function ContextMenuPage() {
                   }}
                 >
                   {row.time}
-                </span>
-                <span
+                </Text>
+                <Text
                   style={{
                     flex: 1,
                     fontFamily: "var(--rialto-font-mono)",
@@ -129,7 +129,7 @@ export function ContextMenuPage() {
                   }}
                 >
                   {row.gap}
-                </span>
+                </Text>
               </div>
             </ContextMenu>
           ))}
@@ -138,20 +138,7 @@ export function ContextMenuPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "The target element — right-click anywhere within it to trigger.",
-            },
-            {
-              name: "items",
-              type: "Array<MenuItem | DividerItem | LabelItem>",
-              description: "Same item type as DropdownMenu.",
-            },
-          ]}
-        />
+        <PropsTable component="ContextMenu" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

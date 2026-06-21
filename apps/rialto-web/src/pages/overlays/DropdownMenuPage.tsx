@@ -1,4 +1,4 @@
-import { Button, DataList, DropdownMenu, useToast } from "@mattbutlerengineering/rialto";
+import { Button, DataList, DropdownMenu, Text, useToast } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -110,7 +110,7 @@ export function DropdownMenuPage() {
           }}
         >
           <div>
-            <p
+            <Text
               style={{
                 margin: 0,
                 fontSize: "var(--rialto-text-sm)",
@@ -119,8 +119,8 @@ export function DropdownMenuPage() {
               }}
             >
               FP1 — Fiorano
-            </p>
-            <p
+            </Text>
+            <Text
               style={{
                 margin: "2px 0 0",
                 fontSize: "var(--rialto-text-xs)",
@@ -128,7 +128,7 @@ export function DropdownMenuPage() {
               }}
             >
               Best: 1:24.892 &middot; 14 laps
-            </p>
+            </Text>
           </div>
           <DropdownMenu
             trigger={
@@ -162,26 +162,7 @@ export function DropdownMenuPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "trigger",
-              type: "ReactNode",
-              description: "Element that opens the menu on click.",
-            },
-            {
-              name: "items",
-              type: "Array<MenuItem | DividerItem | LabelItem>",
-              description: "Menu items, dividers, and section labels.",
-            },
-            {
-              name: "align",
-              type: '"left" | "right"',
-              default: '"left"',
-              description: "Menu alignment relative to trigger.",
-            },
-          ]}
-        />
+        <PropsTable component="DropdownMenu" />
       </Section>
 
       {/* ── MenuItem Type ─────────────────────────────────────────── */}

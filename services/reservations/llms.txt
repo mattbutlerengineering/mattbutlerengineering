@@ -1,5 +1,18 @@
 <codebase path="services/reservations">
   <section priority="medium" role="config">
+  <file path="src/config/manage-token.ts">
+    <item priority="low">
+      interface ManageTokenConfig {
+        secret: string;
+      }
+    </item>
+    <item priority="high">
+      interface ManageTokenConfigInput {
+        nodeEnv: string | undefined;
+        secret: string | undefined;
+      }
+    </item>
+  </file>
   <file path="src/config/stripe.ts">
     <item priority="low">
       interface StripeConfig {

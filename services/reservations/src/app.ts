@@ -44,6 +44,7 @@ import {
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { prisma } from "./services/database.js";
 import { getStripeConfig } from "./config/stripe.js";
+import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
 
 export interface ReservationsAppOptions extends AppOptions {
@@ -64,6 +65,13 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     nodeEnv: process.env.NODE_ENV,
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  });
+
+  // Validate manage-token HMAC secret at startup — throws in production if missing.
+  // In test/dev, warns but continues to allow local development without real tokens.
+  getManageTokenConfig({
+    nodeEnv: process.env.NODE_ENV,
+    secret: process.env.MANAGE_TOKEN_SECRET,
   });
 
   const fastify = await createServiceApp(
