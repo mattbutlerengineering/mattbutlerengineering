@@ -5120,15 +5120,6 @@
       communicationPreference: Guest["communicationPreference"] | null;
     }
   </file>
-  <file path="src/services/cancellation-policy.ts">
-    export interface CancellationPolicy {
-      depositAmountCents: number;
-      freeCancellationHours: number | null;
-      lateCancellationFeePercent: number | null;
-      noShowFeePercent: number | null;
-    }
-    export type FeeType = "none" | "late" | "noshow";
-  </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
       | "NOT_FOUND"

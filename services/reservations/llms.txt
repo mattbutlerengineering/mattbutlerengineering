@@ -340,19 +340,6 @@
       }
     </item>
   </file>
-  <file path="src/services/cancellation-policy.ts">
-    <item priority="low">
-      interface CancellationPolicy {
-        depositAmountCents: number;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }
-    </item>
-    <item priority="low">
-      type FeeType = "none" | "late" | "noshow";
-    </item>
-  </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";

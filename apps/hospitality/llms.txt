@@ -383,19 +383,6 @@
   </file>
   </section>
   <section priority="medium" role="utils">
-  <file path="src/utils/cancellation-fee.ts">
-    <item priority="low">
-      interface CancellationPolicy {
-        depositAmountCents: number;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }
-    </item>
-    <item priority="low">
-      type FeeType = "none" | "late" | "noshow";
-    </item>
-  </file>
   <file path="src/utils/format.ts">
     <item priority="high">
       export function formatLongDate(dateStr: string): string { /* ... */ }
