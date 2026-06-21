@@ -1244,15 +1244,26 @@
       });
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    function formatDuration(ms: number): string {
-      const seconds = Math.floor(ms / 1000);
-      if (seconds < 60) return `${seconds}s`;
-      const minutes = Math.floor(seconds / 60);
-      const remaining = seconds % 60;
-      return `${minutes}m ${remaining}s`;
+    interface SpendRecord {
+      date: string;
+      timestamp: string;
+      costUsd: number;
+      issueNumber: number | null;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      numTurns: number;
     }
-    function formatCost(usd: number): string {
-      return `$${usd.toFixed(4)}`;
+    function logSpend(record: SpendRecord): void {
+      try {
+        const logDir = dirname(SPEND_LOG_PATH);
+        if (!existsSync(logDir)) {
+          mkdirSync(logDir, { recursive: true });
+        }
+        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
+      } catch {
+        // Silently swallow — spend logging is best-effort
+      }
     }
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">

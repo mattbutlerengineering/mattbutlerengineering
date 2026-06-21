@@ -390,11 +390,17 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    <item priority="medium">
-      function formatDuration(ms: number): string { /* ... */ }
+    <item priority="high">
+      interface SpendRecord {
+        date: string;
+        timestamp: string;
+        costUsd: number;
+        issueNumber: number | null;
+        model: string;
+      }
     </item>
     <item priority="medium">
-      function formatCost(usd: number): string { /* ... */ }
+      function logSpend(record: SpendRecord): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">

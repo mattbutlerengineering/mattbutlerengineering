@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSy
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { collectAgentCost } from "./collect-agent-cost.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -48,15 +49,6 @@ function safe(fn, fallback = null) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf-8"));
-}
-
-function readJsonl(path) {
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf-8")
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => safe(() => JSON.parse(l)))
-    .filter(Boolean);
 }
 
 /* ── Sensor collectors ───────────────────────────────── */
@@ -97,27 +89,9 @@ function collectPrMetrics() {
   };
 }
 
-function collectAgentCost() {
+function collectAgentCostSensor() {
   const spendPath = resolve(ROOT, ".claude", "agent-spend.jsonl");
-  const entries = readJsonl(spendPath);
-  if (entries.length === 0) return { available: false };
-
-  const sevenDayEntries = entries.filter((e) => new Date(e.date || e.timestamp) >= sevenDaysAgo);
-  const totalSpend7d = sevenDayEntries.reduce((sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0), 0);
-  const todayStr = now.toISOString().slice(0, 10);
-  const todayEntries = entries.filter((e) => (e.date || e.timestamp || "").startsWith(todayStr));
-  const todaySpend = todayEntries.reduce((sum, e) => sum + (e.costUsd ?? e.cost_usd ?? 0), 0);
-
-  return {
-    available: true,
-    spend_today_usd: Math.round(todaySpend * 100) / 100,
-    spend_7d_usd: Math.round(totalSpend7d * 100) / 100,
-    sessions_7d: sevenDayEntries.length,
-    avg_cost_per_session:
-      sevenDayEntries.length > 0
-        ? Math.round((totalSpend7d / sevenDayEntries.length) * 100) / 100
-        : 0,
-  };
+  return collectAgentCost(spendPath, now);
 }
 
 function collectCiHealth() {
@@ -319,7 +293,7 @@ const report = {
   sensors: {
     acmm: collectAcmm(),
     prMetrics: collectPrMetrics(),
-    agentCost: collectAgentCost(),
+    agentCost: collectAgentCostSensor(),
     ciHealth: collectCiHealth(),
     lighthouse: collectLighthouse(),
     issues: collectGitHubIssues(),
