@@ -5159,10 +5159,13 @@
         this.name = "DepositNotFoundError";
       }
     }
-    export interface CreateDepositOptions {
-      reservationId: string;
-      amountCents: number;
-      currency?: string;
+    export class DepositConcurrentUpdateError extends Error {
+      constructor(id: string, action: string) {
+        super(
+          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
+        );
+        this.name = "DepositConcurrentUpdateError";
+      }
     }
   </file>
   <file path="src/services/events.ts">

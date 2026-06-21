@@ -2262,11 +2262,9 @@
         
       }
     </item>
-    <item priority="low">
-      interface CreateDepositOptions {
-        reservationId: string;
-        amountCents: number;
-        currency?: string;
+    <item priority="high">
+      class DepositConcurrentUpdateError {
+        
       }
     </item>
   </file>
