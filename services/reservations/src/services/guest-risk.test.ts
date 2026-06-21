@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { computeGuestRisk } from "./guest-risk.js";
 
 describe("computeGuestRisk", () => {
@@ -90,10 +90,18 @@ describe("computeGuestRisk", () => {
     });
 
     it("applies decay when lastNoShowDate is exactly 12 months ago", () => {
-      const twelveMonthsAgo = new Date();
-      twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+      // Freeze time so the test's reference date and applyDecay's internal
+      // `new Date()` share the same instant — otherwise the sub-ms gap between
+      // them tips the exact-12-month boundary and flips risky→standard (flaky).
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-20T12:00:00.000Z"));
+      const twelveMonthsAgo = new Date("2025-06-20T12:00:00.000Z");
       // Exactly 12 months = NOT decayed (decay applies only after 12 months)
       expect(computeGuestRisk(2, 5, twelveMonthsAgo)).toBe("risky");
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 });

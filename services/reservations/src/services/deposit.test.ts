@@ -205,6 +205,68 @@ describe("DepositService", () => {
         /invalid.*transition|cannot transition/i
       );
     });
+
+    it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+
+      await depositService.apply("dep-123");
+
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:apply",
+      });
+    });
+
+    it("updates DB to applied before calling Stripe (DB-first ordering)", async () => {
+      const order: string[] = [];
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockImplementationOnce(async () => {
+        order.push("db");
+        return makeDeposit({ status: "applied" });
+      });
+      mockPaymentIntents.capture.mockImplementationOnce(async () => {
+        order.push("stripe");
+        return { id: "pi_test_123", status: "succeeded" };
+      });
+
+      await depositService.apply("dep-123");
+
+      expect(order).toEqual(["db", "stripe"]);
+    });
+
+    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(makeDeposit({ status: "applied", appliedAt: new Date() }))
+        .mockResolvedValueOnce(heldDeposit);
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({ status: "held", appliedAt: null }),
+        })
+      );
+    });
+
+    it("surfaces the original Stripe error when the rollback DB write also fails", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(makeDeposit({ status: "applied", appliedAt: new Date() }))
+        .mockRejectedValueOnce(new Error("db down")); // rollback write fails
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+
+      // The caller must see the original Stripe failure, not the rollback DB error.
+      await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
+    });
   });
 
   describe("refund (held -> refunded)", () => {
@@ -237,6 +299,38 @@ describe("DepositService", () => {
         /invalid.*transition|cannot transition/i
       );
     });
+
+    it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "refunded" }));
+      mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
+
+      await depositService.refund("dep-123");
+
+      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:refund",
+      });
+    });
+
+    it("rolls back DB to held when Stripe cancel fails after the DB update", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(makeDeposit({ status: "refunded", refundedAt: new Date() }))
+        .mockResolvedValueOnce(heldDeposit);
+      mockPaymentIntents.cancel.mockRejectedValueOnce(new Error("stripe boom"));
+
+      await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({ status: "held", refundedAt: null }),
+        })
+      );
+    });
   });
 
   describe("forfeit (held -> forfeited)", () => {
@@ -267,6 +361,38 @@ describe("DepositService", () => {
 
       await expect(depositService.forfeit("dep-123")).rejects.toThrow(
         /invalid.*transition|cannot transition/i
+      );
+    });
+
+    it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "forfeited" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+
+      await depositService.forfeit("dep-123");
+
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:forfeit",
+      });
+    });
+
+    it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(makeDeposit({ status: "forfeited", forfeitedAt: new Date() }))
+        .mockResolvedValueOnce(heldDeposit);
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+
+      await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
+
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({ status: "held", forfeitedAt: null }),
+        })
       );
     });
   });
