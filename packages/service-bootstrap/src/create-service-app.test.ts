@@ -126,6 +126,14 @@ describe("createServiceApp", () => {
     expect(app.hasDecorator("rateLimitMonitor")).toBe(true);
   });
 
+  it("decorates with latencyTracker for DB ping anomaly detection", async () => {
+    app = await createServiceApp(createTestConfig());
+    await app.ready();
+    expect(app.hasDecorator("latencyTracker")).toBe(true);
+    expect(typeof app.latencyTracker.record).toBe("function");
+    expect(typeof app.latencyTracker.checkAnomaly).toBe("function");
+  });
+
   it("registers rate limit plugin", async () => {
     const rateLimit = await import("@fastify/rate-limit");
     app = await createServiceApp(createTestConfig());

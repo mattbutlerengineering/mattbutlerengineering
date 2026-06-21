@@ -79,7 +79,8 @@ vi.mock("@prisma/adapter-pg", () => ({
 }));
 
 // Import the module under test AFTER all mocks are in place
-import { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } from "./database.js";
+import { db } from "./database.js";
+const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("database module", () => {
   beforeEach(() => {

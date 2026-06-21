@@ -64,8 +64,8 @@ vi.mock("@prisma/adapter-pg", () => {
   };
 });
 
-const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus, prisma } =
-  await import("./database.js");
+const { db, prisma } = await import("./database.js");
+const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("Database Service", () => {
   beforeEach(() => {
