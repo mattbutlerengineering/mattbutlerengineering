@@ -11,6 +11,17 @@ if ! node scripts/check-destructive-migrations.js; then
   exit 1
 fi
 
+# Guard: antipattern ratchet — block any push that increases an AI antipattern count.
+# Uses the same script as CI (check-adr + check-deps job) so gates never drift.
+if ! node scripts/check-ai-antipatterns.mjs; then
+  echo ""
+  echo "ERROR: AI antipattern ratchet failed — one or more pattern counts increased above baseline."
+  echo "Fix the regression or run 'node scripts/check-ai-antipatterns.mjs --update' to accept it."
+  echo "Emergency bypass: git push --no-verify"
+  echo ""
+  exit 1
+fi
+
 # Verify pnpm-lock.yaml is in sync with all package.json files.
 # This prevents the recurring CI failure where agents push code
 # that changes package.json without running pnpm install.
