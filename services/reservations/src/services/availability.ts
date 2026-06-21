@@ -255,6 +255,29 @@ export async function getAvailableDates(
   const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
   const duration = estimateDuration(partySize, settings);
 
+  // Build date-keyed Maps in one O(N) pass — avoids re-calling toDateString per row per day
+  const reservationsByDate = new Map<string, typeof allReservations>();
+  for (const r of allReservations) {
+    const key = toDateString(r.startTime);
+    const bucket = reservationsByDate.get(key);
+    if (bucket) {
+      bucket.push(r);
+    } else {
+      reservationsByDate.set(key, [r]);
+    }
+  }
+
+  const holdsByDate = new Map<string, typeof allHolds>();
+  for (const h of allHolds) {
+    const key = toDateString(h.startTime);
+    const bucket = holdsByDate.get(key);
+    if (bucket) {
+      bucket.push(h);
+    } else {
+      holdsByDate.set(key, [h]);
+    }
+  }
+
   const results: DateAvailability[] = [];
 
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
@@ -266,9 +289,9 @@ export async function getAvailableDates(
       continue;
     }
 
-    // Filter reservations and holds for this specific date
-    const dateReservations = allReservations.filter((r) => toDateString(r.startTime) === dateStr);
-    const dateHolds = allHolds.filter((h) => toDateString(h.startTime) === dateStr);
+    // O(1) map lookup instead of O(N) filter per day
+    const dateReservations = reservationsByDate.get(dateStr) ?? [];
+    const dateHolds = holdsByDate.get(dateStr) ?? [];
 
     const openMinutes = parseTimeToMinutes(schedule.open);
     const closeMinutes = parseTimeToMinutes(schedule.close);
