@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import type { DependencyList } from "react";
 
 export interface UseDataFetchOptions<T> {
@@ -27,6 +27,14 @@ export function useDataFetch<T>(options: UseDataFetchOptions<T>): UseDataFetchRe
   // Track the active controller so unmount/refetch can abort in-flight requests.
   const controllerRef = useRef<AbortController | null>(null);
 
+  // Keep parser in a ref so callers can pass inline functions without causing
+  // re-fetches on every render. useLayoutEffect runs synchronously before any
+  // useEffect, so parserRef.current is always current when the fetch effect reads it.
+  const parserRef = useRef(parser);
+  useLayoutEffect(() => {
+    parserRef.current = parser;
+  });
+
   useEffect(() => {
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -49,7 +57,8 @@ export function useDataFetch<T>(options: UseDataFetchOptions<T>): UseDataFetchRe
 
         if (signal.aborted) return;
 
-        const result = parser ? parser(json) : (json as T);
+        const currentParser = parserRef.current;
+        const result = currentParser ? currentParser(json) : (json as T);
         setData(result);
       } catch (err) {
         if (signal.aborted) return;
@@ -66,9 +75,11 @@ export function useDataFetch<T>(options: UseDataFetchOptions<T>): UseDataFetchRe
     return () => {
       controller.abort();
     };
-    // fetchKey drives manual refetches; deps are caller-provided re-fetch triggers.
+    // parser is intentionally excluded — it lives in parserRef to avoid
+    // re-fetching when callers pass inline functions. fetchKey drives manual
+    // refetches; deps are caller-provided re-fetch triggers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, parser, fetchKey, ...(deps ?? [])]);
+  }, [url, fetchKey, ...(deps ?? [])]);
 
   const refetch = useCallback(async () => {
     controllerRef.current?.abort();

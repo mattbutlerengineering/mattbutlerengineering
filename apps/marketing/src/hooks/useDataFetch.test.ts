@@ -159,4 +159,22 @@ describe("useDataFetch", () => {
       expect(result.current.data).toEqual({ v: 2 });
     });
   });
+
+  describe("inline parser stability", () => {
+    it("does not re-fetch when an inline parser changes identity on re-render", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ raw: 1 }) });
+
+      // Each render creates a new inline arrow function — new identity every time.
+      const { rerender } = renderHook(() => useDataFetch({ url: "/test.json", parser: (d) => d }));
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+      // Re-render twice (simulates a parent re-rendering with an inline parser).
+      rerender();
+      rerender();
+
+      // fetch must still have been called only once.
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });
