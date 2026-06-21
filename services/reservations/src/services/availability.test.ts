@@ -27,6 +27,8 @@ vi.mock("./database.js", async () => {
 import {
   availabilityService,
   estimateDuration,
+  parseOperatingHours,
+  filterSuitableTables,
   checkTableConflict,
   checkPacingForSlot,
   fetchConflictData,
@@ -34,6 +36,7 @@ import {
   type ReservationSlim,
   type HoldSlim,
   type TableCandidate,
+  type TableFilter,
 } from "./availability.js";
 import { prisma } from "./database.js";
 
@@ -932,5 +935,120 @@ describe("fetchConflictData", () => {
     };
     expect(holdCall.where.venueId).toBe(VENUE_ID);
     expect(holdCall.where.expiresAt.gt).toBeInstanceOf(Date);
+  });
+});
+
+describe("parseOperatingHours (pure)", () => {
+  // Dates chosen so new Date(str).getUTCDay() is the intended weekday (timezone-stable):
+  //   2026-05-04 = Mon, 2026-05-08 = Fri, 2026-05-09 = Sat, 2026-05-10 = Sun
+  const openHours = {
+    monday: { open: "11:00", close: "22:00" },
+    tuesday: { open: "11:00", close: "22:00" },
+    wednesday: { open: "11:00", close: "22:00" },
+    thursday: { open: "11:00", close: "22:00" },
+    friday: { open: "11:00", close: "23:00" },
+    saturday: { open: "10:00", close: "23:00" },
+    sunday: { open: "10:00", close: "21:00" },
+  };
+
+  it("returns the schedule for an open weekday (Monday = 2026-05-04)", () => {
+    const result = parseOperatingHours(openHours, "2026-05-04");
+    expect(result).not.toBeNull();
+    expect(result!.open).toBe("11:00");
+    expect(result!.close).toBe("22:00");
+  });
+
+  it("returns null when operatingHours is null", () => {
+    expect(parseOperatingHours(null, "2026-05-04")).toBeNull();
+  });
+
+  it("returns null for a day marked closed: true", () => {
+    const withClosedSunday = {
+      ...openHours,
+      sunday: { open: "10:00", close: "21:00", closed: true },
+    };
+    // 2026-05-10 = Sunday (getUTCDay()=0)
+    expect(parseOperatingHours(withClosedSunday, "2026-05-10")).toBeNull();
+  });
+
+  it("returns null when the day has no schedule entry", () => {
+    // Only Monday in the schedule; Sunday (2026-05-10) has no entry
+    const noSunday = { monday: openHours.monday };
+    expect(parseOperatingHours(noSunday, "2026-05-10")).toBeNull();
+  });
+
+  it("returns Friday schedule for a Friday date (2026-05-08)", () => {
+    // 2026-05-08 = Friday (getUTCDay()=5)
+    const result = parseOperatingHours(openHours, "2026-05-08");
+    expect(result).not.toBeNull();
+    expect(result!.close).toBe("23:00");
+  });
+
+  it("returns Saturday schedule for a Saturday date (2026-05-09)", () => {
+    // 2026-05-09 = Saturday (getUTCDay()=6)
+    const result = parseOperatingHours(openHours, "2026-05-09");
+    expect(result).not.toBeNull();
+    expect(result!.open).toBe("10:00");
+  });
+});
+
+describe("filterSuitableTables (pure)", () => {
+  function makeTable(overrides: Partial<TableFilter> = {}): TableFilter {
+    return {
+      id: "table-1",
+      capacity: 4,
+      minCovers: 1,
+      maxCovers: 6,
+      isActive: true,
+      ...overrides,
+    };
+  }
+
+  it("returns tables where partySize fits within minCovers..maxCovers", () => {
+    const tables = [
+      makeTable({ id: "t-2", minCovers: 1, maxCovers: 2 }),
+      makeTable({ id: "t-4", minCovers: 1, maxCovers: 4 }),
+      makeTable({ id: "t-6", minCovers: 1, maxCovers: 6 }),
+    ];
+    const result = filterSuitableTables(tables, 3);
+    expect(result.map((t) => t.id)).toEqual(["t-4", "t-6"]);
+  });
+
+  it("excludes inactive tables", () => {
+    const tables = [
+      makeTable({ id: "active", isActive: true }),
+      makeTable({ id: "inactive", isActive: false }),
+    ];
+    const result = filterSuitableTables(tables, 2);
+    expect(result.map((t) => t.id)).toEqual(["active"]);
+  });
+
+  it("excludes tables where partySize < minCovers", () => {
+    const tables = [makeTable({ minCovers: 4, maxCovers: 8 })];
+    expect(filterSuitableTables(tables, 2)).toEqual([]);
+  });
+
+  it("excludes tables where partySize > maxCovers", () => {
+    const tables = [makeTable({ minCovers: 1, maxCovers: 3 })];
+    expect(filterSuitableTables(tables, 4)).toEqual([]);
+  });
+
+  it("includes tables where maxCovers is null (no upper limit)", () => {
+    const tables = [makeTable({ minCovers: 1, maxCovers: null })];
+    expect(filterSuitableTables(tables, 10)).toHaveLength(1);
+  });
+
+  it("returns empty array when no tables provided", () => {
+    expect(filterSuitableTables([], 2)).toEqual([]);
+  });
+
+  it("exact fit: includes table where partySize equals maxCovers", () => {
+    const tables = [makeTable({ minCovers: 1, maxCovers: 4 })];
+    expect(filterSuitableTables(tables, 4)).toHaveLength(1);
+  });
+
+  it("exact fit: includes table where partySize equals minCovers", () => {
+    const tables = [makeTable({ minCovers: 2, maxCovers: 4 })];
+    expect(filterSuitableTables(tables, 2)).toHaveLength(1);
   });
 });

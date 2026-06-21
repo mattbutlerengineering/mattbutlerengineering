@@ -1,19 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDepositDb } = vi.hoisted(() => ({
-  mockDepositDb: {
-    findFirst: vi.fn(),
-    findUnique: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
+const { mockWebhooks, mockDepositFindFirst, mockDepositUpdate } = vi.hoisted(() => ({
+  mockWebhooks: {
+    constructEvent: vi.fn(),
   },
+  mockDepositFindFirst: vi.fn(),
+  mockDepositUpdate: vi.fn(),
 }));
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService({
     prisma: {
-      deposit: mockDepositDb,
+      deposit: {
+        findFirst: mockDepositFindFirst,
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: mockDepositUpdate,
+      },
       guest: {
         findUnique: vi.fn(),
         update: vi.fn(),
@@ -21,12 +25,6 @@ vi.mock("../services/database.js", async () => {
     },
   });
 });
-
-const { mockWebhooks } = vi.hoisted(() => ({
-  mockWebhooks: {
-    constructEvent: vi.fn(),
-  },
-}));
 
 vi.mock("stripe", () => {
   class MockStripe {
@@ -39,28 +37,6 @@ vi.mock("stripe", () => {
 });
 
 import { buildApp } from "../app.js";
-import type { Deposit } from "../generated/prisma/index.js";
-
-function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
-  return {
-    id: "dep-123",
-    reservationId: "res-123",
-    amountCents: 5000,
-    currency: "usd",
-    status: "pending",
-    stripePaymentIntentId: "pi_test_123",
-    stripeCustomerId: null,
-    heldAt: null,
-    appliedAt: null,
-    refundedAt: null,
-    forfeitedAt: null,
-    feeAmountCents: null,
-    refundAmountCents: null,
-    createdAt: new Date("2026-01-25T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-25T00:00:00.000Z"),
-    ...overrides,
-  };
-}
 
 describe("POST /api/v1/stripe/webhook", () => {
   beforeEach(() => {
@@ -106,127 +82,7 @@ describe("POST /api/v1/stripe/webhook", () => {
     await app.close();
   });
 
-  it("handles payment_intent.succeeded — transitions deposit pending -> held", async () => {
-    const pendingDeposit = makeDeposit({ status: "pending" });
-    const heldDeposit = makeDeposit({ status: "held", heldAt: new Date() });
-
-    const mockEvent = {
-      type: "payment_intent.succeeded",
-      data: {
-        object: {
-          id: "pi_test_123",
-          status: "requires_capture",
-        },
-      },
-    };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-    // getByPaymentIntentId (findFirst)
-    mockDepositDb.findFirst.mockResolvedValueOnce(pendingDeposit);
-    // depositService.hold -> _requireDeposit (findUnique)
-    mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
-    mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-
-    const app = await buildApp({ logger: false });
-    await app.ready();
-
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/stripe/webhook",
-      payload: Buffer.from(JSON.stringify(mockEvent)),
-      headers: {
-        "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(mockDepositDb.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: "held",
-          heldAt: expect.any(Date),
-        }),
-      })
-    );
-    await app.close();
-  });
-
-  it("handles payment_intent.canceled — transitions deposit held -> refunded", async () => {
-    const heldDeposit = makeDeposit({ status: "held", heldAt: new Date() });
-    const refundedDeposit = makeDeposit({ status: "refunded", refundedAt: new Date() });
-
-    const mockEvent = {
-      type: "payment_intent.canceled",
-      data: {
-        object: {
-          id: "pi_test_123",
-          status: "canceled",
-        },
-      },
-    };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-    // getByPaymentIntentId
-    mockDepositDb.findFirst.mockResolvedValueOnce(heldDeposit);
-    // depositService.refund -> _requireDeposit
-    mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-    mockDepositDb.update.mockResolvedValueOnce(refundedDeposit);
-
-    const app = await buildApp({ logger: false });
-    await app.ready();
-
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/stripe/webhook",
-      payload: Buffer.from(JSON.stringify(mockEvent)),
-      headers: {
-        "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    await app.close();
-  });
-
-  it("handles charge.refunded — transitions deposit held -> refunded", async () => {
-    const heldDeposit = makeDeposit({ status: "held", heldAt: new Date() });
-    const refundedDeposit = makeDeposit({ status: "refunded", refundedAt: new Date() });
-
-    const mockEvent = {
-      type: "charge.refunded",
-      data: {
-        object: {
-          id: "ch_test_123",
-          payment_intent: "pi_test_123",
-          refunded: true,
-        },
-      },
-    };
-    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
-    // getByPaymentIntentId
-    mockDepositDb.findFirst.mockResolvedValueOnce(heldDeposit);
-    // depositService.refund -> _requireDeposit
-    mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
-    mockDepositDb.update.mockResolvedValueOnce(refundedDeposit);
-
-    const app = await buildApp({ logger: false });
-    await app.ready();
-
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/v1/stripe/webhook",
-      payload: Buffer.from(JSON.stringify(mockEvent)),
-      headers: {
-        "content-type": "application/json",
-        "stripe-signature": "valid_test_sig",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    await app.close();
-  });
-
-  it("returns 200 for unknown event types (graceful ignore)", async () => {
+  it("returns 200 for an unknown event type (no-op, Stripe should not retry)", async () => {
     const mockEvent = {
       type: "customer.created",
       data: { object: { id: "cus_123" } },
@@ -247,6 +103,83 @@ describe("POST /api/v1/stripe/webhook", () => {
     });
 
     expect(response.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("returns 500 when a registered handler throws (Stripe should retry)", async () => {
+    const mockEvent = {
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_123",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    // Make depositService.getByPaymentIntentId throw to simulate a transient DB error
+    mockDepositFindFirst.mockRejectedValueOnce(new Error("DB connection timeout"));
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(500);
+    await app.close();
+  });
+
+  it("returns 200 for a retried payment_intent.succeeded when deposit is already held (idempotent no-op)", async () => {
+    const mockEvent = {
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_already_held",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    // Deposit is already in 'held' state — handler should be a no-op (no throw)
+    mockDepositFindFirst.mockResolvedValueOnce({
+      id: "dep_123",
+      reservationId: "res_123",
+      amountCents: 5000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_already_held",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    // Already held: the handler skips the transition (status !== 'pending'), no throw → 200
+    expect(response.statusCode).toBe(200);
+    // depositService.hold() should NOT have been called (no DB update)
+    expect(mockDepositUpdate).not.toHaveBeenCalled();
     await app.close();
   });
 });

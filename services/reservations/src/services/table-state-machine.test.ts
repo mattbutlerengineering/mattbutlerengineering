@@ -1,142 +1,53 @@
 import { describe, it, expect } from "vitest";
-import {
-  TABLE_VALID_TRANSITIONS,
-  isValidTableTransition,
-  transitionTable,
-  TableTransitionError,
-} from "./table-state-machine.js";
-import type { TableStatus } from "../generated/prisma/index.js";
+import { tableMachine } from "./table-state-machine.js";
 
-describe("table state machine", () => {
-  describe("TABLE_VALID_TRANSITIONS map", () => {
-    it("lists AVAILABLE -> OCCUPIED as valid", () => {
-      expect(TABLE_VALID_TRANSITIONS.AVAILABLE).toContain("OCCUPIED");
+/**
+ * Domain-rule assertions: verifies the TABLE transition graph is correct.
+ * Machine-mechanism tests (TransitionError shape, canTransition, etc.) live in
+ * state-machine.test.ts alongside the factory.
+ */
+describe("table state machine — domain rules", () => {
+  describe("allowed transitions", () => {
+    it("AVAILABLE -> OCCUPIED is allowed", () => {
+      expect(tableMachine.canTransition("AVAILABLE", "OCCUPIED")).toBe(true);
     });
 
-    it("lists only OCCUPIED as valid transition from AVAILABLE", () => {
-      expect(TABLE_VALID_TRANSITIONS.AVAILABLE).toHaveLength(1);
+    it("OCCUPIED -> DIRTY is allowed", () => {
+      expect(tableMachine.canTransition("OCCUPIED", "DIRTY")).toBe(true);
     });
 
-    it("lists OCCUPIED -> DIRTY as valid", () => {
-      expect(TABLE_VALID_TRANSITIONS.OCCUPIED).toContain("DIRTY");
+    it("DIRTY -> READY is allowed", () => {
+      expect(tableMachine.canTransition("DIRTY", "READY")).toBe(true);
     });
 
-    it("lists only DIRTY as valid transition from OCCUPIED", () => {
-      expect(TABLE_VALID_TRANSITIONS.OCCUPIED).toHaveLength(1);
-    });
-
-    it("lists DIRTY -> READY as valid", () => {
-      expect(TABLE_VALID_TRANSITIONS.DIRTY).toContain("READY");
-    });
-
-    it("lists only READY as valid transition from DIRTY", () => {
-      expect(TABLE_VALID_TRANSITIONS.DIRTY).toHaveLength(1);
-    });
-
-    it("lists READY -> AVAILABLE as valid", () => {
-      expect(TABLE_VALID_TRANSITIONS.READY).toContain("AVAILABLE");
-    });
-
-    it("lists only AVAILABLE as valid transition from READY", () => {
-      expect(TABLE_VALID_TRANSITIONS.READY).toHaveLength(1);
+    it("READY -> AVAILABLE is allowed (cycle reset)", () => {
+      expect(tableMachine.canTransition("READY", "AVAILABLE")).toBe(true);
     });
   });
 
-  describe("isValidTableTransition", () => {
-    it("returns true for AVAILABLE -> OCCUPIED", () => {
-      expect(isValidTableTransition("AVAILABLE", "OCCUPIED")).toBe(true);
+  describe("disallowed transitions", () => {
+    it("AVAILABLE -> DIRTY is not allowed (skipping OCCUPIED)", () => {
+      expect(tableMachine.canTransition("AVAILABLE", "DIRTY")).toBe(false);
     });
 
-    it("returns true for OCCUPIED -> DIRTY", () => {
-      expect(isValidTableTransition("OCCUPIED", "DIRTY")).toBe(true);
+    it("AVAILABLE -> READY is not allowed (skipping steps)", () => {
+      expect(tableMachine.canTransition("AVAILABLE", "READY")).toBe(false);
     });
 
-    it("returns true for DIRTY -> READY", () => {
-      expect(isValidTableTransition("DIRTY", "READY")).toBe(true);
+    it("AVAILABLE -> AVAILABLE is not allowed (self-transition)", () => {
+      expect(tableMachine.canTransition("AVAILABLE", "AVAILABLE")).toBe(false);
     });
 
-    it("returns true for READY -> AVAILABLE", () => {
-      expect(isValidTableTransition("READY", "AVAILABLE")).toBe(true);
+    it("OCCUPIED -> AVAILABLE is not allowed (backward)", () => {
+      expect(tableMachine.canTransition("OCCUPIED", "AVAILABLE")).toBe(false);
     });
 
-    it("returns false for AVAILABLE -> DIRTY (skipping OCCUPIED)", () => {
-      expect(isValidTableTransition("AVAILABLE", "DIRTY")).toBe(false);
+    it("DIRTY -> AVAILABLE is not allowed (skipping READY)", () => {
+      expect(tableMachine.canTransition("DIRTY", "AVAILABLE")).toBe(false);
     });
 
-    it("returns false for AVAILABLE -> READY (skipping)", () => {
-      expect(isValidTableTransition("AVAILABLE", "READY")).toBe(false);
-    });
-
-    it("returns false for AVAILABLE -> AVAILABLE (self-transition)", () => {
-      expect(isValidTableTransition("AVAILABLE", "AVAILABLE")).toBe(false);
-    });
-
-    it("returns false for OCCUPIED -> AVAILABLE (backward)", () => {
-      expect(isValidTableTransition("OCCUPIED", "AVAILABLE")).toBe(false);
-    });
-
-    it("returns false for DIRTY -> AVAILABLE (skipping READY)", () => {
-      expect(isValidTableTransition("DIRTY", "AVAILABLE")).toBe(false);
-    });
-
-    it("returns false for READY -> DIRTY (backward)", () => {
-      expect(isValidTableTransition("READY", "DIRTY")).toBe(false);
-    });
-  });
-
-  describe("transitionTable", () => {
-    it("returns new status on valid AVAILABLE -> OCCUPIED", () => {
-      const result = transitionTable("AVAILABLE", "OCCUPIED");
-      expect(result).toBe("OCCUPIED");
-    });
-
-    it("returns new status on valid OCCUPIED -> DIRTY", () => {
-      const result = transitionTable("OCCUPIED", "DIRTY");
-      expect(result).toBe("DIRTY");
-    });
-
-    it("returns new status on valid DIRTY -> READY", () => {
-      const result = transitionTable("DIRTY", "READY");
-      expect(result).toBe("READY");
-    });
-
-    it("returns new status on valid READY -> AVAILABLE", () => {
-      const result = transitionTable("READY", "AVAILABLE");
-      expect(result).toBe("AVAILABLE");
-    });
-
-    it("throws TableTransitionError on invalid AVAILABLE -> DIRTY", () => {
-      expect(() => transitionTable("AVAILABLE", "DIRTY")).toThrow(TableTransitionError);
-    });
-
-    it("throws TableTransitionError on invalid AVAILABLE -> READY", () => {
-      expect(() => transitionTable("AVAILABLE", "READY")).toThrow(TableTransitionError);
-    });
-
-    it("throws TableTransitionError on invalid OCCUPIED -> AVAILABLE (backward)", () => {
-      expect(() => transitionTable("OCCUPIED", "AVAILABLE")).toThrow(TableTransitionError);
-    });
-
-    it("throws TableTransitionError on invalid DIRTY -> OCCUPIED (backward)", () => {
-      expect(() => transitionTable("DIRTY", "OCCUPIED")).toThrow(TableTransitionError);
-    });
-
-    it("error message includes from/to states", () => {
-      expect(() => transitionTable("AVAILABLE", "DIRTY")).toThrow(
-        /AVAILABLE.*DIRTY|DIRTY.*AVAILABLE/i
-      );
-    });
-
-    it("TableTransitionError has from and to properties", () => {
-      try {
-        transitionTable("AVAILABLE", "DIRTY");
-        expect.fail("should have thrown");
-      } catch (err) {
-        expect(err).toBeInstanceOf(TableTransitionError);
-        const tableErr = err as TableTransitionError;
-        expect(tableErr.from).toBe("AVAILABLE" as TableStatus);
-        expect(tableErr.to).toBe("DIRTY" as TableStatus);
-      }
+    it("READY -> DIRTY is not allowed (backward)", () => {
+      expect(tableMachine.canTransition("READY", "DIRTY")).toBe(false);
     });
   });
 });

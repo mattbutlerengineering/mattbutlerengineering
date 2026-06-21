@@ -250,11 +250,11 @@
     </item>
   </file>
   <file path="src/routes/stripe-webhook.ts">
-    <item priority="high">
-      export const stripeWebhookRoutes: FastifyPluginAsync;
+    <item priority="low">
+      async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function handleStripeEvent(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/tables.ts">
@@ -270,6 +270,18 @@
   <file path="src/routes/waitlist.ts">
     <item priority="high">
       export const waitlistRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/webhook-event-router.ts">
+    <item priority="high">
+      type WebhookHandler = (event: T) => Promise<void>;
+    </item>
+    <item priority="high">
+      class WebhookEventRouter {
+        handlers: unknown;
+        async register(): Promise<unknown>;
+        async dispatch(): Promise<unknown>;
+      }
     </item>
   </file>
   </section>
@@ -358,10 +370,10 @@
   </file>
   <file path="src/services/deposit-state-machine.ts">
     <item priority="high">
-      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+      export const depositMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean { /* ... */ }
+      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
     </item>
   </file>
   <file path="src/services/deposit.ts">
@@ -548,13 +560,10 @@
   </file>
   <file path="src/services/reservation-state-machine.ts">
     <item priority="high">
-      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
+      export const reservationMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidReservationTransition(
-        from: ReservationStatus,
-        to: ReservationStatus
-      ): boolean { /* ... */ }
+      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
     </item>
   </file>
   <file path="src/services/reservation.ts">
@@ -625,6 +634,21 @@
       }
     </item>
   </file>
+  <file path="src/services/state-machine.ts">
+    <item priority="low">
+      interface StateMachine {
+        
+      }
+    </item>
+    <item priority="high">
+      class TransitionError {
+        from: string;
+        to: string;
+        allowed: string[];
+        entityType: string | undefined;
+      }
+    </item>
+  </file>
   <file path="src/services/stripe.ts">
     <item priority="high">
       class StripeOperationError {
@@ -639,10 +663,10 @@
   </file>
   <file path="src/services/table-state-machine.ts">
     <item priority="high">
-      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
+      export const tableMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidTableTransition(from: TableStatus, to: TableStatus): boolean { /* ... */ }
+      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
     </item>
   </file>
   <file path="src/services/table.ts">
