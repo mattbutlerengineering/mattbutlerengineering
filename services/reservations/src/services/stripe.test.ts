@@ -105,8 +105,18 @@ describe("StripeService", () => {
 
       const result = await stripeService.capturePaymentIntent("pi_test_123");
 
-      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123");
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, undefined);
       expect(result.status).toBe("succeeded");
+    });
+
+    it("forwards an idempotency key as Stripe request options", async () => {
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+
+      await stripeService.capturePaymentIntent("pi_test_123", "dep-123:apply");
+
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:apply",
+      });
     });
   });
 
@@ -120,8 +130,18 @@ describe("StripeService", () => {
 
       const result = await stripeService.cancelPaymentIntent("pi_test_123");
 
-      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123");
+      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, undefined);
       expect(result.status).toBe("canceled");
+    });
+
+    it("forwards an idempotency key as Stripe request options", async () => {
+      mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
+
+      await stripeService.cancelPaymentIntent("pi_test_123", "dep-123:refund");
+
+      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:refund",
+      });
     });
   });
 

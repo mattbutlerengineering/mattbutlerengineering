@@ -2784,6 +2784,22 @@
     export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
       registerReadinessRoutes(fastify, { prisma, auth0Url });
   </file>
+  <file path="src/routes/reservation-owner.ts">
+    export function resolveReservationGuestEmail(
+      getById: (id: string) => Promise<{ guestEmail: string | null } | null>
+    ): OwnerResolver {
+      return async function (request: FastifyRequest): Promise<string | null> {
+        const params = request.params as { id?: string };
+        const id = params.id;
+        if (!id) return null;
+        const reservation = await getById(id);
+        return reservation?.guestEmail ?? null;
+      };
+    }
+    export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> {
+      return request.user?.email ?? null;
+    }
+  </file>
   <file path="src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       // List reservations
@@ -3042,7 +3058,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
           schema: {
             summary: "Get reservation by ID",
             operationId: "getReservationById",
@@ -3083,17 +3099,6 @@
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          const authUser = request.user;
-          const adminAccess = hasPermission(authUser, "admin");
-          const isOwner = reservation.guestEmail === authUser?.email;
-    
-          if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(403, "Forbidden", "You can only view your own reservations") as never
-            );
           }
     
           return { data: reservation };
@@ -3246,7 +3251,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
           schema: {
             summary: "Update a reservation",
             operationId: "updateReservation",
@@ -3354,21 +3359,6 @@
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
     
-          const authUser = request.user;
-          const adminAccess = hasPermission(authUser, "admin");
-          const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
-    
-          if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "You can only update your own reservations"
-              ) as never
-            );
-          }
-    
           if (request.body.status === "CANCELLED") {
             try {
               const cancelled = await reservationService.cancel(
@@ -3468,7 +3458,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireReservationOwnerOrAdmin],
           schema: {
             summary: "Cancel a reservation",
             operationId: "cancelReservation",
@@ -3510,21 +3500,6 @@
             return reply
               .code(404)
               .send(createProblemDetails(404, "Not Found", "Reservation not found"));
-          }
-    
-          const authUser = request.user;
-          const adminAccess = hasPermission(authUser, "admin");
-          const isOwner = authUser?.email && reservation.guestEmail === authUser.email;
-    
-          if (!adminAccess && !isOwner) {
-            reply.code(403);
-            return reply.send(
-              createProblemDetails(
-                403,
-                "Forbidden",
-                "You can only cancel your own reservations"
-              ) as never
-            );
           }
     
           try {

@@ -1,15 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, Badge, Spinner, Heading, Text } from "@mattbutlerengineering/rialto";
+import { statusColor, statusLabel, overallStatus } from "../utils/formatters.js";
+import type { ServiceStatus } from "../utils/formatters.js";
 import styles from "./StatusPage.module.css";
-
-interface ServiceStatus {
-  readonly name: string;
-  readonly url: string;
-  readonly status: "ok" | "degraded" | "error" | "loading";
-  readonly version?: string;
-  readonly latency?: number;
-  readonly checkedAt?: string;
-}
 
 const SERVICES = [
   { name: "Users API", url: "/api/v1/users/health" },
@@ -24,34 +17,6 @@ const STATIC_SITES = [
 ] as const;
 
 const POLL_INTERVAL_MS = 30_000;
-
-function statusColor(status: string): "green" | "yellow" | "red" | "neutral" {
-  switch (status) {
-    case "ok":
-      return "green";
-    case "degraded":
-      return "yellow";
-    case "error":
-      return "red";
-    default:
-      return "neutral";
-  }
-}
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case "ok":
-      return "Operational";
-    case "degraded":
-      return "Degraded";
-    case "error":
-      return "Down";
-    case "loading":
-      return "Checking...";
-    default:
-      return "Unknown";
-  }
-}
 
 async function checkService(url: string): Promise<Omit<ServiceStatus, "name" | "url">> {
   const start = Date.now();
@@ -99,13 +64,6 @@ async function checkStaticSite(url: string): Promise<Omit<ServiceStatus, "name" 
       checkedAt: new Date().toISOString(),
     };
   }
-}
-
-function overallStatus(statuses: ServiceStatus[]): "ok" | "degraded" | "error" | "loading" {
-  if (statuses.some((s) => s.status === "loading")) return "loading";
-  if (statuses.every((s) => s.status === "ok")) return "ok";
-  if (statuses.some((s) => s.status === "error")) return "error";
-  return "degraded";
 }
 
 export function StatusPage() {

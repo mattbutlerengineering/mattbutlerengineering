@@ -61,24 +61,9 @@ export interface SensorReport {
   };
 }
 
-export function formatSensorStatus(available: boolean): string {
-  return available ? "Available" : "Unavailable";
-}
-
-export function getSensorColor(available: boolean): "green" | "red" {
-  return available ? "green" : "red";
-}
-
-export function formatPercent(value: number): string {
-  const rounded = Math.round(value * 10) / 10;
-  return rounded % 1 === 0 ? `${rounded}%` : `${rounded}%`;
-}
-
-export function formatTimestamp(value: string | null | undefined): string {
-  if (value == null) return "Never";
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+export {
+  formatSensorStatus,
+  getSensorColor,
+  formatPercent,
+  formatTimestamp,
+} from "../utils/formatters.js";
