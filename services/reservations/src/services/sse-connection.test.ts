@@ -44,8 +44,7 @@ function makeReservationEvent(overrides: Partial<ReservationEvent> = {}): Reserv
     type: "reservation:created",
     venueId: "venue-1",
     timestamp: new Date().toISOString(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: { id: "res-1" } as any,
+    data: { id: "res-1" } as unknown as ReservationEvent["data"],
     ...overrides,
   };
 }
