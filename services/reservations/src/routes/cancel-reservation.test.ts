@@ -227,36 +227,46 @@ describe("DELETE /public/v1/reservations/manage", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("cancels reminder jobs via injected bookingNotifier", async () => {
-    const stubNotifier: BookingNotifier = {
-      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
-      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
-      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-    };
-    const stubApp = await buildApp({
-      logger: false,
-      notificationPort: createStubNotificationDispatcher() as never,
-      bookingNotifier: stubNotifier,
-    });
-    await stubApp.ready();
+  describe("booking notifier injection", () => {
+    // Isolated app instance to test BookingNotifier injection without rate-limit bleed
+    let notifierApp: FastifyInstance;
+    let stubNotifier: BookingNotifier;
 
-    const token = generateManageToken("res_1", "jane@example.com");
-    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(reservationService.update).mockResolvedValueOnce({
-      ...mockReservation,
-      status: "CANCELLED",
-    } as never);
-    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
-
-    const response = await stubApp.inject({
-      method: "DELETE",
-      url: `/public/v1/reservations/manage?token=${token}`,
+    beforeAll(async () => {
+      stubNotifier = {
+        scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+        rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+      };
+      notifierApp = await buildApp({
+        logger: false,
+        notificationPort: createStubNotificationDispatcher() as never,
+        bookingNotifier: stubNotifier,
+      });
+      await notifierApp.ready();
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(stubNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+    afterAll(async () => {
+      await notifierApp.close();
+    });
 
-    await stubApp.close();
+    it("cancels reminder jobs via injected bookingNotifier", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...mockReservation,
+        status: "CANCELLED",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+      const response = await notifierApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(stubNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+    });
   });
 
   describe("cancellation policy + deposit integration", () => {
