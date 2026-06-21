@@ -37,9 +37,20 @@
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
+      /** Flat `prisma` re-export — backward-compatible with tests that import prisma directly. */
       prisma: MockPrisma;
+      /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
+      db: {
+        prisma: MockPrisma;
+        getSlowQueryStats: ReturnType<typeof vi.fn>;
+        getServiceStatus: ReturnType<typeof vi.fn>;
+        getPoolMetrics: ReturnType<typeof vi.fn>;
+      };
+      /** @deprecated Access via db.getSlowQueryStats instead. */
       getSlowQueryStats: ReturnType<typeof vi.fn>;
+      /** @deprecated Access via db.getServiceStatus instead. */
       getServiceStatus: ReturnType<typeof vi.fn>;
+      /** @deprecated Access via db.getPoolMetrics instead. */
       getPoolMetrics: ReturnType<typeof vi.fn>;
     }
   </file>

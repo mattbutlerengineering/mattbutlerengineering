@@ -64,9 +64,10 @@ export interface DatabaseInstance<T> {
   shutdown: () => Promise<void>;
 }
 
-interface PrismaLike {
+export interface PrismaLike {
   $extends: (extension: unknown) => unknown;
   $disconnect: () => Promise<void>;
+  $queryRaw: (...args: unknown[]) => Promise<unknown>;
 }
 
 interface PrismaConstructor {

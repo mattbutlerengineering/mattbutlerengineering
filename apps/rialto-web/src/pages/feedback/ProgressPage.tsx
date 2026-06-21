@@ -50,6 +50,7 @@ function ProgressPlayground() {
         />
       </div>
       {!indeterminate && (
+        // eslint-disable-next-line mbe-local/prefer-rialto-components
         <input
           type="range"
           min={0}
@@ -149,57 +150,12 @@ export function ProgressPage() {
 
       {/* ── Props Table (Progress) ────────────────────────────────── */}
       <Section title="Progress Props">
-        <PropsTable
-          props={[
-            {
-              name: "value",
-              type: "number",
-              description: "Current value (0–max). Omit for indeterminate mode.",
-            },
-            {
-              name: "max",
-              type: "number",
-              default: "100",
-              description: "Maximum value.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Descriptive label above the bar.",
-            },
-            {
-              name: "showValue",
-              type: "boolean",
-              default: "false",
-              description: "Shows percentage beside the label.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md"',
-              default: '"md"',
-              description: "Height of the progress track.",
-            },
-          ]}
-        />
+        <PropsTable component="Progress" />
       </Section>
 
       {/* ── Props Table (Spinner) ─────────────────────────────────── */}
       <Section title="Spinner Props">
-        <PropsTable
-          props={[
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Size of the spinner.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Screen reader text and optional visible label.",
-            },
-          ]}
-        />
+        <PropsTable component="Spinner" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

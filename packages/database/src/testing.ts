@@ -9,9 +9,20 @@ export interface MockPrisma {
 
 /** Typed mock shape for a service's database.js module. */
 export interface MockDatabaseService {
+  /** Flat `prisma` re-export — backward-compatible with tests that import prisma directly. */
   prisma: MockPrisma;
+  /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
+  db: {
+    prisma: MockPrisma;
+    getSlowQueryStats: ReturnType<typeof vi.fn>;
+    getServiceStatus: ReturnType<typeof vi.fn>;
+    getPoolMetrics: ReturnType<typeof vi.fn>;
+  };
+  /** @deprecated Access via db.getSlowQueryStats instead. */
   getSlowQueryStats: ReturnType<typeof vi.fn>;
+  /** @deprecated Access via db.getServiceStatus instead. */
   getServiceStatus: ReturnType<typeof vi.fn>;
+  /** @deprecated Access via db.getPoolMetrics instead. */
   getPoolMetrics: ReturnType<typeof vi.fn>;
 }
 
@@ -67,12 +78,65 @@ export function createMockDatabaseService(
   const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
   const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
 
+  const getSlowQueryStats =
+    overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS);
+  const getServiceStatus =
+    overrides?.getServiceStatus ?? vi.fn().mockReturnValue(DEFAULT_SERVICE_STATUS);
+  const getPoolMetrics = overrides?.getPoolMetrics ?? vi.fn().mockReturnValue(DEFAULT_POOL_METRICS);
+
   return {
     prisma: mergedPrisma,
-    getSlowQueryStats:
-      overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS),
-    getServiceStatus:
-      overrides?.getServiceStatus ?? vi.fn().mockReturnValue(DEFAULT_SERVICE_STATUS),
-    getPoolMetrics: overrides?.getPoolMetrics ?? vi.fn().mockReturnValue(DEFAULT_POOL_METRICS),
+    db: {
+      prisma: mergedPrisma,
+      getSlowQueryStats,
+      getServiceStatus,
+      getPoolMetrics,
+    },
+    getSlowQueryStats,
+    getServiceStatus,
+    getPoolMetrics,
+  };
+}
+
+/** Typed mock for the new services/database.ts module shape: { db, prisma }. */
+export interface MockDatabaseModule {
+  db: {
+    prisma: MockPrisma;
+    getSlowQueryStats: ReturnType<typeof vi.fn>;
+    getServiceStatus: ReturnType<typeof vi.fn>;
+    getPoolMetrics: ReturnType<typeof vi.fn>;
+  };
+  prisma: MockPrisma;
+}
+
+/**
+ * Creates a mock for services/database.ts that exports `{ db, prisma }`.
+ *
+ * Usage inside vi.mock:
+ * ```ts
+ * vi.mock("../services/database.js", async () => {
+ *   const { createMockDatabaseModule } = await import("@mbe/database/testing");
+ *   return createMockDatabaseModule();
+ * });
+ * ```
+ *
+ * Override per-test behaviour:
+ * ```ts
+ * import { db } from "../services/database.js";
+ * vi.mocked(db.getPoolMetrics).mockReturnValueOnce({ ..., isDegraded: true });
+ * ```
+ */
+export function createMockDatabaseModule(
+  overrides?: MockDatabaseServiceOverrides
+): MockDatabaseModule {
+  const mock = createMockDatabaseService(overrides);
+  return {
+    db: {
+      prisma: mock.prisma,
+      getSlowQueryStats: mock.getSlowQueryStats,
+      getServiceStatus: mock.getServiceStatus,
+      getPoolMetrics: mock.getPoolMetrics,
+    },
+    prisma: mock.prisma,
   };
 }

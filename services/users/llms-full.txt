@@ -77,14 +77,8 @@
   <file path="src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
-        prisma,
-        getSlowQueryStats,
-        getServiceStatus,
-        getPoolMetrics,
-        latencyTracker,
+        db,
         checkAuth0,
-        rateLimitMonitor: fastify.rateLimitMonitor,
-        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
@@ -117,8 +111,8 @@
   </section>
   <section priority="medium" role="services">
   <file path="src/services/database.ts">
+    export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
-    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="src/services/user.ts">
     function mapPrismaUser(user: {

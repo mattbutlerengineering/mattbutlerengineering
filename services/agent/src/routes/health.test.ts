@@ -3,8 +3,8 @@ import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 
 vi.mock("../services/database.js", async () => {
-  const { createMockDatabaseService } = await import("@mbe/database/testing");
-  return createMockDatabaseService({
+  const { createMockDatabaseModule } = await import("@mbe/database/testing");
+  return createMockDatabaseModule({
     prisma: {
       $queryRaw: vi.fn(),
       agentSession: { findMany: vi.fn().mockResolvedValue([]) },
@@ -12,15 +12,11 @@ vi.mock("../services/database.js", async () => {
   });
 });
 
-// Mock @mbe/service-bootstrap health exports (createLatencyTracker, checkAuth0, registerHealthRoutes)
+// Mock @mbe/service-bootstrap to intercept checkAuth0 inside health-routes
 vi.mock("@mbe/service-bootstrap", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    createLatencyTracker: vi.fn().mockReturnValue({
-      record: vi.fn(),
-      checkAnomaly: vi.fn().mockReturnValue({ isAnomaly: false, rollingAvg: 0 }),
-    }),
     checkAuth0: vi.fn().mockResolvedValue({ status: "ok", latency: 50 }),
   };
 });
@@ -77,7 +73,7 @@ vi.mock("@mbe/observability", async (importOriginal) => {
   };
 });
 
-import { prisma, getPoolMetrics } from "../services/database.js";
+import { db, prisma } from "../services/database.js";
 
 describe("Health Routes", () => {
   let app: FastifyInstance;
@@ -161,7 +157,7 @@ describe("Health Routes", () => {
 
     it("returns degraded status when pool utilization is high", async () => {
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
-      vi.mocked(getPoolMetrics).mockReturnValueOnce({
+      vi.mocked(db.getPoolMetrics).mockReturnValueOnce({
         active: 5,
         idle: 0,
         busy: 5,

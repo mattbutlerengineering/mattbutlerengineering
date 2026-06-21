@@ -95,37 +95,7 @@ export function BannerPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"info" | "warning" | "error" | "accent"',
-              default: '"info"',
-              description: "Color and icon variant.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Banner message content.",
-            },
-            {
-              name: "action",
-              type: "ReactNode",
-              description: "Optional action element (e.g. a Button) on the right side.",
-            },
-            {
-              name: "dismissible",
-              type: "boolean",
-              default: "false",
-              description: "Shows a dismiss button.",
-            },
-            {
-              name: "title",
-              type: "string",
-              description: "Optional bold title before the message.",
-            },
-          ]}
-        />
+        <PropsTable component="Banner" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
