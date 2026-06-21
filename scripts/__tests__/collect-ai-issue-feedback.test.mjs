@@ -6,6 +6,7 @@ import {
   CATEGORIES,
   DEFAULT_BUDGET_PER_CATEGORY,
   REJECTION_THRESHOLD,
+  ISSUE_JSON_FIELDS,
 } from "../collect-ai-issue-feedback.mjs";
 
 // ---------------------------------------------------------------------------
@@ -184,5 +185,38 @@ describe("constants", () => {
   it("DEFAULT_BUDGET_PER_CATEGORY is a positive integer", () => {
     expect(DEFAULT_BUDGET_PER_CATEGORY).toBeGreaterThan(0);
     expect(Number.isInteger(DEFAULT_BUDGET_PER_CATEGORY)).toBe(true);
+  });
+
+  it("ISSUE_JSON_FIELDS contains only valid gh issue list fields", () => {
+    // gh issue list --json rejects unknown fields and prints an error listing valid ones
+    const VALID_GH_ISSUE_FIELDS = new Set([
+      "assignees",
+      "author",
+      "body",
+      "closed",
+      "closedAt",
+      "comments",
+      "createdAt",
+      "id",
+      "isPinned",
+      "labels",
+      "milestone",
+      "number",
+      "projectCards",
+      "projectItems",
+      "reactionGroups",
+      "state",
+      "stateReason",
+      "title",
+      "updatedAt",
+      "url",
+    ]);
+    const fields = ISSUE_JSON_FIELDS.split(",");
+    for (const field of fields) {
+      expect(
+        VALID_GH_ISSUE_FIELDS.has(field),
+        `"${field}" is not a valid gh issue list field`
+      ).toBe(true);
+    }
   });
 });

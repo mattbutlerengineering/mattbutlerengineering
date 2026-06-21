@@ -206,13 +206,7 @@ interface Deposit {
   updatedAt: Date;
 }
 
-type DepositStatus =
-  | "pending"
-  | "held"
-  | "applied"
-  | "refunded"
-  | "partial_refunded"
-  | "forfeited";
+type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
 
 type DepositType = "flat" | "per_person"; // stored on Venue.depositType
 ```
