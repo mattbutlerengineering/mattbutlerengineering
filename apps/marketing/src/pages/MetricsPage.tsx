@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
+import { formatRatio, formatDate } from "../utils/formatters.js";
+import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./MetricsPage.module.css";
 
 interface BehavioralGate {
@@ -44,56 +45,19 @@ interface AcmmMetrics {
   readonly behavioralGates: readonly BehavioralGate[];
 }
 
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export function MetricsPage() {
-  const [metrics, setMetrics] = useState<AcmmMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const response = await fetch("/metrics.json");
-        if (!response.ok) {
-          throw new Error(`Failed to load metrics: ${response.status}`);
-        }
-        const data: AcmmMetrics = await response.json();
-        if (!cancelled) {
-          setMetrics(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error");
-        }
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: metrics, isLoading, error } = useDataFetch<AcmmMetrics>({ url: "/metrics.json" });
 
   if (error) {
     return (
       <div className={styles.container}>
         <Heading level={1}>Quality Metrics</Heading>
-        <Text className={styles.error}>Error loading metrics: {error}</Text>
+        <Text className={styles.error}>Error loading metrics: {error.message}</Text>
       </div>
     );
   }
 
-  if (!metrics) {
+  if (isLoading || !metrics) {
     return (
       <div className={styles.container}>
         <Heading level={1}>Quality Metrics</Heading>
@@ -161,9 +125,9 @@ export function MetricsPage() {
               <Text className={styles.gateValue}>
                 L{gate.level}:{" "}
                 {typeof gate.value === "number" && gate.value <= 1
-                  ? formatPercent(gate.value)
+                  ? formatRatio(gate.value)
                   : gate.value}{" "}
-                (threshold: {gate.threshold <= 1 ? formatPercent(gate.threshold) : gate.threshold})
+                (threshold: {gate.threshold <= 1 ? formatRatio(gate.threshold) : gate.threshold})
               </Text>
             </Card>
           ))}
@@ -176,26 +140,22 @@ export function MetricsPage() {
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PR Acceptance</Text>
             <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.agentPrAcceptanceRate)}
+              {formatRatio(metrics.behavioral.agentPrAcceptanceRate)}
             </Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PR Revert Rate</Text>
             <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.agentPrRevertRate)}
+              {formatRatio(metrics.behavioral.agentPrRevertRate)}
             </Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>CI Flake Rate</Text>
-            <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.ciFlakeRate)}
-            </Text>
+            <Text className={styles.statValue}>{formatRatio(metrics.behavioral.ciFlakeRate)}</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Eval Pass Rate</Text>
-            <Text className={styles.statValue}>
-              {formatPercent(metrics.behavioral.evalPassRate)}
-            </Text>
+            <Text className={styles.statValue}>{formatRatio(metrics.behavioral.evalPassRate)}</Text>
           </Card>
         </div>
       </section>

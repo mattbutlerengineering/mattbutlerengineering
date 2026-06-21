@@ -1148,6 +1148,23 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/marketing/src/hooks/useDataFetch.ts">
+    <item priority="low">
+      interface UseDataFetchOptions {
+        url: string;
+        parser?: (data: unknown) => T;
+        deps?: DependencyList;
+      }
+    </item>
+    <item priority="low">
+      interface UseDataFetchReturn {
+        data: T | null;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<void>;
+      }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
@@ -4576,6 +4593,20 @@
   <file path="apps/hospitality/src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/marketing/src/utils/formatters.ts">
+    <item priority="low">
+      interface ServiceStatus {
+        name: string;
+        url: string;
+        status: "ok" | "degraded" | "error" | "loading";
+        version?: string;
+        latency?: number;
+      }
+    </item>
+    <item priority="high">
+      export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/utils/class-composer.ts">

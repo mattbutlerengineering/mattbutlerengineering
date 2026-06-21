@@ -3240,6 +3240,19 @@
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
+  <file path="apps/marketing/src/hooks/useDataFetch.ts">
+    export interface UseDataFetchOptions<T> {
+      url: string;
+      parser?: (data: unknown) => T;
+      deps?: DependencyList;
+    }
+    export interface UseDataFetchReturn<T> {
+      data: T | null;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => Promise<void>;
+    }
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     export function usePropsFromManifest(componentName: string): PropDef[] {
       const entry = manifest.components.find((c) => c.name === componentName);
@@ -16152,6 +16165,28 @@
       const suffix = ["th", "st", "nd", "rd"];
       const v = n % 100;
       return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]} visit`;
+    }
+  </file>
+  <file path="apps/marketing/src/utils/formatters.ts">
+    export interface ServiceStatus {
+      readonly name: string;
+      readonly url: string;
+      readonly status: "ok" | "degraded" | "error" | "loading";
+      readonly version?: string;
+      readonly latency?: number;
+      readonly checkedAt?: string;
+    }
+    export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" {
+      switch (status) {
+        case "ok":
+          return "green";
+        case "degraded":
+          return "yellow";
+        case "error":
+          return "red";
+        default:
+          return "neutral";
+      }
     }
   </file>
   <file path="packages/rialto/src/utils/class-composer.ts">
