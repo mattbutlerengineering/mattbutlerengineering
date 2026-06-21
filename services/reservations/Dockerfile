@@ -17,6 +17,7 @@ COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY packages/notifications/package.json ./packages/notifications/
 COPY packages/jobs/package.json ./packages/jobs/
@@ -34,6 +35,7 @@ COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/cancellation-policy/tsconfig.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
 COPY packages/notifications/tsconfig.json ./packages/notifications/
 COPY packages/jobs/tsconfig.json ./packages/jobs/
@@ -51,6 +53,7 @@ COPY packages/observability/src ./packages/observability/src
 COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
+COPY packages/cancellation-policy/src ./packages/cancellation-policy/src
 COPY packages/service-bootstrap/src ./packages/service-bootstrap/src
 COPY packages/notifications/src ./packages/notifications/src
 COPY packages/jobs/src ./packages/jobs/src
@@ -64,6 +67,7 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
+    pnpm --filter @mbe/cancellation-policy build && \
     pnpm --filter @mbe/service-bootstrap build && \
     pnpm --filter @mbe/notifications build && \
     pnpm --filter @mbe/jobs build && \
@@ -93,6 +97,7 @@ COPY packages/observability/package.json ./packages/observability/
 COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
+COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY packages/notifications/package.json ./packages/notifications/
 COPY packages/jobs/package.json ./packages/jobs/
@@ -110,6 +115,7 @@ COPY --from=builder /app/packages/observability/dist ./packages/observability/di
 COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/cancellation-policy/dist ./packages/cancellation-policy/dist
 COPY --from=builder /app/packages/service-bootstrap/dist ./packages/service-bootstrap/dist
 COPY --from=builder /app/packages/notifications/dist ./packages/notifications/dist
 COPY --from=builder /app/packages/jobs/dist ./packages/jobs/dist
