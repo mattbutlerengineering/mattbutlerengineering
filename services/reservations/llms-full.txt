@@ -1,5 +1,14 @@
 <codebase path="services/reservations">
   <section priority="medium" role="config">
+  <file path="src/config/manage-token.ts">
+    export interface ManageTokenConfig {
+      secret: string;
+    }
+    interface ManageTokenConfigInput {
+      nodeEnv: string | undefined;
+      secret: string | undefined;
+    }
+  </file>
   <file path="src/config/stripe.ts">
     export interface StripeConfig {
       secretKey: string;
@@ -5890,6 +5899,13 @@
         nodeEnv: process.env.NODE_ENV,
         secretKey: process.env.STRIPE_SECRET_KEY,
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      });
+    
+      // Validate manage-token HMAC secret at startup — throws in production if missing.
+      // In test/dev, warns but continues to allow local development without real tokens.
+      getManageTokenConfig({
+        nodeEnv: process.env.NODE_ENV,
+        secret: process.env.MANAGE_TOKEN_SECRET,
       });
     
       const fastify = await createServiceApp(
