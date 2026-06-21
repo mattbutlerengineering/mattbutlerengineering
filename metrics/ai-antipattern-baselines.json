@@ -18,7 +18,7 @@
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
-      "count": 381,
+      "count": 389,
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {

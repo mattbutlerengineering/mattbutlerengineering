@@ -1,7 +1,19 @@
 import { useReducer, useCallback } from "react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
 
-export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+export type BookingStep =
+  | "date-party"
+  | "time-slot"
+  | "guest-details"
+  | "payment"
+  | "confirmation"
+  | "waitlist-join"
+  | "waitlist-confirmation";
+
+export interface WaitlistResult {
+  position: number;
+  estimatedWaitMinutes: number;
+}
 
 export interface BookingFlowData {
   selectedDate: string | null;
@@ -19,6 +31,7 @@ export interface BookingFlowData {
   confirmError: string | null;
   depositConfig: DepositConfig | null;
   depositPaymentIntentId: string | null;
+  waitlistResult: WaitlistResult | null;
 }
 
 interface BookingFlowState {
@@ -45,7 +58,9 @@ type BookingFlowAction =
   | { type: "GO_BACK_TO_GUEST_DETAILS" }
   | { type: "EXPIRE_HOLD" }
   | { type: "RESET" }
-  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null };
+  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null }
+  | { type: "GO_TO_WAITLIST_JOIN" }
+  | { type: "WAITLIST_JOINED"; result: WaitlistResult };
 
 const INITIAL_DATA: BookingFlowData = {
   selectedDate: null,
@@ -63,6 +78,7 @@ const INITIAL_DATA: BookingFlowData = {
   confirmError: null,
   depositConfig: null,
   depositPaymentIntentId: null,
+  waitlistResult: null,
 };
 
 const INITIAL_STATE: BookingFlowState = {
@@ -201,6 +217,15 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
     case "SET_DEPOSIT_CONFIG":
       return { ...state, data: { ...state.data, depositConfig: action.config } };
 
+    case "GO_TO_WAITLIST_JOIN":
+      return { ...state, step: "waitlist-join" };
+
+    case "WAITLIST_JOINED":
+      return {
+        step: "waitlist-confirmation",
+        data: { ...state.data, waitlistResult: action.result },
+      };
+
     default:
       return state;
   }
@@ -227,6 +252,8 @@ export interface BookingFlowActions {
   expireHold: () => void;
   resetFlow: () => void;
   setDepositConfig: (config: DepositConfig | null) => void;
+  goToWaitlistJoin: () => void;
+  handleWaitlistJoined: (result: WaitlistResult) => void;
 }
 
 export interface BookingFlowResult {
@@ -347,6 +374,14 @@ export function useBookingFlow(): BookingFlowResult {
     dispatch({ type: "SET_DEPOSIT_CONFIG", config });
   }, []);
 
+  const goToWaitlistJoin = useCallback(() => {
+    dispatch({ type: "GO_TO_WAITLIST_JOIN" });
+  }, []);
+
+  const handleWaitlistJoined = useCallback((result: WaitlistResult) => {
+    dispatch({ type: "WAITLIST_JOINED", result });
+  }, []);
+
   return {
     state: flowState.step,
     data: flowState.data,
@@ -365,6 +400,8 @@ export function useBookingFlow(): BookingFlowResult {
       expireHold,
       resetFlow,
       setDepositConfig,
+      goToWaitlistJoin,
+      handleWaitlistJoined,
     },
   };
 }

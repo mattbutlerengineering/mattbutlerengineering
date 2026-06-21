@@ -1085,23 +1085,17 @@
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
-    export type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
-    export interface BookingFlowData {
-      selectedDate: string | null;
-      selectedEndDate: string | null;
-      partySize: number;
-      slots: TimeSlot[];
-      selectedSlot: TimeSlot | null;
-      slotsLoading: boolean;
-      slotsError: string | null;
-      hold: ReservationHold | null;
-      holdLoading: boolean;
-      holdError: string | null;
-      reservation: Reservation | null;
-      confirmLoading: boolean;
-      confirmError: string | null;
-      depositConfig: DepositConfig | null;
-      depositPaymentIntentId: string | null;
+    export type BookingStep =
+      | "date-party"
+      | "time-slot"
+      | "guest-details"
+      | "payment"
+      | "confirmation"
+      | "waitlist-join"
+      | "waitlist-confirmation";
+    export interface WaitlistResult {
+      position: number;
+      estimatedWaitMinutes: number;
     }
   </file>
   </section>
@@ -2161,6 +2155,15 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-token.ts">
+    export interface ManageTokenConfig {
+      secret: string;
+    }
+    interface ManageTokenConfigInput {
+      nodeEnv: string | undefined;
+      secret: string | undefined;
+    }
+  </file>
   <file path="services/reservations/src/config/stripe.ts">
     export interface StripeConfig {
       secretKey: string;
@@ -11464,10 +11467,13 @@
         this.name = "DepositNotFoundError";
       }
     }
-    export interface CreateDepositOptions {
-      reservationId: string;
-      amountCents: number;
-      currency?: string;
+    export class DepositConcurrentUpdateError extends Error {
+      constructor(id: string, action: string) {
+        super(
+          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
+        );
+        this.name = "DepositConcurrentUpdateError";
+      }
     }
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -15680,6 +15686,13 @@
         nodeEnv: process.env.NODE_ENV,
         secretKey: process.env.STRIPE_SECRET_KEY,
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      });
+    
+      // Validate manage-token HMAC secret at startup — throws in production if missing.
+      // In test/dev, warns but continues to allow local development without real tokens.
+      getManageTokenConfig({
+        nodeEnv: process.env.NODE_ENV,
+        secret: process.env.MANAGE_TOKEN_SECRET,
       });
     
       const fastify = await createServiceApp(

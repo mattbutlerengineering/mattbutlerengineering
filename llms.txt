@@ -346,15 +346,12 @@
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
-      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
+      type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
     </item>
     <item priority="low">
-      interface BookingFlowData {
-        selectedDate: string | null;
-        selectedEndDate: string | null;
-        partySize: number;
-        slots: TimeSlot[];
-        selectedSlot: TimeSlot | null;
+      interface WaitlistResult {
+        position: number;
+        estimatedWaitMinutes: number;
       }
     </item>
   </file>
@@ -553,6 +550,19 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/manage-token.ts">
+    <item priority="low">
+      interface ManageTokenConfig {
+        secret: string;
+      }
+    </item>
+    <item priority="high">
+      interface ManageTokenConfigInput {
+        nodeEnv: string | undefined;
+        secret: string | undefined;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/config/stripe.ts">
     <item priority="low">
       interface StripeConfig {
@@ -2255,11 +2265,9 @@
         
       }
     </item>
-    <item priority="low">
-      interface CreateDepositOptions {
-        reservationId: string;
-        amountCents: number;
-        currency?: string;
+    <item priority="high">
+      class DepositConcurrentUpdateError {
+        
       }
     </item>
   </file>

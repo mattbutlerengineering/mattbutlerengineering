@@ -91,7 +91,7 @@ describe("requireManageToken preHandler", () => {
 
   it("returns 410 RFC 7807 for expired token", async () => {
     const { createHmac } = await import("crypto");
-    const secret = process.env.MANAGE_TOKEN_SECRET || "dev-secret-do-not-use-in-prod";
+    const secret = process.env.MANAGE_TOKEN_SECRET ?? "";
     const expiry = Date.now() - 1000;
     const payload = `res_1:jane@example.com:${expiry}`;
     const signature = createHmac("sha256", secret).update(payload).digest("hex");
