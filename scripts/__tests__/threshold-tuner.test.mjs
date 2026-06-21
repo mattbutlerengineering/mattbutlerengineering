@@ -51,7 +51,7 @@ const SEED_TUNING = {
 
 describe("computePerSensorMetrics", () => {
   it("returns empty object when no verifications", () => {
-    const result = computePerSensorMetrics([]);
+    const result = computePerSensorMetrics([], 30, NOW.getTime());
     expect(result).toEqual({});
   });
 
@@ -64,7 +64,7 @@ describe("computePerSensorMetrics", () => {
       makeVerification("audit", false), // 2 FP out of 2
     ];
 
-    const result = computePerSensorMetrics(verifications);
+    const result = computePerSensorMetrics(verifications, 30, NOW.getTime());
 
     expect(result["ci-fix"]).toBeDefined();
     expect(result["ci-fix"].total).toBe(3);
@@ -82,7 +82,7 @@ describe("computePerSensorMetrics", () => {
       makeVerification("ci-fix", true, 1), // recent
       makeVerification("ci-fix", false, 31), // too old
     ];
-    const result = computePerSensorMetrics(verifications, 30);
+    const result = computePerSensorMetrics(verifications, 30, NOW.getTime());
     expect(result["ci-fix"].total).toBe(1);
     expect(result["ci-fix"].verified).toBe(1);
   });
@@ -92,14 +92,14 @@ describe("computePerSensorMetrics", () => {
       makeVerification("sentry", false, 1, "skip"),
       makeVerification("ci-fix", true, 1),
     ];
-    const result = computePerSensorMetrics(verifications);
+    const result = computePerSensorMetrics(verifications, 30, NOW.getTime());
     expect(result["sentry"]).toBeUndefined();
     expect(result["ci-fix"]).toBeDefined();
   });
 
   it("ignores unknown sensor labels", () => {
     const verifications = [makeVerification("unknown-sensor", true)];
-    const result = computePerSensorMetrics(verifications);
+    const result = computePerSensorMetrics(verifications, 30, NOW.getTime());
     expect(Object.keys(result)).toHaveLength(0);
   });
 });
