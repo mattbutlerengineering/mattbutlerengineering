@@ -64,6 +64,7 @@ export class SseConnection {
   private readonly timeoutTimer: ReturnType<typeof setTimeout>;
   private readonly connectionId: string;
   private readonly clientIp: string;
+  private readonly log: RequestLike["log"];
 
   constructor(
     id: string,
@@ -75,6 +76,7 @@ export class SseConnection {
     this.id = id;
     this.connectionId = id;
     this.clientIp = request.ip;
+    this.log = request.log;
     this.raw = reply.raw;
     this.buffer = new EventBuffer(config.maxEventBufferSize);
 
@@ -133,7 +135,15 @@ export class SseConnection {
 
     const dropped = this.buffer.push(event);
     if (dropped && this.buffer.droppedCount % 10 === 0) {
-      // Log every 10th drop to avoid log flooding
+      // Log every 10th drop to avoid log flooding while keeping overflow visible.
+      this.log.warn(
+        {
+          connectionId: this.connectionId,
+          ip: this.clientIp,
+          droppedTotal: this.buffer.droppedCount,
+        },
+        "SSE event buffer overflow — dropping oldest events"
+      );
     }
 
     for (const bufferedEvent of this.buffer.drain()) {
