@@ -98,6 +98,7 @@ overrides:
   "@opentelemetry/sdk-node@<0.217.0": ^0.217.0
   "@opentelemetry/exporter-prometheus@<0.217.0": ^0.217.0
   "@opentelemetry/core@<2.8.0": ">=2.8.0"
+  "@opentelemetry/sdk-trace-base@1.30.1>@opentelemetry/core": 1.30.1
   qs@<=6.15.1: ^6.15.2
   "@babel/core@<=7.29.5": ">=7.29.6"
   ioredis: ^5.11.0
@@ -4195,6 +4196,15 @@ packages:
         integrity: sha512-OPFBYuXEn1E4ja3Y6eeA7O+ZnLBNcXTV5Cgsn1VaqBZ6hC5FnpZPLBNme1LJY8ZtF4aOujPKFoeWN4ik487KuQ==,
       }
     engines: { node: ^18.19.0 || >=20.6.0 }
+    peerDependencies:
+      "@opentelemetry/api": ">=1.0.0 <1.10.0"
+
+  "@opentelemetry/core@1.30.1":
+    resolution:
+      {
+        integrity: sha512-OOCM2C/QIURhJMuKaekP3TRBxBKxG/TWWA0TL2J6nXUtDnuCtccy49LUJF8xPFXMX+0LMcxFpCo8M9cGY1W6rQ==,
+      }
+    engines: { node: ">=14" }
     peerDependencies:
       "@opentelemetry/api": ">=1.0.0 <1.10.0"
 
@@ -17049,6 +17059,11 @@ snapshots:
     dependencies:
       "@opentelemetry/api": 1.9.1
 
+  "@opentelemetry/core@1.30.1(@opentelemetry/api@1.9.1)":
+    dependencies:
+      "@opentelemetry/api": 1.9.1
+      "@opentelemetry/semantic-conventions": 1.28.0
+
   "@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1)":
     dependencies:
       "@opentelemetry/api": 1.9.1
@@ -17396,7 +17411,7 @@ snapshots:
   "@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.1)":
     dependencies:
       "@opentelemetry/api": 1.9.1
-      "@opentelemetry/core": 2.8.0(@opentelemetry/api@1.9.1)
+      "@opentelemetry/core": 1.30.1(@opentelemetry/api@1.9.1)
       "@opentelemetry/resources": 1.30.1(@opentelemetry/api@1.9.1)
       "@opentelemetry/semantic-conventions": 1.28.0
 
