@@ -1,4 +1,4 @@
-import { Avatar, Badge, Button, DataList, HoverCard } from "@mattbutlerengineering/rialto";
+import { Avatar, Badge, Button, DataList, HoverCard, Text } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -27,7 +27,7 @@ export function HoverCardPage() {
               >
                 <Avatar name="Charles Leclerc" size="lg" status="online" />
                 <div>
-                  <p
+                  <Text
                     style={{
                       fontSize: "var(--rialto-text-sm)",
                       fontWeight: "var(--rialto-weight-medium)",
@@ -36,8 +36,8 @@ export function HoverCardPage() {
                     }}
                   >
                     Charles Leclerc
-                  </p>
-                  <p
+                  </Text>
+                  <Text
                     style={{
                       fontSize: "var(--rialto-text-xs)",
                       color: "var(--rialto-text-tertiary)",
@@ -45,7 +45,7 @@ export function HoverCardPage() {
                     }}
                   >
                     Lead Driver &middot; Racing Team
-                  </p>
+                  </Text>
                   <div style={{ display: "flex", gap: "var(--rialto-space-sm)" }}>
                     <Badge variant="success" dot>
                       Active
@@ -56,7 +56,7 @@ export function HoverCardPage() {
               </div>
             }
           >
-            <span
+            <Text
               style={{
                 fontSize: "var(--rialto-text-sm)",
                 color: "var(--rialto-accent)",
@@ -66,7 +66,7 @@ export function HoverCardPage() {
               }}
             >
               Charles Leclerc
-            </span>
+            </Text>
           </HoverCard>
 
           <HoverCard
@@ -81,7 +81,7 @@ export function HoverCardPage() {
               >
                 <Avatar name="Marc Newson" size="lg" status="away" />
                 <div>
-                  <p
+                  <Text
                     style={{
                       fontSize: "var(--rialto-text-sm)",
                       fontWeight: "var(--rialto-weight-medium)",
@@ -90,8 +90,8 @@ export function HoverCardPage() {
                     }}
                   >
                     Marc Newson
-                  </p>
-                  <p
+                  </Text>
+                  <Text
                     style={{
                       fontSize: "var(--rialto-text-xs)",
                       color: "var(--rialto-text-tertiary)",
@@ -99,7 +99,7 @@ export function HoverCardPage() {
                     }}
                   >
                     Industrial Designer
-                  </p>
+                  </Text>
                   <Badge variant="neutral" dot>
                     Away
                   </Badge>
@@ -120,7 +120,7 @@ export function HoverCardPage() {
           <HoverCard
             content={
               <div>
-                <p
+                <Text
                   style={{
                     fontSize: "var(--rialto-text-xs)",
                     fontWeight: "var(--rialto-weight-medium)",
@@ -129,7 +129,7 @@ export function HoverCardPage() {
                   }}
                 >
                   Lap 14 — Sector Breakdown
-                </p>
+                </Text>
                 <div
                   style={{
                     display: "flex",
@@ -143,8 +143,8 @@ export function HoverCardPage() {
                     { label: "S3", value: "22.107", color: "var(--rialto-success)" },
                   ].map((sector) => (
                     <div key={sector.label}>
-                      <span style={{ color: "var(--rialto-text-tertiary)" }}>{sector.label}</span>
-                      <p
+                      <Text style={{ color: "var(--rialto-text-tertiary)" }}>{sector.label}</Text>
+                      <Text
                         style={{
                           margin: "2px 0 0",
                           fontFamily: "var(--rialto-font-mono)",
@@ -152,11 +152,11 @@ export function HoverCardPage() {
                         }}
                       >
                         {sector.value}
-                      </p>
+                      </Text>
                     </div>
                   ))}
                 </div>
-                <p
+                <Text
                   style={{
                     margin: "var(--rialto-space-xs) 0 0",
                     fontFamily: "var(--rialto-font-mono)",
@@ -164,12 +164,12 @@ export function HoverCardPage() {
                     color: "var(--rialto-text-primary)",
                   }}
                 >
-                  1:25.410 <span style={{ color: "var(--rialto-success)" }}>−0.342</span>
-                </p>
+                  1:25.410 <Text style={{ color: "var(--rialto-success)" }}>−0.342</Text>
+                </Text>
               </div>
             }
           >
-            <span
+            <Text
               style={{
                 fontSize: "var(--rialto-text-sm)",
                 fontFamily: "var(--rialto-font-mono)",
@@ -180,7 +180,7 @@ export function HoverCardPage() {
               }}
             >
               1:25.410
-            </span>
+            </Text>
           </HoverCard>
         </div>
       </Section>
@@ -191,7 +191,7 @@ export function HoverCardPage() {
           <HoverCard
             openDelay={200}
             content={
-              <p
+              <Text
                 style={{
                   margin: 0,
                   fontSize: "var(--rialto-text-sm)",
@@ -199,7 +199,7 @@ export function HoverCardPage() {
                 }}
               >
                 Eager preview — 200ms open delay instead of the default 400ms.
-              </p>
+              </Text>
             }
           >
             <Button variant="secondary" size="sm">
@@ -209,7 +209,7 @@ export function HoverCardPage() {
           <HoverCard
             openDelay={800}
             content={
-              <p
+              <Text
                 style={{
                   margin: 0,
                   fontSize: "var(--rialto-text-sm)",
@@ -217,7 +217,7 @@ export function HoverCardPage() {
                 }}
               >
                 Deliberate preview — 800ms delay. Good for items users frequently pass over.
-              </p>
+              </Text>
             }
           >
             <Button variant="secondary" size="sm">
@@ -229,38 +229,7 @@ export function HoverCardPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "content",
-              type: "ReactNode",
-              description: "Rich content to display in the hover card panel.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "The trigger element.",
-            },
-            {
-              name: "placement",
-              type: '"top" | "bottom" | "left" | "right"',
-              default: '"bottom"',
-              description: "Preferred placement relative to trigger.",
-            },
-            {
-              name: "openDelay",
-              type: "number",
-              default: "400",
-              description: "Delay in ms before the card opens.",
-            },
-            {
-              name: "closeDelay",
-              type: "number",
-              default: "300",
-              description: "Delay in ms before closing — allows mouse to travel into the card.",
-            },
-          ]}
-        />
+        <PropsTable component="HoverCard" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
