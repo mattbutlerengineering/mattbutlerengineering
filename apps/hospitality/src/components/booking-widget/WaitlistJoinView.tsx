@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text, Heading } from "@mattbutlerengineering/rialto";
-import { formatTime } from "../../utils/format.js";
+import { formatLongDate } from "../../utils/format.js";
 import styles from "./WaitlistJoinView.module.css";
 
 /**
@@ -23,7 +23,8 @@ export interface WaitlistJoinedResult {
 }
 
 export interface WaitlistJoinViewProps {
-  requestedTime: string;
+  /** Date-only string (YYYY-MM-DD) the guest searched. No time slot is known on the waitlist path. */
+  requestedDate: string;
   partySize: number;
   estimatedWaitMinutes: number;
   venueSlug: string;
@@ -66,7 +67,7 @@ async function joinWaitlist(
 }
 
 export function WaitlistJoinView({
-  requestedTime,
+  requestedDate,
   partySize,
   estimatedWaitMinutes,
   venueSlug,
@@ -112,7 +113,7 @@ export function WaitlistJoinView({
     [name, phone, venueId, venueSlug, partySize, apiBaseUrl, onJoined]
   );
 
-  const formattedTime = formatTime(requestedTime);
+  const formattedDate = formatLongDate(requestedDate);
 
   return (
     <div className={styles.container}>
@@ -125,7 +126,7 @@ export function WaitlistJoinView({
       <div className={styles.noAvailability}>
         <Heading className={styles.noAvailabilityHeading}>No tables available</Heading>
         <Text className={styles.noAvailabilityDetail}>
-          No tables available at {formattedTime} for {partySize}{" "}
+          No tables available on {formattedDate} for {partySize}{" "}
           {partySize === 1 ? "guest" : "guests"}.
         </Text>
         <Text className={styles.waitEstimate}>Estimated wait: ~{estimatedWaitMinutes} min</Text>

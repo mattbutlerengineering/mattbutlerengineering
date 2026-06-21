@@ -10,7 +10,7 @@ import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
 import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
-import { useBookingFlow } from "./useBookingFlow.js";
+import { useBookingFlow, type BookingStep } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
 
@@ -30,8 +30,6 @@ export interface BookingWidgetProps {
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
 }
-
-type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";
 
 const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
 const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
@@ -257,7 +255,7 @@ export function BookingWidget({
   const hasDeposit = Boolean(data.depositConfig?.enabled && venueSlug && stripePublishableKey);
   const stepKeys = hasDeposit ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
   const bookingSteps = hasDeposit ? BOOKING_STEPS_WITH_DEPOSIT : BOOKING_STEPS_NO_DEPOSIT;
-  const currentStepIndex = stepKeys.indexOf(state as (typeof stepKeys)[number]);
+  const currentStepIndex = stepKeys.indexOf(state);
 
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
@@ -358,7 +356,7 @@ export function BookingWidget({
 
       {state === "waitlist-join" && venueSlug && data.selectedDate && (
         <WaitlistJoinView
-          requestedTime={data.selectedDate + "T19:00:00"}
+          requestedDate={data.selectedDate}
           partySize={data.partySize}
           estimatedWaitMinutes={defaultWaitMinutes}
           venueSlug={venueSlug}

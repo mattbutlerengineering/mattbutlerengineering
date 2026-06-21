@@ -36,7 +36,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 const DEFAULT_PROPS = {
-  requestedTime: "2026-05-20T19:00:00",
+  requestedDate: "2026-05-20",
   partySize: 2,
   estimatedWaitMinutes: 30,
   venueSlug: "test-venue",
@@ -57,9 +57,12 @@ describe("WaitlistJoinView", () => {
     expect(screen.getByText(/~30 min/i)).toBeDefined();
   });
 
-  it("shows the requested time in the no-availability message", () => {
+  it("shows the requested date in the no-availability message without a fabricated time", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
-    expect(screen.getByText(/7:00/)).toBeDefined();
+    // Renders the date (May 20) — not a hardcoded clock time like "7:00 PM".
+    expect(screen.getByText(/May 20/)).toBeDefined();
+    expect(screen.queryByText(/7:00/)).toBeNull();
+    expect(screen.queryByText(/\d:\d\d\s?[AP]M/i)).toBeNull();
   });
 
   it("renders phone number input", () => {
