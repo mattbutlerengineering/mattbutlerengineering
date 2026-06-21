@@ -171,4 +171,42 @@ describe("TimeSlotPicker", () => {
     expect(screen.queryByText("Late Night")).toBeNull();
     expect(screen.getByText("Dinner")).toBeDefined();
   });
+
+  describe("waitlist option when no slots available", () => {
+    it("shows Join Waitlist button when onJoinWaitlist is provided and slots are empty", () => {
+      const onJoinWaitlist = vi.fn();
+      render(<TimeSlotPicker {...defaultProps} slots={[]} onJoinWaitlist={onJoinWaitlist} />);
+      expect(screen.getByText("Join Waitlist")).toBeDefined();
+    });
+
+    it("calls onJoinWaitlist when button is clicked", () => {
+      const onJoinWaitlist = vi.fn();
+      render(<TimeSlotPicker {...defaultProps} slots={[]} onJoinWaitlist={onJoinWaitlist} />);
+      fireEvent.click(screen.getByText("Join Waitlist"));
+      expect(onJoinWaitlist).toHaveBeenCalled();
+    });
+
+    it("shows estimated wait minutes when provided with no slots and onJoinWaitlist", () => {
+      render(
+        <TimeSlotPicker
+          {...defaultProps}
+          slots={[]}
+          onJoinWaitlist={vi.fn()}
+          estimatedWaitMinutes={25}
+        />
+      );
+      expect(screen.getByText(/~25 min/)).toBeDefined();
+    });
+
+    it("does NOT show Join Waitlist button when onJoinWaitlist is not provided", () => {
+      render(<TimeSlotPicker {...defaultProps} slots={[]} />);
+      expect(screen.queryByText("Join Waitlist")).toBeNull();
+    });
+
+    it("does NOT show Join Waitlist button when slots are available", () => {
+      const slots = [makeSlot("2026-05-20T18:00:00")];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} onJoinWaitlist={vi.fn()} />);
+      expect(screen.queryByText("Join Waitlist")).toBeNull();
+    });
+  });
 });

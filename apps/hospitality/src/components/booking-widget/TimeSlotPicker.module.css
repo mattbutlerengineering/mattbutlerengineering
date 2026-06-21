@@ -110,3 +110,11 @@
 .selectedSummaryNote {
   color: var(--rialto-accent);
 }
+
+/* No availability + waitlist container */
+.noAvailabilityContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-lg);
+}

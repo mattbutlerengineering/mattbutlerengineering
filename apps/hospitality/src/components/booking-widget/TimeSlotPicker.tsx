@@ -20,6 +20,10 @@ export interface TimeSlotPickerProps {
   onBack: () => void;
   date: string;
   partySize: number;
+  /** When provided and slots are empty, shows a "Join Waitlist" option */
+  onJoinWaitlist?: () => void;
+  /** Estimated wait minutes to display in the no-availability state */
+  estimatedWaitMinutes?: number;
 }
 
 const SKELETON_SLOT_COUNT = 8;
@@ -33,6 +37,8 @@ export function TimeSlotPicker({
   onBack,
   date,
   partySize,
+  onJoinWaitlist,
+  estimatedWaitMinutes,
 }: TimeSlotPickerProps) {
   const formattedDate = formatLongDate(date);
 
@@ -111,10 +117,26 @@ export function TimeSlotPicker({
       </div>
 
       {slots.length === 0 ? (
-        <EmptyState
-          heading="No available times"
-          description="Try a different date or party size."
-        />
+        onJoinWaitlist ? (
+          <div className={styles.noAvailabilityContainer}>
+            <EmptyState
+              heading="No available times"
+              description={
+                estimatedWaitMinutes != null
+                  ? `Estimated wait: ~${estimatedWaitMinutes} min`
+                  : "Try a different date or party size."
+              }
+            />
+            <Button variant="primary" onClick={onJoinWaitlist} type="button">
+              Join Waitlist
+            </Button>
+          </div>
+        ) : (
+          <EmptyState
+            heading="No available times"
+            description="Try a different date or party size."
+          />
+        )
       ) : (
         <div className={styles.periods}>
           {(["lunch", "dinner", "late"] as const).map((period) => {

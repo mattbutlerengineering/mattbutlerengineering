@@ -1,0 +1,53 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+  align-items: center;
+  text-align: center;
+  padding-block: var(--rialto-space-xl);
+}
+
+.heading {
+  font-size: var(--rialto-text-xl);
+  font-weight: var(--rialto-weight-semibold);
+  color: var(--rialto-text-primary);
+}
+
+.details {
+  display: flex;
+  gap: var(--rialto-space-lg);
+  justify-content: center;
+}
+
+.positionCard,
+.waitCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  padding: var(--rialto-space-md) var(--rialto-space-xl);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-default);
+  min-width: 7rem;
+}
+
+.positionLabel,
+.waitLabel {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.positionNumber,
+.waitTime {
+  font-size: var(--rialto-text-2xl);
+  font-weight: var(--rialto-weight-bold);
+  color: var(--rialto-accent);
+}
+
+.smsNote {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+  max-width: 28rem;
+}
