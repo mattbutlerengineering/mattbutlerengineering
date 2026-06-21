@@ -233,7 +233,35 @@ export function PageHeaderPage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="PageHeader" />
+        <PropsTable
+          props={[
+            {
+              name: "title",
+              type: "string",
+              description: "Page title rendered as h1.",
+            },
+            {
+              name: "breadcrumbs",
+              type: "BreadcrumbItem[]",
+              description: "Breadcrumb trail rendered above the title.",
+            },
+            {
+              name: "actions",
+              type: "ReactNode",
+              description: "Right-aligned action buttons. Hidden on narrow screens.",
+            },
+            {
+              name: "meta",
+              type: "ReactNode",
+              description: "Badges or avatars displayed beside the title.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Extra content rendered below the title row (e.g. tab bar).",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}

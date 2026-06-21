@@ -83,7 +83,42 @@ export function CollapsiblePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Collapsible" />
+        <PropsTable
+          props={[
+            {
+              name: "trigger",
+              type: "ReactNode",
+              description: "The clickable header text or element.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Content revealed when expanded.",
+            },
+            {
+              name: "defaultOpen",
+              type: "boolean",
+              default: "false",
+              description: "Initial open state (uncontrolled).",
+            },
+            {
+              name: "open",
+              type: "boolean",
+              description: "Controlled open state.",
+            },
+            {
+              name: "onOpenChange",
+              type: "(open: boolean) => void",
+              description: "Called when open state changes (controlled mode).",
+            },
+            {
+              name: "disabled",
+              type: "boolean",
+              default: "false",
+              description: "Prevents opening/closing.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

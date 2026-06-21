@@ -52,7 +52,7 @@ export function ScrollAreaPage() {
           </Card>
           <Card style={{ flex: 1 }}>
             <ScrollArea maxHeight={200}>
-              <Text
+              <p
                 style={{
                   padding: "var(--rialto-space-sm)",
                   fontSize: "var(--rialto-text-sm)",
@@ -61,7 +61,7 @@ export function ScrollAreaPage() {
                 }}
               >
                 Short content that doesn&apos;t scroll — the scrollbar only appears when needed.
-              </Text>
+              </p>
             </ScrollArea>
           </Card>
         </Stack>
@@ -85,7 +85,7 @@ export function ScrollAreaPage() {
                     border: "1px solid var(--rialto-border)",
                   }}
                 >
-                  <Text
+                  <p
                     style={{
                       margin: "0 0 4px",
                       fontSize: "var(--rialto-text-xs)",
@@ -94,8 +94,8 @@ export function ScrollAreaPage() {
                     }}
                   >
                     {session}
-                  </Text>
-                  <Text
+                  </p>
+                  <p
                     style={{
                       margin: 0,
                       fontFamily: "var(--rialto-font-mono)",
@@ -104,7 +104,7 @@ export function ScrollAreaPage() {
                     }}
                   >
                     1:24.892
-                  </Text>
+                  </p>
                 </div>
               ))}
             </div>
@@ -142,14 +142,14 @@ export function ScrollAreaPage() {
                         flexShrink: 0,
                       }}
                     />
-                    <Text
+                    <span
                       style={{
                         fontSize: "var(--rialto-text-xs)",
                         color: "var(--rialto-text-secondary)",
                       }}
                     >
                       Lap {i + 1}: 1:2{i}.{800 + i * 7}
-                    </Text>
+                    </span>
                   </div>
                 ))}
               </Stack>
@@ -160,7 +160,25 @@ export function ScrollAreaPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="ScrollArea" />
+        <PropsTable
+          props={[
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Content to render inside the scrollable area.",
+            },
+            {
+              name: "maxHeight",
+              type: "number | string",
+              description: "Maximum height before vertical scrolling activates.",
+            },
+            {
+              name: "maxWidth",
+              type: "number | string",
+              description: "Maximum width before horizontal scrolling activates.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

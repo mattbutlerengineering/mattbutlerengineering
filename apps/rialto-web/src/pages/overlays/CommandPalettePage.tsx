@@ -120,12 +120,69 @@ useEffect(() => {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="CommandPalette" />
+        <PropsTable
+          props={[
+            {
+              name: "open",
+              type: "boolean",
+              description: "Controls palette visibility.",
+            },
+            {
+              name: "onOpenChange",
+              type: "(open: boolean) => void",
+              description: "Called when palette open state changes.",
+            },
+            {
+              name: "items",
+              type: "CommandItem[]",
+              description: "Array of command items to display and search.",
+            },
+            {
+              name: "placeholder",
+              type: "string",
+              default: '"Search commands..."',
+              description: "Search input placeholder text.",
+            },
+            {
+              name: "groups",
+              type: "string[]",
+              description: "Group names to organize items. Items are rendered in group order.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── CommandItem Type ──────────────────────────────────────── */}
       <Section title="CommandItem Type">
-        <PropsTable component="CommandItem" />
+        <PropsTable
+          props={[
+            {
+              name: "id",
+              type: "string",
+              description: "Unique identifier for the item.",
+            },
+            {
+              name: "label",
+              type: "string",
+              description: "Display text and search target.",
+            },
+            {
+              name: "group",
+              type: "string",
+              description: "Group name this item belongs to.",
+            },
+            {
+              name: "shortcut",
+              type: "string[]",
+              description: "Array of key labels shown as hints (e.g. ['⌘', 'K']).",
+            },
+            {
+              name: "onSelect",
+              type: "() => void",
+              description: "Called when item is selected.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

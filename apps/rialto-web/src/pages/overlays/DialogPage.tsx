@@ -139,7 +139,40 @@ export function DialogPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Dialog" />
+        <PropsTable
+          props={[
+            {
+              name: "open",
+              type: "boolean",
+              description: "Controls dialog visibility.",
+            },
+            {
+              name: "onClose",
+              type: "() => void",
+              description: "Called when clicking outside or pressing Escape.",
+            },
+            {
+              name: "title",
+              type: "string",
+              description: "Dialog heading.",
+            },
+            {
+              name: "description",
+              type: "string",
+              description: "Optional supporting text below the title.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Dialog body content.",
+            },
+            {
+              name: "footer",
+              type: "ReactNode",
+              description: "Action buttons rendered at the bottom of the dialog.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

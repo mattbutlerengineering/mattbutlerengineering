@@ -92,7 +92,25 @@ export function PaginationPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Pagination" />
+        <PropsTable
+          props={[
+            {
+              name: "page",
+              type: "number",
+              description: "Current page (1-based).",
+            },
+            {
+              name: "totalPages",
+              type: "number",
+              description: "Total number of pages.",
+            },
+            {
+              name: "onChange",
+              type: "(page: number) => void",
+              description: "Called when page changes.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -1,4 +1,4 @@
-import { DataList, NavigationMenu, Text } from "@mattbutlerengineering/rialto";
+import { DataList, NavigationMenu } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
@@ -70,7 +70,7 @@ export function NavigationMenuPage() {
             alignItems: "center",
           }}
         >
-          <Text
+          <span
             style={{
               fontWeight: "var(--rialto-weight-medium)",
               fontSize: "var(--rialto-text-md)",
@@ -78,7 +78,7 @@ export function NavigationMenuPage() {
             }}
           >
             Rialto
-          </Text>
+          </span>
           <NavigationMenu
             items={[
               { label: "Overview", href: "#" },
@@ -99,12 +99,38 @@ export function NavigationMenuPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="NavigationMenu" />
+        <PropsTable
+          props={[
+            {
+              name: "items",
+              type: "Array<NavItem>",
+              description: "Navigation items. Each can have href or children (dropdown).",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── NavItem Shape ─────────────────────────────────────────── */}
       <Section title="NavItem Shape">
-        <PropsTable component="NavItem" />
+        <PropsTable
+          props={[
+            {
+              name: "label",
+              type: "string",
+              description: "Visible text for the nav item.",
+            },
+            {
+              name: "href",
+              type: "string",
+              description: "Link URL. Mutually exclusive with children.",
+            },
+            {
+              name: "children",
+              type: "Array<{ label: string; href?: string }>",
+              description: "Dropdown items — hover trigger shows this list.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

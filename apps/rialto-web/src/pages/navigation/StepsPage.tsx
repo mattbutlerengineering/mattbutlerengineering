@@ -130,7 +130,37 @@ export function StepsPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Steps" />
+        <PropsTable
+          props={[
+            {
+              name: "steps",
+              type: "Array<{ label: string; description?: string }>",
+              description: "Step definitions.",
+            },
+            {
+              name: "currentStep",
+              type: "number",
+              description: "Zero-based index of the current step.",
+            },
+            {
+              name: "onStepClick",
+              type: "(index: number) => void",
+              description: "Called when a completed step is clicked for navigation.",
+            },
+            {
+              name: "orientation",
+              type: '"horizontal" | "vertical"',
+              default: '"horizontal"',
+              description: "Layout direction.",
+            },
+            {
+              name: "compact",
+              type: "boolean",
+              default: "false",
+              description: "Reduced spacing between steps.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

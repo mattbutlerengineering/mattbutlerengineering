@@ -1,4 +1,4 @@
-import { Button, DataList, Input, Popover, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, DataList, Input, Popover, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -24,7 +24,7 @@ export function PopoverPage() {
             }
             title="Telemetry Info"
           >
-            <Text
+            <p
               style={{
                 margin: 0,
                 fontSize: "var(--rialto-text-sm)",
@@ -32,7 +32,7 @@ export function PopoverPage() {
               }}
             >
               Current session: Fiorano, Lap 14. Ambient temperature 22°C, track temperature 38°C.
-            </Text>
+            </p>
           </Popover>
           <Popover
             trigger={
@@ -43,7 +43,7 @@ export function PopoverPage() {
             title="Tire Pressure"
             placement="top"
           >
-            <Text
+            <p
               style={{
                 marginBottom: "var(--rialto-space-xs)",
                 fontSize: "var(--rialto-text-sm)",
@@ -51,8 +51,8 @@ export function PopoverPage() {
               }}
             >
               FL: 32.1 PSI &middot; FR: 31.8 PSI
-            </Text>
-            <Text
+            </p>
+            <p
               style={{
                 margin: 0,
                 fontSize: "var(--rialto-text-sm)",
@@ -60,7 +60,7 @@ export function PopoverPage() {
               }}
             >
               RL: 28.4 PSI &middot; RR: 31.2 PSI
-            </Text>
+            </p>
           </Popover>
         </div>
       </Section>
@@ -76,7 +76,7 @@ export function PopoverPage() {
             }
             title="Session Export"
           >
-            <Text
+            <p
               style={{
                 marginBottom: "var(--rialto-space-sm)",
                 fontSize: "var(--rialto-text-sm)",
@@ -84,7 +84,7 @@ export function PopoverPage() {
               }}
             >
               Export the current telemetry session data for offline analysis.
-            </Text>
+            </p>
             <div style={{ display: "flex", gap: "var(--rialto-space-xs)" }}>
               <Button variant="primary" size="sm">
                 Export CSV
@@ -128,7 +128,31 @@ export function PopoverPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Popover" />
+        <PropsTable
+          props={[
+            {
+              name: "trigger",
+              type: "ReactNode",
+              description: "The element that triggers the popover on click.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "Popover body content.",
+            },
+            {
+              name: "title",
+              type: "string",
+              description: "Optional heading inside the popover.",
+            },
+            {
+              name: "placement",
+              type: '"top" | "bottom" | "left" | "right"',
+              default: '"bottom"',
+              description: "Preferred placement relative to trigger.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

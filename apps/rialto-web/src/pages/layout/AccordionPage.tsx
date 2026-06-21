@@ -1,4 +1,4 @@
-import { Accordion, DataList, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Accordion, DataList, Stack } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
@@ -76,7 +76,7 @@ export function AccordionPage() {
       {/* ── Usage Example ─────────────────────────────────────────── */}
       <Section title="Usage Example">
         <Stack gap="sm">
-          <Text
+          <p
             style={{
               margin: 0,
               fontSize: "var(--rialto-text-sm)",
@@ -86,18 +86,70 @@ export function AccordionPage() {
             Use <strong>single mode</strong> (default) for structured content where only one section
             is relevant at a time — FAQs, settings panels. Use <strong>multiple mode</strong> when
             users need to compare content across sections.
-          </Text>
+          </p>
         </Stack>
       </Section>
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Accordion" />
+        <PropsTable
+          props={[
+            {
+              name: "items",
+              type: "AccordionItem[]",
+              description: "Array of accordion panels.",
+            },
+            {
+              name: "multiple",
+              type: "boolean",
+              default: "false",
+              description: "Allows multiple panels to be open simultaneously.",
+            },
+            {
+              name: "defaultOpen",
+              type: "string[]",
+              description: "IDs of panels open by default (uncontrolled).",
+            },
+            {
+              name: "value",
+              type: "string[]",
+              description: "Controlled open panel IDs.",
+            },
+            {
+              name: "onValueChange",
+              type: "(value: string[]) => void",
+              description: "Called when open panels change.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── AccordionItem Type ────────────────────────────────────── */}
       <Section title="AccordionItem Type">
-        <PropsTable component="AccordionItem" />
+        <PropsTable
+          props={[
+            {
+              name: "id",
+              type: "string",
+              description: "Unique identifier.",
+            },
+            {
+              name: "title",
+              type: "string",
+              description: "Panel header text.",
+            },
+            {
+              name: "content",
+              type: "ReactNode",
+              description: "Panel body content.",
+            },
+            {
+              name: "disabled",
+              type: "boolean",
+              description: "Prevents panel from opening.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

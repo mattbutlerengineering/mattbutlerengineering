@@ -140,9 +140,9 @@ export function TabsPage() {
                           fontFamily: "var(--rialto-font-mono)",
                         }}
                       >
-                        <Text>Lap {row.lap}</Text>
-                        <Text>{row.time}</Text>
-                        <Text
+                        <span>Lap {row.lap}</span>
+                        <span>{row.time}</span>
+                        <span
                           style={{
                             color:
                               row.delta === "—"
@@ -151,7 +151,7 @@ export function TabsPage() {
                           }}
                         >
                           {row.delta}
-                        </Text>
+                        </span>
                       </div>
                     ))}
                   </Stack>
@@ -173,7 +173,30 @@ export function TabsPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Tabs" />
+        <PropsTable
+          props={[
+            {
+              name: "tabs",
+              type: "Array<Tab>",
+              description: "Tab definitions with id, label, content, and optional disabled.",
+            },
+            {
+              name: "activeId",
+              type: "string",
+              description: "Controlled active tab ID.",
+            },
+            {
+              name: "defaultTab",
+              type: "string",
+              description: "Uncontrolled initial active tab.",
+            },
+            {
+              name: "onChange",
+              type: "(id: string) => void",
+              description: "Called when active tab changes.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

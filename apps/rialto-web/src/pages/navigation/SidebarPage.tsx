@@ -45,7 +45,7 @@ export function SidebarPage() {
                 border: "1px solid var(--rialto-border)",
               }}
             >
-              <Text
+              <p
                 style={{
                   fontSize: "var(--rialto-text-sm)",
                   fontWeight: "var(--rialto-weight-medium)",
@@ -54,15 +54,15 @@ export function SidebarPage() {
                 }}
               >
                 {title}
-              </Text>
-              <Text
+              </p>
+              <p
                 style={{
                   fontSize: "var(--rialto-text-xs)",
                   color: "var(--rialto-text-secondary)",
                 }}
               >
                 {desc}
-              </Text>
+              </p>
             </div>
           ))}
         </div>
@@ -70,7 +70,36 @@ export function SidebarPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Sidebar" />
+        <PropsTable
+          props={[
+            {
+              name: "sections",
+              type: "Array<{ label: string; items: SidebarItem[] }>",
+              description: "Navigation sections, each with a label and list of items.",
+            },
+            {
+              name: "activeId",
+              type: "string",
+              description: "ID of the currently active/selected item.",
+            },
+            {
+              name: "onItemClick",
+              type: "(id: string) => void",
+              description: "Called when a nav item is clicked.",
+            },
+            {
+              name: "collapsed",
+              type: "boolean",
+              default: "false",
+              description: "Collapses the sidebar to icons-only mode.",
+            },
+            {
+              name: "onCollapse",
+              type: "(collapsed: boolean) => void",
+              description: "Called when the collapse state changes.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

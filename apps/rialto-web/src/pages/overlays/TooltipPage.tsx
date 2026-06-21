@@ -62,7 +62,7 @@ export function TooltipPage() {
       <Section title="With Icon Trigger">
         <div className={styles.row}>
           <Tooltip content="Upload telemetry" placement="top">
-            <Button
+            <button
               type="button"
               aria-label="Upload"
               style={{
@@ -88,10 +88,10 @@ export function TooltipPage() {
               >
                 <path d="M8 11V3M5 6l3-3 3 3M2 13h12" />
               </svg>
-            </Button>
+            </button>
           </Tooltip>
           <Tooltip content="Download session data" placement="top">
-            <Button
+            <button
               type="button"
               aria-label="Download"
               style={{
@@ -117,10 +117,10 @@ export function TooltipPage() {
               >
                 <path d="M8 3v8M5 8l3 3 3-3M2 13h12" />
               </svg>
-            </Button>
+            </button>
           </Tooltip>
           <Tooltip content="Delete permanently — cannot be undone" placement="top">
-            <Button
+            <button
               type="button"
               aria-label="Delete"
               style={{
@@ -146,7 +146,7 @@ export function TooltipPage() {
               >
                 <path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" />
               </svg>
-            </Button>
+            </button>
           </Tooltip>
         </div>
       </Section>
@@ -181,7 +181,32 @@ export function TooltipPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable component="Tooltip" />
+        <PropsTable
+          props={[
+            {
+              name: "content",
+              type: "ReactNode",
+              description: "Tooltip label content.",
+            },
+            {
+              name: "children",
+              type: "ReactNode",
+              description: "The trigger element.",
+            },
+            {
+              name: "placement",
+              type: '"top" | "bottom" | "left" | "right"',
+              default: '"top"',
+              description: "Preferred placement relative to the trigger.",
+            },
+            {
+              name: "delay",
+              type: "number",
+              default: "300",
+              description: "Open delay in milliseconds.",
+            },
+          ]}
+        />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
