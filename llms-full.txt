@@ -5030,14 +5030,8 @@
   <file path="services/agent/src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
-        prisma,
-        getSlowQueryStats,
-        getServiceStatus,
-        getPoolMetrics,
-        latencyTracker,
+        db,
         checkAuth0,
-        rateLimitMonitor: fastify.rateLimitMonitor,
-        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getAgentHealth" },
           { path: "/api/gen/health", operationId: "getAgentHealthApiGen" },
@@ -7194,14 +7188,8 @@
   <file path="services/reservations/src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
-        prisma,
-        getSlowQueryStats,
-        getServiceStatus,
-        getPoolMetrics,
-        latencyTracker,
+        db,
         checkAuth0,
-        rateLimitMonitor: fastify.rateLimitMonitor,
-        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/health", operationId: "getHealthApi" },
@@ -10464,14 +10452,8 @@
   <file path="services/users/src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.register(registerHealthRoutes, {
-        prisma,
-        getSlowQueryStats,
-        getServiceStatus,
-        getPoolMetrics,
-        latencyTracker,
+        db,
         checkAuth0,
-        rateLimitMonitor: fastify.rateLimitMonitor,
-        getErrorRates: () => fastify.getErrorRates(),
         routes: [
           { path: "/health", operationId: "getHealth" },
           { path: "/api/v1/users/health", operationId: "getHealthApiUsers" },
@@ -11126,8 +11108,8 @@
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
+    export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
-    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="services/agent/src/services/liveness-monitor.ts">
     export interface LivenessMonitorConfig {
@@ -11402,8 +11384,8 @@
     }
   </file>
   <file path="services/reservations/src/services/database.ts">
+    export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
-    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="services/reservations/src/services/deposit-state-machine.ts">
     export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
@@ -12117,8 +12099,8 @@
     }
   </file>
   <file path="services/users/src/services/database.ts">
+    export const db = createDatabase(PrismaClient as never);
     export const prisma = db.prisma as unknown as PrismaClient;
-    export const getSlowQueryStats = db.getSlowQueryStats;
   </file>
   <file path="services/users/src/services/user.ts">
     function mapPrismaUser(user: {
@@ -14281,9 +14263,20 @@
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
+      /** Flat `prisma` re-export — backward-compatible with tests that import prisma directly. */
       prisma: MockPrisma;
+      /** `db` export matching the new services/database.ts shape (db.prisma, db.getSlowQueryStats, …). */
+      db: {
+        prisma: MockPrisma;
+        getSlowQueryStats: ReturnType<typeof vi.fn>;
+        getServiceStatus: ReturnType<typeof vi.fn>;
+        getPoolMetrics: ReturnType<typeof vi.fn>;
+      };
+      /** @deprecated Access via db.getSlowQueryStats instead. */
       getSlowQueryStats: ReturnType<typeof vi.fn>;
+      /** @deprecated Access via db.getServiceStatus instead. */
       getServiceStatus: ReturnType<typeof vi.fn>;
+      /** @deprecated Access via db.getPoolMetrics instead. */
       getPoolMetrics: ReturnType<typeof vi.fn>;
     }
   </file>
@@ -15221,29 +15214,17 @@
     }
   </file>
   <file path="packages/service-bootstrap/src/health-routes.ts">
+    export interface HealthDb {
+      readonly prisma: {
+        $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+      };
+      readonly getSlowQueryStats: () => SlowQueryStats;
+      readonly getServiceStatus: () => ServiceStatus;
+      readonly getPoolMetrics: () => PoolMetrics;
+    }
     export interface HealthRouteConfig {
       readonly path: string;
       readonly operationId: string;
-    }
-    export interface HealthRoutesOptions {
-      /** Prisma client instance — must support $queryRaw */
-      readonly prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
-      /** Returns slow query stats from the database module */
-      readonly getSlowQueryStats: () => SlowQueryStats;
-      /** Returns overall service status from the database module */
-      readonly getServiceStatus: () => ServiceStatus;
-      /** Returns pool metrics from the database module */
-      readonly getPoolMetrics: () => PoolMetrics;
-      /** Latency tracker instance for DB ping anomaly detection */
-      readonly latencyTracker: LatencyTracker;
-      /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
-      readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
-      /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
-      readonly rateLimitMonitor: RateLimitMonitor;
-      /** Error rate snapshot getter — from errorRatePlugin_ decoration */
-      readonly getErrorRates: () => ErrorRateSnapshot;
-      /** Routes to register — each gets the same health handler */
-      readonly routes: readonly HealthRouteConfig[];
     }
   </file>
   <file path="packages/service-bootstrap/src/health.ts">

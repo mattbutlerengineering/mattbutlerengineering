@@ -340,10 +340,10 @@
   </file>
   <file path="src/services/database.ts">
     <item priority="high">
-      export const prisma: unknown;
+      export const db: unknown;
     </item>
     <item priority="high">
-      export const getSlowQueryStats: unknown;
+      export const prisma: unknown;
     </item>
   </file>
   <file path="src/services/deposit-state-machine.ts">

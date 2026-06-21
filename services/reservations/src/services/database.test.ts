@@ -53,7 +53,8 @@ vi.mock("../generated/prisma/index.js", () => ({
   },
 }));
 
-import { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } from "./database.js";
+import { db } from "./database.js";
+const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("database.ts", () => {
   beforeEach(() => {

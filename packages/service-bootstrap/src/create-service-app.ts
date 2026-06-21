@@ -12,6 +12,7 @@ import {
   createRateLimitMonitor,
   type RateLimitMonitor,
 } from "@mbe/observability";
+import { createLatencyTracker, type LatencyTracker } from "./health.js";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { errorHandlerPlugin } from "./error-handler.js";
 import { applyVersioning } from "./apply-versioning.js";
@@ -160,6 +161,10 @@ export async function createServiceApp(
   const rateLimitMonitor = createRateLimitMonitor();
   fastify.decorate("rateLimitMonitor", rateLimitMonitor);
 
+  // Latency tracker for DB ping anomaly detection — shared via fastify decorator
+  // so health routes don't need it passed as a parameter
+  fastify.decorate("latencyTracker", createLatencyTracker());
+
   // --- Rate limiting ---
   await fastify.register(rateLimit, {
     max: 100,
@@ -236,5 +241,6 @@ export async function createServiceApp(
 declare module "fastify" {
   interface FastifyInstance {
     rateLimitMonitor: RateLimitMonitor;
+    latencyTracker: LatencyTracker;
   }
 }

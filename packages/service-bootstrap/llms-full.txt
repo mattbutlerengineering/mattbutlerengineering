@@ -82,29 +82,17 @@
     }
   </file>
   <file path="src/health-routes.ts">
+    export interface HealthDb {
+      readonly prisma: {
+        $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+      };
+      readonly getSlowQueryStats: () => SlowQueryStats;
+      readonly getServiceStatus: () => ServiceStatus;
+      readonly getPoolMetrics: () => PoolMetrics;
+    }
     export interface HealthRouteConfig {
       readonly path: string;
       readonly operationId: string;
-    }
-    export interface HealthRoutesOptions {
-      /** Prisma client instance — must support $queryRaw */
-      readonly prisma: { $queryRaw: (query: TemplateStringsArray) => Promise<unknown> };
-      /** Returns slow query stats from the database module */
-      readonly getSlowQueryStats: () => SlowQueryStats;
-      /** Returns overall service status from the database module */
-      readonly getServiceStatus: () => ServiceStatus;
-      /** Returns pool metrics from the database module */
-      readonly getPoolMetrics: () => PoolMetrics;
-      /** Latency tracker instance for DB ping anomaly detection */
-      readonly latencyTracker: LatencyTracker;
-      /** Auth0 JWKS check function — defaults to the shared checkAuth0 */
-      readonly checkAuth0: (jwksUrl?: string) => Promise<Auth0CheckResult>;
-      /** Rate limit monitor — from createRateLimitMonitor() in create-service-app */
-      readonly rateLimitMonitor: RateLimitMonitor;
-      /** Error rate snapshot getter — from errorRatePlugin_ decoration */
-      readonly getErrorRates: () => ErrorRateSnapshot;
-      /** Routes to register — each gets the same health handler */
-      readonly routes: readonly HealthRouteConfig[];
     }
   </file>
   <file path="src/health.ts">
