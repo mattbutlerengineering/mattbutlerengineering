@@ -12,6 +12,7 @@ import {
   Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
+import { ApiClientError } from "@mbe/api-client";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import type { GuestSegment } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -247,7 +248,13 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
         </div>
       )}
 
-      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} onDismiss={() => {}} />}
+      {error && (
+        <ErrorRetryBanner
+          error={error instanceof ApiClientError ? error.problemDetails.detail : error.message}
+          onRetry={refetch}
+          onDismiss={() => {}}
+        />
+      )}
 
       <Text className={styles.srOnly} aria-live="polite" role="status">
         {`${guests.length} guest${guests.length !== 1 ? "s" : ""} shown`}

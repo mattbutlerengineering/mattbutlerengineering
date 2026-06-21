@@ -13897,6 +13897,36 @@
       };
     }
   </file>
+  <file path="packages/api-client/src/problem-details.ts">
+    export function parseProblemDetails(raw: unknown, httpStatus: number): ProblemDetails {
+      const parsed = ProblemDetailsSchema.safeParse(raw);
+      if (parsed.success) {
+        return parsed.data;
+      }
+    
+      const fallbackDetail = extractDetail(raw, httpStatus);
+    
+      return {
+        type: "about:blank",
+        title: httpStatusTitle(httpStatus),
+        status: httpStatus,
+        detail: fallbackDetail,
+      };
+    }
+    function extractDetail(raw: unknown, httpStatus: number): string {
+      if (typeof raw === "string" && raw.length > 0 && !raw.trimStart().startsWith("<")) {
+        return raw;
+      }
+      if (typeof raw === "object" && raw !== null) {
+        const obj = raw as Record<string, unknown>;
+        const candidate = obj.detail ?? obj.message ?? obj.error;
+        if (typeof candidate === "string" && candidate.length > 0) {
+          return candidate;
+        }
+      }
+      return httpStatusTitle(httpStatus);
+    }
+  </file>
   <file path="packages/api-client/src/reservations.ts">
     export interface ListReservationsParams {
       page?: number;
