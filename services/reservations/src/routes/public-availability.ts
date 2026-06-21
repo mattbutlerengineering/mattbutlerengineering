@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, ApiResponse } from "@mbe/types";
+import { validatePartySize } from "@mbe/database";
 import { venueService } from "../services/venue.js";
 import { availabilityService } from "../services/availability.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -45,17 +46,21 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
         } as never);
       }
 
-      const parsedPartySize = parseInt(partySize, 10);
-      if (isNaN(parsedPartySize) || parsedPartySize < 1) {
+      const partySizeResult = validatePartySize(partySize);
+      if (!partySizeResult.valid) {
         return reply.status(400).send({
           type: "https://httpproblems.com/http-status/400",
           title: "Invalid Party Size",
           status: 400,
-          detail: "partySize must be a positive integer.",
+          detail: partySizeResult.error,
         } as never);
       }
 
-      const slots = await availabilityService.generateTimeSlots(venue.id, date, parsedPartySize);
+      const slots = await availabilityService.generateTimeSlots(
+        venue.id,
+        date,
+        partySizeResult.value
+      );
       const availableOnly = slots.filter((s: TimeSlot) => s.available);
 
       return reply.send({ data: availableOnly });

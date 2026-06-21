@@ -3735,6 +3735,22 @@
       }
     </item>
   </file>
+  <file path="packages/database/src/validators.ts">
+    <item priority="low">
+      interface ValidResult {
+        valid: true;
+        value: T;
+        error?: never;
+      }
+    </item>
+    <item priority="low">
+      interface InvalidResult {
+        valid: false;
+        value?: never;
+        error: string;
+      }
+    </item>
+  </file>
   <file path="packages/gh-client/src/client.ts">
     <item priority="low">
       interface GhClientOptions {

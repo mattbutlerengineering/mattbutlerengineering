@@ -5656,25 +5656,16 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
     
-          // Validate date format
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(date)) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
           }
     
-          const partySizeNum = parseInt(partySize, 10);
-          if (isNaN(partySizeNum) || partySizeNum < 1) {
+          const partySizeResult = validatePartySize(partySize);
+          if (!partySizeResult.valid) {
             return reply
               .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Invalid party size. Must be a positive integer."
-                )
-              );
+              .send(createProblemDetails(400, "Bad Request", partySizeResult.error));
           }
     
           const durationNum = duration ? parseInt(duration, 10) : undefined;
@@ -5693,7 +5684,7 @@
           const slots = await availabilityService.generateTimeSlots(
             venueId,
             date,
-            partySizeNum,
+            partySizeResult.value,
             durationNum
           );
     
@@ -5769,47 +5760,23 @@
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
     
-          // Validate date formats
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-            return reply
-              .code(400)
-              .send(createProblemDetails(400, "Bad Request", "Invalid date format. Use YYYY-MM-DD."));
+          const rangeResult = validateDateRange(startDate, endDate);
+          if (!rangeResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", rangeResult.error!));
           }
     
-          // Validate date range
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          if (start > end) {
+          const partySizeResult = validatePartySize(partySize);
+          if (!partySizeResult.valid) {
             return reply
               .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "startDate must be before or equal to endDate."
-                )
-              );
-          }
-    
-          const partySizeNum = parseInt(partySize, 10);
-          if (isNaN(partySizeNum) || partySizeNum < 1) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  "Invalid party size. Must be a positive integer."
-                )
-              );
+              .send(createProblemDetails(400, "Bad Request", partySizeResult.error));
           }
     
           const dates = await availabilityService.getAvailableDates(
             venueId,
             startDate,
             endDate,
-            partySizeNum
+            partySizeResult.value
           );
     
           return { data: dates };
@@ -6710,8 +6677,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-          const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
+          const { page, limit } = validatePagination(request.query.page, request.query.limit);
           return guestService.list(venueId, page, limit);
         }
       );
@@ -7858,17 +7824,21 @@
             } as never);
           }
     
-          const parsedPartySize = parseInt(partySize, 10);
-          if (isNaN(parsedPartySize) || parsedPartySize < 1) {
+          const partySizeResult = validatePartySize(partySize);
+          if (!partySizeResult.valid) {
             return reply.status(400).send({
               type: "https://httpproblems.com/http-status/400",
               title: "Invalid Party Size",
               status: 400,
-              detail: "partySize must be a positive integer.",
+              detail: partySizeResult.error,
             } as never);
           }
     
-          const slots = await availabilityService.generateTimeSlots(venue.id, date, parsedPartySize);
+          const slots = await availabilityService.generateTimeSlots(
+            venue.id,
+            date,
+            partySizeResult.value
+          );
           const availableOnly = slots.filter((s: TimeSlot) => s.available);
     
           return reply.send({ data: availableOnly });
@@ -14458,6 +14428,18 @@
       getPoolMetrics: ReturnType<typeof vi.fn>;
     }
   </file>
+  <file path="packages/database/src/validators.ts">
+    export interface ValidResult<T> {
+      valid: true;
+      value: T;
+      error?: never;
+    }
+    export interface InvalidResult {
+      valid: false;
+      value?: never;
+      error: string;
+    }
+  </file>
   <file path="packages/gh-client/src/client.ts">
     export interface GhClientOptions extends ExecRunnerOptions {
       runner?: ExecRunner;
@@ -15233,7 +15215,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
