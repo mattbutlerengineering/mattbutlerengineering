@@ -20,6 +20,7 @@ import { createGhClient } from "@mbe/gh-client";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
 import { computeCodeChurn, CODE_CHURN_THRESHOLD } from "./collect-code-churn.mjs";
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
+import { collectMutationScore } from "./collect-mutation-score.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -171,6 +172,12 @@ function parseGitNumstat(root) {
 function collectCodeChurnSensor() {
   const commits = parseGitNumstat(ROOT);
   return computeCodeChurn(commits, now);
+}
+
+function collectMutationScoreSensor() {
+  const reportPath = resolve(ROOT, "reports", "mutation", "mutation.json");
+  const reportJson = safe(() => readJson(reportPath));
+  return collectMutationScore(reportJson, now);
 }
 
 function collectCiHealth() {
@@ -397,6 +404,7 @@ const report = {
     issueFeedback: collectIssueFeedback(),
     sessionLogs: collectSessionLogs(),
     codeChurn: collectCodeChurnSensor(),
+    mutationScore: collectMutationScoreSensor(),
   },
   thresholds: THRESHOLDS,
   regressions: [],
@@ -478,6 +486,11 @@ if (JSON_ONLY) {
       case "codeChurn":
         console.log(
           `   ${name}: ${Math.round(data.churn_rate * 100)}% churn rate (${data.lines_churned_7d} deleted / ${data.total_lines_added_7d} added, 7d)`
+        );
+        break;
+      case "mutationScore":
+        console.log(
+          `   ${name}: ${data.mutation_score}% (${data.killed}/${data.total_mutants} killed, threshold ${data.threshold}%) ${data.passes_threshold ? "PASS" : "BELOW TARGET"}`
         );
         break;
       default:
