@@ -50,7 +50,8 @@ function ProgressPlayground() {
         />
       </div>
       {!indeterminate && (
-        <Input
+        // eslint-disable-next-line mbe-local/prefer-rialto-components
+        <input
           type="range"
           min={0}
           max={100}
