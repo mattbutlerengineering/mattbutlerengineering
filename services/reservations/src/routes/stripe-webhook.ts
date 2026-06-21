@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { createProblemDetails } from "@mbe/types";
 import { stripeService } from "../services/stripe.js";
 import { depositService } from "../services/deposit.js";
+import { WebhookEventRouter } from "./webhook-event-router.js";
 
 /**
  * Stripe webhook endpoint.
@@ -11,6 +12,61 @@ import { depositService } from "../services/deposit.js";
  * Note: raw body access is required for signature verification.
  * This route must be registered BEFORE any JSON body parsers that modify the raw body.
  */
+
+async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  const paymentIntentId = paymentIntent.id;
+
+  const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+
+  if (!deposit) {
+    return;
+  }
+
+  // Only transition from pending to held if not already transitioned
+  if (deposit.status === "pending") {
+    await depositService.hold(deposit.id, paymentIntentId);
+  }
+}
+
+async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  const paymentIntentId = paymentIntent.id;
+
+  const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+
+  if (!deposit) return;
+
+  // If pending, can't directly refund (no transition pending → refunded)
+  // If held, we can refund
+  if (deposit.status === "held") {
+    await depositService.refund(deposit.id);
+  }
+}
+
+async function onChargeRefunded(event: Stripe.Event): Promise<void> {
+  const charge = event.data.object as Stripe.Charge;
+  // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
+  const paymentIntentId =
+    typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+
+  if (!paymentIntentId) return;
+
+  const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
+
+  if (!deposit) return;
+
+  // Only transition if currently held
+  if (deposit.status === "held") {
+    await depositService.refund(deposit.id);
+  }
+}
+
+const webhookRouter = new WebhookEventRouter()
+  .register("payment_intent.succeeded", onPaymentIntentSucceeded)
+  .register("payment_intent.canceled", onPaymentIntentCanceled)
+  .register("charge.refunded", onChargeRefunded);
+
 export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post(
     "/api/v1/stripe/webhook",
@@ -46,7 +102,7 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        await handleStripeEvent(event);
+        await webhookRouter.dispatch(event);
       } catch (err) {
         // Log but don't fail — return 200 to prevent Stripe retrying
         fastify.log.error({ err, eventType: event.type }, "Error handling Stripe webhook event");
@@ -56,67 +112,3 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 };
-
-async function handleStripeEvent(event: Stripe.Event): Promise<void> {
-  switch (event.type) {
-    case "payment_intent.succeeded": {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const paymentIntentId = paymentIntent.id;
-
-      // Find the deposit associated with this PaymentIntent
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
-
-      if (!deposit) {
-        // No deposit linked — nothing to do
-        return;
-      }
-
-      // Only transition from pending to held if not already transitioned
-      if (deposit.status === "pending") {
-        await depositService.hold(deposit.id, paymentIntentId);
-      }
-      break;
-    }
-
-    case "payment_intent.canceled": {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const paymentIntentId = paymentIntent.id;
-
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
-
-      if (!deposit) return;
-
-      // If pending, can't directly refund (no transition pending → refunded)
-      // If held, we can refund
-      if (deposit.status === "held") {
-        await depositService.refund(deposit.id);
-      }
-      break;
-    }
-
-    case "charge.refunded": {
-      const charge = event.data.object as Stripe.Charge;
-      // charge.payment_intent is the PaymentIntent ID (string) or a full PaymentIntent object
-      const paymentIntentId =
-        typeof charge.payment_intent === "string"
-          ? charge.payment_intent
-          : charge.payment_intent?.id;
-
-      if (!paymentIntentId) return;
-
-      const deposit = await depositService.getByPaymentIntentId(paymentIntentId);
-
-      if (!deposit) return;
-
-      // Only transition if currently held
-      if (deposit.status === "held") {
-        await depositService.refund(deposit.id);
-      }
-      break;
-    }
-
-    default:
-      // Unknown event type — ignore gracefully
-      break;
-  }
-}

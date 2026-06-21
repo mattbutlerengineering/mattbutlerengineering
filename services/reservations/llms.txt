@@ -250,11 +250,11 @@
     </item>
   </file>
   <file path="src/routes/stripe-webhook.ts">
-    <item priority="high">
-      export const stripeWebhookRoutes: FastifyPluginAsync;
+    <item priority="low">
+      async function onPaymentIntentSucceeded(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function handleStripeEvent(event: Stripe.Event): Promise<void> { /* ... */ }
+      async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/tables.ts">
@@ -270,6 +270,18 @@
   <file path="src/routes/waitlist.ts">
     <item priority="high">
       export const waitlistRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/webhook-event-router.ts">
+    <item priority="high">
+      type WebhookHandler = (event: T) => Promise<void>;
+    </item>
+    <item priority="high">
+      class WebhookEventRouter {
+        handlers: unknown;
+        async register(): Promise<unknown>;
+        async dispatch(): Promise<unknown>;
+      }
     </item>
   </file>
   </section>
