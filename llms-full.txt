@@ -5922,7 +5922,42 @@
           // failure we surface a 500 and leave both records untouched so the guest
           // can retry rather than silently swallowing the error.
           const deposit = await depositService.getByReservationId(reservation.id);
-          if (deposit && deposit.status === "held") {
+    
+          // Retry guard: a previous attempt succeeded on capture but failed on refund,
+          // leaving the deposit in `partial_refunded`. Re-deriving the action from the
+          // current clock risks crossing the no-show boundary and calling forfeit() on
+          // an already-captured deposit (DepositTransitionError → permanent 500).
+          // Replay refundPartial using the PERSISTED amounts instead.
+          if (deposit && deposit.status === "partial_refunded") {
+            if (deposit.refundAmountCents == null) {
+              // Deposit is partial_refunded but has no persisted amounts — data integrity
+              // gap that cannot be safely replayed. Surface a 500.
+              request.log.error(
+                { depositId: deposit.id, reservationId: reservation.id },
+                "partial_refunded deposit missing persisted refund amount; cannot replay"
+              );
+              return reply.status(500).send({
+                type: "about:blank",
+                title: "Cancellation Failed",
+                status: 500,
+                detail: "Could not process the deposit refund. The reservation was not cancelled.",
+              });
+            }
+            try {
+              await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
+            } catch (err) {
+              request.log.error(
+                { err, reservationId: reservation.id, depositId: deposit.id },
+                "Failed to replay partial refund on cancellation retry; aborting cancel"
+              );
+              return reply.status(500).send({
+                type: "about:blank",
+                title: "Cancellation Failed",
+                status: 500,
+                detail: "Could not process the deposit refund. The reservation was not cancelled.",
+              });
+            }
+          } else if (deposit && deposit.status === "held") {
             const rawVenue = reservation.venueId
               ? await venueService.getRawById(reservation.venueId)
               : null;
@@ -11888,17 +11923,27 @@
     }
   </file>
   <file path="services/reservations/src/services/stripe.ts">
-    export interface CreatePaymentIntentOptions {
-      amountCents: number;
-      currency: string;
-      customerId?: string;
-      reservationId: string;
-      metadata?: Record<string, string>;
+    export class StripeOperationError extends Error {
+      readonly isRetriable: boolean;
+      readonly stripeType: string;
+      readonly cause: unknown;
+    
+      constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        super(message);
+        this.name = "StripeOperationError";
+        this.cause = cause;
+        this.stripeType = stripeType;
+        this.isRetriable = isRetriable;
+      }
     }
-    export interface PaymentIntentResult {
-      id: string;
-      status: string;
-      clientSecret: string | null;
+    function wrapStripeError(err: unknown): never {
+      if (err != null && typeof err === "object" && "type" in err) {
+        const stripeType = String((err as { type: string }).type);
+        const isRetriable = RETRIABLE_STRIPE_TYPES.has(stripeType);
+        throw new StripeOperationError(err, stripeType, isRetriable);
+      }
+      throw err;
     }
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">
@@ -15177,7 +15222,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

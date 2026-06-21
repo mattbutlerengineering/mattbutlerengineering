@@ -133,6 +133,8 @@ const mockDeposit: Deposit = {
   appliedAt: null,
   refundedAt: null,
   forfeitedAt: null,
+  feeAmountCents: null,
+  refundAmountCents: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };

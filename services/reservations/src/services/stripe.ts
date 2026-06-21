@@ -1,5 +1,42 @@
 import Stripe from "stripe";
 
+/**
+ * Typed wrapper for Stripe errors, enriched with `isRetriable` so callers can
+ * distinguish permanent failures (card declined, invalid request) from
+ * transient ones (connection errors, rate limits) without string-matching
+ * error messages.
+ */
+export class StripeOperationError extends Error {
+  readonly isRetriable: boolean;
+  readonly stripeType: string;
+  readonly cause: unknown;
+
+  constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    super(message);
+    this.name = "StripeOperationError";
+    this.cause = cause;
+    this.stripeType = stripeType;
+    this.isRetriable = isRetriable;
+  }
+}
+
+/** Stripe error types that are transient and safe to retry. */
+const RETRIABLE_STRIPE_TYPES = new Set(["StripeConnectionError", "StripeRateLimitError"]);
+
+/**
+ * Wraps a Stripe error in StripeOperationError with retriability metadata.
+ * Non-Stripe errors are re-thrown unchanged.
+ */
+function wrapStripeError(err: unknown): never {
+  if (err != null && typeof err === "object" && "type" in err) {
+    const stripeType = String((err as { type: string }).type);
+    const isRetriable = RETRIABLE_STRIPE_TYPES.has(stripeType);
+    throw new StripeOperationError(err, stripeType, isRetriable);
+  }
+  throw err;
+}
+
 export interface CreatePaymentIntentOptions {
   amountCents: number;
   currency: string;
@@ -73,12 +110,16 @@ export class StripeService {
     paymentIntentId: string,
     idempotencyKey?: string
   ): Promise<{ id: string; status: string }> {
-    const intent = await this.stripe.paymentIntents.capture(
-      paymentIntentId,
-      undefined,
-      idempotencyKey ? { idempotencyKey } : undefined
-    );
-    return { id: intent.id, status: intent.status };
+    try {
+      const intent = await this.stripe.paymentIntents.capture(
+        paymentIntentId,
+        undefined,
+        idempotencyKey ? { idempotencyKey } : undefined
+      );
+      return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
   }
 
   /**
@@ -90,12 +131,16 @@ export class StripeService {
     paymentIntentId: string,
     idempotencyKey?: string
   ): Promise<{ id: string; status: string }> {
-    const intent = await this.stripe.paymentIntents.cancel(
-      paymentIntentId,
-      undefined,
-      idempotencyKey ? { idempotencyKey } : undefined
-    );
-    return { id: intent.id, status: intent.status };
+    try {
+      const intent = await this.stripe.paymentIntents.cancel(
+        paymentIntentId,
+        undefined,
+        idempotencyKey ? { idempotencyKey } : undefined
+      );
+      return { id: intent.id, status: intent.status };
+    } catch (err) {
+      wrapStripeError(err);
+    }
   }
 
   /**
@@ -109,27 +154,31 @@ export class StripeService {
     refundAmountCents: number,
     idempotencyKey?: string
   ): Promise<{ id: string; status: string; amount: number }> {
-    const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-    const chargeId =
-      typeof intent.latest_charge === "string"
-        ? intent.latest_charge
-        : (intent.latest_charge?.id ?? null);
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const chargeId =
+        typeof intent.latest_charge === "string"
+          ? intent.latest_charge
+          : (intent.latest_charge?.id ?? null);
 
-    if (!chargeId) {
-      throw new Error(
-        `PaymentIntent ${paymentIntentId} has no associated charge for partial refund`
+      if (!chargeId) {
+        throw new Error(
+          `PaymentIntent ${paymentIntentId} has no associated charge for partial refund`
+        );
+      }
+
+      const refund = await this.stripe.refunds.create(
+        {
+          charge: chargeId,
+          amount: refundAmountCents,
+        },
+        idempotencyKey ? { idempotencyKey } : undefined
       );
+
+      return { id: refund.id, status: refund.status ?? "unknown", amount: refund.amount };
+    } catch (err) {
+      wrapStripeError(err);
     }
-
-    const refund = await this.stripe.refunds.create(
-      {
-        charge: chargeId,
-        amount: refundAmountCents,
-      },
-      idempotencyKey ? { idempotencyKey } : undefined
-    );
-
-    return { id: refund.id, status: refund.status ?? "unknown", amount: refund.amount };
   }
 
   /**

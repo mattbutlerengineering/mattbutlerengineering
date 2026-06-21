@@ -77,6 +77,8 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
     appliedAt: null,
     refundedAt: null,
     forfeitedAt: null,
+    feeAmountCents: null,
+    refundAmountCents: null,
     createdAt: new Date("2026-01-25T00:00:00.000Z"),
     updatedAt: new Date("2026-01-25T00:00:00.000Z"),
     ...overrides,

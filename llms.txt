@@ -2515,21 +2515,15 @@
     </item>
   </file>
   <file path="services/reservations/src/services/stripe.ts">
-    <item priority="low">
-      interface CreatePaymentIntentOptions {
-        amountCents: number;
-        currency: string;
-        customerId?: string;
-        reservationId: string;
-        metadata?: Record<string, string>;
+    <item priority="high">
+      class StripeOperationError {
+        isRetriable: boolean;
+        stripeType: string;
+        cause: unknown;
       }
     </item>
-    <item priority="low">
-      interface PaymentIntentResult {
-        id: string;
-        status: string;
-        clientSecret: string | null;
-      }
+    <item priority="medium">
+      function wrapStripeError(err: unknown): never { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">

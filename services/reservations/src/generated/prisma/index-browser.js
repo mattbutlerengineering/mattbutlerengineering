@@ -227,6 +227,8 @@ exports.Prisma.DepositScalarFieldEnum = {
   appliedAt: "appliedAt",
   refundedAt: "refundedAt",
   forfeitedAt: "forfeitedAt",
+  feeAmountCents: "feeAmountCents",
+  refundAmountCents: "refundAmountCents",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
 };
