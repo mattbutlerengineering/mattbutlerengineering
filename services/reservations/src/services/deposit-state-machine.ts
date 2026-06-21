@@ -1,4 +1,5 @@
 import type { DepositStatus } from "../generated/prisma/index.js";
+import { createStateMachine, TransitionError } from "./state-machine.js";
 
 /**
  * Valid transitions for the deposit state machine.
@@ -6,7 +7,7 @@ import type { DepositStatus } from "../generated/prisma/index.js";
  * applied, refunded, partial_refunded, forfeited are terminal states
  * (no valid outgoing transitions).
  */
-export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
+const DEPOSIT_TRANSITIONS: Partial<Record<DepositStatus, DepositStatus[]>> = {
   pending: ["held"],
   held: ["applied", "refunded", "partial_refunded", "forfeited"],
   applied: [],
@@ -15,37 +16,32 @@ export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> = {
   forfeited: [],
 };
 
+export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
+
+/**
+ * The allowed-transitions map — kept for callers that reference it directly.
+ */
+export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> =
+  DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
+
 /**
  * Returns true if `from -> to` is a valid deposit state transition.
  */
 export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
-  return VALID_TRANSITIONS[from].includes(to);
+  return depositMachine.canTransition(from, to);
 }
 
 /**
- * Custom error thrown when an invalid deposit state transition is attempted.
+ * Thrown when an invalid deposit state transition is attempted.
+ * Alias of {@link TransitionError} for backward compatibility.
  */
-export class DepositTransitionError extends Error {
-  readonly from: DepositStatus;
-  readonly to: DepositStatus;
-
-  constructor(from: DepositStatus, to: DepositStatus) {
-    super(
-      `Invalid deposit transition: cannot transition from '${from}' to '${to}'. Valid transitions from '${from}': [${VALID_TRANSITIONS[from].join(", ") || "none"}]`
-    );
-    this.name = "DepositTransitionError";
-    this.from = from;
-    this.to = to;
-  }
-}
+export { TransitionError as DepositTransitionError };
 
 /**
  * Pure function that validates and returns the new state for a deposit transition.
- * Throws DepositTransitionError if the transition is invalid.
+ * Throws TransitionError (exported as DepositTransitionError) if the transition is invalid.
  */
 export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus {
-  if (!isValidTransition(from, to)) {
-    throw new DepositTransitionError(from, to);
-  }
+  depositMachine.transition(from, to);
   return to;
 }

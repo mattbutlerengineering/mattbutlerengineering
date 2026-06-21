@@ -2253,10 +2253,10 @@
   </file>
   <file path="services/reservations/src/services/deposit-state-machine.ts">
     <item priority="high">
-      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+      export const depositMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean { /* ... */ }
+      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
     </item>
   </file>
   <file path="services/reservations/src/services/deposit.ts">
@@ -2443,13 +2443,10 @@
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     <item priority="high">
-      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
+      export const reservationMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidReservationTransition(
-        from: ReservationStatus,
-        to: ReservationStatus
-      ): boolean { /* ... */ }
+      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
     </item>
   </file>
   <file path="services/reservations/src/services/reservation.ts">
@@ -2520,6 +2517,21 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/state-machine.ts">
+    <item priority="low">
+      interface StateMachine {
+        
+      }
+    </item>
+    <item priority="high">
+      class TransitionError {
+        from: string;
+        to: string;
+        allowed: string[];
+        entityType: string | undefined;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/stripe.ts">
     <item priority="high">
       class StripeOperationError {
@@ -2534,10 +2546,10 @@
   </file>
   <file path="services/reservations/src/services/table-state-machine.ts">
     <item priority="high">
-      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
+      export const tableMachine: unknown;
     </item>
     <item priority="high">
-      export function isValidTableTransition(from: TableStatus, to: TableStatus): boolean { /* ... */ }
+      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
