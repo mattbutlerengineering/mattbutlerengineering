@@ -60,11 +60,15 @@ export function evaluateCancellationFee(
   if (cancellationMs >= reservationMs) {
     const feePercent = policy.noShowFeePercent ?? 100;
     const feeAmountCents = Math.floor((deposit * feePercent) / 100);
+    const refundAmountCents = deposit - feeAmountCents;
     return {
       feeType: "noshow",
       feeAmountCents,
-      refundAmountCents: deposit - feeAmountCents,
-      depositAction: "forfeit",
+      refundAmountCents,
+      // A full forfeit only applies when nothing is owed back to the guest.
+      // When the no-show fee is under 100%, the remainder must be partially
+      // refunded — `forfeit` would wrongly capture the entire deposit.
+      depositAction: refundAmountCents > 0 ? "refund_partial" : "forfeit",
     };
   }
 

@@ -9,6 +9,7 @@ import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
 import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { useBookingFlow } from "./useBookingFlow.js";
+import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
@@ -48,19 +49,6 @@ const BOOKING_STEPS_WITH_DEPOSIT: StepItem[] = [
   { label: "Details" },
   { label: "Payment" },
 ];
-
-/**
- * Returns a plain-language cancellation policy summary for display in the
- * booking widget confirmation step. Returns null when no policy is configured.
- */
-function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
-  if (!config || config.freeCancellationHours == null) return null;
-  const feePercent = config.lateCancellationFeePercent ?? 0;
-  return (
-    `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
-    `After that, a ${feePercent}% fee applies.`
-  );
-}
 
 export function BookingWidget({
   venueId,

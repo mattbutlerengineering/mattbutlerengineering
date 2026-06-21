@@ -87,6 +87,33 @@ describe("evaluateCancellationFee", () => {
       expect(result.refundAmountCents).toBe(0);
       expect(result.depositAction).toBe("forfeit");
     });
+
+    it("partially refunds (not full forfeit) when noShowFeePercent < 100", () => {
+      const partialNoShowPolicy: CancellationPolicy = {
+        depositAmountCents: BASE_DEPOSIT_CENTS,
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 50, // only 50% no-show fee — guest gets the rest back
+      };
+      const cancellationTime = new Date("2026-06-20T19:00:00Z"); // at reservation time
+
+      const result = evaluateCancellationFee(partialNoShowPolicy, reservationTime, cancellationTime);
+
+      expect(result.feeType).toBe("noshow");
+      expect(result.feeAmountCents).toBe(5000); // 50% of $100
+      expect(result.refundAmountCents).toBe(5000); // other 50% refunded
+      // Must NOT be a full forfeit — a partial refund is owed to the guest.
+      expect(result.depositAction).toBe("refund_partial");
+    });
+
+    it("still forfeits the full deposit when noShowFeePercent is 100", () => {
+      const cancellationTime = new Date("2026-06-20T19:00:00Z");
+      const result = evaluateCancellationFee(policy, reservationTime, cancellationTime);
+
+      expect(result.feeType).toBe("noshow");
+      expect(result.refundAmountCents).toBe(0);
+      expect(result.depositAction).toBe("forfeit");
+    });
   });
 
   describe("no policy configured", () => {

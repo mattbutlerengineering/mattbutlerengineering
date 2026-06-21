@@ -206,7 +206,13 @@ interface Deposit {
   updatedAt: Date;
 }
 
-type DepositStatus = "pending" | "held" | "applied" | "refunded" | "forfeited";
+type DepositStatus =
+  | "pending"
+  | "held"
+  | "applied"
+  | "refunded"
+  | "partial_refunded"
+  | "forfeited";
 
 type DepositType = "flat" | "per_person"; // stored on Venue.depositType
 ```
@@ -215,9 +221,14 @@ type DepositType = "flat" | "per_person"; // stored on Venue.depositType
 
 ```
 pending ──(payment_intent.succeeded webhook)──> held
-held    ──(capture / no-show)──> applied | forfeited
-held    ──(cancellation)──> refunded
+held    ──(capture / full no-show)──> applied | forfeited
+held    ──(free cancellation)──> refunded
+held    ──(late cancel / partial no-show)──> partial_refunded
 ```
+
+`partial_refunded` is used when a late cancellation fee or a sub-100% no-show
+fee applies: the hold is captured and the un-charged remainder is partially
+refunded to the guest. A full `forfeited` is reserved for the true 100% case.
 
 Stripe PaymentIntents are created with **manual capture** (authorize-only hold). The webhook transitions `pending → held` when the payment is authorized. Staff actions then capture (`held → applied`), refund (`held → refunded`), or forfeit (`held → forfeited`).
 

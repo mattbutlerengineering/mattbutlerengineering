@@ -438,9 +438,11 @@ describe("DELETE /public/v1/reservations/manage", () => {
       expect(depositService.forfeit).not.toHaveBeenCalled();
     });
 
-    it("returns 200 even when deposit processing fails", async () => {
+    it("does NOT cancel the reservation when deposit processing fails (no ghost state)", async () => {
+      // Money path: if the deposit cannot be resolved, the reservation must not
+      // be flipped to CANCELLED — that would strand a `held` deposit forever.
       const token = generateManageToken("res_1", "jane@example.com");
-      setupCancelMocks(futureReservation);
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
       vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
       vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
@@ -450,7 +452,34 @@ describe("DELETE /public/v1/reservations/manage", () => {
         url: `/public/v1/reservations/manage?token=${token}`,
       });
 
+      expect(response.statusCode).toBe(500);
+      // The reservation status must NOT have been updated to CANCELLED.
+      expect(reservationService.update).not.toHaveBeenCalled();
+    });
+
+    it("calls depositService.refundPartial for a partial no-show (noShowFeePercent < 100)", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      setupCancelMocks(pastReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+        id: "venue_1",
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 50, // partial no-show — guest owed 50% back
+      } as never);
+      vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "partial_refunded",
+      } as never);
+
+      const response = await depositApp.inject({
+        method: "DELETE",
+        url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
       expect(response.statusCode).toBe(200);
+      expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000); // 50% of $100
+      expect(depositService.forfeit).not.toHaveBeenCalled();
     });
   });
 });

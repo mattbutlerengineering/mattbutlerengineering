@@ -117,6 +117,7 @@ export namespace $Enums {
     held: "held";
     applied: "applied";
     refunded: "refunded";
+    partial_refunded: "partial_refunded";
     forfeited: "forfeited";
   };
 

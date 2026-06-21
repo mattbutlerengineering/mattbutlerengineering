@@ -25,6 +25,14 @@ describe("deposit state machine", () => {
       expect(VALID_TRANSITIONS.held).toContain("forfeited");
     });
 
+    it("lists held -> partial_refunded as valid", () => {
+      expect(VALID_TRANSITIONS.held).toContain("partial_refunded");
+    });
+
+    it("lists no valid transitions from partial_refunded (terminal state)", () => {
+      expect(VALID_TRANSITIONS.partial_refunded).toHaveLength(0);
+    });
+
     it("lists no valid transitions from applied (terminal state)", () => {
       expect(VALID_TRANSITIONS.applied).toHaveLength(0);
     });
@@ -53,6 +61,14 @@ describe("deposit state machine", () => {
 
     it("returns true for held -> forfeited", () => {
       expect(isValidTransition("held", "forfeited")).toBe(true);
+    });
+
+    it("returns true for held -> partial_refunded", () => {
+      expect(isValidTransition("held", "partial_refunded")).toBe(true);
+    });
+
+    it("returns false for partial_refunded -> applied (terminal)", () => {
+      expect(isValidTransition("partial_refunded", "applied")).toBe(false);
     });
 
     it("returns false for pending -> applied (skipping held)", () => {

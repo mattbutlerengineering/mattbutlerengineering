@@ -1,5 +1,10 @@
 <codebase path="apps/hospitality">
   <section priority="medium" role="booking-widget">
+  <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
+    <item priority="high">
+      export function formatDepositCancellationTerms(config: DepositConfig | null): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation";

@@ -43,20 +43,12 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const updated = await reservationService.update(reservation.id, {
-        status: "CANCELLED",
-      });
-
-      if (!updated) {
-        return reply.status(500).send({
-          type: "about:blank",
-          title: "Update Failed",
-          status: 500,
-          detail: "Failed to cancel reservation",
-        });
-      }
-
-      // Apply cancellation policy to any held deposit
+      // Resolve any held deposit BEFORE flipping the reservation to CANCELLED.
+      // A deposit and a reservation must never diverge: cancelling the
+      // reservation while leaving the deposit `held` would strand the guest's
+      // money (a "ghost" charge with no path to refund). On a money-path
+      // failure we surface a 500 and leave both records untouched so the guest
+      // can retry rather than silently swallowing the error.
       const deposit = await depositService.getByReservationId(reservation.id);
       if (deposit && deposit.status === "held") {
         const rawVenue = reservation.venueId
@@ -83,12 +75,37 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
           } else if (feeResult.depositAction === "forfeit") {
             await depositService.forfeit(deposit.id);
           } else {
-            // refund_partial: capture then partially refund
+            // refund_partial: capture then partially refund (also covers a
+            // partial no-show where noShowFeePercent < 100).
             await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
           }
         } catch (err) {
-          request.log.error({ err }, "Failed to process deposit on cancellation");
+          // Do NOT cancel the reservation — keep deposit + reservation
+          // consistent. Log structured context for triage and surface an error.
+          request.log.error(
+            { err, reservationId: reservation.id, depositId: deposit.id },
+            "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
+          );
+          return reply.status(500).send({
+            type: "about:blank",
+            title: "Cancellation Failed",
+            status: 500,
+            detail: "Could not process the deposit refund. The reservation was not cancelled.",
+          });
         }
+      }
+
+      const updated = await reservationService.update(reservation.id, {
+        status: "CANCELLED",
+      });
+
+      if (!updated) {
+        return reply.status(500).send({
+          type: "about:blank",
+          title: "Update Failed",
+          status: 500,
+          detail: "Failed to cancel reservation",
+        });
       }
 
       const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;

@@ -17,13 +17,17 @@ vi.mock("./database.js", async () => {
   return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
 });
 
-const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({
+const { mockPaymentIntents, mockCustomers, mockRefunds } = vi.hoisted(() => ({
   mockPaymentIntents: {
     create: vi.fn(),
     capture: vi.fn(),
     cancel: vi.fn(),
+    retrieve: vi.fn(),
   },
   mockCustomers: {
+    create: vi.fn(),
+  },
+  mockRefunds: {
     create: vi.fn(),
   },
 }));
@@ -32,6 +36,7 @@ vi.mock("stripe", () => {
   class MockStripe {
     paymentIntents = mockPaymentIntents;
     customers = mockCustomers;
+    refunds = mockRefunds;
     webhooks = { constructEvent: vi.fn() };
     constructor(_key: string) {}
   }
@@ -394,6 +399,210 @@ describe("DepositService", () => {
           data: expect.objectContaining({ status: "held", forfeitedAt: null }),
         })
       );
+    });
+  });
+
+  describe("refundPartial (held -> partial_refunded)", () => {
+    it("transitions held deposit to partial_refunded and partially refunds", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(partialDeposit);
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+
+      const result = await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({
+            status: "partial_refunded",
+            refundedAt: expect.any(Date),
+          }),
+        })
+      );
+      expect(result.status).toBe("partial_refunded");
+    });
+
+    it("throws if deposit not in held state", async () => {
+      const appliedDeposit = makeDeposit({ status: "applied" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(appliedDeposit);
+
+      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
+        /invalid.*transition|cannot transition/i
+      );
+    });
+
+    it("throws if deposit not found", async () => {
+      mockDepositDb.findUnique.mockResolvedValueOnce(null);
+
+      await expect(depositService.refundPartial("dep-nope", 3000)).rejects.toThrow(/not found/i);
+    });
+
+    it("updates DB to partial_refunded before calling Stripe (DB-first ordering)", async () => {
+      const order: string[] = [];
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockImplementationOnce(async () => {
+        order.push("db");
+        return makeDeposit({ status: "partial_refunded" });
+      });
+      mockPaymentIntents.capture.mockImplementationOnce(async () => {
+        order.push("capture");
+        return { id: "pi_test_123", status: "succeeded" };
+      });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockImplementationOnce(async () => {
+        order.push("refund");
+        return { id: "re_1", status: "succeeded", amount: 3000 };
+      });
+
+      await depositService.refundPartial("dep-123", 3000);
+
+      expect(order).toEqual(["db", "capture", "refund"]);
+    });
+
+    it("passes a stable idempotency key on the capture", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+
+      await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:refundPartial",
+      });
+    });
+
+    it("passes a stable idempotency key on the refund", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+
+      await depositService.refundPartial("dep-123", 3000);
+
+      expect(mockRefunds.create).toHaveBeenCalledWith(
+        expect.objectContaining({ charge: "ch_1", amount: 3000 }),
+        { idempotencyKey: "dep-123:refundPartial:refund" }
+      );
+    });
+
+    it("rolls back DB to held when the CAPTURE fails (no money moved)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update
+        .mockResolvedValueOnce(
+          makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
+        )
+        .mockResolvedValueOnce(heldDeposit);
+      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe capture boom"));
+
+      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
+        /stripe capture boom/
+      );
+
+      // First update = partial_refunded (DB-first); second update = rollback to held.
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(2);
+      expect(mockDepositDb.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { id: "dep-123" },
+          data: expect.objectContaining({ status: "held", refundedAt: null }),
+        })
+      );
+      // The refund must never be attempted when the capture failed.
+      expect(mockRefunds.create).not.toHaveBeenCalled();
+    });
+
+    it("does NOT roll back to held when capture succeeds but the refund throws (card is captured)", async () => {
+      // Money-safety: once captured, rolling back to `held` would lie about the
+      // charge and re-capture on retry. The row must stay partial_refunded and
+      // the error surface so the refund can be retried idempotently.
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(
+        makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
+      );
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockRejectedValueOnce(new Error("stripe refund boom"));
+
+      await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
+        /stripe refund boom/
+      );
+
+      // Only the DB-first write happened — no rollback to held.
+      expect(mockDepositDb.update).toHaveBeenCalledTimes(1);
+      expect(mockDepositDb.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "partial_refunded" }),
+        })
+      );
+    });
+
+    it("is re-entrant: a retry already in partial_refunded replays Stripe without re-transitioning", async () => {
+      const partialDeposit = makeDeposit({
+        status: "partial_refunded",
+        stripePaymentIntentId: "pi_test_123",
+        refundedAt: new Date(),
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
+      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+
+      const result = await depositService.refundPartial("dep-123", 3000);
+
+      // No DB write on the retry — the row is already partial_refunded.
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
+      // Stripe steps replay with their idempotency keys.
+      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
+        idempotencyKey: "dep-123:refundPartial",
+      });
+      expect(result.status).toBe("partial_refunded");
+    });
+
+    it("rejects a refund amount greater than the deposit", async () => {
+      const heldDeposit = makeDeposit({
+        status: "held",
+        amountCents: 5000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+
+      await expect(depositService.refundPartial("dep-123", 6000)).rejects.toThrow(/invalid.*amount/i);
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
+      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+    });
+
+    it("rejects a negative refund amount", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+
+      await expect(depositService.refundPartial("dep-123", -1)).rejects.toThrow(/invalid.*amount/i);
+      expect(mockDepositDb.update).not.toHaveBeenCalled();
+    });
+
+    it("does not call Stripe refund when refundAmountCents is 0 (still transitions + captures)", async () => {
+      const heldDeposit = makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.update.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+
+      await depositService.refundPartial("dep-123", 0);
+
+      expect(mockPaymentIntents.capture).toHaveBeenCalled();
+      expect(mockRefunds.create).not.toHaveBeenCalled();
     });
   });
 });

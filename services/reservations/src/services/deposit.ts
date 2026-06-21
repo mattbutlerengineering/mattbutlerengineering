@@ -144,30 +144,78 @@ export class DepositService {
   }
 
   /**
-   * Transitions deposit from `held` → `refunded` with a partial Stripe refund.
-   * Captures the PaymentIntent for the fee amount, then issues a partial refund
-   * for the remainder. Used for late cancellations.
+   * Transitions deposit from `held` → `partial_refunded` with a partial Stripe
+   * refund. This is a two-step Stripe mutation: capture the PaymentIntent
+   * (charges the deposit), then refund the portion owed back to the guest. Used
+   * for late cancellations and partial no-show fees.
+   *
+   * Money-safety contract (a two-step flow needs more than the single-call
+   * {@link _captureAndTransition} pattern):
+   *
+   *  - DB-first: the row moves to `partial_refunded` before Stripe is called, so
+   *    a DB failure never leaves a charged card with a stale `held` row.
+   *  - Distinct idempotency keys per Stripe endpoint guarantee a retry can never
+   *    return one call's cached response for the other.
+   *  - If the CAPTURE fails, no money moved — roll the row back to `held` so the
+   *    whole action is cleanly retryable.
+   *  - If the capture SUCCEEDS but the REFUND fails, money has been captured.
+   *    Rolling back to `held` would be a lie (the card is charged) and a retry
+   *    would re-capture and fail. Instead the row stays `partial_refunded` and
+   *    the error is surfaced; the operation is idempotently retryable end-to-end
+   *    (re-running replays the cached capture and completes the refund via its
+   *    idempotency key) without ever double-charging.
+   *  - Re-entrant: a deposit already in `partial_refunded` (a retry after a
+   *    refund failure) skips the transition/DB write and just replays the Stripe
+   *    steps.
    */
   async refundPartial(depositId: string, refundAmountCents: number): Promise<Deposit> {
     const deposit = await this._requireDeposit(depositId);
-    transitionDeposit(deposit.status, "refunded"); // throws if invalid
+
+    // Validate at the trust boundary — never refund more than was deposited,
+    // and reject negatives. (Zero is allowed: a 100%-fee partial still captures.)
+    if (refundAmountCents < 0 || refundAmountCents > deposit.amountCents) {
+      throw new Error(
+        `Invalid partial refund amount ${refundAmountCents} for deposit ${depositId} (deposit is ${deposit.amountCents} cents)`
+      );
+    }
+
+    // Re-entry guard: a retry after a refund failure arrives already in
+    // `partial_refunded`. Only transition + write the row when coming from `held`.
+    let updated = deposit;
+    if (deposit.status !== "partial_refunded") {
+      transitionDeposit(deposit.status, "partial_refunded"); // throws if invalid
+      updated = await prisma.deposit.update({
+        where: { id: depositId },
+        data: { status: "partial_refunded", refundedAt: new Date() },
+      });
+    }
 
     if (deposit.stripePaymentIntentId) {
-      // Capture the full hold first so we can then partially refund
-      await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId);
-      // Refund only the portion that should go back to the guest
+      const captureKey = `${depositId}:refundPartial`;
+      const refundKey = `${depositId}:refundPartial:refund`;
+
+      // Capture the full hold first. If this fails, no money has moved, so roll
+      // the row back to `held` — the action is cleanly retryable.
+      try {
+        await this.stripe.capturePaymentIntent(deposit.stripePaymentIntentId, captureKey);
+      } catch (error) {
+        await this._rollbackToHeld(depositId, "refundedAt").catch(() => {});
+        throw error;
+      }
+
+      // Refund the guest's portion. The card is now captured; a failure here
+      // must NOT roll back to `held` (that would re-capture on retry). Surface
+      // the error and leave the row `partial_refunded` — retry is idempotent.
       if (refundAmountCents > 0) {
-        await this.stripe.createPartialRefund(deposit.stripePaymentIntentId, refundAmountCents);
+        await this.stripe.createPartialRefund(
+          deposit.stripePaymentIntentId,
+          refundAmountCents,
+          refundKey
+        );
       }
     }
 
-    return prisma.deposit.update({
-      where: { id: depositId },
-      data: {
-        status: "refunded",
-        refundedAt: new Date(),
-      },
-    });
+    return updated;
   }
 
   /**
