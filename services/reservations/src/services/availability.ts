@@ -107,7 +107,9 @@ export function parseOperatingHours(
   date: string
 ): DaySchedule | null {
   if (!operatingHours) return null;
-  return scheduleForDay(operatingHours, new Date(date).getDay());
+  // A YYYY-MM-DD string parses as UTC midnight; use getUTCDay so the weekday is
+  // the true calendar weekday regardless of the runner's timezone.
+  return scheduleForDay(operatingHours, new Date(date).getUTCDay());
 }
 
 /**
@@ -116,7 +118,9 @@ export function parseOperatingHours(
  */
 function getDaySchedule(operatingHours: OperatingHours | null, date: Date): DaySchedule | null {
   if (!operatingHours) return null;
-  return scheduleForDay(operatingHours, date.getDay());
+  // Dates are constructed from YYYY-MM-DD strings (UTC midnight); use getUTCDay
+  // so weekday resolution is timezone-stable (matches parseOperatingHours).
+  return scheduleForDay(operatingHours, date.getUTCDay());
 }
 
 /**

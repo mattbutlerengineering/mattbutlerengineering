@@ -939,10 +939,8 @@ describe("fetchConflictData", () => {
 });
 
 describe("parseOperatingHours (pure)", () => {
-  // All dates chosen so that new Date(str).getDay() matches the intended day-of-week
-  // in the local timezone used by the test runner (PDT / UTC-7):
-  //   "2026-05-05" → getDay()=1 (Mon), "2026-05-09" → getDay()=5 (Fri),
-  //   "2026-05-10" → getDay()=6 (Sat), "2026-05-11" → getDay()=0 (Sun)
+  // Dates chosen so new Date(str).getUTCDay() is the intended weekday (timezone-stable):
+  //   2026-05-04 = Mon, 2026-05-08 = Fri, 2026-05-09 = Sat, 2026-05-10 = Sun
   const openHours = {
     monday: { open: "11:00", close: "22:00" },
     tuesday: { open: "11:00", close: "22:00" },
@@ -953,15 +951,15 @@ describe("parseOperatingHours (pure)", () => {
     sunday: { open: "10:00", close: "21:00" },
   };
 
-  it("returns the schedule for an open weekday (Monday = 2026-05-05)", () => {
-    const result = parseOperatingHours(openHours, "2026-05-05");
+  it("returns the schedule for an open weekday (Monday = 2026-05-04)", () => {
+    const result = parseOperatingHours(openHours, "2026-05-04");
     expect(result).not.toBeNull();
     expect(result!.open).toBe("11:00");
     expect(result!.close).toBe("22:00");
   });
 
   it("returns null when operatingHours is null", () => {
-    expect(parseOperatingHours(null, "2026-05-05")).toBeNull();
+    expect(parseOperatingHours(null, "2026-05-04")).toBeNull();
   });
 
   it("returns null for a day marked closed: true", () => {
@@ -969,26 +967,26 @@ describe("parseOperatingHours (pure)", () => {
       ...openHours,
       sunday: { open: "10:00", close: "21:00", closed: true },
     };
-    // 2026-05-11 → getDay()=0 (Sunday) in PDT
-    expect(parseOperatingHours(withClosedSunday, "2026-05-11")).toBeNull();
+    // 2026-05-10 = Sunday (getUTCDay()=0)
+    expect(parseOperatingHours(withClosedSunday, "2026-05-10")).toBeNull();
   });
 
   it("returns null when the day has no schedule entry", () => {
-    // Only Monday in the schedule; Sunday (2026-05-11) has no entry
+    // Only Monday in the schedule; Sunday (2026-05-10) has no entry
     const noSunday = { monday: openHours.monday };
-    expect(parseOperatingHours(noSunday, "2026-05-11")).toBeNull();
+    expect(parseOperatingHours(noSunday, "2026-05-10")).toBeNull();
   });
 
-  it("returns Friday schedule for a Friday date (2026-05-09)", () => {
-    // 2026-05-09 → getDay()=5 (Fri) in PDT
-    const result = parseOperatingHours(openHours, "2026-05-09");
+  it("returns Friday schedule for a Friday date (2026-05-08)", () => {
+    // 2026-05-08 = Friday (getUTCDay()=5)
+    const result = parseOperatingHours(openHours, "2026-05-08");
     expect(result).not.toBeNull();
     expect(result!.close).toBe("23:00");
   });
 
-  it("returns Saturday schedule for a Saturday date (2026-05-10)", () => {
-    // 2026-05-10 → getDay()=6 (Sat) in PDT
-    const result = parseOperatingHours(openHours, "2026-05-10");
+  it("returns Saturday schedule for a Saturday date (2026-05-09)", () => {
+    // 2026-05-09 = Saturday (getUTCDay()=6)
+    const result = parseOperatingHours(openHours, "2026-05-09");
     expect(result).not.toBeNull();
     expect(result!.open).toBe("10:00");
   });
