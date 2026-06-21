@@ -54,5 +54,17 @@
       getPoolMetrics: ReturnType<typeof vi.fn>;
     }
   </file>
+  <file path="src/validators.ts">
+    export interface ValidResult<T> {
+      valid: true;
+      value: T;
+      error?: never;
+    }
+    export interface InvalidResult {
+      valid: false;
+      value?: never;
+      error: string;
+    }
+  </file>
   </section>
 </codebase>

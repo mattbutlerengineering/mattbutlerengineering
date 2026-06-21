@@ -10,6 +10,7 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
+import { validatePagination } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
@@ -64,8 +65,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           .code(400)
           .send(createProblemDetails(400, "Bad Request", "venueId is required"));
       }
-      const page = Math.max(1, parseInt(request.query.page ?? "1", 10) || 1);
-      const limit = Math.max(1, Math.min(100, parseInt(request.query.limit ?? "20", 10) || 20));
+      const { page, limit } = validatePagination(request.query.page, request.query.limit);
       return guestService.list(venueId, page, limit);
     }
   );
