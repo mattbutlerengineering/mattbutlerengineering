@@ -87,6 +87,10 @@ test.txt
 # Test artifacts
 playwright-report/
 test-results/
+
+# Stryker mutation testing artifacts
+.stryker-tmp/
+reports/mutation/
 /metrics/*
 !/metrics/*.jsonl
 !/metrics/ai-antipattern-baselines.json
