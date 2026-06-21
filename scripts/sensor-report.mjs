@@ -19,6 +19,7 @@ import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
 import { computeCodeChurn, CODE_CHURN_THRESHOLD } from "./collect-code-churn.mjs";
+import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -90,6 +91,31 @@ function collectPrMetrics() {
     previous: previous ?? null,
     entry_count: entries.length,
   };
+}
+
+function collectPrCategoryMetricsSensor() {
+  const raw = safe(
+    () =>
+      execFileSync(
+        "gh",
+        [
+          "pr",
+          "list",
+          "--state",
+          "all",
+          "--limit",
+          "100",
+          "--json",
+          "number,state,headRefName,mergedAt,closedAt,labels",
+        ],
+        { encoding: "utf-8", timeout: 15000 }
+      ),
+    null
+  );
+  if (!raw) return { available: false };
+  const prs = safe(() => JSON.parse(raw), null);
+  if (!prs) return { available: false };
+  return computePrCategoryMetrics(prs);
 }
 
 function collectAgentCostSensor() {
@@ -363,6 +389,7 @@ const report = {
   sensors: {
     acmm: collectAcmm(),
     prMetrics: collectPrMetrics(),
+    prCategoryMetrics: collectPrCategoryMetricsSensor(),
     agentCost: collectAgentCostSensor(),
     ciHealth: collectCiHealth(),
     lighthouse: collectLighthouse(),
@@ -435,6 +462,14 @@ if (JSON_ONLY) {
       case "prMetrics":
         console.log(`   ${name}: ${data.entry_count} entries`);
         break;
+      case "prCategoryMetrics": {
+        const categoryList = Object.keys(data.by_category ?? {}).join(", ") || "none";
+        const noteStr = data.signal_note ? " [signal uninformative: fix-forward pattern]" : "";
+        console.log(
+          `   ${name}: ${data.total_merged}/${data.total_prs} merged by category (${categoryList})${noteStr}`
+        );
+        break;
+      }
       case "issueFeedback":
         console.log(
           `   ${name}: ${data.category_count} categories, ${data.unhealthy_categories.length} unhealthy (>${Math.round(0.4 * 100)}% rejected)`
