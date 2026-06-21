@@ -1,7 +1,8 @@
-import type { ApiError } from "@mbe/types";
+import type { ApiError, ProblemDetails } from "@mbe/types";
 import { ApiErrorSchema } from "@mbe/types";
 import type { z } from "zod";
 import { retry } from "./retry.js";
+import { parseProblemDetails } from "./problem-details.js";
 
 /**
  * Describes the value types accepted in a query-params object.
@@ -90,7 +91,12 @@ export class ApiClient {
     const response = await fetchWithRetry(url, fetchOptions, effectiveMaxRetries);
 
     if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+      const isProblemJson = contentType.includes("application/problem+json");
       const raw = await response.json().catch(() => null);
+
+      const problemDetails = parseProblemDetails(raw, response.status);
+
       const parsed = ApiErrorSchema.safeParse(raw);
       // If the response body validates against ApiErrorSchema, use it directly.
       // Otherwise, build a fallback from status line defaults and layer the raw
@@ -115,7 +121,21 @@ export class ApiClient {
           ...rawObj,
         };
       }
-      const clientError = new ApiClientError(error, method, path);
+
+      // When the service explicitly sent application/problem+json, prefer the
+      // parsed ProblemDetails shape so callers can always use `problemDetails`.
+      if (isProblemJson) {
+        error = {
+          ...error,
+          type: problemDetails.type,
+          title: problemDetails.title,
+          status: problemDetails.status,
+          detail: problemDetails.detail,
+          instance: problemDetails.instance,
+        };
+      }
+
+      const clientError = new ApiClientError(error, method, path, problemDetails);
       this.config.onError?.(clientError);
       throw clientError;
     }
@@ -250,16 +270,34 @@ function categorizeStatus(code: number): ErrorCategory {
 }
 
 export class ApiClientError extends Error {
+  /**
+   * RFC 7807 ProblemDetails parsed from the response body.
+   * Always present — falls back to a synthesized shape for non-7807 responses.
+   */
+  readonly problemDetails: ProblemDetails;
+
   constructor(
     public response: ApiError,
     public method?: string,
-    public path?: string
+    public path?: string,
+    problemDetails?: ProblemDetails
   ) {
     const prefix = method && path ? `${method} ${path} failed: ` : "";
     const status = response.status ?? response.statusCode;
     const message = response.detail ?? response.message;
     super(`${prefix}${status} ${message}`);
     this.name = "ApiClientError";
+    this.problemDetails =
+      problemDetails ??
+      parseProblemDetails(
+        {
+          type: response.type,
+          title: response.title,
+          status: response.status,
+          detail: response.detail,
+        },
+        status
+      );
   }
 
   get statusCode(): number {

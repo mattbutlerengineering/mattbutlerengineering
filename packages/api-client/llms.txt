@@ -120,6 +120,14 @@
       }) { /* ... */ }
     </item>
   </file>
+  <file path="src/problem-details.ts">
+    <item priority="high">
+      export function parseProblemDetails(raw: unknown, httpStatus: number): ProblemDetails { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractDetail(raw: unknown, httpStatus: number): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/reservations.ts">
     <item priority="low">
       interface ListReservationsParams {

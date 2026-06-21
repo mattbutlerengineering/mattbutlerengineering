@@ -90,19 +90,6 @@ function SettingsLoadingSkeleton() {
   );
 }
 
-/* ── Error extraction ──────────────────────── */
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof ApiClientError) {
-    const detail = err.response.detail ?? err.response.message;
-    return detail ? `${fallback}: ${detail}` : err.message;
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return fallback;
-}
-
 /* ── Main component ─────────────────────────── */
 
 export function SettingsPage() {
@@ -138,7 +125,14 @@ export function SettingsPage() {
         setSuccessMessage("Settings saved");
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (err) {
-        setError(extractErrorMessage(err, "Failed to save settings"));
+        if (err instanceof ApiClientError) {
+          const detail = err.problemDetails.detail;
+          setError(`Failed to save settings: ${detail}`);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to save settings");
+        }
       } finally {
         setIsSaving(false);
       }
@@ -156,7 +150,14 @@ export function SettingsPage() {
     return (
       <div>
         <PageHeader title="Settings" description="Manage your account settings and preferences" />
-        <ErrorRetryBanner error={loadError.message} onRetry={refetch} />
+        <ErrorRetryBanner
+          error={
+            loadError instanceof ApiClientError
+              ? loadError.problemDetails.detail
+              : loadError.message
+          }
+          onRetry={refetch}
+        />
       </div>
     );
   }

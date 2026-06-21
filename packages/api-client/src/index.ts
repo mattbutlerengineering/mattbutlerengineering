@@ -1,5 +1,6 @@
 export { ApiClient, ApiClientError } from "./client.js";
 export type { ClientConfig, ErrorCategory, PerRequestOptions } from "./client.js";
+export { parseProblemDetails } from "./problem-details.js";
 export { retry } from "./retry.js";
 export type { RetryOptions } from "./retry.js";
 
