@@ -26,7 +26,7 @@ export function DividerPage() {
       {/* ── Vertical ──────────────────────────────────────────────── */}
       <Section title="Vertical">
         <div className={styles.row} style={{ height: 60, alignItems: "stretch" }}>
-          <span
+          <Text
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -35,9 +35,9 @@ export function DividerPage() {
             }}
           >
             Left
-          </span>
+          </Text>
           <Divider orientation="vertical" />
-          <span
+          <Text
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -46,9 +46,9 @@ export function DividerPage() {
             }}
           >
             Center
-          </span>
+          </Text>
           <Divider orientation="vertical" accent />
-          <span
+          <Text
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -57,24 +57,24 @@ export function DividerPage() {
             }}
           >
             Right
-          </span>
+          </Text>
         </div>
       </Section>
 
       {/* ── Spacing ───────────────────────────────────────────────── */}
       <Section title="Spacing">
         <Stack gap="xs">
-          <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+          <Text style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
             spacing=&quot;compact&quot;
-          </span>
+          </Text>
           <Divider spacing="compact" />
-          <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+          <Text style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
             spacing=&quot;default&quot; (default)
-          </span>
+          </Text>
           <Divider spacing="default" />
-          <span style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
+          <Text style={{ fontSize: "var(--rialto-text-xs)", color: "var(--rialto-text-tertiary)" }}>
             spacing=&quot;spacious&quot;
-          </span>
+          </Text>
           <Divider spacing="spacious" />
         </Stack>
       </Section>
@@ -90,7 +90,7 @@ export function DividerPage() {
               border: "1px solid var(--rialto-border)",
             }}
           >
-            <p
+            <Text
               style={{
                 margin: "0 0 var(--rialto-space-sm)",
                 fontSize: "var(--rialto-text-sm)",
@@ -99,9 +99,9 @@ export function DividerPage() {
               }}
             >
               Session Configuration
-            </p>
+            </Text>
             <Divider accent spacing="compact" />
-            <p
+            <Text
               style={{
                 margin: "var(--rialto-space-sm) 0 0",
                 fontSize: "var(--rialto-text-sm)",
@@ -109,40 +109,14 @@ export function DividerPage() {
               }}
             >
               Tire compound: Soft (C5) &middot; Fuel load: 62 kg
-            </p>
+            </Text>
           </div>
         </Stack>
       </Section>
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "orientation",
-              type: '"horizontal" | "vertical"',
-              default: '"horizontal"',
-              description: "Direction of the divider.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Optional centered text label.",
-            },
-            {
-              name: "accent",
-              type: "boolean",
-              default: "false",
-              description: "Gold accent color variant.",
-            },
-            {
-              name: "spacing",
-              type: '"compact" | "default" | "spacious"',
-              default: '"default"',
-              description: "Margin spacing above and below.",
-            },
-          ]}
-        />
+        <PropsTable component="Divider" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

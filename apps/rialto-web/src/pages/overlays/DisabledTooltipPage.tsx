@@ -142,27 +142,7 @@ export function DisabledTooltipPage() {
 
       {/* ── Props Table ───────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "disabled",
-              type: "boolean",
-              default: "false",
-              description: "When true (and disabledReason is set), wraps children with a Tooltip.",
-            },
-            {
-              name: "disabledReason",
-              type: "string",
-              description: "Tooltip content explaining why the element is disabled.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description:
-                "The element to wrap. Should also have the disabled prop set when disabled=true.",
-            },
-          ]}
-        />
+        <PropsTable component="DisabledTooltip" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────────── */}

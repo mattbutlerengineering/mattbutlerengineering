@@ -99,7 +99,7 @@ export function DrawerPage() {
                 { label: "Setup Sheets" },
                 { label: "Tire Strategy" },
               ].map((item) => (
-                <button
+                <Button
                   key={item.label}
                   type="button"
                   onClick={() => setDrawerLeft(false)}
@@ -121,10 +121,10 @@ export function DrawerPage() {
                   }}
                 >
                   {item.label}
-                </button>
+                </Button>
               ))}
               <Divider spacing="compact" />
-              <button
+              <Button
                 type="button"
                 onClick={() => setDrawerLeft(false)}
                 style={{
@@ -141,7 +141,7 @@ export function DrawerPage() {
                 }}
               >
                 Settings
-              </button>
+              </Button>
             </div>
           </nav>
         </Drawer>
@@ -184,46 +184,7 @@ export function DrawerPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "open",
-              type: "boolean",
-              description: "Controls drawer visibility.",
-            },
-            {
-              name: "onClose",
-              type: "() => void",
-              description: "Called when backdrop is clicked or Escape is pressed.",
-            },
-            {
-              name: "side",
-              type: '"right" | "left" | "bottom"',
-              default: '"right"',
-              description: "Which screen edge the drawer slides from.",
-            },
-            {
-              name: "title",
-              type: "string",
-              description: "Drawer heading.",
-            },
-            {
-              name: "description",
-              type: "string",
-              description: "Optional supporting text below the title.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Drawer body content.",
-            },
-            {
-              name: "footer",
-              type: "ReactNode",
-              description: "Action buttons at the bottom of the drawer.",
-            },
-          ]}
-        />
+        <PropsTable component="Drawer" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

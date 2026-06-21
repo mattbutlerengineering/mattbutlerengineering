@@ -24,7 +24,7 @@ export function NavbarPage() {
           }}
         >
           <Navbar
-            logo={<span style={{ fontWeight: "var(--rialto-weight-medium)" }}>Rialto</span>}
+            logo={<Text style={{ fontWeight: "var(--rialto-weight-medium)" }}>Rialto</Text>}
             search={{ placeholder: "Search..." }}
             user={{
               name: "Alex Morgan",
@@ -118,35 +118,7 @@ export function NavbarPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "logo",
-              type: "ReactNode",
-              description: "Logo content rendered in the header.",
-            },
-            {
-              name: "links",
-              type: "Array<NavbarLink>",
-              description: "Navigation links with optional icons, badges, and children.",
-            },
-            {
-              name: "user",
-              type: "{ name: string; email: string; avatar?: string }",
-              description: "User info shown in the user section.",
-            },
-            {
-              name: "search",
-              type: "{ placeholder?: string; onSearch?: (q: string) => void }",
-              description: "Search field configuration.",
-            },
-            {
-              name: "footer",
-              type: "ReactNode",
-              description: "Content at the bottom of the navbar (e.g. sign out button).",
-            },
-          ]}
-        />
+        <PropsTable component="Navbar" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
