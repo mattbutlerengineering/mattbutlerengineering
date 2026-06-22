@@ -2,6 +2,7 @@ import { forwardRef, useRef, useEffect, type KeyboardEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useCombobox } from "../../hooks/useCombobox";
 import { useField } from "../../hooks/useField";
@@ -106,7 +107,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     };
 
     return (
-      <div ref={mergeRef} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
+      <div ref={mergeRef} className={cn(styles.wrapper, className)}>
         {label && (
           <label htmlFor={triggerId} className={styles.label}>
             {label}
@@ -137,7 +138,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             data-open={open}
             onClick={disabled ? (e) => e.preventDefault() : () => toggle()}
           >
-            <span className={`${styles.triggerText} ${!selectedOption ? styles.placeholder : ""}`}>
+            <span className={cn(styles.triggerText, !selectedOption && styles.placeholder)}>
               {selectedOption?.label ?? placeholder}
             </span>
             {disabled && disabledReason && (
