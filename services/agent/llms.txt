@@ -117,6 +117,9 @@
     </item>
   </file>
   <file path="src/routes/sessions.ts">
+    <item priority="medium">
+      function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export const sessionRoutes: FastifyPluginAsync;
     </item>

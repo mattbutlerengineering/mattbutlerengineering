@@ -47,6 +47,7 @@ interface ListOptions {
   readonly page: number;
   readonly limit: number;
   readonly status?: SessionStatus;
+  readonly userId?: string;
 }
 
 export interface TriggerSessionOptions {
@@ -68,8 +69,11 @@ export interface TriggerSessionResult {
 
 export const sessionService = {
   async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
-    const { page, limit, status } = options;
-    const where: Prisma.SessionWhereInput = status ? { status } : {};
+    const { page, limit, status, userId } = options;
+    const where: Prisma.SessionWhereInput = {
+      ...(status && { status }),
+      ...(userId !== undefined && { userId }),
+    };
 
     const [sessions, total] = await Promise.all([
       prisma.session.findMany({
