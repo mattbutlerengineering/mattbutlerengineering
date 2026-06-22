@@ -116,15 +116,17 @@ Managed at https://claude.ai/code/scheduled
 
 | Trigger                  | Schedule (PT)                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------- |
-| `mbe-deep-audit`         | Mon 8:23am (weekly full site audit)                                             |
-| `mbe-morning`            | Daily 9:03am (light audit + ACMM audit + issue-worker)                          |
-| `mbe-midday`             | Daily 1:07pm (issue-worker + CI monitor)                                        |
-| `mbe-evening`            | Daily 5:11pm (issue-worker + progress-tracker)                                  |
+| `mbe-acmm-audit`         | Daily 10:00am (ACMM maturity audit + apply outputs)                             |
 | `mbe-learning-loop`      | Daily 11:00am (sensor report → verify fixes → triage regressions)               |
+| `mbe-arch-deepening`     | Every 2 days 8:00am (architecture deepening agent → PR)                         |
 | `mbe-weekly-improve`     | Fri 7:00am (improve + improve-codebase-architecture → 1 PR + `ready` issues)    |
+| `mbe-gotcha-harvest`     | Fri 10:30am (mine recent sessions for gotchas → propose CLAUDE.md/memory edits) |
+| `mbe-reflect`            | Fri 6:00pm (weekly CLAUDE.md maintenance from human corrections)                |
 | `mbe-monthly-meta-audit` | 1st of month 7:00am (claude-md-improver + claude-automation-recommender → 1 PR) |
 
-> **Max 5x plan**: 5 scheduled runs/day. Daily baseline is 4 (`mbe-morning`/`midday`/`evening`/`learning-loop`). The weekly/occasional triggers add a 5th run on their day: `mbe-deep-audit` (Mon), `mbe-weekly-improve` (Fri). `mbe-monthly-meta-audit` adds one run on the 1st of each month and may briefly hit 6 runs if the 1st lands on a Mon/Fri — acceptable, or shift its date if throttled.
+Disabled (kept for reference): `mbe-verify-acmm-features`, `mbe-acmm-plugin-extraction`, `mbe-oss-readiness-verify`.
+
+> **Capacity model**: weekly work is Friday-weighted (peak availability); the `ready` queue is drained on demand via local `/implement-queue`, **not** a scheduled issue-worker pickup. Daily baseline is 2 runs (`mbe-acmm-audit` + `mbe-learning-loop`), plus `mbe-arch-deepening` every other day. Fridays add `mbe-weekly-improve` / `mbe-gotcha-harvest` / `mbe-reflect`. Well under the 5x/day plan ceiling except possibly Fridays — acceptable.
 
 > **Full catalog + prompts:** [docs/scheduled-tasks.md](./docs/scheduled-tasks.md).
 
