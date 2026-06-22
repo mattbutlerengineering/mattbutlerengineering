@@ -1,5 +1,6 @@
 import { useRef, useEffect, forwardRef } from "react";
 import { Dialog } from "../Dialog/Dialog";
+import { cn } from "../../utils/class-composer";
 import styles from "./ConfirmDialog.module.css";
 
 function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
@@ -96,11 +97,11 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(func
     return () => clearTimeout(timer);
   }, [open, variant]);
 
-  const confirmClass = [
+  const confirmClass = cn(
     styles.button,
     styles.confirm,
-    variant === "destructive" ? styles.destructive : styles.default,
-  ].join(" ");
+    variant === "destructive" ? styles.destructive : styles.default
+  );
 
   return (
     <Dialog
@@ -111,11 +112,7 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(func
       description={description}
       footer={
         <>
-          <button
-            ref={cancelRef}
-            className={[styles.button, styles.cancel].join(" ")}
-            onClick={onCancel}
-          >
+          <button ref={cancelRef} className={cn(styles.button, styles.cancel)} onClick={onCancel}>
             {cancelLabel}
           </button>
           <button ref={confirmRef} className={confirmClass} onClick={onConfirm}>

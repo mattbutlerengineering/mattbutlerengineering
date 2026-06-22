@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { cn } from "../../utils/class-composer";
 import styles from "./HoverCard.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -90,7 +91,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
     return (
       <div
         ref={ref}
-        className={[styles.wrapper, className].filter(Boolean).join(" ")}
+        className={cn(styles.wrapper, className)}
         onMouseEnter={scheduleOpen}
         onMouseLeave={scheduleClose}
         onFocus={scheduleOpen}
@@ -100,7 +101,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
         <AnimatePresence>
           {open && (
             <motion.div
-              className={`${styles.panel} ${styles[placement]}`}
+              className={cn(styles.panel, styles[placement])}
               role="dialog"
               aria-label="Preview"
               onMouseEnter={cancelClose}

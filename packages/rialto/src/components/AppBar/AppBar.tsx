@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springGentle, reduced } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./AppBar.module.css";
 
 /**
@@ -32,7 +33,7 @@ export const AppBar = forwardRef<HTMLElement, AppBarProps>(
   ({ logo, actions, glass = true, height = "56px", className, style, ...props }, ref) => {
     const shouldReduceMotion = useReducedMotion();
 
-    const classes = [styles.appBar, glass ? styles.glass : "", className].filter(Boolean).join(" ");
+    const classes = cn(styles.appBar, glass && styles.glass, className);
 
     return (
       <motion.header
