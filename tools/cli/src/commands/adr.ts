@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 import { glob } from "glob";
 import { findMonorepoRoot } from "../monorepo-root.js";
 
@@ -20,7 +20,7 @@ function parseADR(filePath: string): ADRFrontmatter | null {
   if (!match) return null;
 
   try {
-    return yaml.load(match[1]) as ADRFrontmatter;
+    return load(match[1]) as ADRFrontmatter;
   } catch (e) {
     console.error(`Error parsing ADR at ${filePath}:`, e);
     return null;
