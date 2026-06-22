@@ -1,6 +1,7 @@
 import { forwardRef, useRef, useEffect, useState, useCallback, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring, boop } from "../../tokens/motion";
+import { cn, variantClass } from "../../utils/class-composer";
 import { useDirection } from "../../hooks/useDirection";
 import styles from "./SegmentedControl.module.css";
 
@@ -88,9 +89,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
     return (
       <div
         ref={ref}
-        className={[styles.container, size === "sm" ? styles.sm : "", className]
-          .filter(Boolean)
-          .join(" ")}
+        className={cn(styles.container, variantClass(styles, size, "md"), className)}
         {...props}
       >
         <div
@@ -123,9 +122,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                 ref={(el) => {
                   if (el) segmentRefs.current.set(segment.id, el);
                 }}
-                className={[styles.segment, active ? styles.segmentActive : ""]
-                  .filter(Boolean)
-                  .join(" ")}
+                className={cn(styles.segment, active && styles.segmentActive)}
                 role="radio"
                 aria-checked={active}
                 tabIndex={active ? 0 : -1}

@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Meter.module.css";
 
 /**
@@ -53,14 +54,12 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
     const fraction = range > 0 ? Math.min(1, Math.max(0, (value - min) / range)) : 0;
     const percent = Math.round(fraction * 100);
 
-    const trackClass = [styles.track, size === "sm" ? styles.trackSm : ""]
-      .filter(Boolean)
-      .join(" ");
+    const trackClass = cn(styles.track, size === "sm" && styles.trackSm);
 
-    const fillClass = [styles.fill, styles[variant]].filter(Boolean).join(" ");
+    const fillClass = cn(styles.fill, styles[variant]);
 
     return (
-      <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")} {...props}>
+      <div ref={ref} className={cn(styles.wrapper, className)} {...props}>
         {(label || showValue) && (
           <div className={styles.labelRow}>
             {label && <span className={styles.label}>{label}</span>}
