@@ -8,6 +8,12 @@
  * Formula:
  *   churn_rate = min(lines_deleted_7d / total_lines_added_7d, 1.0)
  *
+ * Source-instability definition: generated/vendored artifacts are excluded
+ * from churn counts. Heavy dependency-bump or deploy-fix activity that
+ * regenerates large files (llms.txt, pnpm-lock.yaml, Prisma clients, etc.)
+ * should not inflate the churn metric. Use isGeneratedArtifact() as the
+ * filter predicate in the numstat parser.
+ *
  * Caveat: this metric conflates intentional refactoring and rapid iteration
  * with genuine instability. A high rate during an active feature sprint is
  * expected and should not be treated as a quality regression without examining
@@ -21,7 +27,45 @@
  * Input shape: Array<{ hash: string, timestamp: string (ISO), linesAdded: number, linesDeleted: number }>
  */
 
+import { basename } from "node:path";
+
 const WINDOW_DAYS = 7;
+
+// Exact basenames that are always generated artifacts.
+const GENERATED_BASENAMES = new Set([
+  "llms.txt",
+  "llms-full.txt",
+  "pnpm-lock.yaml",
+  "generated-schemas.ts",
+  "dep-graph.json",
+  "dependency-graph.md",
+  "registry.json",
+  "CHANGELOG.md",
+]);
+
+/**
+ * Returns true when the given file path is a generated or vendored artifact
+ * that should be excluded from source-instability churn calculations.
+ *
+ * Pure function — no filesystem or git calls.
+ *
+ * @param {string} filePath - Repo-relative or absolute file path.
+ * @returns {boolean}
+ */
+export function isGeneratedArtifact(filePath) {
+  const name = basename(filePath);
+
+  // Basename exact-match covers llms.txt, pnpm-lock.yaml, generated-schemas.ts, etc.
+  if (GENERATED_BASENAMES.has(name)) return true;
+
+  // Vitest / Jest snapshot files.
+  if (name.endsWith(".snap")) return true;
+
+  // Any file nested under a `generated/` directory segment (e.g. Prisma clients).
+  if (filePath.includes("/generated/")) return true;
+
+  return false;
+}
 
 /**
  * Circuit-breaker threshold for the learning-loop: if churn_rate exceeds
