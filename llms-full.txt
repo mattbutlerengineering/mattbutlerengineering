@@ -3253,6 +3253,16 @@
       note: string;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useTimelineKeyboard.ts">
+    export interface TimelineReservationEntry {
+      reservationId: string;
+      tableIndex: number;
+    }
+    export interface UseTimelineKeyboardParams {
+      entries: TimelineReservationEntry[];
+      onActivate?: (reservationId: string) => void;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
@@ -15173,7 +15183,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -15909,6 +15930,19 @@
   <file path="services/users/src/test/fixtures.ts">
     export const MOCK_USER = createMockUser();
     export const MOCK_JWT_PAYLOAD = createMockJWTPayload();
+  </file>
+  </section>
+  <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
+    export interface ReservationLayoutParams {
+      startHour: number;
+      hourWidth: number;
+      isMobile: boolean;
+    }
+    export interface ReservationLayoutResult {
+      left: number;
+      width: number;
+    }
   </file>
   </section>
   <section priority="medium" role="tokens">

@@ -289,6 +289,20 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useTimelineKeyboard.ts">
+    <item priority="low">
+      interface TimelineReservationEntry {
+        reservationId: string;
+        tableIndex: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseTimelineKeyboardParams {
+        entries: TimelineReservationEntry[];
+        onActivate?: (reservationId: string) => void;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useUsers.ts">
     <item priority="high">
       export const CURRENT_USER_QUERY_KEY: unknown;
@@ -378,6 +392,23 @@
     <item priority="high">
       interface ImportMeta {
         env: ImportMetaEnv;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="timeline">
+  <file path="src/components/timeline/reservationLayout.ts">
+    <item priority="low">
+      interface ReservationLayoutParams {
+        startHour: number;
+        hourWidth: number;
+        isMobile: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationLayoutResult {
+        left: number;
+        width: number;
       }
     </item>
   </file>
