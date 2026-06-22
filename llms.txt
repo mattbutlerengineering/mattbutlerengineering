@@ -1140,6 +1140,20 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useTimelineKeyboard.ts">
+    <item priority="low">
+      interface TimelineReservationEntry {
+        reservationId: string;
+        tableIndex: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseTimelineKeyboardParams {
+        entries: TimelineReservationEntry[];
+        onActivate?: (reservationId: string) => void;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useUsers.ts">
     <item priority="high">
       export const CURRENT_USER_QUERY_KEY: unknown;
@@ -4564,6 +4578,23 @@
     </item>
     <item priority="high">
       export const MOCK_JWT_PAYLOAD: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
+    <item priority="low">
+      interface ReservationLayoutParams {
+        startHour: number;
+        hourWidth: number;
+        isMobile: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationLayoutResult {
+        left: number;
+        width: number;
+      }
     </item>
   </file>
   </section>

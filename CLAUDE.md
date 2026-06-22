@@ -208,6 +208,15 @@ The Playwright MCP server (`.mcp.json`) provides shared browser tooling for the 
 - Requires no configuration beyond the entry in `.mcp.json`
 - If you also have the personal Playwright plugin installed, both coexist without conflict (Claude Code deduplicates tools by server name)
 
+## Payments (Stripe MCP — test-mode only)
+
+The Stripe MCP server (`.mcp.json`, `@stripe/mcp`) gives Claude Code live Stripe API docs and test-mode object inspection (PaymentIntents, charges, refunds, webhook events) when working on payment-path code (`stripe`, `@stripe/react-stripe-js`, the deposit calculator, webhook handlers) — so agents read real API shapes instead of guessing.
+
+- **Test-mode only.** The server reads the key from the `STRIPE_SECRET_KEY` env var (referenced as `${STRIPE_SECRET_KEY}` in `.mcp.json` — no secret is committed). Set it to a **test-mode** key (`sk_test_…`) in your local env / secret store. **Never a live key** (`sk_live_…`).
+- When `STRIPE_SECRET_KEY` is unset the server simply fails to load — zero impact on other tooling (same posture as the Langfuse entry).
+- Prefer a Stripe **Restricted API Key (RAK)** scoped to read-only test-mode objects; tool permissions follow the RAK's scope.
+- Verify after setup: a read-only test-mode call (e.g. list PaymentIntents) should succeed.
+
 ## Cross-Session Memory (claude-mem)
 
 [claude-mem](https://github.com/thedotmack/claude-mem) provides persistent cross-session memory — observations about code patterns, architecture decisions, and domain context survive between conversations.
