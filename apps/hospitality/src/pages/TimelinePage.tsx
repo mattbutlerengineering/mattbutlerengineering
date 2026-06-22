@@ -12,6 +12,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useVenuePolicy } from "../hooks/useVenuePolicy.js";
+import { STATUS_LABEL } from "../utils/reservation-display.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -149,7 +150,7 @@ function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: Reservati
           Status
         </Text>
         <Text className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}>
-          {reservation.status}
+          {STATUS_LABEL[reservation.status]}
         </Text>
       </div>
 

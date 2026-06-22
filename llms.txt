@@ -1296,6 +1296,20 @@
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">
+    <item priority="low">
+      type StatusFilter = "all" | ReservationStatus;
+    </item>
+    <item priority="low">
+      interface UseReservationDisplayParams {
+        date: string;
+        venueId: string | undefined;
+        statusFilter: StatusFilter;
+        searchQuery: string;
+        limit?: number;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useReservations.ts">
     <item priority="high">
       export const RESERVATIONS_QUERY_KEY: unknown;
@@ -4903,6 +4917,16 @@
   <file path="apps/hospitality/src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/reservation-display.ts">
+    <item priority="high">
+      export const STATUS_BADGE_VARIANT: Record<
+        ReservationStatus,
+        "warning" | "success" | "e...;
+    </item>
+    <item priority="high">
+      export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
   </file>
   <file path="apps/marketing/src/utils/formatters.ts">

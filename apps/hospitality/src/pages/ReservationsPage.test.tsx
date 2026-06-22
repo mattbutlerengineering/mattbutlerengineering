@@ -4,15 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import { ReservationsPage } from "./ReservationsPage.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
-import { useReservations } from "../hooks/useReservations.js";
-import type { UseReservationsResult } from "../hooks/useReservations.js";
+import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
+import type { UseReservationDisplayResult } from "../hooks/useReservationDisplay.js";
 import type { Reservation } from "@mbe/types";
 import React from "react";
 
 const today = new Date().toLocaleDateString("en-CA");
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
-vi.mock("../hooks/useReservations.js", () => ({ useReservations: vi.fn() }));
+vi.mock("../hooks/useReservationDisplay.js", () => ({ useReservationDisplay: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
@@ -121,12 +121,15 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   };
 }
 
-function makeHookResult(overrides: Partial<UseReservationsResult> = {}): UseReservationsResult {
+function makeDisplayResult(
+  overrides: Partial<UseReservationDisplayResult> = {}
+): UseReservationDisplayResult {
   return {
     data: undefined,
+    stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+    filteredData: [],
     isLoading: false,
     error: null,
-    refetch: vi.fn(),
     ...overrides,
   };
 }
@@ -159,9 +162,16 @@ const defaultReservations: Reservation[] = [
   }),
 ];
 
-function mockReservationsHook(overrides: Partial<UseReservationsResult> = {}) {
-  vi.mocked(useReservations).mockReturnValue(
-    makeHookResult({ data: defaultReservations, ...overrides })
+const defaultStats = { total: 3, confirmed: 1, pending: 1, cancelled: 1 };
+
+function mockDisplayHook(overrides: Partial<UseReservationDisplayResult> = {}) {
+  vi.mocked(useReservationDisplay).mockReturnValue(
+    makeDisplayResult({
+      data: defaultReservations,
+      stats: defaultStats,
+      filteredData: defaultReservations,
+      ...overrides,
+    })
   );
 }
 
@@ -169,7 +179,7 @@ describe("ReservationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useVenue).mockReturnValue(makeVenueContext());
-    mockReservationsHook();
+    mockDisplayHook();
   });
 
   const renderPage = () =>
@@ -225,7 +235,11 @@ describe("ReservationsPage", () => {
     });
 
     it("shows zero totals when no reservations", () => {
-      mockReservationsHook({ data: [] });
+      mockDisplayHook({
+        data: [],
+        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+        filteredData: [],
+      });
 
       renderPage();
 
@@ -240,9 +254,17 @@ describe("ReservationsPage", () => {
     it("clicking CONFIRMED segment filters to confirmed only", async () => {
       renderPage();
 
+      // Initially all shown (mock returns all)
       expect(screen.getByText("Alice")).toBeDefined();
       expect(screen.getByText("Bob")).toBeDefined();
       expect(screen.getByText("Carol")).toBeDefined();
+
+      // Simulate hook returning only confirmed after URL param change
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: [defaultReservations[0]], // only Alice
+      });
 
       fireEvent.click(screen.getByTestId("segment-CONFIRMED"));
 
@@ -256,7 +278,11 @@ describe("ReservationsPage", () => {
     it("clicking PENDING segment filters to pending only", async () => {
       renderPage();
 
-      expect(screen.getByText("Bob")).toBeDefined();
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: [defaultReservations[1]], // only Bob
+      });
 
       fireEvent.click(screen.getByTestId("segment-PENDING"));
 
@@ -268,12 +294,24 @@ describe("ReservationsPage", () => {
     });
 
     it("clicking all segment shows all reservations again", async () => {
+      // Start with confirmed filter
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: [defaultReservations[0]],
+      });
       renderPage();
 
       fireEvent.click(screen.getByTestId("segment-CONFIRMED"));
-
       await waitFor(() => {
         expect(screen.queryByText("Bob")).toBeNull();
+      });
+
+      // Switch back to all
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: defaultReservations,
       });
 
       fireEvent.click(screen.getByTestId("segment-all"));
@@ -290,7 +328,11 @@ describe("ReservationsPage", () => {
     it("filters by guest name", async () => {
       renderPage();
 
-      expect(screen.getByText("Alice")).toBeDefined();
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: [defaultReservations[1]], // only Bob
+      });
 
       const searchInput = screen.getAllByTestId("search-input")[0];
       fireEvent.change(searchInput, { target: { value: "Bob" } });
@@ -305,7 +347,11 @@ describe("ReservationsPage", () => {
     it("shows empty state when search has no matches", async () => {
       renderPage();
 
-      expect(screen.getByText("Alice")).toBeDefined();
+      mockDisplayHook({
+        data: defaultReservations,
+        stats: defaultStats,
+        filteredData: [],
+      });
 
       const searchInput = screen.getAllByTestId("search-input")[0];
       fireEvent.change(searchInput, { target: { value: "Zzznotfound" } });
@@ -331,8 +377,11 @@ describe("ReservationsPage", () => {
     });
 
     it("shows returning-guest badge with visit count when guest.visitCount > 1", () => {
-      mockReservationsHook({
-        data: [makeReservation({ id: "r1", guestName: "Dave", guest: { visitCount: 4 } })],
+      const dave = makeReservation({ id: "r1", guestName: "Dave", guest: { visitCount: 4 } });
+      mockDisplayHook({
+        data: [dave],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [dave],
       });
 
       renderPage();
@@ -343,8 +392,11 @@ describe("ReservationsPage", () => {
     });
 
     it("does not show returning-guest badge when guest is null", () => {
-      mockReservationsHook({
-        data: [makeReservation({ id: "r1", guestName: "Eve", guest: null })],
+      const eve = makeReservation({ id: "r1", guestName: "Eve", guest: null });
+      mockDisplayHook({
+        data: [eve],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [eve],
       });
 
       renderPage();
@@ -355,8 +407,11 @@ describe("ReservationsPage", () => {
     });
 
     it("does not show returning-guest badge when guest.visitCount is 1", () => {
-      mockReservationsHook({
-        data: [makeReservation({ id: "r1", guestName: "Frank", guest: { visitCount: 1 } })],
+      const frank = makeReservation({ id: "r1", guestName: "Frank", guest: { visitCount: 1 } });
+      mockDisplayHook({
+        data: [frank],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [frank],
       });
 
       renderPage();
@@ -367,11 +422,12 @@ describe("ReservationsPage", () => {
     });
 
     it("displays notes or dash when no notes", () => {
-      mockReservationsHook({
-        data: [
-          { ...defaultReservations[0], notes: "Window seat please" },
-          { ...defaultReservations[1], notes: null },
-        ],
+      const withNote = { ...defaultReservations[0], notes: "Window seat please" };
+      const noNote = { ...defaultReservations[1], notes: null };
+      mockDisplayHook({
+        data: [withNote, noNote],
+        stats: { total: 2, confirmed: 1, pending: 1, cancelled: 0 },
+        filteredData: [withNote, noNote],
       });
 
       renderPage();
@@ -381,8 +437,11 @@ describe("ReservationsPage", () => {
     });
 
     it("shows guest email when present", () => {
-      mockReservationsHook({
-        data: [{ ...defaultReservations[0], guestEmail: "alice@example.com" }],
+      const withEmail = { ...defaultReservations[0], guestEmail: "alice@example.com" };
+      mockDisplayHook({
+        data: [withEmail],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [withEmail],
       });
 
       renderPage();
@@ -393,7 +452,11 @@ describe("ReservationsPage", () => {
 
   describe("empty state", () => {
     it("shows empty state when no reservations for selected date", () => {
-      mockReservationsHook({ data: [] });
+      mockDisplayHook({
+        data: [],
+        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+        filteredData: [],
+      });
 
       renderPage();
 
@@ -404,7 +467,7 @@ describe("ReservationsPage", () => {
 
   describe("loading state", () => {
     it("shows skeleton when loading and no data", () => {
-      mockReservationsHook({ data: undefined, isLoading: true });
+      mockDisplayHook({ data: undefined, filteredData: [], isLoading: true });
 
       renderPage();
 
@@ -414,7 +477,7 @@ describe("ReservationsPage", () => {
 
   describe("error handling", () => {
     it("shows error alert when query fails", () => {
-      mockReservationsHook({ error: new Error("API failure") });
+      mockDisplayHook({ error: new Error("API failure") });
 
       renderPage();
 
