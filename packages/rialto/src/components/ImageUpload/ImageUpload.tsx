@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useId, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Plus } from "lucide-react";
 import { spring } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./ImageUpload.module.css";
 
 /**
@@ -174,19 +175,17 @@ export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(
       [onChange, openPicker]
     );
 
-    const tileClass = [
+    const tileClass = cn(
       styles.tile,
       styles[size],
       dragOver && styles.dragOver,
       hasPreview && styles.hasPreview,
       error && styles.error,
       done && styles.done,
-      disabled && styles.disabled,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      disabled && styles.disabled
+    );
 
-    const wrapperClass = [styles.wrapper, className].filter(Boolean).join(" ");
+    const wrapperClass = cn(styles.wrapper, className);
 
     return (
       <div ref={ref} className={wrapperClass}>

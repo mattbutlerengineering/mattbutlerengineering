@@ -169,4 +169,9 @@ describe("PinInput", () => {
       ).toHaveNoViolations();
     });
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<PinInput />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

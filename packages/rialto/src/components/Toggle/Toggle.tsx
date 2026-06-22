@@ -2,6 +2,7 @@ import { forwardRef, useId, useRef, type InputHTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring, boop } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { useDirection } from "../../hooks/useDirection";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Toggle.module.css";
@@ -38,7 +39,7 @@ export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div
           ref={wrapperRef}
-          className={[styles.wrapper, className].filter(Boolean).join(" ")}
+          className={cn(styles.wrapper, className)}
           aria-disabled={disabled || undefined}
         >
           <input

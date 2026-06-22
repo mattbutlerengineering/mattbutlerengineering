@@ -190,4 +190,9 @@ describe("NumberInput — rendering extras", () => {
     render(<NumberInput ref={ref} label="Qty" value={5} onChange={noop} />);
     expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<NumberInput value={5} onChange={noop} />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

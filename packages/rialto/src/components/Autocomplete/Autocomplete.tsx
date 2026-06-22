@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { useCombobox } from "../../hooks/useCombobox";
 import styles from "./Autocomplete.module.css";
 
@@ -147,7 +148,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const hintId = hint ? `${inputId}-hint` : undefined;
 
     return (
-      <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
+      <div ref={wrapperRef} className={cn(styles.wrapper, className)}>
         {label && (
           <label htmlFor={inputId} className={styles.label}>
             {label}
@@ -224,9 +225,7 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
                     role="option"
                     aria-selected={focusedIndex === index}
                     data-option-index={index}
-                    className={[styles.option, focusedIndex === index && styles.optionActive]
-                      .filter(Boolean)
-                      .join(" ")}
+                    className={cn(styles.option, focusedIndex === index && styles.optionActive)}
                     onMouseDown={(e) => {
                       e.preventDefault(); // keep focus on input
                       handleSelectOption(option);

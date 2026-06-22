@@ -116,4 +116,9 @@ describe("Toggle", () => {
       expect(screen.getByRole("switch")).toBeInTheDocument();
     });
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<Toggle label="Dark mode" />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

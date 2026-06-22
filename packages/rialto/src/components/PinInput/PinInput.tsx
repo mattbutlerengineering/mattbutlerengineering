@@ -10,6 +10,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring } from "../../tokens/motion";
+import { cn, variantClass } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./PinInput.module.css";
 
@@ -161,14 +162,12 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   );
 
   /* ── Class names ─────────────────────────── */
-  const wrapperClasses = [
+  const wrapperClasses = cn(
     styles.wrapper,
-    size !== "md" ? styles[size] : "",
-    error ? styles.error : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    variantClass(styles, size, "md"),
+    error && styles.error,
+    className
+  );
 
   const entryAnimation = shouldReduceMotion
     ? {}
