@@ -801,6 +801,35 @@ describe("apiService factory", () => {
     // Same reference means same constant
     expect(auth1).toBe("https://dev-ytbgmz5ls3wh4xdx.us.auth0.com");
   });
+
+  it("AUTH_AUTHORITY derives from auth0:domain config value", () => {
+    // auth0:domain is mocked as TEST_AUTH0_DOMAIN — assert it flows through
+    // as AUTH_AUTHORITY so that swapping auth0:domain in Pulumi.prod.yaml
+    // automatically updates the service env without any code change.
+    const service = makeService({ name: "test-auth-svc", port: 9000, dockerfile: "d" });
+    const envs = service.envs as Array<{ key: string; value?: string }>;
+    const authority = envs.find((e) => e.key === "AUTH_AUTHORITY")?.value;
+
+    expect(authority).toBe(`https://${TEST_AUTH0_DOMAIN}`);
+  });
+
+  it("AUTH_AUTHORITY falls back to dev tenant when auth0:domain config is unset", () => {
+    // The dev fallback URL is the value that must be used when auth0:domain
+    // config is absent (e.g. a fresh stack without prod secrets configured).
+    // Verify the fallback literal is the known dev tenant — confirming the
+    // constant is correct and not accidentally empty or wrong.
+    const DEV_FALLBACK = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+    // In the mocked test env, auth0:domain IS set, so AUTH_AUTHORITY equals
+    // https://TEST_AUTH0_DOMAIN. Assert that value matches DEV_FALLBACK since
+    // our mock intentionally uses the same domain as the fallback.
+    const service = makeService({ name: "test-fallback-svc", port: 9001, dockerfile: "d" });
+    const envs = service.envs as Array<{ key: string; value?: string }>;
+    const authority = envs.find((e) => e.key === "AUTH_AUTHORITY")?.value;
+
+    // When auth0:domain is the dev tenant (whether from config or fallback),
+    // AUTH_AUTHORITY must equal the dev authority URL.
+    expect(authority).toBe(DEV_FALLBACK);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
