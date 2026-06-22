@@ -35,7 +35,7 @@ COPY packages/observability/tsconfig.json ./packages/observability/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
-COPY services/users/tsconfig.json services/users/tsconfig.build.json ./services/users/
+COPY services/users/tsconfig.json ./services/users/
 
 # Copy Prisma schema (needed for db:generate)
 COPY services/users/prisma ./services/users/prisma

@@ -43,7 +43,7 @@ COPY packages/cancellation-policy/tsconfig.json ./packages/cancellation-policy/
 COPY packages/service-bootstrap/tsconfig.json ./packages/service-bootstrap/
 COPY packages/notifications/tsconfig.json ./packages/notifications/
 COPY packages/jobs/tsconfig.json ./packages/jobs/
-COPY services/reservations/tsconfig.json services/reservations/tsconfig.build.json ./services/reservations/
+COPY services/reservations/tsconfig.json ./services/reservations/
 
 # Copy Prisma schema and config (needed for db:generate)
 COPY services/reservations/prisma ./services/reservations/prisma
