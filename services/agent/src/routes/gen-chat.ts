@@ -13,6 +13,7 @@ const GenChatBodySchema = z.object({
 
 export const genChatRoutes = createGenRoute({
   path: "/api/gen/chat",
+  costLogLabel: "gen-chat cost log",
   rateLimit: {
     max: 50,
     timeWindow: "1 hour",

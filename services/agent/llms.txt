@@ -50,10 +50,10 @@
     <item priority="low">
       interface GenRouteConfig {
         path: string;
+        costLogLabel: string;
         rateLimit: { readonly max: number; readonly timeWindow: string };
         schema: TSchema;
         streamFormat: "text" | "ndjson";
-        maxSteps: number;
       }
     </item>
     <item priority="high">

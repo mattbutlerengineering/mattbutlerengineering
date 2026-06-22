@@ -15,6 +15,8 @@ const SYSTEM_PROMPT = catalog.prompt();
 
 export interface GenRouteConfig<TSchema extends z.ZodType> {
   readonly path: string;
+  /** Exact label passed to logGenCost — preserved per-route for log-query stability. */
+  readonly costLogLabel: string;
   readonly rateLimit: { readonly max: number; readonly timeWindow: string };
   readonly schema: TSchema;
   /** "text" → text/plain passthrough; "ndjson" → application/x-ndjson line framing */
@@ -38,7 +40,7 @@ const encoder = new TextEncoder();
 export function createGenRoute<TSchema extends z.ZodType>(
   config: GenRouteConfig<TSchema>
 ): FastifyPluginAsync {
-  const { path, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
+  const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
 
   const contentType =
     streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
@@ -85,7 +87,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
               userId: request.user?.id,
               usage,
               providerMetadata,
-              label: `${path} cost log`,
+              label: costLogLabel,
             }),
         });
 

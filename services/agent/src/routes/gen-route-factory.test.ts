@@ -14,6 +14,13 @@ vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: vi.fn(() => ({ provider: "anthropic", modelId: "claude-haiku-4.5" })),
 }));
 
+// Partial mock: keep real GEN_MODEL_ID/applyStreamHeaders, spy on logGenCost so we can
+// assert the exact cost-log label flows through from each route's config.
+vi.mock("./gen-stream.js", async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  return { ...actual, logGenCost: vi.fn() };
+});
+
 vi.mock("@mbe/rialto-catalog/catalog", () => ({
   catalog: { prompt: vi.fn(() => "mock system prompt") },
 }));
@@ -68,6 +75,7 @@ vi.mock("@mbe/agent-core", () => ({
 import { streamText } from "ai";
 import Fastify from "fastify";
 import { createGenRoute } from "./gen-route-factory.js";
+import { logGenCost } from "./gen-stream.js";
 
 async function* mockStream<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) yield item;
@@ -95,6 +103,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       const route = createGenRoute({
         path: "/api/test/chat",
+        costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
         streamFormat: "text",
@@ -133,6 +142,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       const route = createGenRoute({
         path: "/api/test/chat",
+        costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
         streamFormat: "text",
@@ -209,6 +219,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       const route = createGenRoute({
         path: "/api/test/agent",
+        costLogLabel: "test-agent cost log",
         rateLimit: { max: 30, timeWindow: "1 hour" },
         schema: AgentSchema,
         streamFormat: "ndjson",
@@ -288,6 +299,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       const route = createGenRoute({
         path: "/api/test/chat",
+        costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
         streamFormat: "text",
@@ -314,6 +326,31 @@ describe("createGenRoute factory", () => {
       const call = vi.mocked(streamText).mock.calls[0]![0] as { onFinish?: unknown };
       expect(typeof call.onFinish).toBe("function");
     });
+
+    it("passes the route's configured costLogLabel to logGenCost", async () => {
+      vi.mocked(logGenCost).mockClear();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      await app.inject({
+        method: "POST",
+        url: "/api/test/chat",
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        onFinish?: (a: { usage: unknown; providerMetadata: unknown }) => Promise<void>;
+      };
+      await call.onFinish!({ usage: { inputTokens: 5, outputTokens: 3 }, providerMetadata: {} });
+
+      expect(vi.mocked(logGenCost)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ label: "test-chat cost log" })
+      );
+    });
   });
 
   describe("system prompt + prompt caching", () => {
@@ -321,6 +358,7 @@ describe("createGenRoute factory", () => {
       app = buildTestApp();
       const route = createGenRoute({
         path: "/api/test/chat",
+        costLogLabel: "test-chat cost log",
         rateLimit: { max: 50, timeWindow: "1 hour" },
         schema: ChatSchema,
         streamFormat: "text",
@@ -366,6 +404,7 @@ describe("createGenRoute factory", () => {
       });
       const route = createGenRoute({
         path: "/api/test/agent",
+        costLogLabel: "test-agent cost log",
         rateLimit: { max: 30, timeWindow: "1 hour" },
         schema: AgentSchema,
         streamFormat: "ndjson",

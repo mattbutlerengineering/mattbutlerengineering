@@ -17,6 +17,7 @@ const GenAgentBodySchema = z.object({
 
 export const genAgentRoutes = createGenRoute({
   path: "/api/gen/agent",
+  costLogLabel: "gen-agent cost log",
   rateLimit: {
     max: 30,
     timeWindow: "1 hour",
