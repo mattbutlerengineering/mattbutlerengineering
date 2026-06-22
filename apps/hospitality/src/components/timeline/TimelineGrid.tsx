@@ -1,7 +1,9 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { toDateString, type Reservation, type Table, type TableStatus } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusBadge } from "../TableStatusBadge.js";
+import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
+import { computeReservationLayout } from "./reservationLayout.js";
 import styles from "./TimelineGrid.module.css";
 
 const HOUR_WIDTH = 120;
@@ -54,101 +56,32 @@ export function TimelineGrid({
   const hourWidth = isMobile ? MOBILE_HOUR_WIDTH : HOUR_WIDTH;
   const tableColumnWidth = isMobile ? MOBILE_TABLE_COLUMN_WIDTH : TABLE_COLUMN_WIDTH;
 
-  const [focusedReservationId, setFocusedReservationId] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const allReservations = useMemo(() => {
-    const arr: { reservation: Reservation; tableIndex: number }[] = [];
+  const keyboardEntries = useMemo(() => {
+    const arr: { reservationId: string; tableIndex: number }[] = [];
     tables.forEach((table, tableIndex) => {
       reservations
         .filter((r) => r.tableId === table.id)
         .forEach((reservation) => {
-          arr.push({ reservation, tableIndex });
+          arr.push({ reservationId: reservation.id, tableIndex });
         });
     });
     return arr;
   }, [tables, reservations]);
 
-  const flatReservations = useMemo(() => {
-    return allReservations.map((r) => r.reservation);
-  }, [allReservations]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (flatReservations.length === 0) return;
-
-      const currentIndex = focusedReservationId
-        ? flatReservations.findIndex((r) => r.id === focusedReservationId)
-        : -1;
-
-      switch (e.key) {
-        case "ArrowRight":
-          e.preventDefault();
-          if (focusedReservationId) {
-            const nextIdx = Math.min(currentIndex + 1, flatReservations.length - 1);
-            setFocusedReservationId(flatReservations[nextIdx].id);
-          } else if (flatReservations.length > 0) {
-            setFocusedReservationId(flatReservations[0].id);
-          }
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          if (focusedReservationId) {
-            const prevIdx = Math.max(currentIndex - 1, 0);
-            setFocusedReservationId(flatReservations[prevIdx].id);
-          } else if (flatReservations.length > 0) {
-            setFocusedReservationId(flatReservations[flatReservations.length - 1].id);
-          }
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          if (focusedReservationId) {
-            const currentTableInfo = allReservations[currentIndex];
-            const nextTableReservations = allReservations.filter(
-              (r) => r.tableIndex === currentTableInfo.tableIndex + 1
-            );
-            if (nextTableReservations.length > 0) {
-              setFocusedReservationId(nextTableReservations[0].reservation.id);
-            }
-          }
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          if (focusedReservationId) {
-            const currentTableInfo = allReservations[currentIndex];
-            if (currentTableInfo.tableIndex > 0) {
-              const prevTableReservations = allReservations.filter(
-                (r) => r.tableIndex === currentTableInfo.tableIndex - 1
-              );
-              if (prevTableReservations.length > 0) {
-                setFocusedReservationId(
-                  prevTableReservations[prevTableReservations.length - 1].reservation.id
-                );
-              }
-            }
-          }
-          break;
-        case "Enter":
-        case " ":
-          if (focusedReservationId) {
-            const res = flatReservations.find((r) => r.id === focusedReservationId);
-            if (res) onReservationClick?.(res);
-          }
-          break;
-        case "Escape":
-          setFocusedReservationId(null);
-          break;
-      }
+  const { focusedId: focusedReservationId, handleKeyDown } = useTimelineKeyboard({
+    entries: keyboardEntries,
+    onActivate: (id) => {
+      const res = reservations.find((r) => r.id === id);
+      if (res) onReservationClick?.(res);
     },
-    [flatReservations, allReservations, onReservationClick, focusedReservationId]
-  );
+  });
 
   useEffect(() => {
     if (focusedReservationId && selectedReservationId !== focusedReservationId) {
-      const res = flatReservations.find((r) => r.id === focusedReservationId);
+      const res = reservations.find((r) => r.id === focusedReservationId);
       if (res) onReservationClick?.(res);
     }
-  }, [focusedReservationId, selectedReservationId, onReservationClick, flatReservations]);
+  }, [focusedReservationId, selectedReservationId, onReservationClick, reservations]);
 
   const hours = useMemo(() => {
     const result = [];
@@ -164,30 +97,8 @@ export function TimelineGrid({
     return isMobile ? `${displayHour}` : `${displayHour} ${ampm}`;
   };
 
-  const getTableReservations = useCallback(
-    (tableId: string) => {
-      return reservations.filter((r) => r.tableId === tableId);
-    },
-    [reservations]
-  );
-
-  const getReservationStyle = useCallback(
-    (reservation: Reservation) => {
-      const startTime = new Date(reservation.startTime);
-      const endTime = new Date(reservation.endTime);
-
-      const startMinutes = startTime.getHours() * 60 + startTime.getMinutes();
-      const endMinutes = endTime.getHours() * 60 + endTime.getMinutes();
-      const startOffset = startMinutes - startHour * 60;
-      const duration = endMinutes - startMinutes;
-
-      const left = (startOffset / 60) * hourWidth;
-      const width = Math.max((duration / 60) * hourWidth - 4, isMobile ? 30 : 40);
-
-      return { left, width };
-    },
-    [startHour, hourWidth, isMobile]
-  );
+  const getTableReservations = (tableId: string) =>
+    reservations.filter((r) => r.tableId === tableId);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const lastMinuteRef = useRef(currentTime.getMinutes());
@@ -219,7 +130,6 @@ export function TimelineGrid({
 
   return (
     <div
-      ref={containerRef}
       data-testid="timeline-grid"
       className={`${styles.gridWrapper} ${showMobileView ? styles.gridWrapperMobile : ""}`}
       role="grid"
@@ -297,7 +207,11 @@ export function TimelineGrid({
               </div>
 
               {getTableReservations(table.id).map((reservation) => {
-                const blockStyle = getReservationStyle(reservation);
+                const blockStyle = computeReservationLayout(
+                  reservation.startTime,
+                  reservation.endTime,
+                  { startHour, hourWidth, isMobile }
+                );
                 const isFocused = focusedReservationId === reservation.id;
                 return (
                   <ReservationBlock
@@ -324,7 +238,7 @@ export function TimelineGrid({
         )}
       </div>
 
-      {showMobileView && flatReservations.length > 0 && (
+      {showMobileView && keyboardEntries.length > 0 && (
         <div className={styles.mobileNavHint} aria-live="polite">
           Use arrow keys to navigate reservations
         </div>
