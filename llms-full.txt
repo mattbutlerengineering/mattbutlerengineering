@@ -5131,143 +5131,148 @@
     }
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
-    export const genAgentRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.post(
-        "/api/gen/agent",
-        {
-          preHandler: [requireAuth],
-          config: {
-            rateLimit: {
-              max: 30,
-              timeWindow: "1 hour",
-              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
-            },
-          },
-        },
-        async (request, reply) => {
-          const parseResult = GenAgentBodySchema.safeParse(request.body);
-          if (!parseResult.success) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  parseResult.error.issues.map((i) => i.message).join(", ")
-                )
-              );
-          }
-    
-          const { messages } = parseResult.data;
-          const authHeader = request.headers.authorization;
-          const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-          const api = createApiClient({
-            baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
-            getAccessToken: () => token,
-          });
-          const agentTools = createAgentTools(request.log, api);
-          const runner = createGenRunner({
-            systemPrompt: SYSTEM_PROMPT,
-            modelId: GEN_MODEL_ID,
-            maxSteps: 5,
-            onFinish: async ({ usage, providerMetadata }) =>
-              logGenCost(request.log, {
-                userId: request.user?.id,
-                usage,
-                providerMetadata,
-                label: "gen-agent cost log",
-              }),
-          });
-    
-          applyStreamHeaders(reply, "application/x-ndjson; charset=utf-8");
-    
-          const ndjsonStream = new ReadableStream({
-            async start(controller) {
-              try {
-                await runner.run(messages, agentTools, async (event) => {
-                  const line = JSON.stringify(event);
-                  controller.enqueue(encoder.encode(line + "\n"));
-                });
-              } finally {
-                controller.close();
-              }
-            },
-          });
-    
-          return reply.send(ndjsonStream);
-        }
-      );
-    };
+    export const genAgentRoutes = createGenRoute({
+      path: "/api/gen/agent",
+      costLogLabel: "gen-agent cost log",
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 hour",
+      },
+      schema: GenAgentBodySchema,
+      streamFormat: "ndjson",
+      maxSteps: 5,
+      getTools: async (request) => {
+        const authHeader = request.headers.authorization;
+        const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        const api = createApiClient({
+          baseUrl: process.env.API_BASE_URL ?? "http://localhost:3000",
+          getAccessToken: () => token,
+        });
+        return createAgentTools(request.log, api);
+      },
+    });
   </file>
   <file path="services/agent/src/routes/gen-chat.ts">
-    export const genChatRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.post(
-        "/api/gen/chat",
-        {
-          preHandler: [requireAuth],
-          config: {
-            // GEN-04: per-route rate limit override — per-user by Auth0 sub claim
-            rateLimit: {
-              max: 50,
-              timeWindow: "1 hour",
-              keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+    export const genChatRoutes = createGenRoute({
+      path: "/api/gen/chat",
+      costLogLabel: "gen-chat cost log",
+      rateLimit: {
+        max: 50,
+        timeWindow: "1 hour",
+      },
+      schema: GenChatBodySchema,
+      // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
+      streamFormat: "text",
+      // GEN-06: chat doesn't use multi-step tool calls
+      maxSteps: 1,
+      getTools: async () => ({}),
+    });
+  </file>
+  <file path="services/agent/src/routes/gen-route-factory.ts">
+    export interface GenRouteConfig<TSchema extends z.ZodType> {
+      readonly path: string;
+      /** Exact label passed to logGenCost — preserved per-route for log-query stability. */
+      readonly costLogLabel: string;
+      readonly rateLimit: { readonly max: number; readonly timeWindow: string };
+      readonly schema: TSchema;
+      /** "text" → text/plain passthrough; "ndjson" → application/x-ndjson line framing */
+      readonly streamFormat: "text" | "ndjson";
+      readonly maxSteps: number;
+      readonly getTools: (
+        request: FastifyRequest,
+        parsed: z.infer<TSchema>
+      ) => GenToolMap | Promise<GenToolMap>;
+    }
+    export function createGenRoute<TSchema extends z.ZodType>(
+      config: GenRouteConfig<TSchema>
+    ): FastifyPluginAsync {
+      const { path, costLogLabel, rateLimit, schema, streamFormat, maxSteps, getTools } = config;
+    
+      const contentType =
+        streamFormat === "text" ? "text/plain; charset=utf-8" : "application/x-ndjson; charset=utf-8";
+    
+      return async (fastify) => {
+        fastify.post(
+          path,
+          {
+            preHandler: [requireAuth],
+            config: {
+              rateLimit: {
+                max: rateLimit.max,
+                timeWindow: rateLimit.timeWindow,
+                keyGenerator: (request: FastifyRequest) => request.user?.id ?? request.ip,
+              },
             },
           },
-        },
-        async (request, reply) => {
-          // Validate request body
-          const parseResult = GenChatBodySchema.safeParse(request.body);
-          if (!parseResult.success) {
-            return reply
-              .code(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "Bad Request",
-                  parseResult.error.issues.map((i) => i.message).join(", ")
-                )
-              );
-          }
+          async (request, reply) => {
+            const parseResult = schema.safeParse(request.body);
+            if (!parseResult.success) {
+              return reply
+                .code(400)
+                .send(
+                  createProblemDetails(
+                    400,
+                    "Bad Request",
+                    (parseResult.error as z.ZodError).issues.map((i) => i.message).join(", ")
+                  )
+                );
+            }
     
-          const { messages } = parseResult.data;
-          const runner = createGenRunner({
-            systemPrompt: SYSTEM_PROMPT,
-            // GEN-06: model for chat — always haiku (conversational doesn't need sonnet)
-            modelId: GEN_MODEL_ID,
-            maxSteps: 1,
-            // GEN-06: cost logging in onFinish
-            onFinish: async ({ usage, providerMetadata }) =>
-              logGenCost(request.log, {
-                userId: request.user?.id,
-                usage,
-                providerMetadata,
-                label: "gen-chat cost log",
-              }),
-          });
+            const parsed = parseResult.data as z.infer<TSchema>;
+            const { messages } = parsed as {
+              messages: Array<{ role: "user" | "assistant"; content: string }>;
+            };
     
-          // GEN-07: SSE passthrough headers — text/plain prevents browser HTML rendering
-          applyStreamHeaders(reply, "text/plain; charset=utf-8");
+            const tools = await getTools(request, parsed);
+            const runner = createGenRunner({
+              systemPrompt: SYSTEM_PROMPT,
+              modelId: GEN_MODEL_ID,
+              maxSteps,
+              onFinish: async ({ usage, providerMetadata }) =>
+                logGenCost(request.log, {
+                  userId: request.user?.id,
+                  usage,
+                  providerMetadata,
+                  label: costLogLabel,
+                }),
+            });
     
-          // Build a plain text stream from the runner's text events, then sanitize
-          const textStream = new ReadableStream<string>({
-            async start(controller) {
-              try {
-                await runner.run(messages, {}, async (event) => {
-                  if (event.type === "text") {
-                    controller.enqueue(event.content);
+            applyStreamHeaders(reply, contentType);
+    
+            if (streamFormat === "text") {
+              const textStream = new ReadableStream<string>({
+                async start(controller) {
+                  try {
+                    await runner.run(messages, tools, async (event) => {
+                      if (event.type === "text") {
+                        controller.enqueue(event.content);
+                      }
+                    });
+                  } finally {
+                    controller.close();
                   }
-                });
-              } finally {
-                controller.close();
-              }
-            },
-          });
+                },
+              });
+              return reply.send(createSanitizedStream(textStream));
+            }
     
-          // Sanitize AI output to prevent XSS (OWASP LLM02)
-          return reply.send(createSanitizedStream(textStream));
-        }
-      );
-    };
+            // ndjson: encode each event as a JSON line
+            const ndjsonStream = new ReadableStream({
+              async start(controller) {
+                try {
+                  await runner.run(messages, tools, async (event) => {
+                    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                  });
+                } finally {
+                  controller.close();
+                }
+              },
+            });
+            return reply.send(ndjsonStream);
+          }
+        );
+      };
+    }
   </file>
   <file path="services/agent/src/routes/gen-runner.ts">
     export type GenStreamEvent =

@@ -38,12 +38,28 @@
   </file>
   <file path="src/routes/gen-agent.ts">
     <item priority="high">
-      export const genAgentRoutes: FastifyPluginAsync;
+      export const genAgentRoutes: unknown;
     </item>
   </file>
   <file path="src/routes/gen-chat.ts">
     <item priority="high">
-      export const genChatRoutes: FastifyPluginAsync;
+      export const genChatRoutes: unknown;
+    </item>
+  </file>
+  <file path="src/routes/gen-route-factory.ts">
+    <item priority="low">
+      interface GenRouteConfig {
+        path: string;
+        costLogLabel: string;
+        rateLimit: { readonly max: number; readonly timeWindow: string };
+        schema: TSchema;
+        streamFormat: "text" | "ndjson";
+      }
+    </item>
+    <item priority="high">
+      export function createGenRoute<TSchema extends z.ZodType>(
+        config: GenRouteConfig<TSchema>
+      ): FastifyPluginAsync { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-runner.ts">
