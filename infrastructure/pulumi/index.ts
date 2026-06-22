@@ -49,7 +49,10 @@ export const cacheKvNamespaceId = cacheKv.id;
 
 // ── Shared Constants ──────────────────────────────────────────────────
 // AUTH_AUTHORITY is defined once and shared by all API services.
-const AUTH_AUTHORITY = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+// Derived from `auth0:domain` in Pulumi config (Pulumi.prod.yaml).
+// Currently set to the dev tenant; update the config value when a prod tenant is ready.
+const auth0Config = new pulumi.Config("auth0");
+const AUTH_AUTHORITY = `https://${auth0Config.require("domain")}`;
 
 export interface ApiServiceArgs {
   name: string;

@@ -105,4 +105,31 @@ describe("checkAuth0", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
+
+  it("uses AUTH0_JWKS_URL env var as default when no URL is passed", async () => {
+    const envUrl = "https://prod-tenant.us.auth0.com/.well-known/jwks.json";
+    process.env.AUTH0_JWKS_URL = envUrl;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    try {
+      await checkAuth0();
+      expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+        envUrl,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    } finally {
+      delete process.env.AUTH0_JWKS_URL;
+    }
+  });
+
+  it("falls back to dev URL when AUTH0_JWKS_URL env var is unset", async () => {
+    delete process.env.AUTH0_JWKS_URL;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    await checkAuth0();
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+      "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
 });

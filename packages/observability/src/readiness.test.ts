@@ -226,4 +226,34 @@ describe("registerStandardChecks", () => {
       message: "JWKS returned 503",
     });
   });
+
+  it("uses AUTH0_JWKS_URL env var as default when no auth0Url is passed", async () => {
+    const envUrl = "https://prod-tenant.us.auth0.com/.well-known/jwks.json";
+    process.env.AUTH0_JWKS_URL = envUrl;
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    try {
+      registerStandardChecks(tracker, { prisma: mockPrisma, fetchFn: mockFetch });
+      await tracker.evaluate();
+      expect(mockFetch).toHaveBeenCalledWith(envUrl, expect.anything());
+    } finally {
+      delete process.env.AUTH0_JWKS_URL;
+    }
+  });
+
+  it("falls back to dev URL when AUTH0_JWKS_URL env var is unset", async () => {
+    delete process.env.AUTH0_JWKS_URL;
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    registerStandardChecks(tracker, { prisma: mockPrisma, fetchFn: mockFetch });
+    await tracker.evaluate();
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
+      expect.anything()
+    );
+  });
 });

@@ -23,6 +23,10 @@
 // Single source of truth for the Auth0 tenant origin used in the CSP
 // connect-src directive. Must match AUTH_AUTHORITY in Pulumi and docker-compose.
 // Re-exported from edge-router.js for backward compatibility.
+// To override for a prod tenant: pass auth0Origin in buildCspDirectives options,
+// sourced from the Cloudflare Worker env binding AUTH0_ORIGIN.
+// This constant is the dev-tenant fallback; CSP behavior is unchanged when no
+// override is provided.
 export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 
 /**
