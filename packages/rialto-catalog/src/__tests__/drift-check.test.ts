@@ -74,4 +74,25 @@ describe("drift-check: single CatalogSource is the only source of truth", () => 
       expect(generatedSchemas[name as keyof typeof generatedSchemas]).toBeDefined();
     }
   });
+
+  it("every charLimits key resolves to a field in the generated schema (stale charLimits must fail)", () => {
+    const stale: string[] = [];
+
+    for (const [componentName, meta] of Object.entries(catalogMeta)) {
+      if (!meta.charLimits) continue;
+
+      const schema = generatedSchemas[componentName as keyof typeof generatedSchemas];
+      if (!schema) continue;
+
+      const schemaShape = (schema as { shape?: Record<string, unknown> }).shape ?? {};
+
+      for (const key of Object.keys(meta.charLimits)) {
+        if (!(key in schemaShape)) {
+          stale.push(`${componentName}.charLimits.${key}`);
+        }
+      }
+    }
+
+    expect(stale).toEqual([]);
+  });
 });

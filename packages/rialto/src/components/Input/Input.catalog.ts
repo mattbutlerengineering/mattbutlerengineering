@@ -11,6 +11,5 @@ export const inputCatalogMeta = {
   charLimits: {
     label: 40,
     hint: 80,
-    error: 80,
   },
 } satisfies CatalogMeta;

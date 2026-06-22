@@ -39,14 +39,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
     slots: ["default"],
-    charLimits: { children: 20 },
   },
   Banner: {
     name: "Banner",
     description:
       "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
     slots: ["default"],
-    charLimits: { title: 60 },
   },
   Breadcrumb: {
     name: "Breadcrumb",
@@ -58,7 +56,6 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
     slots: ["default"],
-    charLimits: { children: 30 },
     aliases: { label: "children" },
   },
   Card: {
@@ -111,7 +108,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     name: "Input",
     description:
       "Single-line text field. Always provide a label. Use hint for helper text below the field. Set error=true to show error styling. Use type attribute for email, password, number, etc.",
-    charLimits: { label: 40, hint: 80, error: 80 },
+    charLimits: { label: 40, hint: 80 },
   },
   NavigationMenu: {
     name: "NavigationMenu",
