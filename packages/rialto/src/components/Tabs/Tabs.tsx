@@ -10,6 +10,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Tabs.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -135,9 +136,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
               aria-controls={`panel-${tab.id}`}
               tabIndex={tab.id === activeId ? 0 : -1}
               aria-disabled={tab.disabled || undefined}
-              className={[styles.tab, tab.id === activeId ? styles.tabActive : ""]
-                .filter(Boolean)
-                .join(" ")}
+              className={cn(styles.tab, tab.id === activeId && styles.tabActive)}
               onClick={tab.disabled ? undefined : () => selectTab(tab.id)}
             >
               {tab.label}

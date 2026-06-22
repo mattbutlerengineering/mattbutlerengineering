@@ -387,6 +387,16 @@
       note: string;
     }
   </file>
+  <file path="src/hooks/useTimelineKeyboard.ts">
+    export interface TimelineReservationEntry {
+      reservationId: string;
+      tableIndex: number;
+    }
+    export interface UseTimelineKeyboardParams {
+      entries: TimelineReservationEntry[];
+      onActivate?: (reservationId: string) => void;
+    }
+  </file>
   <file path="src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
@@ -465,6 +475,19 @@
     }
     interface ImportMeta {
       readonly env: ImportMetaEnv;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="timeline">
+  <file path="src/components/timeline/reservationLayout.ts">
+    export interface ReservationLayoutParams {
+      startHour: number;
+      hourWidth: number;
+      isMobile: boolean;
+    }
+    export interface ReservationLayoutResult {
+      left: number;
+      width: number;
     }
   </file>
   </section>

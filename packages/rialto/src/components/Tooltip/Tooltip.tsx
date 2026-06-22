@@ -2,6 +2,7 @@ import { forwardRef, useState, useRef, useCallback, useId, type ReactNode } from
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { cn } from "../../utils/class-composer";
 import styles from "./Tooltip.module.css";
 
 /**
@@ -61,7 +62,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     return (
       <div
         ref={ref}
-        className={[styles.wrapper, className].filter(Boolean).join(" ")}
+        className={cn(styles.wrapper, className)}
         aria-describedby={open ? tooltipId : undefined}
         onMouseEnter={show}
         onMouseLeave={hide}
@@ -73,7 +74,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
           {open && (
             <motion.div
               id={tooltipId}
-              className={[styles.tooltip, styles[placement]].join(" ")}
+              className={cn(styles.tooltip, styles[placement])}
               role="tooltip"
               style={{ translate: translateMap[placement] }}
               initial={shouldReduceMotion ? { opacity: 0 } : initial}

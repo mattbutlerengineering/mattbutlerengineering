@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Collapsible } from "../Collapsible/Collapsible";
+import { cn } from "../../utils/class-composer";
 import styles from "./Accordion.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -113,11 +114,7 @@ export const Accordion = forwardRef<HTMLDivElement, AccordionProps>(
 
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-      <div
-        ref={setRefs}
-        className={[styles.accordion, className].filter(Boolean).join(" ")}
-        onKeyDown={handleKeyDown}
-      >
+      <div ref={setRefs} className={cn(styles.accordion, className)} onKeyDown={handleKeyDown}>
         {items.map((item) => (
           <Collapsible
             key={item.id}

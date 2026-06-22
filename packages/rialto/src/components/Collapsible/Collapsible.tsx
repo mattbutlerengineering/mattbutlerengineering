@@ -1,6 +1,7 @@
 import { forwardRef, useState, useId, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Collapsible.module.css";
 
 /**
@@ -100,7 +101,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
     );
 
     return (
-      <div ref={ref} className={[styles.collapsible, className].filter(Boolean).join(" ")}>
+      <div ref={ref} className={cn(styles.collapsible, className)}>
         {HeadingTag ? (
           <HeadingTag className={styles.heading}>{triggerButton}</HeadingTag>
         ) : (

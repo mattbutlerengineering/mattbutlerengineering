@@ -1,5 +1,6 @@
 import { forwardRef, useRef, useCallback, useEffect, type InputHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
+import { cn, variantClass } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
 import styles from "./NumberInput.module.css";
@@ -130,14 +131,12 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     const atMin = min != null && value <= min;
     const atMax = max != null && value >= max;
 
-    const wrapperClasses = [
+    const wrapperClasses = cn(
       styles.wrapper,
-      size !== "default" ? styles[size] : "",
-      error ? styles.error : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      variantClass(styles, size, "default"),
+      error && styles.error,
+      className
+    );
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -160,7 +159,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
           <div className={styles.control}>
             <button
               type="button"
-              className={`${styles.stepper} ${styles.decrement}`}
+              className={cn(styles.stepper, styles.decrement)}
               disabled={disabled || atMin}
               tabIndex={-1}
               aria-label="Decrease"
@@ -188,7 +187,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             />
             <button
               type="button"
-              className={`${styles.stepper} ${styles.increment}`}
+              className={cn(styles.stepper, styles.increment)}
               disabled={disabled || atMax}
               tabIndex={-1}
               aria-label="Increase"

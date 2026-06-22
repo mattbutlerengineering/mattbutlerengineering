@@ -166,4 +166,12 @@ describe("Meter", () => {
       expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "5");
     });
   });
+
+  it("does not emit 'undefined' in wrapper or track className", () => {
+    const { container } = render(<Meter value={50} />);
+    const allClasses = Array.from(container.querySelectorAll("[class]"))
+      .map((el) => el.className)
+      .join(" ");
+    expect(allClasses).not.toMatch(/undefined/);
+  });
 });

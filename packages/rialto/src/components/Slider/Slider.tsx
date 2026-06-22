@@ -2,6 +2,7 @@ import { forwardRef, useState, useRef, useCallback, useEffect, useId } from "rea
 import { motion, useMotionValue, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Slider.module.css";
 
@@ -154,7 +155,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")}>
+        <div ref={ref} className={cn(styles.wrapper, className)}>
           {(label || showValue) && (
             <div className={styles.labelRow}>
               {label && <span className={styles.label}>{label}</span>}

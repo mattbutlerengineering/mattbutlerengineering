@@ -144,4 +144,11 @@ describe("SegmentedControl", () => {
       ).toHaveNoViolations();
     });
   });
+
+  it("does not emit 'undefined' in container className", () => {
+    const { container } = render(
+      <SegmentedControl segments={segments} value="day" onChange={() => {}} />
+    );
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });
