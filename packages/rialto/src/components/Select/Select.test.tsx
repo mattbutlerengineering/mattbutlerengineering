@@ -226,4 +226,9 @@ describe("Select", () => {
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<Select options={options} />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

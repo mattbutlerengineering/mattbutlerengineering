@@ -191,4 +191,12 @@ describe("ImageUpload", () => {
       expect(input).toHaveAttribute("accept", "image/png,image/svg+xml");
     });
   });
+
+  it("does not emit 'undefined' in tile or wrapper className", () => {
+    const { container } = render(<ImageUpload label="Logo" onChange={() => {}} />);
+    const allClasses = Array.from(container.querySelectorAll("[class]"))
+      .map((el) => el.className)
+      .join(" ");
+    expect(allClasses).not.toMatch(/undefined/);
+  });
 });

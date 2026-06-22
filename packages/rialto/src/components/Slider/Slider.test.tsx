@@ -148,4 +148,9 @@ describe("Slider", () => {
       ).toHaveNoViolations();
     });
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<Slider label="Volume" />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

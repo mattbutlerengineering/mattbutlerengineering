@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Steps.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -57,27 +58,23 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
     },
     ref
   ) => {
-    const containerClass = [
+    const containerClass = cn(
       orientation === "horizontal" ? styles.horizontal : styles.vertical,
-      compact ? styles.compact : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      compact && styles.compact,
+      className
+    );
 
     return (
       <div ref={ref} className={containerClass} role="list" aria-label="Progress steps">
         {steps.map((step, i) => {
           const state = i < currentStep ? "completed" : i === currentStep ? "current" : "upcoming";
 
-          const stepClass = [
+          const stepClass = cn(
             styles.step,
-            state === "completed" ? styles.completed : "",
-            state === "current" ? styles.current : "",
-            onStepClick ? styles.clickable : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
+            state === "completed" && styles.completed,
+            state === "current" && styles.current,
+            onStepClick && styles.clickable
+          );
 
           const inner = (
             <>
