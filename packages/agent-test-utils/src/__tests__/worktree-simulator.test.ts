@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createWorktreeSimulator,
+  createWorktreeMocks,
   assertOperationCalled,
   assertOperationNotCalled,
   CLEAN_REPO_FILES,
@@ -181,5 +182,38 @@ describe("assertOperationNotCalled", () => {
     expect(() => assertOperationNotCalled(sim, "removeWorktree")).toThrow(
       'Expected worktree operation "removeWorktree" NOT to have been called'
     );
+  });
+});
+
+describe("createWorktreeMocks", () => {
+  it("returns a map of vi.fn()-shaped functions for each worktree operation", async () => {
+    const sim = createWorktreeSimulator();
+    const mocks = createWorktreeMocks(sim);
+
+    expect(typeof mocks.createWorktree).toBe("function");
+    expect(typeof mocks.removeWorktree).toBe("function");
+    expect(typeof mocks.hasChanges).toBe("function");
+    expect(typeof mocks.commitChanges).toBe("function");
+    expect(typeof mocks.pushBranch).toBe("function");
+    expect(typeof mocks.runVerification).toBe("function");
+  });
+
+  it("delegates createWorktree calls to the simulator", async () => {
+    const sim = createWorktreeSimulator({ repoPath: "/repo" });
+    const mocks = createWorktreeMocks(sim);
+
+    const info = await (mocks.createWorktree as (...args: unknown[]) => Promise<unknown>)(
+      "/repo",
+      "fix bug"
+    );
+    expect(info).toBeDefined();
+    assertOperationCalled(sim, "createWorktree");
+  });
+
+  it("uses a default simulator when none is provided", async () => {
+    const mocks = createWorktreeMocks();
+    expect(typeof mocks.hasChanges).toBe("function");
+    const result = await (mocks.hasChanges as (...args: unknown[]) => Promise<boolean>)("/repo/wt");
+    expect(typeof result).toBe("boolean");
   });
 });

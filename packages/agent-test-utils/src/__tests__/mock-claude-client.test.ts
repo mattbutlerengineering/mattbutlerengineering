@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createMockClaudeClient } from "../mock-claude-client.js";
+import { createMockClaudeClient, createMockQueryStream } from "../mock-claude-client.js";
 
 async function drainGenerator(gen: AsyncGenerator<unknown>): Promise<unknown[]> {
   const results: unknown[] = [];
@@ -177,5 +177,64 @@ describe("createMockClaudeClient", () => {
       expect(client.calls).toHaveLength(0);
       expect(client.totalCostUsd()).toBe(0);
     });
+  });
+
+  describe("simulatedLatencyMs", () => {
+    it("replay mode with latency still yields all messages", async () => {
+      const fixture = [
+        {
+          type: "result",
+          subtype: "success",
+          uuid: "u",
+          session_id: "s",
+          duration_ms: 100,
+          duration_api_ms: 90,
+          is_error: false,
+          num_turns: 1,
+          result: "ok",
+          stop_reason: "end_turn",
+          total_cost_usd: 0.001,
+          usage: {
+            input_tokens: 10,
+            output_tokens: 5,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
+          modelUsage: {},
+          permission_denials: [],
+        },
+      ];
+      const client = createMockClaudeClient({
+        mode: "replay",
+        fixtures: [fixture],
+        simulatedLatencyMs: 1,
+      });
+      const messages = await drainGenerator(client.query({ prompt: "with latency" }));
+      expect(messages).toHaveLength(1);
+    });
+
+    it("deterministic mode with latency still returns result", async () => {
+      const client = createMockClaudeClient({ simulatedLatencyMs: 1 });
+      const messages = await drainGenerator(client.query({ prompt: "latency test" }));
+      expect(messages).toHaveLength(1);
+    });
+  });
+});
+
+describe("createMockQueryStream", () => {
+  it("yields all provided messages in order", async () => {
+    const messages = [
+      { type: "system", subtype: "init" },
+      { type: "result", subtype: "success" },
+    ];
+    const results = await drainGenerator(createMockQueryStream(messages));
+    expect(results).toHaveLength(2);
+    expect((results[0] as { type: string }).type).toBe("system");
+    expect((results[1] as { type: string }).type).toBe("result");
+  });
+
+  it("yields nothing for an empty array", async () => {
+    const results = await drainGenerator(createMockQueryStream([]));
+    expect(results).toHaveLength(0);
   });
 });

@@ -59,6 +59,7 @@ vi.mock("../observability.js", () => ({
 // ── Imports (after mocks) ───────────────────────────────────────────
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runHardenedQuery } from "../run-hardened-query.js";
 import type { HardenedQueryConfig } from "../run-hardened-query.js";
@@ -129,12 +130,6 @@ function makeStalledQueryGenerator(signal: AbortSignal): AsyncIterable<never> {
   };
 }
 
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
-
 // ── Tests ───────────────────────────────────────────────────────────
 
 describe("runHardenedQuery", () => {
@@ -152,7 +147,9 @@ describe("runHardenedQuery", () => {
 
   it("returns resultMessage on successful SDK query", async () => {
     const mockResult = createMockResultMessage();
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const resultPromise = runHardenedQuery(BASE_CONFIG);
     await vi.runAllTimersAsync();
@@ -200,7 +197,7 @@ describe("runHardenedQuery", () => {
     }));
     const mockResult = createMockResultMessage();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([...compactMessages, mockResult]) as ReturnType<typeof query>
+      createMockQueryStream([...compactMessages, mockResult]) as ReturnType<typeof query>
     );
 
     const resultPromise = runHardenedQuery(BASE_CONFIG);
@@ -235,7 +232,7 @@ describe("runHardenedQuery", () => {
   });
 
   it("returns null resultMessage and null stuckReason on empty stream", async () => {
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(createMockQueryStream([]) as ReturnType<typeof query>);
 
     const resultPromise = runHardenedQuery(BASE_CONFIG);
     await vi.runAllTimersAsync();
@@ -269,7 +266,7 @@ describe("runHardenedQuery", () => {
     };
     const mockResult = createMockResultMessage();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([assistantMsg, mockResult]) as ReturnType<typeof query>
+      createMockQueryStream([assistantMsg, mockResult]) as ReturnType<typeof query>
     );
 
     const resultPromise = runHardenedQuery(BASE_CONFIG);

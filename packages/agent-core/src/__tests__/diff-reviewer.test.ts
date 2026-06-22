@@ -5,15 +5,10 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { reviewDiff, DEFAULT_REVIEW_CONFIG } from "../diff-reviewer.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
-
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
 
 function createMockReviewResult(review: { approved: boolean; issues: string[] }) {
   return {
@@ -55,7 +50,9 @@ describe("reviewDiff", () => {
   it("returns approved=true when LLM finds no issues", async () => {
     const mockResult = createMockReviewResult({ approved: true, issues: [] });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 
@@ -72,7 +69,9 @@ describe("reviewDiff", () => {
       ],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 
@@ -87,7 +86,9 @@ describe("reviewDiff", () => {
       issues: ["a11y: <img> element missing alt attribute", "a11y: button missing aria-label"],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const diff = `diff --git a/src/Button.tsx b/src/Button.tsx\n+<img src="logo.png" />\n+<button onClick={submit} />`;
     const result = await reviewDiff(diff);
@@ -102,7 +103,9 @@ describe("reviewDiff", () => {
       issues: ["Performance: Missing pagination on db.findAll() — could return unbounded results"],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 
@@ -119,7 +122,9 @@ describe("reviewDiff", () => {
       ],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff("diff --git a/src/db.ts b/src/db.ts\n+const port = 5432;");
 
@@ -177,7 +182,9 @@ describe("reviewDiff", () => {
       permission_denials: [],
     };
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([errorResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([errorResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 
@@ -208,7 +215,9 @@ describe("reviewDiff", () => {
       permission_denials: [],
     };
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([badResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([badResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 
@@ -223,7 +232,7 @@ describe("reviewDiff", () => {
     });
 
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([malformedResult]) as ReturnType<typeof query>
+      createMockQueryStream([malformedResult]) as ReturnType<typeof query>
     );
 
     const result = await reviewDiff(SAMPLE_DIFF);
@@ -239,7 +248,7 @@ describe("reviewDiff", () => {
     };
 
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([malformedResult]) as ReturnType<typeof query>
+      createMockQueryStream([malformedResult]) as ReturnType<typeof query>
     );
 
     const result = await reviewDiff(SAMPLE_DIFF);
@@ -250,7 +259,9 @@ describe("reviewDiff", () => {
   it("uses haiku model by default", async () => {
     const mockResult = createMockReviewResult({ approved: true, issues: [] });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     await reviewDiff(SAMPLE_DIFF);
 
@@ -267,7 +278,9 @@ describe("reviewDiff", () => {
   it("accepts custom model override", async () => {
     const mockResult = createMockReviewResult({ approved: true, issues: [] });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     await reviewDiff(SAMPLE_DIFF, { model: "claude-sonnet-4-6" });
 
@@ -283,7 +296,9 @@ describe("reviewDiff", () => {
   it("accepts custom budget override", async () => {
     const mockResult = createMockReviewResult({ approved: true, issues: [] });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     await reviewDiff(SAMPLE_DIFF, { maxBudgetUsd: 0.1 });
 
@@ -299,7 +314,9 @@ describe("reviewDiff", () => {
   it("truncates very large diffs before sending to LLM", async () => {
     const mockResult = createMockReviewResult({ approved: true, issues: [] });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     // Generate a diff larger than MAX_DIFF_LENGTH (50_000 chars)
     const hugeDiff = "diff --git a/big.ts b/big.ts\n" + "+line\n".repeat(15_000);
@@ -317,7 +334,9 @@ describe("reviewDiff", () => {
       issues: ["Security: hardcoded token"],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([mockResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
 
     const result = await reviewDiff(SAMPLE_DIFF);
 

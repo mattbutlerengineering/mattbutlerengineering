@@ -429,13 +429,13 @@
     },
     {
       "from": "@mbe/agent-core",
-      "to": "@mbe/config",
+      "to": "@mbe/agent-test-utils",
       "type": "devDependency"
     },
     {
-      "from": "@mbe/agent-test-utils",
-      "to": "@mbe/agent-core",
-      "type": "dependency"
+      "from": "@mbe/agent-core",
+      "to": "@mbe/config",
+      "type": "devDependency"
     },
     {
       "from": "@mbe/agent-test-utils",

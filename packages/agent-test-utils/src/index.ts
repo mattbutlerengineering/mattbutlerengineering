@@ -1,5 +1,5 @@
 // Mock Claude client
-export { createMockClaudeClient } from "./mock-claude-client.js";
+export { createMockClaudeClient, createMockQueryStream } from "./mock-claude-client.js";
 export type {
   MockMode,
   MockTokenUsage,

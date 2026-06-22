@@ -5,6 +5,7 @@ vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createMockQueryStream } from "@mbe/agent-test-utils";
 import {
   runReviewer,
   parseReviewerVerdict,
@@ -16,12 +17,6 @@ import type { ReviewInput, ReviewVerdict } from "../reviewer-contract.js";
 import { PASS_THRESHOLD } from "../reviewer-contract.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
 
 function makeSdkResult(
   structured_output: unknown,
@@ -163,7 +158,7 @@ describe("runReviewer", () => {
   it("returns pass outcome when LLM returns a passing verdict", async () => {
     const raw = makeVerdict({ verdict: "pass", score: 9 });
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput());
@@ -180,7 +175,7 @@ describe("runReviewer", () => {
       assessment: "Regression found",
     });
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput());
@@ -191,7 +186,7 @@ describe("runReviewer", () => {
   it("records cost from the SDK result", async () => {
     const raw = makeVerdict();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput());
@@ -201,7 +196,7 @@ describe("runReviewer", () => {
   it("records positive durationMs", async () => {
     const raw = makeVerdict();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput());
@@ -211,7 +206,7 @@ describe("runReviewer", () => {
   it("passes retryCount into the outcome", async () => {
     const raw = makeVerdict();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput(), { retryCount: 2 });
@@ -220,7 +215,7 @@ describe("runReviewer", () => {
 
   it("fails-open (pass) when the LLM returns a non-success subtype", async () => {
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(null, "error_max_turns")]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(null, "error_max_turns")]) as ReturnType<typeof query>
     );
 
     const outcome = await runReviewer(makeReviewInput());
@@ -260,7 +255,7 @@ describe("runReviewer", () => {
   it("uses the haiku model by default", async () => {
     const raw = makeVerdict();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     await runReviewer(makeReviewInput());
@@ -272,7 +267,7 @@ describe("runReviewer", () => {
   it("honours model override in config", async () => {
     const raw = makeVerdict();
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([makeSdkResult(raw)]) as ReturnType<typeof query>
+      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
     );
 
     const config: Partial<ReviewerConfig> = {

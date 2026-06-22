@@ -28,6 +28,7 @@ vi.mock("../tool-permissions.js", () => ({
 
 import { execFile } from "node:child_process";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { pollForFeedback } from "../pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
@@ -72,12 +73,6 @@ function createMockPollResult(overrides?: Partial<PollResult>): PollResult {
   };
 }
 
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
-
 describe("runFeedbackLoop", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -108,7 +103,7 @@ describe("runFeedbackLoop", () => {
     vi.mocked(buildReviewFixPrompt).mockReturnValue("Fix the issues");
 
     vi.mocked(query).mockReturnValue(
-      mockQueryGenerator([{ type: "result", subtype: "success" }]) as ReturnType<typeof query>
+      createMockQueryStream([{ type: "result", subtype: "success" }]) as ReturnType<typeof query>
     );
   });
 

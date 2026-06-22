@@ -151,6 +151,27 @@ export interface MockClaudeClient {
   readonly totalTokenUsage: () => Readonly<{ input: number; output: number }>;
 }
 
+/**
+ * Creates a minimal async generator that yields each message in order.
+ *
+ * Drop-in replacement for the inline `mockQueryGenerator` helper that
+ * agent-core test files used to define locally. Use with vitest's
+ * `mockReturnValue`:
+ *
+ * ```typescript
+ * vi.mocked(query).mockReturnValue(
+ *   createMockQueryStream([mockResult]) as ReturnType<typeof query>
+ * );
+ * ```
+ */
+export async function* createMockQueryStream(
+  messages: unknown[]
+): AsyncGenerator<SDKMessage | SDKResultMessage> {
+  for (const msg of messages) {
+    yield msg as SDKMessage | SDKResultMessage;
+  }
+}
+
 export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient {
   const {
     mode = "deterministic",
