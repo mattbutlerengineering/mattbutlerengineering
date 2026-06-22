@@ -1,5 +1,6 @@
 import { forwardRef, useState, useCallback, type HTMLAttributes } from "react";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
+import { cn } from "../../utils/class-composer";
 import styles from "./GlobalNav.module.css";
 
 /** Navigation item definition. */
@@ -54,7 +55,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
       [menuOpen]
     );
 
-    const classes = [styles.globalNav, className].filter(Boolean).join(" ");
+    const classes = cn(styles.globalNav, className);
 
     return (
       <nav ref={ref} className={classes} aria-label="Global navigation" {...props}>
@@ -70,9 +71,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               <li key={item.app}>
                 <a
                   href={item.href}
-                  className={[styles.link, currentApp === item.app ? styles.active : ""]
-                    .filter(Boolean)
-                    .join(" ")}
+                  className={cn(styles.link, currentApp === item.app && styles.active)}
                   aria-current={currentApp === item.app ? "page" : undefined}
                 >
                   {item.label}
@@ -95,11 +94,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               aria-controls="global-nav-mobile-menu"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
-              <span
-                className={[styles.hamburgerBar, menuOpen ? styles.open : ""]
-                  .filter(Boolean)
-                  .join(" ")}
-              />
+              <span className={cn(styles.hamburgerBar, menuOpen && styles.open)} />
             </button>
           </div>
         </div>
@@ -111,9 +106,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               <li key={item.app}>
                 <a
                   href={item.href}
-                  className={[styles.mobileLink, currentApp === item.app ? styles.active : ""]
-                    .filter(Boolean)
-                    .join(" ")}
+                  className={cn(styles.mobileLink, currentApp === item.app && styles.active)}
                   aria-current={currentApp === item.app ? "page" : undefined}
                 >
                   {item.label}

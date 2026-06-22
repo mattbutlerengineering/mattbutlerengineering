@@ -1,6 +1,7 @@
 import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttributes } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./NavigationMenu.module.css";
 
 /**
@@ -214,7 +215,7 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
           if (typeof ref === "function") ref(node);
           else if (ref) ref.current = node;
         }}
-        className={[styles.nav, className].filter(Boolean).join(" ")}
+        className={cn(styles.nav, className)}
         aria-label="Main navigation"
         {...props}
       >

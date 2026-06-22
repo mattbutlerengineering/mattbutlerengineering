@@ -6,6 +6,7 @@ import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { Heading } from "../Heading/Heading";
+import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Drawer.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -78,9 +79,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
 
   useFocusTrap(panelRef, open);
 
-  const panelClasses = [styles.panel, styles[side], size !== "default" ? styles[size] : ""]
-    .filter(Boolean)
-    .join(" ");
+  const panelClasses = cn(styles.panel, styles[side], variantClass(styles, size, "default"));
 
   const slideHidden = getSlideVariants(side, dir === "rtl");
   const panelInitial = shouldReduceMotion ? {} : slideHidden;

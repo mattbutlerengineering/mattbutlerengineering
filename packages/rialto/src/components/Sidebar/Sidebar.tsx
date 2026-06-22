@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring, precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Sidebar.module.css";
 
 /**
@@ -93,13 +94,11 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 
 function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
   const shouldReduceMotion = useReducedMotion();
-  const classes = [
+  const classes = cn(
     styles.item,
-    item.active ? styles.itemActive : "",
-    item.disabled ? styles.itemDisabled : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+    item.active && styles.itemActive,
+    item.disabled && styles.itemDisabled
+  );
 
   const content = (
     <>
@@ -151,7 +150,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     return (
       <motion.nav
         ref={ref}
-        className={[styles.sidebar, className].filter(Boolean).join(" ")}
+        className={cn(styles.sidebar, className)}
         aria-label="Sidebar navigation"
         animate={{ width: collapsed ? 56 : 240 }}
         transition={shouldReduceMotion ? { duration: 0 } : spring}

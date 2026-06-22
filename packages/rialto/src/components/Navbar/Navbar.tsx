@@ -1,6 +1,7 @@
 import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Navbar.module.css";
 
 /**
@@ -133,7 +134,7 @@ export const Navbar = forwardRef<HTMLElement, NavbarProps>(
     };
 
     return (
-      <nav ref={ref} className={[styles.navbar, className].filter(Boolean).join(" ")} {...props}>
+      <nav ref={ref} className={cn(styles.navbar, className)} {...props}>
         {/* Section 1: Header */}
         <div className={styles.header}>
           {logo && <div className={styles.logo}>{logo}</div>}
