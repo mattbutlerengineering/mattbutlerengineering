@@ -119,7 +119,7 @@ const startedAt = Date.now();
 const prior = loadState(cwd);
 
 // Evaluate all criteria through the verdict seam, with inheritance support
-const { detectedIds, criterionVerdicts, origins } = evaluateWithInheritance(
+const { detectedIds, unverifiableIds, criterionVerdicts, origins } = evaluateWithInheritance(
   ALL_CRITERIA,
   cwd,
   repoRoot,
@@ -138,8 +138,21 @@ for (const c of ALL_CRITERIA) {
   }
 }
 
+// Collect unverifiable criteria for the report section (#2023)
+const unverifiableCriteria = [];
+for (const c of ALL_CRITERIA) {
+  if (unverifiableIds.has(c.id)) {
+    const { evidence } = criterionVerdicts.get(c.id);
+    unverifiableCriteria.push({
+      id: c.id,
+      reason: evidence ?? "gh CLI unavailable or error",
+    });
+  }
+}
+
 const detectedCount = detectedIds.size;
-const totalCount = ALL_CRITERIA.length;
+// Exclude unverifiable from total so they don't inflate the denominator (#2023)
+const totalCount = ALL_CRITERIA.length - unverifiableIds.size;
 
 /* ── Behavioral signals (non-fatal — null when tools unavailable) ── */
 const flake = measureFlakeRate();
@@ -255,6 +268,7 @@ const reportPath = writeReport(cwd, {
   computation,
   diff,
   hollowCriteria,
+  unverifiableCriteria,
   origins,
 });
 

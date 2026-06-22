@@ -17,9 +17,9 @@
  *   - active: file present + no recent run    → stale         (prior: detect() returned false)
  *   - any type: file(s) not found             → not-found
  *
- * NOTE: Level math in audit.js treats 'pass' and 'unverifiable' as "counted" (matching
- * prior graceful-degradation behavior). 'stale', 'hollow', and 'not-found' are not counted.
- * This keeps before/after behavior identical until follow-up issues #2022/#2023/#2024.
+ * NOTE: Level math in audit.js only counts 'pass'. 'unverifiable', 'stale', 'hollow',
+ * and 'not-found' are not counted. Unverifiable criteria are also excluded from the
+ * denominator (total count) to avoid masking pipeline rot when gh is unavailable (#2023).
  */
 
 import { existsSync, statSync, readFileSync, readdirSync } from "node:fs";
@@ -218,7 +218,7 @@ export function evaluate(criterion, cwd, opts = {}) {
  *
  *   'pass'          → true  (detected, substance passed)
  *   'hollow'        → false (detected but substance failed — does NOT count toward level thresholds)
- *   'unverifiable'  → true  (active type, gh degraded — graceful degradation)
+ *   'unverifiable'  → false (active type, gh degraded — excluded from level math AND denominator)
  *   'stale'         → false (active type, no recent run)
  *   'not-found'     → false (file/pattern not found)
  *
@@ -226,5 +226,5 @@ export function evaluate(criterion, cwd, opts = {}) {
  * @returns {boolean}
  */
 export function verdictCounts(verdict) {
-  return verdict === "pass" || verdict === "unverifiable";
+  return verdict === "pass";
 }
