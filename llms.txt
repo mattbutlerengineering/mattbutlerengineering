@@ -1,4 +1,74 @@
 <codebase path=".">
+  <section priority="medium" role="Accordion">
+  <file path="packages/rialto/src/components/Accordion/Accordion.catalog.ts">
+    <item priority="high">
+      export const accordionCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Alert">
+  <file path="packages/rialto/src/components/Alert/Alert.catalog.ts">
+    <item priority="high">
+      export const alertCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="AppBar">
+  <file path="packages/rialto/src/components/AppBar/AppBar.catalog.ts">
+    <item priority="high">
+      export const appBarCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="AspectRatio">
+  <file path="packages/rialto/src/components/AspectRatio/AspectRatio.catalog.ts">
+    <item priority="high">
+      export const aspectRatioCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Avatar">
+  <file path="packages/rialto/src/components/Avatar/Avatar.catalog.ts">
+    <item priority="high">
+      export const avatarCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Badge">
+  <file path="packages/rialto/src/components/Badge/Badge.catalog.ts">
+    <item priority="high">
+      export const badgeCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Banner">
+  <file path="packages/rialto/src/components/Banner/Banner.catalog.ts">
+    <item priority="high">
+      export const bannerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Breadcrumb">
+  <file path="packages/rialto/src/components/Breadcrumb/Breadcrumb.catalog.ts">
+    <item priority="high">
+      export const breadcrumbCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Button">
+  <file path="packages/rialto/src/components/Button/Button.catalog.ts">
+    <item priority="high">
+      export const buttonCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Card">
+  <file path="packages/rialto/src/components/Card/Card.catalog.ts">
+    <item priority="high">
+      export const cardCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     <item priority="high">
@@ -37,6 +107,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Checkbox">
+  <file path="packages/rialto/src/components/Checkbox/Checkbox.catalog.ts">
+    <item priority="high">
+      export const checkboxCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="CookieConsent">
   <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
     <item priority="low">
@@ -52,6 +129,34 @@
         consented: boolean;
         preferences: CookiePreferences;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="DataList">
+  <file path="packages/rialto/src/components/DataList/DataList.catalog.ts">
+    <item priority="high">
+      export const dataListCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Dialog">
+  <file path="packages/rialto/src/components/Dialog/Dialog.catalog.ts">
+    <item priority="high">
+      export const dialogCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Divider">
+  <file path="packages/rialto/src/components/Divider/Divider.catalog.ts">
+    <item priority="high">
+      export const dividerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="EmptyState">
+  <file path="packages/rialto/src/components/EmptyState/EmptyState.catalog.ts">
+    <item priority="high">
+      export const emptyStateCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -93,6 +198,41 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Footer">
+  <file path="packages/rialto/src/components/Footer/Footer.catalog.ts">
+    <item priority="high">
+      export const footerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Input">
+  <file path="packages/rialto/src/components/Input/Input.catalog.ts">
+    <item priority="high">
+      export const inputCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="NavigationMenu">
+  <file path="packages/rialto/src/components/NavigationMenu/NavigationMenu.catalog.ts">
+    <item priority="high">
+      export const navigationMenuCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Select">
+  <file path="packages/rialto/src/components/Select/Select.catalog.ts">
+    <item priority="high">
+      export const selectCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Sidebar">
+  <file path="packages/rialto/src/components/Sidebar/Sidebar.catalog.ts">
+    <item priority="high">
+      export const sidebarCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="packages/rialto/src/components/SplitFlap/charset.ts">
     <item priority="high">
@@ -100,6 +240,27 @@
     </item>
     <item priority="low">
       type CharsetName = keyof typeof CHARSETS;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Stack">
+  <file path="packages/rialto/src/components/Stack/Stack.catalog.ts">
+    <item priority="high">
+      export const stackCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Table">
+  <file path="packages/rialto/src/components/Table/Table.catalog.ts">
+    <item priority="high">
+      export const tableCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tabs">
+  <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
+    <item priority="high">
+      export const tabsCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -163,7 +324,19 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Text">
+  <file path="packages/rialto/src/components/Text/Text.catalog.ts">
+    <item priority="high">
+      export const textCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Toast">
+  <file path="packages/rialto/src/components/Toast/Toast.catalog.ts">
+    <item priority="high">
+      export const toastCatalogMeta: unknown;
+    </item>
+  </file>
   <file path="packages/rialto/src/components/Toast/ToastContext.ts">
     <item priority="low">
       type ToastVariant = "default" | "success" | "error" | "accent";
@@ -176,6 +349,13 @@
         variant?: ToastVariant;
         duration?: number;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Toggle">
+  <file path="packages/rialto/src/components/Toggle/Toggle.catalog.ts">
+    <item priority="high">
+      export const toggleCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -546,6 +726,16 @@
     </item>
     <item priority="high">
       export const whoamiCommand: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/catalog-meta.ts">
+    <item priority="low">
+      type CatalogCharLimits = Readonly<Record<string, number>>;
+    </item>
+    <item priority="low">
+      type CatalogAliases = Readonly<Record<string, string>>;
     </item>
   </file>
   </section>
@@ -1986,15 +2176,11 @@
   </section>
   <section priority="medium" role="scripts">
   <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
-    <item priority="high">
-      interface CharacterLimit {
-        component: string;
-        prop: string;
-        max: number;
-      }
-    </item>
     <item priority="medium">
-      function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+      function findCatalogMetaFiles(dir: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadCatalogMeta(file: string): Promise<CatalogMeta> { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto-plugin/scripts/generate-reference.ts">
@@ -4093,21 +4279,22 @@
       export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
     </item>
   </file>
-  <file path="packages/rialto-catalog/src/catalog-config.ts">
+  <file path="packages/rialto-catalog/src/catalog-meta.ts">
     <item priority="low">
-      interface ComponentConfig {
-        include: boolean;
-        description: string;
-        slots?: string[];
-      }
+      type CatalogCharLimits = Readonly<Record<string, number>>;
     </item>
-    <item priority="high">
-      export const catalogConfig: Record<string, ComponentConfig>;
+    <item priority="low">
+      type CatalogAliases = Readonly<Record<string, string>>;
     </item>
   </file>
   <file path="packages/rialto-catalog/src/catalog.ts">
     <item priority="high">
       export const catalog: unknown;
+    </item>
+  </file>
+  <file path="packages/rialto-catalog/src/generated-catalog.ts">
+    <item priority="high">
+      export const catalogMeta: Record<string, CatalogMeta>;
     </item>
   </file>
   <file path="packages/rialto-catalog/src/generated-schemas.ts">

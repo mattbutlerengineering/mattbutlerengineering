@@ -1,34 +1,31 @@
 <codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
-    <item priority="high">
-      interface CharacterLimit {
-        component: string;
-        prop: string;
-        max: number;
-      }
-    </item>
     <item priority="medium">
-      function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+      function findCatalogMetaFiles(dir: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadCatalogMeta(file: string): Promise<CatalogMeta> { /* ... */ }
     </item>
   </file>
   </section>
   <section priority="medium" role="src">
-  <file path="src/catalog-config.ts">
+  <file path="src/catalog-meta.ts">
     <item priority="low">
-      interface ComponentConfig {
-        include: boolean;
-        description: string;
-        slots?: string[];
-      }
+      type CatalogCharLimits = Readonly<Record<string, number>>;
     </item>
-    <item priority="high">
-      export const catalogConfig: Record<string, ComponentConfig>;
+    <item priority="low">
+      type CatalogAliases = Readonly<Record<string, string>>;
     </item>
   </file>
   <file path="src/catalog.ts">
     <item priority="high">
       export const catalog: unknown;
+    </item>
+  </file>
+  <file path="src/generated-catalog.ts">
+    <item priority="high">
+      export const catalogMeta: Record<string, CatalogMeta>;
     </item>
   </file>
   <file path="src/generated-schemas.ts">

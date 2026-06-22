@@ -1,4 +1,126 @@
 <codebase path=".">
+  <section priority="medium" role="Accordion">
+  <file path="packages/rialto/src/components/Accordion/Accordion.catalog.ts">
+    export const accordionCatalogMeta = {
+      name: "Accordion",
+      description:
+        "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
+      slots: ["default"],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Alert">
+  <file path="packages/rialto/src/components/Alert/Alert.catalog.ts">
+    export const alertCatalogMeta = {
+      name: "Alert",
+      description:
+        "Inline feedback message embedded in the page flow. Use variant=info (default) for guidance, variant=success for confirmations, variant=warning for time-sensitive messages, variant=error for failures. Set dismissible=true to allow users to close it.",
+      slots: ["default"],
+      charLimits: {
+        title: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="AppBar">
+  <file path="packages/rialto/src/components/AppBar/AppBar.catalog.ts">
+    export const appBarCatalogMeta = {
+      name: "AppBar",
+      description:
+        "Sticky horizontal header bar for app navigation. Use glass=true (default) for backdrop blur surface. Use logo slot for brand identity and actions slot for navigation controls. Fixed height defaults to 56px.",
+      charLimits: {
+        height: 20,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="AspectRatio">
+  <file path="packages/rialto/src/components/AspectRatio/AspectRatio.catalog.ts">
+    export const aspectRatioCatalogMeta = {
+      name: "AspectRatio",
+      description:
+        "Constrains children to a fixed width-to-height ratio. Use for images, videos, or media embeds to prevent layout shift. Common ratios: 16/9 (video), 4/3 (photo), 1 (square).",
+      slots: ["default"],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Avatar">
+  <file path="packages/rialto/src/components/Avatar/Avatar.catalog.ts">
+    export const avatarCatalogMeta = {
+      name: "Avatar",
+      description:
+        "Circular user avatar. Shows image if src provided, falls back to initials from name, then a generic icon. Use size=sm for compact lists, size=md (default) for most contexts, size=lg for profile headers. Use status to show online presence.",
+      charLimits: {
+        name: 30,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Badge">
+  <file path="packages/rialto/src/components/Badge/Badge.catalog.ts">
+    export const badgeCatalogMeta = {
+      name: "Badge",
+      description:
+        "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+      slots: ["default"],
+      charLimits: {
+        children: 20,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Banner">
+  <file path="packages/rialto/src/components/Banner/Banner.catalog.ts">
+    export const bannerCatalogMeta = {
+      name: "Banner",
+      description:
+        "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
+      slots: ["default"],
+      charLimits: {
+        title: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Breadcrumb">
+  <file path="packages/rialto/src/components/Breadcrumb/Breadcrumb.catalog.ts">
+    export const breadcrumbCatalogMeta = {
+      name: "Breadcrumb",
+      description:
+        "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Button">
+  <file path="packages/rialto/src/components/Button/Button.catalog.ts">
+    export const buttonCatalogMeta = {
+      name: "Button",
+      description:
+        "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+      slots: ["default"],
+      charLimits: {
+        children: 30,
+      },
+      aliases: {
+        label: "children",
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Card">
+  <file path="packages/rialto/src/components/Card/Card.catalog.ts">
+    export const cardCatalogMeta = {
+      name: "Card",
+      description:
+        "Content container. Use for grouping related information with a title. Compose inside Stack to build layouts. Use variant=elevated (default) for most cards, variant=flat for dense lists, variant=glass for overlaid content.",
+      slots: ["default"],
+      charLimits: {
+        title: 60,
+        subtitle: 80,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="ChatPanel">
   <file path="packages/rialto/src/components/ChatPanel/sanitize.ts">
     export function sanitizeElementProps(props: Record<string, unknown>): Record<string, unknown> {
@@ -35,6 +157,19 @@
     }
   </file>
   </section>
+  <section priority="medium" role="Checkbox">
+  <file path="packages/rialto/src/components/Checkbox/Checkbox.catalog.ts">
+    export const checkboxCatalogMeta = {
+      name: "Checkbox",
+      description:
+        "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+      charLimits: {
+        label: 30,
+        description: 80,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="CookieConsent">
   <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
     export interface CookiePreferences {
@@ -47,6 +182,58 @@
       readonly consented: boolean;
       readonly preferences: CookiePreferences;
     }
+  </file>
+  </section>
+  <section priority="medium" role="DataList">
+  <file path="packages/rialto/src/components/DataList/DataList.catalog.ts">
+    export const dataListCatalogMeta = {
+      name: "DataList",
+      description:
+        "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Dialog">
+  <file path="packages/rialto/src/components/Dialog/Dialog.catalog.ts">
+    export const dialogCatalogMeta = {
+      name: "Dialog",
+      description:
+        "Modal dialog for focused interactions requiring user attention. Use for confirmations, forms, and detail views. Provide open state and onClose handler. Use title for the modal heading, description for subtitle text.",
+      slots: ["default"],
+      charLimits: {
+        title: 60,
+        description: 120,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Divider">
+  <file path="packages/rialto/src/components/Divider/Divider.catalog.ts">
+    export const dividerCatalogMeta = {
+      name: "Divider",
+      description:
+        "Visual separator between content sections. Use orientation=horizontal (default) between vertical sections, orientation=vertical between horizontal items. Use label for short text like 'or' between form options.",
+      charLimits: {
+        label: 20,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="EmptyState">
+  <file path="packages/rialto/src/components/EmptyState/EmptyState.catalog.ts">
+    export const emptyStateCatalogMeta = {
+      name: "EmptyState",
+      description:
+        "Centered placeholder for empty lists, tables, or content areas. Show when a collection has no items. Use heading for the main message, description to explain what to do next. Optionally add an action button.",
+      slots: ["default"],
+      charLimits: {
+        heading: 50,
+        description: 300,
+      },
+      aliases: {
+        title: "heading",
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="FlipDot">
@@ -103,6 +290,64 @@
     }
   </file>
   </section>
+  <section priority="medium" role="Footer">
+  <file path="packages/rialto/src/components/Footer/Footer.catalog.ts">
+    export const footerCatalogMeta = {
+      name: "Footer",
+      description:
+        "Page footer. Use variant=minimal (default) for a slim utility bar with children content. Use variant=rich for a multi-column footer with logo, link groups, and copyright text.",
+      slots: ["default"],
+      charLimits: {
+        copyright: 80,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Input">
+  <file path="packages/rialto/src/components/Input/Input.catalog.ts">
+    export const inputCatalogMeta = {
+      name: "Input",
+      description:
+        "Single-line text field. Always provide a label. Use hint for helper text below the field. Set error=true to show error styling. Use type attribute for email, password, number, etc.",
+      charLimits: {
+        label: 40,
+        hint: 80,
+        error: 80,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="NavigationMenu">
+  <file path="packages/rialto/src/components/NavigationMenu/NavigationMenu.catalog.ts">
+    export const navigationMenuCatalogMeta = {
+      name: "NavigationMenu",
+      description:
+        "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
+      slots: ["default"],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Select">
+  <file path="packages/rialto/src/components/Select/Select.catalog.ts">
+    export const selectCatalogMeta = {
+      name: "Select",
+      description:
+        "Dropdown selection field. Always provide a label and options array. Use when users must pick one value from a known list. Prefer over radio buttons when there are more than 4 options.",
+      charLimits: {
+        label: 40,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Sidebar">
+  <file path="packages/rialto/src/components/Sidebar/Sidebar.catalog.ts">
+    export const sidebarCatalogMeta = {
+      name: "Sidebar",
+      description:
+        "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="packages/rialto/src/components/SplitFlap/charset.ts">
     export const CHARSETS = {
@@ -112,6 +357,41 @@
       full: FULL,
     } as const;
     export type CharsetName = keyof typeof CHARSETS;
+  </file>
+  </section>
+  <section priority="medium" role="Stack">
+  <file path="packages/rialto/src/components/Stack/Stack.catalog.ts">
+    export const stackCatalogMeta = {
+      name: "Stack",
+      description:
+        "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
+      slots: ["default"],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Table">
+  <file path="packages/rialto/src/components/Table/Table.catalog.ts">
+    export const tableCatalogMeta = {
+      name: "Table",
+      description:
+        "Data table with sortable columns. Use for structured tabular data with 2+ columns. Provide columns array (key, header, sortable) and data array. Use density=compact for dense lists, density=spacious for readable tables. Use striped=true for alternating row backgrounds.",
+      charLimits: {
+        emptyMessage: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="Tabs">
+  <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
+    export const tabsCatalogMeta = {
+      name: "Tabs",
+      description:
+        "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
+      aliases: {
+        items: "tabs",
+        defaultValue: "defaultTab",
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="TapeChart">
@@ -363,7 +643,28 @@
     }
   </file>
   </section>
+  <section priority="medium" role="Text">
+  <file path="packages/rialto/src/components/Text/Text.catalog.ts">
+    export const textCatalogMeta = {
+      name: "Text",
+      description:
+        "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+      slots: ["default"],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Toast">
+  <file path="packages/rialto/src/components/Toast/Toast.catalog.ts">
+    export const toastCatalogMeta = {
+      name: "Toast",
+      description:
+        "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
+      charLimits: {
+        title: 50,
+        description: 120,
+      },
+    } satisfies CatalogMeta;
+  </file>
   <file path="packages/rialto/src/components/Toast/ToastContext.ts">
     export type ToastVariant = "default" | "success" | "error" | "accent";
     export interface ToastData {
@@ -374,6 +675,18 @@
       /** Auto-dismiss in ms. 0 = manual dismiss only. */
       duration?: number;
     }
+  </file>
+  </section>
+  <section priority="medium" role="Toggle">
+  <file path="packages/rialto/src/components/Toggle/Toggle.catalog.ts">
+    export const toggleCatalogMeta = {
+      name: "Toggle",
+      description:
+        "Binary on/off switch. Use for settings and preferences that take effect immediately without a submit button. Always provide a label describing what is being toggled.",
+      charLimits: {
+        label: 30,
+      },
+    } satisfies CatalogMeta;
   </file>
   </section>
   <section priority="medium" role="__tests__">
@@ -2152,6 +2465,12 @@
         const result = await whoamiRun({});
         await runCommand(result, opts);
       });
+  </file>
+  </section>
+  <section priority="medium" role="components">
+  <file path="packages/rialto/src/components/catalog-meta.ts">
+    export type CatalogCharLimits = Readonly<Record<string, number>>;
+    export type CatalogAliases = Readonly<Record<string, string>>;
   </file>
   </section>
   <section priority="medium" role="config">
@@ -10722,16 +11041,28 @@
   </section>
   <section priority="medium" role="scripts">
   <file path="packages/rialto-catalog/scripts/generate-catalog.ts">
-    interface CharacterLimit {
-      component: string;
-      prop: string;
-      max: number;
+    function findCatalogMetaFiles(dir: string): string[] {
+      const found: string[] = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          found.push(...findCatalogMetaFiles(full));
+        } else if (entry.isFile() && entry.name.endsWith(".catalog.ts")) {
+          found.push(full);
+        }
+      }
+      return found;
     }
-    function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } {
-      const parts = typeStr.split(" | ").map((p) => p.trim());
-      const withoutUndefined = parts.filter((p) => p !== "undefined");
-      const wasOptional = withoutUndefined.length < parts.length;
-      return { inner: withoutUndefined.join(" | "), wasOptional };
+    async function loadCatalogMeta(file: string): Promise<CatalogMeta> {
+      const mod = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+      const meta = Object.values(mod).find(
+        (v): v is CatalogMeta =>
+          typeof v === "object" && v !== null && typeof (v as CatalogMeta).name === "string"
+      );
+      if (!meta) {
+        throw new Error(`No CatalogMeta export found in ${file}`);
+      }
+      return meta;
     }
   </file>
   <file path="packages/rialto-plugin/scripts/generate-reference.ts">
@@ -14870,173 +15201,9 @@
       return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
     }
   </file>
-  <file path="packages/rialto-catalog/src/catalog-config.ts">
-    export interface ComponentConfig {
-      /** Whether to include this component in the catalog */
-      include: boolean;
-      /** Usage-oriented description for the AI */
-      description: string;
-      /** Named slot keys — use ['default'] for children slots */
-      slots?: string[];
-    }
-    export const catalogConfig: Record<string, ComponentConfig> = {
-      // ── Layout ──────────────────────────────────────────────────────
-      Stack: {
-        include: true,
-        description:
-          "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
-        slots: ["default"],
-      },
-      Card: {
-        include: true,
-        description:
-          "Content container. Use for grouping related information with a title. Compose inside Stack to build layouts. Use variant=elevated (default) for most cards, variant=flat for dense lists, variant=glass for overlaid content.",
-        slots: ["default"],
-      },
-      Divider: {
-        include: true,
-        description:
-          "Visual separator between content sections. Use orientation=horizontal (default) between vertical sections, orientation=vertical between horizontal items. Use label for short text like 'or' between form options.",
-      },
-      AspectRatio: {
-        include: true,
-        description:
-          "Constrains children to a fixed width-to-height ratio. Use for images, videos, or media embeds to prevent layout shift. Common ratios: 16/9 (video), 4/3 (photo), 1 (square).",
-        slots: ["default"],
-      },
-    
-      // ── Typography ───────────────────────────────────────────────────
-      Text: {
-        include: true,
-        description:
-          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
-        slots: ["default"],
-      },
-      Badge: {
-        include: true,
-        description:
-          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
-        slots: ["default"],
-      },
-      Avatar: {
-        include: true,
-        description:
-          "Circular user avatar. Shows image if src provided, falls back to initials from name, then a generic icon. Use size=sm for compact lists, size=md (default) for most contexts, size=lg for profile headers. Use status to show online presence.",
-      },
-    
-      // ── Forms ────────────────────────────────────────────────────────
-      Button: {
-        include: true,
-        description:
-          "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
-        slots: ["default"],
-      },
-      Input: {
-        include: true,
-        description:
-          "Single-line text field. Always provide a label. Use hint for helper text below the field. Set error=true to show error styling. Use type attribute for email, password, number, etc.",
-      },
-      Select: {
-        include: true,
-        description:
-          "Dropdown selection field. Always provide a label and options array. Use when users must pick one value from a known list. Prefer over radio buttons when there are more than 4 options.",
-      },
-      Toggle: {
-        include: true,
-        description:
-          "Binary on/off switch. Use for settings and preferences that take effect immediately without a submit button. Always provide a label describing what is being toggled.",
-      },
-      Checkbox: {
-        include: true,
-        description:
-          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
-      },
-    
-      // ── Navigation ───────────────────────────────────────────────────
-      Tabs: {
-        include: true,
-        description:
-          "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
-      },
-      Breadcrumb: {
-        include: true,
-        description:
-          "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
-      },
-      NavigationMenu: {
-        include: true,
-        description:
-          "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
-        slots: ["default"],
-      },
-    
-      // ── Feedback ─────────────────────────────────────────────────────
-      Alert: {
-        include: true,
-        description:
-          "Inline feedback message embedded in the page flow. Use variant=info (default) for guidance, variant=success for confirmations, variant=warning for time-sensitive messages, variant=error for failures. Set dismissible=true to allow users to close it.",
-        slots: ["default"],
-      },
-      Banner: {
-        include: true,
-        description:
-          "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
-        slots: ["default"],
-      },
-      Dialog: {
-        include: true,
-        description:
-          "Modal dialog for focused interactions requiring user attention. Use for confirmations, forms, and detail views. Provide open state and onClose handler. Use title for the modal heading, description for subtitle text.",
-        slots: ["default"],
-      },
-      Toast: {
-        include: true,
-        description:
-          "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
-      },
-    
-      // ── Data Display ─────────────────────────────────────────────────
-      Table: {
-        include: true,
-        description:
-          "Data table with sortable columns. Use for structured tabular data with 2+ columns. Provide columns array (key, header, sortable) and data array. Use density=compact for dense lists, density=spacious for readable tables. Use striped=true for alternating row backgrounds.",
-      },
-      DataList: {
-        include: true,
-        description:
-          "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
-      },
-      EmptyState: {
-        include: true,
-        description:
-          "Centered placeholder for empty lists, tables, or content areas. Show when a collection has no items. Use heading for the main message, description to explain what to do next. Optionally add an action button.",
-        slots: ["default"],
-      },
-      Accordion: {
-        include: true,
-        description:
-          "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
-        slots: ["default"],
-      },
-    
-      // ── App Shell ────────────────────────────────────────────────────
-      Sidebar: {
-        include: true,
-        description:
-          "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
-      },
-      AppBar: {
-        include: true,
-        description:
-          "Sticky horizontal header bar for app navigation. Use glass=true (default) for backdrop blur surface. Use logo slot for brand identity and actions slot for navigation controls. Fixed height defaults to 56px.",
-      },
-      Footer: {
-        include: true,
-        description:
-          "Page footer. Use variant=minimal (default) for a slim utility bar with children content. Use variant=rich for a multi-column footer with logo, link groups, and copyright text.",
-        slots: ["default"],
-      },
-    };
+  <file path="packages/rialto-catalog/src/catalog-meta.ts">
+    export type CatalogCharLimits = Readonly<Record<string, number>>;
+    export type CatalogAliases = Readonly<Record<string, string>>;
   </file>
   <file path="packages/rialto-catalog/src/catalog.ts">
     export const catalog = defineCatalog(schema, {
@@ -15057,6 +15224,173 @@
         },
       },
     });
+  </file>
+  <file path="packages/rialto-catalog/src/generated-catalog.ts">
+    export const catalogMeta: Record<string, CatalogMeta> = {
+      Accordion: {
+        name: "Accordion",
+        description:
+          "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
+        slots: ["default"],
+      },
+      Alert: {
+        name: "Alert",
+        description:
+          "Inline feedback message embedded in the page flow. Use variant=info (default) for guidance, variant=success for confirmations, variant=warning for time-sensitive messages, variant=error for failures. Set dismissible=true to allow users to close it.",
+        slots: ["default"],
+        charLimits: { title: 60 },
+      },
+      AppBar: {
+        name: "AppBar",
+        description:
+          "Sticky horizontal header bar for app navigation. Use glass=true (default) for backdrop blur surface. Use logo slot for brand identity and actions slot for navigation controls. Fixed height defaults to 56px.",
+        charLimits: { height: 20 },
+      },
+      AspectRatio: {
+        name: "AspectRatio",
+        description:
+          "Constrains children to a fixed width-to-height ratio. Use for images, videos, or media embeds to prevent layout shift. Common ratios: 16/9 (video), 4/3 (photo), 1 (square).",
+        slots: ["default"],
+      },
+      Avatar: {
+        name: "Avatar",
+        description:
+          "Circular user avatar. Shows image if src provided, falls back to initials from name, then a generic icon. Use size=sm for compact lists, size=md (default) for most contexts, size=lg for profile headers. Use status to show online presence.",
+        charLimits: { name: 30 },
+      },
+      Badge: {
+        name: "Badge",
+        description:
+          "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
+        slots: ["default"],
+        charLimits: { children: 20 },
+      },
+      Banner: {
+        name: "Banner",
+        description:
+          "Full-width page-level message displayed at the top of a view. Use for one-per-page system announcements. Unlike Alert (inline), Banner spans the full width. Use variant=info (default) for announcements, variant=warning for important notices, variant=error for critical failures.",
+        slots: ["default"],
+        charLimits: { title: 60 },
+      },
+      Breadcrumb: {
+        name: "Breadcrumb",
+        description:
+          "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
+      },
+      Button: {
+        name: "Button",
+        description:
+          "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
+        slots: ["default"],
+        charLimits: { children: 30 },
+        aliases: { label: "children" },
+      },
+      Card: {
+        name: "Card",
+        description:
+          "Content container. Use for grouping related information with a title. Compose inside Stack to build layouts. Use variant=elevated (default) for most cards, variant=flat for dense lists, variant=glass for overlaid content.",
+        slots: ["default"],
+        charLimits: { title: 60, subtitle: 80 },
+      },
+      Checkbox: {
+        name: "Checkbox",
+        description:
+          "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+        charLimits: { label: 30, description: 80 },
+      },
+      DataList: {
+        name: "DataList",
+        description:
+          "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
+      },
+      Dialog: {
+        name: "Dialog",
+        description:
+          "Modal dialog for focused interactions requiring user attention. Use for confirmations, forms, and detail views. Provide open state and onClose handler. Use title for the modal heading, description for subtitle text.",
+        slots: ["default"],
+        charLimits: { title: 60, description: 120 },
+      },
+      Divider: {
+        name: "Divider",
+        description:
+          "Visual separator between content sections. Use orientation=horizontal (default) between vertical sections, orientation=vertical between horizontal items. Use label for short text like 'or' between form options.",
+        charLimits: { label: 20 },
+      },
+      EmptyState: {
+        name: "EmptyState",
+        description:
+          "Centered placeholder for empty lists, tables, or content areas. Show when a collection has no items. Use heading for the main message, description to explain what to do next. Optionally add an action button.",
+        slots: ["default"],
+        charLimits: { heading: 50, description: 300 },
+        aliases: { title: "heading" },
+      },
+      Footer: {
+        name: "Footer",
+        description:
+          "Page footer. Use variant=minimal (default) for a slim utility bar with children content. Use variant=rich for a multi-column footer with logo, link groups, and copyright text.",
+        slots: ["default"],
+        charLimits: { copyright: 80 },
+      },
+      Input: {
+        name: "Input",
+        description:
+          "Single-line text field. Always provide a label. Use hint for helper text below the field. Set error=true to show error styling. Use type attribute for email, password, number, etc.",
+        charLimits: { label: 40, hint: 80, error: 80 },
+      },
+      NavigationMenu: {
+        name: "NavigationMenu",
+        description:
+          "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
+        slots: ["default"],
+      },
+      Select: {
+        name: "Select",
+        description:
+          "Dropdown selection field. Always provide a label and options array. Use when users must pick one value from a known list. Prefer over radio buttons when there are more than 4 options.",
+        charLimits: { label: 40 },
+      },
+      Sidebar: {
+        name: "Sidebar",
+        description:
+          "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
+      },
+      Stack: {
+        name: "Stack",
+        description:
+          "Primary layout primitive. Use direction=column for vertical stacking, direction=row for horizontal. Compose with Card, Text, and form elements to build any layout. Use gap to control spacing between children.",
+        slots: ["default"],
+      },
+      Table: {
+        name: "Table",
+        description:
+          "Data table with sortable columns. Use for structured tabular data with 2+ columns. Provide columns array (key, header, sortable) and data array. Use density=compact for dense lists, density=spacious for readable tables. Use striped=true for alternating row backgrounds.",
+        charLimits: { emptyMessage: 60 },
+      },
+      Tabs: {
+        name: "Tabs",
+        description:
+          "Horizontal panel switcher for content organized into distinct sections. Use when users need to switch between 2-6 related views without leaving the page. Provide a tabs array with id, label, and content for each tab.",
+        aliases: { items: "tabs", defaultValue: "defaultTab" },
+      },
+      Text: {
+        name: "Text",
+        description:
+          "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata.",
+        slots: ["default"],
+      },
+      Toast: {
+        name: "Toast",
+        description:
+          "Transient notification shown via useToast() hook. Use variant=success for completed actions, variant=error for failures, variant=accent for highlights. Always provide a title. Add description for additional context. Auto-dismisses after 4s by default.",
+        charLimits: { title: 50, description: 120 },
+      },
+      Toggle: {
+        name: "Toggle",
+        description:
+          "Binary on/off switch. Use for settings and preferences that take effect immediately without a submit button. Always provide a label describing what is being toggled.",
+        charLimits: { label: 30 },
+      },
+    };
   </file>
   <file path="packages/rialto-catalog/src/generated-schemas.ts">
     export const generatedSchemas = {

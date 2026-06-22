@@ -2,16 +2,18 @@ import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
 import { z } from "zod";
 import { generatedSchemas } from "./generated-schemas.js";
-import { catalogConfig } from "./catalog-config.js";
+import { catalogMeta } from "./generated-catalog.js";
 
 /* ── Build components map ────────────────────── */
 
-// Merge generated Zod schemas with hand-authored descriptions and slot declarations.
-// Only includes components with include: true in catalogConfig.
+// Merge generated Zod schemas with the co-located metadata (descriptions, slots).
+// Both artifacts come from one generator pass over the `*.catalog.ts` source,
+// so schema, description, and renderer cannot drift. Components with
+// include: false stay in the metadata but are excluded from the AI catalog.
 const components = Object.fromEntries(
-  Object.entries(catalogConfig)
-    .filter(([, config]) => config.include)
-    .map(([name, config]) => {
+  Object.entries(catalogMeta)
+    .filter(([, meta]) => meta.include !== false)
+    .map(([name, meta]) => {
       const propsSchema = generatedSchemas[name as keyof typeof generatedSchemas];
 
       const entry: {
@@ -20,11 +22,11 @@ const components = Object.fromEntries(
         slots?: string[];
       } = {
         props: propsSchema as z.ZodType,
-        description: config.description,
+        description: meta.description,
       };
 
-      if (config.slots && config.slots.length > 0) {
-        entry.slots = config.slots;
+      if (meta.slots && meta.slots.length > 0) {
+        entry.slots = [...meta.slots];
       }
 
       return [name, entry];

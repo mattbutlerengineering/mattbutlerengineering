@@ -1,12 +1,19 @@
 #!/usr/bin/env npx tsx
 /**
- * Rialto Catalog Schema Generator
+ * Rialto Catalog Generator (single CatalogSource pass)
  *
- * Reads Rialto component prop interfaces via the TypeScript Compiler API and
- * outputs Zod schema definitions to src/generated-schemas.ts.
+ * One pass over the co-located `<Component>.catalog.ts` metadata files in
+ * @mattbutlerengineering/rialto produces BOTH generated artifacts:
  *
- * Only includes props directly declared in the component's own source file,
- * not inherited HTML/ARIA attributes from React types.
+ *   - src/generated-schemas.ts  — Zod prop schemas (types via the TS Compiler
+ *                                 API, character limits from each meta)
+ *   - src/generated-catalog.ts  — descriptions / slots / include flags, the
+ *                                 data catalog.ts feeds to defineCatalog
+ *
+ * The set of `*.catalog.ts` files IS the curated include-list, and each meta's
+ * `charLimits` is the single source for max-length constraints. This retires
+ * the hand-maintained CURATED_COMPONENTS set, the CHARACTER_LIMITS table, and
+ * catalog-config.ts. Adding or changing a component is one edit at the source.
  *
  * Usage: pnpm --filter @mbe/rialto-catalog generate
  */
@@ -14,88 +21,51 @@
 import * as ts from "typescript";
 import * as path from "path";
 import * as fs from "fs";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+import type { CatalogMeta } from "../../rialto/src/components/catalog-meta.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ── Curated component set ───────────────────────── */
+/* ── Co-located metadata discovery ───────────────── */
 
-const CURATED_COMPONENTS = new Set([
-  "Stack",
-  "Card",
-  "Divider",
-  "AspectRatio",
-  "Text",
-  "Badge",
-  "Avatar",
-  "Button",
-  "Input",
-  "Select",
-  "Toggle",
-  "Checkbox",
-  "Tabs",
-  "Breadcrumb",
-  "NavigationMenu",
-  "Alert",
-  "Banner",
-  "Dialog",
-  "Toast",
-  "Table",
-  "DataList",
-  "EmptyState",
-  "Accordion",
-  "Sidebar",
-  "AppBar",
-  "Footer",
-]);
+/** Recursively collect every `*.catalog.ts` file under the components dir. */
+function findCatalogMetaFiles(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...findCatalogMetaFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith(".catalog.ts")) {
+      found.push(full);
+    }
+  }
+  return found;
+}
 
-// Toast is exported as ToastProvider, but we want to catalog its data interface
-// We'll handle Toast as a special case via ToastInput props
+/** Dynamically import a `*.catalog.ts` file and return its single exported meta. */
+async function loadCatalogMeta(file: string): Promise<CatalogMeta> {
+  const mod = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+  const meta = Object.values(mod).find(
+    (v): v is CatalogMeta =>
+      typeof v === "object" && v !== null && typeof (v as CatalogMeta).name === "string"
+  );
+  if (!meta) {
+    throw new Error(`No CatalogMeta export found in ${file}`);
+  }
+  return meta;
+}
+
+/* ── Component name → Props interface alias ──────── */
+
+// Toast is exported as ToastProvider; its data interface is ToastInput.
 const COMPONENT_ALIAS: Record<string, string> = {
   Toast: "ToastInput",
 };
 
-/* ── Character limits ────────────────────────────── */
-
-interface CharacterLimit {
-  component: string;
-  prop: string;
-  max: number;
-}
-
-const CHARACTER_LIMITS: CharacterLimit[] = [
-  { component: "Badge", prop: "children", max: 20 },
-  { component: "Button", prop: "children", max: 30 },
-  { component: "Avatar", prop: "name", max: 30 },
-  { component: "Input", prop: "label", max: 40 },
-  { component: "Input", prop: "hint", max: 80 },
-  { component: "Input", prop: "error", max: 80 },
-  { component: "Select", prop: "label", max: 40 },
-  { component: "Toggle", prop: "label", max: 30 },
-  { component: "Checkbox", prop: "label", max: 30 },
-  { component: "Checkbox", prop: "description", max: 80 },
-  { component: "Toast", prop: "title", max: 50 },
-  { component: "Toast", prop: "description", max: 120 },
-  { component: "Alert", prop: "title", max: 60 },
-  { component: "Banner", prop: "title", max: 60 },
-  { component: "Dialog", prop: "title", max: 60 },
-  { component: "Dialog", prop: "description", max: 120 },
-  { component: "Card", prop: "title", max: 60 },
-  { component: "Card", prop: "subtitle", max: 80 },
-  { component: "EmptyState", prop: "heading", max: 50 },
-  { component: "EmptyState", prop: "description", max: 300 },
-  { component: "Divider", prop: "label", max: 20 },
-  { component: "AppBar", prop: "height", max: 20 },
-  { component: "Footer", prop: "copyright", max: 80 },
-  { component: "Table", prop: "emptyMessage", max: 60 },
-];
-
 /* ── Type-to-Zod mapping ─────────────────────────── */
 
-/**
- * Strip " | undefined" from a type string and return {innerType, wasOptional}.
- */
+/** Strip " | undefined" from a type string and return {inner, wasOptional}. */
 function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } {
   const parts = typeStr.split(" | ").map((p) => p.trim());
   const withoutUndefined = parts.filter((p) => p !== "undefined");
@@ -105,20 +75,15 @@ function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean 
 
 /**
  * Map a TypeScript type string to a Zod schema string.
- * Returns null if the type should be skipped (functions, ReactNode, complex objects/arrays).
+ * Returns null if the type should be skipped (functions, complex objects/arrays).
  *
- * @param typeStr - The TypeScript type as a string (may include "| undefined")
- * @param isOptional - Whether the prop is optional (from SymbolFlags)
- * @param componentName - Used for character limit lookup
- * @param propName - Used for character limit lookup
+ * @param maxLen - Character limit for this prop, from the component's meta.
  */
 function mapTypeToZod(
   typeStr: string,
   isOptional: boolean,
-  componentName: string,
-  propName: string
+  maxLen: number | undefined
 ): string | null {
-  // Strip undefined from the type — we track optionality separately
   const { inner, wasOptional } = stripUndefined(typeStr);
   const optional = isOptional || wasOptional;
 
@@ -127,9 +92,6 @@ function mapTypeToZod(
     return null;
   }
 
-  // Check for character limit
-  const limit = CHARACTER_LIMITS.find((l) => l.component === componentName && l.prop === propName);
-
   // Map ReactNode / JSX types to string (for catalog purpose)
   if (
     inner.includes("ReactNode") ||
@@ -137,7 +99,7 @@ function mapTypeToZod(
     inner === "Element" ||
     inner === "ReactNode"
   ) {
-    const schema = limit ? `z.string().max(${limit.max})` : "z.string()";
+    const schema = maxLen !== undefined ? `z.string().max(${maxLen})` : "z.string()";
     return optional ? `${schema}.optional()` : schema;
   }
 
@@ -167,7 +129,7 @@ function mapTypeToZod(
 
   // String (plain)
   if (inner === "string") {
-    const schema = limit ? `z.string().max(${limit.max})` : "z.string()";
+    const schema = maxLen !== undefined ? `z.string().max(${maxLen})` : "z.string()";
     return optional ? `${schema}.optional()` : schema;
   }
 
@@ -185,9 +147,7 @@ function mapTypeToZod(
   }
 
   // Unrecognized — warn and skip
-  console.warn(
-    `[generate-catalog] Skipping unrecognized type "${inner}" for ${componentName}.${propName}`
-  );
+  console.warn(`[generate-catalog] Skipping unrecognized type "${inner}"`);
   return null;
 }
 
@@ -200,41 +160,25 @@ interface PropSchema {
 
 /* ── Component extraction ────────────────────── */
 
-/**
- * Check whether a symbol's declaration comes from the Rialto components source directory,
- * as opposed to being inherited from React/TS built-in types.
- */
+/** Check whether a symbol's declaration comes from the Rialto components dir. */
 function isDeclaredInRialto(prop: ts.Symbol, rialtoComponentsDir: string): boolean {
   const decl = prop.declarations?.[0];
   if (!decl) return false;
 
-  const sourceFile = decl.getSourceFile();
-  const fileName = sourceFile.fileName;
+  const fileName = decl.getSourceFile().fileName.replace(/\\/g, "/");
+  const componentsDir = rialtoComponentsDir.replace(/\\/g, "/");
 
-  // Normalize paths for comparison
-  const normalizedFileName = fileName.replace(/\\/g, "/");
-  const normalizedComponentsDir = rialtoComponentsDir.replace(/\\/g, "/");
-
-  return normalizedFileName.startsWith(normalizedComponentsDir);
+  return fileName.startsWith(componentsDir);
 }
 
-/**
- * Resolve type aliases using the TypeChecker.
- * For union types (including optional `T | undefined`), expands to literal members.
- * e.g. StackGap -> '"2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl"'
- * e.g. AlertVariant | undefined -> '"info" | "success" | "warning" | "error" | undefined'
- */
+/** Resolve type aliases using the TypeChecker, expanding union members. */
 function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
   const propType = checker.getTypeOfSymbol(prop);
 
-  // For union types, try to expand the individual members
   if (propType.flags & ts.TypeFlags.Union) {
     const unionType = propType as ts.UnionType;
     const memberStrings = unionType.types.map((t) => {
-      // For each union member, if it's a named alias (not a literal/primitive),
-      // try to expand it further
       if (t.flags & ts.TypeFlags.Union) {
-        // Nested union (type alias expanding to union)
         const nested = t as ts.UnionType;
         return nested.types
           .map((nt) => checker.typeToString(nt, undefined, ts.TypeFormatFlags.NoTruncation))
@@ -245,7 +189,6 @@ function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
     return memberStrings.join(" | ");
   }
 
-  // For non-union types, use standard expansion
   return checker.typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation);
 }
 
@@ -253,7 +196,7 @@ function extractPropsForInterface(
   propsSymbol: ts.Symbol,
   checker: ts.TypeChecker,
   rialtoComponentsDir: string,
-  componentName: string
+  charLimits: Readonly<Record<string, number>> | undefined
 ): PropSchema[] {
   const propsResolved =
     propsSymbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(propsSymbol) : propsSymbol;
@@ -266,27 +209,24 @@ function extractPropsForInterface(
   for (const prop of propsProperties) {
     const propName = prop.getName();
 
-    // Skip className, style, id and other HTML utility attributes
     if (["className", "style", "id", "key"].includes(propName)) {
       continue;
     }
 
-    // Only include props declared in Rialto source (not inherited from React/TS types)
     if (!isDeclaredInRialto(prop, rialtoComponentsDir)) {
       continue;
     }
 
-    // Get the resolved type string (handles type aliases)
     const resolvedTypeStr = resolveTypeAlias(prop, checker);
 
-    // Skip children ReactNode — these become slots
     if (propName === "children" && resolvedTypeStr.includes("ReactNode")) {
       continue;
     }
 
     const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
+    const maxLen = charLimits?.[propName];
 
-    const zodExpr = mapTypeToZod(resolvedTypeStr, isOptional, componentName, propName);
+    const zodExpr = mapTypeToZod(resolvedTypeStr, isOptional, maxLen);
 
     if (zodExpr === null) {
       continue;
@@ -301,7 +241,8 @@ function extractPropsForInterface(
 function extractComponentSchemas(
   program: ts.Program,
   entryFile: string,
-  rialtoComponentsDir: string
+  rialtoComponentsDir: string,
+  metas: Map<string, CatalogMeta>
 ): Map<string, PropSchema[]> {
   const checker = program.getTypeChecker();
   const sourceFile = program.getSourceFile(entryFile);
@@ -320,13 +261,10 @@ function extractComponentSchemas(
   for (const exp of exports) {
     const name = exp.getName();
 
-    // Only process curated components
-    if (!CURATED_COMPONENTS.has(name)) continue;
+    // Only process components that declared co-located metadata.
+    if (!metas.has(name)) continue;
 
-    // Find Props interface by convention: ComponentNameProps
-    // Use alias if available (e.g. Toast -> ToastInput)
-    const propsTypeName = COMPONENT_ALIAS[name] ? COMPONENT_ALIAS[name] : `${name}Props`;
-
+    const propsTypeName = COMPONENT_ALIAS[name] ?? `${name}Props`;
     const propsSymbol = exports.find((e) => e.getName() === propsTypeName);
 
     if (!propsSymbol) {
@@ -334,7 +272,12 @@ function extractComponentSchemas(
       continue;
     }
 
-    const propSchemas = extractPropsForInterface(propsSymbol, checker, rialtoComponentsDir, name);
+    const propSchemas = extractPropsForInterface(
+      propsSymbol,
+      checker,
+      rialtoComponentsDir,
+      metas.get(name)!.charLimits
+    );
 
     result.set(name, propSchemas);
   }
@@ -345,24 +288,32 @@ function extractComponentSchemas(
 /* ── Hardcoded fallbacks for components not in barrel exports ── */
 
 /**
- * Components that can't be auto-extracted from the barrel (e.g. Toast which
- * uses a provider pattern and whose data interface isn't barrel-exported).
- * These are hand-authored but still match Rialto source exactly.
+ * Components whose Props interface isn't barrel-exported (Toast uses a provider
+ * pattern). Hand-authored, but its character limits still come from the meta so
+ * there is still a single source — the lines below must match Toast.catalog.ts.
  */
-const HARDCODED_SCHEMA_LINES: Record<string, string[]> = {
-  Toast: [
-    "  Toast: z.object({",
-    "    title: z.string().max(50),",
-    "    description: z.string().max(120).optional(),",
-    '    variant: z.enum(["default", "success", "error", "accent"]).optional(),',
-    "    duration: z.number().optional(),",
-    "  }),",
-  ],
-};
+function hardcodedSchemaLines(metas: Map<string, CatalogMeta>): Record<string, string[]> {
+  const toast = metas.get("Toast");
+  const titleMax = toast?.charLimits?.title ?? 50;
+  const descMax = toast?.charLimits?.description ?? 120;
+  return {
+    Toast: [
+      "  Toast: z.object({",
+      `    title: z.string().max(${titleMax}),`,
+      `    description: z.string().max(${descMax}).optional(),`,
+      '    variant: z.enum(["default", "success", "error", "accent"]).optional(),',
+      "    duration: z.number().optional(),",
+      "  }),",
+    ],
+  };
+}
 
 /* ── Output formatting ───────────────────────────── */
 
-function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): string {
+function formatGeneratedSchemas(
+  componentSchemas: Map<string, PropSchema[]>,
+  hardcoded: Record<string, string[]>
+): string {
   const lines: string[] = [
     "// AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate",
     'import { z } from "zod";',
@@ -370,17 +321,12 @@ function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): st
     "export const generatedSchemas = {",
   ];
 
-  // Merge hardcoded schemas with auto-generated ones, then sort alphabetically
-  const allNames = new Set([
-    ...Array.from(componentSchemas.keys()),
-    ...Object.keys(HARDCODED_SCHEMA_LINES),
-  ]);
+  const allNames = new Set([...componentSchemas.keys(), ...Object.keys(hardcoded)]);
   const sortedNames = Array.from(allNames).sort();
 
   for (const componentName of sortedNames) {
-    // Use hardcoded lines if available (exact string representation)
-    if (HARDCODED_SCHEMA_LINES[componentName]) {
-      for (const line of HARDCODED_SCHEMA_LINES[componentName]!) {
+    if (hardcoded[componentName]) {
+      for (const line of hardcoded[componentName]!) {
         lines.push(line);
       }
       continue;
@@ -404,69 +350,122 @@ function formatGeneratedSchemas(componentSchemas: Map<string, PropSchema[]>): st
   return lines.join("\n");
 }
 
+/** Format a string→primitive record as a prettier-style inline object literal. */
+function inlineRecord(record: Readonly<Record<string, string | number>>): string {
+  const entries = Object.entries(record).map(([k, v]) => {
+    const key = /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k);
+    return `${key}: ${JSON.stringify(v)}`;
+  });
+  return `{ ${entries.join(", ")} }`;
+}
+
+/** Serialize the catalog metadata (descriptions/slots/include) into a typed module. */
+function formatGeneratedCatalog(metas: Map<string, CatalogMeta>): string {
+  const lines: string[] = [
+    "// AUTO-GENERATED -- do not edit. Run: pnpm --filter @mbe/rialto-catalog generate",
+    "// Co-located metadata from packages/rialto/src/components/<Component>/<Component>.catalog.ts",
+    'import type { CatalogMeta } from "./catalog-meta.js";',
+    "",
+    "export const catalogMeta: Record<string, CatalogMeta> = {",
+  ];
+
+  for (const name of Array.from(metas.keys()).sort()) {
+    const meta = metas.get(name)!;
+    lines.push(`  ${name}: {`);
+    lines.push(`    name: ${JSON.stringify(meta.name)},`);
+    if (meta.include === false) {
+      lines.push("    include: false,");
+    }
+    lines.push(`    description:`);
+    lines.push(`      ${JSON.stringify(meta.description)},`);
+    if (meta.slots && meta.slots.length > 0) {
+      lines.push(`    slots: ${JSON.stringify(meta.slots)},`);
+    }
+    if (meta.charLimits && Object.keys(meta.charLimits).length > 0) {
+      lines.push(`    charLimits: ${inlineRecord(meta.charLimits)},`);
+    }
+    if (meta.aliases && Object.keys(meta.aliases).length > 0) {
+      lines.push(`    aliases: ${inlineRecord(meta.aliases)},`);
+    }
+    lines.push("  },");
+  }
+
+  lines.push("};");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 /* ── Main ────────────────────────────────────────── */
 
-function main() {
-  // Resolve paths relative to packages/rialto-catalog root
+async function main() {
   const packageRoot = path.resolve(__dirname, "..");
   const rialtoRoot = path.resolve(packageRoot, "../rialto");
   const rialtoComponentsDir = path.join(rialtoRoot, "src/components");
-  const entryFile = path.join(rialtoRoot, "src/components/index.ts");
+  const entryFile = path.join(rialtoComponentsDir, "index.ts");
   const tsconfigPath = path.join(rialtoRoot, "tsconfig.json");
-  const outPath = process.env.OUTPUT_FILE
+
+  const schemasOut = process.env.OUTPUT_FILE
     ? path.resolve(process.cwd(), process.env.OUTPUT_FILE)
     : path.join(packageRoot, "src/generated-schemas.ts");
+  const catalogOut = process.env.CATALOG_OUTPUT_FILE
+    ? path.resolve(process.cwd(), process.env.CATALOG_OUTPUT_FILE)
+    : path.join(packageRoot, "src/generated-catalog.ts");
 
   if (!fs.existsSync(entryFile)) {
     console.error(`Entry file not found: ${entryFile}`);
     process.exit(1);
   }
-
   if (!fs.existsSync(tsconfigPath)) {
     console.error(`tsconfig not found: ${tsconfigPath}`);
     process.exit(1);
   }
 
-  // Read tsconfig
+  // 1. Discover + load the co-located metadata — the single source of truth.
+  const metaFiles = findCatalogMetaFiles(rialtoComponentsDir);
+  const metas = new Map<string, CatalogMeta>();
+  for (const file of metaFiles) {
+    const meta = await loadCatalogMeta(file);
+    metas.set(meta.name, meta);
+  }
+
+  if (metas.size === 0) {
+    console.error("No *.catalog.ts metadata files found — something is wrong");
+    process.exit(1);
+  }
+
+  // 2. Extract Zod schemas via the TS Compiler API, honoring meta char limits.
   const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
   if (configFile.error) {
     console.error("Error reading tsconfig:", configFile.error.messageText);
     process.exit(1);
   }
-
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rialtoRoot);
-
   const program = ts.createProgram([entryFile], parsedConfig.options);
 
-  const componentSchemas = extractComponentSchemas(program, entryFile, rialtoComponentsDir);
+  const componentSchemas = extractComponentSchemas(program, entryFile, rialtoComponentsDir, metas);
 
-  if (componentSchemas.size === 0) {
+  const hardcoded = hardcodedSchemaLines(metas);
+
+  if (componentSchemas.size === 0 && Object.keys(hardcoded).length === 0) {
     console.error("No component schemas extracted — something is wrong");
     process.exit(1);
   }
 
-  const output = formatGeneratedSchemas(componentSchemas);
+  // 3. Emit both artifacts from the single source.
+  fs.mkdirSync(path.dirname(schemasOut), { recursive: true });
+  fs.writeFileSync(schemasOut, formatGeneratedSchemas(componentSchemas, hardcoded), "utf-8");
 
-  // Ensure output directory exists
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, output, "utf-8");
+  fs.mkdirSync(path.dirname(catalogOut), { recursive: true });
+  fs.writeFileSync(catalogOut, formatGeneratedCatalog(metas), "utf-8");
 
   console.log(
-    `Generated schemas: ${componentSchemas.size} components → ${path.relative(packageRoot, outPath)}`
+    `Generated catalog: ${metas.size} components → ${path.relative(packageRoot, schemasOut)}, ${path.relative(packageRoot, catalogOut)}`
   );
-
-  // Log component names for visibility
-  const sortedNames = Array.from(componentSchemas.keys()).sort();
-  console.log(`Components: ${sortedNames.join(", ")}`);
-
-  // Warn about curated components with no schemas
-  for (const name of CURATED_COMPONENTS) {
-    if (!componentSchemas.has(name) && !HARDCODED_SCHEMA_LINES[name]) {
-      console.warn(
-        `[generate-catalog] Warning: curated component "${name}" was not found in Rialto exports`
-      );
-    }
-  }
+  console.log(`Components: ${Array.from(metas.keys()).sort().join(", ")}`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
