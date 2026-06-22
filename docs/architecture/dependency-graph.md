@@ -99,8 +99,8 @@ flowchart TD
   users_service --> test_fixtures
   agent_core --> api_client
   agent_core --> types
+  agent_core --> agent_test_utils
   agent_core --> config
-  agent_test_utils --> agent_core
   agent_test_utils --> types
   agent_test_utils --> config
   api_client --> types

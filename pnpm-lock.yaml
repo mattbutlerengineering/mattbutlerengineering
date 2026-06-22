@@ -540,6 +540,9 @@ importers:
         specifier: "catalog:"
         version: 4.4.3
     devDependencies:
+      "@mbe/agent-test-utils":
+        specifier: workspace:*
+        version: link:../agent-test-utils
       "@mbe/config":
         specifier: workspace:*
         version: link:../config

@@ -13,14 +13,9 @@ vi.mock("node:util", () => ({
 }));
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { execFile } from "node:child_process";
 import { evaluateSuccess, getGitDiff } from "../success-evaluator.js";
-
-async function* mockQueryGenerator(messages: unknown[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
 
 function createMockEvalResult(evaluation: {
   passed: boolean;
@@ -64,7 +59,9 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     const result = await evaluateSuccess(
       "Add a health check endpoint",
@@ -84,7 +81,9 @@ describe("evaluateSuccess", () => {
       issues: ["Changes are not related to the task", "Missing tests"],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     const result = await evaluateSuccess(
       "Fix the login bug",
@@ -140,7 +139,9 @@ describe("evaluateSuccess", () => {
       permission_denials: [],
     };
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([badResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([badResult]) as ReturnType<typeof query>
+    );
 
     const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
 
@@ -156,7 +157,9 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     const result = await evaluateSuccess("Task", "diff --git a/file.ts");
 
@@ -171,7 +174,9 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     await evaluateSuccess("Task", "diff --git a/file.ts");
 
@@ -192,7 +197,9 @@ describe("evaluateSuccess", () => {
       issues: [],
     });
 
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     await evaluateSuccess("Task", "diff --git a/file.ts", {
       model: "claude-sonnet-4-6",
@@ -250,7 +257,9 @@ describe("evaluateSuccess", () => {
       reasoning: "OK",
       issues: [],
     });
-    vi.mocked(query).mockReturnValue(mockQueryGenerator([evalResult]) as ReturnType<typeof query>);
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
 
     const result = await evaluateSuccess("Task", "diff --git a/src/foo.ts b/src/foo.ts");
 
