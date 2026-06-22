@@ -18,7 +18,11 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
-import { computeCodeChurn, CODE_CHURN_THRESHOLD } from "./collect-code-churn.mjs";
+import {
+  computeCodeChurn,
+  isGeneratedArtifact,
+  CODE_CHURN_THRESHOLD,
+} from "./collect-code-churn.mjs";
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 import { collectMutationScore } from "./collect-mutation-score.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
@@ -159,6 +163,11 @@ function parseGitNumstat(root) {
     }
     if (current && line.match(/^\d/)) {
       const parts = line.split("\t");
+      const filePath = parts[2] ?? "";
+      // Skip generated/vendored artifacts — they inflate churn without
+      // reflecting real source instability (e.g. llms.txt, pnpm-lock.yaml,
+      // Prisma clients, dep-graph.json).
+      if (isGeneratedArtifact(filePath)) continue;
       const added = parseInt(parts[0], 10);
       const deleted = parseInt(parts[1], 10);
       if (!isNaN(added)) current = { ...current, linesAdded: current.linesAdded + added };

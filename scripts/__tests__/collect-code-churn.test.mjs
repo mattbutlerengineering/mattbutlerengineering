@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeCodeChurn } from "../collect-code-churn.mjs";
+import { computeCodeChurn, isGeneratedArtifact } from "../collect-code-churn.mjs";
 
 /**
  * Fixture git-log data for testing.
@@ -99,5 +99,79 @@ describe("computeCodeChurn", () => {
     const result = computeCodeChurn(commits);
     expect(result).toHaveProperty("churn_threshold");
     expect(typeof result.churn_threshold).toBe("number");
+  });
+});
+
+describe("isGeneratedArtifact", () => {
+  // TRUE cases — generated/vendored paths that should be excluded from churn
+  it("identifies root llms.txt as generated", () => {
+    expect(isGeneratedArtifact("llms.txt")).toBe(true);
+  });
+
+  it("identifies package-scoped llms.txt as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto/llms.txt")).toBe(true);
+  });
+
+  it("identifies root llms-full.txt as generated", () => {
+    expect(isGeneratedArtifact("llms-full.txt")).toBe(true);
+  });
+
+  it("identifies package-scoped llms-full.txt as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto-catalog/llms-full.txt")).toBe(true);
+  });
+
+  it("identifies pnpm-lock.yaml as generated", () => {
+    expect(isGeneratedArtifact("pnpm-lock.yaml")).toBe(true);
+  });
+
+  it("identifies generated-schemas.ts as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto-catalog/src/generated-schemas.ts")).toBe(true);
+  });
+
+  it("identifies dep-graph.json as generated", () => {
+    expect(isGeneratedArtifact("infrastructure/worker/dep-graph.json")).toBe(true);
+  });
+
+  it("identifies dependency-graph.md as generated", () => {
+    expect(isGeneratedArtifact("docs/architecture/dependency-graph.md")).toBe(true);
+  });
+
+  it("identifies rialto registry.json as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto/registry.json")).toBe(true);
+  });
+
+  it("identifies files under generated/ directory as generated", () => {
+    expect(isGeneratedArtifact("services/reservations/src/generated/prisma/client.ts")).toBe(true);
+  });
+
+  it("identifies vitest snapshots (.snap) as generated", () => {
+    expect(
+      isGeneratedArtifact("packages/rialto-catalog/src/__snapshots__/schemas.test.ts.snap")
+    ).toBe(true);
+  });
+
+  it("identifies CHANGELOG.md files as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto/CHANGELOG.md")).toBe(true);
+  });
+
+  // FALSE cases — real source files that should count toward churn
+  it("does NOT flag service source files as generated", () => {
+    expect(isGeneratedArtifact("services/reservations/src/app.ts")).toBe(false);
+  });
+
+  it("does NOT flag rialto component source as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto/src/components/Button/Button.tsx")).toBe(false);
+  });
+
+  it("does NOT flag regular package.json as generated", () => {
+    expect(isGeneratedArtifact("packages/rialto/package.json")).toBe(false);
+  });
+
+  it("does NOT flag test files as generated", () => {
+    expect(isGeneratedArtifact("scripts/__tests__/collect-code-churn.test.mjs")).toBe(false);
+  });
+
+  it("does NOT flag arbitrary markdown as generated", () => {
+    expect(isGeneratedArtifact("docs/architecture/decisions/ADR-001.md")).toBe(false);
   });
 });
