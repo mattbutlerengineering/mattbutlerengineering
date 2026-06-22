@@ -5,8 +5,8 @@
  * look locally, then (if not found and path is in globalPaths) at the repo root.
  *
  * Exports:
- *   evaluateWithInheritance(allCriteria, projectPath, repoRoot, acmmConfig)
- *     → { detectedIds: Set, criterionVerdicts: Map, origins: Map }
+ *   evaluateWithInheritance(allCriteria, projectPath, repoRoot, acmmConfig, opts)
+ *     → { detectedIds: Set, unverifiableIds: Set, criterionVerdicts: Map, origins: Map }
  */
 
 import { evaluate } from "./evaluate.js";
@@ -81,30 +81,39 @@ function isLocalOnly(criterion, config) {
  * @param {string} projectPath - Path to project being audited
  * @param {string} repoRoot - Path to repo root
  * @param {{ inherit: boolean, globalPaths: string[], localOnly: string[] }} acmmConfig
- * @returns {{ detectedIds: Set<string>, criterionVerdicts: Map<string, Object>, origins: Map<string, string> }}
+ * @param {Object} [opts] - Options passed through to evaluate() (e.g. execFileSyncFn)
+ * @returns {{ detectedIds: Set<string>, unverifiableIds: Set<string>, criterionVerdicts: Map<string, Object>, origins: Map<string, string> }}
  */
-export function evaluateWithInheritance(allCriteria, projectPath, repoRoot, acmmConfig) {
+export function evaluateWithInheritance(allCriteria, projectPath, repoRoot, acmmConfig, opts = {}) {
   const detectedIds = new Set();
+  const unverifiableIds = new Set();
   const criterionVerdicts = new Map();
   const origins = new Map();
 
   for (const criterion of allCriteria) {
     // Check locally first
-    const localVerdict = evaluate(criterion, projectPath);
-    const localPassed = localVerdict.verdict === "pass" || localVerdict.verdict === "unverifiable";
+    const localVerdict = evaluate(criterion, projectPath, opts);
 
-    if (localPassed) {
+    if (localVerdict.verdict === "pass") {
       // Found locally — use that
       detectedIds.add(criterion.id);
       criterionVerdicts.set(criterion.id, localVerdict);
       origins.set(criterion.id, "local");
+    } else if (localVerdict.verdict === "unverifiable") {
+      // Unverifiable locally — track separately, do not count as detected
+      unverifiableIds.add(criterion.id);
+      criterionVerdicts.set(criterion.id, localVerdict);
+      origins.set(criterion.id, "local");
     } else if (!isLocalOnly(criterion, acmmConfig) && isInheritablePath(criterion, acmmConfig)) {
       // Not found locally, but inheritable and path is global — check root
-      const rootVerdict = evaluate(criterion, repoRoot);
-      const rootPassed = rootVerdict.verdict === "pass" || rootVerdict.verdict === "unverifiable";
+      const rootVerdict = evaluate(criterion, repoRoot, opts);
 
-      if (rootPassed) {
+      if (rootVerdict.verdict === "pass") {
         detectedIds.add(criterion.id);
+        criterionVerdicts.set(criterion.id, rootVerdict);
+        origins.set(criterion.id, "inherited");
+      } else if (rootVerdict.verdict === "unverifiable") {
+        unverifiableIds.add(criterion.id);
         criterionVerdicts.set(criterion.id, rootVerdict);
         origins.set(criterion.id, "inherited");
       } else {
@@ -119,5 +128,5 @@ export function evaluateWithInheritance(allCriteria, projectPath, repoRoot, acmm
     }
   }
 
-  return { detectedIds, criterionVerdicts, origins };
+  return { detectedIds, unverifiableIds, criterionVerdicts, origins };
 }
