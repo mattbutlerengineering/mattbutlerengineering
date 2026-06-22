@@ -9,7 +9,4 @@ export const badgeCatalogMeta = {
   description:
     "Small status indicator label. Use variant=success for active/complete states, variant=warning for pending/attention states, variant=error for failed/blocked states, variant=neutral (default) for informational tags. Use dot=true to add a status circle.",
   slots: ["default"],
-  charLimits: {
-    children: 20,
-  },
 } satisfies CatalogMeta;

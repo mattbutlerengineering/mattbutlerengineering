@@ -9,9 +9,6 @@ export const buttonCatalogMeta = {
   description:
     "Clickable action trigger. Use variant=primary for the main CTA; variant=secondary for supporting actions; variant=ghost for tertiary or inline actions. Use size=sm for compact UIs, size=md (default) for most contexts, size=lg for prominent calls-to-action.",
   slots: ["default"],
-  charLimits: {
-    children: 30,
-  },
   aliases: {
     label: "children",
   },
