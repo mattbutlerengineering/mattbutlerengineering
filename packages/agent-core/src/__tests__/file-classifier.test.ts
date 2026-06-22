@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
   isTestFile,
   isDocFile,
+  isTestOrDocsPath,
   isConfigFile,
   isDependencyFile,
   isInfrastructureFile,
@@ -163,4 +164,23 @@ describe("isNonAuditableFile", () => {
     expect(isNonAuditableFile("src/Button.tsx")).toBe(false));
   it("returns false for services source", () =>
     expect(isNonAuditableFile("services/users/src/routes.ts")).toBe(false));
+});
+
+describe("isTestOrDocsPath (test/docs context — broader than isTestFile||isDocFile)", () => {
+  // Directory-context membership: NOT matched by isTestFile, but IS a test/docs context.
+  it("matches a non-test file inside __tests__/", () =>
+    expect(isTestOrDocsPath("src/__tests__/fake-deps.ts")).toBe(true));
+  it("matches a helper inside a tests/ directory", () =>
+    expect(isTestOrDocsPath("src/tests/helper.ts")).toBe(true));
+  it("matches a source file under a docs/ directory mid-path", () =>
+    expect(isTestOrDocsPath("packages/pkg/docs/api.ts")).toBe(true));
+  it("matches CHANGELOG with no extension", () => expect(isTestOrDocsPath("CHANGELOG")).toBe(true));
+  it("matches README anywhere", () => expect(isTestOrDocsPath("README.txt")).toBe(true));
+  // Suffix/extension cases also covered.
+  it("matches .test.ts files", () => expect(isTestOrDocsPath("src/routes.test.ts")).toBe(true));
+  it("matches .spec.tsx files", () => expect(isTestOrDocsPath("src/App.spec.tsx")).toBe(true));
+  it("matches .md files", () => expect(isTestOrDocsPath("notes.md")).toBe(true));
+  // Plain source is NOT a test/docs context.
+  it("returns false for plain source", () => expect(isTestOrDocsPath("src/index.ts")).toBe(false));
+  it("returns false for a component", () => expect(isTestOrDocsPath("src/Button.tsx")).toBe(false));
 });

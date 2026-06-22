@@ -24,6 +24,21 @@ export const isTestFile = (f: string): boolean => /\.(test|spec)\.(ts|tsx|js|jsx
 export const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
 
 /**
+ * True when a path lives in a test or docs *context* — broader than
+ * `isTestFile(f) || isDocFile(f)`. Matches membership of `__tests__/`, `tests/`,
+ * `docs/` directories and `README`/`CHANGELOG` files anywhere in the path, in
+ * addition to `.test`/`.spec`-suffixed files and `.md` files.
+ *
+ * A fixture/helper like `src/__tests__/fake-deps.ts` is in a test context but is
+ * not itself a `.test.ts` file. Used by model-router's task-routing heuristic,
+ * which must preserve the original `TEST_OR_DOCS_PATH` semantics exactly.
+ */
+export const isTestOrDocsPath = (f: string): boolean =>
+  /(?:__tests__|\/tests?\/|\/docs\/|\.test\.[tj]sx?$|\.spec\.[tj]sx?$|README|CHANGELOG|\.md$)/i.test(
+    f
+  );
+
+/**
  * True for CI/editor/repo config files but NOT dependency manifests.
  */
 export const isConfigFile = (f: string): boolean =>

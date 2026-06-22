@@ -1,7 +1,7 @@
 import { classifyTask } from "./task-signal-registry.js";
 import type { TaskSignals } from "./task-signal-registry.js";
 import { MODEL_IDS } from "./model-registry.js";
-import { isTestFile, isDocFile } from "./file-classifier.js";
+import { isTestOrDocsPath } from "./file-classifier.js";
 
 export { resolveModelId, getFeedbackLoopModel } from "./model-registry.js";
 
@@ -180,5 +180,5 @@ function applyContextAdjustments(
  * more reasoning than haiku provides.
  */
 function isTestOrDocsOnlyTask(paths: readonly string[]): boolean {
-  return paths.length > 0 && paths.length <= 2 && paths.every((p) => isTestFile(p) || isDocFile(p));
+  return paths.length > 0 && paths.length <= 2 && paths.every((p) => isTestOrDocsPath(p));
 }
