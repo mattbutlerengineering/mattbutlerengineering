@@ -61,6 +61,9 @@ apps/*/vite.config.d.ts
 # Prisma WASM base64 (generated at runtime, high-entropy — do not commit)
 **/query_compiler_fast_bg.wasm-base64.js
 
+# Prisma generated clients (produced by `prisma generate` at install/build time)
+services/*/src/generated/
+
 # Claude Code (keep skills, ignore local settings)
 .claude/settings.local.json
 .claude/improvement-loop/

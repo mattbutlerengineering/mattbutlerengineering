@@ -65,6 +65,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 ## Prisma + DO migrate
 
+- **Prisma generated clients are NOT committed** — `services/*/src/generated/` is gitignored. Clients are produced by `prisma generate` via each service's `postinstall` script (runs automatically on `pnpm install --frozen-lockfile`). CI's `prepare` job also runs generate and caches the output for downstream jobs (typecheck, build). Never commit files under `services/*/src/generated/` — `git rm -r --cached` them if they slip in.
 - **Migrate Dockerfile must pin same Prisma major as `@prisma/client`** (`infrastructure/migrate/Dockerfile`). Prisma 7 dropped schema-level `url`; client gen rejects it (P1012) while Prisma 6 CLI requires it. No schema syntax bridges both — keep them in sync. Migrate URL comes from per-service `prisma.config.ts` on Prisma 7
 - **Prisma 7 `prisma.config.ts` in containers needs `ENV NODE_PATH=/usr/local/lib/node_modules`** when prisma is globally installed via `npm install -g prisma@7`. Without it the config loader fails with `Cannot find module 'prisma/config'` from any service dir
 - **Verify prod DB connectivity via `/api/v1/users/health`, not `/health`** — `/health` is liveness only (returns 200 even when DB is dead); `/api/v1/users/health` runs `prisma.$queryRaw` and reports `degraded` with the actual DB error
