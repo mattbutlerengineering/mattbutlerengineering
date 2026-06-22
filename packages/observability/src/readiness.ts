@@ -93,7 +93,7 @@ export function createReadinessTracker(): ReadinessTracker {
   return { registerCheck, evaluate };
 }
 
-const DEFAULT_AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+const DEV_AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
 const DEFAULT_JWKS_TIMEOUT_MS = 2000;
 
 /** Minimal Prisma client shape needed for the database readiness check. */
@@ -132,7 +132,7 @@ export function registerStandardChecks(
 ): void {
   const {
     prisma,
-    auth0Url = DEFAULT_AUTH0_JWKS_URL,
+    auth0Url = process.env.AUTH0_JWKS_URL ?? DEV_AUTH0_JWKS_URL,
     jwksTimeoutMs = DEFAULT_JWKS_TIMEOUT_MS,
     fetchFn = (...args: Parameters<typeof fetch>) => fetch(...args),
   } = options;

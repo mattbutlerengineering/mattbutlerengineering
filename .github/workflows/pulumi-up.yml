@@ -52,7 +52,7 @@ jobs:
       - name: Build gen app (Pulumi uploads assets from dist/)
         run: pnpm build --filter=@mbe/gen
         env:
-          VITE_AUTH_AUTHORITY: https://dev-ytbgmz5ls3wh4xdx.us.auth0.com
+          VITE_AUTH_AUTHORITY: ${{ secrets.VITE_AUTH_AUTHORITY || 'https://dev-ytbgmz5ls3wh4xdx.us.auth0.com' }}
           VITE_AUTH_CLIENT_ID: ${{ secrets.AUTH0_GEN_CLIENT_ID }}
           VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/gen/callback

@@ -1,4 +1,4 @@
-const AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
+const DEV_AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
 const AUTH0_TIMEOUT_MS = 2000;
 const LATENCY_WINDOW = 100;
 const LATENCY_ANOMALY_THRESHOLD = 3;
@@ -59,7 +59,7 @@ export function createLatencyTracker(): LatencyTracker {
  * degraded otherwise (non-200, network error, or timeout).
  */
 export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> {
-  const url = jwksUrl ?? AUTH0_JWKS_URL;
+  const url = jwksUrl ?? process.env.AUTH0_JWKS_URL ?? DEV_AUTH0_JWKS_URL;
   const start = Date.now();
   try {
     const controller = new AbortController();
