@@ -60,6 +60,8 @@ const TEST_ZONE_ID = "zone-abc123";
 const TEST_ACCOUNT_ID = "account-xyz789";
 const TEST_DB_URL = "postgresql://user:pass@host:5432/db";
 
+const TEST_AUTH0_DOMAIN = "dev-ytbgmz5ls3wh4xdx.us.auth0.com";
+
 const configEntries: Record<string, string> = {
   domain: TEST_DOMAIN,
   cloudflareZoneId: TEST_ZONE_ID,
@@ -76,6 +78,9 @@ for (const [key, value] of Object.entries(configEntries)) {
   pulumi.runtime.setConfig(`mbe-infrastructure:${key}`, value);
   pulumi.runtime.setConfig(`project:${key}`, value);
 }
+
+// auth0:domain is in a separate Pulumi config namespace (matches Pulumi.prod.yaml)
+pulumi.runtime.setConfig("auth0:domain", TEST_AUTH0_DOMAIN);
 
 // ── Import after mocks and config ──────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
