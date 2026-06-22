@@ -1,6 +1,7 @@
 import { classifyTask } from "./task-signal-registry.js";
 import type { TaskSignals } from "./task-signal-registry.js";
 import { MODEL_IDS } from "./model-registry.js";
+import { isTestFile, isDocFile } from "./file-classifier.js";
 
 export { resolveModelId, getFeedbackLoopModel } from "./model-registry.js";
 
@@ -46,13 +47,6 @@ const OPUS_MIN_BUDGET_USD = 0.3;
 
 /** Source file count above which a feature task is upgraded to opus. */
 const LARGE_CHANGE_FILE_THRESHOLD = 15;
-
-/**
- * Path patterns that identify test or documentation files.
- * Used to detect tasks that only touch test/docs paths (≤2 files → haiku).
- */
-const TEST_OR_DOCS_PATH =
-  /(?:__tests__|\/tests?\/|\/docs\/|\.test\.[tj]sx?$|\.spec\.[tj]sx?$|README|CHANGELOG|\.md$)/i;
 
 // ── Routing logic ────────────────────────────────────────────────────
 
@@ -186,5 +180,5 @@ function applyContextAdjustments(
  * more reasoning than haiku provides.
  */
 function isTestOrDocsOnlyTask(paths: readonly string[]): boolean {
-  return paths.length > 0 && paths.length <= 2 && paths.every((p) => TEST_OR_DOCS_PATH.test(p));
+  return paths.length > 0 && paths.length <= 2 && paths.every((p) => isTestFile(p) || isDocFile(p));
 }

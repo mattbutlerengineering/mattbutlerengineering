@@ -34,35 +34,20 @@ interface ClassificationRule {
   readonly skipPhases: readonly SkippablePhase[];
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────
+import {
+  isTestFile,
+  isDocFile,
+  isConfigFile,
+  isDependencyFile,
+  isInfrastructureFile,
+  isFrontendSourceFile,
+  isBackendSourceFile,
+} from "./file-classifier.js";
 
-const isTestFile = (f: string): boolean => /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/.test(f);
+// ── Local aliases (keep rule-table names stable) ─────────────────────────────
 
-const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
-
-const isConfigFile = (f: string): boolean =>
-  f.startsWith(".github/") ||
-  f.startsWith(".claude/") ||
-  f === "turbo.json" ||
-  /\.config\.(ts|js|mjs|cjs)$/.test(f);
-
-const isDependencyFile = (f: string): boolean =>
-  f === "package.json" ||
-  f.endsWith("/package.json") ||
-  f === "pnpm-lock.yaml" ||
-  f === "package-lock.json" ||
-  f === "yarn.lock";
-
-const isInfrastructureFile = (f: string): boolean => f.startsWith("infrastructure/");
-
-const isFrontendFile = (f: string): boolean =>
-  (f.startsWith("apps/") || f.startsWith("packages/rialto/")) &&
-  !isTestFile(f) &&
-  !isDocFile(f) &&
-  !isConfigFile(f);
-
-const isBackendFile = (f: string): boolean =>
-  f.startsWith("services/") && !isTestFile(f) && !isDocFile(f) && !isConfigFile(f);
+const isFrontendFile = isFrontendSourceFile;
+const isBackendFile = isBackendSourceFile;
 
 // ── Rules (priority order) ──────────────────────────────────────────
 
