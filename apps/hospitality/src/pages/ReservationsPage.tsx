@@ -1,4 +1,4 @@
-import { useState, useMemo, useReducer, useEffect } from "react";
+import { useState, useReducer, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
@@ -14,9 +14,13 @@ import {
   Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { ReservationStatus } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useReservations } from "../hooks/useReservations.js";
+import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
+import {
+  STATUS_BADGE_VARIANT,
+  STATUS_LABEL,
+  formatReservationTime,
+} from "../utils/reservation-display.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
@@ -32,25 +36,6 @@ const reservationsFilterSchema = z.object({
 });
 
 const RESERVATIONS_DEFAULTS = reservationsFilterSchema.parse({});
-
-/* ── Status → Badge mapping ────────────────── */
-
-const STATUS_BADGE_VARIANT: Record<ReservationStatus, "warning" | "success" | "error" | "neutral"> =
-  {
-    PENDING: "warning",
-    CONFIRMED: "success",
-    CANCELLED: "error",
-    COMPLETED: "neutral",
-    NO_SHOW: "error",
-  };
-
-const STATUS_LABEL: Record<ReservationStatus, string> = {
-  PENDING: "Pending",
-  CONFIRMED: "Confirmed",
-  CANCELLED: "Cancelled",
-  COMPLETED: "Completed",
-  NO_SHOW: "No Show",
-};
 
 /* ── Status filter segments ────────────────── */
 
@@ -98,13 +83,16 @@ export function ReservationsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const {
-    data: reservations,
+    data,
+    stats,
+    filteredData: filteredReservations,
     isLoading,
     error: queryError,
-  } = useReservations({
+  } = useReservationDisplay({
     date: selectedDate,
     venueId: selectedVenueId ?? undefined,
-    limit: 50,
+    statusFilter,
+    searchQuery,
   });
 
   const error = queryError?.message ?? null;
@@ -113,9 +101,9 @@ export function ReservationsPage() {
   const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
 
   useEffect(() => {
-    if (!reservations) return;
+    if (!data) return;
     setLastUpdated(new Date());
-  }, [reservations]);
+  }, [data]);
 
   useEffect(() => {
     if (!lastUpdated) return;
@@ -125,39 +113,7 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
-  const displayReservations = reservations ?? [];
-
-  const stats = useMemo(() => {
-    const confirmed = displayReservations.filter((r) => r.status === "CONFIRMED").length;
-    const pending = displayReservations.filter((r) => r.status === "PENDING").length;
-    const cancelled = displayReservations.filter((r) => r.status === "CANCELLED").length;
-    return { total: displayReservations.length, confirmed, pending, cancelled };
-  }, [displayReservations]);
-
-  const filteredReservations = useMemo(() => {
-    let result = displayReservations;
-    if (statusFilter !== "all") {
-      result = result.filter((r) => r.status === statusFilter);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (r) =>
-          (r.guestName ?? "").toLowerCase().includes(q) ||
-          (r.guestEmail ?? "").toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [displayReservations, statusFilter, searchQuery]);
-
-  const formatTime = (isoString: string) => {
-    return new Date(isoString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  if (isLoading && displayReservations.length === 0) {
+  if (isLoading && (data === undefined || data.length === 0)) {
     return <ReservationsLoadingSkeleton />;
   }
 
@@ -262,7 +218,8 @@ export function ReservationsPage() {
                     style={{ cursor: "pointer" }}
                   >
                     <td className={styles.td}>
-                      {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
+                      {formatReservationTime(reservation.startTime)} -{" "}
+                      {formatReservationTime(reservation.endTime)}
                     </td>
                     <td className={styles.td}>
                       <Text variant="body" color="primary" className={styles.guestName}>

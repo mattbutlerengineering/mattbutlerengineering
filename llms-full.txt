@@ -3540,6 +3540,16 @@
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
   </file>
+  <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">
+    export type StatusFilter = "all" | ReservationStatus;
+    export interface UseReservationDisplayParams {
+      date: string;
+      venueId: string | undefined;
+      statusFilter: StatusFilter;
+      searchQuery: string;
+      limit?: number;
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useReservations.ts">
     export const RESERVATIONS_QUERY_KEY = "reservations" as const;
     export interface UseReservationsParams extends ListReservationsParams {
@@ -16587,6 +16597,25 @@
       const v = n % 100;
       return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]} visit`;
     }
+  </file>
+  <file path="apps/hospitality/src/utils/reservation-display.ts">
+    export const STATUS_BADGE_VARIANT: Record<
+      ReservationStatus,
+      "warning" | "success" | "error" | "neutral"
+    > = {
+      PENDING: "warning",
+      CONFIRMED: "success",
+      CANCELLED: "error",
+      COMPLETED: "neutral",
+      NO_SHOW: "error",
+    };
+    export const STATUS_LABEL: Record<ReservationStatus, string> = {
+      PENDING: "Pending",
+      CONFIRMED: "Confirmed",
+      CANCELLED: "Cancelled",
+      COMPLETED: "Completed",
+      NO_SHOW: "No Show",
+    };
   </file>
   <file path="apps/marketing/src/utils/formatters.ts">
     export interface ServiceStatus {
