@@ -466,6 +466,14 @@
       }
     </item>
   </file>
+  <file path="src/file-classifier.ts">
+    <item priority="high">
+      export const isTestFile: unknown;
+    </item>
+    <item priority="high">
+      export const isDocFile: unknown;
+    </item>
+  </file>
   <file path="src/gate-runner.ts">
     <item priority="low">
       interface GateContext {
