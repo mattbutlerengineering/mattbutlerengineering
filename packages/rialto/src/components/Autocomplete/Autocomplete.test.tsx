@@ -226,4 +226,9 @@ describe("Autocomplete", () => {
       expect(screen.getByRole("listbox")).toBeInTheDocument();
     });
   });
+
+  it("does not emit 'undefined' in wrapper className", () => {
+    const { container } = render(<Autocomplete options={options} />);
+    expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
 });

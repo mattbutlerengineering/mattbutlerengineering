@@ -120,4 +120,12 @@ describe("Steps", () => {
     const reviewItem = screen.getByText("Review").closest("[role='listitem']");
     expect(reviewItem).toHaveAttribute("aria-current", "step");
   });
+
+  it("does not emit 'undefined' in container or step className", () => {
+    const { container } = render(<Steps steps={steps} currentStep={1} />);
+    const allClasses = Array.from(container.querySelectorAll("[class]"))
+      .map((el) => el.className)
+      .join(" ");
+    expect(allClasses).not.toMatch(/undefined/);
+  });
 });

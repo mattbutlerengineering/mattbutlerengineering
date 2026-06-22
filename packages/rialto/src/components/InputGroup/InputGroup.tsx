@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./InputGroup.module.css";
 
 /**
@@ -16,12 +17,7 @@ export type InputGroupProps = HTMLAttributes<HTMLDivElement>;
 export const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <div
-        ref={ref}
-        className={[styles.group, className].filter(Boolean).join(" ")}
-        role="group"
-        {...props}
-      >
+      <div ref={ref} className={cn(styles.group, className)} role="group" {...props}>
         {children}
       </div>
     );
