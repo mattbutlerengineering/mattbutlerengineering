@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Renderer, JSONUIProvider } from "@json-render/react";
 import { registry, executeAction } from "../registry.js";
-import { catalogConfig } from "../catalog-config.js";
+import { catalogMeta } from "../generated-catalog.js";
 import { generatedSchemas } from "../generated-schemas.js";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -845,28 +845,28 @@ describe("Button", () => {
   });
 });
 
-// ── catalog-config shape validation ──────────────────────────────────────────
+// ── catalog metadata shape validation ────────────────────────────────────────
 
-describe("catalog-config shape", () => {
+describe("catalog metadata shape", () => {
   it("every included component has a non-empty description", () => {
-    const included = Object.entries(catalogConfig).filter(([, c]) => c.include);
-    for (const [name, config] of included) {
-      expect(config.description.length, `${name} has empty description`).toBeGreaterThan(0);
+    const included = Object.entries(catalogMeta).filter(([, m]) => m.include !== false);
+    for (const [name, meta] of included) {
+      expect(meta.description.length, `${name} has empty description`).toBeGreaterThan(0);
     }
   });
 
   it("every component with slots has at least one slot name", () => {
-    for (const [name, config] of Object.entries(catalogConfig)) {
-      if (config.slots !== undefined) {
-        expect(config.slots.length, `${name} has empty slots array`).toBeGreaterThan(0);
+    for (const [name, meta] of Object.entries(catalogMeta)) {
+      if (meta.slots !== undefined) {
+        expect(meta.slots.length, `${name} has empty slots array`).toBeGreaterThan(0);
       }
     }
   });
 
   it("all components with slots declare 'default' or named slots", () => {
-    for (const [, config] of Object.entries(catalogConfig)) {
-      if (config.slots) {
-        for (const slot of config.slots) {
+    for (const [, meta] of Object.entries(catalogMeta)) {
+      if (meta.slots) {
+        for (const slot of meta.slots) {
           expect(typeof slot).toBe("string");
           expect(slot.length).toBeGreaterThan(0);
         }

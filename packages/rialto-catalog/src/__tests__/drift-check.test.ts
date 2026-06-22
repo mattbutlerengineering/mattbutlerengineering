@@ -3,82 +3,75 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { registry } from "../registry.js";
+import { catalogMeta } from "../generated-catalog.js";
+import { generatedSchemas } from "../generated-schemas.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const packageRoot = path.resolve(__dirname, "../..");
-const generatedFile = path.join(packageRoot, "src/generated-schemas.ts");
+const schemasFile = path.join(packageRoot, "src/generated-schemas.ts");
+const catalogFile = path.join(packageRoot, "src/generated-catalog.ts");
 
 /**
- * Run the generator script via tsx (not a shell command — uses execFileSync).
+ * Components that intentionally have NO registry adapter even though they are
+ * cataloged. Toast uses the useToast() provider pattern and cannot be rendered
+ * as a declarative element (see registry.tsx). Keep this list tiny and
+ * documented — it is the only sanctioned crack in the adapter↔meta 1:1 rule.
  */
-function runGenerator(): void {
+const REGISTRY_EXCLUDED = new Set(["Toast"]);
+
+/** Run the generator script via tsx (uses execFileSync, not a shell). */
+function runGenerator(env: NodeJS.ProcessEnv): void {
   execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
     cwd: packageRoot,
-    env: { ...process.env },
+    env,
     stdio: "pipe",
   });
 }
 
-describe("drift-check: catalog generation is deterministic", () => {
+describe("drift-check: single CatalogSource is the only source of truth", () => {
   it(
-    "running catalog generation twice produces identical output (diff is empty)",
-    { timeout: 90_000 },
+    "regenerating from co-located metadata reproduces the committed schemas + catalog byte-for-byte",
+    { timeout: 120_000 },
     () => {
-      const beforeContent = fs.readFileSync(generatedFile, "utf-8");
-      const tmpFile = `${generatedFile}.test-tmp`;
+      const schemasBefore = fs.readFileSync(schemasFile, "utf-8");
+      const catalogBefore = fs.readFileSync(catalogFile, "utf-8");
+      const schemasTmp = `${schemasFile}.test-tmp`;
+      const catalogTmp = `${catalogFile}.test-tmp`;
 
       try {
-        // Run once into a temporary file
-        execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
-          cwd: packageRoot,
-          env: { ...process.env, OUTPUT_FILE: tmpFile },
-          stdio: "pipe",
+        runGenerator({
+          ...process.env,
+          OUTPUT_FILE: schemasTmp,
+          CATALOG_OUTPUT_FILE: catalogTmp,
         });
 
-        const afterFirstRun = fs.readFileSync(tmpFile, "utf-8");
-
-        // Run again into the same temporary file
-        execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
-          cwd: packageRoot,
-          env: { ...process.env, OUTPUT_FILE: tmpFile },
-          stdio: "pipe",
-        });
-
-        const afterSecondRun = fs.readFileSync(tmpFile, "utf-8");
-
-        // All three should be identical
-        expect(afterFirstRun.trim()).toBe(beforeContent.trim());
-        expect(afterSecondRun.trim()).toBe(beforeContent.trim());
+        expect(fs.readFileSync(schemasTmp, "utf-8").trim()).toBe(schemasBefore.trim());
+        expect(fs.readFileSync(catalogTmp, "utf-8").trim()).toBe(catalogBefore.trim());
       } finally {
-        if (fs.existsSync(tmpFile)) {
-          fs.unlinkSync(tmpFile);
+        for (const f of [schemasTmp, catalogTmp]) {
+          if (fs.existsSync(f)) fs.unlinkSync(f);
         }
       }
     }
   );
 
-  it("detects drift when generated-schemas.ts is manually modified", { timeout: 90_000 }, () => {
-    const originalContent = fs.readFileSync(generatedFile, "utf-8");
+  it("registry adapters and cataloged components are 1:1 (no drift between meta and renderers)", () => {
+    const includedNames = Object.entries(catalogMeta)
+      .filter(([, m]) => m.include !== false)
+      .map(([name]) => name);
 
-    try {
-      // Write a modified (drifted) version
-      const driftedContent = originalContent + "\n// intentional drift\n";
-      fs.writeFileSync(generatedFile, driftedContent, "utf-8");
+    const expectedAdapters = includedNames.filter((name) => !REGISTRY_EXCLUDED.has(name)).sort();
+    const actualAdapters = Object.keys(registry).sort();
 
-      // Run the generator — should restore the original content
-      runGenerator();
-      const regeneratedContent = fs.readFileSync(generatedFile, "utf-8");
+    expect(actualAdapters).toEqual(expectedAdapters);
+  });
 
-      // The regenerated content should NOT match the drifted version
-      expect(regeneratedContent.trim()).not.toBe(driftedContent.trim());
-
-      // The regenerated content should match the original
-      expect(regeneratedContent.trim()).toBe(originalContent.trim());
-    } finally {
-      // Always restore original content after test
-      fs.writeFileSync(generatedFile, originalContent, "utf-8");
+  it("every cataloged component has a generated Zod schema", () => {
+    for (const name of Object.keys(catalogMeta)) {
+      expect(generatedSchemas[name as keyof typeof generatedSchemas]).toBeDefined();
     }
   });
 });
