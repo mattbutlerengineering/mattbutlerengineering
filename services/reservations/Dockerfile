@@ -14,7 +14,6 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
-COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
@@ -36,7 +35,6 @@ COPY packages/auth/tsconfig.json ./packages/auth/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/observability/tsconfig.json ./packages/observability/
-COPY packages/feature-flags/tsconfig.json ./packages/feature-flags/
 COPY packages/sentry/tsconfig.json ./packages/sentry/
 COPY packages/database/tsconfig.json ./packages/database/
 COPY packages/cancellation-policy/tsconfig.json ./packages/cancellation-policy/
@@ -54,7 +52,6 @@ COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
 COPY packages/api-client/src ./packages/api-client/src
 COPY packages/observability/src ./packages/observability/src
-COPY packages/feature-flags/src ./packages/feature-flags/src
 COPY packages/sentry/src ./packages/sentry/src
 COPY packages/database/src ./packages/database/src
 COPY packages/cancellation-policy/src ./packages/cancellation-policy/src
@@ -68,7 +65,6 @@ RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
     pnpm --filter @mbe/api-client build && \
     pnpm --filter @mbe/observability build && \
-    pnpm --filter @mbe/feature-flags build && \
     pnpm --filter @mbe/sentry build && \
     pnpm --filter @mbe/database build && \
     pnpm --filter @mbe/cancellation-policy build && \
@@ -98,7 +94,6 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/config/package.json ./packages/config/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/observability/package.json ./packages/observability/
-COPY packages/feature-flags/package.json ./packages/feature-flags/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/database/package.json ./packages/database/
 COPY packages/cancellation-policy/package.json ./packages/cancellation-policy/
@@ -116,7 +111,6 @@ COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
 COPY --from=builder /app/packages/observability/dist ./packages/observability/dist
-COPY --from=builder /app/packages/feature-flags/dist ./packages/feature-flags/dist
 COPY --from=builder /app/packages/sentry/dist ./packages/sentry/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/cancellation-policy/dist ./packages/cancellation-policy/dist
