@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-21T15:43:02.287Z",
+  "generatedAt": "2026-06-22T21:23:12.679Z",
   "patterns": {
     "magicTimeouts": {
       "count": 32,
@@ -10,11 +10,11 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 302,
+      "count": 314,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 525,
+      "count": 524,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
