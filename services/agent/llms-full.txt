@@ -1035,6 +1035,11 @@
     };
   </file>
   <file path="src/routes/sessions.ts">
+    function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
+      if (hasPermission(caller, "admin")) return true;
+      if (sessionUserId === null) return false;
+      return caller?.id === sessionUserId;
+    }
     export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       // POST /v1/sessions — Create + start a new session
       fastify.post<{
@@ -1134,7 +1139,10 @@
             | "CANCELLED"
             | undefined;
     
-          return sessionService.list({ page, limit, status: prismaStatus });
+          // Admins see all sessions; non-admins see only their own
+          const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;
+    
+          return sessionService.list({ page, limit, status: prismaStatus, userId });
         }
       );
     
@@ -1166,7 +1174,7 @@
         },
         async (request, reply) => {
           const session = await sessionService.getById(request.params.id);
-          if (!session) {
+          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
           return { data: session };
@@ -1202,7 +1210,7 @@
         },
         async (request, reply) => {
           const session = await sessionService.getById(request.params.id);
-          if (!session) {
+          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
     
@@ -1248,10 +1256,11 @@
           },
         },
         async (request, reply) => {
-          const deleted = await sessionService.delete(request.params.id);
-          if (!deleted) {
+          const session = await sessionService.getById(request.params.id);
+          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
+          await sessionService.delete(request.params.id);
           return reply.code(204).send();
         }
       );

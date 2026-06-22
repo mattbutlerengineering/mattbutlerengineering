@@ -230,6 +230,8 @@ describe("Session Routes", () => {
 
   describe("DELETE /v1/sessions/:id", () => {
     it("deletes a session and returns 204", async () => {
+      // DELETE now fetches session first (for ownership check), then deletes
+      vi.mocked(sessionService.getById).mockResolvedValueOnce(mockSession);
       vi.mocked(sessionService.delete).mockResolvedValueOnce(true);
 
       const response = await app.inject({
@@ -242,7 +244,8 @@ describe("Session Routes", () => {
     });
 
     it("returns 404 for unknown session", async () => {
-      vi.mocked(sessionService.delete).mockResolvedValueOnce(false);
+      // DELETE fetches session first; null → 404 (no delete call needed)
+      vi.mocked(sessionService.getById).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "DELETE",
