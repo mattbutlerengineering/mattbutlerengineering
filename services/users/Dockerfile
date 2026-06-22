@@ -19,8 +19,12 @@ COPY packages/database/package.json ./packages/database/
 COPY packages/service-bootstrap/package.json ./packages/service-bootstrap/
 COPY services/users/package.json ./services/users/
 
-# Install all dependencies
-RUN pnpm install --frozen-lockfile
+# Install all dependencies.
+# --ignore-scripts: the `postinstall: prisma generate` script would run here,
+# before the Prisma schema is copied (below), and fail with "Could not find
+# Prisma Schema". The client is generated explicitly via `db:generate` in the
+# build step after the schema is copied. (postinstall still runs for local/CI.)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy tsconfig files (needed for build, changes rarely)
 COPY packages/types/tsconfig.json ./packages/types/
