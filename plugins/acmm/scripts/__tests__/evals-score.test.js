@@ -127,7 +127,7 @@ test("parseTask: rejects unknown gate", () => {
         model: "m",
         maxBudgetUsd: 0.1,
         maxTurns: 1,
-        rubric: { mustPass: ["typecheck"], diffSizeMax: 1, mustTouch: ["x"] },
+        rubric: { mustPass: ["deploy"], diffSizeMax: 1, mustTouch: ["x"] },
       }),
     /unknown gate/
   );
