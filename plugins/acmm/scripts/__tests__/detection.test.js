@@ -242,6 +242,37 @@ test("isWorkflowActive: returns degraded when gh CLI is unavailable", () => {
   fx.cleanup();
 });
 
+test("isWorkflowActive: queries only successful runs so skipped/failed noise can't crowd out the success", () => {
+  // Regression: auto-rollback.yml concludes `skipped` on every passing deploy.
+  // A `--status=completed --limit=5` query gets flooded by those skipped runs,
+  // crowding the real weekly-drill success out of the window → false `inactive`
+  // → ACMM gap re-files forever. Fix: query `--status=success` directly.
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([
+      {
+        conclusion: "success",
+        updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ]);
+  };
+  const result = isWorkflowActive(fx.root, "auto-rollback.yml", 365, {
+    execFileSyncFn: mockExecFileSync,
+  });
+  assert.equal(result.active, true);
+  assert.ok(
+    capturedArgs.includes("--status=success"),
+    `gh query must filter to successful runs; got args: ${JSON.stringify(capturedArgs)}`
+  );
+  assert.ok(
+    !capturedArgs.includes("--status=completed"),
+    "must not query --status=completed (lets skipped/failed runs flood the window)"
+  );
+  fx.cleanup();
+});
+
 test("detect: active type — file missing → false", () => {
   const fx = fixture();
   const c = {
