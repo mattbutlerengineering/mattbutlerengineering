@@ -14,6 +14,7 @@ import {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
 import { tableAdvisoryLockSql } from "./confirm-hold.js";
@@ -171,13 +172,7 @@ export const reservationService = {
         data.date
       );
 
-      const hasConflict = availabilityService.checkTableConflict(
-        data.tableId,
-        startTime,
-        endTime,
-        reservations,
-        holds
-      );
+      const hasConflict = checkTableConflict(data.tableId, startTime, endTime, reservations, holds);
 
       if (hasConflict) {
         return {
@@ -193,7 +188,7 @@ export const reservationService = {
 
       if (venue) {
         const settings = venue.settings as VenueSettings | null;
-        const pacingOk = availabilityService.checkPacingForSlot(
+        const pacingOk = checkPacingForSlot(
           startTime,
           data.partySize,
           settings,
@@ -223,7 +218,7 @@ export const reservationService = {
           tableVenueId,
           data.date
         );
-        const hasConflict = availabilityService.checkTableConflict(
+        const hasConflict = checkTableConflict(
           data.tableId,
           startTime,
           endTime,
@@ -326,7 +321,7 @@ export const reservationService = {
         const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
         const filteredReservations = reservations.filter((r) => r.id !== id);
 
-        const hasConflict = availabilityService.checkTableConflict(
+        const hasConflict = checkTableConflict(
           tableId,
           startTime,
           endTime,

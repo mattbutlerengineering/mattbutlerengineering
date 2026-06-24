@@ -4,7 +4,7 @@ import {
   checkPacingForSlot,
   type ReservationSlim,
   type HoldSlim,
-} from "./availability.js";
+} from "./slot-rules.js";
 
 export type BookableError =
   | { code: "CONFLICT"; message: string }
