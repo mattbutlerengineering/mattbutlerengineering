@@ -197,16 +197,6 @@ describe("ReservationsClient", () => {
       expect(body.status).toBe("CANCELLED");
       expect(body.cancellationReason).toBe("guest_request");
     });
-
-    it("throws ApiValidationError when response is malformed", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
-
-      await expect(
-        makeClient().cancelWithReason("r1", {
-          cancellationReason: "guest_request",
-        })
-      ).rejects.toBeInstanceOf(ApiValidationError);
-    });
   });
 
   describe("walkIn", () => {

@@ -22,8 +22,6 @@ export interface ListReservationsParams {
 const reservationEnvelope = z.object({ data: ReservationSchema });
 const reservationListSchema = paginatedResponseSchema(ReservationSchema);
 
-const RESERVATION_BASE_PATH = "/api/v1/reservations";
-
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
 
@@ -32,7 +30,7 @@ export class ReservationsClient {
    */
   async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
-      RESERVATION_BASE_PATH,
+      "/api/v1/reservations",
       params as QueryParams,
       // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
       // actual API returns a flat shape (data, total, page, limit). The schema matches
@@ -46,7 +44,7 @@ export class ReservationsClient {
    */
   async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
-      `${RESERVATION_BASE_PATH}/me?page=${page}&limit=${limit}`,
+      `/api/v1/reservations/me?page=${page}&limit=${limit}`,
       undefined,
       // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
       // actual API returns a flat shape (data, total, page, limit). The schema matches
@@ -60,7 +58,7 @@ export class ReservationsClient {
    */
   async get(id: string): Promise<Reservation> {
     const response = await this.client.get<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/${id}`,
+      `/api/v1/reservations/${id}`,
       undefined,
       reservationEnvelope
     );
@@ -72,7 +70,7 @@ export class ReservationsClient {
    */
   async create(data: CreateReservationRequest): Promise<Reservation> {
     const response = await this.client.post<{ data: Reservation }>(
-      RESERVATION_BASE_PATH,
+      "/api/v1/reservations",
       data,
       reservationEnvelope
     );
@@ -84,7 +82,7 @@ export class ReservationsClient {
    */
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
     const response = await this.client.patch<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/${id}`,
+      `/api/v1/reservations/${id}`,
       data,
       reservationEnvelope
     );
@@ -96,7 +94,7 @@ export class ReservationsClient {
    */
   async cancel(id: string): Promise<Reservation> {
     const response = await this.client.request<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/${id}`,
+      `/api/v1/reservations/${id}`,
       { method: "DELETE" },
       reservationEnvelope
     );
@@ -110,15 +108,10 @@ export class ReservationsClient {
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
   ): Promise<Reservation> {
-    const response = await this.client.patch<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/${id}`,
-      {
-        status: "CANCELLED",
-        ...reason,
-      },
-      reservationEnvelope
-    );
-    return response.data;
+    return this.update(id, {
+      status: "CANCELLED",
+      ...reason,
+    });
   }
 
   /**
@@ -132,7 +125,7 @@ export class ReservationsClient {
     durationMinutes?: number;
   }): Promise<Reservation> {
     const response = await this.client.post<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/walk-in`,
+      "/api/v1/reservations/walk-in",
       data,
       reservationEnvelope
     );
