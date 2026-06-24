@@ -18,6 +18,15 @@ function makeClient() {
   return new ReservationsClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeReservation = {
   id: "r1",
   venueId: "v1",
@@ -50,7 +59,7 @@ describe("ReservationsClient", () => {
   describe("list", () => {
     it("requests /api/v1/reservations with no params when called with defaults", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeReservation], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeReservation], pagination: { ...fakePagination, total: 1 } })
       );
 
       await makeClient().list();
@@ -60,7 +69,9 @@ describe("ReservationsClient", () => {
     });
 
     it("appends filter query params", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0 } })
+      );
 
       await makeClient().list({ venueId: "v1", date: "2026-06-01", status: "CONFIRMED" });
 
@@ -71,18 +82,36 @@ describe("ReservationsClient", () => {
       expect(parsed.searchParams.get("status")).toBe("CONFIRMED");
     });
 
-    it("returns the paginated response directly", async () => {
-      const body = { data: [fakeReservation], total: 1, page: 1, limit: 10 };
+    it("returns the nested paginated response", async () => {
+      const body = { data: [fakeReservation], pagination: { ...fakePagination, total: 1 } };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
       const result = await makeClient().list();
       expect(result).toEqual(body);
     });
+
+    it("throws ApiValidationError when response is missing pagination object", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [fakeReservation], total: 1, page: 1, limit: 10 })
+      );
+
+      await expect(makeClient().list()).rejects.toThrow(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when data is not an array", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: fakeReservation, pagination: fakePagination })
+      );
+
+      await expect(makeClient().list()).rejects.toThrow(ApiValidationError);
+    });
   });
 
   describe("me", () => {
     it("requests /api/v1/reservations/me with pagination", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0 } })
+      );
 
       await makeClient().me();
 
@@ -91,12 +120,23 @@ describe("ReservationsClient", () => {
     });
 
     it("passes custom page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 3, limit: 5 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          data: [],
+          pagination: { page: 3, limit: 5, total: 0, totalPages: 0, hasNext: false, hasPrev: true },
+        })
+      );
 
       await makeClient().me(3, 5);
 
       const [url] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/reservations/me?page=3&limit=5");
+    });
+
+    it("throws ApiValidationError when pagination object is absent", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+
+      await expect(makeClient().me()).rejects.toThrow(ApiValidationError);
     });
   });
 

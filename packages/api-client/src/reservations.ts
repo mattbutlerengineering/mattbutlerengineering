@@ -20,7 +20,8 @@ export interface ListReservationsParams {
 }
 
 const reservationEnvelope = z.object({ data: ReservationSchema });
-const reservationListSchema = paginatedResponseSchema(ReservationSchema);
+const reservationListSchema: z.ZodSchema<PaginatedResponse<Reservation>> =
+  paginatedResponseSchema(ReservationSchema);
 
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
@@ -32,10 +33,7 @@ export class ReservationsClient {
     return this.client.get<PaginatedResponse<Reservation>>(
       "/api/v1/reservations",
       params as QueryParams,
-      // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
-      // actual API returns a flat shape (data, total, page, limit). The schema matches
-      // the real wire format; cast through unknown to satisfy the TS return type.
-      reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
+      reservationListSchema
     );
   }
 
@@ -46,10 +44,7 @@ export class ReservationsClient {
     return this.client.get<PaginatedResponse<Reservation>>(
       `/api/v1/reservations/me?page=${page}&limit=${limit}`,
       undefined,
-      // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
-      // actual API returns a flat shape (data, total, page, limit). The schema matches
-      // the real wire format; cast through unknown to satisfy the TS return type.
-      reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
+      reservationListSchema
     );
   }
 
