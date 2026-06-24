@@ -25,6 +25,7 @@ const SKIP_DIRS = new Set([
   "coverage",
   ".turbo",
   ".stryker-tmp",
+  ".claude",
 ]);
 
 /** File extensions to scan. */
