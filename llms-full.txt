@@ -11688,27 +11688,9 @@
       settings: VenueSettings | null;
       operatingHours: OperatingHours | null;
     }
-    export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
-      // Use venue-specific rules if available
-      const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
-    
-      // Find the matching rule
-      const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
-    
-      if (rule) {
-        return rule.durationMinutes;
-      }
-    
-      // Fallback: use default duration or extrapolate for large parties
-      if (venueSettings?.defaultReservationDuration) {
-        return venueSettings.defaultReservationDuration;
-      }
-    
-      // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-      const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
-      const extraGuests = partySize - largestRule.maxPartySize;
-      const extraTime = Math.ceil(extraGuests / 2) * 15;
-      return largestRule.durationMinutes + extraTime;
+    function parseTimeToMinutes(time: string): number {
+      const [hours, minutes] = time.split(":").map(Number);
+      return hours * 60 + minutes;
     }
   </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
@@ -12129,6 +12111,14 @@
       venueId: string | null;
       createdAt: Date;
       updatedAt: Date;
+    }
+  </file>
+  <file path="services/reservations/src/services/slot-rules.ts">
+    export const DEFAULT_SLOT_INTERVAL = 15;
+    function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null {
+      const schedule = operatingHours[DAY_NAMES[dayIndex]];
+      if (!schedule || schedule.closed) return null;
+      return schedule;
     }
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">

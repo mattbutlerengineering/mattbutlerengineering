@@ -27,11 +27,14 @@ vi.mock("./database.js", async () => {
 vi.mock("./availability.js", () => ({
   availabilityService: {
     fetchConflictData: vi.fn(),
-    checkTableConflict: vi.fn(),
-    checkPacingForSlot: vi.fn(),
-    estimateDuration: vi.fn(),
     findBestTable: vi.fn(),
   },
+}));
+
+vi.mock("./slot-rules.js", () => ({
+  checkTableConflict: vi.fn(),
+  checkPacingForSlot: vi.fn(),
+  estimateDuration: vi.fn(),
 }));
 
 vi.mock("./assert-bookable.js", () => ({
@@ -41,6 +44,7 @@ vi.mock("./assert-bookable.js", () => ({
 import { holdService } from "./hold.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { checkTableConflict, checkPacingForSlot, estimateDuration } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");
@@ -96,8 +100,8 @@ describe("holdService", () => {
     // assertBookable: slot is bookable by default (returns undefined = no error).
     vi.mocked(assertBookable).mockReturnValue(undefined);
     // Keep these for auto-assign path that doesn't use assertBookable
-    vi.mocked(availabilityService.checkTableConflict).mockReturnValue(false);
-    vi.mocked(availabilityService.checkPacingForSlot).mockReturnValue(true);
+    vi.mocked(checkTableConflict).mockReturnValue(false);
+    vi.mocked(checkPacingForSlot).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -127,7 +131,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(availabilityService.findBestTable).mockResolvedValueOnce(
         makePrismaTable() as never
       );
@@ -167,7 +171,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(availabilityService.findBestTable).mockResolvedValueOnce(null as never);
 
       const result = await holdService.create(
@@ -189,7 +193,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
       const hold = makePrismaHold();
@@ -234,7 +238,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(assertBookable).mockReturnValueOnce({
         code: "CONFLICT",
         message: "Table is not available for this time slot",
@@ -260,7 +264,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       vi.mocked(assertBookable).mockReturnValueOnce({
         code: "PACING_EXCEEDED",
         message: "Pacing limit reached. Maximum undefined covers per time window.",
@@ -286,7 +290,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       // assertBookable passes pre-check; conflict is caught inside transaction
       vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
@@ -326,7 +330,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
       // assertBookable passes pre-check; conflict is caught inside transaction
       vi.mocked(assertBookable).mockReturnValueOnce(undefined);
 
@@ -365,7 +369,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
 
       const deleteManyMock = vi.fn().mockResolvedValue({ count: 1 });
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -403,7 +407,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -443,7 +447,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: { holdDurationMinutes: 7 },
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
@@ -481,7 +485,7 @@ describe("holdService", () => {
         id: "venue-1",
         settings: null,
       } as never);
-      vi.mocked(availabilityService.estimateDuration).mockReturnValueOnce(90);
+      vi.mocked(estimateDuration).mockReturnValueOnce(90);
 
       const createMock = vi.fn().mockResolvedValue(makePrismaHold());
       vi.mocked(prisma.$transaction).mockImplementationOnce(
