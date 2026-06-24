@@ -2125,10 +2125,10 @@
   </file>
   <file path="packages/types/src/schemas/common.ts">
     <item priority="high">
-      export const PaginationSchema: unknown;
+      export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
     </item>
     <item priority="high">
-      export const ErrorResponseSchema: unknown;
+      export const PaginationSchema: unknown;
     </item>
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">

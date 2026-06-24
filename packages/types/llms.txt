@@ -18,10 +18,10 @@
   </file>
   <file path="src/schemas/common.ts">
     <item priority="high">
-      export const PaginationSchema: unknown;
+      export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
     </item>
     <item priority="high">
-      export const ErrorResponseSchema: unknown;
+      export const PaginationSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/floor-plan.ts">

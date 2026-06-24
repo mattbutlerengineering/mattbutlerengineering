@@ -10893,6 +10893,14 @@
       .catchall(z.unknown());
   </file>
   <file path="packages/types/src/schemas/common.ts">
+    export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) {
+      return z.object({
+        data: z.array(itemSchema),
+        total: z.number(),
+        page: z.number(),
+        limit: z.number(),
+      });
+    }
     export const PaginationSchema = z.object({
       page: z.number(),
       limit: z.number(),
@@ -10900,17 +10908,6 @@
       totalPages: z.number(),
       hasNext: z.boolean(),
       hasPrev: z.boolean(),
-    });
-    export const ErrorResponseSchema = z.object({
-      error: z.string(),
-      message: z.string(),
-      statusCode: z.number(),
-      type: z.string().optional(),
-      title: z.string().optional(),
-      status: z.number().optional(),
-      detail: z.string().optional(),
-      instance: z.string().optional(),
-      details: z.record(z.string(), z.unknown()).optional(),
     });
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
@@ -14298,7 +14295,11 @@
       async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
         return this.client.get<PaginatedResponse<Reservation>>(
           "/api/v1/reservations",
-          params as QueryParams
+          params as QueryParams,
+          // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
+          // actual API returns a flat shape (data, total, page, limit). The schema matches
+          // the real wire format; cast through unknown to satisfy the TS return type.
+          reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
         );
       }
     
@@ -14307,7 +14308,12 @@
        */
       async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
         return this.client.get<PaginatedResponse<Reservation>>(
-          `/api/v1/reservations/me?page=${page}&limit=${limit}`
+          `/api/v1/reservations/me?page=${page}&limit=${limit}`,
+          undefined,
+          // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
+          // actual API returns a flat shape (data, total, page, limit). The schema matches
+          // the real wire format; cast through unknown to satisfy the TS return type.
+          reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
         );
       }
     
@@ -14315,21 +14321,36 @@
        * Get a reservation by ID
        */
       async get(id: string): Promise<Reservation> {
-        return this.client.getOne<Reservation>(`/api/v1/reservations/${id}`);
+        const response = await this.client.get<{ data: Reservation }>(
+          `/api/v1/reservations/${id}`,
+          undefined,
+          reservationEnvelope
+        );
+        return response.data;
       }
     
       /**
        * Create a new reservation
        */
       async create(data: CreateReservationRequest): Promise<Reservation> {
-        return this.client.postOne<Reservation>("/api/v1/reservations", data);
+        const response = await this.client.post<{ data: Reservation }>(
+          "/api/v1/reservations",
+          data,
+          reservationEnvelope
+        );
+        return response.data;
       }
     
       /**
        * Update a reservation
        */
       async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-        return this.client.patchOne<Reservation>(`/api/v1/reservations/${id}`, data);
+        const response = await this.client.patch<{ data: Reservation }>(
+          `/api/v1/reservations/${id}`,
+          data,
+          reservationEnvelope
+        );
+        return response.data;
       }
     
       /**
@@ -14338,7 +14359,8 @@
       async cancel(id: string): Promise<Reservation> {
         const response = await this.client.request<{ data: Reservation }>(
           `/api/v1/reservations/${id}`,
-          { method: "DELETE" }
+          { method: "DELETE" },
+          reservationEnvelope
         );
         return response.data;
       }
@@ -14366,7 +14388,12 @@
         guestName?: string;
         durationMinutes?: number;
       }): Promise<Reservation> {
-        return this.client.postOne<Reservation>("/api/v1/reservations/walk-in", data);
+        const response = await this.client.post<{ data: Reservation }>(
+          "/api/v1/reservations/walk-in",
+          data,
+          reservationEnvelope
+        );
+        return response.data;
       }
     }
   </file>
@@ -15532,7 +15559,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

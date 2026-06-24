@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { UserSchema, UserPreferencesSchema, UserProfileSchema } from "./schemas/user.js";
 import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
-import { PaginationSchema, ErrorResponseSchema } from "./schemas/common.js";
+import {
+  PaginationSchema,
+  ErrorResponseSchema,
+  paginatedResponseSchema,
+} from "./schemas/common.js";
+import { z } from "zod";
 import { ProblemDetailsSchema } from "./schemas/api.js";
 
 // ── UserPreferencesSchema ──────────────────────────────────────────
@@ -319,5 +324,35 @@ describe("ProblemDetailsSchema", () => {
     expect(
       ProblemDetailsSchema.safeParse({ type: "about:blank", title: "X", status: 400 }).success
     ).toBe(false);
+  });
+});
+
+// ── paginatedResponseSchema ────────────────────────────────────────
+
+describe("paginatedResponseSchema", () => {
+  const itemSchema = z.object({ id: z.string(), name: z.string() });
+  const schema = paginatedResponseSchema(itemSchema);
+
+  it("accepts a valid paginated response", () => {
+    const valid = {
+      data: [{ id: "1", name: "Alice" }],
+      total: 1,
+      page: 1,
+      limit: 10,
+    };
+    expect(schema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts empty data array", () => {
+    expect(schema.safeParse({ data: [], total: 0, page: 1, limit: 10 }).success).toBe(true);
+  });
+
+  it("rejects items that fail the item schema", () => {
+    const invalid = { data: [{ id: 1, name: "Alice" }], total: 1, page: 1, limit: 10 };
+    expect(schema.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects missing pagination fields", () => {
+    expect(schema.safeParse({ data: [] }).success).toBe(false);
   });
 });
