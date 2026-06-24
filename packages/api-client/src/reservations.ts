@@ -25,6 +25,9 @@ const reservationListSchema = paginatedResponseSchema(ReservationSchema);
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
 
+  /**
+   * List reservations with optional filters
+   */
   async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
       "/api/v1/reservations",
@@ -36,6 +39,9 @@ export class ReservationsClient {
     );
   }
 
+  /**
+   * Get current user's reservations
+   */
   async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
       `/api/v1/reservations/me?page=${page}&limit=${limit}`,
@@ -47,6 +53,9 @@ export class ReservationsClient {
     );
   }
 
+  /**
+   * Get a reservation by ID
+   */
   async get(id: string): Promise<Reservation> {
     const response = await this.client.get<{ data: Reservation }>(
       `/api/v1/reservations/${id}`,
@@ -56,6 +65,9 @@ export class ReservationsClient {
     return response.data;
   }
 
+  /**
+   * Create a new reservation
+   */
   async create(data: CreateReservationRequest): Promise<Reservation> {
     const response = await this.client.post<{ data: Reservation }>(
       "/api/v1/reservations",
@@ -65,6 +77,9 @@ export class ReservationsClient {
     return response.data;
   }
 
+  /**
+   * Update a reservation
+   */
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
     const response = await this.client.patch<{ data: Reservation }>(
       `/api/v1/reservations/${id}`,
@@ -74,6 +89,9 @@ export class ReservationsClient {
     return response.data;
   }
 
+  /**
+   * Cancel a reservation
+   */
   async cancel(id: string): Promise<Reservation> {
     const response = await this.client.request<{ data: Reservation }>(
       `/api/v1/reservations/${id}`,
@@ -83,6 +101,9 @@ export class ReservationsClient {
     return response.data;
   }
 
+  /**
+   * Cancel a reservation with an optional reason and note
+   */
   async cancelWithReason(
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
@@ -93,6 +114,9 @@ export class ReservationsClient {
     });
   }
 
+  /**
+   * Create a walk-in reservation
+   */
   async walkIn(data: {
     partySize: number;
     tableId: string;
