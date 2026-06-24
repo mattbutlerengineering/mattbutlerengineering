@@ -108,10 +108,15 @@ export class ReservationsClient {
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
   ): Promise<Reservation> {
-    return this.update(id, {
-      status: "CANCELLED",
-      ...reason,
-    });
+    const response = await this.client.patch<{ data: Reservation }>(
+      `/api/v1/reservations/${id}`,
+      {
+        status: "CANCELLED",
+        ...reason,
+      },
+      reservationEnvelope
+    );
+    return response.data;
   }
 
   /**
