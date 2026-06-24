@@ -30,6 +30,9 @@ vi.mock("./availability.js", () => ({
   availabilityService: {
     fetchConflictData: vi.fn(),
   },
+}));
+
+vi.mock("./slot-rules.js", () => ({
   checkPacingForSlot: vi.fn().mockReturnValue(true),
 }));
 
@@ -40,7 +43,8 @@ vi.mock("./assert-bookable.js", () => ({
 import { confirmHold } from "./confirm-hold.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
-import { availabilityService, checkPacingForSlot } from "./availability.js";
+import { availabilityService } from "./availability.js";
+import { checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 
 const NOW = new Date("2026-05-05T18:00:00Z");

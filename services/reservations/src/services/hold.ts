@@ -7,6 +7,7 @@ import {
 import type { ReservationHold as PrismaHold } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
+import { estimateDuration } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 
 // Default hold duration in minutes
@@ -56,7 +57,7 @@ export const holdService = {
 
     // Calculate times
     const startTime = new Date(time);
-    const duration = availabilityService.estimateDuration(partySize, settings);
+    const duration = estimateDuration(partySize, settings);
     const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
     const expiresAt = new Date(Date.now() + holdDuration * 60 * 1000);
 

@@ -5,22 +5,34 @@ import {
   type DateAvailability,
   type VenueSettings,
   type OperatingHours,
-  type DaySchedule,
-  type DurationRule,
 } from "@mbe/types";
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import {
+  DEFAULT_SLOT_INTERVAL,
+  checkTableConflict,
+  checkPacingForSlot,
+  selectBestTable,
+  estimateDuration,
+  filterSuitableTables,
+  parseOperatingHours,
+  type ReservationSlim,
+  type HoldSlim,
+  type TableFilter,
+  type TableCandidate,
+} from "./slot-rules.js";
 
-// Default duration rules based on party size
-const DEFAULT_DURATION_RULES: DurationRule[] = [
-  { minPartySize: 1, maxPartySize: 2, durationMinutes: 75 },
-  { minPartySize: 3, maxPartySize: 4, durationMinutes: 90 },
-  { minPartySize: 5, maxPartySize: 6, durationMinutes: 105 },
-  { minPartySize: 7, maxPartySize: 10, durationMinutes: 120 },
-];
+// Re-export pure types and functions for callers that import them from this module.
+export type { ReservationSlim, HoldSlim, TableFilter, TableCandidate };
+export {
+  checkTableConflict,
+  checkPacingForSlot,
+  selectBestTable,
+  estimateDuration,
+  filterSuitableTables,
+  parseOperatingHours,
+};
 
-// Default settings
-const DEFAULT_SLOT_INTERVAL = 15; // minutes
 const DEFAULT_LAST_SEATING_BUFFER = 90; // minutes before close
 
 interface VenueWithSettings {
@@ -32,100 +44,6 @@ interface VenueWithSettings {
   operatingHours: OperatingHours | null;
 }
 
-/**
- * Estimates the duration of a reservation based on party size and venue rules.
- */
-export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
-  // Use venue-specific rules if available
-  const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
-
-  // Find the matching rule
-  const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
-
-  if (rule) {
-    return rule.durationMinutes;
-  }
-
-  // Fallback: use default duration or extrapolate for large parties
-  if (venueSettings?.defaultReservationDuration) {
-    return venueSettings.defaultReservationDuration;
-  }
-
-  // For parties larger than rules cover, use the largest rule + 15min per additional 2 guests
-  const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
-  const extraGuests = partySize - largestRule.maxPartySize;
-  const extraTime = Math.ceil(extraGuests / 2) * 15;
-  return largestRule.durationMinutes + extraTime;
-}
-
-/**
- * Minimal table shape required for the pure filterSuitableTables rule.
- */
-export interface TableFilter {
-  id: string;
-  capacity: number;
-  minCovers: number;
-  maxCovers: number | null;
-  isActive: boolean;
-}
-
-/**
- * Pure rule: given a list of pre-fetched tables, returns only those that can
- * seat the given party size. No DB access.
- */
-export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
-  return tables.filter(
-    (t) =>
-      t.isActive && t.minCovers <= partySize && (t.maxCovers === null || t.maxCovers >= partySize)
-  );
-}
-
-const DAY_NAMES = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
-
-function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null {
-  const schedule = operatingHours[DAY_NAMES[dayIndex]];
-  if (!schedule || schedule.closed) return null;
-  return schedule;
-}
-
-/**
- * Pure rule: returns the DaySchedule for the given YYYY-MM-DD date string
- * from the venue's operating hours, or null if closed / not configured.
- * Uses local-timezone day-of-week (matches how date strings are interpreted
- * throughout the availability pipeline). No DB access.
- */
-export function parseOperatingHours(
-  operatingHours: OperatingHours | null,
-  date: string
-): DaySchedule | null {
-  if (!operatingHours) return null;
-  // A YYYY-MM-DD string parses as UTC midnight; use getUTCDay so the weekday is
-  // the true calendar weekday regardless of the runner's timezone.
-  return scheduleForDay(operatingHours, new Date(date).getUTCDay());
-}
-
-/**
- * Gets the operating hours for a specific day of the week.
- * Internal callers hold a Date object — delegates to scheduleForDay directly.
- */
-function getDaySchedule(operatingHours: OperatingHours | null, date: Date): DaySchedule | null {
-  if (!operatingHours) return null;
-  // Dates are constructed from YYYY-MM-DD strings (UTC midnight); use getUTCDay
-  // so weekday resolution is timezone-stable (matches parseOperatingHours).
-  return scheduleForDay(operatingHours, date.getUTCDay());
-}
-
-/**
- * Parses a time string (e.g., "18:00") to minutes since midnight.
- */
 function parseTimeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
@@ -140,7 +58,6 @@ export async function generateTimeSlots(
   partySize: number,
   durationOverride?: number
 ): Promise<TimeSlot[]> {
-  // Fetch venue with settings
   const prismaVenue = await prisma.venue.findUnique({
     where: { id: venueId },
   });
@@ -159,41 +76,34 @@ export async function generateTimeSlots(
   };
 
   const settings = venue.settings;
-  const dateObj = new Date(date);
-  const schedule = getDaySchedule(venue.operatingHours, dateObj);
+  const schedule = parseOperatingHours(venue.operatingHours, date);
 
   if (!schedule) {
-    return []; // Venue closed on this day
+    return [];
   }
 
-  // Get slot configuration
   const slotInterval = settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
   const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
   const duration = durationOverride ?? estimateDuration(partySize, settings);
 
-  // Parse operating hours
   const openMinutes = parseTimeToMinutes(schedule.open);
   const closeMinutes = parseTimeToMinutes(schedule.close);
   const lastSeatingMinutes = closeMinutes - lastSeatingBuffer;
 
-  // Get tables that can accommodate the party
   const suitableTables = await findSuitableTables(venueId, partySize);
 
   if (suitableTables.length === 0) {
     return [];
   }
 
-  // Get existing reservations and holds for the date
   const { reservations, holds } = await fetchConflictData(venueId, date);
 
-  // Generate slots
   const slots: TimeSlot[] = [];
 
   for (let minutes = openMinutes; minutes <= lastSeatingMinutes; minutes += slotInterval) {
     const slotStart = createDateTimeFromMinutes(date, minutes, venue.ianaTimezone);
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
-    // Check which tables are available for this slot.
     // Uses the same pure predicates (checkTableConflict + checkPacingForSlot)
     // that assertBookable composes on write paths — same rules, no divergence.
     const availableTables: AvailableTable[] = [];
@@ -212,7 +122,6 @@ export async function generateTimeSlots(
       }
     }
 
-    // Evaluate pacing once per slot (venue-wide — not per-table).
     const pacingOk = checkPacingForSlot(slotStart, partySize, settings, reservations, holds);
 
     slots.push({
@@ -237,19 +146,16 @@ export async function getAvailableDates(
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  // Limit range to 60 days
   const maxDays = 60;
   const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
   const actualEnd = new Date(start.getTime() + Math.min(daysDiff, maxDays) * 24 * 60 * 60 * 1000);
 
-  // Hoist venue + tables queries outside the loop (same for every date)
   const [prismaVenue, suitableTables] = await Promise.all([
     prisma.venue.findUnique({ where: { id: venueId } }),
     findSuitableTables(venueId, partySize),
   ]);
 
   if (!prismaVenue || suitableTables.length === 0) {
-    // No venue or no tables — every date is unavailable
     const results: DateAvailability[] = [];
     for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
       results.push({ date: toDateString(d), hasAvailability: false, slotCount: 0 });
@@ -266,7 +172,6 @@ export async function getAvailableDates(
     operatingHours: prismaVenue.operatingHours as OperatingHours | null,
   };
 
-  // Bulk-fetch reservations and holds for the entire date range (2 queries total)
   const [allReservations, allHolds] = await Promise.all([
     prisma.reservation.findMany({
       where: {
@@ -298,7 +203,6 @@ export async function getAvailableDates(
   const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
   const duration = estimateDuration(partySize, settings);
 
-  // Build date-keyed Maps in one O(N) pass — avoids re-calling toDateString per row per day
   const reservationsByDate = new Map<string, typeof allReservations>();
   for (const r of allReservations) {
     const key = toDateString(r.startTime);
@@ -325,14 +229,13 @@ export async function getAvailableDates(
 
   for (let d = new Date(start); d <= actualEnd; d.setDate(d.getDate() + 1)) {
     const dateStr = toDateString(d);
-    const schedule = getDaySchedule(venue.operatingHours, d);
+    const schedule = parseOperatingHours(venue.operatingHours, dateStr);
 
     if (!schedule) {
       results.push({ date: dateStr, hasAvailability: false, slotCount: 0 });
       continue;
     }
 
-    // O(1) map lookup instead of O(N) filter per day
     const dateReservations = reservationsByDate.get(dateStr) ?? [];
     const dateHolds = holdsByDate.get(dateStr) ?? [];
 
@@ -366,38 +269,7 @@ export async function getAvailableDates(
 }
 
 /**
- * Minimal table shape required to apply the selection rule.
- * Separates the pure policy from Prisma's full Table model.
- */
-export interface TableCandidate {
-  id: string;
-  capacity: number;
-  priority: number;
-}
-
-/**
- * Pure table-selection rule: given pre-fetched, pre-sorted candidate tables
- * (priority descending, capacity ascending) and conflict data, returns the
- * first conflict-free table or null. No DB access.
- */
-export function selectBestTable(
-  candidates: TableCandidate[],
-  startTime: Date,
-  endTime: Date,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): TableCandidate | null {
-  for (const table of candidates) {
-    if (!checkTableConflict(table.id, startTime, endTime, reservations, holds)) {
-      return table;
-    }
-  }
-  return null;
-}
-
-/**
  * Finds the best available table for a reservation.
- * Uses best-fit algorithm: highest priority first, then smallest capacity that fits.
  */
 export async function findBestTable(
   venueId: string,
@@ -406,21 +278,10 @@ export async function findBestTable(
   endTime: Date,
   partySize: number
 ): Promise<Table | null> {
-  // Get suitable tables sorted by priority (desc) then capacity (asc)
-  const tables = await prisma.table.findMany({
-    where: {
-      venueId,
-      isActive: true,
-      minCovers: { lte: partySize },
-      OR: [{ maxCovers: { gte: partySize } }, { maxCovers: null }],
-    },
-    orderBy: [{ priority: "desc" }, { capacity: "asc" }],
-  });
+  const tables = await findSuitableTables(venueId, partySize);
 
-  // Get existing reservations and holds
   const { reservations, holds } = await fetchConflictData(venueId, date);
 
-  // Apply the pure selection rule; tables satisfies TableCandidate so the return is the full Table
   return selectBestTable(tables, startTime, endTime, reservations, holds) as Table | null;
 }
 
@@ -439,33 +300,8 @@ async function findSuitableTables(venueId: string, partySize: number): Promise<T
 }
 
 /**
- * Pre-fetched reservation data that crosses the rule-evaluation / DB-fetch seam.
- */
-export interface ReservationSlim {
-  id: string;
-  tableId: string;
-  startTime: Date;
-  endTime: Date;
-  partySize: number;
-}
-
-/**
- * Pre-fetched hold data that crosses the rule-evaluation / DB-fetch seam.
- */
-export interface HoldSlim {
-  id: string;
-  tableId: string;
-  startTime: Date;
-  endTime: Date;
-  partySize: number;
-  expiresAt: Date;
-}
-
-/**
  * Fetches the reservation and hold slices needed to evaluate conflict and
- * pacing rules for a venue on a given date — the single DB-fetch point at the
- * seam. Callers fetch once and pass the slices to the pure rule functions
- * (`checkTableConflict`, `checkPacingForSlot`).
+ * pacing rules for a venue on a given date.
  */
 export async function fetchConflictData(
   venueId: string,
@@ -490,7 +326,7 @@ export async function fetchConflictData(
       where: {
         venueId,
         date: new Date(date),
-        expiresAt: { gt: new Date() }, // Only active holds
+        expiresAt: { gt: new Date() },
       },
       select: {
         id: true,
@@ -506,87 +342,13 @@ export async function fetchConflictData(
   return { reservations, holds };
 }
 
-/**
- * Pure rule: does the given table have a time conflict with any pre-fetched
- * reservation or active hold? No DB access — operates over supplied slices.
- */
-export function checkTableConflict(
-  tableId: string,
-  startTime: Date,
-  endTime: Date,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): boolean {
-  // Check reservations
-  const hasReservationConflict = reservations.some(
-    (r) => r.tableId === tableId && r.startTime < endTime && r.endTime > startTime
-  );
-
-  if (hasReservationConflict) return true;
-
-  // Check active holds
-  const hasHoldConflict = holds.some(
-    (h) =>
-      h.tableId === tableId &&
-      h.expiresAt > new Date() &&
-      h.startTime < endTime &&
-      h.endTime > startTime
-  );
-
-  return hasHoldConflict;
-}
-
-/**
- * Pure rule: would adding `partySize` covers at `startTime` keep the slot
- * within the venue's pacing limit? No DB access — operates over supplied slices.
- */
-export function checkPacingForSlot(
-  startTime: Date,
-  partySize: number,
-  settings: VenueSettings | null | undefined,
-  reservations: ReservationSlim[],
-  holds: HoldSlim[]
-): boolean {
-  const pacingRules = settings?.pacingRules;
-
-  if (!pacingRules || pacingRules.length === 0) {
-    return true;
-  }
-
-  const rule = pacingRules[0];
-  const windowMinutes =
-    rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-  const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);
-
-  // Count covers starting in this window
-  const reservationCovers = reservations
-    .filter((r) => r.startTime >= startTime && r.startTime < windowEnd)
-    .reduce((sum, r) => sum + r.partySize, 0);
-
-  const holdCovers = holds
-    .filter((h) => h.expiresAt > new Date() && h.startTime >= startTime && h.startTime < windowEnd)
-    .reduce((sum, h) => sum + h.partySize, 0);
-
-  const totalCovers = reservationCovers + holdCovers + partySize;
-  return totalCovers <= rule.maxCoversPerSlot;
-}
-
-/**
- * Creates a Date object from a date string and minutes since midnight.
- */
-/**
- * Create a Date representing a local time in the venue's timezone.
- * Uses Intl.DateTimeFormat to compute the UTC offset, avoiding external libraries.
- */
 function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   const localIso = `${dateStr}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
 
-  // Build a Date assuming UTC, then compute the offset for the target timezone
   const utcGuess = new Date(localIso + "Z");
 
-  // Format the same instant in the target timezone to find the local time there
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     year: "numeric",
@@ -604,25 +366,17 @@ function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: s
   const tzTotalMin = tzHour * 60 + tzMin;
   const utcTotalMin = utcGuess.getUTCHours() * 60 + utcGuess.getUTCMinutes();
 
-  // Offset = how far ahead the timezone is from UTC (in minutes)
   let offsetMin = tzTotalMin - utcTotalMin;
-  // Handle day boundary wrap
   if (offsetMin > 720) offsetMin -= 1440;
   if (offsetMin < -720) offsetMin += 1440;
 
-  // Subtract the offset to convert local time → UTC
   return new Date(new Date(localIso + "Z").getTime() - offsetMin * 60 * 1000);
 }
 
+// availabilityService only contains IO methods — pure rules live in slot-rules.ts.
 export const availabilityService = {
   generateTimeSlots,
   getAvailableDates,
   findBestTable,
   fetchConflictData,
-  checkTableConflict,
-  checkPacingForSlot,
-  selectBestTable,
-  estimateDuration,
-  parseOperatingHours,
-  filterSuitableTables,
 };

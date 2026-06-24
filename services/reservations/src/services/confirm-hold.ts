@@ -2,7 +2,8 @@ import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
-import { availabilityService, checkPacingForSlot } from "./availability.js";
+import { availabilityService } from "./availability.js";
+import { checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { toReservation } from "./serializers.js";
 

@@ -320,8 +320,8 @@
         settings: VenueSettings | null;
       }
     </item>
-    <item priority="high">
-      export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
+    <item priority="medium">
+      function parseTimeToMinutes(time: string): number { /* ... */ }
     </item>
   </file>
   <file path="src/services/booking-notifications.ts">
@@ -604,6 +604,14 @@
         endTime: Date;
         partySize: number;
       }
+    </item>
+  </file>
+  <file path="src/services/slot-rules.ts">
+    <item priority="high">
+      export const DEFAULT_SLOT_INTERVAL: unknown;
+    </item>
+    <item priority="medium">
+      function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null { /* ... */ }
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">

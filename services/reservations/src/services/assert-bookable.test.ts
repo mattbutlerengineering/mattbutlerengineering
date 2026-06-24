@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { assertBookable } from "./assert-bookable.js";
-import type { ReservationSlim, HoldSlim } from "./availability.js";
+import type { ReservationSlim, HoldSlim } from "./slot-rules.js";
 
 // Use a future date so hold expiresAt is in the future relative to real clock
 const NOW = new Date("2030-01-01T18:00:00Z");
