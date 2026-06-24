@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-06-16T17:07:04.904Z",
+  "lastRun": "2026-06-23T17:05:25.705Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -213,14 +213,14 @@
       "substanceEvidence": null
     },
     "acmm:nightly-compliance": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:copilot-review-apply": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -249,7 +249,7 @@
     },
     "acmm:security-ai-md": {
       "passed": true,
-      "evidence": "detected at: docs/SECURITY-AI.md",
+      "evidence": "detected at: docs/security/SECURITY-AI.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -325,21 +325,21 @@
       "substanceEvidence": null
     },
     "acmm:instruction-sync-gate": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:component-registry-integrity": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "acmm:instruction-rot-detection": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -353,7 +353,7 @@
       "substanceEvidence": "no entries from last 30 days"
     },
     "acmm:claude-md-auto-sync": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -437,7 +437,7 @@
       "substanceEvidence": null
     },
     "acmm:periodic-reflection": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -521,7 +521,7 @@
       "substanceEvidence": null
     },
     "acmm:auto-issue-gen": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -556,7 +556,7 @@
       "substanceEvidence": null
     },
     "acmm:production-feedback": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -605,7 +605,7 @@
       "substanceEvidence": null
     },
     "acmm:auto-rollback": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -759,28 +759,28 @@
       "substanceEvidence": null
     },
     "meta:threshold-tuning": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:instruction-evolution": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:process-metrics": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
       "substanceEvidence": null
     },
     "meta:fp-rate-healthy": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -794,7 +794,7 @@
       "substanceEvidence": null
     },
     "meta:audit-freshness": {
-      "passed": true,
+      "passed": false,
       "evidence": "gh CLI unavailable or error",
       "verdict": "unverifiable",
       "substantive": null,
@@ -897,6 +897,12 @@
       "level": 5,
       "detected": 110,
       "total": 114
+    },
+    {
+      "date": "2026-06-23",
+      "level": 5,
+      "detected": 95,
+      "total": 99
     }
   ],
   "issuesCreated": {
@@ -938,8 +944,6 @@
     "acmm:session-summary",
     "acmm:structural-gates",
     "acmm:auto-qa-tuning",
-    "acmm:nightly-compliance",
-    "acmm:copilot-review-apply",
     "acmm:auto-label",
     "acmm:ai-fix-workflow",
     "acmm:tier-classifier",
@@ -954,10 +958,6 @@
     "acmm:cross-session-knowledge",
     "acmm:cross-repo-skills",
     "acmm:github-coordination",
-    "acmm:instruction-sync-gate",
-    "acmm:component-registry-integrity",
-    "acmm:instruction-rot-detection",
-    "acmm:claude-md-auto-sync",
     "acmm:preference-index",
     "acmm:task-ledger",
     "acmm:mcp-server-config",
@@ -969,7 +969,6 @@
     "acmm:public-metrics",
     "acmm:policy-as-code",
     "acmm:reflection-log",
-    "acmm:periodic-reflection",
     "acmm:audit-trail",
     "acmm:explanation-standards",
     "acmm:self-correction-metric",
@@ -981,18 +980,15 @@
     "acmm:override-analytics",
     "acmm:ai-compliance-doc",
     "acmm:review-burden",
-    "acmm:auto-issue-gen",
     "acmm:multi-agent-orchestration",
     "acmm:merge-queue",
     "acmm:strategic-dashboard",
     "acmm:risk-assessment-config",
-    "acmm:production-feedback",
     "acmm:observability-runbook",
     "acmm:rollback-drill",
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
-    "acmm:auto-rollback",
     "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
@@ -1013,12 +1009,7 @@
     "claude-reflect:claude-md-sync",
     "claude-reflect:preference-index",
     "claude-reflect:reflection-review",
-    "claude-reflect:session-summary",
-    "meta:threshold-tuning",
-    "meta:instruction-evolution",
-    "meta:process-metrics",
-    "meta:fp-rate-healthy",
-    "meta:audit-freshness"
+    "claude-reflect:session-summary"
   ],
   "computation": {
     "level": 5,
@@ -1028,10 +1019,10 @@
     "characteristic": "The system detects problems and proposes fixes without human initiation. Humans still approve; the system proposes.",
     "detectedByLevel": {
       "2": 3,
-      "3": 6,
-      "4": 16,
+      "3": 5,
+      "4": 12,
       "5": 15,
-      "6": 8
+      "6": 6
     },
     "requiredByLevel": {
       "2": 3,
@@ -1040,7 +1031,45 @@
       "5": 16,
       "6": 8
     },
-    "missingForNextLevel": [],
+    "missingForNextLevel": [
+      {
+        "id": "acmm:auto-issue-gen",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Automated issue generation",
+        "description": "Workflow or cron that generates work items for the AI to pick up — the system identifies its own problems and creates tasks.",
+        "rationale": "L6 self-direction: the codebase proposes its own next task.",
+        "details": "Automated issue generation is a cron-triggered workflow that scans the codebase for TODOs, stale dependencies, failing tests, or coverage gaps and files GitHub issues for each finding. The codebase identifies its own work rather than waiting for humans to notice problems. An AI mission will add a workflow that scans for common improvement opportunities and creates prioritized issues automatically.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/auto-issue.yml",
+            ".github/workflows/issue-gen.yml",
+            ".github/workflows/auto-generate-issues.yml"
+          ],
+          "maxAgeDays": 7
+        }
+      },
+      {
+        "id": "acmm:auto-rollback",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Automated rollback",
+        "description": "Automated detection and revert of regressions caused by AI-authored changes.",
+        "rationale": "L6 signal: the system not only acts but also undoes mistakes without human initiation.",
+        "details": "Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.",
+        "detection": {
+          "type": "active",
+          "pattern": [
+            ".github/workflows/auto-rollback.yml",
+            "docs/acmm/auto-rollback.md"
+          ],
+          "maxAgeDays": 365
+        }
+      }
+    ],
     "nextTransitionTrigger": "None — L6 is the terminal state. The human role becomes direction-setting, not code writing.",
     "antiPattern": "Alert fatigue: generating proposals no one reviews. An unread suggestion is noise, not maturity.",
     "prerequisites": {
@@ -1160,7 +1189,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-06-16T17:07:04.902Z"
+      "measured_at": "2026-06-23T17:05:25.703Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
