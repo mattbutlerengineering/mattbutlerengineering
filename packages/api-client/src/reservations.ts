@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   PaginatedResponse,
   Reservation,
@@ -5,6 +6,7 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
 } from "@mbe/types";
+import { ReservationSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
@@ -17,63 +19,70 @@ export interface ListReservationsParams {
   guestId?: string;
 }
 
+const reservationEnvelope = z.object({ data: ReservationSchema });
+const reservationListSchema = paginatedResponseSchema(ReservationSchema);
+
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
 
-  /**
-   * List reservations with optional filters
-   */
   async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
       "/api/v1/reservations",
-      params as QueryParams
+      params as QueryParams,
+      // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
+      // actual API returns a flat shape (data, total, page, limit). The schema matches
+      // the real wire format; cast through unknown to satisfy the TS return type.
+      reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
     );
   }
 
-  /**
-   * Get current user's reservations
-   */
   async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
     return this.client.get<PaginatedResponse<Reservation>>(
-      `/api/v1/reservations/me?page=${page}&limit=${limit}`
+      `/api/v1/reservations/me?page=${page}&limit=${limit}`,
+      undefined,
+      // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
+      // actual API returns a flat shape (data, total, page, limit). The schema matches
+      // the real wire format; cast through unknown to satisfy the TS return type.
+      reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
     );
   }
 
-  /**
-   * Get a reservation by ID
-   */
   async get(id: string): Promise<Reservation> {
-    return this.client.getOne<Reservation>(`/api/v1/reservations/${id}`);
-  }
-
-  /**
-   * Create a new reservation
-   */
-  async create(data: CreateReservationRequest): Promise<Reservation> {
-    return this.client.postOne<Reservation>("/api/v1/reservations", data);
-  }
-
-  /**
-   * Update a reservation
-   */
-  async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-    return this.client.patchOne<Reservation>(`/api/v1/reservations/${id}`, data);
-  }
-
-  /**
-   * Cancel a reservation
-   */
-  async cancel(id: string): Promise<Reservation> {
-    const response = await this.client.request<{ data: Reservation }>(
+    const response = await this.client.get<{ data: Reservation }>(
       `/api/v1/reservations/${id}`,
-      { method: "DELETE" }
+      undefined,
+      reservationEnvelope
     );
     return response.data;
   }
 
-  /**
-   * Cancel a reservation with an optional reason and note
-   */
+  async create(data: CreateReservationRequest): Promise<Reservation> {
+    const response = await this.client.post<{ data: Reservation }>(
+      "/api/v1/reservations",
+      data,
+      reservationEnvelope
+    );
+    return response.data;
+  }
+
+  async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
+    const response = await this.client.patch<{ data: Reservation }>(
+      `/api/v1/reservations/${id}`,
+      data,
+      reservationEnvelope
+    );
+    return response.data;
+  }
+
+  async cancel(id: string): Promise<Reservation> {
+    const response = await this.client.request<{ data: Reservation }>(
+      `/api/v1/reservations/${id}`,
+      { method: "DELETE" },
+      reservationEnvelope
+    );
+    return response.data;
+  }
+
   async cancelWithReason(
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
@@ -84,9 +93,6 @@ export class ReservationsClient {
     });
   }
 
-  /**
-   * Create a walk-in reservation
-   */
   async walkIn(data: {
     partySize: number;
     tableId: string;
@@ -94,6 +100,11 @@ export class ReservationsClient {
     guestName?: string;
     durationMinutes?: number;
   }): Promise<Reservation> {
-    return this.client.postOne<Reservation>("/api/v1/reservations/walk-in", data);
+    const response = await this.client.post<{ data: Reservation }>(
+      "/api/v1/reservations/walk-in",
+      data,
+      reservationEnvelope
+    );
+    return response.data;
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { ReservationsClient } from "./reservations.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -27,7 +27,17 @@ const fakeReservation = {
   status: "CONFIRMED",
   date: "2026-06-01",
   startTime: "19:00",
+  endTime: "20:30",
   durationMinutes: 90,
+  notes: null,
+  cancellationReason: null,
+  cancellationNote: null,
+  occasion: null,
+  seatingPreference: null,
+  guestName: null,
+  guestEmail: null,
+  guestPhone: null,
+  userId: null,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -214,6 +224,38 @@ describe("ReservationsClient", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
       await expect(makeClient().list()).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed reservation", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1", status: "CONFIRMED" } }));
+
+      await expect(makeClient().get("r1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when list() receives a non-array data field", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: "not-an-array", total: 0, page: 1, limit: 10 })
+      );
+
+      await expect(makeClient().list()).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
+
+      await expect(
+        makeClient().create({
+          venueId: "v1",
+          guestId: "g1",
+          tableId: "t1",
+          partySize: 2,
+          date: "2026-06-01",
+          startTime: "19:00",
+          endTime: "21:00",
+        })
+      ).rejects.toBeInstanceOf(ApiValidationError);
     });
   });
 });
