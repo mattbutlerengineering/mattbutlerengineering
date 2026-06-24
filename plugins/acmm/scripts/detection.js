@@ -51,11 +51,7 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
         "run",
         "list",
         `--workflow=${workflowFile}`,
-        // Query successful runs directly. A high volume of `skipped`/`failure`
-        // runs — e.g. auto-rollback.yml skips on every passing deploy — must not
-        // crowd the real success out of the result window and falsely report the
-        // workflow inactive. We still filter by conclusion below as defense.
-        "--status=success",
+        "--status=completed",
         "--limit=5",
         "--json",
         "conclusion,updatedAt",
@@ -64,7 +60,7 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
     );
     const runs = JSON.parse(result);
     if (runs.length === 0) {
-      return { active: false, reason: "no successful runs in recent history" };
+      return { active: false, reason: "no completed runs" };
     }
     // Only count successful runs — failed/skipped/cancelled runs don't prove the workflow works
     const successfulRuns = runs.filter((r) => r.conclusion === "success");
