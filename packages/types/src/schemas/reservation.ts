@@ -34,6 +34,7 @@ export const ReservationSchema = z.object({
   date: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  durationMinutes: z.number().optional(),
   partySize: z.number(),
   status: ReservationStatusSchema,
   notes: z.string().nullable(),

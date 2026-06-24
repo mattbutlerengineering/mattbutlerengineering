@@ -511,6 +511,9 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
     "date": {
       "type": "string",
     },
+    "durationMinutes": {
+      "type": "number",
+    },
     "endTime": {
       "type": "string",
     },
