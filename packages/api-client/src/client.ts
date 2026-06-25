@@ -149,7 +149,11 @@ export class ApiClient {
     if (schema) {
       const result = schema.safeParse(data);
       if (!result.success) {
-        throw new ApiValidationError(result.error, method, path);
+        const validationError = new ApiValidationError(result.error, method, path);
+        // Cast to ApiClientError so onError can observe validation errors too.
+        // Callers can narrow with `instanceof ApiValidationError`.
+        this.config.onError?.(validationError as unknown as ApiClientError);
+        throw validationError;
       }
       return result.data;
     }

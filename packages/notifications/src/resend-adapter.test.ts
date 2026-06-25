@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResendNotificationAdapter } from "./resend-adapter.js";
-import type { BookingNotificationInput } from "./port.js";
+import type { BookingNotificationInput, ThankYouEmailInput } from "./port.js";
 
 const mockSend = vi.fn().mockResolvedValue({ id: "email_123" });
 const mockResend = { emails: { send: mockSend } };
@@ -140,5 +140,133 @@ describe("ResendNotificationAdapter", () => {
     ).resolves.toBeUndefined();
 
     expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  describe("sendThankYouEmail", () => {
+    const thankYouInput: ThankYouEmailInput = {
+      guestEmail: "jane@example.com",
+      guestFirstName: "Jane",
+      venueName: "The Oak Table",
+      visitDate: "2026-06-15",
+      feedbackUrl: "https://feedback.example.com",
+      unsubscribeToken: "tok_unsub123",
+    };
+
+    it("sends a thank-you email to the guest", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail(thankYouInput);
+
+      expect(mockSend).toHaveBeenCalledOnce();
+      const call = mockSend.mock.calls[0][0];
+      expect(call.from).toBe("bookings@mbe.dev");
+      expect(call.to).toBe("jane@example.com");
+      expect(call.subject).toContain("The Oak Table");
+      expect(call.html).toContain("Jane");
+      expect(call.html).toContain("The Oak Table");
+    });
+
+    it("includes feedback link in html when feedbackUrl is provided", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail(thankYouInput);
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).toContain("https://feedback.example.com");
+    });
+
+    it("omits feedback section when feedbackUrl is null", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail({ ...thankYouInput, feedbackUrl: null });
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).not.toContain("feedback");
+    });
+
+    it("escapes HTML in guest name and venue name", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail({
+        ...thankYouInput,
+        guestFirstName: "<script>alert('xss')</script>",
+        venueName: "O'Brien's & Co <Bistro>",
+      });
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).not.toContain("<script>");
+      expect(call.html).toContain("&lt;script&gt;");
+      expect(call.html).toContain("O&#39;Brien&#39;s &amp; Co &lt;Bistro&gt;");
+    });
+
+    it("sanitizes dangerous feedbackUrl schemes (javascript:)", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail({
+        ...thankYouInput,
+        feedbackUrl: "javascript:alert('xss')",
+      });
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).not.toContain("javascript:");
+    });
+
+    it("includes unsubscribe link built from manageBaseUrl + unsubscribeToken", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail(thankYouInput);
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).toContain("tok_unsub123");
+      expect(call.html).toContain("unsubscribe");
+    });
+
+    it("uses 'Guest' as fallback when guestFirstName is null", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail({ ...thankYouInput, guestFirstName: null });
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).toContain("Guest");
+    });
+
+    it("no-ops gracefully when resend is null (missing API key)", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: null,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://app.mbe.dev",
+      });
+
+      await expect(adapter.sendThankYouEmail(thankYouInput)).resolves.toBeUndefined();
+      expect(mockSend).not.toHaveBeenCalled();
+    });
   });
 });

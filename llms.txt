@@ -2125,10 +2125,10 @@
   </file>
   <file path="packages/types/src/schemas/common.ts">
     <item priority="high">
-      export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
+      export const PaginationSchema: unknown;
     </item>
     <item priority="high">
-      export const PaginationSchema: unknown;
+      export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) { /* ... */ }
     </item>
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
@@ -2586,33 +2586,28 @@
   </file>
   <file path="services/reservations/src/services/guest.ts">
     <item priority="medium">
-      function mapPrismaGuest(
-        guest: {
-          id: string;
-          venueId: string;
-          email: string | null;
-          phone: string | null;
-          name: string;
-          notes: string | null;
-          visitCount: number;
-          lifetimeSpend: Prisma.Decimal | null;
-          lastVisit: Date | null;
-          tags: unknown;
-          communicationPreference: string;
-          dietaryRestrictions: unknown;
-          staffNotes: unknown;
-          createdAt: Date;
-          updatedAt: Date;
-        },
-        noShowCount = 0,
-        lastNoShowDate: Date | null = null
-      ): Guest { /* ... */ }
+      function mapPrismaGuest(guest: {
+        id: string;
+        venueId: string;
+        email: string | null;
+        phone: string | null;
+        name: string;
+        notes: string | null;
+        visitCount: number;
+        noShowCount: number;
+        lastNoShowAt: Date | null;
+        lifetimeSpend: Prisma.Decimal | null;
+        lastVisit: Date | null;
+        tags: unknown;
+        communicationPreference: string;
+        dietaryRestrictions: unknown;
+        staffNotes: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Guest { /* ... */ }
     </item>
-    <item priority="low">
-      async function fetchNoShowStats(guestId: string): Promise<{
-        count: number;
-        lastNoShowDate: Date | null;
-      }> { /* ... */ }
+    <item priority="high">
+      export const guestService: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/hold.ts">
@@ -3004,7 +2999,34 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/audit-inventory.ts">
+  <file path="packages/agent-core/src/audit-inventory-store.ts">
+    <item priority="high">
+      export async function loadInventory(repoPath: string): Promise<AuditInventory> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function saveInventory(repoPath: string, inventory: AuditInventory): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-regression-detector.ts">
+    <item priority="high">
+      export function findStalestZone(inventory: AuditInventory): Zone { /* ... */ }
+    </item>
+    <item priority="high">
+      export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-surface-mapper.ts">
+    <item priority="medium">
+      function fileToZones(filePath: string): readonly Zone[] | "all" | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapFilesToSurfaces(
+        inventory: AuditInventory,
+        changedFiles: readonly string[]
+      ): readonly AuditSurface[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-surface-registry.ts">
     <item priority="low">
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
