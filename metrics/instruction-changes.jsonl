@@ -116,3 +116,51 @@
 {"date":"2026-04-25","file":"CLAUDE.md","summary":"docs(claude): add Prisma 6/7 migrate and DB-health gotchas","change_type":"documentation"}
 {"date":"2026-04-24","file":".claude/skills/acmm-audit/SKILL.md","summary":"feat(acmm): port canonical 6-level rubric + daily cadence (#619)","change_type":"addition"}
 {"date":"2026-04-24","file":"CLAUDE.md","summary":"feat(acmm): port canonical 6-level rubric + daily cadence (#619)","change_type":"addition"}
+{"date":"2026-06-21","file":"CLAUDE.md","summary":"chore(mcp): add Stripe MCP server (test-mode) for payment-path development (#2575)","change_type":"maintenance"}
+{"date":"2026-06-21","file":"CLAUDE.md","summary":"docs: sync RemoteTriggers table to live schedule (#2019) (#2574)","change_type":"documentation"}
+{"date":"2026-06-21","file":".claude/skills/implement-queue/SKILL.md","summary":"feat(scripts): PID-aware merge-train lockfile guard (#2547)","change_type":"addition"}
+{"date":"2026-06-19","file":"CLAUDE.md","summary":"docs: document scheduled cloud routines + add weekly/monthly improvement triggers (#2476)","change_type":"documentation"}
+{"date":"2026-06-19","file":"CLAUDE.md","summary":"chore: weekly CLAUDE.md maintenance (#2474)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/ci-monitor/SKILL.md","summary":"docs(skills): default automation loops to --adapter auto with failover docs (#2440)","change_type":"documentation"}
+{"date":"2026-06-18","file":".claude/skills/implement-queue/SKILL.md","summary":"docs(skills): default automation loops to --adapter auto with failover docs (#2440)","change_type":"documentation"}
+{"date":"2026-06-18","file":".claude/skills/issue-worker/SKILL.md","summary":"docs(skills): default automation loops to --adapter auto with failover docs (#2440)","change_type":"documentation"}
+{"date":"2026-06-18","file":".claude/skills/decompose/SKILL.md","summary":"feat: emit agent frontmatter in decompose, to-issues, and acmm --apply (#2426)","change_type":"addition"}
+{"date":"2026-06-18","file":".claude/skills/issue-worker/SKILL.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/issue-worker/SKILL.original.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/progress-tracker/SKILL.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/progress-tracker/SKILL.original.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/site-audit/SKILL.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/site-audit/SKILL.original.md","summary":"chore: compress fat skill prompts (site-audit, progress-tracker, issue-worker) (#2424)","change_type":"maintenance"}
+{"date":"2026-06-18","file":".claude/skills/issue-worker/SKILL.md","summary":"feat: verify: field in issue frontmatter gates agent completion (#2421)","change_type":"addition"}
+{"date":"2026-06-15","file":".claude/skills/dep-bump/SKILL.md","summary":"feat(hooks): auto-regen artifacts after gh pr update-branch + dep-bump skill (#2359)","change_type":"addition"}
+{"date":"2026-06-15","file":".claude/skills/ci-monitor/SKILL.md","summary":"feat(ci-monitor): upgrade to self-healing fix runner with circuit breaker (#2339)","change_type":"addition"}
+{"date":"2026-06-15","file":".claude/skills/gotcha-harvest/SKILL.md","summary":"refactor(rialto): extract useReturnFocus hook for overlay trigger-focus restore (#2303)","change_type":"maintenance"}
+{"date":"2026-06-15","file":".claude/skills/graphify/SKILL.md","summary":"refactor(rialto): extract useReturnFocus hook for overlay trigger-focus restore (#2303)","change_type":"maintenance"}
+{"date":"2026-06-15","file":".claude/skills/implement-queue/REVIEWER_CONTRACT.md","summary":"refactor(rialto): extract useReturnFocus hook for overlay trigger-focus restore (#2303)","change_type":"maintenance"}
+{"date":"2026-06-14","file":".claude/skills/chaos-agent/SKILL.md","summary":"fix(chaos-agent): add guards + cleanup for synthetic-bug branches (#2294)","change_type":"correction"}
+{"date":"2026-06-14","file":".claude/skills/implement-queue/SKILL.md","summary":"fix(chaos-agent): add guards + cleanup for synthetic-bug branches (#2294)","change_type":"correction"}
+{"date":"2026-06-14","file":".claude/skills/learning-loop/SKILL.md","summary":"feat(learning-loop): auto-QA self-tuning feedback loop (#2284)","change_type":"addition"}
+{"date":"2026-06-14","file":"CLAUDE.md","summary":"chore(mcp): promote Playwright MCP to repo .mcp.json for team/CI sharing (#2250)","change_type":"maintenance"}
+{"date":"2026-06-13","file":".claude/skills/implement-queue/REVIEWER_CONTRACT.md","summary":"feat(agent-core): define Reviewer Agent contract for multi-agent quality gates","change_type":"addition"}
+{"date":"2026-06-13","file":".claude/skills/implement-queue/SKILL.md","summary":"feat(agent-core): define Reviewer Agent contract for multi-agent quality gates","change_type":"addition"}
+{"date":"2026-06-13","file":"CLAUDE.md","summary":"docs(root+cli): drop stale Feedback Loop Log; refresh cli command inventory (#2215)","change_type":"documentation"}
+{"date":"2026-06-13","file":".claude/skills/graphify/.graphify_version","summary":"chore(skills): vendor graphify v0.8.39 + document where it fits (#2194)","change_type":"maintenance"}
+{"date":"2026-06-13","file":".claude/skills/graphify/SKILL.md","summary":"chore(skills): vendor graphify v0.8.39 + document where it fits (#2194)","change_type":"maintenance"}
+{"date":"2026-06-13","file":"CLAUDE.md","summary":"chore(skills): vendor graphify v0.8.39 + document where it fits (#2194)","change_type":"maintenance"}
+{"date":"2026-06-13","file":".claude/skills/gotcha-harvest/SKILL.md","summary":"feat(skills): add /gotcha-harvest to mine CI-feedback lessons from loops (#2149)","change_type":"addition"}
+{"date":"2026-06-12","file":".claude/skills/implement-queue/SKILL.md","summary":"fix(implement-queue): emit model tier not full ID; harden worker drift lane (#2141)","change_type":"correction"}
+{"date":"2026-06-12","file":".claude/skills/implement-queue/SKILL.md","summary":"feat(agent): per-issue model routing + diff-matched review gate for implement-queue (#2133)","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/improve","summary":"implement-queue","change_type":"update"}
+{"date":"2026-06-11","file":".claude/skills/local-ci-precheck/SKILL.md","summary":"implement-queue","change_type":"update"}
+{"date":"2026-06-11","file":".claude/skills/decompose/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/implement-queue/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/learning-loop/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/progress-tracker/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/sentry-triage/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/site-audit/SKILL.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":"AGENTS.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":"CLAUDE.md","summary":"feat(skills): replace ship-loop with implement-queue","change_type":"addition"}
+{"date":"2026-06-11","file":".claude/skills/issue-worker/SKILL.md","summary":"feat: issue agent frontmatter parsed into mbe agent run overrides (#2035)","change_type":"addition"}
+{"date":"2026-06-11","file":"CLAUDE.md","summary":"feat: issue agent frontmatter parsed into mbe agent run overrides (#2035)","change_type":"addition"}
+{"date":"2026-06-09","file":".claude/skills/local-ci-precheck/SKILL.md","summary":"feat(skills): add drift lane to local-ci-precheck (#1932) (#1975)","change_type":"addition"}
+{"date":"2026-06-09","file":"CLAUDE.md","summary":"chore: weekly CLAUDE.md maintenance (#1941)","change_type":"maintenance"}
