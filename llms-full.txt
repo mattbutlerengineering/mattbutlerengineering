@@ -13015,7 +13015,135 @@
       readonly env: ImportMetaEnv;
     }
   </file>
-  <file path="packages/agent-core/src/audit-inventory.ts">
+  <file path="packages/agent-core/src/audit-inventory-store.ts">
+    export async function loadInventory(repoPath: string): Promise<AuditInventory> {
+      const filePath = join(repoPath, INVENTORY_PATH);
+      const fresh = buildInventory();
+    
+      try {
+        const content = await readFile(filePath, "utf-8");
+        const existing = JSON.parse(content) as AuditInventory;
+        return mergeInventory(fresh, existing);
+      } catch {
+        return fresh;
+      }
+    }
+    export async function saveInventory(repoPath: string, inventory: AuditInventory): Promise<void> {
+      const filePath = join(repoPath, INVENTORY_PATH);
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, JSON.stringify(inventory, null, 2));
+    }
+  </file>
+  <file path="packages/agent-core/src/audit-regression-detector.ts">
+    export function findStalestZone(inventory: AuditInventory): Zone {
+      const zoneAges = new Map<Zone, number>();
+    
+      for (const zone of ZONES) {
+        const zoneSurfaces = inventory.surfaces.filter((s) => s.zone === zone);
+        if (zoneSurfaces.length === 0) continue;
+    
+        const avgAge =
+          zoneSurfaces.reduce((sum, s) => {
+            if (!s.lastChecked) return sum + Infinity;
+            return sum + (Date.now() - new Date(s.lastChecked).getTime());
+          }, 0) / zoneSurfaces.length;
+    
+        zoneAges.set(zone, avgAge);
+      }
+    
+      let stalest: Zone = ZONES[0];
+      let maxAge = -1;
+    
+      for (const [zone, age] of zoneAges) {
+        if (age > maxAge) {
+          maxAge = age;
+          stalest = zone;
+        }
+      }
+    
+      return stalest;
+    }
+    export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface {
+      const entry: ScoreEntry = { timestamp: new Date().toISOString(), scores };
+      const history = [...s.checkHistory, entry].slice(-MAX_HISTORY);
+    
+      return {
+        ...s,
+        lastChecked: entry.timestamp,
+        lastScore: scores,
+        checkHistory: history,
+        checkCount: s.checkCount + 1,
+      };
+    }
+  </file>
+  <file path="packages/agent-core/src/audit-surface-mapper.ts">
+    function fileToZones(filePath: string): readonly Zone[] | "all" | null {
+      if (filePath.startsWith("infrastructure/")) return "all";
+      if (filePath.startsWith("packages/rialto/")) return FRONTEND_ZONES;
+    
+      const appMatch = filePath.match(/^apps\/([^/]+)\//);
+      if (appMatch) {
+        const zoneMap: Record<string, Zone> = {
+          marketing: "marketing",
+          hospitality: "hospitality",
+          "rialto-web": "rialto",
+          gen: "gen",
+        };
+        const zone = zoneMap[appMatch[1]];
+        return zone ? [zone] : null;
+      }
+    
+      const svcMatch = filePath.match(/^services\/([^/]+)\//);
+      if (svcMatch) {
+        const zoneMap: Record<string, Zone> = {
+          users: "api:users",
+          reservations: "api:reservations",
+          agent: "api:agent",
+        };
+        const zone = zoneMap[svcMatch[1]];
+        return zone ? [zone] : null;
+      }
+    
+      if (filePath.startsWith("packages/")) return FRONTEND_ZONES;
+    
+      return null;
+    }
+    export function mapFilesToSurfaces(
+      inventory: AuditInventory,
+      changedFiles: readonly string[]
+    ): readonly AuditSurface[] {
+      const matchedIds = new Set<string>();
+    
+      for (const file of changedFiles) {
+        const zones = fileToZones(file);
+    
+        if (zones === "all") return [...inventory.surfaces];
+        if (zones === null) continue;
+    
+        // Exact sourceFile match → specific surface
+        for (const s of inventory.surfaces) {
+          if (s.sourceFiles.some((sf) => file.startsWith(sf) || file === sf)) {
+            matchedIds.add(s.id);
+          }
+        }
+    
+        // For frontend apps: page files map to specific surfaces (handled above).
+        // Shared files (components, layouts, etc.) map to all surfaces in zone.
+        // For services: ALL files map to all surfaces in that service's zone.
+        const isFrontendPageFile = file.includes("/pages/") && !file.startsWith("services/");
+        if (!isFrontendPageFile) {
+          for (const zone of zones) {
+            for (const s of inventory.surfaces) {
+              if (s.zone === zone) matchedIds.add(s.id);
+            }
+          }
+        }
+      }
+    
+      return inventory.surfaces.filter((s) => matchedIds.has(s.id));
+    }
+  </file>
+  <file path="packages/agent-core/src/audit-surface-registry.ts">
     export type Zone =
       | "marketing"
       | "hospitality"
