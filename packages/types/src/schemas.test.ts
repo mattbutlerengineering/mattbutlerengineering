@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import { UserSchema, UserPreferencesSchema, UserProfileSchema } from "./schemas/user.js";
 import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
 import {
@@ -6,7 +7,6 @@ import {
   ErrorResponseSchema,
   paginatedResponseSchema,
 } from "./schemas/common.js";
-import { z } from "zod";
 import { ProblemDetailsSchema } from "./schemas/api.js";
 
 // ── UserPreferencesSchema ──────────────────────────────────────────
@@ -244,6 +244,49 @@ describe("ErrorResponseSchema", () => {
   });
 });
 
+// ── paginatedResponseSchema ────────────────────────────────────────
+
+describe("paginatedResponseSchema", () => {
+  const ItemSchema = z.object({ id: z.string(), name: z.string() });
+  const schema = paginatedResponseSchema(ItemSchema);
+
+  const validBody = {
+    data: [{ id: "1", name: "Alice" }],
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 1,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+
+  it("accepts a valid nested paginated response", () => {
+    expect(schema.safeParse(validBody).success).toBe(true);
+  });
+
+  it("rejects a flat wire format without pagination object", () => {
+    const flat = { data: [{ id: "1", name: "Alice" }], total: 1, page: 1, limit: 10 };
+    expect(schema.safeParse(flat).success).toBe(false);
+  });
+
+  it("rejects when data items fail item schema", () => {
+    const bad = { ...validBody, data: [{ id: 1, name: "Alice" }] };
+    expect(schema.safeParse(bad).success).toBe(false);
+  });
+
+  it("rejects missing pagination", () => {
+    const { pagination: _, ...noPagination } = validBody;
+    expect(schema.safeParse(noPagination).success).toBe(false);
+  });
+
+  it("rejects missing required pagination fields", () => {
+    const bad = { data: [], pagination: { page: 1, limit: 10 } };
+    expect(schema.safeParse(bad).success).toBe(false);
+  });
+});
+
 // ── ProblemDetailsSchema (RFC 9457) ────────────────────────────────
 
 describe("ProblemDetailsSchema", () => {
@@ -327,32 +370,3 @@ describe("ProblemDetailsSchema", () => {
   });
 });
 
-// ── paginatedResponseSchema ────────────────────────────────────────
-
-describe("paginatedResponseSchema", () => {
-  const itemSchema = z.object({ id: z.string(), name: z.string() });
-  const schema = paginatedResponseSchema(itemSchema);
-
-  it("accepts a valid paginated response", () => {
-    const valid = {
-      data: [{ id: "1", name: "Alice" }],
-      total: 1,
-      page: 1,
-      limit: 10,
-    };
-    expect(schema.safeParse(valid).success).toBe(true);
-  });
-
-  it("accepts empty data array", () => {
-    expect(schema.safeParse({ data: [], total: 0, page: 1, limit: 10 }).success).toBe(true);
-  });
-
-  it("rejects items that fail the item schema", () => {
-    const invalid = { data: [{ id: 1, name: "Alice" }], total: 1, page: 1, limit: 10 };
-    expect(schema.safeParse(invalid).success).toBe(false);
-  });
-
-  it("rejects missing pagination fields", () => {
-    expect(schema.safeParse({ data: [] }).success).toBe(false);
-  });
-});

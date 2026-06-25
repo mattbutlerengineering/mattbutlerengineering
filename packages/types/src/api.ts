@@ -55,9 +55,11 @@ export function createProblemDetails(
 }
 
 /**
- * Paginated API response
+ * Paginated API response.
+ * Shape matches the wire format produced by buildPaginatedResponse in @mbe/database.
  */
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+export interface PaginatedResponse<T> {
+  data: T[];
   pagination: Pagination;
 }
 

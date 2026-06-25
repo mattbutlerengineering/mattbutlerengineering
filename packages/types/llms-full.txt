@@ -61,14 +61,6 @@
       .catchall(z.unknown());
   </file>
   <file path="src/schemas/common.ts">
-    export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) {
-      return z.object({
-        data: z.array(itemSchema),
-        total: z.number(),
-        page: z.number(),
-        limit: z.number(),
-      });
-    }
     export const PaginationSchema = z.object({
       page: z.number(),
       limit: z.number(),
@@ -77,6 +69,12 @@
       hasNext: z.boolean(),
       hasPrev: z.boolean(),
     });
+    export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) {
+      return z.object({
+        data: z.array(itemSchema),
+        pagination: PaginationSchema,
+      });
+    }
   </file>
   <file path="src/schemas/floor-plan.ts">
     export const TableShapeMetadataSchema = z.object({
