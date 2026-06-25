@@ -5880,7 +5880,8 @@
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-      const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
+      const postVisitNotifier =
+        options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production

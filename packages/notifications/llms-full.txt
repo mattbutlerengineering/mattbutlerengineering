@@ -125,6 +125,11 @@
           await this.emailAdapter.sendWinBack(input);
         }
       }
+    
+      /** Post-visit thank-you — transactional, no preference routing needed. */
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        await this.emailAdapter.sendThankYouEmail(input);
+      }
     }
   </file>
   <file path="src/port.ts">

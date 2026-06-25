@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import type { ThankYouEmailInput } from "@mbe/notifications";
 
 const UNSUBSCRIBE_SECRET =
   process.env.UNSUBSCRIBE_TOKEN_SECRET || "dev-unsubscribe-secret-do-not-use-in-prod";
@@ -42,14 +43,7 @@ export function verifyUnsubscribeToken(token: string): { valid: boolean; guestId
 
 // ─── Post-visit notifier ──────────────────────────────────────────────────────
 
-export interface ThankYouEmailInput {
-  guestEmail: string;
-  guestFirstName: string | null;
-  venueName: string;
-  visitDate: string;
-  feedbackUrl: string | null;
-  unsubscribeToken: string;
-}
+export type { ThankYouEmailInput };
 
 export interface PostVisitNotifierDeps {
   sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
@@ -73,18 +67,19 @@ export interface PostVisitNotifier {
   sendPostVisitEmail(input: PostVisitEmailInput): Promise<void>;
 }
 
+/** Minimal interface: only the method createDefaultPostVisitNotifier needs. */
+interface ThankYouSender {
+  sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
+}
+
 /**
- * Creates the production PostVisitNotifier backed by the real Resend sender
- * and Prisma for DB updates.
+ * Creates the production PostVisitNotifier backed by the provided notification sender
+ * and Prisma for DB updates. Accepts the already-constructed dispatcher from app.ts,
+ * eliminating the lazy-import workaround previously needed to avoid circular deps.
  */
-export function createDefaultPostVisitNotifier(): PostVisitNotifier {
-  // Lazy import to avoid circular dependency — notifications.ts imports from here.
-  // Defer to call time so tests that mock modules work correctly.
+export function createDefaultPostVisitNotifier(notifier: ThankYouSender): PostVisitNotifier {
   return createPostVisitNotifier({
-    async sendThankYouEmail(input) {
-      const { sendThankYouEmail } = await import("../notifications.js");
-      await sendThankYouEmail(input);
-    },
+    sendThankYouEmail: (input) => notifier.sendThankYouEmail(input),
     async updateReservationEmailStatus(reservationId, status) {
       const { prisma } = await import("./database.js");
       await prisma.reservation.update({

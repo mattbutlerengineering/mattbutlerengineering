@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: vi.fn(),
+vi.mock("../run-hardened-query.js", () => ({
+  runHardenedQuery: vi.fn(),
 }));
 
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createMockQueryStream } from "@mbe/agent-test-utils";
+import { runHardenedQuery } from "../run-hardened-query.js";
+import type { HardenedQueryResult } from "../run-hardened-query.js";
 import {
   runReviewer,
   parseReviewerVerdict,
@@ -42,6 +42,31 @@ function makeSdkResult(
     },
     modelUsage: {},
     permission_denials: [],
+  };
+}
+
+function makeHardenedResult(
+  structured_output: unknown,
+  subtype: "success" | "error_max_turns" = "success"
+): HardenedQueryResult {
+  return {
+    resultMessage: makeSdkResult(structured_output, subtype),
+    stuckReason: null,
+    rawTurnMetrics: [],
+    rawToolCallMetrics: [],
+    errorMessage: null,
+    contextMetrics: null,
+  };
+}
+
+function makeFailedHardenedResult(errorMessage: string): HardenedQueryResult {
+  return {
+    resultMessage: null,
+    stuckReason: null,
+    rawTurnMetrics: [],
+    rawToolCallMetrics: [],
+    errorMessage,
+    contextMetrics: null,
   };
 }
 
@@ -157,9 +182,7 @@ describe("runReviewer", () => {
 
   it("returns pass outcome when LLM returns a passing verdict", async () => {
     const raw = makeVerdict({ verdict: "pass", score: 9 });
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.verdict.verdict).toBe("pass");
@@ -174,9 +197,7 @@ describe("runReviewer", () => {
       issues: [{ category: "regression", description: "broke existing test" }],
       assessment: "Regression found",
     });
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.verdict.verdict).toBe("flag");
@@ -185,9 +206,7 @@ describe("runReviewer", () => {
 
   it("records cost from the SDK result", async () => {
     const raw = makeVerdict();
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.costUsd).toBe(0.02);
@@ -195,9 +214,7 @@ describe("runReviewer", () => {
 
   it("records positive durationMs", async () => {
     const raw = makeVerdict();
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.durationMs).toBeGreaterThanOrEqual(0);
@@ -205,70 +222,50 @@ describe("runReviewer", () => {
 
   it("passes retryCount into the outcome", async () => {
     const raw = makeVerdict();
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const outcome = await runReviewer(makeReviewInput(), { retryCount: 2 });
     expect(outcome.retryCount).toBe(2);
   });
 
   it("fails-open (pass) when the LLM returns a non-success subtype", async () => {
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(null, "error_max_turns")]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(null, "error_max_turns"));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.verdict.verdict).toBe("pass");
   });
 
-  it("fails-open (pass) on LLM call error", async () => {
-    vi.mocked(query).mockImplementation(() => {
-      throw new Error("Network error");
-    });
+  it("fails-open (pass) when runHardenedQuery throws an error", async () => {
+    vi.mocked(runHardenedQuery).mockRejectedValue(new Error("Network error"));
 
     const outcome = await runReviewer(makeReviewInput());
     expect(outcome.verdict.verdict).toBe("pass");
     expect(outcome.costUsd).toBe(0);
   });
 
-  it("fails-open (pass) on timeout", async () => {
-    vi.useFakeTimers();
-
-    // Simulate a hanging query by returning a promise that never resolves.
-    // Cast through unknown to satisfy the async-iterable return type.
-    vi.mocked(query).mockReturnValue(
-      new Promise<never>(() => {}) as unknown as ReturnType<typeof query>
+  it("fails-open (pass) when runHardenedQuery returns errorMessage (circuit breaker / timeout)", async () => {
+    vi.mocked(runHardenedQuery).mockResolvedValue(
+      makeFailedHardenedResult("Circuit breaker is OPEN")
     );
 
-    const outcomePromise = runReviewer(makeReviewInput(), {
-      config: { ...DEFAULT_REVIEWER_CONFIG, timeoutMs: 100 },
-    });
-
-    vi.advanceTimersByTime(200);
-    const outcome = await outcomePromise;
+    const outcome = await runReviewer(makeReviewInput());
     expect(outcome.verdict.verdict).toBe("pass");
-
-    vi.useRealTimers();
+    expect(outcome.costUsd).toBe(0);
   });
 
   it("uses the haiku model by default", async () => {
     const raw = makeVerdict();
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     await runReviewer(makeReviewInput());
 
-    const callArgs = vi.mocked(query).mock.calls[0];
-    expect(callArgs[0].options?.model).toMatch(/haiku/i);
+    const callArgs = vi.mocked(runHardenedQuery).mock.calls[0];
+    expect(callArgs[0].model).toMatch(/haiku/i);
   });
 
   it("honours model override in config", async () => {
     const raw = makeVerdict();
-    vi.mocked(query).mockReturnValue(
-      createMockQueryStream([makeSdkResult(raw)]) as ReturnType<typeof query>
-    );
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
 
     const config: Partial<ReviewerConfig> = {
       ...DEFAULT_REVIEWER_CONFIG,
@@ -277,7 +274,43 @@ describe("runReviewer", () => {
 
     await runReviewer(makeReviewInput(), { config });
 
-    const callArgs = vi.mocked(query).mock.calls[0];
-    expect(callArgs[0].options?.model).toBe("claude-sonnet-4-6");
+    const callArgs = vi.mocked(runHardenedQuery).mock.calls[0];
+    expect(callArgs[0].model).toBe("claude-sonnet-4-6");
+  });
+
+  it("calls runHardenedQuery with outputFormat json_schema", async () => {
+    const raw = makeVerdict();
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
+
+    await runReviewer(makeReviewInput());
+
+    const callArgs = vi.mocked(runHardenedQuery).mock.calls[0];
+    expect(callArgs[0].outputFormat?.type).toBe("json_schema");
+    expect(callArgs[0].outputFormat?.schema).toBeDefined();
+  });
+
+  it("calls runHardenedQuery with maxTurns: 1", async () => {
+    const raw = makeVerdict();
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
+
+    await runReviewer(makeReviewInput());
+
+    const callArgs = vi.mocked(runHardenedQuery).mock.calls[0];
+    expect(callArgs[0].maxTurns).toBe(1);
+  });
+
+  it("uses heartbeatConfig inactivity timeout instead of manual Promise.race", async () => {
+    const raw = makeVerdict();
+    vi.mocked(runHardenedQuery).mockResolvedValue(makeHardenedResult(raw));
+
+    const config: Partial<ReviewerConfig> = {
+      ...DEFAULT_REVIEWER_CONFIG,
+      timeoutMs: 15_000,
+    };
+
+    await runReviewer(makeReviewInput(), { config });
+
+    const callArgs = vi.mocked(runHardenedQuery).mock.calls[0];
+    expect(callArgs[0].heartbeatConfig?.inactivityTimeoutMs).toBe(15_000);
   });
 });

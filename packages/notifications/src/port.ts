@@ -21,10 +21,20 @@ export interface WinBackNotificationInput {
   venueName: string;
 }
 
+export interface ThankYouEmailInput {
+  guestEmail: string;
+  guestFirstName: string | null;
+  venueName: string;
+  visitDate: string;
+  feedbackUrl: string | null;
+  unsubscribeToken: string;
+}
+
 export interface NotificationPort {
   sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
   sendBookingReminder(input: BookingNotificationInput): Promise<void>;
   sendBookingModified(input: BookingNotificationInput): Promise<void>;
   sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
   sendWinBack(input: WinBackNotificationInput): Promise<void>;
+  sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
 }
