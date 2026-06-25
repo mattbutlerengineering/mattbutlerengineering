@@ -67,6 +67,14 @@ export interface HardenedQueryConfig {
   readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
   /** Heartbeat configuration overrides. */
   readonly heartbeatConfig?: Partial<HeartbeatConfig>;
+  /**
+   * Structured output format. When provided, forwarded to query() options.
+   * Use for single-turn structured-output calls (e.g. reviewer).
+   */
+  readonly outputFormat?: {
+    readonly type: "json_schema";
+    readonly schema: Record<string, unknown>;
+  };
 }
 
 export interface RawTurnMetric {
@@ -169,6 +177,7 @@ export async function runHardenedQuery(
                 preset: "claude_code" as const,
               },
             }),
+        ...(config.outputFormat !== undefined ? { outputFormat: config.outputFormat } : {}),
         canUseTool: async (toolName, input) => canUseTool(toolName, input),
       },
     });
