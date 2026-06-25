@@ -2,6 +2,7 @@ import type {
   NotificationPort,
   BookingNotificationInput,
   WinBackNotificationInput,
+  ThankYouEmailInput,
 } from "./port.js";
 import type { SmsPort, SmsNotificationInput } from "./sms-port.js";
 import type { CommunicationPreference } from "@mbe/types";
@@ -118,5 +119,10 @@ export class NotificationDispatcher {
     if (this.shouldSendEmail(preference)) {
       await this.emailAdapter.sendWinBack(input);
     }
+  }
+
+  /** Post-visit thank-you — transactional, no preference routing needed. */
+  async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+    await this.emailAdapter.sendThankYouEmail(input);
   }
 }

@@ -15093,6 +15093,11 @@
           await this.emailAdapter.sendWinBack(input);
         }
       }
+    
+      /** Post-visit thank-you — transactional, no preference routing needed. */
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        await this.emailAdapter.sendThankYouEmail(input);
+      }
     }
   </file>
   <file path="packages/notifications/src/port.ts">
@@ -15554,7 +15559,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
@@ -16082,7 +16098,8 @@
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-      const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
+      const postVisitNotifier =
+        options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production
