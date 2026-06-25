@@ -14,6 +14,7 @@ import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fa
 
 import { parseListQuery } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
+import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 
@@ -634,6 +635,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
                 result.error ?? "Failed to update reservation"
               )
             );
+        }
+
+        // Increment guest no-show counter when status transitions to NO_SHOW
+        if (request.body.status === "NO_SHOW" && result.reservation?.guestId) {
+          guestService
+            .recordNoShow(result.reservation.guestId, new Date(result.reservation.startTime))
+            .catch((err) => fastify.log.error({ err }, "Failed to record no-show on guest"));
         }
 
         // Fire post-visit thank-you email when status transitions to COMPLETED
