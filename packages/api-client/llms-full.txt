@@ -158,7 +158,7 @@
       getAccessToken?: () => string | null | Promise<string | null>;
       timeout?: number;
       maxRetries?: number;
-      onError?: (error: ApiClientError | ApiValidationError) => void;
+      onError?: (error: ApiClientError) => void;
     }) {
       const client = new ApiClient({
         baseUrl: config.baseUrl ?? "",
