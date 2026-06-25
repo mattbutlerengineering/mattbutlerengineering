@@ -14282,7 +14282,7 @@
        */
       async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
         return this.client.get<PaginatedResponse<Reservation>>(
-          "/api/v1/reservations",
+          RESERVATION_BASE_PATH,
           params as QueryParams,
           reservationListSchema
         );
@@ -14293,7 +14293,7 @@
        */
       async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
         return this.client.get<PaginatedResponse<Reservation>>(
-          `/api/v1/reservations/me?page=${page}&limit=${limit}`,
+          `${RESERVATION_BASE_PATH}/me?page=${page}&limit=${limit}`,
           undefined,
           reservationListSchema
         );
@@ -14304,7 +14304,7 @@
        */
       async get(id: string): Promise<Reservation> {
         const response = await this.client.get<{ data: Reservation }>(
-          `/api/v1/reservations/${id}`,
+          `${RESERVATION_BASE_PATH}/${id}`,
           undefined,
           reservationEnvelope
         );
@@ -14316,7 +14316,7 @@
        */
       async create(data: CreateReservationRequest): Promise<Reservation> {
         const response = await this.client.post<{ data: Reservation }>(
-          "/api/v1/reservations",
+          RESERVATION_BASE_PATH,
           data,
           reservationEnvelope
         );
@@ -14328,7 +14328,7 @@
        */
       async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
         const response = await this.client.patch<{ data: Reservation }>(
-          `/api/v1/reservations/${id}`,
+          `${RESERVATION_BASE_PATH}/${id}`,
           data,
           reservationEnvelope
         );
@@ -14340,7 +14340,7 @@
        */
       async cancel(id: string): Promise<Reservation> {
         const response = await this.client.request<{ data: Reservation }>(
-          `/api/v1/reservations/${id}`,
+          `${RESERVATION_BASE_PATH}/${id}`,
           { method: "DELETE" },
           reservationEnvelope
         );
@@ -14354,10 +14354,15 @@
         id: string,
         reason?: { cancellationReason?: string; cancellationNote?: string }
       ): Promise<Reservation> {
-        return this.update(id, {
-          status: "CANCELLED",
-          ...reason,
-        });
+        const response = await this.client.patch<{ data: Reservation }>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          {
+            status: "CANCELLED",
+            ...reason,
+          },
+          reservationEnvelope
+        );
+        return response.data;
       }
     
       /**
@@ -14371,7 +14376,7 @@
         durationMinutes?: number;
       }): Promise<Reservation> {
         const response = await this.client.post<{ data: Reservation }>(
-          "/api/v1/reservations/walk-in",
+          `${RESERVATION_BASE_PATH}/walk-in`,
           data,
           reservationEnvelope
         );
