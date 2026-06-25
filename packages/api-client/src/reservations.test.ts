@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiClient, ApiValidationError } from "./client.js";
 import { ReservationsClient } from "./reservations.js";
+import type { ApiClientError } from "./client.js";
 
 const mockFetch = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", mockFetch);
@@ -242,6 +243,22 @@ describe("ReservationsClient", () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1", status: "CONFIRMED" } }));
 
       await expect(makeClient().get("r1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("invokes onError callback with ApiValidationError when get() receives a malformed response", async () => {
+      const onError = vi.fn<(error: ApiClientError | ApiValidationError) => void>();
+      const apiClient = new ApiClient({
+        baseUrl: "https://api.test.com",
+        maxRetries: 0,
+        onError,
+      });
+      const client = new ReservationsClient(apiClient);
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1", status: "CONFIRMED" } }));
+
+      await expect(client.get("r1")).rejects.toBeInstanceOf(ApiValidationError);
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError.mock.calls[0]![0]).toBeInstanceOf(ApiValidationError);
     });
 
     it("throws ApiValidationError when list() receives a non-array data field", async () => {

@@ -1,4 +1,4 @@
-export { ApiClient, ApiClientError } from "./client.js";
+export { ApiClient, ApiClientError, ApiValidationError } from "./client.js";
 export type { ClientConfig, ErrorCategory, PerRequestOptions } from "./client.js";
 export { parseProblemDetails } from "./problem-details.js";
 export { retry } from "./retry.js";
@@ -38,7 +38,7 @@ export {
 export type { SystemHealth, ServiceHealth } from "./health.js";
 
 import { ApiClient } from "./client.js";
-import type { ApiClientError } from "./client.js";
+import type { ApiClientError, ApiValidationError } from "./client.js";
 import { UsersClient } from "./users.js";
 import { ReservationsClient } from "./reservations.js";
 import { VenuesClient, VenueGroupsClient } from "./venues.js";
@@ -55,7 +55,7 @@ export function createApiClient(config: {
   getAccessToken?: () => string | null | Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
-  onError?: (error: ApiClientError) => void;
+  onError?: (error: ApiClientError | ApiValidationError) => void;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",

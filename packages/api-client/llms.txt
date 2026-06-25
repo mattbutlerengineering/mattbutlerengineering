@@ -116,7 +116,7 @@
         getAccessToken?: () => string | null | Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
+        onError?: (error: ApiClientError | ApiValidationError) => void;
       }) { /* ... */ }
     </item>
   </file>
