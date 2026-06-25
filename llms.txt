@@ -3004,7 +3004,34 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/audit-inventory.ts">
+  <file path="packages/agent-core/src/audit-inventory-store.ts">
+    <item priority="high">
+      export async function loadInventory(repoPath: string): Promise<AuditInventory> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function saveInventory(repoPath: string, inventory: AuditInventory): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-regression-detector.ts">
+    <item priority="high">
+      export function findStalestZone(inventory: AuditInventory): Zone { /* ... */ }
+    </item>
+    <item priority="high">
+      export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-surface-mapper.ts">
+    <item priority="medium">
+      function fileToZones(filePath: string): readonly Zone[] | "all" | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapFilesToSurfaces(
+        inventory: AuditInventory,
+        changedFiles: readonly string[]
+      ): readonly AuditSurface[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/audit-surface-registry.ts">
     <item priority="low">
       type Zone = "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     </item>
