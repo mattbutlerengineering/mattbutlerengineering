@@ -323,5 +323,35 @@ describe("ReservationsClient", () => {
         })
       ).rejects.toBeInstanceOf(ApiValidationError);
     });
+
+    it("throws ApiValidationError when update() receives a malformed response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
+
+      await expect(makeClient().update("r1", { partySize: 4 })).rejects.toBeInstanceOf(
+        ApiValidationError
+      );
+    });
+
+    it("throws ApiValidationError when cancel() receives a malformed response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
+
+      await expect(makeClient().cancel("r1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when cancelWithReason() receives a malformed response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
+
+      await expect(
+        makeClient().cancelWithReason("r1", { cancellationReason: "guest_request" })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when walkIn() receives a malformed response", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1" } }));
+
+      await expect(
+        makeClient().walkIn({ partySize: 2, tableId: "t1", venueId: "v1" })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
   });
 });
