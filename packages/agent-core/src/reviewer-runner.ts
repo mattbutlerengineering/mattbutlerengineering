@@ -1,5 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { runHardenedQuery } from "./run-hardened-query.js";
 import { resolveModelId } from "./model-registry.js";
 import type {
   ReviewInput,
@@ -232,66 +231,48 @@ export async function runReviewer(
   try {
     const prompt = buildReviewerPrompt(input);
 
-    let result: SDKResultMessage | null = null;
-
-    const queryIterable = query({
+    const { resultMessage, errorMessage } = await runHardenedQuery({
       prompt,
-      options: {
-        model: config.model,
-        maxTurns: 1,
-        maxBudgetUsd: config.maxBudgetUsd,
-        permissionMode: "plan",
-        systemPrompt: "You are a code reviewer. Respond only with the requested JSON verdict.",
-        outputFormat: {
-          type: "json_schema",
-          schema: VERDICT_SCHEMA,
-        },
+      cwd: process.cwd(),
+      model: config.model,
+      maxTurns: 1,
+      maxBudgetUsd: config.maxBudgetUsd,
+      allowedTools: [],
+      systemPromptAppend: "You are a code reviewer. Respond only with the requested JSON verdict.",
+      outputFormat: {
+        type: "json_schema",
+        schema: VERDICT_SCHEMA,
+      },
+      heartbeatConfig: {
+        inactivityTimeoutMs: config.timeoutMs,
       },
     });
 
-    const timeoutPromise = new Promise<null>((resolve) =>
-      setTimeout(() => resolve(null), config.timeoutMs)
-    );
-
-    // Race the iterable against the timeout.
-    const collected = await Promise.race([
-      (async () => {
-        for await (const message of queryIterable) {
-          if (message.type === "result") {
-            result = message as SDKResultMessage;
-          }
-        }
-        return result;
-      })(),
-      timeoutPromise,
-    ]);
-
-    if (collected === null) {
-      // Timeout — fail-open
+    if (errorMessage !== null) {
       return {
-        verdict: makePassVerdict("Reviewer timed out — proceeding fail-open"),
+        verdict: makePassVerdict(`Reviewer failed: ${errorMessage} — proceeding fail-open`),
         costUsd: 0,
         durationMs: Date.now() - startMs,
         retryCount,
       };
     }
 
-    if (!collected || collected.subtype !== "success") {
+    if (!resultMessage || resultMessage.subtype !== "success") {
       return {
         verdict: makePassVerdict(
-          `Reviewer returned non-success subtype (${collected?.subtype ?? "no result"}) — proceeding fail-open`
+          `Reviewer returned non-success subtype (${resultMessage?.subtype ?? "no result"}) — proceeding fail-open`
         ),
-        costUsd: (collected as SDKResultMessage | null)?.total_cost_usd ?? 0,
+        costUsd: resultMessage?.total_cost_usd ?? 0,
         durationMs: Date.now() - startMs,
         retryCount,
       };
     }
 
-    const raw = collected.structured_output as ReviewVerdict | undefined;
+    const raw = resultMessage.structured_output as ReviewVerdict | undefined;
     if (!raw || typeof raw.score !== "number") {
       return {
         verdict: makePassVerdict("Reviewer returned unreadable output — proceeding fail-open"),
-        costUsd: collected.total_cost_usd ?? 0,
+        costUsd: resultMessage.total_cost_usd ?? 0,
         durationMs: Date.now() - startMs,
         retryCount,
       };
@@ -299,7 +280,7 @@ export async function runReviewer(
 
     return {
       verdict: parseReviewerVerdict(raw),
-      costUsd: collected.total_cost_usd ?? 0,
+      costUsd: resultMessage.total_cost_usd ?? 0,
       durationMs: Date.now() - startMs,
       retryCount,
     };
