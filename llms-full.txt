@@ -10893,14 +10893,6 @@
       .catchall(z.unknown());
   </file>
   <file path="packages/types/src/schemas/common.ts">
-    export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) {
-      return z.object({
-        data: z.array(itemSchema),
-        total: z.number(),
-        page: z.number(),
-        limit: z.number(),
-      });
-    }
     export const PaginationSchema = z.object({
       page: z.number(),
       limit: z.number(),
@@ -10909,6 +10901,12 @@
       hasNext: z.boolean(),
       hasPrev: z.boolean(),
     });
+    export function paginatedResponseSchema<T>(itemSchema: z.ZodSchema<T>) {
+      return z.object({
+        data: z.array(itemSchema),
+        pagination: PaginationSchema,
+      });
+    }
   </file>
   <file path="packages/types/src/schemas/floor-plan.ts">
     export const TableShapeMetadataSchema = z.object({
@@ -13723,6 +13721,14 @@
       readonly stuckDetectorConfig?: Partial<StuckDetectorConfig>;
       /** Heartbeat configuration overrides. */
       readonly heartbeatConfig?: Partial<HeartbeatConfig>;
+      /**
+       * Structured output format. When provided, forwarded to query() options.
+       * Use for single-turn structured-output calls (e.g. reviewer).
+       */
+      readonly outputFormat?: {
+        readonly type: "json_schema";
+        readonly schema: Record<string, unknown>;
+      };
     }
   </file>
   <file path="packages/agent-core/src/sanitize-output.ts">
@@ -14414,10 +14420,7 @@
         return this.client.get<PaginatedResponse<Reservation>>(
           RESERVATION_BASE_PATH,
           params as QueryParams,
-          // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
-          // actual API returns a flat shape (data, total, page, limit). The schema matches
-          // the real wire format; cast through unknown to satisfy the TS return type.
-          reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
+          reservationListSchema
         );
       }
     
@@ -14428,10 +14431,7 @@
         return this.client.get<PaginatedResponse<Reservation>>(
           `${RESERVATION_BASE_PATH}/me?page=${page}&limit=${limit}`,
           undefined,
-          // PaginatedResponse<T> has a nested `pagination` object in the TS type but the
-          // actual API returns a flat shape (data, total, page, limit). The schema matches
-          // the real wire format; cast through unknown to satisfy the TS return type.
-          reservationListSchema as unknown as z.ZodSchema<PaginatedResponse<Reservation>>
+          reservationListSchema
         );
       }
     
@@ -15220,6 +15220,11 @@
         if (this.shouldSendEmail(preference)) {
           await this.emailAdapter.sendWinBack(input);
         }
+      }
+    
+      /** Post-visit thank-you — transactional, no preference routing needed. */
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        await this.emailAdapter.sendThankYouEmail(input);
       }
     }
   </file>
@@ -16210,7 +16215,8 @@
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
-      const postVisitNotifier = options.postVisitNotifier ?? createDefaultPostVisitNotifier();
+      const postVisitNotifier =
+        options.postVisitNotifier ?? createDefaultPostVisitNotifier(notificationPort);
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production
