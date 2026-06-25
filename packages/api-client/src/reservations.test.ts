@@ -284,6 +284,22 @@ describe("ReservationsClient", () => {
       await expect(makeClient().get("r1")).rejects.toBeInstanceOf(ApiValidationError);
     });
 
+    it("invokes onError callback with ApiValidationError when get() receives a malformed response", async () => {
+      const onError = vi.fn();
+      const apiClient = new ApiClient({
+        baseUrl: "https://api.test.com",
+        maxRetries: 0,
+        onError,
+      });
+      const client = new ReservationsClient(apiClient);
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "r1", status: "CONFIRMED" } }));
+
+      await expect(client.get("r1")).rejects.toBeInstanceOf(ApiValidationError);
+      expect(onError).toHaveBeenCalledOnce();
+      expect(onError.mock.calls[0]![0]).toBeInstanceOf(ApiValidationError);
+    });
+
     it("throws ApiValidationError when list() receives a non-array data field", async () => {
       mockFetch.mockResolvedValueOnce(
         jsonResponse({ data: "not-an-array", total: 0, page: 1, limit: 10 })
