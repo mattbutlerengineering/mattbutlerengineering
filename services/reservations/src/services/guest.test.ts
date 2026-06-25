@@ -12,9 +12,6 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
-      reservation: {
-        findMany: vi.fn().mockResolvedValue([]),
-      },
     },
   });
 });
@@ -24,6 +21,7 @@ import { prisma } from "./database.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
 const LAST_VISIT = new Date("2026-04-15T19:00:00Z");
+const LAST_NO_SHOW = new Date("2026-03-10T19:00:00Z");
 
 function makePrismaGuest(overrides: Record<string, unknown> = {}) {
   return {
@@ -34,6 +32,8 @@ function makePrismaGuest(overrides: Record<string, unknown> = {}) {
     name: "Jane Doe",
     notes: "Prefers booth seating",
     visitCount: 3,
+    noShowCount: 0,
+    lastNoShowAt: null,
     lifetimeSpend: { toString: () => "450.00" },
     lastVisit: LAST_VISIT,
     tags: ["vip", "regular"],
@@ -63,6 +63,19 @@ describe("guestService", () => {
       expect(result.pagination.total).toBe(1);
     });
 
+    it("reads noShowCount from guest record without querying reservations", async () => {
+      vi.mocked(prisma.guest.findMany).mockResolvedValueOnce([
+        makePrismaGuest({ noShowCount: 2, lastNoShowAt: LAST_NO_SHOW }),
+      ] as never);
+      vi.mocked(prisma.guest.count).mockResolvedValueOnce(1 as never);
+
+      const result = await guestService.list("venue-1", 1, 10);
+
+      expect(result.data[0].noShowCount).toBe(2);
+      // No reservation sub-queries should be fired
+      expect((prisma as unknown as Record<string, unknown>).reservation).toBeUndefined();
+    });
+
     it("handles null lifetimeSpend and lastVisit", async () => {
       vi.mocked(prisma.guest.findMany).mockResolvedValueOnce([
         makePrismaGuest({ lifetimeSpend: null, lastVisit: null }),
@@ -84,6 +97,19 @@ describe("guestService", () => {
 
       expect(result!.id).toBe("guest-1");
       expect(result!.email).toBe("guest@example.com");
+    });
+
+    it("returns noShowCount from guest record without querying reservations", async () => {
+      vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce(
+        makePrismaGuest({ noShowCount: 3, lastNoShowAt: LAST_NO_SHOW }) as never
+      );
+
+      const result = await guestService.getById("guest-1");
+
+      expect(result!.noShowCount).toBe(3);
+      // Only one DB query — the guest lookup, no reservation sub-query
+      expect(prisma.guest.findUnique).toHaveBeenCalledTimes(1);
+      expect((prisma as unknown as Record<string, unknown>).reservation).toBeUndefined();
     });
 
     it("returns null when not found", async () => {
@@ -276,6 +302,32 @@ describe("guestService", () => {
       vi.mocked(prisma.guest.delete).mockRejectedValueOnce({ code: "P2025" } as never);
 
       expect(await guestService.delete("missing")).toBe(false);
+    });
+  });
+
+  describe("recordNoShow", () => {
+    it("increments noShowCount and sets lastNoShowAt on the guest record", async () => {
+      const noShowDate = new Date("2026-05-15T19:00:00Z");
+      vi.mocked(prisma.guest.update).mockResolvedValueOnce(
+        makePrismaGuest({ noShowCount: 1, lastNoShowAt: noShowDate }) as never
+      );
+
+      const result = await guestService.recordNoShow("guest-1", noShowDate);
+
+      expect(result!.noShowCount).toBe(1);
+      expect(prisma.guest.update).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: {
+          noShowCount: { increment: 1 },
+          lastNoShowAt: noShowDate,
+        },
+      });
+    });
+
+    it("returns null for P2025", async () => {
+      vi.mocked(prisma.guest.update).mockRejectedValueOnce({ code: "P2025" } as never);
+
+      expect(await guestService.recordNoShow("missing", new Date())).toBeNull();
     });
   });
 

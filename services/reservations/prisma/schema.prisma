@@ -168,6 +168,8 @@ model Guest {
   name                    String
   notes                   String?
   visitCount              Int                     @default(0) @map("visit_count")
+  noShowCount             Int                     @default(0) @map("no_show_count")
+  lastNoShowAt            DateTime?               @map("last_no_show_at")
   lifetimeSpend           Decimal?                @map("lifetime_spend") @db.Decimal(10, 2)
   lastVisit               DateTime?               @map("last_visit")
   tags                    Json?

@@ -242,6 +242,39 @@ describe("runHardenedQuery", () => {
     expect(stuckReason).toBeNull();
   });
 
+  it("forwards outputFormat to query() options when provided", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
+
+    const outputFormat = {
+      type: "json_schema" as const,
+      schema: { type: "object" as const, properties: { verdict: { type: "string" as const } } },
+    };
+
+    const resultPromise = runHardenedQuery({ ...BASE_CONFIG, outputFormat });
+    await vi.runAllTimersAsync();
+    await resultPromise;
+
+    const callArgs = vi.mocked(query).mock.calls[0];
+    expect(callArgs[0].options?.outputFormat).toEqual(outputFormat);
+  });
+
+  it("does not set outputFormat in query() options when omitted", async () => {
+    const mockResult = createMockResultMessage();
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([mockResult]) as ReturnType<typeof query>
+    );
+
+    const resultPromise = runHardenedQuery(BASE_CONFIG);
+    await vi.runAllTimersAsync();
+    await resultPromise;
+
+    const callArgs = vi.mocked(query).mock.calls[0];
+    expect(callArgs[0].options?.outputFormat).toBeUndefined();
+  });
+
   it("records turn and tool-call metrics", async () => {
     const { mapSdkMessage } = await import("../event-mapper.js");
     vi.mocked(mapSdkMessage).mockReturnValue([
