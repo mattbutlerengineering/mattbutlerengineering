@@ -30,7 +30,7 @@ export interface ClientConfig {
   getAccessToken?: () => string | null | Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
-  onError?: (error: ApiClientError | ApiValidationError) => void;
+  onError?: (error: ApiClientError) => void;
 }
 
 export interface RequestOptions extends RequestInit {
@@ -150,7 +150,9 @@ export class ApiClient {
       const result = schema.safeParse(data);
       if (!result.success) {
         const validationError = new ApiValidationError(result.error, method, path);
-        this.config.onError?.(validationError);
+        // Cast to ApiClientError so onError can observe validation errors too.
+        // Callers can narrow with `instanceof ApiValidationError`.
+        this.config.onError?.(validationError as unknown as ApiClientError);
         throw validationError;
       }
       return result.data;

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiClient, ApiValidationError } from "./client.js";
 import { ReservationsClient } from "./reservations.js";
-import type { ApiClientError } from "./client.js";
 
 const mockFetch = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", mockFetch);
@@ -246,7 +245,7 @@ describe("ReservationsClient", () => {
     });
 
     it("invokes onError callback with ApiValidationError when get() receives a malformed response", async () => {
-      const onError = vi.fn<(error: ApiClientError | ApiValidationError) => void>();
+      const onError = vi.fn();
       const apiClient = new ApiClient({
         baseUrl: "https://api.test.com",
         maxRetries: 0,
