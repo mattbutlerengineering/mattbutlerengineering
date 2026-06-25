@@ -17,27 +17,25 @@ import { emitLapsingGuests } from "./events.js";
 import { buildGuestUpdateData } from "./guest-identity.js";
 import { computeGuestRisk } from "./guest-risk.js";
 
-function mapPrismaGuest(
-  guest: {
-    id: string;
-    venueId: string;
-    email: string | null;
-    phone: string | null;
-    name: string;
-    notes: string | null;
-    visitCount: number;
-    lifetimeSpend: Prisma.Decimal | null;
-    lastVisit: Date | null;
-    tags: unknown;
-    communicationPreference: string;
-    dietaryRestrictions: unknown;
-    staffNotes: unknown;
-    createdAt: Date;
-    updatedAt: Date;
-  },
-  noShowCount = 0,
-  lastNoShowDate: Date | null = null
-): Guest {
+function mapPrismaGuest(guest: {
+  id: string;
+  venueId: string;
+  email: string | null;
+  phone: string | null;
+  name: string;
+  notes: string | null;
+  visitCount: number;
+  noShowCount: number;
+  lastNoShowAt: Date | null;
+  lifetimeSpend: Prisma.Decimal | null;
+  lastVisit: Date | null;
+  tags: unknown;
+  communicationPreference: string;
+  dietaryRestrictions: unknown;
+  staffNotes: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): Guest {
   const rawNotes = guest.staffNotes as StaffNote[] | null;
   // Return notes in reverse chronological order (newest first)
   const staffNotes = rawNotes
@@ -46,7 +44,7 @@ function mapPrismaGuest(
       )
     : [];
 
-  const riskScore = computeGuestRisk(noShowCount, guest.visitCount, lastNoShowDate);
+  const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, guest.lastNoShowAt);
 
   return {
     id: guest.id,
@@ -56,7 +54,7 @@ function mapPrismaGuest(
     name: guest.name,
     notes: guest.notes,
     visitCount: guest.visitCount,
-    noShowCount,
+    noShowCount: guest.noShowCount,
     riskScore,
     lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
     lastVisit: guest.lastVisit?.toISOString() ?? null,
@@ -66,24 +64,6 @@ function mapPrismaGuest(
     staffNotes,
     createdAt: guest.createdAt.toISOString(),
     updatedAt: guest.updatedAt.toISOString(),
-  };
-}
-
-/**
- * Returns the no-show count and last no-show date for a single guest.
- */
-async function fetchNoShowStats(guestId: string): Promise<{
-  count: number;
-  lastNoShowDate: Date | null;
-}> {
-  const noShows = await prisma.reservation.findMany({
-    where: { guestId, status: "NO_SHOW" },
-    select: { startTime: true },
-    orderBy: { startTime: "desc" },
-  });
-  return {
-    count: noShows.length,
-    lastNoShowDate: noShows[0]?.startTime ?? null,
   };
 }
 
@@ -98,41 +78,29 @@ export const guestService = {
       prisma.guest.count({ where: { venueId } }),
     ]);
 
-    // Fetch no-show counts for all guests in parallel
-    const noShowStatsList = await Promise.all(guests.map((g) => fetchNoShowStats(g.id)));
-
     return {
-      data: guests.map((g, i) =>
-        mapPrismaGuest(g, noShowStatsList[i]!.count, noShowStatsList[i]!.lastNoShowDate)
-      ),
+      data: guests.map((g) => mapPrismaGuest(g)),
       pagination: toPaginationMeta(page, limit, total),
     };
   },
 
   async getById(id: string): Promise<Guest | null> {
-    const [guest, noShowStats] = await Promise.all([
-      prisma.guest.findUnique({ where: { id } }),
-      fetchNoShowStats(id),
-    ]);
-    return guest ? mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate) : null;
+    const guest = await prisma.guest.findUnique({ where: { id } });
+    return guest ? mapPrismaGuest(guest) : null;
   },
 
   async findByEmail(venueId: string, email: string): Promise<Guest | null> {
     const guest = await prisma.guest.findUnique({
       where: { venueId_email: { venueId, email } },
     });
-    if (!guest) return null;
-    const noShowStats = await fetchNoShowStats(guest.id);
-    return mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate);
+    return guest ? mapPrismaGuest(guest) : null;
   },
 
   async findByPhone(venueId: string, phone: string): Promise<Guest | null> {
     const guest = await prisma.guest.findUnique({
       where: { venueId_phone: { venueId, phone } },
     });
-    if (!guest) return null;
-    const noShowStats = await fetchNoShowStats(guest.id);
-    return mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate);
+    return guest ? mapPrismaGuest(guest) : null;
   },
 
   /**
@@ -166,14 +134,10 @@ export const guestService = {
       };
       const updateData = buildGuestUpdateData(snapshot, data);
       if (Object.keys(updateData).length > 0) {
-        const [updated, noShowStats] = await Promise.all([
-          prisma.guest.update({ where: { id: existing.id }, data: updateData }),
-          fetchNoShowStats(existing.id),
-        ]);
-        return mapPrismaGuest(updated, noShowStats.count, noShowStats.lastNoShowDate);
+        const updated = await prisma.guest.update({ where: { id: existing.id }, data: updateData });
+        return mapPrismaGuest(updated);
       }
-      const noShowStats = await fetchNoShowStats(existing.id);
-      return mapPrismaGuest(existing, noShowStats.count, noShowStats.lastNoShowDate);
+      return mapPrismaGuest(existing);
     }
 
     // Create new guest — no no-shows yet
@@ -188,7 +152,7 @@ export const guestService = {
           : {}),
       },
     });
-    return mapPrismaGuest(guest, 0, null);
+    return mapPrismaGuest(guest);
   },
 
   async create(data: CreateGuestRequest): Promise<Guest> {
@@ -205,8 +169,7 @@ export const guestService = {
           : {}),
       },
     });
-    // New guest — no no-shows yet
-    return mapPrismaGuest(guest, 0, null);
+    return mapPrismaGuest(guest);
   },
 
   async update(id: string, data: UpdateGuestRequest): Promise<Guest | null> {
@@ -224,11 +187,8 @@ export const guestService = {
             : (data.dietaryRestrictions as Prisma.InputJsonValue);
       }
 
-      const [guest, noShowStats] = await Promise.all([
-        prisma.guest.update({ where: { id }, data: updateData }),
-        fetchNoShowStats(id),
-      ]);
-      return mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate);
+      const guest = await prisma.guest.update({ where: { id }, data: updateData });
+      return mapPrismaGuest(guest);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -262,14 +222,11 @@ export const guestService = {
       };
       const updatedNotes: StaffNote[] = [...existingNotes, newNote];
 
-      const [guest, noShowStats] = await Promise.all([
-        prisma.guest.update({
-          where: { id },
-          data: { staffNotes: updatedNotes as unknown as Prisma.InputJsonValue },
-        }),
-        fetchNoShowStats(id),
-      ]);
-      return mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate);
+      const guest = await prisma.guest.update({
+        where: { id },
+        data: { staffNotes: updatedNotes as unknown as Prisma.InputJsonValue },
+      });
+      return mapPrismaGuest(guest);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -281,20 +238,36 @@ export const guestService = {
    */
   async recordVisit(guestId: string, visitDate: Date, spendAmount?: number): Promise<Guest | null> {
     try {
-      const [guest, noShowStats] = await Promise.all([
-        prisma.guest.update({
-          where: { id: guestId },
-          data: {
-            visitCount: { increment: 1 },
-            lastVisit: visitDate,
-            ...(spendAmount !== undefined && {
-              lifetimeSpend: { increment: spendAmount },
-            }),
-          },
-        }),
-        fetchNoShowStats(guestId),
-      ]);
-      return mapPrismaGuest(guest, noShowStats.count, noShowStats.lastNoShowDate);
+      const guest = await prisma.guest.update({
+        where: { id: guestId },
+        data: {
+          visitCount: { increment: 1 },
+          lastVisit: visitDate,
+          ...(spendAmount !== undefined && {
+            lifetimeSpend: { increment: spendAmount },
+          }),
+        },
+      });
+      return mapPrismaGuest(guest);
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
+    }
+  },
+
+  /**
+   * Increment no-show counter on the guest record after a NO_SHOW transition.
+   */
+  async recordNoShow(guestId: string, noShowDate: Date): Promise<Guest | null> {
+    try {
+      const guest = await prisma.guest.update({
+        where: { id: guestId },
+        data: {
+          noShowCount: { increment: 1 },
+          lastNoShowAt: noShowDate,
+        },
+      });
+      return mapPrismaGuest(guest);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;
       throw err;
@@ -358,12 +331,8 @@ export const guestService = {
       prisma.guest.count({ where }),
     ]);
 
-    const noShowStatsList = await Promise.all(guests.map((g) => fetchNoShowStats(g.id)));
-
     return {
-      data: guests.map((g, i) =>
-        mapPrismaGuest(g, noShowStatsList[i]!.count, noShowStatsList[i]!.lastNoShowDate)
-      ),
+      data: guests.map((g) => mapPrismaGuest(g)),
       pagination: toPaginationMeta(1, SEARCH_LIMIT, total),
     };
   },
