@@ -102,6 +102,7 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
           DEPLOY_PR_NUMBER: ${{ github.event.number }}
           DEPLOY_AUTHOR: ${{ github.actor }}
+          MANAGE_TOKEN_SECRET: ${{ secrets.MANAGE_TOKEN_SECRET }}
         run: |
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep mattbutlerengineering-api | awk '{print $1}')
           if [ -z "$APP_ID" ]; then
@@ -120,6 +121,14 @@ jobs:
                {\"key\":\"DEPLOY_PR_NUMBER\",\"value\":\"${DEPLOY_PR_NUMBER}\"},
                {\"key\":\"DEPLOY_AUTHOR\",\"value\":\"${DEPLOY_AUTHOR}\"}])" /tmp/spec.yaml
           done
+
+          # Upsert MANAGE_TOKEN_SECRET into reservations-api — required for startup in production.
+          # This bridges the gap while ignoreChanges: ["spec"] prevents Pulumi from pushing env changes.
+          if [ -n "${MANAGE_TOKEN_SECRET}" ]; then
+            yq -i "(.services[] | select(.name == \"reservations-api\").envs) |=
+              (map(select(.key != \"MANAGE_TOKEN_SECRET\")) +
+              [{\"key\":\"MANAGE_TOKEN_SECRET\",\"value\":\"${MANAGE_TOKEN_SECRET}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
+          fi
 
           echo "Updating app spec with deploy metadata"
           doctl apps update "$APP_ID" --spec /tmp/spec.yaml
