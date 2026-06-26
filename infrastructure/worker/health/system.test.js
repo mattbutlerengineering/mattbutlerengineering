@@ -23,7 +23,10 @@ vi.mock("../deploy-health.js", () => ({
     if (!data) return { status: "stale" };
     const age = now - new Date(data.updated_at).getTime();
     if (age > 60 * 60 * 1000) return { status: "stale" };
-    return { status: data.conclusion === "success" ? "healthy" : "unhealthy" };
+    if (data.conclusion === "success") return { status: "healthy" };
+    // cancelled is the DO+Pulumi race artifact — treat as stale, not unhealthy
+    if (data.conclusion === "cancelled") return { status: "stale" };
+    return { status: "unhealthy" };
   },
 }));
 
@@ -163,6 +166,18 @@ describe("deployStatus", () => {
   it("returns degraded when pipelines are stale but not failed", () => {
     const result = deployStatus(
       { static: null, services: recentSuccess, infrastructure: recentSuccess },
+      now
+    );
+    expect(result.status).toBe("degraded");
+  });
+
+  it("returns degraded (not unhealthy) when a pipeline is cancelled (DO+Pulumi race)", () => {
+    const recentCancelled = {
+      conclusion: "cancelled",
+      updated_at: new Date(now - 1000).toISOString(),
+    };
+    const result = deployStatus(
+      { static: recentSuccess, services: recentCancelled, infrastructure: recentSuccess },
       now
     );
     expect(result.status).toBe("degraded");
