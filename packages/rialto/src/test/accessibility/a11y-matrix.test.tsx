@@ -99,6 +99,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Toggle",
   "Tooltip",
   "Tree",
+  "WatchLoader",
 ] as const;
 
 describe("A11y matrix — fixture coverage guard", () => {

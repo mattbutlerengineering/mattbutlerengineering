@@ -310,6 +310,10 @@
       "types": "./dist/lib/components/Tree/index.d.ts",
       "import": "./dist/lib/components/Tree/index.js"
     },
+    "./WatchLoader": {
+      "types": "./dist/lib/components/WatchLoader/index.d.ts",
+      "import": "./dist/lib/components/WatchLoader/index.js"
+    },
     "./styles": {
       "types": "./dist/lib/styles.d.ts",
       "default": "./dist/lib/styles.css"
