@@ -125,6 +125,8 @@ describe("requireManageToken preHandler", () => {
   it("decorates request.managedReservationId and passes through for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
@@ -136,5 +138,22 @@ describe("requireManageToken preHandler", () => {
     // Handler ran (uses managedReservationId) — reservation returned successfully
     expect(response.statusCode).toBe(200);
     expect(response.json().data.reservation.id).toBe("res_1");
+  });
+
+  it("returns 403 when token guestEmail does not match reservation guestEmail", async () => {
+    const token = generateManageToken("res_1", "attacker@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(403);
+    const body = response.json();
+    expect(body.type).toBe("about:blank");
+    expect(body.title).toBe("Forbidden");
+    expect(body.status).toBe(403);
   });
 });

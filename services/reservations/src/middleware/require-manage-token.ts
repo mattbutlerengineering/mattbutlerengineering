@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { verifyManageToken } from "../routes/public-reservations.js";
+import { reservationService } from "../services/reservation.js";
 
 /**
  * Fastify preHandler that validates the `token` query param as a manage token.
@@ -46,6 +47,17 @@ export async function requireManageToken(
       title: "Invalid Token",
       status: 401,
       detail: "Invalid or malformed token",
+    });
+    return;
+  }
+
+  const reservation = await reservationService.getById(result.reservationId!);
+  if (reservation && reservation.guestEmail !== result.guestEmail) {
+    await reply.status(403).send({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      detail: "Token does not match reservation",
     });
     return;
   }
