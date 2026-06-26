@@ -57,6 +57,20 @@ export function getTitleForStatus(status: number): string {
 export function classifyError(err: unknown): ErrorClassification {
   const e = err as CustomError;
 
+  // AppError (@mbe/types): a deliberately-thrown domain error carrying a
+  // machine-readable `code` plus an explicit HTTP status. Emit the code as an
+  // RFC 9457 extension member so clients keep a stable discriminator that does
+  // not collapse into the generic HTTP status title. Guarded on the AppError
+  // name so generic Fastify errors (FST_ERR_*) never leak their internal codes.
+  if (e.name === "AppError" && typeof e.code === "string" && typeof e.statusCode === "number") {
+    return {
+      status: e.statusCode,
+      title: getTitleForStatus(e.statusCode),
+      detail: e.message,
+      extensions: { code: e.code },
+    };
+  }
+
   const isPrisma =
     e.name === "PrismaClientKnownRequestError" ||
     e.constructor?.name === "PrismaClientKnownRequestError" ||

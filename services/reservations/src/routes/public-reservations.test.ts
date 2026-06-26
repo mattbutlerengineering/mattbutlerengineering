@@ -191,7 +191,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(response.statusCode).toBe(409);
   });
 
-  it("returns 422 with Pacing Limit Reached title when pacing is exceeded", async () => {
+  it("returns 422 with PACING_EXCEEDED code when pacing is exceeded", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({
       success: false,
@@ -209,6 +209,8 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     const body = response.json();
     expect(body.title).toBe("Unprocessable Entity");
     expect(body.detail).toBe("Pacing limit reached for this time slot");
+    // The machine-readable discriminator survives the AppError migration.
+    expect(body.code).toBe("PACING_EXCEEDED");
   });
 });
 
