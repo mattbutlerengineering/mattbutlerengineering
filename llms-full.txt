@@ -4020,6 +4020,17 @@
         return;
       }
     
+      const reservation = await reservationService.getById(result.reservationId!);
+      if (reservation && reservation.guestEmail !== result.guestEmail) {
+        await reply.status(403).send({
+          type: "about:blank",
+          title: "Forbidden",
+          status: 403,
+          detail: "Token does not match reservation",
+        });
+        return;
+      }
+    
       request.managedReservationId = result.reservationId!;
     }
   </file>
@@ -16049,7 +16060,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

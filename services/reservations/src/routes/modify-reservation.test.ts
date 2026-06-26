@@ -114,6 +114,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
       startTime: "20:00",
     };
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -137,6 +139,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const token = generateManageToken("res_1", "jane@example.com");
     const updatedReservation = { ...mockReservation, partySize: 2 };
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -164,6 +168,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 when time slot has conflict", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: false,
@@ -184,6 +190,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 for cancelled reservation", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check (email matches); route handler gets CANCELLED → 409
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "CANCELLED",
@@ -202,6 +210,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 409 for completed reservation", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check (email matches); route handler gets COMPLETED → 409
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
       status: "COMPLETED",
@@ -220,6 +230,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
   it("returns 400 when no fields provided", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
 
     const response = await app.inject({
@@ -253,6 +265,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
       notes: "No peanuts please",
     };
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -286,6 +300,8 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const token = generateManageToken("res_1", "jane@example.com");
     const updatedReservation = { ...mockReservation, startTime: "20:00" };
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
