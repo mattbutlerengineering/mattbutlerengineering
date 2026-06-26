@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   PaginatedResponse,
   Guest,
@@ -6,6 +7,7 @@ import type {
   CreateGuestRequest,
   UpdateGuestRequest,
 } from "@mbe/types";
+import { GuestSchema, GuestSegmentSchema, paginatedResponseSchema } from "@mbe/types";
 
 export interface FindOrCreateGuestRequest {
   venueId: string;
@@ -28,6 +30,8 @@ export interface SearchGuestsParams {
   hasNotVisitedInDays?: number;
 }
 
+const guestListSchema: z.ZodSchema<PaginatedResponse<Guest>> = paginatedResponseSchema(GuestSchema);
+
 export class GuestsClient {
   constructor(private client: ApiClient) {}
 
@@ -37,7 +41,8 @@ export class GuestsClient {
   async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
     return this.client.get<PaginatedResponse<Guest>>(
       "/api/v1/guests",
-      params as unknown as QueryParams
+      params as unknown as QueryParams,
+      guestListSchema
     );
   }
 
@@ -47,7 +52,8 @@ export class GuestsClient {
   async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
     return this.client.get<PaginatedResponse<Guest>>(
       "/api/v1/guests/search",
-      params as unknown as QueryParams
+      params as unknown as QueryParams,
+      guestListSchema
     );
   }
 
@@ -55,35 +61,39 @@ export class GuestsClient {
    * Get guest segments for a venue
    */
   async getSegments(venueId: string): Promise<GuestSegment[]> {
-    return this.client.getOne<GuestSegment[]>(`/api/v1/guests/segments?venueId=${venueId}`);
+    return this.client.getOne<GuestSegment[]>(
+      `/api/v1/guests/segments?venueId=${venueId}`,
+      undefined,
+      z.array(GuestSegmentSchema)
+    );
   }
 
   /**
    * Get a guest by ID
    */
   async get(id: string): Promise<Guest> {
-    return this.client.getOne<Guest>(`/api/v1/guests/${id}`);
+    return this.client.getOne<Guest>(`/api/v1/guests/${id}`, undefined, GuestSchema);
   }
 
   /**
    * Create a new guest
    */
   async create(data: CreateGuestRequest): Promise<Guest> {
-    return this.client.postOne<Guest>("/api/v1/guests", data);
+    return this.client.postOne<Guest>("/api/v1/guests", data, GuestSchema);
   }
 
   /**
    * Find or create a guest by email/phone
    */
   async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
-    return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data);
+    return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data, GuestSchema);
   }
 
   /**
    * Update a guest
    */
   async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
-    return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data);
+    return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data, GuestSchema);
   }
 
   /**
@@ -97,7 +107,7 @@ export class GuestsClient {
    * Add a staff note to a guest
    */
   async addNote(id: string, text: string): Promise<Guest> {
-    return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text });
+    return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text }, GuestSchema);
   }
 
   /**

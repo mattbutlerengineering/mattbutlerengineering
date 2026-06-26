@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { UsersClient } from "./users.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -18,11 +18,22 @@ function makeClient() {
   return new UsersClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeUser = {
   id: "u1",
   email: "alice@example.com",
   name: "Alice",
-  role: "ADMIN",
+  picture: null,
+  emailVerified: true,
+  preferences: {},
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -35,7 +46,7 @@ describe("UsersClient", () => {
   describe("list", () => {
     it("requests the correct URL with default pagination", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeUser], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeUser], pagination: fakePagination })
       );
 
       const client = makeClient();
@@ -46,7 +57,12 @@ describe("UsersClient", () => {
     });
 
     it("passes custom page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 2, limit: 5 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          data: [],
+          pagination: { ...fakePagination, page: 2, limit: 5, total: 0, totalPages: 0 },
+        })
+      );
 
       await makeClient().list(2, 5);
 
@@ -55,7 +71,7 @@ describe("UsersClient", () => {
     });
 
     it("returns the paginated response", async () => {
-      const body = { data: [fakeUser], total: 1, page: 1, limit: 10 };
+      const body = { data: [fakeUser], pagination: fakePagination };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
       const result = await makeClient().list();
@@ -176,6 +192,36 @@ describe("UsersClient", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
       await expect(makeClient().list()).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed user", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "u1" } }));
+
+      await expect(makeClient().get("u1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when me() receives a malformed user", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "u1" } }));
+
+      await expect(makeClient().me()).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed user", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "u1" } }));
+
+      await expect(
+        makeClient().create({ email: "alice@example.com", name: "Alice" })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when update() receives a malformed user", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "u1" } }));
+
+      await expect(makeClient().update("u1", { name: "Alicia" })).rejects.toBeInstanceOf(
+        ApiValidationError
+      );
     });
   });
 });

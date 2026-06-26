@@ -1,6 +1,6 @@
 import type { ApiError, ProblemDetails } from "@mbe/types";
 import { ApiErrorSchema } from "@mbe/types";
-import type { z } from "zod";
+import { z } from "zod";
 import { retry } from "./retry.js";
 import { parseProblemDetails } from "./problem-details.js";
 
@@ -212,27 +212,48 @@ export class ApiClient {
   /**
    * GET + unwrap `.data` from ApiResponse envelope.
    * Use for single-resource endpoints that return `{ data: T }`.
+   * Pass a Zod schema to validate the unwrapped value at runtime.
    */
-  async getOne<T>(path: string, params?: QueryParams, override?: PerRequestOptions): Promise<T> {
-    const response = await this.get<{ data: T }>(path, params, undefined, override);
+  async getOne<T>(
+    path: string,
+    params?: QueryParams,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+    const response = await this.get<{ data: T }>(path, params, envelopeSchema, override);
     return response.data;
   }
 
   /**
    * POST + unwrap `.data` from ApiResponse envelope.
    * Use for create endpoints that return `{ data: T }`.
+   * Pass a Zod schema to validate the unwrapped value at runtime.
    */
-  async postOne<T>(path: string, body: unknown, override?: PerRequestOptions): Promise<T> {
-    const response = await this.post<{ data: T }>(path, body, undefined, override);
+  async postOne<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+    const response = await this.post<{ data: T }>(path, body, envelopeSchema, override);
     return response.data;
   }
 
   /**
    * PATCH + unwrap `.data` from ApiResponse envelope.
    * Use for update endpoints that return `{ data: T }`.
+   * Pass a Zod schema to validate the unwrapped value at runtime.
    */
-  async patchOne<T>(path: string, body: unknown, override?: PerRequestOptions): Promise<T> {
-    const response = await this.patch<{ data: T }>(path, body, undefined, override);
+  async patchOne<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+    const response = await this.patch<{ data: T }>(path, body, envelopeSchema, override);
     return response.data;
   }
 }

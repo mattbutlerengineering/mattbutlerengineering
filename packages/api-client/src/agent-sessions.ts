@@ -44,11 +44,11 @@ export class AgentSessionClient extends ApiClient {
     body: CreateSessionRequest,
     override?: PerRequestOptions
   ): Promise<SessionSummary> {
-    return this.postOne<SessionSummary>("/v1/sessions", body, override);
+    return this.postOne<SessionSummary>("/v1/sessions", body, undefined, override);
   }
 
   async getSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
-    return this.getOne<SessionSummary>(`/v1/sessions/${id}`, undefined, override);
+    return this.getOne<SessionSummary>(`/v1/sessions/${id}`, undefined, undefined, override);
   }
 
   async listSessions(
@@ -59,6 +59,6 @@ export class AgentSessionClient extends ApiClient {
   }
 
   async cancelSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
-    return this.postOne<SessionSummary>(`/v1/sessions/${id}/cancel`, {}, override);
+    return this.postOne<SessionSummary>(`/v1/sessions/${id}/cancel`, {}, undefined, override);
   }
 }
