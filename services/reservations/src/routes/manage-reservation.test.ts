@@ -102,6 +102,8 @@ describe("GET /public/v1/reservations/manage", () => {
   it("returns reservation + venue details for valid token", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 

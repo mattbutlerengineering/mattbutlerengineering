@@ -4020,6 +4020,17 @@
         return;
       }
     
+      const reservation = await reservationService.getById(result.reservationId!);
+      if (reservation && reservation.guestEmail !== result.guestEmail) {
+        await reply.status(403).send({
+          type: "about:blank",
+          title: "Forbidden",
+          status: 403,
+          detail: "Token does not match reservation",
+        });
+        return;
+      }
+    
       request.managedReservationId = result.reservationId!;
     }
   </file>
