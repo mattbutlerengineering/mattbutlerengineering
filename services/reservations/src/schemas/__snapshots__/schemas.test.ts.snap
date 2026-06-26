@@ -286,6 +286,15 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
 {
   "$id": "Guest",
   "properties": {
+    "communicationPreference": {
+      "enum": [
+        "email_only",
+        "sms_only",
+        "both",
+        "transactional_only",
+      ],
+      "type": "string",
+    },
     "createdAt": {
       "type": "string",
     },
@@ -338,6 +347,9 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "name": {
       "type": "string",
     },
+    "noShowCount": {
+      "type": "number",
+    },
     "notes": {
       "anyOf": [
         {
@@ -357,6 +369,14 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
           "type": "null",
         },
       ],
+    },
+    "riskScore": {
+      "enum": [
+        "trusted",
+        "standard",
+        "risky",
+      ],
+      "type": "string",
     },
     "staffNotes": {
       "items": {
@@ -411,10 +431,13 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "name",
     "notes",
     "visitCount",
+    "noShowCount",
+    "riskScore",
     "lifetimeSpend",
     "lastVisit",
     "tags",
     "dietaryRestrictions",
+    "communicationPreference",
     "staffNotes",
     "createdAt",
     "updatedAt",

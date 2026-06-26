@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { VenuesClient, VenueGroupsClient } from "./venues.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -23,11 +23,24 @@ function makeGroupsClient() {
   return new VenueGroupsClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeVenue = {
   id: "v1",
   name: "The Grand",
   slug: "the-grand",
   venueGroupId: "vg1",
+  ianaTimezone: "America/New_York",
+  currencyCode: "USD",
+  operatingHours: null,
+  settings: null,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -36,8 +49,8 @@ const fakeVenueGroup = {
   id: "vg1",
   name: "Grand Group",
   slug: "grand-group",
+  settings: null,
   createdAt: "2026-01-01T00:00:00Z",
-  updatedAt: "2026-01-01T00:00:00Z",
 };
 
 describe("VenuesClient", () => {
@@ -48,7 +61,7 @@ describe("VenuesClient", () => {
   describe("list", () => {
     it("requests /api/v1/venues with no query when called with defaults", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeVenue], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeVenue], pagination: fakePagination })
       );
 
       await makeVenuesClient().list();
@@ -58,7 +71,9 @@ describe("VenuesClient", () => {
     });
 
     it("appends filter params when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0, totalPages: 0 } })
+      );
 
       await makeVenuesClient().list({ page: 2, limit: 5, venueGroupId: "vg1" });
 
@@ -70,7 +85,7 @@ describe("VenuesClient", () => {
     });
 
     it("returns the paginated response", async () => {
-      const body = { data: [fakeVenue], total: 1, page: 1, limit: 10 };
+      const body = { data: [fakeVenue], pagination: fakePagination };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
       const result = await makeVenuesClient().list();
@@ -169,6 +184,27 @@ describe("VenuesClient", () => {
       await expect(makeVenuesClient().get("bad")).rejects.toThrow();
     });
   });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed venue", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "v1" } }));
+
+      await expect(makeVenuesClient().get("v1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed venue", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "v1" } }));
+
+      await expect(
+        makeVenuesClient().create({
+          name: "The Grand",
+          venueGroupId: "vg1",
+          slug: "the-grand",
+          ianaTimezone: "America/New_York",
+        })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
+  });
 });
 
 describe("VenueGroupsClient", () => {
@@ -179,7 +215,7 @@ describe("VenueGroupsClient", () => {
   describe("list", () => {
     it("requests /api/v1/venues/groups with default pagination", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeVenueGroup], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeVenueGroup], pagination: fakePagination })
       );
 
       await makeGroupsClient().list();
