@@ -7,5 +7,12 @@ export {
   type GuestDetails,
 } from "./GuestDetailsForm";
 export { ConfirmationView, type ConfirmationViewProps } from "./ConfirmationView";
-export { WaitlistJoinView, type WaitlistJoinViewProps, type WaitlistJoinedResult } from "./WaitlistJoinView";
-export { WaitlistConfirmationView, type WaitlistConfirmationViewProps } from "./WaitlistConfirmationView";
+export {
+  WaitlistJoinView,
+  type WaitlistJoinViewProps,
+  type WaitlistJoinedResult,
+} from "./WaitlistJoinView";
+export {
+  WaitlistConfirmationView,
+  type WaitlistConfirmationViewProps,
+} from "./WaitlistConfirmationView";

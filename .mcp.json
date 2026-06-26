@@ -48,7 +48,11 @@
     },
     "stripe": {
       "command": "npx",
-      "args": ["-y", "@stripe/mcp", "--tools=customers.read,products.read,paymentIntents.read,balance.read"],
+      "args": [
+        "-y",
+        "@stripe/mcp",
+        "--tools=customers.read,products.read,paymentIntents.read,balance.read"
+      ],
       "env": { "STRIPE_SECRET_KEY": "${STRIPE_SECRET_KEY}" }
     }
   }

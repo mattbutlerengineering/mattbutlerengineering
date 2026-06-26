@@ -21,9 +21,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         data-testid={`input-${label?.toLowerCase().replace(/\s/g, "-")}`}
         aria-invalid={Boolean(error)}
       />
-      {hint && (
-        <span data-testid={error ? "input-error" : "input-hint"}>{hint}</span>
-      )}
+      {hint && <span data-testid={error ? "input-error" : "input-hint"}>{hint}</span>}
     </div>
   ),
   Alert: ({ children, variant }: any) => (
