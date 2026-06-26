@@ -212,6 +212,22 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     // The machine-readable discriminator survives the AppError migration.
     expect(body.code).toBe("PACING_EXCEEDED");
   });
+
+  it("returns 404 with VENUE_NOT_FOUND code for an unknown venue slug", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/does-not-exist/reservations",
+      payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    const body = response.json();
+    expect(body.title).toBe("Not Found");
+    expect(body.code).toBe("VENUE_NOT_FOUND");
+    expect(body.detail).toContain("does-not-exist");
+  });
 });
 
 describe("bookingNotifier injection", () => {
