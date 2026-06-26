@@ -1,4 +1,6 @@
+import type { z } from "zod";
 import type { PaginatedResponse, Table, CreateTableRequest, UpdateTableRequest } from "@mbe/types";
+import { TableSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListTablesParams {
@@ -8,6 +10,8 @@ export interface ListTablesParams {
   activeOnly?: boolean;
 }
 
+const tableListSchema: z.ZodSchema<PaginatedResponse<Table>> = paginatedResponseSchema(TableSchema);
+
 export class TablesClient {
   constructor(private client: ApiClient) {}
 
@@ -15,28 +19,32 @@ export class TablesClient {
    * List tables with optional filters
    */
   async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-    return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
+    return this.client.get<PaginatedResponse<Table>>(
+      "/api/v1/tables",
+      params as QueryParams,
+      tableListSchema
+    );
   }
 
   /**
    * Get a table by ID
    */
   async get(id: string): Promise<Table> {
-    return this.client.getOne<Table>(`/api/v1/tables/${id}`);
+    return this.client.getOne<Table>(`/api/v1/tables/${id}`, undefined, TableSchema);
   }
 
   /**
    * Create a new table
    */
   async create(data: CreateTableRequest): Promise<Table> {
-    return this.client.postOne<Table>("/api/v1/tables", data);
+    return this.client.postOne<Table>("/api/v1/tables", data, TableSchema);
   }
 
   /**
    * Update a table
    */
   async update(id: string, data: UpdateTableRequest): Promise<Table> {
-    return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data);
+    return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data, TableSchema);
   }
 
   /**
@@ -50,8 +58,10 @@ export class TablesClient {
    * Update the status of a table
    */
   async updateStatus(id: string, tableStatus: string): Promise<Table> {
-    return this.client.patchOne<Table>(`/api/v1/tables/${id}/status`, {
-      status: tableStatus,
-    });
+    return this.client.patchOne<Table>(
+      `/api/v1/tables/${id}/status`,
+      { status: tableStatus },
+      TableSchema
+    );
   }
 }

@@ -72,6 +72,7 @@ const configEntries: Record<string, string> = {
   aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
   e2eUserPassword: "test-password-123",
+  manageTokenSecret: "manage-secret-test-value",
 };
 
 for (const [key, value] of Object.entries(configEntries)) {
@@ -381,6 +382,19 @@ describe("Configuration Validation", () => {
       );
       expect(otelEndpointEnv).toBeDefined();
       expect(otelEndpointEnv.value).toBe("https://otlp.example.com");
+    });
+
+    it("reservations-api has MANAGE_TOKEN_SECRET as SECRET when configured", () => {
+      const spec = getAppSpec();
+      const reservations = spec.services.find(
+        (s: { name: string }) => s.name === "reservations-api"
+      );
+      expect(reservations).toBeDefined();
+      const manageToken = reservations.envs.find(
+        (e: { key: string }) => e.key === "MANAGE_TOKEN_SECRET"
+      );
+      expect(manageToken).toBeDefined();
+      expect(manageToken.type).toBe("SECRET");
     });
   });
 

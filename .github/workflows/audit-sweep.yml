@@ -10,8 +10,20 @@ permissions:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    env:
+      AUDIT_TOKEN: ${{ secrets.AUDIT_TOKEN }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4/v5
+
+      - name: Validate AUDIT_TOKEN
+        run: |
+          if [ -z "${AUDIT_TOKEN:-}" ]; then
+            echo "::error::AUDIT_TOKEN secret is not configured. Site-audit requests will be blocked by Cloudflare Bot Management (HTTP 403)."
+            echo "::error::Set AUDIT_TOKEN as a GitHub Actions repository secret. See infrastructure/AUDIT_BYPASS.md for setup instructions."
+            exit 1
+          fi
+          echo "::notice::AUDIT_TOKEN is configured — audit requests will bypass Cloudflare Bot Management."
+
       - name: Trigger sweep audit
         run: |
           echo "::notice::Sweep audit scheduled — run '/site-audit sweep' via Claude Code remote trigger"

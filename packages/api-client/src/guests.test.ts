@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { GuestsClient } from "./guests.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -18,12 +18,31 @@ function makeClient() {
   return new GuestsClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeGuest = {
   id: "g1",
   venueId: "v1",
   name: "Bob Smith",
   email: "bob@example.com",
   phone: "+15551234567",
+  notes: null,
+  visitCount: 0,
+  noShowCount: 0,
+  riskScore: "standard" as const,
+  lifetimeSpend: null,
+  lastVisit: null,
+  tags: null,
+  dietaryRestrictions: null,
+  communicationPreference: "email_only" as const,
+  staffNotes: [],
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -36,7 +55,7 @@ describe("GuestsClient", () => {
   describe("list", () => {
     it("requests /api/v1/guests with venueId", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeGuest], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeGuest], pagination: fakePagination })
       );
 
       await makeClient().list({ venueId: "v1" });
@@ -48,7 +67,9 @@ describe("GuestsClient", () => {
     });
 
     it("appends optional page and limit", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 2, limit: 5 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, page: 2, limit: 5, total: 0 } })
+      );
 
       await makeClient().list({ venueId: "v1", page: 2, limit: 5 });
 
@@ -59,7 +80,7 @@ describe("GuestsClient", () => {
     });
 
     it("returns paginated response", async () => {
-      const body = { data: [fakeGuest], total: 1, page: 1, limit: 10 };
+      const body = { data: [fakeGuest], pagination: fakePagination };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
       const result = await makeClient().list({ venueId: "v1" });
@@ -69,7 +90,9 @@ describe("GuestsClient", () => {
 
   describe("search", () => {
     it("requests /api/v1/guests/search with venueId", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0 } })
+      );
 
       await makeClient().search({ venueId: "v1", query: "Bob" });
 
@@ -81,7 +104,9 @@ describe("GuestsClient", () => {
     });
 
     it("includes hasNotVisitedInDays when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0 } })
+      );
 
       await makeClient().search({ venueId: "v1", hasNotVisitedInDays: 30 });
 
@@ -102,7 +127,7 @@ describe("GuestsClient", () => {
     });
 
     it("returns the segments array", async () => {
-      const segments = [{ id: "s1", name: "VIP", venueId: "v1" }];
+      const segments = [{ name: "VIP", description: "High-value guests", count: 5 }];
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: segments }));
 
       const result = await makeClient().getSegments("v1");
@@ -189,6 +214,30 @@ describe("GuestsClient", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
       await expect(makeClient().list({ venueId: "v1" })).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed guest", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "g1" } }));
+
+      await expect(makeClient().get("g1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed guest", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "g1" } }));
+
+      await expect(
+        makeClient().create({ venueId: "v1", name: "Bob", email: "bob@example.com" })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when update() receives a malformed guest", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "g1" } }));
+
+      await expect(makeClient().update("g1", { name: "Robert" })).rejects.toBeInstanceOf(
+        ApiValidationError
+      );
     });
   });
 });
