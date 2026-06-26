@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
+import { AppError } from "@mbe/types";
 import { createHmac } from "crypto";
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
@@ -84,12 +85,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
-        return reply.status(404).send({
-          type: "https://httpproblems.com/http-status/404",
-          title: "Venue Not Found",
-          status: 404,
-          detail: `No venue found with slug '${slug}'.`,
-        } as never);
+        throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
       }
 
       const result = await confirmHold({
@@ -106,19 +102,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
           PACING_EXCEEDED: 422,
         };
         const httpStatus = statusMap[result.errorCode] ?? 409;
-        const titleMap: Record<string, string> = {
-          NOT_FOUND: "Not Found",
-          EXPIRED: "Hold Expired",
-          SESSION_MISMATCH: "Forbidden",
-          CONFLICT: "Booking Failed",
-          PACING_EXCEEDED: "Pacing Limit Reached",
-        };
-        return reply.status(httpStatus).send({
-          type: `https://httpproblems.com/http-status/${httpStatus}`,
-          title: titleMap[result.errorCode] ?? "Booking Failed",
-          status: httpStatus,
-          detail: result.error,
-        } as never);
+        throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
       }
 
       decrementHoldCount(ip);

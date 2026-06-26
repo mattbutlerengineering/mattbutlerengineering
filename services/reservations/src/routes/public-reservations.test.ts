@@ -207,7 +207,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
     expect(response.statusCode).toBe(422);
     const body = response.json();
-    expect(body.title).toBe("Pacing Limit Reached");
+    expect(body.title).toBe("Unprocessable Entity");
     expect(body.detail).toBe("Pacing limit reached for this time slot");
   });
 });

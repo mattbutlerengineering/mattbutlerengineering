@@ -1,5 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
+import {
+  createServiceApp,
+  type AppOptions,
+  classifyError,
+  getTitleForStatus,
+} from "@mbe/service-bootstrap";
+import { createProblemDetails, type AppError } from "@mbe/types";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
@@ -153,6 +159,34 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
     fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
   }
+
+  // Register AppError handler AFTER errorHandlerPlugin has initialised.
+  // fastify.after() runs its callback once all currently-queued plugins have
+  // loaded, so this setErrorHandler call wins over the one in errorHandlerPlugin
+  // (which is queued in createServiceApp, earlier in the chain).
+  // Uses error.name instead of instanceof to avoid module-identity issues
+  // across Vite/Vitest module boundaries.
+  fastify.after(() => {
+    fastify.setErrorHandler((rawError, request, reply) => {
+      // Fastify 5 types the error handler param as unknown; cast to Error since
+      // Fastify guarantees it is always an Error (or FastifyError) instance.
+      const error = rawError as Error;
+      if (error.name === "AppError" && "httpStatus" in error) {
+        const appError = error as AppError;
+        return reply.status(appError.httpStatus).send({
+          type: `https://httpproblems.com/http-status/${appError.httpStatus}`,
+          title: getTitleForStatus(appError.httpStatus),
+          status: appError.httpStatus,
+          detail: appError.message,
+        });
+      }
+      request.log.error(error);
+      const { status, title, detail, extensions } = classifyError(error);
+      return reply
+        .status(status)
+        .send(createProblemDetails(status, title, detail, "about:blank", request.url, extensions));
+    });
+  });
 
   return fastify;
 }
