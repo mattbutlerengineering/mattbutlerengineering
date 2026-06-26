@@ -8613,37 +8613,36 @@
         },
         async (request, reply) => {
           const { slug } = request.params;
-          const venue = await venueService.getBySlug(slug);
+          const rawVenue = await venueService.getRawBySlug(slug);
     
-          if (!venue) {
+          if (!rawVenue) {
             return reply.status(404).send({
               success: false,
               error: "Venue not found",
             } as never);
           }
     
-          // Fetch deposit-specific fields (not on the mapped Venue type) via service
-          const rawVenue = await venueService.getRawBySlug(slug);
+          const settings = rawVenue.settings as Record<string, unknown> | null;
     
           const publicVenue: PublicVenueResponse = {
-            name: venue.name,
-            slug: venue.slug,
-            ianaTimezone: venue.ianaTimezone,
-            currencyCode: venue.currencyCode,
-            operatingHours: venue.operatingHours,
+            name: rawVenue.name,
+            slug: rawVenue.slug,
+            ianaTimezone: rawVenue.ianaTimezone,
+            currencyCode: rawVenue.currencyCode,
+            operatingHours: rawVenue.operatingHours,
             settings: {
-              defaultReservationDuration: venue.settings?.defaultReservationDuration,
-              maxPartySize: venue.settings?.maxPartySize,
-              maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
-              slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+              defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
+              maxPartySize: settings?.maxPartySize as number | undefined,
+              maxAdvanceBooking: settings?.maxAdvanceBooking as number | undefined,
+              slotIntervalMinutes: settings?.slotIntervalMinutes as number | undefined,
             },
             deposit: {
-              enabled: rawVenue?.depositEnabled ?? false,
-              depositType: rawVenue?.depositType ?? null,
-              amountCents: rawVenue?.depositAmountCents ?? null,
-              freeCancellationHours: rawVenue?.freeCancellationHours ?? null,
-              lateCancellationFeePercent: rawVenue?.lateCancellationFeePercent ?? null,
-              noShowFeePercent: rawVenue?.noShowFeePercent ?? null,
+              enabled: rawVenue.depositEnabled,
+              depositType: rawVenue.depositType,
+              amountCents: rawVenue.depositAmountCents,
+              freeCancellationHours: rawVenue.freeCancellationHours,
+              lateCancellationFeePercent: rawVenue.lateCancellationFeePercent,
+              noShowFeePercent: rawVenue.noShowFeePercent,
             },
           };
     
@@ -16055,7 +16054,18 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
+        color: z
+          .enum([
+            "success",
+            "warning",
+            "error",
+            "accent",
+            "primary",
+            "secondary",
+            "tertiary",
+            "on-accent",
+          ])
+          .optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
