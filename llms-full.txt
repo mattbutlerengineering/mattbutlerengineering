@@ -16426,6 +16426,22 @@
       return date.toISOString().substring(0, 10);
     }
   </file>
+  <file path="packages/types/src/errors.ts">
+    export class AppError extends Error {
+      /** Alias for httpStatus — makes AppError compatible with classifyError's statusCode check. */
+      public readonly statusCode: number;
+    
+      constructor(
+        public readonly code: string,
+        public readonly httpStatus: number,
+        message: string
+      ) {
+        super(message);
+        this.name = "AppError";
+        this.statusCode = httpStatus;
+      }
+    }
+  </file>
   <file path="packages/types/src/floor-plan.ts">
     export interface FloorPlan {
       id: string;
@@ -16651,6 +16667,10 @@
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
       }
+    
+      // AppError serialization is handled centrally by errorHandlerPlugin →
+      // classifyError (in @mbe/service-bootstrap), which emits the AppError `code`
+      // as an RFC 9457 extension member. No per-service error handler is needed.
     
       return fastify;
     }

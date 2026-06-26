@@ -125,6 +125,13 @@
       export function toDateString(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="src/errors.ts">
+    <item priority="high">
+      class AppError {
+        statusCode: number;
+      }
+    </item>
+  </file>
   <file path="src/floor-plan.ts">
     <item priority="low">
       interface FloorPlan {
