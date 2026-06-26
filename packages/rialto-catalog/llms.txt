@@ -1,4 +1,4 @@
-<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-aa1476136731ba81b/packages/rialto-catalog">
+<codebase path="packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     <item priority="medium">
