@@ -1,0 +1,201 @@
+/* ── WatchLoader ──────────────────────────────────
+   An animated automatic-watch caseback. All motion is
+   transform-only (compositor thread) — no layout props.
+
+   Colours are driven by component-local `--watch-*` custom
+   properties. The metallic finishes (gold/steel/rose) are
+   decorative material treatments outside the standard rialto
+   token palette, so the variant classes set hex values here
+   (the same skeuomorphic pattern used by SplitFlap/Progress).
+   The component (.tsx) never hardcodes a colour — it only
+   references `var(--watch-*)`.
+   ─────────────────────────────────────────────── */
+
+.watchLoader {
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 0;
+
+  /* Default finish — warm aluminium, ruby jewels */
+  --watch-cycle: 2s;
+  --watch-rotor: #b8b0a4;
+  --watch-rotor-edge: #8c857a;
+  --watch-gear: #a89e8c;
+  --watch-gear-hub: #6f6757;
+  --watch-bridge: #5a5347;
+  --watch-plate-hi: #2b2823;
+  --watch-plate-lo: #16140f;
+  --watch-balance: #cdbf9c;
+  --watch-jewel: #d23b54;
+}
+
+/* ── Size presets ─────────────────────────────── */
+.sizeSm {
+  width: 48px;
+  height: 48px;
+}
+.sizeMd {
+  width: 80px;
+  height: 80px;
+}
+.sizeLg {
+  width: 120px;
+  height: 120px;
+}
+
+/* ── Variants — flip custom properties only ───── */
+.variantDefault {
+  /* uses the base palette declared on .watchLoader */
+}
+
+.variantGold {
+  --watch-rotor: #d9bd6b;
+  --watch-rotor-edge: #9c7c2a;
+  --watch-gear: #c9a84c;
+  --watch-gear-hub: #8b6914;
+  --watch-bridge: #6e5722;
+  --watch-plate-hi: #2c2410;
+  --watch-plate-lo: #161005;
+  --watch-balance: #e6cd7e;
+  --watch-jewel: #dc143c;
+}
+
+.variantSteel {
+  --watch-rotor: #cdd4dc;
+  --watch-rotor-edge: #8a939d;
+  --watch-gear: #c0c8d0;
+  --watch-gear-hub: #6b7681;
+  --watch-bridge: #4d5560;
+  --watch-plate-hi: #23272d;
+  --watch-plate-lo: #121519;
+  --watch-balance: #d8dee5;
+  --watch-jewel: #dc143c;
+}
+
+.variantRose {
+  --watch-rotor: #e3b6a0;
+  --watch-rotor-edge: #b07a5e;
+  --watch-gear: #d99f86;
+  --watch-gear-hub: #9c5f47;
+  --watch-bridge: #6f463a;
+  --watch-plate-hi: #2c211d;
+  --watch-plate-lo: #171010;
+  --watch-balance: #ecc4b1;
+  --watch-jewel: #e0405c;
+}
+
+/* ── SVG canvas ───────────────────────────────── */
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── Bridges ──────────────────────────────────── */
+.bridge {
+  fill: var(--watch-bridge);
+  opacity: 0.55;
+}
+
+/* ── Gears ────────────────────────────────────── */
+.gearBody {
+  fill: var(--watch-gear);
+  stroke: var(--watch-gear-hub);
+  stroke-width: 0.6;
+}
+.gearTooth {
+  fill: var(--watch-gear);
+}
+.gearHub {
+  fill: var(--watch-gear-hub);
+}
+
+/* Rotate around the element's own centre regardless of the
+   positioning translate on the parent group. */
+.gearLarge,
+.gearMedium,
+.gearSmall,
+.rotor,
+.balance,
+.escape {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Tooth-count ratios (12 : 8 : 6) → angular-velocity ratios.
+   Fewer teeth → shorter duration → faster spin. Meshing gears
+   counter-rotate, so neighbours alternate `reverse`. */
+.gearLarge {
+  animation: watch-spin var(--watch-cycle) linear infinite;
+}
+.gearMedium {
+  animation: watch-spin calc(var(--watch-cycle) * 0.667) linear infinite reverse;
+}
+.gearSmall {
+  animation: watch-spin calc(var(--watch-cycle) * 0.5) linear infinite;
+}
+
+/* ── Escape wheel ─────────────────────────────── */
+.escapeBody {
+  fill: var(--watch-gear);
+  stroke: var(--watch-gear-hub);
+  stroke-width: 0.5;
+}
+
+/* ── Balance wheel ────────────────────────────── */
+.balanceRim {
+  fill: none;
+  stroke: var(--watch-balance);
+  stroke-width: 1.6;
+}
+.spoke {
+  stroke: var(--watch-balance);
+  stroke-width: 1.2;
+}
+
+/* ── Jewels ───────────────────────────────────── */
+.jewel {
+  fill: var(--watch-jewel);
+}
+
+/* ── Rotor ────────────────────────────────────── */
+.rotor {
+  animation: watch-spin calc(var(--watch-cycle) * 1.4) linear infinite;
+}
+.rotorBody {
+  fill: var(--watch-rotor);
+  stroke: var(--watch-rotor-edge);
+  stroke-width: 1;
+  opacity: 0.92;
+}
+.rotorWeight {
+  fill: var(--watch-rotor-edge);
+}
+
+/* ── Keyframes — transform only ───────────────── */
+@keyframes watch-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Reduced motion — pause everything, static snapshot ── */
+.reduced .rotor,
+.reduced .gearLarge,
+.reduced .gearMedium,
+.reduced .gearSmall {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotor,
+  .gearLarge,
+  .gearMedium,
+  .gearSmall {
+    animation: none;
+  }
+}

@@ -92,6 +92,7 @@ import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
+import { WatchLoader } from "../../components/WatchLoader/WatchLoader";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -177,7 +178,8 @@ export type BarrelExportName =
   | "Toast"
   | "Toggle"
   | "Tooltip"
-  | "Tree";
+  | "Tree"
+  | "WatchLoader";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -667,6 +669,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Tree: {
     element: <Tree data={[{ id: "1", label: "Root", children: [{ id: "2", label: "Child" }] }]} />,
+  },
+
+  WatchLoader: {
+    element: <WatchLoader aria-label="Loading" />,
   },
 } as const;
 
