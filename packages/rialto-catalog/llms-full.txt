@@ -1,4 +1,4 @@
-<codebase path="packages/rialto-catalog">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-aa1476136731ba81b/packages/rialto-catalog">
   <section priority="medium" role="scripts">
   <file path="scripts/generate-catalog.ts">
     function findCatalogMetaFiles(dir: string): string[] {
@@ -349,18 +349,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),

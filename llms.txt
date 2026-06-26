@@ -1,4 +1,4 @@
-<codebase path=".">
+<codebase path="/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-aa1476136731ba81b">
   <section priority="medium" role="Accordion">
   <file path="packages/rialto/src/components/Accordion/Accordion.catalog.ts">
     <item priority="high">
