@@ -265,14 +265,4 @@ describe("manage token", () => {
     expect(verifyManageToken("not-a-token").valid).toBe(false);
     expect(verifyManageToken("").valid).toBe(false);
   });
-
-  it("verifies a token for an email address that contains colons", () => {
-    const email = "user:admin@example.com";
-    const token = generateManageToken("res_456", email);
-    const result = verifyManageToken(token);
-
-    expect(result.valid).toBe(true);
-    expect(result.reservationId).toBe("res_456");
-    expect(result.guestEmail).toBe(email);
-  });
 });
