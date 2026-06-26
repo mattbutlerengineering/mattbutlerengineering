@@ -8469,8 +8469,14 @@
         if (parts.length < 4) return { valid: false };
     
         const signature = parts.pop()!;
-        const payload = parts.join(":");
-        const [reservationId, guestEmail, expiryStr] = parts;
+        // Pop expiry from the right, shift reservationId from the left, then
+        // rejoin whatever remains as the email. This handles RFC-valid emails
+        // containing colons (e.g. "user:tag@example.com") without breaking the
+        // HMAC payload reconstruction.
+        const expiryStr = parts.pop()!;
+        const reservationId = parts.shift()!;
+        const guestEmail = parts.join(":");
+        const payload = `${reservationId}:${guestEmail}:${expiryStr}`;
     
         const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
         if (signature !== expected) return { valid: false };
@@ -16049,18 +16055,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
