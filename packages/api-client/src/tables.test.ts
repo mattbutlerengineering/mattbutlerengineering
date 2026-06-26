@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { TablesClient } from "./tables.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -18,13 +18,29 @@ function makeClient() {
   return new TablesClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeTable = {
   id: "t1",
   venueId: "v1",
   name: "Table 1",
-  minCapacity: 2,
-  maxCapacity: 4,
-  status: "AVAILABLE",
+  tableNumber: null,
+  capacity: 4,
+  minCovers: 2,
+  maxCovers: 4,
+  location: null,
+  isActive: true,
+  priority: 0,
+  status: "AVAILABLE" as const,
+  floorPlanId: null,
+  shapeMetadata: null,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -37,7 +53,7 @@ describe("TablesClient", () => {
   describe("list", () => {
     it("requests /api/v1/tables with no params by default", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeTable], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeTable], pagination: fakePagination })
       );
 
       await makeClient().list();
@@ -47,7 +63,9 @@ describe("TablesClient", () => {
     });
 
     it("appends filter params when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0, totalPages: 0 } })
+      );
 
       await makeClient().list({ venueId: "v1", activeOnly: true, page: 1, limit: 20 });
 
@@ -60,7 +78,7 @@ describe("TablesClient", () => {
     });
 
     it("returns the paginated response", async () => {
-      const body = { data: [fakeTable], total: 1, page: 1, limit: 10 };
+      const body = { data: [fakeTable], pagination: fakePagination };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
       const result = await makeClient().list();
@@ -172,6 +190,30 @@ describe("TablesClient", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
       await expect(makeClient().list()).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed table", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "t1" } }));
+
+      await expect(makeClient().get("t1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed table", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "t1" } }));
+
+      await expect(
+        makeClient().create({ venueId: "v1", name: "Table 1", capacity: 4, minCovers: 2 })
+      ).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when updateStatus() receives a malformed table", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "t1" } }));
+
+      await expect(makeClient().updateStatus("t1", "OCCUPIED")).rejects.toBeInstanceOf(
+        ApiValidationError
+      );
     });
   });
 });

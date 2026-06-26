@@ -74,12 +74,13 @@
       ): Promise<PaginatedResponse<FloorPlan>> {
         return this.client.get<PaginatedResponse<FloorPlan>>(
           "/api/v1/floor-plans",
-          params as QueryParams
+          params as QueryParams,
+          floorPlanListSchema
         );
       }
     
       async getById(id: string): Promise<FloorPlan> {
-        return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`);
+        return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`, undefined, FloorPlanSchema);
       }
     
       /** Alias for getById */
@@ -88,11 +89,11 @@
       }
     
       async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data);
+        return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data, FloorPlanSchema);
       }
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-        return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data);
+        return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data, FloorPlanSchema);
       }
     
       async delete(id: string): Promise<void> {
@@ -100,7 +101,11 @@
       }
     
       async setActive(id: string): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/active`, undefined);
+        return this.client.postOne<FloorPlan>(
+          `/api/v1/floor-plans/${id}/active`,
+          undefined,
+          FloorPlanSchema
+        );
       }
     
       /** Alias for setActive */
@@ -114,12 +119,17 @@
       ): Promise<Table[]> {
         return this.client.postOne<Table[]>(
           `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
-          positions
+          positions,
+          z.array(TableSchema)
         );
       }
     
       async clone(id: string): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, undefined);
+        return this.client.postOne<FloorPlan>(
+          `/api/v1/floor-plans/${id}/clone`,
+          undefined,
+          FloorPlanSchema
+        );
       }
     }
   </file>
@@ -454,28 +464,32 @@
        * List tables with optional filters
        */
       async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-        return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
+        return this.client.get<PaginatedResponse<Table>>(
+          "/api/v1/tables",
+          params as QueryParams,
+          tableListSchema
+        );
       }
     
       /**
        * Get a table by ID
        */
       async get(id: string): Promise<Table> {
-        return this.client.getOne<Table>(`/api/v1/tables/${id}`);
+        return this.client.getOne<Table>(`/api/v1/tables/${id}`, undefined, TableSchema);
       }
     
       /**
        * Create a new table
        */
       async create(data: CreateTableRequest): Promise<Table> {
-        return this.client.postOne<Table>("/api/v1/tables", data);
+        return this.client.postOne<Table>("/api/v1/tables", data, TableSchema);
       }
     
       /**
        * Update a table
        */
       async update(id: string, data: UpdateTableRequest): Promise<Table> {
-        return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data);
+        return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data, TableSchema);
       }
     
       /**
@@ -489,9 +503,11 @@
        * Update the status of a table
        */
       async updateStatus(id: string, tableStatus: string): Promise<Table> {
-        return this.client.patchOne<Table>(`/api/v1/tables/${id}/status`, {
-          status: tableStatus,
-        });
+        return this.client.patchOne<Table>(
+          `/api/v1/tables/${id}/status`,
+          { status: tableStatus },
+          TableSchema
+        );
       }
     }
   </file>
@@ -503,35 +519,39 @@
        * List all users with pagination
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-        return this.client.get<PaginatedResponse<User>>(`/api/v1/users?page=${page}&limit=${limit}`);
+        return this.client.get<PaginatedResponse<User>>(
+          `/api/v1/users?page=${page}&limit=${limit}`,
+          undefined,
+          userListSchema
+        );
       }
     
       /**
        * Get a user by ID
        */
       async get(id: string): Promise<User> {
-        return this.client.getOne<User>(`/api/v1/users/${id}`);
+        return this.client.getOne<User>(`/api/v1/users/${id}`, undefined, UserSchema);
       }
     
       /**
        * Get the currently authenticated user
        */
       async me(): Promise<User> {
-        return this.client.getOne<User>("/api/v1/users/me");
+        return this.client.getOne<User>("/api/v1/users/me", undefined, UserSchema);
       }
     
       /**
        * Create a new user
        */
       async create(data: CreateUserRequest): Promise<User> {
-        return this.client.postOne<User>("/api/v1/users", data);
+        return this.client.postOne<User>("/api/v1/users", data, UserSchema);
       }
     
       /**
        * Update a user
        */
       async update(id: string, data: UpdateUserRequest): Promise<User> {
-        return this.client.patchOne<User>(`/api/v1/users/${id}`, data);
+        return this.client.patchOne<User>(`/api/v1/users/${id}`, data, UserSchema);
       }
     
       /**
@@ -545,7 +565,7 @@
        * Update current user's preferences
        */
       async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
-        return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences);
+        return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences, UserSchema);
       }
     }
   </file>
@@ -559,35 +579,39 @@
       async list(
         params: { page?: number; limit?: number; venueGroupId?: string } = {}
       ): Promise<PaginatedResponse<Venue>> {
-        return this.client.get<PaginatedResponse<Venue>>("/api/v1/venues", params as QueryParams);
+        return this.client.get<PaginatedResponse<Venue>>(
+          "/api/v1/venues",
+          params as QueryParams,
+          venueListSchema
+        );
       }
     
       /**
        * Get a venue by ID
        */
       async get(id: string): Promise<Venue> {
-        return this.client.getOne<Venue>(`/api/v1/venues/${id}`);
+        return this.client.getOne<Venue>(`/api/v1/venues/${id}`, undefined, VenueSchema);
       }
     
       /**
        * Get a venue by slug
        */
       async getBySlug(slug: string): Promise<Venue> {
-        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`);
+        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`, undefined, VenueSchema);
       }
     
       /**
        * Create a new venue
        */
       async create(data: CreateVenueRequest): Promise<Venue> {
-        return this.client.postOne<Venue>("/api/v1/venues", data);
+        return this.client.postOne<Venue>("/api/v1/venues", data, VenueSchema);
       }
     
       /**
        * Update a venue
        */
       async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
-        return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data);
+        return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data, VenueSchema);
       }
     
       /**
@@ -605,7 +629,9 @@
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<VenueGroup>> {
         return this.client.get<PaginatedResponse<VenueGroup>>(
-          `/api/v1/venues/groups?page=${page}&limit=${limit}`
+          `/api/v1/venues/groups?page=${page}&limit=${limit}`,
+          undefined,
+          venueGroupListSchema
         );
       }
     
@@ -613,28 +639,36 @@
        * Get a venue group by ID
        */
       async get(id: string): Promise<VenueGroup> {
-        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/${id}`);
+        return this.client.getOne<VenueGroup>(
+          `/api/v1/venues/groups/${id}`,
+          undefined,
+          VenueGroupSchema
+        );
       }
     
       /**
        * Get a venue group by slug
        */
       async getBySlug(slug: string): Promise<VenueGroup> {
-        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/by-slug/${slug}`);
+        return this.client.getOne<VenueGroup>(
+          `/api/v1/venues/groups/by-slug/${slug}`,
+          undefined,
+          VenueGroupSchema
+        );
       }
     
       /**
        * Create a new venue group
        */
       async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
-        return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data);
+        return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data, VenueGroupSchema);
       }
     
       /**
        * Update a venue group
        */
       async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-        return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data);
+        return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data, VenueGroupSchema);
       }
     
       /**
