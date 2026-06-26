@@ -42,6 +42,16 @@ export function interpretDeployHealth(kvData, now) {
     return { status: "stale", last_run: kvData };
   }
 
-  const status = kvData.conclusion === DEPLOY_HEALTH_CONCLUSIONS.SUCCESS ? "healthy" : "unhealthy";
-  return { status, last_run: kvData };
+  if (kvData.conclusion === DEPLOY_HEALTH_CONCLUSIONS.SUCCESS) {
+    return { status: "healthy", last_run: kvData };
+  }
+  // A cancelled deploy is the DO+Pulumi dual-deploy race artifact (every
+  // `doctl apps create-deployment` triggers a paired "app spec updated"
+  // deployment that gets superseded/cancelled). Treat it as stale so it
+  // surfaces as `degraded`, not a false `unhealthy` alarm. Real failures
+  // and rollbacks still map to unhealthy.
+  if (kvData.conclusion === DEPLOY_HEALTH_CONCLUSIONS.CANCELLED) {
+    return { status: "stale", last_run: kvData };
+  }
+  return { status: "unhealthy", last_run: kvData };
 }

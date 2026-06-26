@@ -18,6 +18,22 @@ interface TestError extends Error {
 }
 
 describe("classifyError", () => {
+  it("classifies an AppError, preserving its code as an extension", () => {
+    // Mirrors @mbe/types AppError without importing it: name "AppError",
+    // a machine-readable code, and statusCode aliasing httpStatus.
+    const err = new Error("Pacing limit reached for this time slot") as TestError;
+    err.name = "AppError";
+    err.code = "PACING_EXCEEDED";
+    err.statusCode = 422;
+    const result = classifyError(err);
+    expect(result).toEqual({
+      status: 422,
+      title: "Unprocessable Entity",
+      detail: "Pacing limit reached for this time slot",
+      extensions: { code: "PACING_EXCEEDED" },
+    });
+  });
+
   it("classifies a generic 500 error", () => {
     const err = new Error("Something blew up");
     const result = classifyError(err);
