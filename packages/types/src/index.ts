@@ -113,6 +113,9 @@ export type {
   BulkUpdateTablePositionsRequest,
 } from "./floor-plan.js";
 
+// Error classes
+export { AppError } from "./errors.js";
+
 // Date utilities
 export { toDateString } from "./date.js";
 

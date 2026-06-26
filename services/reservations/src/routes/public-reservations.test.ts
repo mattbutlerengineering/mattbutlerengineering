@@ -191,7 +191,7 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(response.statusCode).toBe(409);
   });
 
-  it("returns 422 with Pacing Limit Reached title when pacing is exceeded", async () => {
+  it("returns 422 with PACING_EXCEEDED code when pacing is exceeded", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({
       success: false,
@@ -207,8 +207,26 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
     expect(response.statusCode).toBe(422);
     const body = response.json();
-    expect(body.title).toBe("Pacing Limit Reached");
+    expect(body.title).toBe("Unprocessable Entity");
     expect(body.detail).toBe("Pacing limit reached for this time slot");
+    // The machine-readable discriminator survives the AppError migration.
+    expect(body.code).toBe("PACING_EXCEEDED");
+  });
+
+  it("returns 404 with VENUE_NOT_FOUND code for an unknown venue slug", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/does-not-exist/reservations",
+      payload: { holdId: "hold_1", guestName: "Jane", guestEmail: "jane@example.com" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    const body = response.json();
+    expect(body.title).toBe("Not Found");
+    expect(body.code).toBe("VENUE_NOT_FOUND");
+    expect(body.detail).toContain("does-not-exist");
   });
 });
 
