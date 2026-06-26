@@ -99,7 +99,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 
-const mockVenue = {
+const rawMockVenue = {
   id: "venue_1",
   venueGroupId: "group_1",
   name: "The Oak Table",
@@ -120,8 +120,14 @@ const mockVenue = {
     maxPartySize: 12,
     maxAdvanceBooking: 30,
   },
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
+  depositEnabled: false,
+  depositType: null,
+  depositAmountCents: null,
+  freeCancellationHours: null,
+  lateCancellationFeePercent: null,
+  noShowFeePercent: null,
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
 describe("GET /public/v1/venues/:slug", () => {
@@ -139,7 +145,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns venue info by slug without authentication", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
 
     const response = await app.inject({
       method: "GET",
@@ -156,7 +162,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns 404 for non-existent slug", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",
@@ -167,7 +173,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("does not expose venueGroupId or internal fields", async () => {
-    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
 
     const response = await app.inject({
       method: "GET",
@@ -177,5 +183,19 @@ describe("GET /public/v1/venues/:slug", () => {
     const body = response.json();
     expect(body.data.venueGroupId).toBeUndefined();
     expect(body.data.id).toBeUndefined();
+  });
+
+  it("fetches venue only via getRawBySlug — never calls getBySlug", async () => {
+    vi.mocked(venueService.getBySlug).mockClear();
+    vi.mocked(venueService.getRawBySlug).mockClear();
+
+    await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table",
+    });
+
+    expect(venueService.getBySlug).not.toHaveBeenCalled();
+    expect(venueService.getRawBySlug).toHaveBeenCalledOnce();
+    expect(venueService.getRawBySlug).toHaveBeenCalledWith("the-oak-table");
   });
 });
