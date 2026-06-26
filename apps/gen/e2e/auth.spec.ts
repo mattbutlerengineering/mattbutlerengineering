@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures.js";
 
 test.describe("Auth", () => {
   test("unauthenticated user sees login prompt", async ({ page }) => {
