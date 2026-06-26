@@ -67,6 +67,26 @@ triggers add a 5th run on their day:
 The rare 6-run overlap is acceptable; if it causes throttling, shift
 `mbe-monthly-meta-audit` to a mid-month date in the web UI.
 
+## Required secrets
+
+Site-audit routines (`mbe-deep-audit`, `mbe-morning`) hit the live site via curl
+and Playwright. Without the WAF bypass token, Cloudflare Bot Management returns
+HTTP 403 and the audit silently produces no findings.
+
+| Secret        | Where to set                                                 | Purpose                                                   |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------------------- |
+| `AUDIT_TOKEN` | GitHub Actions repo secret **and** RemoteTrigger environment | Cloudflare Bot Management bypass header (`X-Audit-Token`) |
+
+**GitHub Actions:** set under Repository → Settings → Secrets and variables →
+Actions. The `audit-sweep` and `audit-scout` workflows validate this at startup
+and fail immediately with a clear error if it is missing.
+
+**RemoteTrigger environment:** set `AUDIT_TOKEN=<value>` in each cloud routine
+that calls `/site-audit` (managed at https://claude.ai/code/routines). Without
+it the cloud agent sends unauthenticated requests that are blocked by Cloudflare.
+
+See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
+
 ## Editing a routine
 
 ```text
