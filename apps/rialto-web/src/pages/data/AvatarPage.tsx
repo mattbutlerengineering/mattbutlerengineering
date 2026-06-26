@@ -191,7 +191,7 @@ export function AvatarPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Element", value: "<img> with alt or <span> with aria-label" },
+            { label: "Element", value: "img element with alt text, or span with aria-label" },
             { label: "Name", value: "name prop used as aria-label for initials fallback" },
             { label: "Status dot", value: "aria-label on status dot describes presence state" },
             { label: "Group", value: "AvatarGroup wraps in role=group" },
