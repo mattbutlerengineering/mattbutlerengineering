@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+/* global process, console */
 
 /**
  * Instruction-changes collector for ACMM meta-criteria.
  *
- * Scans git log for changes to CLAUDE.md, AGENTS.md, and skill files
- * in the last 30 days. Appends new entries to
- * metrics/instruction-changes.jsonl.
+ * Scans git log for changes to CLAUDE.md, AGENTS.md, and skill/ADR files
+ * since a given date. Appends new entries to metrics/instruction-changes.jsonl.
  *
  * Usage:
  *   node scripts/collect-instruction-changes.mjs              # collect and persist
@@ -24,230 +24,216 @@ const CHANGES_PATH = resolve(ROOT, "metrics", "instruction-changes.jsonl");
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 
-const THIRTY_DAYS = 30;
-
-/** Files/patterns tracked as "instruction" files. */
-const TRACKED_PATHS = [
-  "CLAUDE.md",
-  "AGENTS.md",
-  "GEMINI.md",
-  "skills",
-  ".claude/skills",
-  "skills-lock.json",
-];
-
 /**
  * Classify the commit type from a conventional-commit subject line.
  */
-export function classifyChangeType(summary) {
+export function buildInstructionEntry(date, file, summary) {
+  const changeType = inferChangeType(summary);
+  return {
+    date,
+    file,
+    summary,
+    change_type: changeType,
+  };
+}
+
+/**
+ * Infer change_type from commit message prefix.
+ */
+function inferChangeType(summary) {
   const lower = summary.toLowerCase();
   if (/^docs(\(.+\))?:/.test(lower)) return "documentation";
   if (/^feat(\(.+\))?:/.test(lower)) return "addition";
   if (/^fix(\(.+\))?:/.test(lower)) return "correction";
-  if (/^(chore|refactor|perf)(\(.+\))?:/.test(lower)) return "maintenance";
+  if (/^(chore|refactor|perf)(\(.+\))?:/.test(lower)) return "update";
   return "update";
 }
 
 /**
- * Parse raw git log output (format: "%ad\t%f_path\t%s" per line).
- * Lines that don't have exactly 3 tab-separated fields are skipped.
+ * Check if a file path is a generated artifact that should be excluded.
  */
-export function parseGitLogOutput(raw) {
-  if (!raw || !raw.trim()) return [];
-
-  return raw
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((line) => {
-      const parts = line.split("\t");
-      if (parts.length < 3) return null;
-      const [date, file, ...summaryParts] = parts;
-      if (!date || !file || !summaryParts.length) return null;
-      // Validate date looks like YYYY-MM-DD
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) return null;
-      return {
-        date: date.trim(),
-        file: file.trim(),
-        summary: summaryParts.join("\t").trim(),
-      };
-    })
-    .filter(Boolean);
+function isExcludedFile(filePath) {
+  // Exclude generated files and llms artifacts
+  if (/llms[.-]/.test(filePath)) return true;
+  if (/\/generated\//.test(filePath)) return true;
+  if (/\/dist\//.test(filePath)) return true;
+  return false;
 }
 
 /**
- * Remove entries already present based on date+file+summary.
+ * Parse git log output in the format produced by:
+ *   git log --format="%ad %s" --date=short --name-only
+ *
+ * Format: date+subject on one line, then blank line, then filenames, with blank line separator.
+ * Example:
+ *   2026-06-21 chore(mcp): add Stripe MCP server (#2575)
+ *
+ *   CLAUDE.md
+ *   .claude/rules/gotchas.md
+ *
+ *   2026-06-20 test(reservations): end-to-end route ownership enforcement (#2514)
+ *
+ *   services/reservations/CLAUDE.md
  */
-export function deduplicateInstructionEntries(newEntries, existing) {
-  const existingKeys = new Set(existing.map((e) => `${e.date}|${e.file}|${e.summary}`));
-  return newEntries.filter((e) => !existingKeys.has(`${e.date}|${e.file}|${e.summary}`));
-}
+export function parseGitLog(logOutput) {
+  if (!logOutput || !logOutput.trim()) return [];
 
-/**
- * Read existing JSONL entries.
- */
-function loadExisting(filePath) {
-  if (!existsSync(filePath)) return [];
-  return readFileSync(filePath, "utf-8")
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        return null;
+  const entries = [];
+  const lines = logOutput.split("\n");
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    // Skip blank lines
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    // Check if this line is a commit header (date + subject)
+    const headerMatch = line.match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/);
+    if (!headerMatch) {
+      i++;
+      continue;
+    }
+
+    const date = headerMatch[1];
+    const summary = headerMatch[2];
+    i++;
+
+    // Skip blank line(s) after header
+    while (i < lines.length && !lines[i].trim()) {
+      i++;
+    }
+
+    // Collect file names until we hit another commit header or blank line
+    while (i < lines.length) {
+      const fileLine = lines[i].trim();
+      if (!fileLine) {
+        // Blank line — stop collecting files for this commit
+        i++;
+        break;
       }
-    })
-    .filter(Boolean);
+
+      // Check if this is the next commit header (starts with date pattern)
+      if (/^\d{4}-\d{2}-\d{2}\s+/.test(fileLine)) {
+        // This is the next commit header, don't consume it
+        break;
+      }
+
+      // Skip excluded files
+      if (!isExcludedFile(fileLine)) {
+        entries.push({
+          date,
+          file: fileLine,
+          summary,
+        });
+      }
+
+      i++;
+    }
+  }
+
+  return entries;
 }
 
 /**
- * Default git log runner. Queries last 30 days of commits touching
- * tracked instruction files and returns raw tab-separated output.
+ * Collect instruction changes and append to JSONL file.
+ *
+ * When called with (metricsPath, lastDate, gitLogOutput):
+ *   - parses gitLogOutput
+ *   - filters entries after lastDate
+ *   - enriches with change_type
+ *   - appends to metricsPath
+ *   - returns count of entries written
  */
-function defaultGitLog(root) {
-  const since = `${THIRTY_DAYS} days ago`;
-  const pathArgs = TRACKED_PATHS.flatMap((p) => ["--", p]);
+export function collectInstructionChanges(metricsPath, lastDate, gitLogOutput) {
+  const parsed = parseGitLog(gitLogOutput);
 
+  // Filter entries after lastDate
+  const filtered = parsed.filter((entry) => entry.date > lastDate);
+
+  if (filtered.length === 0) return 0;
+
+  // Enrich with change_type
+  const enriched = filtered.map((entry) =>
+    buildInstructionEntry(entry.date, entry.file, entry.summary)
+  );
+
+  // Create directory if needed
+  mkdirSync(dirname(metricsPath), { recursive: true });
+
+  // Append to file
+  for (const entry of enriched) {
+    appendFileSync(metricsPath, JSON.stringify(entry) + "\n");
+  }
+
+  return enriched.length;
+}
+
+/**
+ * Fetch git log output for instruction files changed since a given date.
+ */
+function fetchGitLog(root, lastDate) {
   try {
     return execFileSync(
       "git",
-      ["log", `--since=${since}`, "--name-only", "--pretty=format:", "--diff-filter=AM"],
-      { encoding: "utf-8", cwd: root, timeout: 15_000 }
-    );
-  } catch {
-    // Fallback: use log with format that includes file per line
-    try {
-      const out = execFileSync(
-        "git",
-        [
-          "log",
-          `--since=${since}`,
-          "--format=%ad\t%s",
-          "--date=short",
-          "--name-only",
-          "--diff-filter=AM",
-          "--",
-          ...TRACKED_PATHS,
-        ],
-        { encoding: "utf-8", cwd: root, timeout: 15_000 }
-      );
-      return out;
-    } catch {
-      return "";
-    }
-  }
-}
-
-/**
- * Run git log and produce structured entries for instruction file changes.
- * gitLogFn(root) should return raw git log text in the format used by
- * the git-log-with-file approach (date TAB file TAB summary per line).
- */
-export function collectInstructionChanges(root, changesPath, gitLogFn) {
-  const runner = gitLogFn ?? defaultGitLog;
-
-  // Use a format that gives us date, file path, and subject on one line
-  // We use a custom approach: iterate commits with date+subject, then per-file
-  const raw = getInstructionLogLines(root, runner);
-  const parsed = parseGitLogOutput(raw);
-
-  if (parsed.length === 0) return 0;
-
-  const enriched = parsed.map((entry) => ({
-    ...entry,
-    change_type: classifyChangeType(entry.summary),
-  }));
-
-  const existing = loadExisting(changesPath);
-  const fresh = deduplicateInstructionEntries(enriched, existing);
-  if (fresh.length === 0) return 0;
-
-  mkdirSync(dirname(changesPath), { recursive: true });
-  for (const entry of fresh) {
-    appendFileSync(changesPath, JSON.stringify(entry) + "\n");
-  }
-
-  return fresh.length;
-}
-
-/**
- * Build tab-separated lines (date TAB file TAB subject) from git log.
- * When gitLogFn is the default, we run git log with a special format.
- * When gitLogFn is a mock, it returns pre-formatted lines directly.
- */
-function getInstructionLogLines(root, gitLogFn) {
-  // If using the default git log function, run with proper format
-  if (gitLogFn === defaultGitLog || gitLogFn === undefined) {
-    return runGitLogFormatted(root);
-  }
-  // Custom/mock function: call directly and treat output as pre-formatted
-  return gitLogFn(root);
-}
-
-function runGitLogFormatted(root) {
-  try {
-    // Use a separator-based format to get one record per file per commit
-    const raw = execFileSync(
-      "git",
       [
         "log",
-        `--since=${THIRTY_DAYS} days ago`,
-        "--format=COMMIT_START %ad %s",
+        `--after=${lastDate}`,
+        "--format=%ad %s",
         "--date=short",
         "--name-only",
-        "--diff-filter=AM",
         "--",
-        ...TRACKED_PATHS,
+        "CLAUDE.md",
+        "AGENTS.md",
+        ".claude/rules",
+        ".claude/skills",
+        "docs/adr",
+        "packages/*/CLAUDE.md",
+        "services/*/CLAUDE.md",
       ],
       { encoding: "utf-8", cwd: root, timeout: 15_000 }
     );
-
-    return parseCommitNameOnlyFormat(raw);
   } catch {
     return "";
   }
 }
 
 /**
- * Parse git log output using --format=COMMIT_START + --name-only.
- * Produces "date\tfile\tsubject" lines.
+ * Get the last recorded date from the metrics file.
  */
-function parseCommitNameOnlyFormat(raw) {
-  if (!raw || !raw.trim()) return "";
+function getLastRecordedDate(metricsPath) {
+  if (!existsSync(metricsPath)) return null;
 
-  const lines = [];
-  let currentDate = null;
-  let currentSubject = null;
+  const lines = readFileSync(metricsPath, "utf-8")
+    .split("\n")
+    .filter((l) => l.trim());
 
-  for (const line of raw.split("\n")) {
-    if (line.startsWith("COMMIT_START ")) {
-      const rest = line.slice("COMMIT_START ".length);
-      const spaceIdx = rest.indexOf(" ");
-      currentDate = rest.slice(0, spaceIdx);
-      currentSubject = rest.slice(spaceIdx + 1).trim();
-    } else if (line.trim() && currentDate && currentSubject) {
-      const filePath = line.trim();
-      // Only include tracked paths
-      if (isTrackedPath(filePath)) {
-        lines.push(`${currentDate}\t${filePath}\t${currentSubject}`);
-      }
-    }
+  if (lines.length === 0) return null;
+
+  // The file is in reverse chronological order (newest first), so read the first line
+  try {
+    const lastEntry = JSON.parse(lines[0]);
+    return lastEntry.date || null;
+  } catch {
+    return null;
   }
-
-  return lines.join("\n");
-}
-
-function isTrackedPath(filePath) {
-  return TRACKED_PATHS.some(
-    (tracked) =>
-      filePath === tracked || filePath.startsWith(tracked + "/") || filePath.endsWith("/" + tracked)
-  );
 }
 
 /* ── Main ────────────────────────────────────────────── */
 
 function main() {
-  const count = collectInstructionChanges(ROOT, CHANGES_PATH);
+  const lastDate = getLastRecordedDate(CHANGES_PATH);
+
+  if (!lastDate) {
+    console.log("collect-instruction-changes: no existing metrics file; skipping");
+    return;
+  }
+
+  const gitOutput = fetchGitLog(ROOT, lastDate);
+  const count = collectInstructionChanges(CHANGES_PATH, lastDate, gitOutput);
 
   if (DRY_RUN) {
     console.log(
