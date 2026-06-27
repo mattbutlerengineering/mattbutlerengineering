@@ -13,9 +13,9 @@
  *
  * This spec uses the SSE-event-injection variant:
  * - Context A performs a real walk-in via the existing dialog UI (API mock handles it).
- * - Context B's SSE route is pre-configured to deliver a `reservation:created` event
- *   immediately in the stream body, simulating reception of the broadcast that would
- *   come from the server in production.
+ * - Context B's EventSource stub (injected by mockApi's addInitScript) is pre-configured
+ *   via window.__fakeSSEConfig to dispatch a `reservation:created` event immediately after
+ *   onopen fires, simulating reception of the broadcast that would come from the server.
  * - Context B's reservations API is configured to return the updated list (with the
  *   new walk-in) so the `invalidateReservations()` refetch triggered by the SSE event
  *   produces the correct result.
@@ -54,19 +54,6 @@ const WALKIN_RESERVATION = {
   occasion: null,
   seatingPreference: null,
 };
-
-/** SSE stream body that delivers `connected` + `reservation:created` in one response. */
-function buildSseStreamWithWalkin(): string {
-  const connectedLine = 'data: {"type":"connected"}\n\n';
-  const createdPayload = JSON.stringify({
-    type: "reservation:created",
-    venueId: "ven_e2e_001",
-    timestamp: new Date().toISOString(),
-    data: WALKIN_RESERVATION,
-  });
-  const createdLine = `event: reservation:created\ndata: ${createdPayload}\n\n`;
-  return connectedLine + createdLine;
-}
 
 /** Reservations list fixture with the collab walk-in appended — returned after SSE invalidation. */
 function buildUpdatedReservations(): string {
@@ -126,21 +113,20 @@ const test = base.extend<{
   pageB: async ({ contextB }, use) => {
     const page = await contextB.newPage();
 
-    // Apply standard API mocks first, then override SSE + reservations for Context B.
+    // Apply standard API mocks first, then configure SSE event injection + reservations for Context B.
     await mockApi(page);
 
-    // Override SSE stream: deliver `reservation:created` event immediately,
-    // simulating the broadcast triggered by Context A's walk-in.
-    await page.route("**/api/v1/events/stream*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "text/event-stream",
-        headers: {
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-        body: buildSseStreamWithWalkin(),
-      })
+    // Pre-configure the EventSource stub (set up by mockApi's addInitScript) to dispatch a
+    // reservation:created event immediately after onopen. This simulates the SSE broadcast
+    // that would arrive from the server when Context A creates a walk-in.
+    const ssePayload = {
+      type: "reservation:created",
+      venueId: "ven_e2e_001",
+      timestamp: new Date().toISOString(),
+      data: WALKIN_RESERVATION,
+    };
+    await page.addInitScript(
+      `window.__fakeSSEConfig = { events: [{ type: "reservation:created", data: ${JSON.stringify(ssePayload)} }] };`
     );
 
     // Override reservations endpoint: return updated list (includes new walk-in)
