@@ -227,14 +227,78 @@ export async function mockApi(page: Page): Promise<void> {
     })
   );
 
-  // SSE events stream — return empty stream that stays open
-  await page.route("**/api/v1/events/stream*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      body: 'data: {"type":"connected"}\n\n',
-    })
-  );
+  // Stub window.EventSource so the app's SseClient fires onopen (→ "Live") and never onerror.
+  // route.fulfill closes the connection immediately, triggering onerror before onopen can set
+  // isConnected — so we replace the network mock with a browser-side EventSource stub instead.
+  //
+  // Tests can pre-configure named events to dispatch after onopen by setting:
+  //   window.__fakeSSEConfig = { events: [{ type, data, lastEventId? }] }
+  // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
+  await page.addInitScript(() => {
+    const instances: FakeEventSource[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__fakeEventSources = instances;
+
+    class FakeEventSource {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSED = 2;
+
+      readyState = 0;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      withCredentials = false;
+      readonly url: string;
+
+      private _closed = false;
+      private _listeners = new Map<string, Array<(e: MessageEvent) => void>>();
+
+      constructor(url: string, _init?: EventSourceInit) {
+        this.url = url;
+        instances.push(this);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cfg = (window as any).__fakeSSEConfig as
+          | { events?: Array<{ type: string; data: unknown; lastEventId?: string }> }
+          | undefined;
+
+        queueMicrotask(() => {
+          if (this._closed) return;
+          this.readyState = FakeEventSource.OPEN;
+          this.onopen?.(new Event("open"));
+          if (cfg?.events) {
+            for (const evt of cfg.events) {
+              const msg = new MessageEvent(evt.type, {
+                data: JSON.stringify(evt.data),
+                lastEventId: evt.lastEventId ?? "",
+              });
+              for (const h of this._listeners.get(evt.type) ?? []) h(msg);
+            }
+          }
+        });
+      }
+
+      addEventListener(type: string, listener: (e: MessageEvent) => void): void {
+        this._listeners.set(type, [...(this._listeners.get(type) ?? []), listener]);
+      }
+
+      removeEventListener(type: string, listener: (e: MessageEvent) => void): void {
+        this._listeners.set(
+          type,
+          (this._listeners.get(type) ?? []).filter((l) => l !== listener)
+        );
+      }
+
+      close(): void {
+        this._closed = true;
+        this.readyState = FakeEventSource.CLOSED;
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).EventSource = FakeEventSource;
+  });
 
   // Public endpoints
   await page.route("**/public/v1/venues/*", (route) => {
