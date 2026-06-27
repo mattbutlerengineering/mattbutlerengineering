@@ -16,14 +16,15 @@ function reminderJobId(jobType: string, reservationId: string): string {
 export interface ResolveChannelInput {
   email: string | null;
   phone: string | null;
-  communicationPreference: string | null;
+  communicationPreference: CommunicationPreference | null;
 }
 
 export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "both" {
   const { email, phone, communicationPreference } = input;
-  if (communicationPreference === "email") return "email";
-  if (communicationPreference === "sms") return "sms";
+  if (communicationPreference === "email_only") return "email";
+  if (communicationPreference === "sms_only") return "sms";
   if (communicationPreference === "both") return "both";
+  if (communicationPreference === "transactional_only") return "email";
   // Fall back to data availability
   if (email && phone) return "both";
   if (phone) return "sms";
@@ -93,7 +94,8 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     const channel = resolveChannel({
       email: guestEmail,
       phone: guestPhone,
-      communicationPreference: reservation.guest?.communicationPreference ?? null,
+      communicationPreference:
+        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
     });
 
     const dayBeforeDelay = startMs - now - DAY_MS;
