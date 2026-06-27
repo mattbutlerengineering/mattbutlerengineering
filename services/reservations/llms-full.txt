@@ -6185,8 +6185,9 @@
       waitlistNotifier?: WaitlistNotifier;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
-      // Validate Stripe secrets at startup — throws in production if missing.
-      // In test/dev, warns but continues to allow local development without Stripe CLI.
+      // Validate Stripe secrets at startup — warns (does not throw) if missing so an
+      // unconfigured optional deposits feature never takes down the whole service.
+      // The webhook route fails closed (503) without a real signing secret.
       getStripeConfig({
         nodeEnv: process.env.NODE_ENV,
         secretKey: process.env.STRIPE_SECRET_KEY,

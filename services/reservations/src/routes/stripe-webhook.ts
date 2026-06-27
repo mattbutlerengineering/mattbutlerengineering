@@ -77,6 +77,19 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      // Fail closed if the signing secret is not configured. An empty secret
+      // makes Stripe's HMAC verification use an empty (publicly known) key,
+      // which would accept forged events — so never reach verification without
+      // a real secret. Deposits are disabled in this state anyway.
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+      if (!webhookSecret) {
+        return reply
+          .code(503)
+          .send(
+            createProblemDetails(503, "Service Unavailable", "Stripe webhooks are not configured")
+          );
+      }
+
       const signature = request.headers["stripe-signature"];
 
       if (!signature || typeof signature !== "string") {
@@ -91,11 +104,7 @@ export const stripeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
 
       let event: Stripe.Event;
       try {
-        event = stripeService.constructWebhookEvent(
-          rawBody,
-          signature,
-          process.env.STRIPE_WEBHOOK_SECRET ?? ""
-        );
+        event = stripeService.constructWebhookEvent(rawBody, signature, webhookSecret);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Invalid webhook signature";
         return reply.code(400).send(createProblemDetails(400, "Bad Request", message));
