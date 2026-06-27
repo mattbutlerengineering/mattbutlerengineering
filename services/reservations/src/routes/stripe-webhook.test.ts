@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const { mockWebhooks, mockDepositFindFirst, mockDepositUpdate } = vi.hoisted(() => ({
   mockWebhooks: {
@@ -39,8 +39,45 @@ vi.mock("stripe", () => {
 import { buildApp } from "../app.js";
 
 describe("POST /api/v1/stripe/webhook", () => {
+  const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // A configured signing secret is the normal production state. Without it the
+    // route fails closed (see dedicated test below), so set it for the tests
+    // that exercise the verification + dispatch path.
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  });
+
+  afterEach(() => {
+    if (originalWebhookSecret === undefined) {
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+    } else {
+      process.env.STRIPE_WEBHOOK_SECRET = originalWebhookSecret;
+    }
+  });
+
+  it("returns 503 and never verifies when STRIPE_WEBHOOK_SECRET is unset (fail closed)", async () => {
+    // An empty secret makes Stripe's HMAC use an empty (publicly known) key,
+    // which would accept forged events. The route must reject before verifying.
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify({ type: "payment_intent.succeeded" })),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "anything",
+      },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(mockWebhooks.constructEvent).not.toHaveBeenCalled();
+    await app.close();
   });
 
   it("returns 400 if stripe-signature header is missing", async () => {
