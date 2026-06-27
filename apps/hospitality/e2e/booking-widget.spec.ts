@@ -29,7 +29,7 @@ test.describe("Booking Widget demo page", () => {
   test("shows venue selector or widget preview area", async ({ mockedPage }) => {
     await mockedPage.goto("booking-widget");
 
-    const previewArea = mockedPage.getByText(/preview|select a venue/i);
+    const previewArea = mockedPage.getByText("Widget Preview");
     await expect(previewArea).toBeVisible();
   });
 });

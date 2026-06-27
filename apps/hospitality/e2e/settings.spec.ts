@@ -31,7 +31,7 @@ test.describe("CF-10: Settings page and preferences persistence", () => {
   test("notifications card is visible", async ({ mockedPage }) => {
     await mockedPage.goto("settings");
 
-    await expect(mockedPage.getByText("Notifications")).toBeVisible();
+    await expect(mockedPage.getByRole("heading", { name: "Notifications" })).toBeVisible();
     await mockedPage.screenshot({
       path: "e2e/screenshots/settings-notifications.png",
       fullPage: true,

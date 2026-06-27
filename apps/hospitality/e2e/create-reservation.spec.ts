@@ -15,7 +15,7 @@ test.describe("CF-4: Reservation edit flow", () => {
     await expect(sidebar).toBeVisible();
 
     // Shows reservation info
-    await expect(sidebar.getByText(/guest|party/i)).toBeVisible();
+    await expect(sidebar.getByText("Party Size")).toBeVisible();
     await mockedPage.screenshot({
       path: "e2e/screenshots/create-reservation-sidebar.png",
       fullPage: true,
