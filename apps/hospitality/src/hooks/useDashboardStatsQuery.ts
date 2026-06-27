@@ -81,9 +81,6 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
       });
       return response.data;
     },
-    // Disable retries so error state (Retry button) appears immediately in E2E tests
-    // and in production — the dashboard retries via manual user action (onRetry).
-    retry: false,
   });
 
   const reservations = query.data ?? [];
