@@ -1,0 +1,19 @@
+{
+  "id": "cost-003-test-writing",
+  "category": "test-writing",
+  "prompt": "Add a vitest unit test to packages/agent-core/src/eval/golden-task-set.test.ts that verifies loadSuite() throws an error containing the directory path when the suite directory does not exist. The test should use a non-existent path such as '/tmp/no-such-eval-suite' and assert that the thrown error message includes that path.",
+  "fixtureRef": "packages/agent-core",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A test calls loadSuite with a non-existent directory and expects it to throw",
+      "The error message check includes the directory path"
+    ]
+  },
+  "budget": {
+    "maxTurns": 15,
+    "maxCostUsd": 0.4
+  }
+}

@@ -1447,7 +1447,7 @@
           calibrate: boolean;
         }) => {
           const repoPath = resolve(process.cwd());
-          const suiteDir = resolve(repoPath, options.suite);
+          const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
     
           let tasks: Task[];
           try {
@@ -2876,6 +2876,12 @@
       }
       const pctIncrease = ((current - baseline) / baseline) * 100;
       return pctIncrease <= thresholdPct;
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/cost-suite.ts">
+    export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
+    export function resolveSuitePath(suite: string): string {
+      return NAMED_SUITES[suite] ?? suite;
     }
   </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
@@ -15569,6 +15575,18 @@
         return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
       }
     
+      /**
+       * Returns true when an sms_only guest must receive a message via email
+       * because no SMS adapter is configured.
+       *
+       * Used for messages that CAN travel via SMS (e.g. reminders) — when the
+       * SMS channel is unavailable, we fall back to email rather than silently
+       * dropping the notification.
+       */
+      private requiresEmailFallback(preference: CommunicationPreference): boolean {
+        return preference === "sms_only" && this.smsAdapter === null;
+      }
+    
       /** Booking confirmation — transactional, always sent. */
       async sendBookingConfirmation(
         emailInput: BookingNotificationInput,
@@ -15587,7 +15605,7 @@
       ): Promise<void> {
         const sends: Promise<void>[] = [];
     
-        if (this.shouldSendEmail(preference)) {
+        if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
           sends.push(this.emailAdapter.sendBookingReminder(input));
         }
     

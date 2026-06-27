@@ -25,6 +25,12 @@ export interface NotificationDispatcherConfig {
  * - sms_only: SMS channel only (transactional fallback: email if no phone)
  * - both: email + SMS
  * - transactional_only: email for transactional, no marketing
+ *
+ * sms_only email-fallback invariant:
+ *   - Structural messages (confirmation, modified, cancelled) contain iCal/structured
+ *     data that cannot travel via SMS — they ALWAYS email sms_only guests.
+ *   - Reminders CAN travel via SMS but fall back to email when no SMS adapter
+ *     is configured (requiresEmailFallback handles this).
  */
 export class NotificationDispatcher {
   private readonly emailAdapter: NotificationPort;
@@ -61,6 +67,18 @@ export class NotificationDispatcher {
     return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
   }
 
+  /**
+   * Returns true when an sms_only guest must receive a message via email
+   * because no SMS adapter is configured.
+   *
+   * Used for messages that CAN travel via SMS (e.g. reminders) — when the
+   * SMS channel is unavailable, we fall back to email rather than silently
+   * dropping the notification.
+   */
+  private requiresEmailFallback(preference: CommunicationPreference): boolean {
+    return preference === "sms_only" && this.smsAdapter === null;
+  }
+
   /** Booking confirmation — transactional, always sent. */
   async sendBookingConfirmation(
     emailInput: BookingNotificationInput,
@@ -79,7 +97,7 @@ export class NotificationDispatcher {
   ): Promise<void> {
     const sends: Promise<void>[] = [];
 
-    if (this.shouldSendEmail(preference)) {
+    if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
       sends.push(this.emailAdapter.sendBookingReminder(input));
     }
 
