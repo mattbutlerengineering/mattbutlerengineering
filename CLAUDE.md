@@ -128,6 +128,8 @@ Disabled (kept for reference): `mbe-verify-acmm-features`, `mbe-acmm-plugin-extr
 
 > **Capacity model**: weekly work is Friday-weighted (peak availability); the `ready` queue is drained on demand via local `/implement-queue`, **not** a scheduled issue-worker pickup. Daily baseline is 2 runs (`mbe-acmm-audit` + `mbe-learning-loop`), plus `mbe-arch-deepening` every other day. Fridays add `mbe-weekly-improve` / `mbe-gotcha-harvest` / `mbe-reflect`. Well under the 5x/day plan ceiling except possibly Fridays — acceptable.
 
+> **Trust live output:** Agents should re-run source-of-truth checks (e.g., `node scripts/acmm/audit.js`) for any actionable decision (e.g., which issues to close, what to build next) rather than recalling earlier summaries from conversation history. Live output is more accurate than hand-summarized state.
+
 > **Full catalog + prompts:** [docs/scheduled-tasks.md](./docs/scheduled-tasks.md).
 
 ---
