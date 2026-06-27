@@ -125,6 +125,11 @@ function collectPrCategoryMetricsSensor() {
   return computePrCategoryMetrics(prs);
 }
 
+/**
+ * Per-issue attribution sensor (NOT total spend).
+ * Reads .claude/agent-spend.jsonl which logs only `mbe agent run` sessions.
+ * Ground-truth total spend is provided by collectCcusageCostSensor.
+ */
 function collectAgentCostSensor() {
   const spendPath = resolve(ROOT, ".claude", "agent-spend.jsonl");
   return collectAgentCost(spendPath, now);
@@ -470,7 +475,7 @@ if (JSON_ONLY) {
         break;
       case "agentCost":
         console.log(
-          `   ${name}: $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} sessions`
+          `   ${name} (per-issue attribution): $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} attributed sessions`
         );
         break;
       case "ccusageCost":

@@ -37,12 +37,12 @@ gh run list --branch main --limit 20 --json conclusion,createdAt
 # Meta-improvement suggestions created
 gh issue list --label "meta-improvement" --state all --json number,title,state
 
-# Agent spend (from local cost log)
-# Read .claude/agent-spend.jsonl and aggregate by date
+# Per-issue attribution log (mbe agent run sessions only — NOT total Claude spend)
+# Read .claude/agent-spend.jsonl and aggregate by date; use ccusage for ground-truth totals
 cat .claude/agent-spend.jsonl 2>/dev/null | tail -100
 ```
 
-#### Cost Log Format
+#### Per-Issue Attribution Log Format
 
 The file `.claude/agent-spend.jsonl` contains one JSON object per line:
 
@@ -56,27 +56,31 @@ The file `.claude/agent-spend.jsonl` contains one JSON object per line:
 }
 ```
 
-Log entries are written by `pnpm log:cost -- --cost <usd> --issue <num>` after each agent session.
+Log entries are written by `mbe agent run` (claude adapter) after each attributed session.
+
+**Important:** This log captures only `mbe agent run` sessions (~0.4% of actual Claude spend).
+It is per-issue attribution data, NOT total spend. For ground-truth Claude usage totals, use
+the `ccusage` sensor (`scripts/collect-ccusage.mjs` / `npx ccusage daily`).
 
 ### Step 2: Compute Metrics
 
 Calculate these key indicators:
 
-| Metric                  | Formula                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| **Issues Created (7d)** | Count of audit + ci-fix issues created in last 7 days                      |
-| **Issues Closed (7d)**  | Count of audit + ci-fix issues closed in last 7 days                       |
-| **Closure Rate**        | Closed / Created (target: > 0.8)                                           |
-| **Avg Time-to-Close**   | Mean of (closedAt - createdAt) for closed issues                           |
-| **Agent Success Rate**  | Issues with `has-pr` / (Issues with `has-pr` + Issues with `agent-failed`) |
-| **CI Pass Rate**        | Successful runs / Total runs on main (target: > 0.95)                      |
-| **Queue Depth**         | Count of issues with `ready` label (target: < 5)                           |
-| **Stale Issues**        | Issues with `ready` label open > 7 days                                    |
-| **Blocked Issues**      | Issues with `agent-failed` label not re-queued                             |
-| **Skipped Issues**      | Issues with `agent-skip` label (exceeded max retries, need manual review)  |
-| **Daily Agent Spend**   | Sum of costUsd from .claude/agent-spend.jsonl for today (target: < $10)    |
-| **7d Agent Spend**      | Sum of costUsd from last 7 days of entries                                 |
-| **Avg Cost/Issue**      | 7d spend / issues closed in 7d                                             |
+| Metric                     | Formula                                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Issues Created (7d)**    | Count of audit + ci-fix issues created in last 7 days                                          |
+| **Issues Closed (7d)**     | Count of audit + ci-fix issues closed in last 7 days                                           |
+| **Closure Rate**           | Closed / Created (target: > 0.8)                                                               |
+| **Avg Time-to-Close**      | Mean of (closedAt - createdAt) for closed issues                                               |
+| **Agent Success Rate**     | Issues with `has-pr` / (Issues with `has-pr` + Issues with `agent-failed`)                     |
+| **CI Pass Rate**           | Successful runs / Total runs on main (target: > 0.95)                                          |
+| **Queue Depth**            | Count of issues with `ready` label (target: < 5)                                               |
+| **Stale Issues**           | Issues with `ready` label open > 7 days                                                        |
+| **Blocked Issues**         | Issues with `agent-failed` label not re-queued                                                 |
+| **Skipped Issues**         | Issues with `agent-skip` label (exceeded max retries, need manual review)                      |
+| **Daily Attributed Spend** | Sum of costUsd from .claude/agent-spend.jsonl for today (per-issue attribution; target: < $10) |
+| **7d Attributed Spend**    | Sum of costUsd from last 7 days of entries (per-issue attribution only)                        |
+| **Avg Cost/Issue**         | 7d attributed spend / issues closed in 7d                                                      |
 
 ### Step 3: Analyze Patterns
 
@@ -172,16 +176,16 @@ Only create improvement issues for patterns seen **consistently over 3+ days**. 
 
 ## Targets & Thresholds
 
-| Metric             | Green | Yellow   | Red    |
-| ------------------ | ----- | -------- | ------ |
-| Closure Rate       | > 80% | 50-80%   | < 50%  |
-| Agent Success Rate | > 70% | 40-70%   | < 40%  |
-| CI Pass Rate       | > 95% | 85-95%   | < 85%  |
-| Queue Depth        | < 5   | 5-10     | > 10   |
-| Avg Time-to-Close  | < 24h | 24-72h   | > 72h  |
-| Daily Agent Spend  | < $10 | $10-$20  | > $20  |
-| 7d Agent Spend     | < $50 | $50-$100 | > $100 |
-| Avg Cost/Issue     | < $2  | $2-$5    | > $5   |
+| Metric                 | Green | Yellow   | Red    |
+| ---------------------- | ----- | -------- | ------ |
+| Closure Rate           | > 80% | 50-80%   | < 50%  |
+| Agent Success Rate     | > 70% | 40-70%   | < 40%  |
+| CI Pass Rate           | > 95% | 85-95%   | < 85%  |
+| Queue Depth            | < 5   | 5-10     | > 10   |
+| Avg Time-to-Close      | < 24h | 24-72h   | > 72h  |
+| Daily Attributed Spend | < $10 | $10-$20  | > $20  |
+| 7d Attributed Spend    | < $50 | $50-$100 | > $100 |
+| Avg Cost/Issue         | < $2  | $2-$5    | > $5   |
 
 ## Self-Tuning Actions
 
@@ -262,5 +266,5 @@ If reverts > 3 in a week, flag it — the loop may be pushing broken code.
 - **Max 2 meta-improvement issues per run** — avoid flooding the queue
 - **Max 2 auto-retries per run** — don't flood the ready queue
 - **Append-only log** — never delete or modify previous log entries
-- **Cost data** — read from `.claude/agent-spend.jsonl` (logged by `pnpm log:cost` after each agent session)
+- **Per-issue attribution data** — read from `.claude/agent-spend.jsonl` (logged by `mbe agent run`; partial — NOT total Claude spend; use ccusage for ground-truth totals)
 - **Circuit breaker threshold** — only pause at 50% failure rate over 3+ days, not single bad days
