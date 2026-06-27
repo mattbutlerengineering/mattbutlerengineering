@@ -1447,7 +1447,7 @@
           calibrate: boolean;
         }) => {
           const repoPath = resolve(process.cwd());
-          const suiteDir = resolve(repoPath, options.suite);
+          const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
     
           let tasks: Task[];
           try {
@@ -2876,6 +2876,12 @@
       }
       const pctIncrease = ((current - baseline) / baseline) * 100;
       return pctIncrease <= thresholdPct;
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/cost-suite.ts">
+    export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
+    export function resolveSuitePath(suite: string): string {
+      return NAMED_SUITES[suite] ?? suite;
     }
   </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">

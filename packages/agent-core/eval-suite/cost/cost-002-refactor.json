@@ -1,0 +1,20 @@
+{
+  "id": "cost-002-refactor",
+  "category": "refactor",
+  "prompt": "In packages/agent-core/src/eval/eval-harness.ts the aggregate() function contains an inline arrow function called 'sum' that is only used within that function body. Extract it to a module-level helper named sumScores(scores, pick) so it can be tested independently. All existing tests in eval-harness.test.ts must continue to pass.",
+  "fixtureRef": "packages/agent-core",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "The sum helper is lifted to module scope as sumScores",
+      "aggregate() delegates to sumScores",
+      "No external API changes — EvalReport shape is unchanged"
+    ]
+  },
+  "budget": {
+    "maxTurns": 15,
+    "maxCostUsd": 0.4
+  }
+}

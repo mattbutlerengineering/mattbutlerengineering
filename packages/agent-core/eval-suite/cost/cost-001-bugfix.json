@@ -1,0 +1,19 @@
+{
+  "id": "cost-001-bugfix",
+  "category": "bugfix",
+  "prompt": "In packages/agent-core/src/eval/eval-harness.ts the stuckCount in the aggregate result counts any task whose 'error' field is not undefined. A task whose error field is set to an empty string should NOT count as stuck — only non-empty error strings indicate a mid-run crash. Fix the stuckCount predicate to filter on non-empty strings and add a unit test in eval-harness.test.ts that verifies an empty-string error does not increment stuckCount.",
+  "fixtureRef": "packages/agent-core",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "stuckCount only increments for tasks whose error field is a non-empty string",
+      "A test covers the empty-string edge case"
+    ]
+  },
+  "budget": {
+    "maxTurns": 20,
+    "maxCostUsd": 0.5
+  }
+}
