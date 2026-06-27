@@ -42,20 +42,20 @@ function makeReservation(overrides: Record<string, unknown> = {}) {
 }
 
 describe("resolveChannel", () => {
-  it("returns 'email' when preference is 'email' regardless of phone availability", () => {
+  it("returns 'email' when preference is 'email_only' regardless of phone availability", () => {
     const input: ResolveChannelInput = {
       email: "a@example.com",
       phone: "+15551234567",
-      communicationPreference: "email",
+      communicationPreference: "email_only",
     };
     expect(resolveChannel(input)).toBe("email");
   });
 
-  it("returns 'sms' when preference is 'sms'", () => {
+  it("returns 'sms' when preference is 'sms_only'", () => {
     const input: ResolveChannelInput = {
       email: "a@example.com",
       phone: "+15551234567",
-      communicationPreference: "sms",
+      communicationPreference: "sms_only",
     };
     expect(resolveChannel(input)).toBe("sms");
   });
@@ -67,6 +67,15 @@ describe("resolveChannel", () => {
       communicationPreference: "both",
     };
     expect(resolveChannel(input)).toBe("both");
+  });
+
+  it("returns 'email' when preference is 'transactional_only'", () => {
+    const input: ResolveChannelInput = {
+      email: "a@example.com",
+      phone: "+15551234567",
+      communicationPreference: "transactional_only",
+    };
+    expect(resolveChannel(input)).toBe("email");
   });
 
   it("falls back to 'both' when no preference and both email and phone are present", () => {
@@ -308,14 +317,14 @@ describe("createBookingNotifier", () => {
     expect(deps.scheduler.schedule).toHaveBeenCalled();
   });
 
-  it("resolveChannel prefers communicationPreference=email over data availability", async () => {
+  it("resolveChannel prefers communicationPreference=email_only over data availability", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
-    // Reservation has both email and phone but pref = email (via guest field)
+    // Reservation has both email and phone but pref = email_only (via guest field)
     const startMs = Date.now() + 30 * 60 * 60 * 1000;
     const reservation = makeReservation({
       startTime: new Date(startMs).toISOString(),
-      guest: { visitCount: 1, communicationPreference: "email" },
+      guest: { visitCount: 1, communicationPreference: "email_only" },
     });
 
     await notifier.scheduleBookingNotifications(reservation as never, "token");
