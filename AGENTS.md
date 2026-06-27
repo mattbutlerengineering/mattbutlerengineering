@@ -51,6 +51,7 @@ Quick reference:
 - `/ci-monitor` — auto-fix simple CI failures
 - `/progress-tracker` — metrics + circuit breaker
 - `/acmm-audit` — score repo against AI Codebase Maturity Model
+- `/token-report [daily|session|blocks]` — real-time token spend summary via ccusage
 
 ### ACMM Audit (All Agents)
 
