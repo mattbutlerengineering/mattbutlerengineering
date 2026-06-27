@@ -138,6 +138,33 @@ describe("NotificationDispatcher", () => {
     });
   });
 
+  describe("sendBookingReminder — sms_only fallback", () => {
+    it("sends email when preference is 'sms_only' and smsAdapter is null (no SMS available)", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: null,
+      });
+
+      await dispatcher.sendBookingReminder(emailInput, "sms_only");
+
+      expect(mockEmailAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+      expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
+    });
+
+    it("sends SMS only (no email) when preference is 'sms_only' and smsAdapter is non-null", async () => {
+      const dispatcher = new NotificationDispatcher({
+        emailAdapter: mockEmailAdapter,
+        smsAdapter: mockSmsAdapter,
+        smsManageBaseUrl: SMS_MANAGE_BASE_URL,
+      });
+
+      await dispatcher.sendBookingReminder(emailInput, "sms_only");
+
+      expect(mockSmsAdapter.sendBookingReminder).toHaveBeenCalledOnce();
+      expect(mockEmailAdapter.sendBookingReminder).not.toHaveBeenCalled();
+    });
+  });
+
   describe("sendBookingModified", () => {
     it("sends email when preference is email_only", async () => {
       const dispatcher = new NotificationDispatcher({
