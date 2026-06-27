@@ -2477,7 +2477,7 @@
       interface ResolveChannelInput {
         email: string | null;
         phone: string | null;
-        communicationPreference: string | null;
+        communicationPreference: CommunicationPreference | null;
       }
     </item>
   </file>
