@@ -235,9 +235,12 @@ export async function mockApi(page: Page): Promise<void> {
   //   window.__fakeSSEConfig = { events: [{ type, data, lastEventId? }] }
   // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
   await page.addInitScript(() => {
-    const instances: FakeEventSource[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__fakeEventSources = instances;
+    type SseEventEntry = { type: string; data: unknown; lastEventId?: string };
+    type FakeWindow = typeof window & {
+      __fakeEventSources: FakeEventSource[];
+      __fakeSSEConfig?: { events?: SseEventEntry[] };
+      EventSource: typeof FakeEventSource;
+    };
 
     class FakeEventSource {
       static readonly CONNECTING = 0;
@@ -256,12 +259,9 @@ export async function mockApi(page: Page): Promise<void> {
 
       constructor(url: string, _init?: EventSourceInit) {
         this.url = url;
-        instances.push(this);
+        (window as unknown as FakeWindow).__fakeEventSources.push(this);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cfg = (window as any).__fakeSSEConfig as
-          | { events?: Array<{ type: string; data: unknown; lastEventId?: string }> }
-          | undefined;
+        const cfg = (window as unknown as FakeWindow).__fakeSSEConfig;
 
         queueMicrotask(() => {
           if (this._closed) return;
@@ -296,8 +296,9 @@ export async function mockApi(page: Page): Promise<void> {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).EventSource = FakeEventSource;
+    const win = window as unknown as FakeWindow;
+    win.__fakeEventSources = [];
+    win.EventSource = FakeEventSource;
   });
 
   // Public endpoints
