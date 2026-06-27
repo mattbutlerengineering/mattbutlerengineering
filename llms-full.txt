@@ -16817,6 +16817,12 @@
       readonly source: "frontmatter" | "router" | "escalate";
     }
   </file>
+  <file path="tools/cli/src/token-counter.ts">
+    export function countTokens(text: string): number {
+      if (text.length === 0) return 0;
+      return Math.ceil(text.length / CHARS_PER_TOKEN);
+    }
+  </file>
   </section>
   <section priority="medium" role="test">
   <file path="services/users/src/test/fixtures.ts">
