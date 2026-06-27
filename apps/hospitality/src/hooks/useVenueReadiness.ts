@@ -129,5 +129,15 @@ export function useVenueReadiness(): VenueReadiness {
     return LOADING;
   }
 
+  // Venue is resolved, but its floor plans are still being fetched — we cannot
+  // yet distinguish "setup" from "operational", so stay in the indeterminate
+  // loading state instead of flapping to "setup" and triggering a spurious
+  // /setup -> /timeline redirect. (See #1968 cluster A.)
+  const awaitingFloorPlans =
+    !!selectedVenueId && !!accessToken && floorPlanState?.venueId !== selectedVenueId;
+  if (awaitingFloorPlans) {
+    return LOADING;
+  }
+
   return readiness;
 }
