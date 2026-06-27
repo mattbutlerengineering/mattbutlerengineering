@@ -62,7 +62,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
     const searchInput = mockedPage.getByPlaceholder("Search by guest name...");
     await searchInput.fill("zzzzz-no-match-9999");
 
-    await expect(mockedPage.getByText("No reservations")).toBeVisible();
+    await expect(mockedPage.getByText("No reservations", { exact: true })).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/reservations-empty.png", fullPage: true });
   });
 });
