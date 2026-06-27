@@ -13,10 +13,10 @@ test.describe("CF-2: Dashboard morning load", () => {
     await mockedPage.goto("dashboard");
 
     // All four Stat widgets defined in HomePage
-    await expect(mockedPage.getByText("Today's Reservations")).toBeVisible();
-    await expect(mockedPage.getByText("Expected Covers")).toBeVisible();
-    await expect(mockedPage.getByText("Upcoming (2 hrs)")).toBeVisible();
-    await expect(mockedPage.getByText("Cancellation Rate")).toBeVisible();
+    await expect(mockedPage.getByRole("heading", { name: "Today's Reservations" })).toBeVisible();
+    await expect(mockedPage.getByRole("heading", { name: "Expected Covers" })).toBeVisible();
+    await expect(mockedPage.getByRole("heading", { name: "Upcoming (2 hrs)" })).toBeVisible();
+    await expect(mockedPage.getByRole("heading", { name: "Cancellation Rate" })).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-stats.png", fullPage: true });
   });
 
