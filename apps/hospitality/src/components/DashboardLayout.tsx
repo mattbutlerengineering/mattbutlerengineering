@@ -66,6 +66,13 @@ function DashboardLayoutInner() {
   useEffect(() => {
     const path = location.pathname.replace(/^\/hospitality/, "");
 
+    // Do not redirect while venue data is still loading — the real status
+    // is not yet known and an early redirect would be sticky (operational
+    // recovery only handles /setup and /, not /onboarding).
+    if (readiness.status === "loading") {
+      return;
+    }
+
     if (readiness.status === "no-venue") {
       if (!path.startsWith("/onboarding") && !path.startsWith("/callback")) {
         navigate("/onboarding", { replace: true });

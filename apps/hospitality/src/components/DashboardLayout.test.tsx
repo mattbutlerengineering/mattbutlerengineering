@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
+import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { DashboardLayout } from "./DashboardLayout.js";
 import React from "react";
 
@@ -101,6 +102,19 @@ describe("DashboardLayout", () => {
       </MemoryRouter>
     );
   };
+
+  it("does not redirect while readiness status is loading", () => {
+    const loading: VenueReadiness = {
+      status: "loading",
+      completedSteps: [],
+      nextStep: null,
+      progress: 0,
+    };
+    vi.mocked(useVenueReadiness).mockReturnValue(loading);
+    renderLayout("/timeline");
+    // Should stay on the requested route — not bounce to /onboarding
+    expect(screen.getByText("Timeline Content")).toBeDefined();
+  });
 
   it("redirects to onboarding when no venue exists", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({

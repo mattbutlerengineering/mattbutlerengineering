@@ -190,7 +190,7 @@ describe("useVenueReadiness", () => {
     } as any);
   });
 
-  it("returns no-venue state when loading", () => {
+  it("returns 'loading' status when venue context is loading", () => {
     vi.mocked(useVenue).mockReturnValue({
       selectedVenue: null,
       selectedVenueId: null,
@@ -202,9 +202,10 @@ describe("useVenueReadiness", () => {
 
     const { result } = renderHook(() => useVenueReadiness());
 
-    expect(result.current.status).toBe("no-venue");
+    expect(result.current.status).toBe("loading");
     expect(result.current.progress).toBe(0);
     expect(result.current.nextStep).toBeNull();
+    expect(result.current.completedSteps).toHaveLength(0);
   });
 
   it("fetches floor plans on mount when venue and token are available", async () => {

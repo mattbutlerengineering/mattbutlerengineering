@@ -8,7 +8,7 @@ import type { FloorPlan } from "@mbe/types";
 export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
 
 export interface VenueReadiness {
-  status: "no-venue" | "setup" | "operational";
+  status: "loading" | "no-venue" | "setup" | "operational";
   completedSteps: readonly SetupStep[];
   nextStep: SetupStep | null;
   progress: number; // 0–100
@@ -16,8 +16,8 @@ export interface VenueReadiness {
 
 export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
-const NO_VENUE: VenueReadiness = {
-  status: "no-venue",
+const LOADING: VenueReadiness = {
+  status: "loading",
   completedSteps: [],
   nextStep: null,
   progress: 0,
@@ -126,7 +126,7 @@ export function useVenueReadiness(): VenueReadiness {
   );
 
   if (isLoading) {
-    return NO_VENUE;
+    return LOADING;
   }
 
   return readiness;
