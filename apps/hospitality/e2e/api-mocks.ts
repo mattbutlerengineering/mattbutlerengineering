@@ -36,6 +36,13 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
 }
 
 export async function mockApi(page: Page): Promise<void> {
+  // Signal to QueryProvider to disable react-query retries so error states
+  // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
+  // instead of after the default 3x exponential backoff (~7s).
+  await page.addInitScript(() => {
+    (window as unknown as { __e2eNoRetry: boolean }).__e2eNoRetry = true;
+  });
+
   // Users
   await page.route("**/api/v1/users/me", (route) =>
     route.request().method() === "PATCH"

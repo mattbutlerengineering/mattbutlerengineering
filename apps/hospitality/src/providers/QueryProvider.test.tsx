@@ -43,4 +43,19 @@ describe("QueryProvider", () => {
 
     expect(screen.getByTestId("retry")).toHaveTextContent("3");
   });
+
+  it("configures 0 retries when __e2eNoRetry flag is set on window", () => {
+    (window as unknown as { __e2eNoRetry?: boolean }).__e2eNoRetry = true;
+    try {
+      render(
+        <QueryProvider>
+          <TestConsumer />
+        </QueryProvider>
+      );
+
+      expect(screen.getByTestId("retry")).toHaveTextContent("0");
+    } finally {
+      delete (window as unknown as { __e2eNoRetry?: boolean }).__e2eNoRetry;
+    }
+  });
 });
