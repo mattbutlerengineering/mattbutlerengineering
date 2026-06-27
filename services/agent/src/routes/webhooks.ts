@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { type ApiError, createProblemDetails } from "@mbe/types";
-import { extractIssueIntent } from "@mbe/agent-core";
+import { extractIssueIntent, intentToRoutingContext, routeModelWithReason } from "@mbe/agent-core";
+import type { IssueInput } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
 
@@ -254,9 +255,19 @@ async function handleIssueEvent(
     );
   }
 
+  // Route the model: use intent-derived context when available, regex-only otherwise.
+  const issueInput: IssueInput = {
+    title: event.issue.title,
+    labels: event.issue.labels.map((l) => l.name),
+    body: event.issue.body ?? "",
+  };
+  const routingCtx = intent ? intentToRoutingContext(intent) : undefined;
+  const { modelId } = routeModelWithReason(issueInput, routingCtx);
+
   const result = await sessionService.triggerSession({
     taskDescription,
     baseBranch: event.repository.default_branch,
+    model: modelId,
   });
 
   if (!result.accepted) {

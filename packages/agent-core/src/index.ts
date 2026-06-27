@@ -225,7 +225,11 @@ export {
 } from "./budget-calculator.js";
 
 // Intent extraction
-export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
+export {
+  extractIssueIntent,
+  IssueIntentSchema,
+  intentToRoutingContext,
+} from "./intent-extractor.js";
 export type { IssueIntent } from "./intent-extractor.js";
 
 // Model routing

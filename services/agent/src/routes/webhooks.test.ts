@@ -2,6 +2,21 @@ import { createHmac } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 
+// Mock @mbe/agent-core — keep routeModelWithReason / intentToRoutingContext mockable
+// so we can verify the routing wiring without exercising the real SDK import.
+vi.mock("@mbe/agent-core", () => ({
+  extractIssueIntent: vi.fn().mockResolvedValue(null),
+  routeModelWithReason: vi.fn().mockReturnValue({
+    tier: "sonnet",
+    modelId: "claude-sonnet-4-6",
+    reason: "Default mock routing",
+  }),
+  intentToRoutingContext: vi.fn().mockReturnValue({
+    sourceFilePaths: [],
+    taskSignals: { tier: "standard", domains: [], contextBundles: [] },
+  }),
+}));
+
 // Mock all service dependencies
 vi.mock("../services/session.js", () => ({
   sessionService: {
@@ -34,6 +49,7 @@ const mockFetch = vi.mocked(fetch);
 
 import { sessionService } from "../services/session.js";
 import { buildApp } from "../app.js";
+import { extractIssueIntent, routeModelWithReason, intentToRoutingContext } from "@mbe/agent-core";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 
@@ -213,6 +229,101 @@ describe("Webhook Routes", () => {
         });
 
         expect(vi.mocked(sessionService.triggerSession)).not.toHaveBeenCalled();
+      });
+
+      describe("model routing from IssueIntent", () => {
+        const featurePayload = {
+          ...issuePayload,
+          issue: {
+            ...issuePayload.issue,
+            labels: [{ name: "agent" }, { name: "feature" }],
+          },
+        };
+
+        it("passes routing context from intent to routeModelWithReason and forwards model to triggerSession", async () => {
+          const mockIntent = {
+            summary: "Implement new auth flow",
+            acceptanceCriteria: ["Auth works"],
+            estimatedScope: "large" as const,
+            taskDescription: "Implement new auth flow with all context",
+            affectedFiles: ["src/auth.ts", "src/middleware.ts"],
+          };
+          vi.mocked(extractIssueIntent).mockResolvedValueOnce(mockIntent);
+
+          const mockCtx = {
+            sourceFilePaths: ["src/auth.ts", "src/middleware.ts"],
+            taskSignals: { tier: "complex" as const, domains: [], contextBundles: [] },
+          };
+          vi.mocked(intentToRoutingContext).mockReturnValueOnce(mockCtx);
+          vi.mocked(routeModelWithReason).mockReturnValueOnce({
+            tier: "opus",
+            modelId: "claude-opus-4-8",
+            reason: "Feature with complexity",
+          });
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ permission: "write" }),
+          } as Response);
+
+          const payloadStr = JSON.stringify(featurePayload);
+          const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+          await app.inject({
+            method: "POST",
+            url: "/v1/webhooks/github",
+            payload: featurePayload,
+            headers: {
+              "x-github-event": "issues",
+              "x-hub-signature-256": signature,
+            },
+          });
+
+          expect(vi.mocked(intentToRoutingContext)).toHaveBeenCalledWith(mockIntent);
+          expect(vi.mocked(routeModelWithReason)).toHaveBeenCalledWith(
+            expect.objectContaining({ title: "Fix the login bug" }),
+            mockCtx
+          );
+          expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
+            expect.objectContaining({ model: "claude-opus-4-8" })
+          );
+        });
+
+        it("falls back to regex-only routing (undefined context) when intent is null", async () => {
+          vi.mocked(extractIssueIntent).mockResolvedValueOnce(null);
+          vi.mocked(routeModelWithReason).mockReturnValueOnce({
+            tier: "sonnet",
+            modelId: "claude-sonnet-4-6",
+            reason: "Default routing",
+          });
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ permission: "write" }),
+          } as Response);
+
+          const payloadStr = JSON.stringify(issuePayload);
+          const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+          await app.inject({
+            method: "POST",
+            url: "/v1/webhooks/github",
+            payload: issuePayload,
+            headers: {
+              "x-github-event": "issues",
+              "x-hub-signature-256": signature,
+            },
+          });
+
+          expect(vi.mocked(intentToRoutingContext)).not.toHaveBeenCalled();
+          expect(vi.mocked(routeModelWithReason)).toHaveBeenCalledWith(
+            expect.objectContaining({ title: "Fix the login bug" }),
+            undefined
+          );
+          expect(vi.mocked(sessionService.triggerSession)).toHaveBeenCalledWith(
+            expect.objectContaining({ model: "claude-sonnet-4-6" })
+          );
+        });
       });
     });
 
