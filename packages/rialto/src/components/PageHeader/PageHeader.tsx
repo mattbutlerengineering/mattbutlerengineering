@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { Breadcrumb, type BreadcrumbItem } from "../Breadcrumb/Breadcrumb";
 import { Heading } from "../Heading/Heading";
+import { cn } from "../../utils/class-composer";
 import styles from "./PageHeader.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -37,7 +38,7 @@ export type { BreadcrumbItem };
 
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(
   ({ title, breadcrumbs, actions, meta, children, className, ...props }, ref) => {
-    const classes = [styles.header, className].filter(Boolean).join(" ");
+    const classes = cn(styles.header, className);
 
     return (
       <header ref={ref} className={classes} {...props}>

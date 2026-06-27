@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./AspectRatio.module.css";
 
 /**
@@ -24,7 +25,7 @@ export const AspectRatio = forwardRef<HTMLDivElement, AspectRatioProps>(
     return (
       <div
         ref={ref}
-        className={[styles.root, className].filter(Boolean).join(" ")}
+        className={cn(styles.root, className)}
         style={{ "--ratio": ratio, ...style } as React.CSSProperties}
         {...props}
       >

@@ -1,5 +1,6 @@
 import { forwardRef, useId, useMemo, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Ferrofluid.module.css";
 
 /**
@@ -54,12 +55,7 @@ export const Ferrofluid = forwardRef<HTMLDivElement, FerrofluidProps>(
     const blobs = useMemo(() => generateBlobs(blobCount), [blobCount]);
 
     return (
-      <div
-        ref={ref}
-        aria-hidden="true"
-        className={[styles.wrapper, className].filter(Boolean).join(" ")}
-        {...rest}
-      >
+      <div ref={ref} aria-hidden="true" className={cn(styles.wrapper, className)} {...rest}>
         <svg className={styles.svg} viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
           <defs>
             <filter id={filterId}>
