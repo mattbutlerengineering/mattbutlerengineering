@@ -6,6 +6,7 @@ const mockRunSession = vi.fn();
 const mockAppendFileSync = vi.fn();
 const mockMkdirSync = vi.fn();
 const mockExistsSync = vi.fn();
+const mockReadFileSync = vi.fn();
 
 // Static import keeps the heavy module load (real @mbe/agent-core via
 // importOriginal) in file setup, outside the per-test timeout window.
@@ -42,6 +43,7 @@ vi.mock("node:fs", () => ({
   existsSync: (...a: unknown[]) => mockExistsSync(...a),
   mkdirSync: (...a: unknown[]) => mockMkdirSync(...a),
   appendFileSync: (...a: unknown[]) => mockAppendFileSync(...a),
+  readFileSync: (...a: unknown[]) => mockReadFileSync(...a),
 }));
 
 function fakeSession(overrides: Record<string, unknown> = {}) {
@@ -181,5 +183,80 @@ describe("agent eval command", () => {
 
     const out = logSpy.mock.calls.flat().join("\n");
     expect(out).not.toContain("without self-eval");
+  });
+
+  describe("--max-cost-regression", () => {
+    it("exits 0 when cost is within threshold versus baseline", async () => {
+      // baseline meanCostUsd = 0.10; current session costUsd = 0.11 (10% up, threshold 20%)
+      const baseline = {
+        runId: "prev",
+        tasks: [],
+        aggregate: {
+          total: 1,
+          passRate: 1,
+          meanScore: 1,
+          meanCostUsd: 0.1,
+          meanTurns: 5,
+          stuckCount: 0,
+        },
+        timestamp: "2026-01-01T00:00:00.000Z",
+      };
+      mockReadFileSync.mockReturnValue(JSON.stringify(baseline) + "\n");
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunSession.mockResolvedValue(fakeSession({ costUsd: 0.11 }));
+
+      await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
+
+      expect(process.exitCode).toBe(0);
+    });
+
+    it("exits 1 when cost exceeds the regression threshold", async () => {
+      // baseline meanCostUsd = 0.10; current session costUsd = 0.25 (150% up, threshold 20%)
+      const baseline = {
+        runId: "prev",
+        tasks: [],
+        aggregate: {
+          total: 1,
+          passRate: 1,
+          meanScore: 1,
+          meanCostUsd: 0.1,
+          meanTurns: 5,
+          stuckCount: 0,
+        },
+        timestamp: "2026-01-01T00:00:00.000Z",
+      };
+      mockReadFileSync.mockReturnValue(JSON.stringify(baseline) + "\n");
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunSession.mockResolvedValue(fakeSession({ costUsd: 0.25 }));
+
+      await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toMatch(/cost regression/i);
+    });
+
+    it("exits 0 when no baseline exists (first run)", async () => {
+      // No prior eval-reports.jsonl
+      mockReadFileSync.mockImplementation(() => {
+        throw Object.assign(new Error("no such file"), { code: "ENOENT" });
+      });
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
+
+      expect(process.exitCode).toBe(0);
+    });
+
+    it("exits 0 when eval-reports.jsonl is empty (no valid baseline)", async () => {
+      mockReadFileSync.mockReturnValue("");
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
+
+      expect(process.exitCode).toBe(0);
+    });
   });
 });
