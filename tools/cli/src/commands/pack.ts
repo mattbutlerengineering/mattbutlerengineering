@@ -5,9 +5,16 @@ import { Project, Node } from "ts-morph";
 import { glob } from "glob";
 import { execSync } from "node:child_process";
 import { findMonorepoRoot } from "../monorepo-root.js";
+import { countTokens } from "../token-counter.js";
 
 const SIZE_LIMIT_KB = 15;
 const AUTO_SPLIT_THRESHOLD_KB = 25;
+/**
+ * Default token budget for llms-full.txt. Warn-only: over-budget packs are
+ * written unchanged (no truncation). Override via MBE_TOKEN_BUDGET env var.
+ * Current root llms-full.txt is ~152K tokens, so 200K gives comfortable headroom.
+ */
+const TOKEN_BUDGET_FULL_TXT = Number(process.env["MBE_TOKEN_BUDGET"] ?? 200_000);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -254,11 +261,12 @@ async function packDirectory(
 
   const skeletonSizeKB = Buffer.byteLength(skeletonOutput, "utf8") / 1024;
   const fullSizeKB = Buffer.byteLength(fullOutput, "utf8") / 1024;
+  const fullTokens = countTokens(fullOutput);
 
   if (forceFull) {
     writeFileSync(skeletonPath, fullOutput);
     console.log(
-      `Successfully generated full context (${fullSizeKB.toFixed(1)}KB) at: ${skeletonPath}`
+      `Successfully generated full context (${fullSizeKB.toFixed(1)}KB, ~${fullTokens} tokens) at: ${skeletonPath}`
     );
   } else {
     writeFileSync(skeletonPath, skeletonOutput);
@@ -276,8 +284,15 @@ async function packDirectory(
       );
     }
 
+    if (fullTokens > TOKEN_BUDGET_FULL_TXT) {
+      const overage = fullTokens - TOKEN_BUDGET_FULL_TXT;
+      console.warn(
+        `  ⚠️  llms-full.txt for "${targetPath}" exceeds token budget: ~${fullTokens} tokens (budget: ${TOKEN_BUDGET_FULL_TXT}, overage: ~${overage} tokens)`
+      );
+    }
+
     console.log(
-      `  ✓ llms.txt (${skeletonSizeKB.toFixed(1)}KB) + llms-full.txt (${fullSizeKB.toFixed(1)}KB)`
+      `  ✓ llms.txt (${skeletonSizeKB.toFixed(1)}KB) + llms-full.txt (${fullSizeKB.toFixed(1)}KB, ~${fullTokens} tokens)`
     );
   }
 }
