@@ -64,7 +64,7 @@ test.describe("CF-7: Guest directory and search", () => {
     const dialog = mockedPage.getByRole("dialog", { name: /add guest/i });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole("button", { name: /cancel|close/i }).click();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
 
     await expect(dialog).not.toBeVisible();
   });
