@@ -4634,6 +4634,13 @@
       export function toDateString(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/types/src/errors.ts">
+    <item priority="high">
+      class AppError {
+        statusCode: number;
+      }
+    </item>
+  </file>
   <file path="packages/types/src/floor-plan.ts">
     <item priority="low">
       interface FloorPlan {

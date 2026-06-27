@@ -4020,6 +4020,17 @@
         return;
       }
     
+      const reservation = await reservationService.getById(result.reservationId!);
+      if (reservation && reservation.guestEmail !== result.guestEmail) {
+        await reply.status(403).send({
+          type: "about:blank",
+          title: "Forbidden",
+          status: 403,
+          detail: "Token does not match reservation",
+        });
+        return;
+      }
+    
       request.managedReservationId = result.reservationId!;
     }
   </file>
@@ -8469,8 +8480,14 @@
         if (parts.length < 4) return { valid: false };
     
         const signature = parts.pop()!;
-        const payload = parts.join(":");
-        const [reservationId, guestEmail, expiryStr] = parts;
+        // Pop expiry from the right, shift reservationId from the left, then
+        // rejoin whatever remains as the email. This handles RFC-valid emails
+        // containing colons (e.g. "user:tag@example.com") without breaking the
+        // HMAC payload reconstruction.
+        const expiryStr = parts.pop()!;
+        const reservationId = parts.shift()!;
+        const guestEmail = parts.join(":");
+        const payload = `${reservationId}:${guestEmail}:${expiryStr}`;
     
         const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
         if (signature !== expected) return { valid: false };
@@ -8607,37 +8624,36 @@
         },
         async (request, reply) => {
           const { slug } = request.params;
-          const venue = await venueService.getBySlug(slug);
+          const rawVenue = await venueService.getRawBySlug(slug);
     
-          if (!venue) {
+          if (!rawVenue) {
             return reply.status(404).send({
               success: false,
               error: "Venue not found",
             } as never);
           }
     
-          // Fetch deposit-specific fields (not on the mapped Venue type) via service
-          const rawVenue = await venueService.getRawBySlug(slug);
+          const settings = rawVenue.settings as Record<string, unknown> | null;
     
           const publicVenue: PublicVenueResponse = {
-            name: venue.name,
-            slug: venue.slug,
-            ianaTimezone: venue.ianaTimezone,
-            currencyCode: venue.currencyCode,
-            operatingHours: venue.operatingHours,
+            name: rawVenue.name,
+            slug: rawVenue.slug,
+            ianaTimezone: rawVenue.ianaTimezone,
+            currencyCode: rawVenue.currencyCode,
+            operatingHours: rawVenue.operatingHours,
             settings: {
-              defaultReservationDuration: venue.settings?.defaultReservationDuration,
-              maxPartySize: venue.settings?.maxPartySize,
-              maxAdvanceBooking: venue.settings?.maxAdvanceBooking,
-              slotIntervalMinutes: venue.settings?.slotIntervalMinutes,
+              defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
+              maxPartySize: settings?.maxPartySize as number | undefined,
+              maxAdvanceBooking: settings?.maxAdvanceBooking as number | undefined,
+              slotIntervalMinutes: settings?.slotIntervalMinutes as number | undefined,
             },
             deposit: {
-              enabled: rawVenue?.depositEnabled ?? false,
-              depositType: rawVenue?.depositType ?? null,
-              amountCents: rawVenue?.depositAmountCents ?? null,
-              freeCancellationHours: rawVenue?.freeCancellationHours ?? null,
-              lateCancellationFeePercent: rawVenue?.lateCancellationFeePercent ?? null,
-              noShowFeePercent: rawVenue?.noShowFeePercent ?? null,
+              enabled: rawVenue.depositEnabled,
+              depositType: rawVenue.depositType,
+              amountCents: rawVenue.depositAmountCents,
+              freeCancellationHours: rawVenue.freeCancellationHours,
+              lateCancellationFeePercent: rawVenue.lateCancellationFeePercent,
+              noShowFeePercent: rawVenue.noShowFeePercent,
             },
           };
     
@@ -10947,10 +10963,13 @@
       name: z.string(),
       notes: z.string().nullable(),
       visitCount: z.number(),
+      noShowCount: z.number(),
+      riskScore: z.enum(["trusted", "standard", "risky"]),
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
       dietaryRestrictions: z.array(z.string()).nullable(),
+      communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -14586,12 +14605,13 @@
       ): Promise<PaginatedResponse<FloorPlan>> {
         return this.client.get<PaginatedResponse<FloorPlan>>(
           "/api/v1/floor-plans",
-          params as QueryParams
+          params as QueryParams,
+          floorPlanListSchema
         );
       }
     
       async getById(id: string): Promise<FloorPlan> {
-        return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`);
+        return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`, undefined, FloorPlanSchema);
       }
     
       /** Alias for getById */
@@ -14600,11 +14620,11 @@
       }
     
       async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data);
+        return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data, FloorPlanSchema);
       }
     
       async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-        return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data);
+        return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data, FloorPlanSchema);
       }
     
       async delete(id: string): Promise<void> {
@@ -14612,7 +14632,11 @@
       }
     
       async setActive(id: string): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/active`, undefined);
+        return this.client.postOne<FloorPlan>(
+          `/api/v1/floor-plans/${id}/active`,
+          undefined,
+          FloorPlanSchema
+        );
       }
     
       /** Alias for setActive */
@@ -14626,12 +14650,17 @@
       ): Promise<Table[]> {
         return this.client.postOne<Table[]>(
           `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
-          positions
+          positions,
+          z.array(TableSchema)
         );
       }
     
       async clone(id: string): Promise<FloorPlan> {
-        return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, undefined);
+        return this.client.postOne<FloorPlan>(
+          `/api/v1/floor-plans/${id}/clone`,
+          undefined,
+          FloorPlanSchema
+        );
       }
     }
   </file>
@@ -14966,28 +14995,32 @@
        * List tables with optional filters
        */
       async list(params: ListTablesParams = {}): Promise<PaginatedResponse<Table>> {
-        return this.client.get<PaginatedResponse<Table>>("/api/v1/tables", params as QueryParams);
+        return this.client.get<PaginatedResponse<Table>>(
+          "/api/v1/tables",
+          params as QueryParams,
+          tableListSchema
+        );
       }
     
       /**
        * Get a table by ID
        */
       async get(id: string): Promise<Table> {
-        return this.client.getOne<Table>(`/api/v1/tables/${id}`);
+        return this.client.getOne<Table>(`/api/v1/tables/${id}`, undefined, TableSchema);
       }
     
       /**
        * Create a new table
        */
       async create(data: CreateTableRequest): Promise<Table> {
-        return this.client.postOne<Table>("/api/v1/tables", data);
+        return this.client.postOne<Table>("/api/v1/tables", data, TableSchema);
       }
     
       /**
        * Update a table
        */
       async update(id: string, data: UpdateTableRequest): Promise<Table> {
-        return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data);
+        return this.client.patchOne<Table>(`/api/v1/tables/${id}`, data, TableSchema);
       }
     
       /**
@@ -15001,9 +15034,11 @@
        * Update the status of a table
        */
       async updateStatus(id: string, tableStatus: string): Promise<Table> {
-        return this.client.patchOne<Table>(`/api/v1/tables/${id}/status`, {
-          status: tableStatus,
-        });
+        return this.client.patchOne<Table>(
+          `/api/v1/tables/${id}/status`,
+          { status: tableStatus },
+          TableSchema
+        );
       }
     }
   </file>
@@ -15015,35 +15050,39 @@
        * List all users with pagination
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<User>> {
-        return this.client.get<PaginatedResponse<User>>(`/api/v1/users?page=${page}&limit=${limit}`);
+        return this.client.get<PaginatedResponse<User>>(
+          `/api/v1/users?page=${page}&limit=${limit}`,
+          undefined,
+          userListSchema
+        );
       }
     
       /**
        * Get a user by ID
        */
       async get(id: string): Promise<User> {
-        return this.client.getOne<User>(`/api/v1/users/${id}`);
+        return this.client.getOne<User>(`/api/v1/users/${id}`, undefined, UserSchema);
       }
     
       /**
        * Get the currently authenticated user
        */
       async me(): Promise<User> {
-        return this.client.getOne<User>("/api/v1/users/me");
+        return this.client.getOne<User>("/api/v1/users/me", undefined, UserSchema);
       }
     
       /**
        * Create a new user
        */
       async create(data: CreateUserRequest): Promise<User> {
-        return this.client.postOne<User>("/api/v1/users", data);
+        return this.client.postOne<User>("/api/v1/users", data, UserSchema);
       }
     
       /**
        * Update a user
        */
       async update(id: string, data: UpdateUserRequest): Promise<User> {
-        return this.client.patchOne<User>(`/api/v1/users/${id}`, data);
+        return this.client.patchOne<User>(`/api/v1/users/${id}`, data, UserSchema);
       }
     
       /**
@@ -15057,7 +15096,7 @@
        * Update current user's preferences
        */
       async updatePreferences(preferences: UpdatePreferencesRequest): Promise<User> {
-        return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences);
+        return this.client.patchOne<User>("/api/v1/users/me/preferences", preferences, UserSchema);
       }
     }
   </file>
@@ -15071,35 +15110,39 @@
       async list(
         params: { page?: number; limit?: number; venueGroupId?: string } = {}
       ): Promise<PaginatedResponse<Venue>> {
-        return this.client.get<PaginatedResponse<Venue>>("/api/v1/venues", params as QueryParams);
+        return this.client.get<PaginatedResponse<Venue>>(
+          "/api/v1/venues",
+          params as QueryParams,
+          venueListSchema
+        );
       }
     
       /**
        * Get a venue by ID
        */
       async get(id: string): Promise<Venue> {
-        return this.client.getOne<Venue>(`/api/v1/venues/${id}`);
+        return this.client.getOne<Venue>(`/api/v1/venues/${id}`, undefined, VenueSchema);
       }
     
       /**
        * Get a venue by slug
        */
       async getBySlug(slug: string): Promise<Venue> {
-        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`);
+        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`, undefined, VenueSchema);
       }
     
       /**
        * Create a new venue
        */
       async create(data: CreateVenueRequest): Promise<Venue> {
-        return this.client.postOne<Venue>("/api/v1/venues", data);
+        return this.client.postOne<Venue>("/api/v1/venues", data, VenueSchema);
       }
     
       /**
        * Update a venue
        */
       async update(id: string, data: UpdateVenueRequest): Promise<Venue> {
-        return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data);
+        return this.client.patchOne<Venue>(`/api/v1/venues/${id}`, data, VenueSchema);
       }
     
       /**
@@ -15117,7 +15160,9 @@
        */
       async list(page = 1, limit = 10): Promise<PaginatedResponse<VenueGroup>> {
         return this.client.get<PaginatedResponse<VenueGroup>>(
-          `/api/v1/venues/groups?page=${page}&limit=${limit}`
+          `/api/v1/venues/groups?page=${page}&limit=${limit}`,
+          undefined,
+          venueGroupListSchema
         );
       }
     
@@ -15125,28 +15170,36 @@
        * Get a venue group by ID
        */
       async get(id: string): Promise<VenueGroup> {
-        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/${id}`);
+        return this.client.getOne<VenueGroup>(
+          `/api/v1/venues/groups/${id}`,
+          undefined,
+          VenueGroupSchema
+        );
       }
     
       /**
        * Get a venue group by slug
        */
       async getBySlug(slug: string): Promise<VenueGroup> {
-        return this.client.getOne<VenueGroup>(`/api/v1/venues/groups/by-slug/${slug}`);
+        return this.client.getOne<VenueGroup>(
+          `/api/v1/venues/groups/by-slug/${slug}`,
+          undefined,
+          VenueGroupSchema
+        );
       }
     
       /**
        * Create a new venue group
        */
       async create(data: CreateVenueGroupRequest): Promise<VenueGroup> {
-        return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data);
+        return this.client.postOne<VenueGroup>("/api/v1/venues/groups", data, VenueGroupSchema);
       }
     
       /**
        * Update a venue group
        */
       async update(id: string, data: UpdateVenueGroupRequest): Promise<VenueGroup> {
-        return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data);
+        return this.client.patchOne<VenueGroup>(`/api/v1/venues/groups/${id}`, data, VenueGroupSchema);
       }
     
       /**
@@ -16373,6 +16426,22 @@
       return date.toISOString().substring(0, 10);
     }
   </file>
+  <file path="packages/types/src/errors.ts">
+    export class AppError extends Error {
+      /** Alias for httpStatus — makes AppError compatible with classifyError's statusCode check. */
+      public readonly statusCode: number;
+    
+      constructor(
+        public readonly code: string,
+        public readonly httpStatus: number,
+        message: string
+      ) {
+        super(message);
+        this.name = "AppError";
+        this.statusCode = httpStatus;
+      }
+    }
+  </file>
   <file path="packages/types/src/floor-plan.ts">
     export interface FloorPlan {
       id: string;
@@ -16598,6 +16667,10 @@
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
       }
+    
+      // AppError serialization is handled centrally by errorHandlerPlugin →
+      // classifyError (in @mbe/service-bootstrap), which emits the AppError `code`
+      // as an RFC 9457 extension member. No per-service error handler is needed.
     
       return fastify;
     }

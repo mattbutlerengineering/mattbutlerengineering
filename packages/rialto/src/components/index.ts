@@ -80,6 +80,7 @@ export * from "./SplitFlap";
 export * from "./Chalkboard";
 export * from "./SplitScreenExit";
 export * from "./Ferrofluid";
+export * from "./WatchLoader";
 
 // ── Hospitality specialty ──────────────────────
 export * from "./TapeChart";

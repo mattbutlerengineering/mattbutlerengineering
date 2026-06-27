@@ -102,11 +102,23 @@ describe("interpretDeployHealth — rolled_back round-trip", () => {
 });
 
 describe("interpretDeployHealth — cancelled round-trip", () => {
-  it("classifies cancelled conclusion as unhealthy", () => {
+  it("classifies cancelled conclusion as stale (DO+Pulumi race artifact, not a real failure)", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.CANCELLED);
     const result = interpretDeployHealth(record, NOW);
-    expect(result.status).toBe("unhealthy");
+    expect(result.status).toBe("stale");
     expect(result.last_run).toEqual(record);
+  });
+
+  it("still classifies failure as unhealthy (regression guard)", () => {
+    const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.FAILURE);
+    const result = interpretDeployHealth(record, NOW);
+    expect(result.status).toBe("unhealthy");
+  });
+
+  it("still classifies rolled_back as unhealthy (regression guard)", () => {
+    const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.ROLLED_BACK);
+    const result = interpretDeployHealth(record, NOW);
+    expect(result.status).toBe("unhealthy");
   });
 });
 

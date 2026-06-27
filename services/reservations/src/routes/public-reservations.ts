@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
+import { AppError } from "@mbe/types";
 import { createHmac } from "crypto";
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
@@ -31,8 +32,14 @@ export function verifyManageToken(token: string): {
     if (parts.length < 4) return { valid: false };
 
     const signature = parts.pop()!;
-    const payload = parts.join(":");
-    const [reservationId, guestEmail, expiryStr] = parts;
+    // Pop expiry from the right, shift reservationId from the left, then
+    // rejoin whatever remains as the email. This handles RFC-valid emails
+    // containing colons (e.g. "user:tag@example.com") without breaking the
+    // HMAC payload reconstruction.
+    const expiryStr = parts.pop()!;
+    const reservationId = parts.shift()!;
+    const guestEmail = parts.join(":");
+    const payload = `${reservationId}:${guestEmail}:${expiryStr}`;
 
     const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
     if (signature !== expected) return { valid: false };
@@ -78,12 +85,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
-        return reply.status(404).send({
-          type: "https://httpproblems.com/http-status/404",
-          title: "Venue Not Found",
-          status: 404,
-          detail: `No venue found with slug '${slug}'.`,
-        } as never);
+        throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
       }
 
       const result = await confirmHold({
@@ -100,19 +102,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
           PACING_EXCEEDED: 422,
         };
         const httpStatus = statusMap[result.errorCode] ?? 409;
-        const titleMap: Record<string, string> = {
-          NOT_FOUND: "Not Found",
-          EXPIRED: "Hold Expired",
-          SESSION_MISMATCH: "Forbidden",
-          CONFLICT: "Booking Failed",
-          PACING_EXCEEDED: "Pacing Limit Reached",
-        };
-        return reply.status(httpStatus).send({
-          type: `https://httpproblems.com/http-status/${httpStatus}`,
-          title: titleMap[result.errorCode] ?? "Booking Failed",
-          status: httpStatus,
-          detail: result.error,
-        } as never);
+        throw new AppError(result.errorCode, httpStatus, result.error ?? "Booking failed");
       }
 
       decrementHoldCount(ip);

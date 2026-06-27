@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   FloorPlan,
   CreateFloorPlanRequest,
@@ -6,7 +7,11 @@ import type {
   Table,
   PaginatedResponse,
 } from "@mbe/types";
+import { FloorPlanSchema, TableSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
+
+const floorPlanListSchema: z.ZodSchema<PaginatedResponse<FloorPlan>> =
+  paginatedResponseSchema(FloorPlanSchema);
 
 export class FloorPlansClient {
   constructor(private client: ApiClient) {}
@@ -20,12 +25,13 @@ export class FloorPlansClient {
   ): Promise<PaginatedResponse<FloorPlan>> {
     return this.client.get<PaginatedResponse<FloorPlan>>(
       "/api/v1/floor-plans",
-      params as QueryParams
+      params as QueryParams,
+      floorPlanListSchema
     );
   }
 
   async getById(id: string): Promise<FloorPlan> {
-    return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`);
+    return this.client.getOne<FloorPlan>(`/api/v1/floor-plans/${id}`, undefined, FloorPlanSchema);
   }
 
   /** Alias for getById */
@@ -34,11 +40,11 @@ export class FloorPlansClient {
   }
 
   async create(data: CreateFloorPlanRequest): Promise<FloorPlan> {
-    return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data);
+    return this.client.postOne<FloorPlan>("/api/v1/floor-plans", data, FloorPlanSchema);
   }
 
   async update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan> {
-    return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data);
+    return this.client.patchOne<FloorPlan>(`/api/v1/floor-plans/${id}`, data, FloorPlanSchema);
   }
 
   async delete(id: string): Promise<void> {
@@ -46,7 +52,11 @@ export class FloorPlansClient {
   }
 
   async setActive(id: string): Promise<FloorPlan> {
-    return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/active`, undefined);
+    return this.client.postOne<FloorPlan>(
+      `/api/v1/floor-plans/${id}/active`,
+      undefined,
+      FloorPlanSchema
+    );
   }
 
   /** Alias for setActive */
@@ -60,11 +70,16 @@ export class FloorPlansClient {
   ): Promise<Table[]> {
     return this.client.postOne<Table[]>(
       `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
-      positions
+      positions,
+      z.array(TableSchema)
     );
   }
 
   async clone(id: string): Promise<FloorPlan> {
-    return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, undefined);
+    return this.client.postOne<FloorPlan>(
+      `/api/v1/floor-plans/${id}/clone`,
+      undefined,
+      FloorPlanSchema
+    );
   }
 }

@@ -155,6 +155,10 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
   }
 
+  // AppError serialization is handled centrally by errorHandlerPlugin →
+  // classifyError (in @mbe/service-bootstrap), which emits the AppError `code`
+  // as an RFC 9457 extension member. No per-service error handler is needed.
+
   return fastify;
 }
 

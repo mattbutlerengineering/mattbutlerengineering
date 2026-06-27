@@ -49,6 +49,23 @@ audit token.
 **Important:** The token value in the WAF rule must match the `AUDIT_TOKEN`
 Worker secret exactly.
 
+## GitHub Actions Secret
+
+`AUDIT_TOKEN` must also be set as a **GitHub Actions repository secret** so that
+`audit-sweep.yml` and `audit-scout.yml` can validate it at job startup and
+fail fast with a clear error if it is missing or empty.
+
+```
+Repository → Settings → Secrets and variables → Actions → New repository secret
+Name:  AUDIT_TOKEN
+Value: <same token value as the Worker secret>
+```
+
+The `audit-sweep` and `audit-scout` workflows validate the secret at startup
+and exit 1 with an actionable error message if it is absent, so a missing token
+is caught within minutes of the next scheduled run rather than silently failing
+for days.
+
 ## Audit Script Usage
 
 The site-audit skill already sends the token when `AUDIT_TOKEN` is set:

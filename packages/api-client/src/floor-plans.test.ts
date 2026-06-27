@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient } from "./client.js";
+import { ApiClient, ApiValidationError } from "./client.js";
 import { FloorPlansClient } from "./floor-plans.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -18,11 +18,21 @@ function makeClient() {
   return new FloorPlansClient(apiClient);
 }
 
+const fakePagination = {
+  page: 1,
+  limit: 10,
+  total: 1,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
 const fakeFloorPlan = {
   id: "fp1",
   venueId: "v1",
   name: "Main Floor",
   isActive: true,
+  layoutJson: { width: 800, height: 600 },
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -31,9 +41,16 @@ const fakeTable = {
   id: "t1",
   venueId: "v1",
   name: "Table 1",
-  minCapacity: 2,
-  maxCapacity: 4,
-  status: "AVAILABLE",
+  tableNumber: null,
+  capacity: 4,
+  minCovers: 2,
+  maxCovers: 4,
+  location: null,
+  isActive: true,
+  priority: 0,
+  status: "AVAILABLE" as const,
+  floorPlanId: null,
+  shapeMetadata: null,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
 };
@@ -46,7 +63,7 @@ describe("FloorPlansClient", () => {
   describe("list", () => {
     it("requests /api/v1/floor-plans with no params by default", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: [fakeFloorPlan], total: 1, page: 1, limit: 10 })
+        jsonResponse({ data: [fakeFloorPlan], pagination: fakePagination })
       );
 
       await makeClient().list();
@@ -56,7 +73,9 @@ describe("FloorPlansClient", () => {
     });
 
     it("appends venueId filter when provided", async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], total: 0, page: 1, limit: 10 }));
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: [], pagination: { ...fakePagination, total: 0, totalPages: 0 } })
+      );
 
       await makeClient().list({ venueId: "v1", page: 1, limit: 5 });
 
@@ -200,6 +219,26 @@ describe("FloorPlansClient", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
       await expect(makeClient().list()).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("schema validation", () => {
+    it("throws ApiValidationError when get() receives a malformed floor plan", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "fp1" } }));
+
+      await expect(makeClient().get("fp1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+
+    it("throws ApiValidationError when create() receives a malformed floor plan", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "fp1" } }));
+
+      await expect(
+        makeClient().create({
+          venueId: "v1",
+          name: "Main Floor",
+          layoutJson: { width: 800, height: 600 },
+        })
+      ).rejects.toBeInstanceOf(ApiValidationError);
     });
   });
 });

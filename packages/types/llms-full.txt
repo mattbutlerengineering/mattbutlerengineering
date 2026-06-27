@@ -108,10 +108,13 @@
       name: z.string(),
       notes: z.string().nullable(),
       visitCount: z.number(),
+      noShowCount: z.number(),
+      riskScore: z.enum(["trusted", "standard", "risky"]),
       lifetimeSpend: z.string().nullable(),
       lastVisit: z.string().nullable(),
       tags: z.array(z.string()).nullable(),
       dietaryRestrictions: z.array(z.string()).nullable(),
+      communicationPreference: z.enum(["email_only", "sms_only", "both", "transactional_only"]),
       staffNotes: z.array(StaffNoteSchema),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -251,6 +254,22 @@
   <file path="src/date.ts">
     export function toDateString(date: Date): string {
       return date.toISOString().substring(0, 10);
+    }
+  </file>
+  <file path="src/errors.ts">
+    export class AppError extends Error {
+      /** Alias for httpStatus — makes AppError compatible with classifyError's statusCode check. */
+      public readonly statusCode: number;
+    
+      constructor(
+        public readonly code: string,
+        public readonly httpStatus: number,
+        message: string
+      ) {
+        super(message);
+        this.name = "AppError";
+        this.statusCode = httpStatus;
+      }
     }
   </file>
   <file path="src/floor-plan.ts">
