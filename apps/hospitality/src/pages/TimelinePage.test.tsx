@@ -802,6 +802,26 @@ describe("TimelinePage", () => {
       });
     });
 
+    it("closes walk-in dialog after a successful create", async () => {
+      const createWalkIn = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], createWalkIn })
+      );
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Walk-in")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Walk-in"));
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("walkin-confirm"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+      });
+    });
+
     it("sets error when createWalkIn fails", async () => {
       const createWalkIn = vi.fn().mockRejectedValue(new Error("Walk-in failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ createWalkIn }));

@@ -272,6 +272,7 @@ export function TimelinePage() {
   }) => {
     try {
       await createWalkIn(data);
+      setShowWalkInDialog(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create walk-in");
     }
