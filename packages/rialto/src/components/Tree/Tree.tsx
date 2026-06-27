@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Tree.module.css";
 
 /**
@@ -166,13 +167,11 @@ function TreeItem({
     <div className={styles.itemWrapper}>
       <button
         type="button"
-        className={[
+        className={cn(
           styles.item,
           isSelected && styles.selected,
-          (isDisabled || node.disabled) && styles.disabled,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+          (isDisabled || node.disabled) && styles.disabled
+        )}
         style={{ paddingInlineStart: `${level * indent + 8}px` }}
         onClick={handleClick}
         onFocus={handleFocus}
@@ -185,7 +184,7 @@ function TreeItem({
       >
         <span
           role="presentation"
-          className={[styles.toggle, hasChildren && styles.toggleVisible].filter(Boolean).join(" ")}
+          className={cn(styles.toggle, hasChildren && styles.toggleVisible)}
           onClick={handleToggle}
         >
           {hasChildren && <TreeChevron open={isExpanded} />}
@@ -422,7 +421,7 @@ export const Tree = forwardRef<HTMLDivElement, TreeProps>(
           if (typeof ref === "function") ref(node);
           else if (ref) ref.current = node;
         }}
-        className={[styles.tree, className].filter(Boolean).join(" ")}
+        className={cn(styles.tree, className)}
         role="tree"
         tabIndex={-1}
         onKeyDown={handleKeyDown}

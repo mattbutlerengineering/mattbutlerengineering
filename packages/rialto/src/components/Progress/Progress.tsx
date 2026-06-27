@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Progress.module.css";
 
 /* ── Progress Bar ────────────────────────────── */
@@ -28,15 +29,13 @@ export const Progress = forwardRef<HTMLDivElement, ProgressProps>(
     const determinate = value !== undefined;
     const clamped = determinate ? Math.min(100, Math.max(0, value)) : 0;
 
-    const trackClass = [
+    const trackClass = cn(
       styles.track,
-      size === "sm" ? styles.trackSm : size === "lg" ? styles.trackLg : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+      size === "sm" ? styles.trackSm : size === "lg" ? styles.trackLg : false
+    );
 
     return (
-      <div ref={ref} className={[styles.wrapper, className].filter(Boolean).join(" ")} {...props}>
+      <div ref={ref} className={cn(styles.wrapper, className)} {...props}>
         {(label || showValue) && (
           <div className={styles.labelRow}>
             {label && <span className={styles.label}>{label}</span>}
@@ -98,7 +97,7 @@ export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(
     return (
       <div
         ref={ref}
-        className={[styles.trace, sizeClass, className].filter(Boolean).join(" ")}
+        className={cn(styles.trace, sizeClass, className)}
         role="status"
         aria-live="polite"
         aria-label={label}

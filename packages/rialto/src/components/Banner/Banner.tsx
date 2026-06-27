@@ -1,6 +1,7 @@
 import { forwardRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Banner.module.css";
 
 /**
@@ -114,7 +115,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
         {visible && (
           <motion.div
             ref={ref}
-            className={[styles.banner, styles[variant], className].filter(Boolean).join(" ")}
+            className={cn(styles.banner, styles[variant], className)}
             role={role}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
