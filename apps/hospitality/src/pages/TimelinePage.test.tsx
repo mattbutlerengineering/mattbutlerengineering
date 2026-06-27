@@ -736,6 +736,29 @@ describe("TimelinePage", () => {
       });
     });
 
+    it("closes edit drawer after a successful save", async () => {
+      const updated = { ...defaultReservation, partySize: 6 };
+      const updateReservation = vi.fn().mockResolvedValue(updated);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Edit Reservation")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Edit Reservation"));
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-drawer")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("edit-save"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("edit-drawer")).toBeNull();
+      });
+    });
+
     it("closes edit drawer without saving", async () => {
       renderPage();
       await waitFor(() => {
