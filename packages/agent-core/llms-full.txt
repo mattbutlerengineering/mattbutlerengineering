@@ -374,6 +374,19 @@
       readonly totalWithoutSelfEval: number;
     }
   </file>
+  <file path="src/eval/cost-regression.ts">
+    export function checkCostRegression(
+      current: number,
+      baseline: number | null,
+      thresholdPct: number
+    ): boolean {
+      if (baseline === null || baseline === 0) {
+        return true;
+      }
+      const pctIncrease = ((current - baseline) / baseline) * 100;
+      return pctIncrease <= thresholdPct;
+    }
+  </file>
   <file path="src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
       /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */
