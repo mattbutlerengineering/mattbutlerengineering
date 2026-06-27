@@ -68,6 +68,15 @@
       }
     </item>
   </file>
+  <file path="src/eval/cost-regression.ts">
+    <item priority="high">
+      export function checkCostRegression(
+        current: number,
+        baseline: number | null,
+        thresholdPct: number
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/eval/eval-harness.ts">
     <item priority="low">
       interface RunEvalSuiteOptions {
