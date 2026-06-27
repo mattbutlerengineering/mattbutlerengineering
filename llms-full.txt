@@ -11756,7 +11756,7 @@
     export interface ResolveChannelInput {
       email: string | null;
       phone: string | null;
-      communicationPreference: string | null;
+      communicationPreference: CommunicationPreference | null;
     }
   </file>
   <file path="services/reservations/src/services/briefing.ts">
