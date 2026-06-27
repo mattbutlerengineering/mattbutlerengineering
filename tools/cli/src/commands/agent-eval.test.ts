@@ -182,4 +182,13 @@ describe("agent eval command", () => {
     const out = logSpy.mock.calls.flat().join("\n");
     expect(out).not.toContain("without self-eval");
   });
+
+  it("resolves --suite cost to the cost eval suite directory", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    mockRunSession.mockResolvedValue(fakeSession());
+
+    await agentEvalCommand.parseAsync(["--suite", "cost", "--task", "t1"], { from: "user" });
+
+    expect(mockLoadSuite).toHaveBeenCalledWith(expect.stringContaining("eval-suite/cost"));
+  });
 });

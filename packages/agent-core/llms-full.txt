@@ -374,6 +374,12 @@
       readonly totalWithoutSelfEval: number;
     }
   </file>
+  <file path="src/eval/cost-suite.ts">
+    export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
+    export function resolveSuitePath(suite: string): string {
+      return NAMED_SUITES[suite] ?? suite;
+    }
+  </file>
   <file path="src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
       /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */

@@ -325,6 +325,7 @@ export { SecurityReviewGate } from "./gates/security-review-gate.js";
 
 // Golden-task eval harness — run fixed benchmark tasks through the agent and score them
 export { loadSuite } from "./eval/golden-task-set.js";
+export { resolveSuitePath, COST_SUITE_DIR } from "./eval/cost-suite.js";
 export { scoreTask } from "./eval/task-scorer.js";
 export { runEvalSuite } from "./eval/eval-harness.js";
 export type { RunEvalSuiteOptions } from "./eval/eval-harness.js";

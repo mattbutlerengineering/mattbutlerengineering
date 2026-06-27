@@ -8,6 +8,7 @@ import {
   runEvalSuite,
   loadSuite,
   calibrate,
+  resolveSuitePath,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type SessionConfig,
@@ -48,7 +49,7 @@ export const agentEvalCommand = new Command("eval")
       calibrate: boolean;
     }) => {
       const repoPath = resolve(process.cwd());
-      const suiteDir = resolve(repoPath, options.suite);
+      const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
 
       let tasks: Task[];
       try {
