@@ -68,6 +68,10 @@ export {
 // Cost tracking
 export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-tracker.js";
 
+// Budget gate (per-turn cost enforcement predicate)
+export { shouldHaltForBudget } from "./budget-gate.js";
+export type { BudgetBreachResult } from "./budget-gate.js";
+
 // Cost logging (automatic spend recording to .claude/agent-spend/sessions.jsonl)
 export { recordSessionCost } from "./cost-logger.js";
 export type { CostEntry, CostEntryInput } from "./cost-logger.js";

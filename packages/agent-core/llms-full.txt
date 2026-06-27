@@ -1227,6 +1227,31 @@
       return tier === "trivial" ? "simple" : tier;
     }
   </file>
+  <file path="src/budget-gate.ts">
+    export interface BudgetBreachResult {
+      /** Whether the accumulated turn costs strictly exceed the budget ceiling. */
+      readonly exceeded: boolean;
+      /** Sum of all per-turn costUsd values. */
+      readonly accumulatedCostUsd: number;
+      /** The budget ceiling passed in by the caller. */
+      readonly maxBudgetUsd: number;
+      /** Amount by which the budget was exceeded (0 when not exceeded). */
+      readonly overageUsd: number;
+    }
+    export function shouldHaltForBudget(
+      turnMetrics: readonly TurnMetrics[],
+      maxBudgetUsd: number
+    ): BudgetBreachResult {
+      const accumulatedCostUsd = turnMetrics.reduce((sum, t) => sum + t.costUsd, 0);
+      const exceeded = accumulatedCostUsd > maxBudgetUsd;
+      return {
+        exceeded,
+        accumulatedCostUsd,
+        maxBudgetUsd,
+        overageUsd: exceeded ? accumulatedCostUsd - maxBudgetUsd : 0,
+      };
+    }
+  </file>
   <file path="src/bundle-size-tracker.ts">
     export interface FileSize {
       readonly path: string;
@@ -2178,6 +2203,8 @@
       prUrl: string | null;
       prNumber?: number;
       errors: string[];
+      /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
+      budgetEnforced?: boolean;
     }
     export async function runSession(
       config: SessionConfig,
