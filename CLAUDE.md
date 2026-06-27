@@ -61,6 +61,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/learning-loop`    | Sensor-driven improvement: collect metrics → detect regressions → create issues → verify fixes → self-tune                                                        |
 | `/sentry-triage`    | Query Sentry for production errors, filter by severity/frequency, deduplicate, create GitHub issues for implement-queue                                           |
 | `/acmm-audit`       | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
+| `/token-report`     | Pull real-time token spend summary via ccusage: daily totals, session breakdown, block usage, per-model cost and cache-read/output/cache-creation breakdown       |
 
 ## mbe CLI Commands
 
