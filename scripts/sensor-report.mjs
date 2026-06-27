@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
+import { collectCcusageSensor } from "./collect-ccusage.mjs";
 import {
   computeCodeChurn,
   isGeneratedArtifact,
@@ -127,6 +128,10 @@ function collectPrCategoryMetricsSensor() {
 function collectAgentCostSensor() {
   const spendPath = resolve(ROOT, ".claude", "agent-spend.jsonl");
   return collectAgentCost(spendPath, now);
+}
+
+function collectCcusageCostSensor() {
+  return collectCcusageSensor(undefined, now);
 }
 
 /**
@@ -408,6 +413,7 @@ const report = {
     prMetrics: collectPrMetrics(),
     prCategoryMetrics: collectPrCategoryMetricsSensor(),
     agentCost: collectAgentCostSensor(),
+    ccusageCost: collectCcusageCostSensor(),
     ciHealth: collectCiHealth(),
     lighthouse: collectLighthouse(),
     issues: collectGitHubIssues(),
@@ -465,6 +471,11 @@ if (JSON_ONLY) {
       case "agentCost":
         console.log(
           `   ${name}: $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} sessions`
+        );
+        break;
+      case "ccusageCost":
+        console.log(
+          `   ${name}: $${data.spend_30d_usd} (30d), $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), cache_hit ${Math.round(data.cache_hit_rate * 100)}%`
         );
         break;
       case "issues":
