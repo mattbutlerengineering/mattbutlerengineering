@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 
 // We must import this lazily because the module reads env vars at import time
 // and we need to set env vars before the module loads.
@@ -22,58 +22,77 @@ describe("getStripeConfig", () => {
   });
 
   describe("in production (NODE_ENV=production)", () => {
-    it("throws when STRIPE_SECRET_KEY is absent", async () => {
+    // Missing Stripe secrets must NOT crash the service at boot. Deposits are an
+    // optional feature and every use-point already fails closed: the webhook
+    // route rejects unsigned/unverifiable events (empty secret → 400) and the
+    // payment-intent path falls back to a placeholder key (Stripe calls fail).
+    // So the service boots with deposits disabled and warns loudly instead.
+
+    it("warns but does not throw when STRIPE_SECRET_KEY is absent", async () => {
       const { getStripeConfig } = await importStripeConfig();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       delete process.env.STRIPE_SECRET_KEY;
       delete process.env.STRIPE_WEBHOOK_SECRET;
 
-      expect(() =>
-        getStripeConfig({
-          nodeEnv: "production",
-          secretKey: undefined,
-          webhookSecret: undefined,
-        })
-      ).toThrow(/STRIPE_SECRET_KEY/);
+      const config = getStripeConfig({
+        nodeEnv: "production",
+        secretKey: undefined,
+        webhookSecret: undefined,
+      });
+
+      expect(config.secretKey).toBe("");
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/STRIPE_SECRET_KEY/));
+      warn.mockRestore();
     });
 
-    it("throws when STRIPE_WEBHOOK_SECRET is absent", async () => {
+    it("warns but does not throw when STRIPE_WEBHOOK_SECRET is absent", async () => {
       const { getStripeConfig } = await importStripeConfig();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      expect(() =>
-        getStripeConfig({
-          nodeEnv: "production",
-          secretKey: "sk_live_something",
-          webhookSecret: undefined,
-        })
-      ).toThrow(/STRIPE_WEBHOOK_SECRET/);
+      const config = getStripeConfig({
+        nodeEnv: "production",
+        secretKey: "sk_live_something",
+        webhookSecret: undefined,
+      });
+
+      expect(config.webhookSecret).toBe("");
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/STRIPE_WEBHOOK_SECRET/));
+      warn.mockRestore();
     });
 
-    it("throws when STRIPE_SECRET_KEY is empty string", async () => {
+    it("warns but does not throw when STRIPE_SECRET_KEY is empty string", async () => {
       const { getStripeConfig } = await importStripeConfig();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      expect(() =>
-        getStripeConfig({
-          nodeEnv: "production",
-          secretKey: "",
-          webhookSecret: "whsec_something",
-        })
-      ).toThrow(/STRIPE_SECRET_KEY/);
+      const config = getStripeConfig({
+        nodeEnv: "production",
+        secretKey: "",
+        webhookSecret: "whsec_something",
+      });
+
+      expect(config.secretKey).toBe("");
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/STRIPE_SECRET_KEY/));
+      warn.mockRestore();
     });
 
-    it("throws when STRIPE_WEBHOOK_SECRET is empty string", async () => {
+    it("warns but does not throw when STRIPE_WEBHOOK_SECRET is empty string", async () => {
       const { getStripeConfig } = await importStripeConfig();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      expect(() =>
-        getStripeConfig({
-          nodeEnv: "production",
-          secretKey: "sk_live_something",
-          webhookSecret: "",
-        })
-      ).toThrow(/STRIPE_WEBHOOK_SECRET/);
+      const config = getStripeConfig({
+        nodeEnv: "production",
+        secretKey: "sk_live_something",
+        webhookSecret: "",
+      });
+
+      expect(config.webhookSecret).toBe("");
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/STRIPE_WEBHOOK_SECRET/));
+      warn.mockRestore();
     });
 
-    it("returns config when both keys are present", async () => {
+    it("does not warn and returns config when both keys are present", async () => {
       const { getStripeConfig } = await importStripeConfig();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       const config = getStripeConfig({
         nodeEnv: "production",
@@ -83,6 +102,8 @@ describe("getStripeConfig", () => {
 
       expect(config.secretKey).toBe("sk_live_something");
       expect(config.webhookSecret).toBe("whsec_something");
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 
