@@ -102,6 +102,18 @@ describe("DashboardLayout", () => {
     );
   };
 
+  it("does not redirect while readiness status is loading", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "loading",
+      completedSteps: [],
+      nextStep: null,
+      progress: 0,
+    } as any);
+    renderLayout("/timeline");
+    // Should stay on the requested route — not bounce to /onboarding
+    expect(screen.getByText("Timeline Content")).toBeDefined();
+  });
+
   it("redirects to onboarding when no venue exists", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",

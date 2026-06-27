@@ -344,7 +344,7 @@
     </item>
     <item priority="low">
       interface VenueReadiness {
-        status: "no-venue" | "setup" | "operational";
+        status: "loading" | "no-venue" | "setup" | "operational";
         completedSteps: readonly SetupStep[];
         nextStep: SetupStep | null;
         progress: number;
