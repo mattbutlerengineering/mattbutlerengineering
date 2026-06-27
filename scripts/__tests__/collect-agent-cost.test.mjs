@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { collectAgentCost } from "../collect-agent-cost.mjs";
 
+// agent-spend.jsonl is per-issue attribution only (logged by `mbe agent run`).
+// It captures ~0.4% of actual Claude spend. Ground-truth totals come from the
+// ccusage sensor (`collectCcusageSensor`), not from this collector.
+
 function makeTmpDir() {
   return mkdtempSync(join(tmpdir(), "collect-agent-cost-test-"));
 }
@@ -98,6 +102,21 @@ describe("collectAgentCost", () => {
     expect(result.total_input_tokens_7d).toBe(0);
     expect(result.total_output_tokens_7d).toBe(0);
     expect(result.avg_turns_per_session).toBe(0);
+  });
+
+  it("flags the result as attribution_only to distinguish from ground-truth totals", () => {
+    const spendPath = join(dir, ".claude", "agent-spend.jsonl");
+    const today = new Date().toISOString().slice(0, 10);
+    writeFileSync(
+      spendPath,
+      JSON.stringify({ date: today, costUsd: 0.5, issueNumber: 42, model: "claude-sonnet-4-6" }) +
+        "\n"
+    );
+    const result = collectAgentCost(spendPath);
+    expect(result.available).toBe(true);
+    // attribution_only: true signals that spend values cover only mbe-agent-run
+    // sessions (per-issue), not total Claude spend. Use ccusage for ground-truth totals.
+    expect(result.attribution_only).toBe(true);
   });
 
   it("ignores entries older than 7 days for 7d aggregates", () => {
