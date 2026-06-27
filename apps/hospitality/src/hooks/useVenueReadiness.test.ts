@@ -295,4 +295,66 @@ describe("useVenueReadiness", () => {
 
     expect(mockList).not.toHaveBeenCalled();
   });
+
+  // Cluster A tests — floor plan fetch race (#1968)
+
+  it("returns 'loading' while floor plan fetch is still in flight for the selected venue", async () => {
+    let resolveList!: (value: { data: FloorPlan[] }) => void;
+    const pending = new Promise<{ data: FloorPlan[] }>((res) => {
+      resolveList = res;
+    });
+    mockList.mockReturnValue(pending);
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: VENUE_WITH_HOURS,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [VENUE_WITH_HOURS],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-pending" } as any);
+
+    const { result } = renderHook(() => useVenueReadiness());
+
+    // Before the fetch resolves, must return "loading" — NOT "setup" — to prevent
+    // the DashboardLayout redirect guard from bouncing to /setup prematurely.
+    expect(result.current.status).toBe("loading");
+
+    // After the fetch resolves with a floor plan that has tables, status becomes operational.
+    resolveList({ data: [FLOOR_PLAN_WITH_TABLES] });
+    await waitFor(() => {
+      expect(result.current.status).toBe("operational");
+    });
+  });
+
+  it("transitions from 'loading' to 'setup' (not stuck on loading) after a failed floor-plan fetch", async () => {
+    let rejectList!: (reason: Error) => void;
+    const pending = new Promise<{ data: FloorPlan[] }>((_, rej) => {
+      rejectList = rej;
+    });
+    mockList.mockReturnValue(pending);
+
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: VENUE_WITH_HOURS,
+      selectedVenueId: "venue-1",
+      isLoading: false,
+      venues: [VENUE_WITH_HOURS],
+      selectVenue: vi.fn(),
+    } as any);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-fail" } as any);
+
+    const { result } = renderHook(() => useVenueReadiness());
+
+    // Initially loading while fetch is in flight.
+    expect(result.current.status).toBe("loading");
+
+    // Reject the fetch — error handler sets floorPlans = []; must not stay on "loading".
+    rejectList(new Error("Network error"));
+    await waitFor(() => {
+      expect(result.current.status).toBe("setup");
+    });
+
+    // Floor-plan gate fails (empty plans), so next step is floor-plan.
+    expect(result.current.nextStep).toBe("floor-plan");
+  });
 });
