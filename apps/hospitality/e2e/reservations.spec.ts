@@ -20,7 +20,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
     await expect(mockedPage.getByRole("radio", { name: "Pending" })).toBeVisible();
     await expect(mockedPage.getByRole("radio", { name: "Cancelled" })).toBeVisible();
 
-    const searchInput = mockedPage.getByRole("textbox");
+    const searchInput = mockedPage.getByPlaceholder("Search by guest name...");
     await expect(searchInput).toBeVisible();
     await mockedPage.screenshot({
       path: "e2e/screenshots/reservations-filters.png",
@@ -39,7 +39,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   test("search input filters the reservation list", async ({ mockedPage }) => {
     await mockedPage.goto("reservations");
 
-    const searchInput = mockedPage.getByRole("textbox");
+    const searchInput = mockedPage.getByPlaceholder("Search by guest name...");
     await searchInput.fill("Test");
 
     const resultCount = mockedPage
@@ -59,7 +59,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
   test("shows empty state when no results match search", async ({ mockedPage }) => {
     await mockedPage.goto("reservations");
 
-    const searchInput = mockedPage.getByRole("textbox");
+    const searchInput = mockedPage.getByPlaceholder("Search by guest name...");
     await searchInput.fill("zzzzz-no-match-9999");
 
     await expect(mockedPage.getByText("No reservations")).toBeVisible();

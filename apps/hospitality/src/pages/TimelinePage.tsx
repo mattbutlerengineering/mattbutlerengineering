@@ -259,6 +259,7 @@ export function TimelinePage() {
     try {
       const updated = await updateReservation(id, data);
       setSelectedReservation(updated);
+      setShowEditDrawer(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update reservation");
     }
@@ -272,6 +273,7 @@ export function TimelinePage() {
   }) => {
     try {
       await createWalkIn(data);
+      setShowWalkInDialog(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create walk-in");
     }
