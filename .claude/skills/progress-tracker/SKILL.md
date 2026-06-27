@@ -24,7 +24,7 @@ gh issue list --label "meta-improvement" --state all --json number,title,state
 cat .claude/agent-spend.jsonl 2>/dev/null | tail -100
 ```
 
-Cost: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}`
+Per-issue attribution: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}` (mbe-agent-run sessions only; NOT total Claude spend — use ccusage for ground-truth totals)
 
 ## Metrics
 
@@ -40,9 +40,9 @@ Cost: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}`
 | Stale         | ready>7d                 | 0      |
 | Blocked       | agent-failed             | 0      |
 | Skipped       | agent-skip               | 0      |
-| Daily Spend   | Σ costUsd                | <$10   |
-| 7d Spend      | Σ costUsd                | <$50   |
-| Cost/Issue    | 7d/closed                | <$2    |
+| Daily Spend   | Σ costUsd (attributed)   | <$10   |
+| 7d Spend      | Σ costUsd (attributed)   | <$50   |
+| Cost/Issue    | 7d/closed (attributed)   | <$2    |
 
 ## Analysis
 
@@ -172,5 +172,5 @@ git log --oneline --grep="Revert" --since="7 days ago" | wc -l
 - Max 2 meta/run
 - Max 2 retry/run
 - Append-only log
-- Cost: `.claude/agent-spend.jsonl`
+- Per-issue attribution: `.claude/agent-spend.jsonl` (partial — covers mbe-agent-run sessions only; ccusage = ground-truth totals)
 - Circuit: 50% over 3+ days

@@ -2,13 +2,14 @@ import { Command } from "commander";
 import { resolve, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, mkdirSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
 import {
   runSession,
   runEvalSuite,
   loadSuite,
   calibrate,
   resolveSuitePath,
+  checkCostRegression,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type SessionConfig,
@@ -38,6 +39,10 @@ export const agentEvalCommand = new Command("eval")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
   .option("--json", "Emit the EvalReport as JSON", false)
   .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+  .option(
+    "--max-cost-regression <pct>",
+    "Exit non-zero if mean cost-per-task exceeds the latest baseline by more than this percent"
+  )
   .option("--calibrate", "Print self-grade vs ground-truth calibration summary", false)
   .action(
     async (options: {
@@ -46,6 +51,7 @@ export const agentEvalCommand = new Command("eval")
       model: string;
       json: boolean;
       threshold?: string;
+      maxCostRegression?: string;
       calibrate: boolean;
     }) => {
       const repoPath = resolve(process.cwd());
@@ -59,6 +65,11 @@ export const agentEvalCommand = new Command("eval")
         process.exitCode = 1;
         return;
       }
+
+      // Read baseline before appending the current run so the most recent prior
+      // entry is used, not the one we're about to write.
+      const costBaseline =
+        options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
 
       const runTask = makeAgentTaskRunner(repoPath, options.model);
       const report = await runEvalSuite(tasks, {
@@ -88,8 +99,46 @@ export const agentEvalCommand = new Command("eval")
           process.exitCode = 1;
         }
       }
+
+      if (options.maxCostRegression !== undefined) {
+        const thresholdPct = Number(options.maxCostRegression);
+        const current = report.aggregate.meanCostUsd;
+        if (!checkCostRegression(current, costBaseline, thresholdPct)) {
+          const pctIncrease = (((current - costBaseline!) / costBaseline!) * 100).toFixed(1);
+          console.error(
+            `\nCost regression detected: mean cost $${current.toFixed(4)} is ${pctIncrease}% above baseline $${costBaseline!.toFixed(4)} (threshold ${options.maxCostRegression}%)`
+          );
+          process.exitCode = 1;
+        }
+      }
     }
   );
+
+function findLogFile(): string {
+  const root = findMonorepoRoot(process.cwd());
+  return join(root, "docs/logs", "eval-reports.jsonl");
+}
+
+/**
+ * Reads the most recent entry from eval-reports.jsonl and returns its
+ * meanCostUsd, or null when the file is absent, empty, or unparseable.
+ */
+function loadCostBaseline(logFile: string): number | null {
+  try {
+    const content = readFileSync(logFile, "utf8");
+    const lines = content
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return null;
+    const last = lines[lines.length - 1];
+    const parsed = JSON.parse(last) as { aggregate?: { meanCostUsd?: unknown } };
+    const cost = parsed?.aggregate?.meanCostUsd;
+    return typeof cost === "number" ? cost : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Appends the report to a JSONL file in docs/logs — mirrors the `mbe stats` record pattern.

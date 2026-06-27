@@ -345,6 +345,7 @@ export type {
 } from "./eval/types.js";
 export { calibrate } from "./eval/calibrate.js";
 export type { CalibrationBucket, CalibrationSummary } from "./eval/calibrate.js";
+export { checkCostRegression } from "./eval/cost-regression.js";
 
 // Reviewer contract (multi-agent quality gates)
 export type {

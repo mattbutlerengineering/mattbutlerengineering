@@ -1431,6 +1431,10 @@
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
       .option("--json", "Emit the EvalReport as JSON", false)
       .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
+      .option(
+        "--max-cost-regression <pct>",
+        "Exit non-zero if mean cost-per-task exceeds the latest baseline by more than this percent"
+      )
       .option("--calibrate", "Print self-grade vs ground-truth calibration summary", false)
       .action(
         async (options: {
@@ -1439,6 +1443,7 @@
           model: string;
           json: boolean;
           threshold?: string;
+          maxCostRegression?: string;
           calibrate: boolean;
         }) => {
           const repoPath = resolve(process.cwd());
@@ -1452,6 +1457,11 @@
             process.exitCode = 1;
             return;
           }
+    
+          // Read baseline before appending the current run so the most recent prior
+          // entry is used, not the one we're about to write.
+          const costBaseline =
+            options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
     
           const runTask = makeAgentTaskRunner(repoPath, options.model);
           const report = await runEvalSuite(tasks, {
@@ -1481,17 +1491,23 @@
               process.exitCode = 1;
             }
           }
+    
+          if (options.maxCostRegression !== undefined) {
+            const thresholdPct = Number(options.maxCostRegression);
+            const current = report.aggregate.meanCostUsd;
+            if (!checkCostRegression(current, costBaseline, thresholdPct)) {
+              const pctIncrease = (((current - costBaseline!) / costBaseline!) * 100).toFixed(1);
+              console.error(
+                `\nCost regression detected: mean cost $${current.toFixed(4)} is ${pctIncrease}% above baseline $${costBaseline!.toFixed(4)} (threshold ${options.maxCostRegression}%)`
+              );
+              process.exitCode = 1;
+            }
+          }
         }
       );
-    function persistReport(report: EvalReport): void {
+    function findLogFile(): string {
       const root = findMonorepoRoot(process.cwd());
-      const logDir = join(root, "docs/logs");
-      const logFile = join(logDir, "eval-reports.jsonl");
-      if (!existsSync(logDir)) {
-        mkdirSync(logDir, { recursive: true });
-      }
-      const record = { ...report, timestamp: new Date().toISOString() };
-      appendFileSync(logFile, JSON.stringify(record) + "\n");
+      return join(root, "docs/logs", "eval-reports.jsonl");
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2847,6 +2863,19 @@
       readonly totalWithSelfEval: number;
       /** Tasks that had no selfEvaluation field (not counted in any bucket). */
       readonly totalWithoutSelfEval: number;
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/cost-regression.ts">
+    export function checkCostRegression(
+      current: number,
+      baseline: number | null,
+      thresholdPct: number
+    ): boolean {
+      if (baseline === null || baseline === 0) {
+        return true;
+      }
+      const pctIncrease = ((current - baseline) / baseline) * 100;
+      return pctIncrease <= thresholdPct;
     }
   </file>
   <file path="packages/agent-core/src/eval/cost-suite.ts">
@@ -16071,18 +16100,7 @@
       }),
       Text: z.object({
         variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
-        color: z
-          .enum([
-            "success",
-            "warning",
-            "error",
-            "accent",
-            "primary",
-            "secondary",
-            "tertiary",
-            "on-accent",
-          ])
-          .optional(),
+        color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
         align: z.enum(["center", "left", "right"]).optional(),
         mono: z.boolean().optional(),
         truncate: z.boolean().optional(),
