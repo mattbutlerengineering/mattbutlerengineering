@@ -983,14 +983,6 @@
       ): boolean { /* ... */ }
     </item>
   </file>
-  <file path="packages/agent-core/src/eval/cost-suite.ts">
-    <item priority="high">
-      export const COST_SUITE_DIR: unknown;
-    </item>
-    <item priority="high">
-      export function resolveSuitePath(suite: string): string { /* ... */ }
-    </item>
-  </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
     <item priority="low">
       interface RunEvalSuiteOptions {

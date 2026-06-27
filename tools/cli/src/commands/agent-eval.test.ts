@@ -185,15 +185,6 @@ describe("agent eval command", () => {
     expect(out).not.toContain("without self-eval");
   });
 
-  it("resolves --suite cost to the cost eval suite directory", async () => {
-    mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
-
-    await agentEvalCommand.parseAsync(["--suite", "cost", "--task", "t1"], { from: "user" });
-
-    expect(mockLoadSuite).toHaveBeenCalledWith(expect.stringContaining("eval-suite/cost"));
-  });
-
   describe("--max-cost-regression", () => {
     it("exits 0 when cost is within threshold versus baseline", async () => {
       // baseline meanCostUsd = 0.10; current session costUsd = 0.11 (10% up, threshold 20%)
