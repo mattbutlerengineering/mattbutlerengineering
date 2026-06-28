@@ -8,7 +8,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: process.env.CI ? "github" : "list",
+  // In CI: emit GitHub-native annotations AND a JSON file for failure-rate
+  // computation (scripts/e2e-failure-rate.mjs reads playwright-results.json).
+  reporter: process.env.CI
+    ? [["github"], ["json", { outputFile: "playwright-results.json" }]]
+    : "list",
 
   use: {
     baseURL: "http://localhost:3002/hospitality/",
