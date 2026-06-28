@@ -4085,6 +4085,30 @@
       );
     }
   </file>
+  <file path="apps/gen/src/pages/usePlaygroundState.ts">
+    export type PlaygroundMode = "generate" | "refine";
+    export interface PlaygroundState {
+      /** generate (fresh prompt) vs refine (modify the current spec) */
+      mode: PlaygroundMode;
+      /** distraction-free layout */
+      isFullscreen: boolean;
+      /** template gallery overlay */
+      galleryOpen: boolean;
+      /** keyboard-shortcuts help overlay */
+      shortcutsOpen: boolean;
+    
+      enterRefinement: () => void;
+      exitRefinement: () => void;
+      /** flip fullscreen; entering/leaving also dismisses open overlays */
+      toggleFullscreen: () => void;
+      openGallery: () => void;
+      closeGallery: () => void;
+      toggleGallery: () => void;
+      openShortcuts: () => void;
+      closeShortcuts: () => void;
+      toggleShortcuts: () => void;
+    }
+  </file>
   </section>
   <section priority="medium" role="phases">
   <file path="packages/agent-core/src/phases/default-deps.ts">

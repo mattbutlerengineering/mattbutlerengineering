@@ -1604,6 +1604,20 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/pages/usePlaygroundState.ts">
+    <item priority="low">
+      type PlaygroundMode = "generate" | "refine";
+    </item>
+    <item priority="low">
+      interface PlaygroundState {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        enterRefinement: () => void;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="phases">
   <file path="packages/agent-core/src/phases/default-deps.ts">
