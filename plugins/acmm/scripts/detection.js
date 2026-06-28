@@ -93,10 +93,16 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
 /**
  * Run detection for a single criterion.
  *
+ * For `active` criteria, a gh-degraded result returns `null` (unverifiable —
+ * presence confirmed but activity cannot be checked), distinct from `true`
+ * (active) and `false` (inactive/missing). This mirrors the #2023 verdict seam
+ * in evaluate.js; callers using the result as a boolean treat `null` as
+ * not-a-pass, which is the intended "excluded from level math" semantic.
+ *
  * @param {string} cwd
  * @param {{ detection: { type: 'path' | 'glob' | 'any-of' | 'active', pattern: string | string[], maxAgeDays?: number }}} criterion
  * @param {{ execFileSyncFn?: Function }} [opts]
- * @returns {boolean}
+ * @returns {boolean | null} `null` = unverifiable (active type, gh degraded)
  */
 export function detect(cwd, criterion, opts = {}) {
   const { type, pattern, maxAgeDays = 30 } = criterion.detection;
@@ -127,7 +133,10 @@ export function detect(cwd, criterion, opts = {}) {
     // Check first matching file for workflow activity
     const workflowFile = patterns.find((p) => existsAt(cwd, p));
     const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
-    if (result.degraded) return true; // graceful degradation: file exists, gh unavailable
+    // gh unavailable → activity cannot be confirmed → `unverifiable` (null), NOT a pass.
+    // Mirrors the #2023 verdict seam in evaluate.js, which excludes degraded active
+    // criteria from level math and the denominator instead of counting them as detected.
+    if (result.degraded) return null;
     return result.active;
   }
   if (type === "grep") {
@@ -151,15 +160,18 @@ export function detect(cwd, criterion, opts = {}) {
 /**
  * Run detection for all criteria.
  *
- * Returns both a Set of detected IDs (backward-compatible) and a Map
- * with per-criterion metadata for `active` detections, distinguishing
- * "file exists and operating" from "file exists but inactive" and
- * "file exists, gh degraded".
+ * Returns both a Set of detected IDs and a Map with per-criterion metadata for
+ * `active` detections, distinguishing "file exists and operating" from "file
+ * exists but inactive" and "file exists, gh unverifiable".
+ *
+ * A gh-degraded active criterion is `unverifiable`: it is NOT added to `detected`
+ * (mirrors the #2023 verdict seam in evaluate.js, which excludes such criteria
+ * from level math and the denominator) and is surfaced in `meta` for inspection.
  *
  * @param {string} cwd
  * @param {Array<{ id: string, detection: any }>} criteria
  * @param {{ execFileSyncFn?: Function }} [opts]
- * @returns {{ detected: Set<string>, meta: Map<string, { status: 'active' | 'inactive' | 'degraded' | 'missing', reason?: string }> }}
+ * @returns {{ detected: Set<string>, meta: Map<string, { status: 'active' | 'inactive' | 'unverifiable' | 'missing', reason?: string }> }}
  */
 export function detectAll(cwd, criteria, opts = {}) {
   const detected = new Set();
@@ -196,8 +208,9 @@ export function detectAll(cwd, criteria, opts = {}) {
       const workflowFile = patterns.find((p) => existsAt(cwd, p));
       const result = isWorkflowActive(cwd, workflowFile, maxAgeDays, opts);
       if (result.degraded) {
-        detected.add(c.id);
-        meta.set(c.id, { status: "degraded", reason: result.reason });
+        // gh unavailable → unverifiable: excluded from `detected` (not a pass),
+        // surfaced in meta. Aligns with the #2023 verdict seam in evaluate.js.
+        meta.set(c.id, { status: "unverifiable", reason: result.reason });
       } else if (result.active) {
         detected.add(c.id);
         meta.set(c.id, { status: "active", reason: result.reason });

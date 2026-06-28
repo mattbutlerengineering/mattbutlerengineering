@@ -283,16 +283,18 @@ test("detect: active type — file missing → false", () => {
   fx.cleanup();
 });
 
-test("detect: active type — file exists, gh unavailable → true (degraded)", () => {
-  // In a temp dir that's not a git repo, gh will fail → graceful degradation
+test("detect: active type — file exists, gh unavailable → null (unverifiable)", () => {
+  // In a temp dir that's not a git repo, gh will fail → unverifiable (not a pass).
+  // Aligns with the #2023 verdict seam: degraded active criteria are excluded
+  // from level math rather than counted as detected.
   const fx = fixture();
   fx.file("workflow.yml", "name: test");
   const c = {
     id: "x",
     detection: { type: "active", pattern: "workflow.yml", maxAgeDays: 7 },
   };
-  // gh will error in temp dir (not a repo) → degraded → returns true
-  assert.equal(detect(fx.root, c), true);
+  // gh will error in temp dir (not a repo) → degraded → unverifiable → null
+  assert.equal(detect(fx.root, c), null);
   fx.cleanup();
 });
 
@@ -306,19 +308,19 @@ test("detect: active type — gh unavailable, file missing → false", () => {
   fx.cleanup();
 });
 
-test("detect: active type — array pattern, first file missing second exists, gh degraded → true", () => {
+test("detect: active type — array pattern, first file missing second exists, gh degraded → null", () => {
   const fx = fixture();
   fx.file("b.yml", "name: b");
   const c = {
     id: "x",
     detection: { type: "active", pattern: ["a.yml", "b.yml"], maxAgeDays: 7 },
   };
-  // b.yml exists, gh will degrade → true
-  assert.equal(detect(fx.root, c), true);
+  // b.yml exists, gh will degrade → unverifiable → null
+  assert.equal(detect(fx.root, c), null);
   fx.cleanup();
 });
 
-test("detectAll: active type — meta includes degraded status", () => {
+test("detectAll: active type — gh degraded → unverifiable (not detected)", () => {
   const fx = fixture();
   fx.file("workflow.yml", "name: test");
   const criteria = [
@@ -326,11 +328,12 @@ test("detectAll: active type — meta includes degraded status", () => {
     { id: "active-missing", detection: { type: "active", pattern: "missing.yml", maxAgeDays: 7 } },
   ];
   const result = detectAll(fx.root, criteria);
-  // workflow.yml exists, gh fails → degraded → detected
-  assert.ok(result.detected.has("active-one"));
+  // workflow.yml exists, gh fails → degraded → unverifiable → NOT detected
+  // (mirrors evaluate.js: unverifiable is excluded from passes and denominator)
+  assert.ok(!result.detected.has("active-one"));
   assert.ok(!result.detected.has("active-missing"));
-  // meta should have entries for both active criteria
-  assert.equal(result.meta.get("active-one").status, "degraded");
+  // meta surfaces the unverifiable verdict for inspection
+  assert.equal(result.meta.get("active-one").status, "unverifiable");
   assert.equal(result.meta.get("active-missing").status, "missing");
   fx.cleanup();
 });
@@ -396,7 +399,7 @@ test("detect: active type — file present but no recent run → false", () => {
   fx.cleanup();
 });
 
-test("detect: active type — gh CLI unavailable → fallback to file presence (true)", () => {
+test("detect: active type — gh CLI unavailable → unverifiable (null)", () => {
   const fx = fixture();
   fx.dir(".github/workflows");
   fx.file(".github/workflows/auto-issue.yml", "on: schedule");
@@ -409,8 +412,8 @@ test("detect: active type — gh CLI unavailable → fallback to file presence (
   const mockExecFileSync = () => {
     throw new Error("gh: command not found");
   };
-  // Should fall back to file-presence → true (with stderr warning)
-  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), true);
+  // gh unavailable → cannot verify activity → unverifiable → null (with stderr warning)
+  assert.equal(detect(fx.root, criterion, { execFileSyncFn: mockExecFileSync }), null);
   fx.cleanup();
 });
 
