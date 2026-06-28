@@ -15,6 +15,7 @@ import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
+import { createRefinementPrompt } from "./createRefinementPrompt.js";
 import type { StoredSpec } from "../types.js";
 import styles from "./PlaygroundPage.module.css";
 
@@ -263,12 +264,7 @@ function PlaygroundBody({
   function handleSubmit(prompt: string) {
     if (mode === "refine" && displaySpec) {
       // Embed the current spec as context so the model modifies rather than regenerates
-      const refinementPrompt =
-        `Here is an existing UI spec generated from Rialto components. ` +
-        `Please modify it according to the user's instruction. ` +
-        `Output the COMPLETE modified spec (not just the changes).\n\n` +
-        `Existing spec:\n${JSON.stringify(displaySpec)}\n\n` +
-        `Modification requested: ${prompt}`;
+      const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
       promptRef.current = `Refined: ${prompt}`;
       setActiveId(null); // Switch to live streaming mode
       void send(refinementPrompt);
