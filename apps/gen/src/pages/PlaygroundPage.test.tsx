@@ -105,7 +105,6 @@ vi.mock("../components/AppShell.js", () => {
       historyVisible: true,
       inspectorVisible: true,
       breakpoint: "desktop",
-      isFullscreen: false,
       toggleHistory: mockToggleHistory,
       toggleInspector: mockToggleInspector,
       closeOverlays: mockCloseOverlays,
