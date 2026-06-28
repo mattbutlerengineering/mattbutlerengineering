@@ -15,6 +15,12 @@ export class JobScheduler {
   constructor(config: JobSchedulerConfig) {
     this.redis = new Redis(config.redisUrl, {
       maxRetriesPerRequest: null,
+      // Defer the connection to the first command so constructing a JobScheduler
+      // is side-effect-free. Without this, ioredis connects eagerly and (with
+      // maxRetriesPerRequest: null) retries forever, so merely building app
+      // wiring — e.g. createDefaultWaitlistNotifier() in reservations — opens a
+      // background ECONNREFUSED loop in tests/CI where no Redis is present.
+      lazyConnect: true,
     });
 
     this.queue = new Queue(config.queueName ?? DEFAULT_QUEUE_NAME, {

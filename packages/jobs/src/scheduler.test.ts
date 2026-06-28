@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   upsertJobScheduler: vi.fn().mockResolvedValue({ id: "sched_123" }),
   close: vi.fn().mockResolvedValue(undefined),
   redisQuit: vi.fn().mockResolvedValue("OK"),
+  redisCtor: vi.fn(),
 }));
 
 vi.mock("bullmq", () => {
@@ -26,8 +27,8 @@ vi.mock("ioredis", () => {
   class MockRedis {
     quit = mocks.redisQuit;
     status = "ready";
-    constructor(_url: string, _opts?: unknown) {
-      // mock
+    constructor(url: string, opts?: unknown) {
+      mocks.redisCtor(url, opts);
     }
   }
   return { Redis: MockRedis, default: MockRedis };
@@ -57,7 +58,19 @@ describe("JobScheduler", () => {
     mocks.upsertJobScheduler.mockClear();
     mocks.close.mockClear();
     mocks.redisQuit.mockClear();
+    mocks.redisCtor.mockClear();
     mocks.add.mockResolvedValue({ id: "job_123" });
+  });
+
+  it("constructs Redis lazily so construction opens no connection (side-effect-free)", () => {
+    new JobScheduler({ redisUrl: "redis://localhost:6379" });
+
+    expect(mocks.redisCtor).toHaveBeenCalledOnce();
+    const [url, opts] = mocks.redisCtor.mock.calls[0];
+    expect(url).toBe("redis://localhost:6379");
+    // lazyConnect defers the connection to the first command, so a JobScheduler
+    // can be constructed in tests / app wiring without a Redis server present.
+    expect(opts).toMatchObject({ lazyConnect: true, maxRetriesPerRequest: null });
   });
 
   it("schedule() enqueues a delayed job with typed payload", async () => {
