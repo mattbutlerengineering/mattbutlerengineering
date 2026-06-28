@@ -1,4 +1,5 @@
 import { forwardRef, type CSSProperties } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Skeleton.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -58,7 +59,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
           {Array.from({ length: lines }, (_, i) => (
             <div
               key={i}
-              className={`${styles.skeleton} ${variantClass}`}
+              className={cn(styles.skeleton, variantClass)}
               style={{
                 ...style,
                 // Last line is shorter for a natural paragraph look
@@ -73,7 +74,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
     return (
       <div
         ref={ref}
-        className={`${styles.skeleton} ${variantClass} ${className}`}
+        className={cn(styles.skeleton, variantClass, className)}
         style={style}
         aria-hidden="true"
       />

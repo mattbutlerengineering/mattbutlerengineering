@@ -1,4 +1,5 @@
 import { forwardRef, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Breadcrumb.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -82,7 +83,7 @@ export const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
     }
 
     return (
-      <nav ref={ref} aria-label="Breadcrumb" className={`${styles.nav} ${className}`}>
+      <nav ref={ref} aria-label="Breadcrumb" className={cn(styles.nav, className)}>
         <ol className={styles.list}>
           {displayItems.map((item, i) => {
             const isLast = i === displayItems.length - 1;

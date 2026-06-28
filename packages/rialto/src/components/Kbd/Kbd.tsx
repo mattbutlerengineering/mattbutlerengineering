@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Kbd.module.css";
 
 /* ── Single key cap ─────────────────────────── */
@@ -18,7 +19,7 @@ export interface KbdProps {
 
 export const Kbd = forwardRef<HTMLElement, KbdProps>(({ children, className = "" }, ref) => {
   return (
-    <kbd ref={ref} className={`${styles.kbd} ${className}`}>
+    <kbd ref={ref} className={cn(styles.kbd, className)}>
       {children}
     </kbd>
   );
@@ -44,7 +45,7 @@ export interface ShortcutProps {
 export const Shortcut = forwardRef<HTMLSpanElement, ShortcutProps>(
   ({ keys, className = "" }, ref) => {
     return (
-      <span ref={ref} className={`${styles.shortcut} ${className}`}>
+      <span ref={ref} className={cn(styles.shortcut, className)}>
         {keys.map((key, i) => (
           <span key={i}>
             {i > 0 && <span className={styles.separator}>+</span>}

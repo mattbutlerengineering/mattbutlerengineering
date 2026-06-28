@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./DataList.module.css";
 
 /**
@@ -36,14 +37,12 @@ export interface DataListProps extends HTMLAttributes<HTMLDListElement> {
 
 export const DataList = forwardRef<HTMLDListElement, DataListProps>(
   ({ items, orientation = "horizontal", striped = false, className, ...props }, ref) => {
-    const classes = [
+    const classes = cn(
       styles.list,
       orientation === "vertical" ? styles.vertical : styles.horizontal,
-      striped ? styles.striped : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      striped && styles.striped,
+      className
+    );
 
     return (
       <dl ref={ref} className={classes} {...props}>

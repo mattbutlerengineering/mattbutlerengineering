@@ -11,6 +11,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { cn } from "../../utils/class-composer";
 import styles from "./ContextMenu.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -215,7 +216,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
                     if (el) itemRefs.current.set(i, el);
                     else itemRefs.current.delete(i);
                   }}
-                  className={`${styles.item} ${item.destructive ? styles.destructive : ""}`}
+                  className={cn(styles.item, item.destructive && styles.destructive)}
                   role="menuitem"
                   disabled={item.disabled}
                   data-active={activeIndex === i}

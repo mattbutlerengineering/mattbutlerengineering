@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Footer.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -49,9 +50,7 @@ export interface FooterProps extends HTMLAttributes<HTMLElement> {
 
 export const Footer = forwardRef<HTMLElement, FooterProps>(
   ({ variant = "minimal", logo, columns, copyright, children, className, ...props }, ref) => {
-    const classes = [styles.footer, variant === "rich" ? styles.rich : styles.minimal, className]
-      .filter(Boolean)
-      .join(" ");
+    const classes = cn(styles.footer, variant === "rich" ? styles.rich : styles.minimal, className);
 
     if (variant === "rich") {
       return (

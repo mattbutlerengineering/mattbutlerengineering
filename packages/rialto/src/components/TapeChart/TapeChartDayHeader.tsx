@@ -1,4 +1,5 @@
 import { memo, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./TapeChart.module.css";
 import { addDays, monthOf } from "./dateMath";
 import type { TapeChartLayout } from "./types";
@@ -34,7 +35,7 @@ export const TapeChartDayHeader = memo(function TapeChartDayHeader(props: TapeCh
       <div
         key={iso}
         role="columnheader"
-        className={`${styles.dayHeaderCell}${isMonthStart ? " " + styles.dayHeaderMonthDivider : ""}`}
+        className={cn(styles.dayHeaderCell, isMonthStart && styles.dayHeaderMonthDivider)}
         data-today={isToday ? "true" : undefined}
         aria-current={isToday ? "date" : undefined}
         aria-label={`${formatters.dayLong(iso)}${isToday ? ", " + strings.todayLabel : ""}${

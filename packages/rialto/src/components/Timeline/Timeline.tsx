@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Timeline.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -42,23 +43,19 @@ export interface TimelineProps {
 /* ── Component ──────────────────────────────── */
 export const Timeline = forwardRef<HTMLDivElement, TimelineProps>(
   ({ events, compact = false, className = "" }, ref) => {
-    const containerClass = [styles.timeline, compact ? styles.compact : "", className]
-      .filter(Boolean)
-      .join(" ");
+    const containerClass = cn(styles.timeline, compact && styles.compact, className);
 
     return (
       <div ref={ref} className={containerClass} role="list" aria-label="Timeline">
         {events.map((event, i) => {
           const status = event.status ?? "upcoming";
 
-          const itemClass = [
+          const itemClass = cn(
             styles.item,
-            status === "completed" ? styles.completed : "",
-            status === "active" ? styles.active : "",
-            status === "error" ? styles.error : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
+            status === "completed" && styles.completed,
+            status === "active" && styles.active,
+            status === "error" && styles.error
+          );
 
           return (
             <div key={i} className={itemClass} role="listitem">
