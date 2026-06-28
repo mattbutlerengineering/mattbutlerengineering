@@ -130,17 +130,18 @@ Fix, improve descriptions, re-enable."
 
 ### Auto-retry Stale (3+ days)
 
-Re-queue issues that have been `agent-failed` for 3+ days (excludes `agent-skip`,
-caps at 2/run). Tested logic lives in `scripts/auto-retry-stale.mjs`:
+Exclude `agent-skip`:
 
 ```bash
-node scripts/auto-retry-stale.mjs           # re-queue: ready + remove agent-failed + comment
-node scripts/auto-retry-stale.mjs --dry-run # report selection, mutate nothing
+STALE=$(gh issue list --label "agent-failed" --state open --json number,createdAt,labels -q '[.[] | select(.createdAt < (now - 259200 | todate)) | select(.labels | map(.name) | index("agent-skip") | not)] | .[].number')
+
+for NUM in $STALE; do
+  gh issue edit $NUM --add-label "ready" --remove-label "agent-failed"
+  gh issue comment $NUM --body "Auto-retry — failed 3+ days."
+done
 ```
 
-The selection rule (`selectStaleForRetry`) is a pure, unit-tested function
-(`scripts/__tests__/auto-retry-stale.test.mjs`); the GitHub mutations run via
-`@mbe/gh-client`. Max 2/run.
+Max 2/run.
 
 ### Queue Adjust
 
