@@ -27,6 +27,7 @@ import {
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 import { collectMutationScore } from "./collect-mutation-score.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
+import { computeE2eStability } from "./collect-e2e-stability.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -330,6 +331,52 @@ function collectSessionLogs() {
   };
 }
 
+/**
+ * E2E stability sensor — wraps the pure computeE2eStability collector with
+ * live GitHub run data. Changed paths are resolved best-effort via `git show`
+ * for each run's headSha; falls back to an empty array (run treated as
+ * non-frontend, conservatively counted in the streak) when the SHA is not
+ * in local history. Does NOT auto-block merges — reporting only.
+ */
+function collectE2eStabilitySensor() {
+  const rawRuns = safe(
+    () =>
+      execFileSync(
+        "gh",
+        ["run", "list", "--limit", "30", "--json", "conclusion,createdAt,headBranch,headSha"],
+        { encoding: "utf-8", timeout: 15000 }
+      ),
+    null
+  );
+  if (!rawRuns) return { available: false };
+
+  const ghRuns = safe(() => JSON.parse(rawRuns), null);
+  if (!ghRuns) return { available: false };
+
+  const injected = ghRuns.map((run) => {
+    const changedPaths = safe(
+      () =>
+        execFileSync("git", ["show", "--name-only", "--format=", run.headSha], {
+          encoding: "utf-8",
+          timeout: 3000,
+          cwd: ROOT,
+        })
+          .split("\n")
+          .filter(Boolean),
+      []
+    );
+    return {
+      sha: run.headSha ?? "",
+      conclusion: run.conclusion,
+      changedPaths,
+      headRefName: run.headBranch ?? "",
+      createdAt: run.createdAt,
+    };
+  });
+
+  return computeE2eStability(injected);
+}
+
 /* ── Regression detection ────────────────────────────── */
 
 function detectRegressions(current, previous) {
@@ -427,6 +474,7 @@ const report = {
     codeChurn: collectCodeChurnSensor(),
     mutationScore: collectMutationScoreSensor(),
     flakyTests: computeFlakyTests([]),
+    e2eStability: collectE2eStabilitySensor(),
   },
   thresholds: THRESHOLDS,
   regressions: [],
@@ -523,6 +571,11 @@ if (JSON_ONLY) {
       case "flakyTests":
         console.log(
           `   ${name}: ${data.flaky_count} flaky (${data.total_runs} runs, ${data.window_shas} SHAs)`
+        );
+        break;
+      case "e2eStability":
+        console.log(
+          `   ${name}: ${data.consecutive_failures} consecutive failure(s) on non-frontend runs (${data.total_non_frontend_runs}/${data.total_runs} non-frontend)`
         );
         break;
       default:
