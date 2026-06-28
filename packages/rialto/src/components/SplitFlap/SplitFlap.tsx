@@ -9,6 +9,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { CHARSETS, normalizeChar, nextChar, type CharsetName } from "./charset";
+import { cn } from "../../utils/class-composer";
 import styles from "./SplitFlap.module.css";
 
 /**
@@ -58,7 +59,7 @@ export const SplitFlap = forwardRef<HTMLDivElement, SplitFlapProps>(
     // Compute the sequence of target chars — padded/truncated to `length`.
     const targetChars = normalizeValue(value, length, charsetStr);
 
-    const wrapperClass = [styles.board, styles[size], className].filter(Boolean).join(" ");
+    const wrapperClass = cn(styles.board, styles[size], className);
 
     return (
       <div ref={ref} role="img" aria-label={ariaLabel} className={wrapperClass} {...rest}>

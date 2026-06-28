@@ -2,6 +2,7 @@ import type { HTMLAttributes } from "react";
 import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { spring, reduced } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { useFlipDotSound } from "./use-flip-dot-sound";
 import styles from "./FlipDot.module.css";
 
@@ -174,7 +175,7 @@ export const FlipDot = forwardRef<HTMLDivElement, FlipDotProps>(
       <div
         ref={ref}
         role="img"
-        className={[styles.panel, className].filter(Boolean).join(" ")}
+        className={cn(styles.panel, className)}
         style={
           {
             gridTemplateColumns: `repeat(${effectiveCols}, var(--fd-dot-size))`,

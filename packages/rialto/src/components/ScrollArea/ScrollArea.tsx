@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./ScrollArea.module.css";
 
 /**
@@ -27,7 +28,7 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
     return (
       <div
         ref={ref}
-        className={[styles.root, className].filter(Boolean).join(" ")}
+        className={cn(styles.root, className)}
         style={{ maxHeight: heightStyle, ...style }}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
