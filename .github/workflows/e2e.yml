@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # See docs/runbooks/e2e-recovery.md for environment troubleshooting steps
     # Postgres backs the reservations + users APIs the hospitality app proxies to.
     # Without a live backend, the Vite dev-server proxy returns ECONNREFUSED for
     # every /api/v1/* request and the SPA never finishes booting (see issue #2123).
