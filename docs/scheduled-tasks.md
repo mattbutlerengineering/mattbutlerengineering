@@ -14,15 +14,15 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 
 ## Routine catalog
 
-| Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                 |
-| ------------------------ | ------------------- | ------------ | --------------------- | ------------------------------------------------------- |
-| `mbe-deep-audit`         | Mon 8:23am          | —            | issues                | Weekly full site audit (Playwright + Lighthouse)        |
-| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + issue-worker            |
-| `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions  |
-| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | issue-worker + CI monitor                               |
-| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | issue-worker + progress-tracker                         |
-| `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change |
-| `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health             |
+| Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                    |
+| ------------------------ | ------------------- | ------------ | --------------------- | ---------------------------------------------------------- |
+| `mbe-deep-audit`         | Mon 8:23am          | —            | issues                | Weekly full site audit (Playwright + Lighthouse)           |
+| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + issue-worker               |
+| `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions     |
+| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | issue-worker + CI monitor                                  |
+| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | issue-worker + progress-tracker + optimize-implement-queue |
+| `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change    |
+| `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health                |
 
 > The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
 > their exact prompts live there. The two improvement routines below were created
@@ -40,6 +40,12 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
      low-risk, high-value) via TDD + full gates, and opens **one PR** targeting `main`.
   2. Files the remaining strong findings as GitHub issues labeled `ready` (with
      self-contained acceptance criteria) so `/implement-queue` can drain them.
+  3. **Weekly eval checkpoint:** runs `mbe agent eval` once against the agent
+     evaluation suite to catch slow-drift quality regressions that the daily
+     free telemetry scorecard (see `optimize-implement-queue` below) can't see.
+     Files a `ready` issue if the eval score regresses versus the prior baseline.
+     This is the only _scheduled_ paid eval — the daily optimizer fires eval
+     only on a flagged regression, never on every run.
 - **Does not merge.** Every change lands as a reviewable PR.
 
 ## `mbe-monthly-meta-audit`
@@ -54,6 +60,45 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
   stale CLAUDE.md references, missing guidance, and worthwhile new hooks/agents/skills.
 - **Does not merge.**
 
+## `optimize-implement-queue` (folded into `mbe-evening`)
+
+The daily agent-workflow optimizer (tracking issue #2744). It is **not a new
+routine** — it is appended to the existing `mbe-evening` run so it consumes **no
+new weekday schedule slot** (see Plan budget below).
+
+- **When:** daily, as the final step of `mbe-evening` (5:11pm PT).
+- **What it does:** invokes the `/optimize-implement-queue` skill, which:
+  1. Runs the `queueEfficiency` sensor (`scripts/collect-queue-efficiency.mjs`,
+     surfaced via `scripts/sensor-report.mjs`) → appends a trend point to
+     `metrics/process-metrics.jsonl` + a dated entry to
+     `.claude/improvement-loop/log.md` (every run, even with no regression).
+  2. On a **flagged regression** (difficulty-normalized so it can't be gamed by
+     cherry-picking trivial issues): files de-duplicated `ready` issues via the
+     learning-loop sensor→issue pipeline, **and** fires an `mbe agent eval` run
+     **asynchronously** to confirm agent/prompt vs. harder issues — never
+     synchronously inside the daily slot.
+  3. Does **not** auto-merge, auto-edit skill prompts, or run eval synchronously
+     (phase-1 posture). The phase-2 model-routing auto-tuning seam is documented
+     in the skill as NOT-yet-built.
+- **Append this to the end of the `mbe-evening` prompt** (the cloud agent starts
+  with zero context, so the instruction must live in the prompt itself):
+
+  ```text
+  Finally, run /optimize-implement-queue. Append the queue-efficiency trend point
+  and a dated log entry. If it flags a regression, file de-duplicated `ready`
+  issues and trigger `mbe agent eval` asynchronously (never block this run on
+  eval). Do not auto-merge or auto-edit any skill prompts.
+  ```
+
+> **[HITL] — Matt must wire this in the claude.ai UI.** RemoteTriggers are
+> cloud-managed; this doc version-controls the prompt, but the actual routine
+> change is manual:
+>
+> - [ ] Open the `mbe-evening` routine at https://claude.ai/code/routines
+> - [ ] Append the `/optimize-implement-queue` instruction block above to its prompt
+> - [ ] Add the weekly `mbe agent eval` checkpoint to the `mbe-weekly-improve` prompt
+> - [ ] Confirm the evening run still completes within its budget after the addition
+
 ## Plan budget (Max 5x)
 
 The Max 5x plan allows ~5 scheduled runs/day. The **daily** baseline is 4 runs
@@ -66,6 +111,12 @@ triggers add a 5th run on their day:
 
 The rare 6-run overlap is acceptable; if it causes throttling, shift
 `mbe-monthly-meta-audit` to a mid-month date in the web UI.
+
+> **`optimize-implement-queue` consumes no new slot.** It is folded into the
+> existing `mbe-evening` run (an extra skill invocation at the tail of one run),
+> so the daily baseline stays at 4. The only added paid work is the weekly
+> `mbe agent eval` checkpoint inside `mbe-weekly-improve` (still one Friday run);
+> the daily optimizer's eval fires only on a flagged regression, asynchronously.
 
 ## Required secrets
 
