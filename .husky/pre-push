@@ -41,7 +41,13 @@ fi
 # `pnpm build && pnpm regen` in the right order, finds different content → drift.
 # Turbo caches the build so this is near-instant when CLI source is unchanged.
 echo "pre-push: building CLI for regen..."
-pnpm build --filter @mbe/cli...
+if ! pnpm build --filter @mbe/cli...; then
+  echo ""
+  echo "ERROR: CLI build failed — fix the TypeScript errors above before pushing."
+  echo "Emergency bypass: git push --no-verify"
+  echo ""
+  exit 1
+fi
 
 # Run the full artifact regeneration before checking. This mirrors what CI does:
 # `pnpm regen` (regenerate) then `pnpm regen --check` (verify the regen was
@@ -49,7 +55,13 @@ pnpm build --filter @mbe/cli...
 # it compared working-tree vs index, passing even when the committed artifacts
 # were stale relative to what CI would generate from scratch.
 echo "pre-push: regenerating generated artifacts..."
-pnpm regen
+if ! pnpm regen; then
+  echo ""
+  echo "ERROR: artifact regeneration failed — fix the error above before pushing."
+  echo "Emergency bypass: git push --no-verify"
+  echo ""
+  exit 1
+fi
 
 if ! pnpm regen --check; then
   echo ""
