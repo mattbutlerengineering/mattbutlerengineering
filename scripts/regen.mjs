@@ -104,13 +104,18 @@ function runCheck() {
 
 function runRegen() {
   console.log("Regenerating all generated artifacts...\n");
+  // Run all non-llms-txt families first so llms.txt embeds freshly-generated
+  // artifacts (e.g. rialto-catalog-schemas / generated-schemas.ts). Running
+  // llms-txt first caused ordering-induced drift: the schema was regenerated
+  // after llms, so the committed llms embedded the pre-regen schema content
+  // while CI regenerated llms with the post-regen schema → stale artifact.
   for (const family of FAMILIES) {
-    if (family.id === "llms-txt") {
-      regenLlms();
-    } else {
+    if (family.id !== "llms-txt") {
       regenFamily(family);
     }
   }
+  // Run llms-txt last so it reads the freshly-generated schema.
+  regenLlms();
   console.log("\nDone. All artifacts regenerated.");
 }
 
