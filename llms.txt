@@ -1595,6 +1595,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="apps/gen/src/pages/createRefinementPrompt.ts">
+    <item priority="high">
+      export function createRefinementPrompt(
+        currentSpec: Spec,
+        userInstruction: string,
+      ): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="phases">
   <file path="packages/agent-core/src/phases/default-deps.ts">
     <item priority="high">
