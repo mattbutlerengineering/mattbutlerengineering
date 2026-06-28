@@ -89,8 +89,8 @@ function main() {
   const exceeded = exceedsThreshold(rate, thresholdPct);
 
   const rateFormatted = rate.toFixed(1);
-  console.log(
-    `E2E failure rate: ${rateFormatted}% (${failed}/${total}) — threshold: ${thresholdPct}% — exceeded: ${exceeded}`
+  process.stdout.write(
+    `E2E failure rate: ${rateFormatted}% (${failed}/${total}) — threshold: ${thresholdPct}% — exceeded: ${exceeded}\n`
   );
 
   writeOutputs(exceeded, rate);
