@@ -51,8 +51,7 @@ export function PlaygroundPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const playground = usePlaygroundState();
-  const { isFullscreen, exitRefinement, openGallery, toggleGallery, toggleShortcuts } =
-    playground;
+  const { isFullscreen, exitRefinement, openGallery, toggleGallery, toggleShortcuts } = playground;
 
   // Track the most recently submitted prompt without triggering re-renders
   const promptRef = useRef("");
@@ -133,50 +132,62 @@ export function PlaygroundPage() {
       onTemplatesOpen={handleTemplatesOpen}
     >
       <PlaygroundBody
-        specs={specs}
-        isLoading={isLoading}
-        activeId={activeId}
-        setActiveId={setActiveId}
-        filter={filter}
-        setFilter={setFilter}
-        playground={playground}
-        promptRef={promptRef}
-        spec={spec}
-        isStreaming={isStreaming}
-        error={error}
-        rawLines={rawLines}
-        send={send}
-        stop={stop}
-        toggleFavorite={toggleFavorite}
-        deleteSpec={deleteSpec}
-        toggleTheme={toggleTheme}
-        onSignOut={handleSignOut}
-        toast={toast}
+        state={playground}
+        data={{
+          specs,
+          isLoading,
+          activeId,
+          setActiveId,
+          filter,
+          setFilter,
+          promptRef,
+          spec,
+          isStreaming,
+          error,
+          rawLines,
+          stop,
+          toggleFavorite,
+          deleteSpec,
+          toggleTheme,
+          onSignOut: handleSignOut,
+          toast,
+        }}
+        onSubmit={send}
       />
     </AppShell>
   );
 }
 
-interface PlaygroundBodyProps {
+/** API-hook results and page-managed state threaded into PlaygroundBody. */
+export interface PlaygroundData {
+  // useSpecsApi
   specs: StoredSpec[];
   isLoading: boolean;
-  activeId: string | null;
-  setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
-  filter: "all" | "favorites";
-  setFilter: React.Dispatch<React.SetStateAction<"all" | "favorites">>;
-  playground: PlaygroundState;
-  promptRef: React.MutableRefObject<string>;
+  toggleFavorite: (id: string) => Promise<void>;
+  deleteSpec: (id: string) => Promise<void>;
+  // useGenStream
   spec: Spec | null;
   isStreaming: boolean;
   error: Error | null;
   rawLines: string[];
-  send: (prompt: string) => Promise<void> | void;
   stop: () => void;
-  toggleFavorite: (id: string) => Promise<void>;
-  deleteSpec: (id: string) => Promise<void>;
+  // Page-managed state (tightly coupled to the API data)
+  activeId: string | null;
+  setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
+  filter: "all" | "favorites";
+  setFilter: React.Dispatch<React.SetStateAction<"all" | "favorites">>;
+  promptRef: React.MutableRefObject<string>;
+  // Other
   toggleTheme: () => void;
   onSignOut: () => void;
   toast: ReturnType<typeof useToast>["toast"];
+}
+
+interface PlaygroundBodyProps {
+  state: PlaygroundState;
+  data: PlaygroundData;
+  /** Raw send function from useGenStream — PlaygroundBody wraps it with refinement logic. */
+  onSubmit: (prompt: string) => Promise<void> | void;
 }
 
 /**
@@ -184,27 +195,7 @@ interface PlaygroundBodyProps {
  * state (history / inspector visibility, breakpoint, palette controls) via
  * useAppShellPanels and composes the AppShell panel regions + command palette.
  */
-function PlaygroundBody({
-  specs,
-  isLoading,
-  activeId,
-  setActiveId,
-  filter,
-  setFilter,
-  playground,
-  promptRef,
-  spec,
-  isStreaming,
-  error,
-  rawLines,
-  send,
-  stop,
-  toggleFavorite,
-  deleteSpec,
-  toggleTheme,
-  onSignOut,
-  toast,
-}: PlaygroundBodyProps) {
+export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
   const {
     historyVisible,
     inspectorVisible,
@@ -227,7 +218,27 @@ function PlaygroundBody({
     closeGallery,
     openShortcuts,
     closeShortcuts,
-  } = playground;
+  } = state;
+
+  const {
+    specs,
+    isLoading,
+    activeId,
+    setActiveId,
+    filter,
+    setFilter,
+    promptRef,
+    spec,
+    isStreaming,
+    error,
+    rawLines,
+    stop,
+    toggleFavorite,
+    deleteSpec,
+    toggleTheme,
+    onSignOut,
+    toast,
+  } = data;
 
   const { copy } = useCopyToClipboard();
   const isMobileOrTablet = breakpoint !== "desktop";
@@ -261,11 +272,11 @@ function PlaygroundBody({
       const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
       promptRef.current = `Refined: ${prompt}`;
       setActiveId(null); // Switch to live streaming mode
-      void send(refinementPrompt);
+      void onSubmit(refinementPrompt);
     } else {
       promptRef.current = prompt;
       setActiveId(null); // Switch to live streaming mode
-      void send(prompt);
+      void onSubmit(prompt);
     }
   }
 
@@ -293,7 +304,7 @@ function PlaygroundBody({
     if (isMobileOrTablet) {
       closeOverlays();
     }
-    void send(entry.prompt);
+    void onSubmit(entry.prompt);
   }
 
   function handleToggleFavorite(id: string) {
@@ -313,7 +324,7 @@ function PlaygroundBody({
     promptRef.current = retryPrompt;
     setActiveId(null);
     exitRefinement();
-    void send(retryPrompt);
+    void onSubmit(retryPrompt);
   }
 
   function handleEnterRefinement() {
