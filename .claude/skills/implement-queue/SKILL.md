@@ -98,6 +98,38 @@ Each agent prompt MUST include:
 | No usable changes            | `agent-failed`, remove `in-progress` |
 | Second failure on same issue | add `stealable`                      |
 
+### Worker telemetry capture
+
+After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/collect-queue-telemetry.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+
+```js
+import { appendTelemetryRow } from "./scripts/collect-queue-telemetry.mjs";
+
+appendTelemetryRow({
+  issue_number: 2747, // required
+  labels: ["feature", "ready"],
+  model_tier: "sonnet", // haiku | sonnet | opus
+  subagent_tokens: usage.totalTokens, // from worker completion <usage>
+  tool_uses: usage.toolUses ?? 0,
+  duration_ms: Date.now() - claimedAt,
+  pr_number: prNumber ?? null,
+  merged: null, // reconciled by sensor later
+  ci_first_pass: null, // reconciled by sensor later
+  rework_cycles: null, // reconciled by sensor later
+  reviewer_verdict: verdict, // "pass" | "flag" | "skipped"
+  claimed_at: claimedAtIso,
+  merged_at: null, // reconciled by sensor later
+  cost_usd: usage.costUsd ?? null, // include when known; enables precise cost in scorecard
+});
+```
+
+**Rules:**
+
+- Write only schema fields — unknown keys (e.g. API keys, tokens) cause the writer to throw before any disk write.
+- The row is idempotent per `(issue_number, pr_number)` — safe to retry on transient errors.
+- Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; the `queueEfficiency` sensor reconciles them from GitHub in its next run.
+- `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
+
 ## Phase 3: Serial Merge Train
 
 Merge one PR at a time, oldest green first. **Exactly one merge train may run at a time across all sessions** — concurrent trains race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a lock, not the honor system.
