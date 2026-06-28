@@ -16,6 +16,7 @@ import {
   animate,
 } from "framer-motion";
 import { spring, springGentle, reduced } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./MasterOverride.module.css";
 import { SplitFlap } from "../SplitFlap";
 import { StatusLED } from "../StatusLED";
@@ -261,7 +262,7 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       onChange(!on);
     }
 
-    const wrapperClasses = [
+    const wrapperClasses = cn(
       styles.wrapper,
       styles[size],
       styles[`variant-${variant}`],
@@ -269,10 +270,8 @@ export const MasterOverride = forwardRef<HTMLDivElement, MasterOverrideProps>(
       armed && styles.armed,
       isHolding && styles.holding,
       disabled && styles.disabled,
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      className
+    );
 
     const statusMessage = !armed
       ? `${label} safety cover closed. Switch is ${on ? activeLabel : idleLabel}.`
@@ -414,7 +413,7 @@ export interface OverridePanelProps {
 export const OverridePanel = forwardRef<HTMLDivElement, OverridePanelProps>(
   ({ children, title, className }, ref) => {
     return (
-      <div ref={ref} className={[styles.panel, className].filter(Boolean).join(" ")}>
+      <div ref={ref} className={cn(styles.panel, className)}>
         {title && <span className={styles.panelTitle}>{title}</span>}
         <div className={styles.panelRack}>{children}</div>
       </div>

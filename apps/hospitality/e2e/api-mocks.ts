@@ -36,6 +36,13 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
 }
 
 export async function mockApi(page: Page): Promise<void> {
+  // Signal to QueryProvider to disable react-query retries so error states
+  // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
+  // instead of after the default 3x exponential backoff (~7s).
+  await page.addInitScript(() => {
+    (window as unknown as { __e2eNoRetry: boolean }).__e2eNoRetry = true;
+  });
+
   // Users
   await page.route("**/api/v1/users/me", (route) =>
     route.request().method() === "PATCH"
@@ -85,6 +92,11 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Reservations
+  // Per-context stateful store so post-mutation assertions (count +1, updated field)
+  // reflect what the UI just created or edited.
+  const extraReservations: Array<Record<string, unknown>> = [];
+  const reservationUpdates = new Map<string, Record<string, unknown>>();
+
   // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
   // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
   function todayReservations(): string {
@@ -104,35 +116,104 @@ export async function mockApi(page: Page): Promise<void> {
     });
   }
 
-  await page.route("**/api/v1/reservations/walk-in", (route) => {
-    const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
-    return jsonOk(route, {
-      ...fixture.data[0],
-      id: "res_e2e_walkin",
-      status: "CONFIRMED",
-      notes: "Walk-in",
+  // Stateful list: base fixture + walk-ins created this session + applied edits.
+  function buildReservationsList(): string {
+    const base = JSON.parse(todayReservations()) as {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    };
+    const allData = [...base.data, ...extraReservations].map((r) => ({
+      ...r,
+      ...(reservationUpdates.get(r.id as string) ?? {}),
+    }));
+    return JSON.stringify({
+      ...base,
+      data: allData,
+      pagination: { ...(base.pagination as Record<string, unknown>), total: allData.length },
     });
-  });
-  await page.route("**/api/v1/reservations/me*", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
-  );
-  await page.route("**/api/v1/reservations?*", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: todayReservations() })
-  );
-  await page.route(/\/api\/v1\/reservations\/[^/?]+$/, (route) => {
+  }
+
+  // Individual reservation — generic handler.
+  // Negative lookahead excludes "walk-in" from this regex as a safety net.
+  // Registered BEFORE the walk-in glob so walk-in wins LIFO (later = higher priority).
+  await page.route(/\/api\/v1\/reservations\/(?!walk-in)[^/?]+$/, (route) => {
     const method = route.request().method();
+    const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
     const reservations = JSON.parse(loadFixture("reservations-list"));
     if (method === "DELETE") {
       return jsonOk(route, { ...reservations.data[0], status: "CANCELLED" });
     }
     if (method === "PATCH") {
-      return jsonOk(route, { ...reservations.data[0], updatedAt: new Date().toISOString() });
+      let body: Record<string, unknown> = {};
+      try {
+        const parsed = route.request().postDataJSON();
+        if (parsed !== null && typeof parsed === "object") {
+          body = parsed as Record<string, unknown>;
+        }
+      } catch {
+        // no body — leave empty
+      }
+      const existing = reservationUpdates.get(id) ?? {};
+      const merged = { ...existing, ...body };
+      reservationUpdates.set(id, merged);
+      const baseItem =
+        (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
+        reservations.data[0];
+      return jsonOk(route, { ...baseItem, ...merged, updatedAt: new Date().toISOString() });
     }
-    return jsonOk(route, reservations.data[0]);
+    const baseItem =
+      (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
+      reservations.data[0];
+    return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
   });
 
+  // Walk-in — registered LAST so LIFO gives it highest priority over the generic regex above.
+  // POST /api/v1/reservations/walk-in adds the new reservation to the stateful store so the
+  // subsequent GET /api/v1/reservations?* returns count+1.
+  await page.route("**/api/v1/reservations/walk-in", (route) => {
+    const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
+    const newRes: Record<string, unknown> = {
+      ...fixture.data[0],
+      id: `res_e2e_walkin_${Date.now()}`,
+      status: "CONFIRMED",
+      notes: "Walk-in",
+    };
+    extraReservations.push(newRes);
+    return jsonOk(route, newRes);
+  });
+  await page.route("**/api/v1/reservations/me*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
+  );
+  await page.route("**/api/v1/reservations?*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
+  );
+
   // Guests
-  await page.route("**/api/v1/guests/search*", (route) => jsonResponse(route, "guests-list"));
+  // Filter search results by the `query` URL param so empty-search assertions work.
+  // With no query (or empty query), return the full fixture unfiltered.
+  await page.route("**/api/v1/guests/search*", (route) => {
+    const urlObj = new URL(route.request().url());
+    const query = (urlObj.searchParams.get("query") ?? urlObj.searchParams.get("q") ?? "").trim();
+    if (!query) return jsonResponse(route, "guests-list");
+    const fixture = JSON.parse(loadFixture("guests-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    };
+    const lower = query.toLowerCase();
+    const filtered = fixture.data.filter((g) => {
+      const name = String(g.name ?? "").toLowerCase();
+      const email = String(g.email ?? "").toLowerCase();
+      return name.includes(lower) || email.includes(lower);
+    });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: filtered,
+        pagination: { ...fixture.pagination, total: filtered.length },
+      }),
+    });
+  });
   await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));

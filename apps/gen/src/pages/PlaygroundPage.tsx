@@ -15,6 +15,9 @@ import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
+import { createRefinementPrompt } from "./createRefinementPrompt.js";
+import { usePlaygroundState } from "./usePlaygroundState.js";
+import type { PlaygroundState } from "./usePlaygroundState.js";
 import type { StoredSpec } from "../types.js";
 import styles from "./PlaygroundPage.module.css";
 
@@ -47,10 +50,9 @@ export function PlaygroundPage() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
-  const [mode, setMode] = useState<"generate" | "refine">("generate");
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const playground = usePlaygroundState();
+  const { isFullscreen, exitRefinement, openGallery, toggleGallery, toggleShortcuts } =
+    playground;
 
   // Track the most recently submitted prompt without triggering re-renders
   const promptRef = useRef("");
@@ -84,17 +86,17 @@ export function PlaygroundPage() {
 
   function handleSignOut() {
     setActiveId(null);
-    setMode("generate");
+    exitRefinement();
     void signOut();
   }
 
   const handleLogoClick = useCallback(() => {
     setActiveId(null);
-    setMode("generate");
-  }, []);
+    exitRefinement();
+  }, [exitRefinement]);
 
   function handleTemplatesOpen() {
-    setGalleryOpen(true);
+    openGallery();
   }
 
   // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
@@ -102,12 +104,12 @@ export function PlaygroundPage() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "t") {
         e.preventDefault();
-        setGalleryOpen((prev) => !prev);
+        toggleGallery();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [toggleGallery]);
 
   // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
   useEffect(() => {
@@ -117,11 +119,11 @@ export function PlaygroundPage() {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.target as HTMLElement)?.isContentEditable) return;
       e.preventDefault();
-      setShortcutsOpen((prev) => !prev);
+      toggleShortcuts();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [toggleShortcuts]);
 
   return (
     <AppShell
@@ -137,14 +139,7 @@ export function PlaygroundPage() {
         setActiveId={setActiveId}
         filter={filter}
         setFilter={setFilter}
-        mode={mode}
-        setMode={setMode}
-        isFullscreen={isFullscreen}
-        setIsFullscreen={setIsFullscreen}
-        galleryOpen={galleryOpen}
-        setGalleryOpen={setGalleryOpen}
-        shortcutsOpen={shortcutsOpen}
-        setShortcutsOpen={setShortcutsOpen}
+        playground={playground}
         promptRef={promptRef}
         spec={spec}
         isStreaming={isStreaming}
@@ -169,14 +164,7 @@ interface PlaygroundBodyProps {
   setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
   filter: "all" | "favorites";
   setFilter: React.Dispatch<React.SetStateAction<"all" | "favorites">>;
-  mode: "generate" | "refine";
-  setMode: React.Dispatch<React.SetStateAction<"generate" | "refine">>;
-  isFullscreen: boolean;
-  setIsFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
-  galleryOpen: boolean;
-  setGalleryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  shortcutsOpen: boolean;
-  setShortcutsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  playground: PlaygroundState;
   promptRef: React.MutableRefObject<string>;
   spec: Spec | null;
   isStreaming: boolean;
@@ -203,14 +191,7 @@ function PlaygroundBody({
   setActiveId,
   filter,
   setFilter,
-  mode,
-  setMode,
-  isFullscreen,
-  setIsFullscreen,
-  galleryOpen,
-  setGalleryOpen,
-  shortcutsOpen,
-  setShortcutsOpen,
+  playground,
   promptRef,
   spec,
   isStreaming,
@@ -233,6 +214,20 @@ function PlaygroundBody({
     closeOverlays,
     closePalette,
   } = useAppShellPanels();
+
+  const {
+    mode,
+    isFullscreen,
+    galleryOpen,
+    shortcutsOpen,
+    enterRefinement,
+    exitRefinement,
+    toggleFullscreen,
+    openGallery,
+    closeGallery,
+    openShortcuts,
+    closeShortcuts,
+  } = playground;
 
   const { copy } = useCopyToClipboard();
   const isMobileOrTablet = breakpoint !== "desktop";
@@ -263,12 +258,7 @@ function PlaygroundBody({
   function handleSubmit(prompt: string) {
     if (mode === "refine" && displaySpec) {
       // Embed the current spec as context so the model modifies rather than regenerates
-      const refinementPrompt =
-        `Here is an existing UI spec generated from Rialto components. ` +
-        `Please modify it according to the user's instruction. ` +
-        `Output the COMPLETE modified spec (not just the changes).\n\n` +
-        `Existing spec:\n${JSON.stringify(displaySpec)}\n\n` +
-        `Modification requested: ${prompt}`;
+      const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
       promptRef.current = `Refined: ${prompt}`;
       setActiveId(null); // Switch to live streaming mode
       void send(refinementPrompt);
@@ -287,7 +277,7 @@ function PlaygroundBody({
     if (isStreaming) return; // Don't allow switching while streaming
     setActiveId(id);
     // Selecting from history exits refinement mode
-    setMode("generate");
+    exitRefinement();
     // On mobile/tablet, close overlays after selection
     if (isMobileOrTablet) {
       closeOverlays();
@@ -299,7 +289,7 @@ function PlaygroundBody({
     if (!entry) return;
     promptRef.current = entry.prompt;
     setActiveId(null); // Switch to live streaming mode for new generation
-    setMode("generate");
+    exitRefinement();
     if (isMobileOrTablet) {
       closeOverlays();
     }
@@ -322,20 +312,20 @@ function PlaygroundBody({
     if (!retryPrompt) return;
     promptRef.current = retryPrompt;
     setActiveId(null);
-    setMode("generate");
+    exitRefinement();
     void send(retryPrompt);
   }
 
   function handleEnterRefinement() {
-    setMode("refine");
+    enterRefinement();
   }
 
   function handleExitRefinement() {
-    setMode("generate");
+    exitRefinement();
   }
 
   function handleToggleFullscreen() {
-    setIsFullscreen((prev) => !prev);
+    toggleFullscreen();
   }
 
   function handleShare(_id: string) {
@@ -348,7 +338,7 @@ function PlaygroundBody({
   }
 
   function handleGalleryClose() {
-    setGalleryOpen(false);
+    closeGallery();
   }
 
   // ---------------------------------------------------------------------------
@@ -363,7 +353,7 @@ function PlaygroundBody({
       onSelect: () => {
         closePalette();
         setActiveId(null);
-        setMode("generate");
+        exitRefinement();
       },
     },
     {
@@ -373,7 +363,7 @@ function PlaygroundBody({
       shortcut: ["⌘", "F"],
       onSelect: () => {
         closePalette();
-        setIsFullscreen((prev) => !prev);
+        toggleFullscreen();
       },
     },
     ...(isStreaming
@@ -397,7 +387,7 @@ function PlaygroundBody({
       shortcut: ["⌘", "T"],
       onSelect: () => {
         closePalette();
-        setGalleryOpen(true);
+        openGallery();
       },
     },
     ...(displaySpec
@@ -449,7 +439,7 @@ function PlaygroundBody({
       shortcut: ["?"],
       onSelect: () => {
         closePalette();
-        setShortcutsOpen(true);
+        openShortcuts();
       },
     },
     {
@@ -577,8 +567,8 @@ function PlaygroundBody({
         onClose={handleGalleryClose}
         onSelect={handleTemplateSelect}
       />
-      <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <HelpButton onClick={() => setShortcutsOpen(true)} />
+      <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} />
+      <HelpButton onClick={openShortcuts} />
       <AppShell.CommandPalette items={commandItems} />
     </>
   );

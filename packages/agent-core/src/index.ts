@@ -229,7 +229,11 @@ export {
 } from "./budget-calculator.js";
 
 // Intent extraction
-export { extractIssueIntent, IssueIntentSchema } from "./intent-extractor.js";
+export {
+  extractIssueIntent,
+  IssueIntentSchema,
+  intentToRoutingContext,
+} from "./intent-extractor.js";
 export type { IssueIntent } from "./intent-extractor.js";
 
 // Model routing
@@ -329,6 +333,7 @@ export { SecurityReviewGate } from "./gates/security-review-gate.js";
 
 // Golden-task eval harness — run fixed benchmark tasks through the agent and score them
 export { loadSuite } from "./eval/golden-task-set.js";
+export { resolveSuitePath, COST_SUITE_DIR } from "./eval/cost-suite.js";
 export { scoreTask } from "./eval/task-scorer.js";
 export { runEvalSuite } from "./eval/eval-harness.js";
 export type { RunEvalSuiteOptions } from "./eval/eval-harness.js";
@@ -348,6 +353,7 @@ export type {
 } from "./eval/types.js";
 export { calibrate } from "./eval/calibrate.js";
 export type { CalibrationBucket, CalibrationSummary } from "./eval/calibrate.js";
+export { checkCostRegression } from "./eval/cost-regression.js";
 
 // Reviewer contract (multi-agent quality gates)
 export type {

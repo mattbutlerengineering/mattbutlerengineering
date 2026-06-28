@@ -555,7 +555,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function persistReport(report: EvalReport): void { /* ... */ }
+      function findLogFile(): string { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -972,6 +972,23 @@
         totalWithSelfEval: number;
         totalWithoutSelfEval: number;
       }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/cost-regression.ts">
+    <item priority="high">
+      export function checkCostRegression(
+        current: number,
+        baseline: number | null,
+        thresholdPct: number
+      ): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/cost-suite.ts">
+    <item priority="high">
+      export const COST_SUITE_DIR: unknown;
+    </item>
+    <item priority="high">
+      export function resolveSuitePath(suite: string): string { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
@@ -1575,6 +1592,30 @@
         request: FastifyRequest<{ Querystring: { token?: string } }>,
         reply: FastifyReply
       ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="pages">
+  <file path="apps/gen/src/pages/createRefinementPrompt.ts">
+    <item priority="high">
+      export function createRefinementPrompt(
+        currentSpec: Spec,
+        userInstruction: string,
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/pages/usePlaygroundState.ts">
+    <item priority="low">
+      type PlaygroundMode = "generate" | "refine";
+    </item>
+    <item priority="low">
+      interface PlaygroundState {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        enterRefinement: () => void;
+      }
     </item>
   </file>
   </section>
@@ -2460,7 +2501,7 @@
       interface ResolveChannelInput {
         email: string | null;
         phone: string | null;
-        communicationPreference: string | null;
+        communicationPreference: CommunicationPreference | null;
       }
     </item>
   </file>

@@ -114,6 +114,24 @@ export const SENSORS = [
       confidence: "skip",
     }),
   },
+  {
+    id: "queueEfficiency",
+    category: "quality",
+    issueLabels: ["meta-improvement"],
+    severity: "medium",
+    metricKeys: [
+      { key: "queueEfficiency:composite" },
+      { key: "queueEfficiency:first_pass_success_rate" },
+      { key: "queueEfficiency:cost_per_issue", category: "performance" },
+      { key: "queueEfficiency:time_to_merge", category: "performance" },
+    ],
+    verifyFix: (_title, _body) => ({
+      verified: false,
+      reason:
+        "Queue efficiency verification: re-run sensor-report with --json and inspect queueEfficiency.composite vs baseline",
+      confidence: "low",
+    }),
+  },
 ];
 
 /**

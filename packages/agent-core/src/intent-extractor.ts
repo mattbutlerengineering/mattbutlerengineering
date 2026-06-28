@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { trace } from "@opentelemetry/api";
 import { resolveModelId } from "./model-registry.js";
+import type { RoutingContext } from "./model-router.js";
+import type { TaskTier } from "./task-signal-registry.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
@@ -163,4 +165,33 @@ export async function extractIssueIntent(
   } finally {
     span.end();
   }
+}
+
+// ── Routing adapter ───────────────────────────────────────────────────
+
+const SCOPE_TO_TIER: Readonly<Record<IssueIntent["estimatedScope"], TaskTier>> = {
+  trivial: "trivial",
+  small: "simple",
+  medium: "standard",
+  large: "complex",
+};
+
+/**
+ * Pure adapter: converts a structured IssueIntent into a RoutingContext
+ * suitable for routeModelWithReason().
+ *
+ * - affectedFiles → sourceFilePaths (omitted when undefined)
+ * - estimatedScope → taskSignals.tier (trivial/small/medium/large → trivial/simple/standard/complex)
+ *
+ * No I/O — safe to call in any context.
+ */
+export function intentToRoutingContext(intent: IssueIntent): RoutingContext {
+  return Object.freeze({
+    ...(intent.affectedFiles !== undefined && { sourceFilePaths: intent.affectedFiles }),
+    taskSignals: Object.freeze({
+      tier: SCOPE_TO_TIER[intent.estimatedScope],
+      domains: Object.freeze([] as const),
+      contextBundles: Object.freeze([] as const),
+    }),
+  });
 }

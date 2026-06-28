@@ -93,7 +93,9 @@ describe("BookingWidget", () => {
 
     // Step 2: Time
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    expect(screen.getByText(/6:00 PM/i)).toBeDefined();
+    // Slots render asynchronously after the "Time" heading; await the first slot
+    // so the click below doesn't race the slot list render (flaky on slow CI).
+    expect(await screen.findByText(/6:00 PM/i)).toBeDefined();
     expect(screen.getByText(/7:00 PM/i)).toBeDefined();
 
     mockApi.holds.create.mockResolvedValue({
@@ -189,7 +191,9 @@ describe("BookingWidget", () => {
     mockApi.holds.create.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
-    fireEvent.click(screen.getByText(/6:00 PM/i));
+    // Slots render asynchronously after the "Time" heading; await the slot so the
+    // click doesn't race the slot list render (flaky on slow CI — Node 20 leg).
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
 
     // Step 3: Details
     await waitFor(() => expect(screen.getByText("Details")).toBeDefined());

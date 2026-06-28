@@ -68,6 +68,30 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="src/pages/createRefinementPrompt.ts">
+    <item priority="high">
+      export function createRefinementPrompt(
+        currentSpec: Spec,
+        userInstruction: string,
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pages/usePlaygroundState.ts">
+    <item priority="low">
+      type PlaygroundMode = "generate" | "refine";
+    </item>
+    <item priority="low">
+      interface PlaygroundState {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        enterRefinement: () => void;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/types.ts">
     <item priority="low">

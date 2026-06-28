@@ -87,4 +87,18 @@ describe("sendWinBack", () => {
 
     expect(result).toBe(true);
   });
+
+  it("returns false for sms_only guest even when email is present", async () => {
+    const guest = makeGuest({
+      communicationPreference: "sms_only",
+      email: "alice@example.com",
+      phone: "+15551234567",
+    });
+    const port = makeNotificationPort();
+
+    const result = await sendWinBack(guest, port, "Any Venue");
+
+    expect(result).toBe(false);
+    expect(port.sendWinBack).not.toHaveBeenCalled();
+  });
 });

@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./SplitScreenExit.module.css";
 
 /**
@@ -73,7 +74,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
       onExitComplete?.();
     }
 
-    const classes = [styles.wrapper, active && styles.active, className].filter(Boolean).join(" ");
+    const classes = cn(styles.wrapper, active && styles.active, className);
 
     return (
       <div ref={ref} className={classes}>

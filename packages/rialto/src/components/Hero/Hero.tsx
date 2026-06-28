@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springGentle, reduced } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Hero.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -66,7 +67,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
     const shouldReduceMotion = useReducedMotion();
     const transition = shouldReduceMotion ? reduced : springGentle;
 
-    const classes = [styles.hero, className].filter(Boolean).join(" ");
+    const classes = cn(styles.hero, className);
 
     return (
       <motion.section

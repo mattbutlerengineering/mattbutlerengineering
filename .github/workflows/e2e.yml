@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # See docs/runbooks/e2e-recovery.md for environment troubleshooting steps
     # Postgres backs the reservations + users APIs the hospitality app proxies to.
     # Without a live backend, the Vite dev-server proxy returns ECONNREFUSED for
     # every /api/v1/* request and the SPA never finishes booting (see issue #2123).
@@ -154,4 +155,91 @@ jobs:
           path: |
             apps/hospitality/e2e/test-results/
             apps/hospitality/playwright-report/
+          retention-days: 7
+
+      # ── Environment diagnostics (runs on failure, gated by failure rate) ──────
+      #
+      # When a high fraction of tests fail (>E2E_FAILURE_THRESHOLD %, default 20%)
+      # the most likely cause is an environment problem, not a code regression:
+      #   • Backend service failed to start (boot error → all tests fail)
+      #   • Auth0 seed user missing or client misconfigured (M2M instead of SPA)
+      #
+      # This step computes the failure rate from the Playwright JSON reporter
+      # output (apps/hospitality/playwright-results.json) and sets the
+      # `threshold_exceeded` output so downstream steps can gate on it.
+      # E2E_FAILURE_THRESHOLD is configurable via env; default is 20%.
+      - name: Compute E2E failure rate
+        id: failure-rate
+        if: always()
+        run: node scripts/e2e-failure-rate.mjs apps/hospitality/playwright-results.json
+        env:
+          E2E_FAILURE_THRESHOLD: "20"
+
+      # Collects three diagnostic captures when threshold is exceeded:
+      #   1. Reservations + users service startup logs (boot errors)
+      #   2. Auth0 seed-user verify — confirms E2E_AUTH0_CLIENT_ID is a SPA/RWA
+      #      (M2M apps return access_denied for ROPC — the known gotcha in #2719).
+      #      Read-only: no account creation, no credential values in logs.
+      # Fixture/setup init logs live in the e2e-test-results artifact (playwright
+      # captures the auth.setup project output in its HTML report).
+      - name: Gather E2E environment diagnostics
+        id: gather-diagnostics
+        if: failure() && steps.failure-rate.outputs.threshold_exceeded == 'true'
+        run: |
+          DIAG_DIR=/tmp/e2e-diagnostics
+          mkdir -p "$DIAG_DIR"
+
+          # 1. Service startup logs
+          cp /tmp/users-api.log "$DIAG_DIR/users-api.log" 2>/dev/null \
+            || echo "(users-api log not found)" > "$DIAG_DIR/users-api.log"
+          cp /tmp/reservations-api.log "$DIAG_DIR/reservations-api.log" 2>/dev/null \
+            || echo "(reservations-api log not found)" > "$DIAG_DIR/reservations-api.log"
+
+          # 2. Auth0 seed-user verification (read-only ROPC check)
+          # Secret values are masked by GitHub Actions; only status is written to disk.
+          if [ -z "${E2E_AUTH0_DOMAIN}" ] || [ -z "${E2E_AUTH0_CLIENT_ID}" ]; then
+            echo "skipped: E2E_AUTH0_DOMAIN or E2E_AUTH0_CLIENT_ID secret unset" \
+              > "$DIAG_DIR/auth0-verify.txt"
+          else
+            AUTH_RESPONSE_FILE="$DIAG_DIR/auth0-response.json"
+            http_code=$(curl -s \
+              -o "$AUTH_RESPONSE_FILE" \
+              -w "%{http_code}" \
+              -X POST "https://${E2E_AUTH0_DOMAIN}/oauth/token" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"grant_type\": \"http://auth0.com/oauth/grant-type/password-realm\",
+                \"username\": \"${E2E_AUTH_EMAIL}\",
+                \"password\": \"${E2E_AUTH_PASSWORD}\",
+                \"audience\": \"${E2E_AUTH0_AUDIENCE}\",
+                \"client_id\": \"${E2E_AUTH0_CLIENT_ID}\",
+                \"scope\": \"openid profile email\",
+                \"realm\": \"Username-Password-Authentication\"
+              }" || true)
+            if [ "$http_code" = "200" ]; then
+              echo "PRESENT — seed user authenticated successfully (HTTP 200)" \
+                > "$DIAG_DIR/auth0-verify.txt"
+            else
+              # Extract error code/description only (no credential values written)
+              auth_error=$(jq -r '.error // "unknown"' "$AUTH_RESPONSE_FILE" 2>/dev/null || echo "parse-error")
+              auth_desc=$(jq -r '.error_description // ""' "$AUTH_RESPONSE_FILE" 2>/dev/null || echo "")
+              echo "ABSENT or UNREACHABLE — HTTP ${http_code}: ${auth_error} — ${auth_desc}" \
+                > "$DIAG_DIR/auth0-verify.txt"
+            fi
+            # Never upload raw Auth0 response (may contain partial token fragments)
+            rm -f "$AUTH_RESPONSE_FILE"
+          fi
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      - name: Upload E2E environment diagnostics
+        if: steps.gather-diagnostics.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-diagnostics
+          path: /tmp/e2e-diagnostics/
           retention-days: 7

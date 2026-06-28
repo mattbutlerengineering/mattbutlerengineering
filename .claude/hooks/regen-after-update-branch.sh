@@ -37,6 +37,12 @@ original_ref=$(git rev-parse HEAD 2>/dev/null)
 git fetch origin "$branch" 2>/dev/null || exit 0
 git checkout "origin/$branch" --detach 2>/dev/null || exit 0
 
+# Build CLI and its transitive deps so mbe pack can run.
+# In bare worktrees @mbe/agent-core/dist is absent; without this build step
+# pnpm regen silently no-ops (ERR_MODULE_NOT_FOUND swallowed by 2>/dev/null)
+# and the fixup commit is never pushed, leaving CI to catch the drift.
+pnpm build --filter @mbe/cli... 2>/dev/null || true
+
 # Regenerate artifacts. Tolerate regen failure — CI remains the hard gate.
 pnpm regen 2>/dev/null || true
 

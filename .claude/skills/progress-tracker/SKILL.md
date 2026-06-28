@@ -24,7 +24,7 @@ gh issue list --label "meta-improvement" --state all --json number,title,state
 cat .claude/agent-spend.jsonl 2>/dev/null | tail -100
 ```
 
-Cost: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}`
+Per-issue attribution: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}` (mbe-agent-run sessions only; NOT total Claude spend — use ccusage for ground-truth totals)
 
 ## Metrics
 
@@ -40,9 +40,9 @@ Cost: `.claude/agent-spend.jsonl` = `{date,timestamp,costUsd,issueNumber,model}`
 | Stale         | ready>7d                 | 0      |
 | Blocked       | agent-failed             | 0      |
 | Skipped       | agent-skip               | 0      |
-| Daily Spend   | Σ costUsd                | <$10   |
-| 7d Spend      | Σ costUsd                | <$50   |
-| Cost/Issue    | 7d/closed                | <$2    |
+| Daily Spend   | Σ costUsd (attributed)   | <$10   |
+| 7d Spend      | Σ costUsd (attributed)   | <$50   |
+| Cost/Issue    | 7d/closed (attributed)   | <$2    |
 
 ## Analysis
 
@@ -130,18 +130,17 @@ Fix, improve descriptions, re-enable."
 
 ### Auto-retry Stale (3+ days)
 
-Exclude `agent-skip`:
+Re-queue issues that have been `agent-failed` for 3+ days (excludes `agent-skip`,
+caps at 2/run). Tested logic lives in `scripts/auto-retry-stale.mjs`:
 
 ```bash
-STALE=$(gh issue list --label "agent-failed" --state open --json number,createdAt,labels -q '[.[] | select(.createdAt < (now - 259200 | todate)) | select(.labels | map(.name) | index("agent-skip") | not)] | .[].number')
-
-for NUM in $STALE; do
-  gh issue edit $NUM --add-label "ready" --remove-label "agent-failed"
-  gh issue comment $NUM --body "Auto-retry — failed 3+ days."
-done
+node scripts/auto-retry-stale.mjs           # re-queue: ready + remove agent-failed + comment
+node scripts/auto-retry-stale.mjs --dry-run # report selection, mutate nothing
 ```
 
-Max 2/run.
+The selection rule (`selectStaleForRetry`) is a pure, unit-tested function
+(`scripts/__tests__/auto-retry-stale.test.mjs`); the GitHub mutations run via
+`@mbe/gh-client`. Max 2/run.
 
 ### Queue Adjust
 
@@ -172,5 +171,5 @@ git log --oneline --grep="Revert" --since="7 days ago" | wc -l
 - Max 2 meta/run
 - Max 2 retry/run
 - Append-only log
-- Cost: `.claude/agent-spend.jsonl`
+- Per-issue attribution: `.claude/agent-spend.jsonl` (partial — covers mbe-agent-run sessions only; ccusage = ground-truth totals)
 - Circuit: 50% over 3+ days

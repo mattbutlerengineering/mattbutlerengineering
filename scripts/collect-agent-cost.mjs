@@ -1,12 +1,20 @@
 /**
- * Pure collector for agent cost telemetry from .claude/agent-spend.jsonl.
+ * Per-issue attribution collector for .claude/agent-spend.jsonl.
  *
- * Extracted from sensor-report.mjs so it can be unit-tested without the
- * @mbe/gh-client dependency and without triggering the sensor-report runner.
+ * agent-spend.jsonl captures only sessions started via `mbe agent run`
+ * (claude adapter). It covers roughly 0.4% of actual Claude spend. For
+ * ground-truth totals, use the ccusage sensor (`collectCcusageSensor`).
+ *
+ * This collector is intentionally scoped to per-issue attribution:
+ *   - Which issues consumed how much budget?
+ *   - How many attributed sessions ran this week?
+ *   - What is the average cost per attributed session?
+ *
+ * DO NOT use the returned `spend_*_usd` fields as total Claude spend.
  *
  * Record schema (appended by log-agent-cost.js and mbe agent run):
  *   { date, timestamp, costUsd, issueNumber, model }          // legacy
- *   { date, timestamp, costUsd, issueNumber, model,           // v2 (this PR)
+ *   { date, timestamp, costUsd, issueNumber, model,           // v2
  *     inputTokens, outputTokens, numTurns }
  *
  * BACKWARD-COMPAT: records without token/turn fields parse fine; those
@@ -36,11 +44,15 @@ function readJsonl(filePath) {
 }
 
 /**
- * Aggregate agent cost telemetry from agent-spend.jsonl.
+ * Aggregate per-issue attribution data from agent-spend.jsonl.
+ *
+ * The returned `spend_*_usd` fields reflect only `mbe agent run` sessions
+ * (per-issue attribution), NOT total Claude spend. Ground-truth totals
+ * come from the ccusage sensor.
  *
  * @param {string} spendPath - Absolute path to the .claude/agent-spend.jsonl file.
  * @param {Date} [now] - Reference timestamp (defaults to current time; injectable for tests).
- * @returns {object} Aggregated metrics or { available: false } when no data.
+ * @returns {object} Aggregated attribution metrics or { available: false } when no data.
  */
 export function collectAgentCost(spendPath, now = new Date()) {
   const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
@@ -67,6 +79,9 @@ export function collectAgentCost(spendPath, now = new Date()) {
 
   return {
     available: true,
+    // attribution_only signals that spend values cover only mbe-agent-run sessions.
+    // For ground-truth total Claude spend, use the ccusage sensor.
+    attribution_only: true,
     spend_today_usd: Math.round(todaySpend * 100) / 100,
     spend_7d_usd: Math.round(totalSpend7d * 100) / 100,
     sessions_7d: sevenDayEntries.length,
