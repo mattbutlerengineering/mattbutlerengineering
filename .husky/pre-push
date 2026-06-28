@@ -34,16 +34,27 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Verify committed generated artifacts aren't stale before they reach CI.
-# Manifest-driven (scripts/regen-manifest.mjs) and fast: --check only runs
-# `git diff` on the tracked outputs, it does NOT regenerate. This catches the
-# common case where a generator ran (pre-commit pack-changed, a PostToolUse
-# hook, etc.) but the regenerated output was never staged/committed.
-# CI runs the full regenerate-then-verify; this is the cheap local backstop.
+# Build CLI and its transitive deps before running regen.
+# In a bare worktree (after pnpm install with no prior build) @mbe/agent-core/dist
+# doesn't exist. Without this step, `pnpm regen` calls `mbe pack` which fails
+# with ERR_MODULE_NOT_FOUND, silently leaving llms.txt unchanged. CI then runs
+# `pnpm build && pnpm regen` in the right order, finds different content → drift.
+# Turbo caches the build so this is near-instant when CLI source is unchanged.
+echo "pre-push: building CLI for regen..."
+pnpm build --filter @mbe/cli...
+
+# Run the full artifact regeneration before checking. This mirrors what CI does:
+# `pnpm regen` (regenerate) then `pnpm regen --check` (verify the regen was
+# a no-op vs the working tree). Running only --check here was the prior bug:
+# it compared working-tree vs index, passing even when the committed artifacts
+# were stale relative to what CI would generate from scratch.
+echo "pre-push: regenerating generated artifacts..."
+pnpm regen
+
 if ! pnpm regen --check; then
   echo ""
   echo "ERROR: generated artifacts are out of sync (stale artifact + fix command shown above)."
-  echo "Run the printed 'fix:' command (or 'pnpm regen' to regenerate everything), then commit."
+  echo "Stage the changed files and amend/create a new commit before pushing."
   echo "Emergency bypass: git push --no-verify"
   echo ""
   exit 1
