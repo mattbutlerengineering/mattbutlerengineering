@@ -319,3 +319,127 @@ describe("collectQueueEfficiency", () => {
     expect(result.available).toBe(false);
   });
 });
+
+// ── Telemetry precise-cost preference ──────────────────────────────────────
+
+describe("collectQueueEfficiency — telemetry precise-cost preference", () => {
+  function makeTelemetryRow(prNumber, costUsd) {
+    return { pr_number: prNumber, cost_usd: costUsd, issue_number: prNumber };
+  }
+
+  it("uses precise per-issue cost from telemetry when all PRs have cost_usd", () => {
+    // 3 PRs each costing exactly $0.50 precise → total $1.50 → avg $0.50
+    const prs = [
+      makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }),
+      makePr({ number: 11, commitCount: 1, createdAt: isoAgo(5), mergedAt: isoAgo(4) }),
+      makePr({ number: 12, commitCount: 1, createdAt: isoAgo(6), mergedAt: isoAgo(5) }),
+    ];
+    const telemetryRows = [
+      makeTelemetryRow(10, 0.5),
+      makeTelemetryRow(11, 0.5),
+      makeTelemetryRow(12, 0.5),
+    ];
+    // ccusage would give a different (worse) estimate
+    const ccusage = { daily: [makeCcusage(0, 30.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => telemetryRows
+    );
+
+    expect(result.available).toBe(true);
+    // Telemetry avg: 1.50 / 3 = 0.50 (not ccusage 30/3 = 10)
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(0.5, 3);
+  });
+
+  it("falls back to ccusage when telemetry provides no matching rows", () => {
+    const prs = [makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) })];
+    // Telemetry rows have wrong pr_number — no match
+    const telemetryRows = [makeTelemetryRow(999, 5.0)];
+    const ccusage = { daily: [makeCcusage(0, 3.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => telemetryRows
+    );
+
+    expect(result.available).toBe(true);
+    // Falls back to ccusage: 3.0 / 1 = 3.0
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(3.0, 3);
+  });
+
+  it("falls back to ccusage when telemetry is only partial (not all PRs covered)", () => {
+    const prs = [
+      makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }),
+      makePr({ number: 11, commitCount: 1, createdAt: isoAgo(5), mergedAt: isoAgo(4) }),
+    ];
+    // Only one of two PRs has a telemetry row
+    const telemetryRows = [makeTelemetryRow(10, 0.1)];
+    const ccusage = { daily: [makeCcusage(0, 6.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => telemetryRows
+    );
+
+    expect(result.available).toBe(true);
+    // Falls back to ccusage: 6.0 / 2 = 3.0
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(3.0, 3);
+  });
+
+  it("falls back to ccusage when telemetry reader returns null", () => {
+    const prs = [makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) })];
+    const ccusage = { daily: [makeCcusage(0, 4.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => null
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(4.0, 3);
+  });
+
+  it("falls back to ccusage when telemetry reader throws", () => {
+    const prs = [makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) })];
+    const ccusage = { daily: [makeCcusage(0, 5.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => {
+        throw new Error("file not found");
+      }
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(5.0, 3);
+  });
+
+  it("ignores telemetry rows without cost_usd (falls back to ccusage)", () => {
+    const prs = [makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) })];
+    // Row has no cost_usd field
+    const telemetryRows = [{ pr_number: 10, issue_number: 10, subagent_tokens: 5000 }];
+    const ccusage = { daily: [makeCcusage(0, 2.0)] };
+
+    const result = collectQueueEfficiency(
+      () => prs,
+      () => ccusage,
+      TEST_NOW,
+      () => telemetryRows
+    );
+
+    expect(result.available).toBe(true);
+    // No cost_usd in telemetry → falls back: 2.0 / 1 = 2.0
+    expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(2.0, 3);
+  });
+});

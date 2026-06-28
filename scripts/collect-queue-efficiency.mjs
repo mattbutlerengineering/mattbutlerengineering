@@ -15,6 +15,9 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Thresholds — imported by sensor-report.mjs for its THRESHOLDS block. */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
@@ -101,11 +104,18 @@ function computeComposite(fps, cost, ttm) {
 /**
  * Compute sub-metrics for a set of merged AI PRs and their cost window.
  *
+ * Cost preference (in order):
+ *   1. Precise per-issue cost from telemetry rows when ALL window PRs have
+ *      a matching row with a numeric `cost_usd` field.
+ *   2. ccusage daily total ÷ issues (existing behaviour) — used when
+ *      telemetry coverage is incomplete, absent, or missing `cost_usd`.
+ *
  * @param {Array<object>} windowPrs
  * @param {Array<{ totalCost?: number }>} ccusageDays
+ * @param {Array<{ pr_number?: number, cost_usd?: number }>} [telemetryRows]
  * @returns {object}
  */
-function computeWindowMetrics(windowPrs, ccusageDays) {
+function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
   const firstPassCount = windowPrs.filter((pr) => (pr.commitCount ?? 1) <= 2).length;
   const firstPassRate = Math.round((firstPassCount / windowPrs.length) * 1000) / 1000;
 
@@ -119,7 +129,18 @@ function computeWindowMetrics(windowPrs, ccusageDays) {
 
   const medianTtmHours = median(ttmHoursList) ?? 24;
   const medianReworkCycles = median(commitCounts.map((c) => Math.max(0, c - 1))) ?? 0;
-  const totalCost = (ccusageDays ?? []).reduce((sum, d) => sum + (d.totalCost ?? 0), 0);
+
+  // Prefer precise per-issue telemetry cost when every window PR is covered.
+  const prNumbers = new Set(windowPrs.map((pr) => pr.number));
+  const matchedCosts = (telemetryRows ?? [])
+    .filter((r) => prNumbers.has(r.pr_number) && typeof r.cost_usd === "number")
+    .map((r) => r.cost_usd);
+
+  const totalCost =
+    matchedCosts.length === windowPrs.length
+      ? matchedCosts.reduce((sum, c) => sum + c, 0)
+      : (ccusageDays ?? []).reduce((sum, d) => sum + (d.totalCost ?? 0), 0);
+
   const costPerIssue = totalCost / windowPrs.length;
 
   return {
@@ -183,11 +204,46 @@ function defaultReadCcusage() {
 }
 
 /**
+ * Default telemetry reader — reads metrics/queue-telemetry.jsonl.
+ *
+ * @returns {Array<object>|null}
+ */
+function defaultReadTelemetry() {
+  try {
+    const filePath = join(
+      fileURLToPath(import.meta.url),
+      "..",
+      "..",
+      "metrics",
+      "queue-telemetry.jsonl"
+    );
+    if (!existsSync(filePath)) return null;
+    const content = readFileSync(filePath, "utf-8");
+    return content
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Collect the queue-efficiency scorecard.
  *
  * @param {() => Array<object>|null} [readPrs] - Injected PR reader.
  * @param {() => { daily: Array<object> }|null} [readCcusage] - Injected ccusage reader.
  * @param {Date} [now] - Reference time (injectable for tests).
+ * @param {() => Array<object>|null} [readTelemetry] - Injected telemetry reader.
+ *   When provided rows cover all current-window PRs with `cost_usd`, the
+ *   per-issue precise cost is preferred over the ccusage daily estimate.
  * @returns {{
  *   available: boolean,
  *   composite?: number,
@@ -200,7 +256,8 @@ function defaultReadCcusage() {
 export function collectQueueEfficiency(
   readPrs = defaultReadPrs,
   readCcusage = defaultReadCcusage,
-  now = new Date()
+  now = new Date(),
+  readTelemetry = defaultReadTelemetry
 ) {
   let prs;
   try {
@@ -215,6 +272,13 @@ export function collectQueueEfficiency(
     ccusageData = readCcusage();
   } catch {
     ccusageData = null;
+  }
+
+  let telemetryRows;
+  try {
+    telemetryRows = readTelemetry() ?? [];
+  } catch {
+    telemetryRows = [];
   }
 
   const sevenDaysAgo = new Date(+now - 7 * 24 * 60 * 60 * 1000);
@@ -235,7 +299,8 @@ export function collectQueueEfficiency(
   if (currentPrs.length === 0) return { available: false };
 
   const currentCcusageDays = dailyEntries.filter((d) => new Date(d.period) >= sevenDaysAgo);
-  const currentMetrics = computeWindowMetrics(currentPrs, currentCcusageDays);
+  // Pass telemetry rows for precise per-issue cost preference (falls back to ccusage).
+  const currentMetrics = computeWindowMetrics(currentPrs, currentCcusageDays, telemetryRows);
 
   // Rolling baseline from the 3 prior weekly windows (days 8–28).
   const weekMetrics = [];
