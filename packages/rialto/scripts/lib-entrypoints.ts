@@ -43,7 +43,9 @@ function listComponentEntries(): LibEntry[] {
       chunkName: `components/${dirent.name}/index`,
     });
   }
-  entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
+  // Byte-order comparator (NOT localeCompare): locale-sensitive sorts diverge
+  // between macOS and Linux CI. See the #2195→#2217 Integrity-failure class.
+  entries.sort((a, b) => (a.subpath < b.subpath ? -1 : a.subpath > b.subpath ? 1 : 0));
   return entries;
 }
 

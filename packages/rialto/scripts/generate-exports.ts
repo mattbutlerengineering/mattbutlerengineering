@@ -4,8 +4,11 @@
  * one subpath per library entry — keeping it in sync with whatever
  * `vite.config.lib.ts` actually built.
  *
- * Run after `vite build` so the exports map only references files that
- * exist in dist/lib.
+ * Component subpaths are derived from `libEntries` in lib-entrypoints.ts,
+ * which uses directory names as subpaths (e.g. "./Toast" from the Toast/
+ * directory). This is distinct from component export names (e.g. "ToastProvider")
+ * returned by introspectComponents() — the two can diverge when a directory
+ * name doesn't match the exported identifier.
  *
  * Run with --check to fail (non-zero exit) instead of writing — useful in
  * a precommit/CI-style verification.
@@ -20,6 +23,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 const pkgJsonPath = path.join(repoRoot, "package.json");
 
+/** Subpaths treated as static non-component entries. */
+const STATIC_SUBPATHS = new Set([".", "motion", "providers", "hooks"]);
+
 interface ExportEntry {
   types?: string;
   import?: string;
@@ -28,38 +34,48 @@ interface ExportEntry {
 
 type ExportsMap = Record<string, string | ExportEntry>;
 
-function buildExportsMap(): ExportsMap {
+/**
+ * Pure render function: given the sorted list of component subpaths (directory
+ * names, NOT export identifiers), produce the full package.json exports map.
+ *
+ * Non-component subpaths (root barrel, motion, providers, hooks, styles,
+ * manifest) are hardcoded. Component entries are derived from `componentSubpaths`
+ * using the deterministic dist path pattern.
+ *
+ * Sorting is the caller's responsibility — pass already-sorted subpaths to
+ * get a deterministic map. `libEntries` from lib-entrypoints.ts is pre-sorted
+ * with the byte-order comparator (NOT localeCompare).
+ */
+export function buildExports(componentSubpaths: string[]): ExportsMap {
   const exportsMap: ExportsMap = {};
 
-  for (const entry of libEntries) {
-    // chunkName already includes any "/index" suffix where applicable.
-    const jsRelative = `./dist/lib/${entry.chunkName}.js`;
-    // d.ts location:
-    //   - root barrel: dist/lib/lib-entry.d.ts
-    //   - motion: dist/lib/tokens/motion.d.ts
-    //   - hooks: dist/lib/hooks/index.d.ts
-    //   - providers: dist/lib/providers/index.d.ts
-    //   - components/<Name>: dist/lib/components/<Name>/index.d.ts
-    let typesRelative: string;
-    if (entry.subpath === ".") {
-      typesRelative = "./dist/lib/lib-entry.d.ts";
-    } else if (entry.subpath === "motion") {
-      typesRelative = "./dist/lib/tokens/motion.d.ts";
-    } else if (entry.subpath === "hooks") {
-      typesRelative = "./dist/lib/hooks/index.d.ts";
-    } else if (entry.subpath === "providers") {
-      typesRelative = "./dist/lib/providers/index.d.ts";
-    } else {
-      typesRelative = `./dist/lib/components/${entry.subpath}/index.d.ts`;
-    }
-    const key = entry.subpath === "." ? "." : `./${entry.subpath}`;
-    exportsMap[key] = {
-      types: typesRelative,
-      import: jsRelative,
+  // ── Static non-component entries ──────────────────────────────────────────
+  exportsMap["."] = {
+    types: "./dist/lib/lib-entry.d.ts",
+    import: "./dist/lib/rialto.js",
+  };
+  exportsMap["./motion"] = {
+    types: "./dist/lib/tokens/motion.d.ts",
+    import: "./dist/lib/motion.js",
+  };
+  exportsMap["./providers"] = {
+    types: "./dist/lib/providers/index.d.ts",
+    import: "./dist/lib/providers/index.js",
+  };
+  exportsMap["./hooks"] = {
+    types: "./dist/lib/hooks/index.d.ts",
+    import: "./dist/lib/hooks/index.js",
+  };
+
+  // ── Per-component entries ─────────────────────────────────────────────────
+  for (const subpath of componentSubpaths) {
+    exportsMap[`./${subpath}`] = {
+      types: `./dist/lib/components/${subpath}/index.d.ts`,
+      import: `./dist/lib/components/${subpath}/index.js`,
     };
   }
 
-  // Static, non-component subpaths.
+  // ── Static side-effect / meta entries ─────────────────────────────────────
   exportsMap["./styles"] = {
     types: "./dist/lib/styles.d.ts",
     default: "./dist/lib/styles.css",
@@ -82,7 +98,16 @@ function loadPkg(): Record<string, unknown> {
 function main(): void {
   const checkOnly = process.argv.includes("--check");
   if (!checkOnly) writeStylesTypeStub();
-  const desired = buildExportsMap();
+
+  // Component subpaths come from libEntries (directory-based). This is the
+  // canonical source for subpath names — component export identifiers (from
+  // introspectComponents) can differ from their directory names (e.g. the
+  // Toast/ directory exports ToastProvider, not Toast).
+  const componentSubpaths = libEntries
+    .filter((e) => !STATIC_SUBPATHS.has(e.subpath))
+    .map((e) => e.subpath);
+
+  const desired = buildExports(componentSubpaths);
   const pkg = loadPkg();
   const currentExports = pkg.exports;
   const currentJson = JSON.stringify(currentExports, null, 2);
@@ -110,4 +135,8 @@ function main(): void {
   );
 }
 
-main();
+// Guard: only run main() when this script is executed directly, not when
+// imported by tests. This prevents file-system side effects during test runs.
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}

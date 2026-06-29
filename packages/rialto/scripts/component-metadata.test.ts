@@ -75,9 +75,11 @@ describe("introspectComponents", () => {
     }
   });
 
-  it("components are sorted by name", () => {
+  it("components are sorted by name using byte-order comparator", () => {
+    // introspectComponents uses a byte-order sort (NOT localeCompare) to avoid
+    // macOS-vs-Linux locale divergence. Use the same comparator here.
     const names = getComponents().map((c) => c.name);
-    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    const sorted = [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(names).toEqual(sorted);
   });
 
