@@ -49,6 +49,7 @@ export type {
   UpdateTableStatusRequest,
   WalkInRequest,
 } from "./reservation.js";
+export { TABLE_VALID_TRANSITIONS } from "./reservation.js";
 
 // Venue types
 export type {

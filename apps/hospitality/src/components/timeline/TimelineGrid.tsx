@@ -1,5 +1,11 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { toDateString, type Reservation, type Table, type TableStatus } from "@mbe/types";
+import {
+  toDateString,
+  TABLE_VALID_TRANSITIONS,
+  type Reservation,
+  type Table,
+  type TableStatus,
+} from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusBadge } from "../TableStatusBadge.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
@@ -185,13 +191,8 @@ export function TimelineGrid({
                   onClick={
                     onTableStatusChange
                       ? () => {
-                          const nextStatus: Record<TableStatus, TableStatus> = {
-                            AVAILABLE: "OCCUPIED",
-                            OCCUPIED: "DIRTY",
-                            DIRTY: "AVAILABLE",
-                            READY: "AVAILABLE",
-                          };
-                          onTableStatusChange(table.id, nextStatus[table.status]);
+                          const [nextStatus] = TABLE_VALID_TRANSITIONS[table.status];
+                          onTableStatusChange(table.id, nextStatus);
                         }
                       : undefined
                   }
