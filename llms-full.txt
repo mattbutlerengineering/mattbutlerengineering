@@ -3666,7 +3666,10 @@
       const entry = manifest.components.find((c) => c.name === componentName);
       if (!entry) return [];
     
-      return entry.props.map((p) => ({
+      const noiseStart = entry.props.findIndex((p) => HTML_NOISE_SENTINELS.has(p.name));
+      const ownProps = noiseStart === -1 ? entry.props : entry.props.slice(0, noiseStart);
+    
+      return ownProps.map((p) => ({
         name: p.name,
         type: p.type.replace(/\s*\|\s*undefined$/, ""),
         description: p.description ?? "",

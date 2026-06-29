@@ -112,49 +112,7 @@ export function SplitFlapPage() {
 
       {/* ── Props ─────────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "value",
-              type: "string",
-              description: "Text to display. Characters not in the charset render as spaces.",
-            },
-            {
-              name: "aria-label",
-              type: "string",
-              description: "Required — the accessible name read by screen readers.",
-            },
-            {
-              name: "charset",
-              type: '"alpha" | "numeric" | "alphanumeric" | "full"',
-              default: '"alphanumeric"',
-              description: "Which characters cells can cycle through.",
-            },
-            {
-              name: "length",
-              type: "number",
-              description: "Fixed cell count. Pads with spaces or truncates.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Cell size preset.",
-            },
-            {
-              name: "flipInterval",
-              type: "number",
-              default: "80",
-              description: "Ms between each intermediate flip within a single cell.",
-            },
-            {
-              name: "cascadeDelay",
-              type: "number",
-              default: "40",
-              description: "Ms delay before each subsequent cell starts cycling.",
-            },
-          ]}
-        />
+        <PropsTable component="SplitFlap" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

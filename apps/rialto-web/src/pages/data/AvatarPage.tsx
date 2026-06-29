@@ -136,55 +136,12 @@ export function AvatarPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Avatar Props">
-        <PropsTable
-          props={[
-            {
-              name: "src",
-              type: "string",
-              description: "Image URL. Falls back to initials or silhouette if missing or broken.",
-            },
-            {
-              name: "name",
-              type: "string",
-              description: "Used for initials fallback and aria-label.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg" | "xl"',
-              default: '"md"',
-              description: "Avatar diameter.",
-            },
-            {
-              name: "status",
-              type: '"online" | "away" | "busy" | "offline"',
-              description: "Presence indicator dot.",
-            },
-          ]}
-        />
+        <PropsTable component="Avatar" />
       </Section>
 
       {/* ── Props Table (AvatarGroup) ─────────────────────────────── */}
       <Section title="AvatarGroup Props">
-        <PropsTable
-          props={[
-            {
-              name: "avatars",
-              type: "Array<{ src?: string; name?: string; status?: AvatarStatus }>",
-              description: "List of avatars to display.",
-            },
-            {
-              name: "max",
-              type: "number",
-              description: "Maximum avatars before overflow count badge appears.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg" | "xl"',
-              default: '"md"',
-              description: "Size applied to all avatars in the group.",
-            },
-          ]}
-        />
+        <PropsTable component="AvatarGroup" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -92,7 +92,7 @@ function TablePlayground() {
             sortable: true,
             align: "right",
             render: (row) => (
-              <span
+              <Text
                 style={{
                   color: String(row.delta).startsWith("-")
                     ? "var(--rialto-success)"
@@ -101,7 +101,7 @@ function TablePlayground() {
                 }}
               >
                 {row.delta as string}
-              </span>
+              </Text>
             ),
           },
         ]}
@@ -148,7 +148,7 @@ export function TablePage() {
               sortable: true,
               align: "right",
               render: (row) => (
-                <span
+                <Text
                   style={{
                     color: String(row.delta).startsWith("-")
                       ? "var(--rialto-success)"
@@ -156,7 +156,7 @@ export function TablePage() {
                   }}
                 >
                   {row.delta as string}
-                </span>
+                </Text>
               ),
             },
           ]}
@@ -189,32 +189,7 @@ export function TablePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "columns",
-              type: "Column<T>[]",
-              description:
-                "Column definitions. Each column has key, header, and optional sortable, align, width, render.",
-            },
-            {
-              name: "data",
-              type: "T[]",
-              description: "Array of data rows.",
-            },
-            {
-              name: "rowKey",
-              type: "(row: T) => string | number",
-              description: "Unique key for each row (for React reconciliation).",
-            },
-            {
-              name: "striped",
-              type: "boolean",
-              default: "false",
-              description: "Alternating row background colors.",
-            },
-          ]}
-        />
+        <PropsTable component="Table" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
