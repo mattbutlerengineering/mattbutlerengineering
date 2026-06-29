@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { dispatchJob, UnknownJobTypeError } from "./dispatch-job.js";
 import { JOB_TYPES } from "./job-types.js";
 import type { JobHandlerMap } from "./worker.js";
-import type { BookingReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
+import type { ReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
 
 function makeHandlers(): JobHandlerMap {
   return {
@@ -18,7 +18,7 @@ function makeHandlers(): JobHandlerMap {
 describe("dispatchJob", () => {
   it("routes a known job name to its handler with the correct payload", async () => {
     const handlers = makeHandlers();
-    const payload: BookingReminderPayload = {
+    const payload: ReminderPayload = {
       reservationId: "res_1",
       guestPhone: "+15551234567",
       guestEmail: "guest@example.com",
