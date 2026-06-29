@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   workerClose: vi.fn().mockResolvedValue(undefined),
   redisQuit: vi.fn().mockResolvedValue("OK"),
+  redisCtor: vi.fn(),
 }));
 
 vi.mock("bullmq", () => {
@@ -20,8 +21,8 @@ vi.mock("ioredis", () => {
   class MockRedis {
     quit = mocks.redisQuit;
     status = "ready";
-    constructor(_url: string, _opts?: unknown) {
-      // mock
+    constructor(url: string, opts?: unknown) {
+      mocks.redisCtor(url, opts);
     }
   }
   return { Redis: MockRedis, default: MockRedis };
@@ -43,6 +44,21 @@ function makeHandlers(): JobHandlerMap {
 }
 
 describe("JobWorker lifecycle", () => {
+  it("constructs Redis lazily so construction opens no connection (side-effect-free)", () => {
+    mocks.redisCtor.mockClear();
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: makeHandlers(),
+    });
+
+    expect(mocks.redisCtor).toHaveBeenCalledOnce();
+    const [url, opts] = mocks.redisCtor.mock.calls[0];
+    expect(url).toBe("redis://localhost:6379");
+    // lazyConnect defers the connection to the first command — prevents
+    // ECONNREFUSED unhandled rejections in test/CI envs with no Redis.
+    expect(opts).toMatchObject({ lazyConnect: true, maxRetriesPerRequest: null });
+  });
+
   it("creates a worker connected to the queue", () => {
     const worker = new JobWorker({
       redisUrl: "redis://localhost:6379",
