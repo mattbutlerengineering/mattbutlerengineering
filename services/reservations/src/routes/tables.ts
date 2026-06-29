@@ -9,7 +9,7 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
+import { parsePaginationQuery } from "@mbe/database";
 import { tableService, TableTransitionError } from "../services/table.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
@@ -67,7 +67,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       const activeOnly = request.query.activeOnly === "true";
       return tableService.list(page, limit, activeOnly);
     }

@@ -11,7 +11,7 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
+import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
@@ -35,7 +35,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       return floorPlanService.list(page, limit, request.query.venueId);
     }
   );

@@ -4073,7 +4073,7 @@
   </file>
   <file path="packages/database/src/list-utils.ts">
     <item priority="high">
-      export function parseListQuery(query: { page?: string; limit?: string }): {
+      export function parsePaginationQuery(query: { page?: string; limit?: string }): {
         page: number;
         limit: number;
       } { /* ... */ }

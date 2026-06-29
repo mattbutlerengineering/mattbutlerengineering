@@ -12,7 +12,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 
-import { parseListQuery } from "@mbe/database";
+import { parsePaginationQuery } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
@@ -98,7 +98,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, _reply) => {
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       return reservationService.list({
         page,
         limit,
@@ -170,7 +170,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       return reservationService.listByUserId(authUser.id, page, limit);
     }
   );

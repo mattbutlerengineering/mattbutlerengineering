@@ -74,23 +74,6 @@ export function validatePartySize(value: string | undefined): ValidationResult<n
 }
 
 /**
- * Validates and normalises pagination query params.
- * Always returns `valid: true` — invalid inputs fall back to safe defaults.
- * page: min 1, default 1.
- * limit: min 1, max 100, default 20.
- */
-export function validatePagination(
-  page?: string,
-  limit?: string
-): { valid: true; page: number; limit: number; error?: never } {
-  const rawPage = parseInt(page ?? "1", 10);
-  const rawLimit = parseInt(limit ?? "20", 10);
-  const safePage = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
-  const safeLimit = Math.max(1, Math.min(100, isNaN(rawLimit) ? 20 : rawLimit));
-  return { valid: true, page: safePage, limit: safeLimit };
-}
-
-/**
  * Validates a date range given YYYY-MM-DD strings for start and end.
  * Optionally enforces a maxDays window.
  */
