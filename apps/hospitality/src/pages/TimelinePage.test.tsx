@@ -894,6 +894,26 @@ describe("TimelinePage", () => {
         expect(updateTableStatus).toHaveBeenCalledWith("t1", "OCCUPIED");
       });
     });
+
+    it("shows error message when updateTableStatus fails (e.g. 409 conflict)", async () => {
+      const updateTableStatus = vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "Invalid table transition: cannot transition from 'DIRTY' to 'AVAILABLE'. Valid transitions from 'DIRTY': [READY]"
+          )
+        );
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("table-status-t1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("table-status-t1"));
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeDefined();
+      });
+    });
   });
 
   describe("SSE connection indicator", () => {

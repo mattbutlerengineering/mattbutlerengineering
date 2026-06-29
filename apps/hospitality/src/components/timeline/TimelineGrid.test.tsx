@@ -285,7 +285,7 @@ describe("TimelineGrid", () => {
       expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "DIRTY");
     });
 
-    it("cycles DIRTY to AVAILABLE", () => {
+    it("cycles DIRTY to READY (not AVAILABLE — state machine: DIRTY → READY → AVAILABLE)", () => {
       const onTableStatusChange = vi.fn();
       const tables = [makeTable({ id: "table-1", status: "DIRTY" })];
       render(
@@ -293,6 +293,17 @@ describe("TimelineGrid", () => {
       );
 
       fireEvent.click(screen.getByTestId("status-badge-DIRTY"));
+      expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "READY");
+    });
+
+    it("cycles READY to AVAILABLE", () => {
+      const onTableStatusChange = vi.fn();
+      const tables = [makeTable({ id: "table-1", status: "READY" })];
+      render(
+        <TimelineGrid {...defaultProps} tables={tables} onTableStatusChange={onTableStatusChange} />
+      );
+
+      fireEvent.click(screen.getByTestId("status-badge-READY"));
       expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "AVAILABLE");
     });
   });

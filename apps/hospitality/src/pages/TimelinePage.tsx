@@ -280,7 +280,11 @@ export function TimelinePage() {
   };
 
   const handleTableStatusChange = async (tableId: string, _status: TableStatus) => {
-    await updateTableStatus(tableId, _status);
+    try {
+      await updateTableStatus(tableId, _status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update table status");
+    }
   };
 
   // Format date for display
