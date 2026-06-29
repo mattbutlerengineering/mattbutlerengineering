@@ -2,7 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
 export {
-  parseListQuery,
+  parsePaginationQuery,
   paginate,
   toPaginationMeta,
   createListResponseSchema,
@@ -13,7 +13,6 @@ export type { PaginationMeta, PaginatedResponse } from "./list-utils.js";
 export {
   validateDateString,
   validatePartySize,
-  validatePagination,
   validateDateRange,
   validateEnum,
 } from "./validators.js";

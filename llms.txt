@@ -1598,10 +1598,7 @@
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
     <item priority="high">
-      export function createRefinementPrompt(
-        currentSpec: Spec,
-        userInstruction: string,
-      ): string { /* ... */ }
+      export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">
@@ -4057,7 +4054,7 @@
   </file>
   <file path="packages/database/src/list-utils.ts">
     <item priority="high">
-      export function parseListQuery(query: { page?: string; limit?: string }): {
+      export function parsePaginationQuery(query: { page?: string; limit?: string }): {
         page: number;
         limit: number;
       } { /* ... */ }

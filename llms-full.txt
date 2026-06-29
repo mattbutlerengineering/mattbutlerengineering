@@ -4080,10 +4080,7 @@
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
-    export function createRefinementPrompt(
-      currentSpec: Spec,
-      userInstruction: string,
-    ): string {
+    export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string {
       return (
         `Here is an existing UI spec generated from Rialto components. ` +
         `Please modify it according to the user's instruction. ` +
@@ -5874,7 +5871,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const status = request.query.status as AgentSessionStatus | undefined;
     
           const prismaStatus = status?.toUpperCase() as
@@ -6792,7 +6789,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
@@ -7103,7 +7100,7 @@
                 page: { type: "string", default: "1", description: "Page number (1-indexed)" },
                 limit: {
                   type: "string",
-                  default: "20",
+                  default: "10",
                   description: "Number of guests per page (max 100)",
                 },
               },
@@ -7128,7 +7125,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const { page, limit } = validatePagination(request.query.page, request.query.limit);
+          const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
         }
       );
@@ -8841,7 +8838,7 @@
           },
         },
         async (request, _reply) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.list({
             page,
             limit,
@@ -8913,7 +8910,7 @@
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.listByUserId(authUser.id, page, limit);
         }
       );
@@ -9579,7 +9576,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
           return tableService.list(page, limit, activeOnly);
         }
@@ -9995,7 +9992,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueGroupService.list(page, limit);
         }
       );
@@ -10294,7 +10291,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueService.list(page, limit, request.query.venueGroupId);
         }
       );
@@ -15319,7 +15316,7 @@
     }
   </file>
   <file path="packages/database/src/list-utils.ts">
-    export function parseListQuery(query: { page?: string; limit?: string }): {
+    export function parsePaginationQuery(query: { page?: string; limit?: string }): {
       page: number;
       limit: number;
     } {
