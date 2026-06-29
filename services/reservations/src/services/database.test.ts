@@ -54,7 +54,7 @@ vi.mock("../generated/prisma/index.js", () => ({
 }));
 
 import { db } from "./database.js";
-const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
+const { getSlowQueryStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("database.ts", () => {
   beforeEach(() => {
@@ -83,13 +83,21 @@ describe("database.ts", () => {
   });
 
   // -------------------------------------------------------------------------
-  describe("getPoolStats", () => {
-    it("reads total, active, idle, waiting from the pool instance", () => {
-      const stats = getPoolStats();
-      expect(stats.total).toBe(2);
-      expect(stats.active).toBe(1);
-      expect(stats.idle).toBe(1);
-      expect(stats.waiting).toBe(0);
+  describe("getPoolMetrics", () => {
+    it("returns all required PoolMetrics properties", () => {
+      const metrics = getPoolMetrics();
+      expect(metrics).toHaveProperty("total");
+      expect(metrics).toHaveProperty("busy");
+      expect(metrics).toHaveProperty("idle");
+      expect(metrics).toHaveProperty("waiting");
+      expect(metrics).toHaveProperty("utilization");
+      expect(metrics).toHaveProperty("isDegraded");
+    });
+
+    it("total equals pool.totalCount and busy equals pool.activeCount", () => {
+      const metrics = getPoolMetrics();
+      expect(metrics.total).toBe(2); // mockPoolState.totalCount
+      expect(metrics.busy).toBe(1); // mockPoolState.activeCount
     });
 
     it("reflects updated pool state", () => {
@@ -97,40 +105,27 @@ describe("database.ts", () => {
       mockPoolState.activeCount = 3;
       mockPoolState.idleCount = 1;
 
-      const stats = getPoolStats();
-      expect(stats.total).toBe(4);
-      expect(stats.active).toBe(3);
-      expect(stats.idle).toBe(1);
+      const metrics = getPoolMetrics();
+      expect(metrics.total).toBe(4);
+      expect(metrics.busy).toBe(3);
+      expect(metrics.idle).toBe(1);
     });
 
-    it("returns utilization 0 when totalCount is 0", () => {
+    it("utilization is 0 when activeCount is 0", () => {
       mockPoolState.totalCount = 0;
       mockPoolState.activeCount = 0;
 
-      const stats = getPoolStats();
-      expect(stats.utilization).toBe(0);
+      const metrics = getPoolMetrics();
+      expect(metrics.utilization).toBe(0);
     });
 
     it("calculates utilization as activeCount / CONNECTION_LIMIT (default 5)", () => {
       mockPoolState.totalCount = 5;
       mockPoolState.activeCount = 5;
 
-      const stats = getPoolStats();
-      // activeCount(5) / CONNECTION_LIMIT(5) = 1.0
-      expect(stats.utilization).toBe(1);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  describe("getPoolMetrics", () => {
-    it("returns all required PoolMetrics properties", () => {
       const metrics = getPoolMetrics();
-      expect(metrics).toHaveProperty("active");
-      expect(metrics).toHaveProperty("idle");
-      expect(metrics).toHaveProperty("busy");
-      expect(metrics).toHaveProperty("size");
-      expect(metrics).toHaveProperty("utilization");
-      expect(metrics).toHaveProperty("isDegraded");
+      // activeCount(5) / CONNECTION_LIMIT(5) = 1.0
+      expect(metrics.utilization).toBe(1);
     });
 
     it("isDegraded is false when utilization is below 0.8", () => {
@@ -164,11 +159,6 @@ describe("database.ts", () => {
 
       const metrics = getPoolMetrics();
       expect(metrics.idle).toBe(4);
-    });
-
-    it("size equals CONNECTION_LIMIT (default 5)", () => {
-      const metrics = getPoolMetrics();
-      expect(metrics.size).toBe(5);
     });
   });
 

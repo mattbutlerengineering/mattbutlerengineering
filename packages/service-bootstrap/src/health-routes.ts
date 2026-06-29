@@ -187,13 +187,12 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
     checks.pool = {
       status: poolMetrics.isDegraded ? "degraded" : "ok",
       ...(poolMetrics.isDegraded && {
-        message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy}/${poolMetrics.size} busy)`,
+        message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy} busy)`,
       }),
       ...{
-        active: poolMetrics.active,
-        idle: poolMetrics.idle,
+        total: poolMetrics.total,
         busy: poolMetrics.busy,
-        size: poolMetrics.size,
+        idle: poolMetrics.idle,
         utilization: poolMetrics.utilization,
       },
     };

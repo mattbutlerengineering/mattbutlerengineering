@@ -201,20 +201,19 @@ describe("Health Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.checks.pool).toBeDefined();
       expect(body.checks.pool.status).toBe("ok");
-      expect(body.checks.pool.active).toBe(1);
-      expect(body.checks.pool.idle).toBe(4);
+      expect(body.checks.pool.total).toBe(5);
       expect(body.checks.pool.busy).toBe(1);
-      expect(body.checks.pool.size).toBe(5);
+      expect(body.checks.pool.idle).toBe(4);
       expect(body.checks.pool.utilization).toBe(0.2);
     });
 
     it("returns degraded status when pool utilization is high", async () => {
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ "?column?": 1 }]);
       vi.mocked(db.getPoolMetrics).mockReturnValueOnce({
-        active: 5,
-        idle: 0,
+        total: 5,
         busy: 5,
-        size: 5,
+        idle: 0,
+        waiting: 0,
         utilization: 1.0,
         isDegraded: true,
       });

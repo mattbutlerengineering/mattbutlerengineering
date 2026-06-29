@@ -27,10 +27,10 @@ describe("createMockDatabaseService", () => {
     const mock = createMockDatabaseService();
     const metrics: PoolMetrics = mock.getPoolMetrics();
     expect(metrics).toEqual({
-      active: 1,
-      idle: 4,
+      total: 5,
       busy: 1,
-      size: 5,
+      idle: 4,
+      waiting: 0,
       utilization: 0.2,
       isDegraded: false,
     });
@@ -40,10 +40,10 @@ describe("createMockDatabaseService", () => {
   it("allows overriding getPoolMetrics return value", () => {
     const mock = createMockDatabaseService({
       getPoolMetrics: vi.fn().mockReturnValue({
-        active: 5,
-        idle: 0,
+        total: 5,
         busy: 5,
-        size: 5,
+        idle: 0,
+        waiting: 0,
         utilization: 1.0,
         isDegraded: true,
       }),
