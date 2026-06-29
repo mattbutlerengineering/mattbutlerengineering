@@ -7,8 +7,7 @@ export { JOB_TYPES } from "./job-types.js";
 export type {
   JobType,
   JobPayloadMap,
-  BookingReminderPayload,
-  DayOfReminderPayload,
+  ReminderPayload,
   PostVisitFollowupPayload,
   PreArrivalBriefingPayload,
   LapsedGuestScanPayload,
