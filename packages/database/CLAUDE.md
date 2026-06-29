@@ -7,7 +7,7 @@ Prisma/Postgres connection pool wrapper. Creates a `DatabaseInstance` that manag
 ```
 src/
 ├── index.ts        # createDatabase — Prisma client + pg.Pool + monitoring
-└── list-utils.ts   # parseListQuery, createListResponseSchema
+└── list-utils.ts   # parsePaginationQuery, createListResponseSchema
 ```
 
 ## createDatabase
@@ -35,10 +35,10 @@ Health status degrades when: slow queries exceed 10 in 5 min, or pool utilizatio
 ## list-utils
 
 ```typescript
-import { parseListQuery, createListResponseSchema } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 
 // Pagination
-const { page, limit } = parseListQuery({ page: "2", limit: "25" });
+const { page, limit } = parsePaginationQuery({ page: "2", limit: "25" });
 
 // Response schema (Fastify)
 const schema = createListResponseSchema("$ref:User");

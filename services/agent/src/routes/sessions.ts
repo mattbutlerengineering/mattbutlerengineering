@@ -10,7 +10,7 @@ import {
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import type { AuthUser } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
+import { parsePaginationQuery } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import { cancelSession } from "../services/session-executor.js";
 import { defaultConcurrency } from "../services/session-concurrency.js";
@@ -114,7 +114,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request) => {
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       const status = request.query.status as AgentSessionStatus | undefined;
 
       const prismaStatus = status?.toUpperCase() as

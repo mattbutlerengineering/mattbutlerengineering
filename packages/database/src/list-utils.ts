@@ -1,4 +1,4 @@
-export function parseListQuery(query: { page?: string; limit?: string }): {
+export function parsePaginationQuery(query: { page?: string; limit?: string }): {
   page: number;
   limit: number;
 } {

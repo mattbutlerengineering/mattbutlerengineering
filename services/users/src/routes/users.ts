@@ -10,7 +10,7 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
-import { parseListQuery } from "@mbe/database";
+import { parsePaginationQuery } from "@mbe/database";
 import { userService } from "../services/user.js";
 
 /** Returns the requesting user's database cuid by looking up their JWT email. */
@@ -88,7 +88,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
         );
       }
-      const { page, limit } = parseListQuery(request.query);
+      const { page, limit } = parsePaginationQuery(request.query);
       return userService.list(page, limit);
     }
   );
