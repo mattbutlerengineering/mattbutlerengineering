@@ -85,36 +85,13 @@ export function ChalkboardPage() {
 
       {/* ── Props: Chalkboard ─────────────────────────────────────── */}
       <Section title="Props: Chalkboard">
-        <PropsTable
-          props={[
-            { name: "title", type: "string", description: "Rendered as an h2 inside the header." },
-            {
-              name: "subtitle",
-              type: "string",
-              description: "Secondary context under the title — often a date.",
-            },
-            {
-              name: "variant",
-              type: '"slate" | "green"',
-              default: '"slate"',
-              description: "Visual palette.",
-            },
-            {
-              name: "framed",
-              type: "boolean",
-              default: "false",
-              description: "Wraps the board in a wooden frame border.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Typically ChalkboardSection components.",
-            },
-          ]}
-        />
+        <PropsTable component="Chalkboard" />
       </Section>
 
       {/* ── Props: ChalkboardSection ──────────────────────────────── */}
+      {/* NOTE: ChalkboardSection extends HTMLElement with 278 inherited HTML
+          attributes — manifest-based rendering would be unhelpful. Hand-written
+          until the manifest generator excludes HTML-inherited props. */}
       <Section title="Props: ChalkboardSection">
         <PropsTable
           props={[
@@ -126,23 +103,7 @@ export function ChalkboardPage() {
 
       {/* ── Props: ChalkboardItem ─────────────────────────────────── */}
       <Section title="Props: ChalkboardItem">
-        <PropsTable
-          props={[
-            { name: "name", type: "string", description: "Item name, required." },
-            {
-              name: "price",
-              type: "string",
-              description: "Displayed on the right; use any currency format.",
-            },
-            { name: "description", type: "string", description: "Secondary text below the name." },
-            {
-              name: "soldOut",
-              type: "boolean",
-              default: "false",
-              description: "Strikes through the item and adds a 'sold out' label readable by AT.",
-            },
-          ]}
-        />
+        <PropsTable component="ChalkboardItem" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

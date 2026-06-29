@@ -3,6 +3,7 @@ import {
   Card,
   DataList,
   Ferrofluid,
+  Input,
   SegmentedControl,
   Stack,
   Text,
@@ -48,7 +49,7 @@ function FerrofluidPlayground() {
           <Text variant="caption" color="secondary">
             Blob count: {blobCount}
           </Text>
-          <input
+          <Input
             type="range"
             min={2}
             max={12}
@@ -60,7 +61,7 @@ function FerrofluidPlayground() {
           <Text variant="caption" color="secondary">
             Blur amount: {blurAmount}
           </Text>
-          <input
+          <Input
             type="range"
             min={4}
             max={24}
@@ -142,34 +143,7 @@ export function FerrofluidPage() {
 
       {/* ── Props ─────────────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "color",
-              type: "string",
-              default: "var(--rialto-accent)",
-              description: "CSS color for the blobs.",
-            },
-            {
-              name: "blobCount",
-              type: "number",
-              default: "5",
-              description: "How many fluid blobs to render.",
-            },
-            {
-              name: "speed",
-              type: '"slow" | "medium" | "fast"',
-              default: '"slow"',
-              description: "Drift speed preset.",
-            },
-            {
-              name: "blurAmount",
-              type: "number",
-              default: "12",
-              description: "Blur intensity — higher blurs merge blobs more readily.",
-            },
-          ]}
-        />
+        <PropsTable component="Ferrofluid" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

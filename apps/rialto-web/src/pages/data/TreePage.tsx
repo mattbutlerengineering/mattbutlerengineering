@@ -98,30 +98,7 @@ export function TreePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "data",
-              type: "TreeNode[]",
-              description: "Recursive tree data structure.",
-            },
-            {
-              name: "defaultExpanded",
-              type: "string[]",
-              description: "Node IDs that are expanded on first render.",
-            },
-            {
-              name: "selectedId",
-              type: "string",
-              description: "Currently selected node ID.",
-            },
-            {
-              name: "onSelect",
-              type: "(id: string) => void",
-              description: "Called when a node is selected.",
-            },
-          ]}
-        />
+        <PropsTable component="Tree" />
       </Section>
 
       {/* ── TreeNode Shape ────────────────────────────────────────── */}

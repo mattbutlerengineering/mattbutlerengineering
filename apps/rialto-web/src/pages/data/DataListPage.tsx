@@ -1,4 +1,4 @@
-import { Checkbox, DataList, Select } from "@mattbutlerengineering/rialto";
+import { Checkbox, DataList, Select, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -99,7 +99,7 @@ export function DataListPage() {
               border: "1px solid var(--rialto-border)",
             }}
           >
-            <p
+            <Text
               style={{
                 fontSize: "var(--rialto-text-xs)",
                 color: "var(--rialto-text-tertiary)",
@@ -109,7 +109,7 @@ export function DataListPage() {
               }}
             >
               Car Specifications
-            </p>
+            </Text>
             <DataList
               items={[
                 { label: "Chassis", value: "Ferrari F80" },
@@ -127,7 +127,7 @@ export function DataListPage() {
               border: "1px solid var(--rialto-border)",
             }}
           >
-            <p
+            <Text
               style={{
                 fontSize: "var(--rialto-text-xs)",
                 color: "var(--rialto-text-tertiary)",
@@ -137,7 +137,7 @@ export function DataListPage() {
               }}
             >
               Track Conditions
-            </p>
+            </Text>
             <DataList
               orientation="horizontal"
               striped
@@ -159,27 +159,7 @@ export function DataListPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "items",
-              type: "Array<{ label: string; value: ReactNode }>",
-              description: "Key-value pairs to display.",
-            },
-            {
-              name: "orientation",
-              type: '"vertical" | "horizontal"',
-              default: '"vertical"',
-              description: "Layout direction. Horizontal places label and value side by side.",
-            },
-            {
-              name: "striped",
-              type: "boolean",
-              default: "false",
-              description: "Alternating row background for dense lists.",
-            },
-          ]}
-        />
+        <PropsTable component="DataList" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
