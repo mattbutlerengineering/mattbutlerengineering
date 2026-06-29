@@ -85,6 +85,12 @@ export interface SessionConfig {
   readonly modelRoutingReason?: string;
   /** The selected model tier from routing (e.g. "haiku", "sonnet", "opus") */
   readonly modelRoutingTier?: string;
+  /**
+   * When `true`, the session runner halts if accumulated per-turn costs exceed
+   * `maxBudgetUsd`. Defaults to `false` (observe/warn only — the budget breach
+   * event is always emitted, but the session is not aborted unless this is set).
+   */
+  readonly enforceBudget?: boolean;
 }
 
 export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath"> = {
@@ -146,7 +152,8 @@ export type SessionEventType =
   | "session:turn_metrics"
   | "session:tool_latency"
   | "session:heartbeat"
-  | "session:cleanup_warning";
+  | "session:cleanup_warning"
+  | "session:budget_breach";
 
 // ── Heartbeat / liveness configuration ──────────────────────────────
 

@@ -13,10 +13,10 @@ const mockDb = {
   getSlowQueryStats: vi.fn().mockReturnValue({ count5min: 0, slowestMs: 0 }),
   getServiceStatus: vi.fn().mockReturnValue("ok"),
   getPoolMetrics: vi.fn().mockReturnValue({
-    active: 1,
-    idle: 4,
+    total: 5,
     busy: 1,
-    size: 5,
+    idle: 4,
+    waiting: 0,
     utilization: 0.2,
     isDegraded: false,
   }),
@@ -147,10 +147,10 @@ describe("registerHealthRoutes", () => {
   it("returns degraded when pool utilization is high", async () => {
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
     mockDb.getPoolMetrics.mockReturnValueOnce({
-      active: 5,
-      idle: 0,
+      total: 5,
       busy: 5,
-      size: 5,
+      idle: 0,
+      waiting: 0,
       utilization: 1.0,
       isDegraded: true,
     });
@@ -211,10 +211,9 @@ describe("registerHealthRoutes", () => {
     const response = await app.inject({ method: "GET", url: "/health" });
     const body = JSON.parse(response.body);
 
-    expect(body.checks.pool.active).toBe(1);
-    expect(body.checks.pool.idle).toBe(4);
+    expect(body.checks.pool.total).toBe(5);
     expect(body.checks.pool.busy).toBe(1);
-    expect(body.checks.pool.size).toBe(5);
+    expect(body.checks.pool.idle).toBe(4);
     expect(body.checks.pool.utilization).toBe(0.2);
   });
 

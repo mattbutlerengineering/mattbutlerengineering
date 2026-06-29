@@ -26,6 +26,18 @@ export interface Deposit {
 
 export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
 
+/**
+ * Valid table state-machine transitions.
+ * Source of truth: services/reservations/src/services/table-state-machine.ts
+ * AVAILABLE → OCCUPIED → DIRTY → READY → AVAILABLE
+ */
+export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
+  AVAILABLE: ["OCCUPIED"],
+  OCCUPIED: ["DIRTY"],
+  DIRTY: ["READY"],
+  READY: ["AVAILABLE"],
+};
+
 export type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";
 
 export type SeatingPreference = "booth" | "patio" | "bar" | "window" | "quiet" | "no_preference";
