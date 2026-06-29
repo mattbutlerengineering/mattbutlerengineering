@@ -1,0 +1,19 @@
+{
+  "id": "bugfix-off-by-one",
+  "category": "bugfix",
+  "prompt": "The pagination helper in `packages/agent-core/src/utils/pagination.ts` returns one extra item when `limit` equals the total count. Fix the off-by-one so the returned slice is exactly `limit` items and the `hasMore` flag is accurate.",
+  "fixtureRef": "fixtures/bugfix-off-by-one",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "The fix changes only the pagination logic, not the calling code.",
+      "A regression test is added or updated to cover the off-by-one case."
+    ]
+  },
+  "budget": {
+    "maxTurns": 20,
+    "maxCostUsd": 0.25
+  }
+}
