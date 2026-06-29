@@ -549,7 +549,10 @@ function extractComponents(
     });
   }
 
-  return components.sort((a, b) => a.name.localeCompare(b.name));
+  // Byte-order comparator (NOT localeCompare): locale-sensitive sorts diverge
+  // between macOS and Linux CI, drifting the four generated artifacts. See the
+  // #2195→#2217 Integrity-failure class.
+  return components.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /* ── Public API ───────────────────────────────────────── */
