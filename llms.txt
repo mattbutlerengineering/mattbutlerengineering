@@ -2272,7 +2272,7 @@
       }
     </item>
   </file>
-  <file path="packages/rialto/scripts/character-limits.ts">
+  <file path="packages/rialto/scripts/component-metadata.ts">
     <item priority="low">
       interface CharacterLimit {
         component: string;

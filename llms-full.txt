@@ -11188,7 +11188,7 @@
       reason?: string;
     }
   </file>
-  <file path="packages/rialto/scripts/character-limits.ts">
+  <file path="packages/rialto/scripts/component-metadata.ts">
     export interface CharacterLimit {
       component: string;
       prop: string;
