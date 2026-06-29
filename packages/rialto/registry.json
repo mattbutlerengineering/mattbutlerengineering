@@ -28240,6 +28240,13 @@
       ]
     },
     {
+      "name": "NavItem",
+      "description": "A single navigation link or a parent that contains nested child links.\nItems with `children` render as dropdown triggers; leaf items render as plain links.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Navbar",
       "description": "Full-featured top navigation bar with logo, search, user profile, and link tree.\nDesigned as a vertical sidebar-style navbar (logo and search at top, links below, optional footer).",
       "importPath": "@mattbutlerengineering/rialto",
@@ -31176,13 +31183,6 @@
       "slots": [
         "children"
       ]
-    },
-    {
-      "name": "NavItem",
-      "description": "A single navigation link or a parent that contains nested child links.\nItems with `children` render as dropdown triggers; leaf items render as plain links.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
     },
     {
       "name": "NumberInput",
