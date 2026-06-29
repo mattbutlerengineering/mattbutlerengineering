@@ -65,7 +65,6 @@ describe("createDatabase", () => {
 
     expect(db.prisma).toBeDefined();
     expect(db.getSlowQueryStats).toBeTypeOf("function");
-    expect(db.getPoolStats).toBeTypeOf("function");
     expect(db.getPoolMetrics).toBeTypeOf("function");
     expect(db.getServiceStatus).toBeTypeOf("function");
     expect(db.shutdown).toBeTypeOf("function");
@@ -80,16 +79,16 @@ describe("createDatabase", () => {
     expect(stats.slowestMs).toBe(0);
   });
 
-  it("getPoolStats reads from pg pool internals", async () => {
+  it("getPoolMetrics reads pool totals, busy, idle, waiting from pg pool internals", async () => {
     const { createDatabase } = await import("./index.js");
     const db = createDatabase(createMockPrismaClient() as never);
-    const stats = db.getPoolStats();
+    const metrics = db.getPoolMetrics();
 
-    expect(stats.total).toBe(5);
-    expect(stats.active).toBe(2);
-    expect(stats.idle).toBe(3);
-    expect(stats.waiting).toBe(0);
-    expect(stats.utilization).toBeCloseTo(0.4);
+    expect(metrics.total).toBe(5);
+    expect(metrics.busy).toBe(2);
+    expect(metrics.idle).toBe(3);
+    expect(metrics.waiting).toBe(0);
+    expect(metrics.utilization).toBeCloseTo(0.4);
   });
 
   it("getPoolMetrics computes utilization and degradation", async () => {
@@ -97,7 +96,7 @@ describe("createDatabase", () => {
     const db = createDatabase(createMockPrismaClient() as never);
     const metrics = db.getPoolMetrics();
 
-    expect(metrics.size).toBe(5);
+    expect(metrics.total).toBe(5);
     expect(metrics.busy).toBe(2);
     expect(metrics.isDegraded).toBe(false);
   });
@@ -318,46 +317,56 @@ describe("createDatabase", () => {
     vi.restoreAllMocks();
   });
 
-  it("getPoolMetrics.utilization delegates to getPoolStats.utilization — same value, not a recomputation", async () => {
+  it("getPoolMetrics().total equals pool.totalCount and .busy equals pool.activeCount — no active field", async () => {
+    const { createDatabase } = await import("./index.js");
+    const db = createDatabase(createMockPrismaClient() as never);
+    const metrics = db.getPoolMetrics();
+
+    // totalCount is 5, activeCount is 2 per mockPoolInstance defaults
+    expect(metrics.total).toBe(5);
+    expect(metrics.busy).toBe(2);
+    expect((metrics as unknown as Record<string, unknown>).active).toBeUndefined();
+  });
+
+  it("getPoolMetrics.utilization is computed as activeCount / connectionLimit — consistent across calls", async () => {
     const { createDatabase } = await import("./index.js");
     const db = createDatabase(createMockPrismaClient() as never);
 
-    const poolStats = db.getPoolStats();
-    const poolMetrics = db.getPoolMetrics();
+    const first = db.getPoolMetrics();
+    const second = db.getPoolMetrics();
 
-    // After fix: getPoolMetrics delegates utilization to getPoolStats, collapsing two formulas into one
-    expect(poolMetrics.utilization).toBe(poolStats.utilization);
+    // Both calls must return the same utilization
+    expect(first.utilization).toBe(second.utilization);
+    expect(first.utilization).toBeCloseTo(0.4); // 2 active / 5 limit
   });
 
-  it("getPoolStats and getPoolMetrics agree on utilization for a cold pool (total=0, connectionLimit default 5)", async () => {
+  it("getPoolMetrics reports 0 utilization for a cold pool (activeCount=0)", async () => {
     const { createDatabase } = await import("./index.js");
     mockPoolInstance.totalCount = 0;
     mockPoolInstance.activeCount = 0;
     mockPoolInstance.idleCount = 0;
     const db = createDatabase(createMockPrismaClient() as never);
 
-    const poolStats = db.getPoolStats();
-    const poolMetrics = db.getPoolMetrics();
-
-    // Cold pool: both should report 0 utilization, and must agree
-    expect(poolStats.utilization).toBe(0);
-    expect(poolMetrics.utilization).toBe(poolStats.utilization);
+    const metrics = db.getPoolMetrics();
+    expect(metrics.utilization).toBe(0);
+    expect(metrics.total).toBe(0);
+    expect(metrics.busy).toBe(0);
   });
 
-  it("getPoolStats handles missing pool internals with ?? 0 fallbacks", async () => {
+  it("getPoolMetrics handles missing pool internals with ?? 0 fallbacks", async () => {
     const { createDatabase } = await import("./index.js");
     mockPoolInstance.totalCount = undefined as unknown as number;
     mockPoolInstance.activeCount = undefined as unknown as number;
     mockPoolInstance.idleCount = undefined as unknown as number;
     mockPoolInstance.waitingCount = undefined as unknown as number;
     const db = createDatabase(createMockPrismaClient() as never);
-    const stats = db.getPoolStats();
+    const metrics = db.getPoolMetrics();
 
-    expect(stats.total).toBe(0);
-    expect(stats.active).toBe(0);
-    expect(stats.idle).toBe(0);
-    expect(stats.waiting).toBe(0);
-    expect(stats.utilization).toBe(0);
+    expect(metrics.total).toBe(0);
+    expect(metrics.busy).toBe(0);
+    expect(metrics.idle).toBe(0);
+    expect(metrics.waiting).toBe(0);
+    expect(metrics.utilization).toBe(0);
   });
 
   it("shutdown is idempotent — calling it twice does not call pool.end() twice", async () => {

@@ -65,7 +65,7 @@ vi.mock("@prisma/adapter-pg", () => {
 });
 
 const { db, prisma } = await import("./database.js");
-const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
+const { getSlowQueryStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("Database Service", () => {
   beforeEach(() => {
@@ -81,17 +81,12 @@ describe("Database Service", () => {
     expect(stats).toHaveProperty("slowestMs");
   });
 
-  it("reports pool stats", () => {
-    const stats = getPoolStats();
-    expect(stats).toHaveProperty("total");
-    expect(stats).toHaveProperty("active");
-    expect(stats).toHaveProperty("utilization");
-  });
-
   it("reports pool metrics", () => {
     const metrics = getPoolMetrics();
+    expect(metrics).toHaveProperty("total");
+    expect(metrics).toHaveProperty("busy");
     expect(metrics).toHaveProperty("isDegraded");
-    expect(metrics.size).toBe(5);
+    expect(metrics).toHaveProperty("utilization");
   });
 
   it("reports service status as ok by default", () => {

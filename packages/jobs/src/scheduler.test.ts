@@ -36,9 +36,9 @@ vi.mock("ioredis", () => {
 
 import { JobScheduler } from "./scheduler.js";
 import { JOB_TYPES, DEFAULT_QUEUE_NAME, DEFAULT_JOB_OPTIONS } from "./job-types.js";
-import type { BookingReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
+import type { ReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
 
-const bookingPayload: BookingReminderPayload = {
+const bookingPayload: ReminderPayload = {
   reservationId: "res_abc123",
   guestPhone: "+15551234567",
   guestEmail: "jane@example.com",

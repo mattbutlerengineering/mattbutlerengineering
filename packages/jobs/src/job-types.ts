@@ -16,15 +16,7 @@ export const JOB_TYPES = {
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
-export interface BookingReminderPayload {
-  reservationId: string;
-  guestPhone: string | null;
-  guestEmail: string | null;
-  venueId: string;
-  channel: "sms" | "email" | "both";
-}
-
-export interface DayOfReminderPayload {
+export interface ReminderPayload {
   reservationId: string;
   guestPhone: string | null;
   guestEmail: string | null;
@@ -59,8 +51,8 @@ export interface WaitlistExpiryPayload {
 }
 
 export type JobPayloadMap = {
-  [JOB_TYPES.BOOKING_REMINDER]: BookingReminderPayload;
-  [JOB_TYPES.DAY_OF_REMINDER]: DayOfReminderPayload;
+  [JOB_TYPES.BOOKING_REMINDER]: ReminderPayload;
+  [JOB_TYPES.DAY_OF_REMINDER]: ReminderPayload;
   [JOB_TYPES.POST_VISIT_FOLLOWUP]: PostVisitFollowupPayload;
   [JOB_TYPES.PRE_ARRIVAL_BRIEFING]: PreArrivalBriefingPayload;
   [JOB_TYPES.LAPSED_GUEST_SCAN]: LapsedGuestScanPayload;

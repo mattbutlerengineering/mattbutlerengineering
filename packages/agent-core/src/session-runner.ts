@@ -13,6 +13,7 @@ import type { ContextMetrics } from "./context-budget.js";
 import type { EvaluationResult } from "./success-evaluator.js";
 import type { GatewayVerdict } from "./post-commit-gateway.js";
 import { buildSessionResult } from "./cost-tracker.js";
+import { shouldHaltForBudget } from "./budget-gate.js";
 import { scheduleWorktreeReap } from "./worktree-reaper.js";
 import { recordFailure } from "./failure-memory.js";
 import { withRetry } from "./retry.js";
@@ -68,6 +69,8 @@ interface SessionState {
   prUrl: string | null;
   prNumber?: number;
   errors: string[];
+  /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
+  budgetEnforced?: boolean;
 }
 
 // ── Public API ──────────────────────────────────────────────────────
@@ -226,6 +229,20 @@ async function runPipeline(
   }
   if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
 
+  // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
+  const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
+  if (breach.exceeded) {
+    emitEvent(onEvent, "session:budget_breach", {
+      message: JSON.stringify(breach),
+    });
+    if (config.enforceBudget) {
+      const breachMsg = `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`;
+      state.errors.push(breachMsg);
+      state.budgetEnforced = true;
+      return;
+    }
+  }
+
   // VerificationPhase
   const verifyExec = await verificationPhase.run(
     {
@@ -374,6 +391,7 @@ function buildFinalResult(
     turnMetrics,
     toolCallMetrics,
     contextMetrics,
+    budgetEnforced,
   } = state;
   const errors = [...state.errors];
 
@@ -409,12 +427,21 @@ function buildFinalResult(
       state.prUrl ?? null
     );
 
-    const isFailed = sessionResult.status === "failed" || !!stuckReason;
+    const isFailed = sessionResult.status === "failed" || !!stuckReason || !!budgetEnforced;
     const failureCategory = isFailed ? categorizeFailure(errors, stuckReason?.type) : undefined;
 
     const finalResult: SessionResult = {
       ...sessionResult,
       ...(stuckReason ? { status: "failed" as const, stuckPattern: stuckReason.type } : {}),
+      ...(budgetEnforced
+        ? {
+            status: "failed" as const,
+            errors: [
+              ...sessionResult.errors,
+              ...errors.filter((e) => !sessionResult.errors.includes(e)),
+            ],
+          }
+        : {}),
       ...(evalSummary ? { evaluation: evalSummary } : {}),
       ...(failureCategory ? { failureCategory } : {}),
       turnMetrics: collectedTurnMetrics,
