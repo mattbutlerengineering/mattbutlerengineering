@@ -23,6 +23,26 @@ describe("cn", () => {
   });
 });
 
+describe("cn — undefined safety (never emits the string 'undefined')", () => {
+  it("cn with an undefined arg produces empty string, not the string 'undefined'", () => {
+    const result = cn(undefined as unknown as string);
+    expect(result).toBe("");
+    expect(result).not.toContain("undefined");
+  });
+
+  it("cn mixing a valid class with undefined does not leak 'undefined'", () => {
+    const result = cn("foo", undefined as unknown as string, "bar");
+    expect(result).toBe("foo bar");
+    expect(result).not.toContain("undefined");
+  });
+
+  it("cn with a missing CSS Module key (runtime undefined) does not produce 'undefined'", () => {
+    const missing = ({} as CSSModuleClasses)["nonexistent"];
+    const result = cn("base", missing);
+    expect(result).not.toContain("undefined");
+  });
+});
+
 describe("variantClass", () => {
   const styles = {
     neutral: "badge-neutral",

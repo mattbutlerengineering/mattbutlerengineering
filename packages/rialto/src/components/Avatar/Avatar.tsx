@@ -160,7 +160,7 @@ function FlapStage({ prevSrc, onComplete }: FlapStageProps) {
   return (
     <div className={styles.flapStage} aria-hidden="true" data-testid="avatar-flap-stage">
       <motion.div
-        className={`${styles.flapHalf} ${styles.flapHalfTop}`}
+        className={cn(styles.flapHalf, styles.flapHalfTop)}
         initial={{ rotateX: 0 }}
         animate={{ rotateX: -180 }}
         transition={{ duration: FLAP_DURATION_MS / 1000, ease: "easeIn" }}
@@ -168,7 +168,7 @@ function FlapStage({ prevSrc, onComplete }: FlapStageProps) {
         <img className={styles.flapImage} src={prevSrc} alt="" />
       </motion.div>
       <motion.div
-        className={`${styles.flapHalf} ${styles.flapHalfBottom}`}
+        className={cn(styles.flapHalf, styles.flapHalfBottom)}
         initial={{ rotateX: 0 }}
         animate={{ rotateX: 180 }}
         transition={{
@@ -215,7 +215,7 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
     return (
       <div ref={ref} className={cn(styles.group, className)}>
         {overflow > 0 && (
-          <div className={`${styles.overflow} ${styles[size]}`} aria-label={`${overflow} more`}>
+          <div className={cn(styles.overflow, styles[size])} aria-label={`${overflow} more`}>
             <span className={styles.overflowText} aria-hidden="true">
               +{overflow}
             </span>

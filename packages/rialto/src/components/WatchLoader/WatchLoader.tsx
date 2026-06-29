@@ -7,6 +7,7 @@ import {
   type HTMLAttributes,
 } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./WatchLoader.module.css";
 
 /**
@@ -86,15 +87,13 @@ export const WatchLoader = forwardRef<HTMLDivElement, WatchLoaderProps>(
     const isPreset = typeof size === "string";
     const sizeClass = isPreset ? SIZE_CLASS[size] : "";
 
-    const rootClass = [
+    const rootClass = cn(
       styles.watchLoader,
       sizeClass,
       VARIANT_CLASS[variant],
-      shouldReduceMotion ? styles.reduced : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      shouldReduceMotion && styles.reduced,
+      className
+    );
 
     const rootStyle = {
       "--watch-cycle": CYCLE_BY_SPEED[speed],

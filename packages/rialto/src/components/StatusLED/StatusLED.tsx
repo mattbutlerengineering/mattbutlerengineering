@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./StatusLED.module.css";
 
 export interface StatusLEDProps {
@@ -31,15 +32,13 @@ export const StatusLED = forwardRef<HTMLSpanElement, StatusLEDProps>(
         } as React.CSSProperties)
       : undefined;
 
-    const classes = [
+    const classes = cn(
       styles.led,
       !isCustomSize && styles[size as string],
       styles[variant],
       pulse && styles.pulse,
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      className
+    );
 
     return (
       <span

@@ -14,6 +14,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { cn } from "../../utils/class-composer";
 import styles from "./DropdownMenu.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -222,7 +223,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
       <AnimatePresence>
         {open && (
           <motion.div
-            className={`${styles.menu} ${align === "right" ? styles.menuRight : ""}`}
+            className={cn(styles.menu, align === "right" && styles.menuRight)}
             role="menu"
             onKeyDown={handleKeyDown}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -4 }}
@@ -252,7 +253,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
                     if (el) itemRefs.current.set(i, el);
                     else itemRefs.current.delete(i);
                   }}
-                  className={`${styles.item} ${item.destructive ? styles.destructive : ""}`}
+                  className={cn(styles.item, item.destructive && styles.destructive)}
                   role="menuitem"
                   disabled={item.disabled}
                   data-active={activeIndex === i}

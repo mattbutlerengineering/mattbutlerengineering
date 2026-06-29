@@ -1,5 +1,6 @@
 import type { ForwardedRef } from "react";
 import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./TapeChart.module.css";
 import { useDeviceContext } from "../../providers/useDeviceContext";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
@@ -99,11 +100,7 @@ export const TapeChart = forwardRef(function TapeChart(
   // ── Non-happy-path states ──────────────────
   if (error) {
     return (
-      <div
-        ref={setRefs}
-        className={`${styles.root}${className ? " " + className : ""}`}
-        data-density={density}
-      >
+      <div ref={setRefs} className={cn(styles.root, className)} data-density={density}>
         <Banner
           variant="error"
           action={
@@ -125,7 +122,7 @@ export const TapeChart = forwardRef(function TapeChart(
     return (
       <div
         ref={setRefs}
-        className={`${styles.root}${className ? " " + className : ""}`}
+        className={cn(styles.root, className)}
         data-density={density}
         aria-busy="true"
         aria-label={resolved.loadingLabel}
@@ -149,11 +146,7 @@ export const TapeChart = forwardRef(function TapeChart(
 
   if (!loading && rooms.length === 0) {
     return (
-      <div
-        ref={setRefs}
-        className={`${styles.root}${className ? " " + className : ""}`}
-        data-density={density}
-      >
+      <div ref={setRefs} className={cn(styles.root, className)} data-density={density}>
         <div className={styles.stateWrapper}>
           <EmptyState
             heading={resolved.emptyTitle}
@@ -232,7 +225,7 @@ export const TapeChart = forwardRef(function TapeChart(
   return (
     <div
       ref={setRefs}
-      className={`${styles.root}${className ? " " + className : ""}`}
+      className={cn(styles.root, className)}
       style={rootStyle}
       data-density={density}
       role="region"

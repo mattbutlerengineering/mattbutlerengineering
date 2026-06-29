@@ -1,4 +1,5 @@
 import React, { forwardRef, useState, useCallback, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Table.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -162,14 +163,19 @@ function TableInner<T extends Record<string, unknown>>(
   };
 
   return (
-    <div ref={ref} className={`${styles.wrapper} ${className}`}>
-      <table className={`${styles.table} ${densityClass}`}>
+    <div ref={ref} className={cn(styles.wrapper, className)}>
+      <table className={cn(styles.table, densityClass)}>
         <thead className={styles.thead}>
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`${styles.th} ${col.sortable ? styles.sortable : ""} ${sortKey === col.key ? styles.sortActive : ""} ${alignClass(col.align)}`}
+                className={cn(
+                  styles.th,
+                  col.sortable && styles.sortable,
+                  sortKey === col.key && styles.sortActive,
+                  alignClass(col.align)
+                )}
                 style={col.width ? { width: col.width } : undefined}
                 onClick={col.sortable ? () => handleSort(col.key) : undefined}
                 onKeyDown={
@@ -215,7 +221,7 @@ function TableInner<T extends Record<string, unknown>>(
             sortedData.map((row) => (
               <tr key={rowKey(row)} className={styles.tr}>
                 {columns.map((col) => (
-                  <td key={col.key} className={`${styles.td} ${alignClass(col.align)}`}>
+                  <td key={col.key} className={cn(styles.td, alignClass(col.align))}>
                     {col.render ? col.render(row) : (row[col.key] as ReactNode)}
                   </td>
                 ))}
