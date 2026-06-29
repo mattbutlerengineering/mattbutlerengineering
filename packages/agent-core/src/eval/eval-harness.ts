@@ -1,4 +1,11 @@
-import type { EvalAggregate, EvalReport, Task, TaskRunner, TaskScore } from "./types.js";
+import type {
+  EvalAggregate,
+  EvalReport,
+  Task,
+  TaskCategory,
+  TaskRunner,
+  TaskScore,
+} from "./types.js";
 import { scoreTask } from "./task-scorer.js";
 
 export interface RunEvalSuiteOptions {
@@ -32,7 +39,12 @@ export async function runEvalSuite(
     }
   }
 
-  return { runId: opts.runId, tasks: scores, aggregate: aggregate(scores) };
+  return {
+    runId: opts.runId,
+    tasks: scores,
+    aggregate: aggregate(scores),
+    byCategory: aggregateByCategory(scores),
+  };
 }
 
 function failedScore(task: Task, err: unknown): TaskScore {
@@ -51,6 +63,21 @@ function failedScore(task: Task, err: unknown): TaskScore {
     turns: 0,
     error: err instanceof Error ? err.message : String(err),
   };
+}
+
+function aggregateByCategory(
+  scores: readonly TaskScore[]
+): Partial<Record<TaskCategory, EvalAggregate>> {
+  const groups = new Map<TaskCategory, TaskScore[]>();
+  for (const score of scores) {
+    const group = groups.get(score.category) ?? [];
+    groups.set(score.category, [...group, score]);
+  }
+  const result: Partial<Record<TaskCategory, EvalAggregate>> = {};
+  for (const [cat, group] of groups) {
+    result[cat] = aggregate(group);
+  }
+  return result;
 }
 
 function aggregate(scores: readonly TaskScore[]): EvalAggregate {

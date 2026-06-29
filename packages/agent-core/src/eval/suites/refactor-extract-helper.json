@@ -1,0 +1,20 @@
+{
+  "id": "refactor-extract-helper",
+  "category": "refactor",
+  "prompt": "The `buildSystemPrompt` function in `packages/agent-core/src/prompt-builder.ts` is over 120 lines. Extract the section that formats source-file contents into a standalone `formatSourceFiles(files: string[]): string` helper in the same file. All existing tests must continue to pass without modification.",
+  "fixtureRef": "fixtures/refactor-extract-helper",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A new named function `formatSourceFiles` is exported or used internally.",
+      "The body of `buildSystemPrompt` is shorter after the extraction.",
+      "No behaviour changes — the output of `buildSystemPrompt` is identical."
+    ]
+  },
+  "budget": {
+    "maxTurns": 25,
+    "maxCostUsd": 0.3
+  }
+}

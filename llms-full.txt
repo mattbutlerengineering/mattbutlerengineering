@@ -2909,7 +2909,12 @@
         }
       }
     
-      return { runId: opts.runId, tasks: scores, aggregate: aggregate(scores) };
+      return {
+        runId: opts.runId,
+        tasks: scores,
+        aggregate: aggregate(scores),
+        byCategory: aggregateByCategory(scores),
+      };
     }
   </file>
   <file path="packages/agent-core/src/eval/golden-task-set.ts">
