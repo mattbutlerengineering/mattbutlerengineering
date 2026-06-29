@@ -555,6 +555,118 @@ describe("runSession", () => {
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
 
+  // ── Budget gate integration tests ────────────────────────────────
+
+  it("emits session:budget_breach event when turn costs exceed maxBudgetUsd", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+      hardenedResult({
+        resultMessage: createMockResultMessage() as never,
+        rawTurnMetrics: [
+          {
+            turnIndex: 1,
+            startedAt: new Date().toISOString(),
+            inputTokens: 100,
+            outputTokens: 50,
+            thinkingTokens: 0,
+            costUsd: 1.5,
+            modelId: "claude-sonnet-4-6",
+          },
+        ],
+      })
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const events: SessionEvent[] = [];
+    const config = { ...BASE_CONFIG, maxBudgetUsd: 1.0 };
+    await runSession(config, (event) => events.push(event), deps);
+
+    const breachEvents = events.filter((e) => e.type === "session:budget_breach");
+    expect(breachEvents).toHaveLength(1);
+    const payload = JSON.parse((breachEvents[0].data as { message: string }).message);
+    expect(payload.exceeded).toBe(true);
+    expect(payload.accumulatedCostUsd).toBeCloseTo(1.5);
+    expect(payload.maxBudgetUsd).toBe(1.0);
+  });
+
+  it("does NOT halt the session by default when budget is breached (observe only)", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+      hardenedResult({
+        resultMessage: createMockResultMessage() as never,
+        rawTurnMetrics: [
+          {
+            turnIndex: 1,
+            startedAt: new Date().toISOString(),
+            inputTokens: 100,
+            outputTokens: 50,
+            thinkingTokens: 0,
+            costUsd: 1.5,
+            modelId: "claude-sonnet-4-6",
+          },
+        ],
+      })
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const config = { ...BASE_CONFIG, maxBudgetUsd: 1.0 };
+    const result = await runSession(config, undefined, deps);
+
+    // Session should succeed despite breach — enforcement is opt-in
+    expect(result.status).toBe("succeeded");
+  });
+
+  it("halts the session when enforceBudget=true and budget is breached", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+      hardenedResult({
+        resultMessage: createMockResultMessage() as never,
+        rawTurnMetrics: [
+          {
+            turnIndex: 1,
+            startedAt: new Date().toISOString(),
+            inputTokens: 100,
+            outputTokens: 50,
+            thinkingTokens: 0,
+            costUsd: 1.5,
+            modelId: "claude-sonnet-4-6",
+          },
+        ],
+      })
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const config = { ...BASE_CONFIG, maxBudgetUsd: 1.0, enforceBudget: true };
+    const result = await runSession(config, undefined, deps);
+
+    expect(result.status).toBe("failed");
+    expect(result.errors.some((e) => e.includes("budget") || e.includes("Budget"))).toBe(true);
+  });
+
+  it("does not emit budget_breach when costs are within budget", async () => {
+    vi.mocked(deps.queryRunner.runHardenedQuery).mockResolvedValue(
+      hardenedResult({
+        resultMessage: createMockResultMessage() as never,
+        rawTurnMetrics: [
+          {
+            turnIndex: 1,
+            startedAt: new Date().toISOString(),
+            inputTokens: 100,
+            outputTokens: 50,
+            thinkingTokens: 0,
+            costUsd: 0.5,
+            modelId: "claude-sonnet-4-6",
+          },
+        ],
+      })
+    );
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const events: SessionEvent[] = [];
+    const config = { ...BASE_CONFIG, maxBudgetUsd: 1.0 };
+    await runSession(config, (event) => events.push(event), deps);
+
+    const breachEvents = events.filter((e) => e.type === "session:budget_breach");
+    expect(breachEvents).toHaveLength(0);
+  });
+
   // ── Cached git diff tests ─────────────────────────────────────────
 
   it("caches git diff across evaluation, static analysis, and security review", async () => {

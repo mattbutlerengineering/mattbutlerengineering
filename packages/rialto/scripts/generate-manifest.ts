@@ -2,17 +2,16 @@
 /**
  * Rialto Component Manifest Generator
  *
- * Parses the barrel export at src/components/index.ts using the TypeScript
- * Compiler API to extract component names, props interfaces (with types,
- * defaults, and JSDoc), and outputs dist/manifest.json.
+ * Renders dist/manifest.json from the canonical ComponentMetadata model
+ * produced by `introspectComponents()` in component-metadata.ts — the single
+ * source of truth for the Rialto component graph.
  *
  * Usage: npx tsx scripts/generate-manifest.ts
  */
 
-import * as ts from "typescript";
 import * as path from "path";
 import * as fs from "fs";
-import { characterLimits } from "./character-limits.js";
+import { introspectComponents, type ComponentMetadata } from "./component-metadata.js";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -44,168 +43,60 @@ interface Manifest {
   components: ComponentInfo[];
 }
 
-/* ── Helpers ─────────────────────────────────── */
+/* ── Conversion ──────────────────────────────── */
 
-function getJsDocComment(symbol: ts.Symbol): string | undefined {
-  const docs = symbol.getDocumentationComment(undefined);
-  if (docs.length === 0) return undefined;
-  return (
-    docs
-      .map((d) => d.text)
-      .join("\n")
-      .trim() || undefined
-  );
-}
-
-function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
-  return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
-}
-
-function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined {
-  const decl = symbol.valueDeclaration;
-  if (!decl) return undefined;
-
-  // Look for destructuring default: { variant = 'secondary' }
-  if (ts.isBindingElement(decl) && decl.initializer) {
-    return decl.initializer.getText();
-  }
-  return undefined;
-}
-
-/* ── Component extraction ────────────────────── */
-
-function extractComponents(program: ts.Program, entryFile: string): ComponentInfo[] {
-  const checker = program.getTypeChecker();
-  const sourceFile = program.getSourceFile(entryFile);
-  if (!sourceFile) {
-    console.error(`Could not find source file: ${entryFile}`);
-    return [];
-  }
-
-  const components: ComponentInfo[] = [];
-  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
-  if (!moduleSymbol) return components;
-
-  const exports = checker.getExportsOfModule(moduleSymbol);
-
-  for (const exp of exports) {
-    const name = exp.getName();
-
-    // Skip non-component exports (types, hooks, constants)
-    if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
-    if (name.endsWith("Props") || name.endsWith("Context")) continue;
-
-    // Resolve aliased symbols
-    const resolved = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
-
-    // Find the Props interface by convention: ComponentNameProps
-    const propsTypeName = `${name}Props`;
-    const propsSymbol = exports.find((e) => e.getName() === propsTypeName);
-
-    const props: PropInfo[] = [];
-    const slots: string[] = [];
-
-    if (propsSymbol) {
-      const propsResolved =
-        propsSymbol.flags & ts.SymbolFlags.Alias
-          ? checker.getAliasedSymbol(propsSymbol)
-          : propsSymbol;
-
-      const propsType = checker.getDeclaredTypeOfSymbol(propsResolved);
-      const propsProperties = propsType.getProperties();
-
-      for (const prop of propsProperties) {
-        const propName = prop.getName();
-        const propType = checker.getTypeOfSymbol(prop);
-        const propTypeStr = typeToString(propType, checker);
-
-        // Detect slots (ReactNode children)
-        if (propName === "children" && propTypeStr.includes("ReactNode")) {
-          slots.push("children");
-          continue;
-        }
-
-        // Check if optional
-        const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
-
-        const propInfo: PropInfo = {
-          name: propName,
-          type: propTypeStr,
-          required: !isOptional,
-        };
-
-        // JSDoc
-        const doc = getJsDocComment(prop);
-        if (doc) propInfo.description = doc;
-
-        // Default value from destructuring
-        const defaultVal = getDefaultFromInitializer(prop);
-        if (defaultVal) propInfo.default = defaultVal;
-
-        props.push(propInfo);
-      }
-    }
-
-    // Component-level JSDoc
-    let description: string | undefined;
-    if (propsSymbol) {
-      const propsResolved =
-        propsSymbol.flags & ts.SymbolFlags.Alias
-          ? checker.getAliasedSymbol(propsSymbol)
-          : propsSymbol;
-      description = getJsDocComment(propsResolved);
-    }
-    if (!description) {
-      description = getJsDocComment(resolved);
-    }
-
-    components.push({
-      name,
-      description,
-      props,
-      slots,
+/**
+ * Map a ComponentMetadata array to the manifest JSON format.
+ *
+ * - Projects each prop to only the fields the manifest schema defines
+ *   (name, type, required; optional default and description).
+ * - Omits `characterLimits` when empty so the output is byte-identical to
+ *   the previous generator.
+ * - Does NOT sort — introspectComponents() already returns components in
+ *   byte-order (not localeCompare, which diverges macOS vs Linux CI).
+ */
+export function buildManifest(
+  components: ComponentMetadata[],
+  version: string,
+  generatedAt: string
+): Manifest {
+  const manifestComponents: ComponentInfo[] = components.map((comp) => {
+    const props: PropInfo[] = comp.props.map((p) => {
+      const prop: PropInfo = { name: p.name, type: p.type, required: p.required };
+      if (p.description !== undefined) prop.description = p.description;
+      if (p.default !== undefined) prop.default = p.default;
+      return prop;
     });
-  }
 
-  return components;
+    const entry: ComponentInfo = {
+      name: comp.name,
+      description: comp.description,
+      props,
+      slots: comp.slots,
+    };
+
+    if (comp.characterLimits.length > 0) {
+      entry.characterLimits = comp.characterLimits;
+    }
+
+    return entry;
+  });
+
+  return { version, generatedAt, components: manifestComponents };
 }
 
 /* ── Main ────────────────────────────────────── */
 
 function main() {
   const rootDir = process.cwd();
-  const entryFile = path.join(rootDir, "src/components/index.ts");
-  const tsconfigPath = path.join(rootDir, "tsconfig.json");
   const outPath = path.join(rootDir, "dist/manifest.json");
 
-  // Read tsconfig
-  const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
-  const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootDir);
-
-  const program = ts.createProgram([entryFile], parsedConfig.options);
-
-  const components = extractComponents(program, entryFile);
-
-  // Merge character limits into component data
-  for (const component of components) {
-    const limits = characterLimits.filter((l) => l.component === component.name);
-    if (limits.length > 0) {
-      component.characterLimits = limits.map(({ prop, max, reason }) => ({
-        prop,
-        max,
-        reason,
-      }));
-    }
-  }
-
-  // Read version from package.json
-  const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"));
-
-  const manifest: Manifest = {
-    version: pkg.version,
-    generatedAt: new Date().toISOString(),
-    components: components.sort((a, b) => a.name.localeCompare(b.name)),
+  const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
+    version: string;
   };
+
+  const components = introspectComponents(rootDir);
+  const manifest = buildManifest(components, pkg.version, new Date().toISOString());
 
   // Ensure output directory exists
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
