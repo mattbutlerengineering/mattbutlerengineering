@@ -35,6 +35,28 @@ vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
         ],
         slots: [],
       },
+      {
+        name: "HtmlExtender",
+        description: "A component extending an HTML element — manifest includes HTML noise.",
+        props: [
+          {
+            name: "variant",
+            type: '"primary" | "secondary" | undefined',
+            required: false,
+            description: "Visual style.",
+          },
+          { name: "size", type: '"sm" | "md" | undefined', required: false },
+          // HTML attribute bleed-through from extending HTMLDivElement:
+          { name: "defaultChecked", type: "boolean | undefined", required: false },
+          {
+            name: "defaultValue",
+            type: "string | number | readonly string[] | undefined",
+            required: false,
+          },
+          { name: "suppressContentEditableWarning", type: "boolean | undefined", required: false },
+        ],
+        slots: ["children"],
+      },
     ],
   },
 }));
@@ -75,5 +97,14 @@ describe("usePropsFromManifest", () => {
     const props = usePropsFromManifest("Button");
     const variantProp = props.find((p) => p.name === "variant");
     expect(variantProp?.type).not.toContain("| undefined");
+  });
+
+  it("truncates HTML noise props at defaultChecked for components extending HTML elements", () => {
+    const props = usePropsFromManifest("HtmlExtender");
+    const names = props.map((p) => p.name);
+    expect(names).toEqual(["variant", "size"]);
+    expect(names).not.toContain("defaultChecked");
+    expect(names).not.toContain("defaultValue");
+    expect(names).not.toContain("suppressContentEditableWarning");
   });
 });

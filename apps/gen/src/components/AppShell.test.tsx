@@ -346,4 +346,17 @@ describe("useAppShellPanels", () => {
     expect(() => render(<Orphan />)).toThrow(/AppShell/);
     spy.mockRestore();
   });
+
+  it("does not expose isFullscreen — fullscreen is owned solely by usePlaygroundState", () => {
+    function Probe() {
+      const panels = useAppShellPanels();
+      return <span data-testid="has-fullscreen">{"isFullscreen" in panels ? "yes" : "no"}</span>;
+    }
+    render(
+      <AppShell>
+        <Probe />
+      </AppShell>
+    );
+    expect(screen.getByTestId("has-fullscreen").textContent).toBe("no");
+  });
 });

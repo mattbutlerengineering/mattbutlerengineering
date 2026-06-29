@@ -22,12 +22,15 @@ type Breakpoint = "mobile" | "tablet" | "desktop";
  * visibility (history / inspector) and the command-palette open flag; pages
  * read this through {@link useAppShellPanels} instead of threading callbacks
  * and paired flags through props.
+ *
+ * Note: `isFullscreen` is intentionally absent — it is owned solely by
+ * `usePlaygroundState` and passed to AppShell as a prop. Pages read it
+ * directly from the hook, not from the shell context.
  */
 interface AppShellPanels {
   historyVisible: boolean;
   inspectorVisible: boolean;
   breakpoint: Breakpoint;
-  isFullscreen: boolean;
   toggleHistory: () => void;
   toggleInspector: () => void;
   closeOverlays: () => void;
@@ -36,6 +39,11 @@ interface AppShellPanels {
 }
 
 interface AppShellContextValue extends AppShellPanels {
+  /** Passed in as a prop from usePlaygroundState; stored here so internal
+   * compound children (HistoryRegion, InspectorRegion) can suppress panels in
+   * fullscreen without needing prop threading. Not re-exported via
+   * useAppShellPanels — ownership stays with usePlaygroundState. */
+  isFullscreen: boolean;
   paletteOpen: boolean;
   setPaletteOpen: (open: boolean) => void;
 }
@@ -60,7 +68,6 @@ export function useAppShellPanels(): AppShellPanels {
     historyVisible,
     inspectorVisible,
     breakpoint,
-    isFullscreen,
     toggleHistory,
     toggleInspector,
     closeOverlays,
@@ -71,7 +78,6 @@ export function useAppShellPanels(): AppShellPanels {
     historyVisible,
     inspectorVisible,
     breakpoint,
-    isFullscreen,
     toggleHistory,
     toggleInspector,
     closeOverlays,

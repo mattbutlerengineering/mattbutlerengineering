@@ -13,6 +13,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { cn } from "../../utils/class-composer";
 import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -107,7 +108,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const origin = motionOrigin[placement];
 
   return (
-    <div ref={mergeRefs(ref, wrapperRef)} className={`${styles.wrapper} ${className}`}>
+    <div ref={mergeRefs(ref, wrapperRef)} className={cn(styles.wrapper, className)}>
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
       <div
         role="presentation"
@@ -130,7 +131,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         {open && (
           <motion.div
             ref={panelRef}
-            className={`${styles.panel} ${styles[placement]}`}
+            className={cn(styles.panel, styles[placement])}
             role="dialog"
             aria-label={title ?? "Popover"}
             initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}

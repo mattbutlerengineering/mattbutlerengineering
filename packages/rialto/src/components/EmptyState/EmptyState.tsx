@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./EmptyState.module.css";
 
 /* ── Default icon — empty box line-art ── */
@@ -56,14 +57,12 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function E
 ) {
   const resolvedIcon = icon === undefined ? DefaultIcon : icon;
 
-  const classes = [
+  const classes = cn(
     styles.emptyState,
-    variant === "elevated" ? styles.elevated : "",
-    size === "sm" ? styles.sm : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    variant === "elevated" && styles.elevated,
+    size === "sm" && styles.sm,
+    className
+  );
 
   return (
     <div ref={ref} className={classes} {...rest}>

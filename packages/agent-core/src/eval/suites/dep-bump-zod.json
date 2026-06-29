@@ -1,0 +1,19 @@
+{
+  "id": "dep-bump-zod",
+  "category": "dep-bump",
+  "prompt": "Bump the `zod` dependency in `packages/agent-core/package.json` to the latest patch release within the current minor. Update `pnpm-lock.yaml` accordingly (`pnpm install`). Verify `pnpm typecheck` and `pnpm test` still pass with no source changes.",
+  "fixtureRef": "fixtures/dep-bump-zod",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "Only `package.json` and `pnpm-lock.yaml` are modified — no source files.",
+      "The new zod version is a patch or minor bump, not a major version change."
+    ]
+  },
+  "budget": {
+    "maxTurns": 10,
+    "maxCostUsd": 0.1
+  }
+}

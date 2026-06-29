@@ -105,7 +105,6 @@ vi.mock("../components/AppShell.js", () => {
       historyVisible: true,
       inspectorVisible: true,
       breakpoint: "desktop",
-      isFullscreen: false,
       toggleHistory: mockToggleHistory,
       toggleInspector: mockToggleInspector,
       closeOverlays: mockCloseOverlays,
@@ -188,7 +187,95 @@ vi.mock("../components/KeyboardShortcuts.js", () => ({
   HelpButton: () => null,
 }));
 
-import { PlaygroundPage } from "./PlaygroundPage.js";
+import { PlaygroundPage, PlaygroundBody } from "./PlaygroundPage.js";
+
+describe("PlaygroundBody — 3-prop interface", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders with { state, data, onSubmit } — no individual setter props", () => {
+    const mockState = {
+      mode: "generate" as const,
+      isFullscreen: false,
+      galleryOpen: false,
+      shortcutsOpen: false,
+      enterRefinement: vi.fn(),
+      exitRefinement: vi.fn(),
+      toggleFullscreen: vi.fn(),
+      openGallery: vi.fn(),
+      closeGallery: vi.fn(),
+      toggleGallery: vi.fn(),
+      openShortcuts: vi.fn(),
+      closeShortcuts: vi.fn(),
+      toggleShortcuts: vi.fn(),
+    };
+    const mockData = {
+      specs: [],
+      isLoading: false,
+      activeId: null,
+      setActiveId: vi.fn(),
+      filter: "all" as const,
+      setFilter: vi.fn(),
+      promptRef: { current: "" },
+      spec: null,
+      isStreaming: false,
+      error: null,
+      rawLines: [],
+      stop: mockStop,
+      toggleFavorite: mockToggleFavorite,
+      deleteSpec: mockDeleteSpec,
+      toggleTheme: mockToggleTheme,
+      onSignOut: mockSignOut,
+      toast: mockToast,
+    };
+    render(<PlaygroundBody state={mockState} data={mockData} onSubmit={mockSend} />);
+    expect(screen.getByTestId("prompt-bar")).toBeDefined();
+    expect(screen.getByTestId("preview-pane")).toBeDefined();
+    expect(screen.getByTestId("json-inspector")).toBeDefined();
+  });
+
+  it("calls onSubmit when prompt is submitted", () => {
+    const onSubmit = vi.fn();
+    const mockState = {
+      mode: "generate" as const,
+      isFullscreen: false,
+      galleryOpen: false,
+      shortcutsOpen: false,
+      enterRefinement: vi.fn(),
+      exitRefinement: vi.fn(),
+      toggleFullscreen: vi.fn(),
+      openGallery: vi.fn(),
+      closeGallery: vi.fn(),
+      toggleGallery: vi.fn(),
+      openShortcuts: vi.fn(),
+      closeShortcuts: vi.fn(),
+      toggleShortcuts: vi.fn(),
+    };
+    const mockData = {
+      specs: [],
+      isLoading: false,
+      activeId: null,
+      setActiveId: vi.fn(),
+      filter: "all" as const,
+      setFilter: vi.fn(),
+      promptRef: { current: "" },
+      spec: null,
+      isStreaming: false,
+      error: null,
+      rawLines: [],
+      stop: mockStop,
+      toggleFavorite: mockToggleFavorite,
+      deleteSpec: mockDeleteSpec,
+      toggleTheme: mockToggleTheme,
+      onSignOut: mockSignOut,
+      toast: mockToast,
+    };
+    render(<PlaygroundBody state={mockState} data={mockData} onSubmit={onSubmit} />);
+    fireEvent.click(screen.getByText("Submit"));
+    expect(onSubmit).toHaveBeenCalledWith("test prompt");
+  });
+});
 
 describe("PlaygroundPage", () => {
   beforeEach(() => {

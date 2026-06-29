@@ -501,7 +501,7 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
-  <file path="scripts/character-limits.ts">
+  <file path="scripts/component-metadata.ts">
     <item priority="low">
       interface CharacterLimit {
         component: string;

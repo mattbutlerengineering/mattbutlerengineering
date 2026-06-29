@@ -85,7 +85,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
         {active && (
           <>
             <motion.div
-              className={`${styles.half} ${styles.halfLeft}`}
+              className={cn(styles.half, styles.halfLeft)}
               aria-hidden="true"
               initial={{ x: 0 }}
               animate={{ x: "-100%" }}
@@ -95,7 +95,7 @@ export const SplitScreenExit = forwardRef<HTMLDivElement, SplitScreenExitProps>(
               <div className={styles.content}>{children}</div>
             </motion.div>
             <motion.div
-              className={`${styles.half} ${styles.halfRight}`}
+              className={cn(styles.half, styles.halfRight)}
               aria-hidden="true"
               initial={{ x: 0 }}
               animate={{ x: "100%" }}

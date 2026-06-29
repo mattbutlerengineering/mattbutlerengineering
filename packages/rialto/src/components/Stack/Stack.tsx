@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ElementType } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Stack.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -79,17 +80,15 @@ export const Stack = forwardRef<HTMLElement, StackProps>(
     },
     ref
   ) => {
-    const classes = [
+    const classes = cn(
       styles.stack,
-      direction === "row" ? styles.row : "",
-      gap ? styles[gapClass[gap]] : "",
-      align ? styles[alignClass[align]] : "",
-      justify ? styles[justifyClass[justify]] : "",
-      wrap ? styles.wrap : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      direction === "row" && styles.row,
+      gap && styles[gapClass[gap]],
+      align && styles[alignClass[align]],
+      justify && styles[justifyClass[justify]],
+      wrap && styles.wrap,
+      className
+    );
 
     return (
       <Tag ref={ref} className={classes} {...props}>

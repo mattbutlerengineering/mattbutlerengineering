@@ -71,7 +71,7 @@ export function KbdPage() {
             border: "1px solid var(--rialto-border)",
           }}
         >
-          <p
+          <Text
             style={{
               fontSize: "var(--rialto-text-xs)",
               color: "var(--rialto-text-tertiary)",
@@ -81,7 +81,7 @@ export function KbdPage() {
             }}
           >
             Keyboard Shortcuts
-          </p>
+          </Text>
           <div className={styles.stack}>
             {[
               { action: "Open command palette", keys: ["⌘", "K"] },
@@ -112,28 +112,12 @@ export function KbdPage() {
 
       {/* ── Props Table (Kbd) ─────────────────────────────────────── */}
       <Section title="Kbd Props">
-        <PropsTable
-          props={[
-            {
-              name: "children",
-              type: "string",
-              description: "Key label text. Keep under 10 characters.",
-            },
-          ]}
-        />
+        <PropsTable component="Kbd" />
       </Section>
 
       {/* ── Props Table (Shortcut) ────────────────────────────────── */}
       <Section title="Shortcut Props">
-        <PropsTable
-          props={[
-            {
-              name: "keys",
-              type: "string[]",
-              description: "Ordered key sequence. Each key renders as a Kbd component.",
-            },
-          ]}
-        />
+        <PropsTable component="Shortcut" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Divider.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -31,14 +32,12 @@ export const Divider = forwardRef<HTMLDivElement, DividerProps>(
     { orientation = "horizontal", label, accent = false, spacing = "default", className = "" },
     ref
   ) => {
-    const classes = [
+    const classes = cn(
       orientation === "horizontal" ? styles.horizontal : styles.vertical,
-      accent ? styles.accent : "",
-      spacing !== "default" ? styles[spacing] : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      accent && styles.accent,
+      variantClass(styles, spacing, "default"),
+      className
+    );
 
     return (
       <div ref={ref} className={classes} role="separator" aria-orientation={orientation}>

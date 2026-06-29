@@ -1,4 +1,4 @@
-import { Card, DataList, Select, Stack, Stat } from "@mattbutlerengineering/rialto";
+import { Card, DataList, Select, Stack, Stat, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -78,7 +78,7 @@ export function StatPage() {
       {/* ── Usage Example ─────────────────────────────────────────── */}
       <Section title="Usage Example">
         <Card variant="elevated" style={{ padding: "var(--rialto-space-lg)" }}>
-          <p
+          <Text
             style={{
               fontSize: "var(--rialto-text-xs)",
               fontWeight: "var(--rialto-weight-medium)",
@@ -89,7 +89,7 @@ export function StatPage() {
             }}
           >
             Session Overview — Fiorano FP1
-          </p>
+          </Text>
           <div
             style={{
               display: "grid",
@@ -112,36 +112,7 @@ export function StatPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "value",
-              type: "string",
-              description: "Primary metric value (displayed in monospace).",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Descriptive label below the value.",
-            },
-            {
-              name: "delta",
-              type: "string",
-              description: "Change amount shown with trend arrow.",
-            },
-            {
-              name: "trend",
-              type: '"up" | "down" | "neutral"',
-              description: "Direction arrow and color: up=success, down=error, neutral=tertiary.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md" | "lg"',
-              default: '"md"',
-              description: "Visual size of the stat.",
-            },
-          ]}
-        />
+        <PropsTable component="Stat" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

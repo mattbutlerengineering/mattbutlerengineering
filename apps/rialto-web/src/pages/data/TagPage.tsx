@@ -1,4 +1,4 @@
-import { AnimatedTag, Button, DataList, Tag, TagGroup } from "@mattbutlerengineering/rialto";
+import { AnimatedTag, Button, DataList, Tag, TagGroup, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -90,7 +90,7 @@ export function TagPage() {
             border: "1px solid var(--rialto-border)",
           }}
         >
-          <p
+          <Text
             style={{
               fontSize: "var(--rialto-text-xs)",
               color: "var(--rialto-text-tertiary)",
@@ -100,7 +100,7 @@ export function TagPage() {
             }}
           >
             Active circuits
-          </p>
+          </Text>
           <TagGroup>
             <AnimatedTag id="fiorano" variant="accent" dismissible onDismiss={() => {}}>
               Fiorano
@@ -117,62 +117,12 @@ export function TagPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Tag Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"default" | "accent" | "success" | "error"',
-              default: '"default"',
-              description: "Color variant.",
-            },
-            {
-              name: "selected",
-              type: "boolean",
-              default: "false",
-              description: "Shows selected state (for filter tags).",
-            },
-            {
-              name: "dismissible",
-              type: "boolean",
-              default: "false",
-              description: "Shows a dismiss (×) button.",
-            },
-            {
-              name: "onDismiss",
-              type: "() => void",
-              description: "Called when the dismiss button is clicked.",
-            },
-            {
-              name: "onClick",
-              type: "() => void",
-              description: "Makes the tag interactive (for filter tags).",
-            },
-          ]}
-        />
+        <PropsTable component="Tag" />
       </Section>
 
       {/* ── Props Table (AnimatedTag) ─────────────────────────────── */}
       <Section title="AnimatedTag Props">
-        <PropsTable
-          props={[
-            {
-              name: "id",
-              type: "string",
-              description: "Required — used as Framer Motion layout ID for exit animation.",
-            },
-            {
-              name: "dismissible",
-              type: "boolean",
-              default: "false",
-              description: "Shows dismiss button with spring exit animation.",
-            },
-            {
-              name: "onDismiss",
-              type: "() => void",
-              description: "Called when dismissed — remove from parent state to trigger exit.",
-            },
-          ]}
-        />
+        <PropsTable component="AnimatedTag" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}
