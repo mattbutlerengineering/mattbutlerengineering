@@ -995,7 +995,7 @@
   </file>
   </section>
   <section priority="medium" role="scripts">
-  <file path="scripts/character-limits.ts">
+  <file path="scripts/component-metadata.ts">
     export interface CharacterLimit {
       component: string;
       prop: string;

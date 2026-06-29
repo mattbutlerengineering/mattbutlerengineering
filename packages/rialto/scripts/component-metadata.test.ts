@@ -1,0 +1,130 @@
+// @vitest-environment node
+/**
+ * Unit tests for the canonical component-metadata introspection module.
+ *
+ * These run against the REAL component set so they catch any drift between
+ * the introspection model and the actual Rialto barrel exports.
+ */
+import { describe, it, expect } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  introspectComponents,
+  characterLimits,
+  type ComponentMetadata,
+} from "./component-metadata.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const RIALTO_ROOT = path.resolve(__dirname, "..");
+
+// ---------------------------------------------------------------------------
+// characterLimits (moved to canonical location)
+// ---------------------------------------------------------------------------
+
+describe("characterLimits", () => {
+  it("contains Badge children limit of 20", () => {
+    const limit = characterLimits.find((l) => l.component === "Badge" && l.prop === "children");
+    expect(limit).toBeDefined();
+    expect(limit!.max).toBe(20);
+  });
+
+  it("contains Button children limit of 30", () => {
+    const limit = characterLimits.find((l) => l.component === "Button" && l.prop === "children");
+    expect(limit).toBeDefined();
+    expect(limit!.max).toBe(30);
+  });
+
+  it("has reason on every entry", () => {
+    for (const entry of characterLimits) {
+      expect(typeof entry.reason).toBe("string");
+      expect(entry.reason.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// introspectComponents — model shape
+// ---------------------------------------------------------------------------
+
+describe("introspectComponents", () => {
+  let components: ComponentMetadata[];
+
+  // Lazy-initialise once per test suite (the TS program is expensive).
+  function getComponents(): ComponentMetadata[] {
+    if (!components) {
+      components = introspectComponents(RIALTO_ROOT);
+    }
+    return components;
+  }
+
+  it("returns the same component count as registry.json", () => {
+    const registry = JSON.parse(
+      fs.readFileSync(path.join(RIALTO_ROOT, "registry.json"), "utf-8")
+    ) as { components: { name: string }[] };
+    const result = getComponents();
+    expect(result).toHaveLength(registry.components.length);
+  });
+
+  it("every component has a name and importPath", () => {
+    for (const comp of getComponents()) {
+      expect(typeof comp.name).toBe("string");
+      expect(comp.name.length).toBeGreaterThan(0);
+      expect(comp.importPath).toBe("@mattbutlerengineering/rialto");
+    }
+  });
+
+  it("components are sorted by name", () => {
+    const names = getComponents().map((c) => c.name);
+    const sorted = [...names].sort((a, b) => a.localeCompare(b));
+    expect(names).toEqual(sorted);
+  });
+
+  it("Button exists with expected shape", () => {
+    const button = getComponents().find((c) => c.name === "Button");
+    expect(button).toBeDefined();
+
+    // Button children is a slot
+    expect(button!.slots).toContain("children");
+
+    // Button has character limit on children (from characterLimits.ts)
+    const limit = button!.characterLimits.find((l) => l.prop === "children");
+    expect(limit).toBeDefined();
+    expect(limit!.max).toBe(30);
+    expect(typeof limit!.reason).toBe("string");
+
+    // Button has a variant prop
+    const variantProp = button!.props.find((p) => p.name === "variant");
+    expect(variantProp).toBeDefined();
+    expect(variantProp!.required).toBe(false);
+    // type and resolvedType are non-empty strings
+    expect(variantProp!.type.length).toBeGreaterThan(0);
+    expect(variantProp!.resolvedType.length).toBeGreaterThan(0);
+  });
+
+  it("Alert has description from JSDoc", () => {
+    const alert = getComponents().find((c) => c.name === "Alert");
+    expect(alert).toBeDefined();
+    expect(typeof alert!.description).toBe("string");
+    expect(alert!.description!.length).toBeGreaterThan(0);
+  });
+
+  it("props include declaredInRialto flag", () => {
+    // Button variant is declared in the rialto src, not inherited from HTML
+    const button = getComponents().find((c) => c.name === "Button");
+    const variantProp = button!.props.find((p) => p.name === "variant");
+    expect(variantProp!.declaredInRialto).toBe(true);
+  });
+
+  it("every characterLimitInfo has prop, max, and reason", () => {
+    for (const comp of getComponents()) {
+      for (const cl of comp.characterLimits) {
+        expect(typeof cl.prop).toBe("string");
+        expect(typeof cl.max).toBe("number");
+        expect(cl.max).toBeGreaterThan(0);
+        expect(typeof cl.reason).toBe("string");
+      }
+    }
+  });
+});
