@@ -211,7 +211,7 @@
   <section priority="medium" role="routes">
   <file path="src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
+    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
       return {
         // ── Read tools (instant, no confirmation) ──────────────
         check_availability: tool({
