@@ -244,11 +244,7 @@
   </file>
   <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
+      "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
     export interface UseFlipDotAnimationOptions {
       /** Text to render (used by typewriter, scroll, blink modes). */
       text?: string;
@@ -442,12 +438,7 @@
   </file>
   <file path="packages/rialto/src/components/TapeChart/types.ts">
     export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
+      "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
@@ -4080,10 +4071,7 @@
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
-    export function createRefinementPrompt(
-      currentSpec: Spec,
-      userInstruction: string,
-    ): string {
+    export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string {
       return (
         `Here is an existing UI spec generated from Rialto components. ` +
         `Please modify it according to the user's instruction. ` +
@@ -5878,12 +5866,7 @@
           const status = request.query.status as AgentSessionStatus | undefined;
     
           const prismaStatus = status?.toUpperCase() as
-            | "PENDING"
-            | "RUNNING"
-            | "SUCCEEDED"
-            | "FAILED"
-            | "CANCELLED"
-            | undefined;
+            "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | undefined;
     
           // Admins see all sessions; non-admins see only their own
           const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;
@@ -6454,11 +6437,7 @@
           if (reservation.guestEmail && venue) {
             const preference =
               (reservation.guest?.communicationPreference as
-                | "email_only"
-                | "sms_only"
-                | "both"
-                | "transactional_only"
-                | null) ?? "email_only";
+                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
             try {
               await fastify.notificationPort.sendBookingCancelled(
                 {
@@ -8184,11 +8163,7 @@
           if (updated.guestEmail && venue) {
             const preference =
               (updated.guest?.communicationPreference as
-                | "email_only"
-                | "sms_only"
-                | "both"
-                | "transactional_only"
-                | null) ?? "email_only";
+                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
             try {
               await fastify.notificationPort.sendBookingModified(
                 {
@@ -11762,8 +11737,7 @@
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     export type BookableError =
-      | { code: "CONFLICT"; message: string }
-      | { code: "PACING_EXCEEDED"; message: string };
+      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -11825,11 +11799,7 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      | "NOT_FOUND"
-      | "EXPIRED"
-      | "SESSION_MISMATCH"
-      | "CONFLICT"
-      | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
@@ -13247,13 +13217,7 @@
   </file>
   <file path="packages/agent-core/src/audit-surface-registry.ts">
     export type Zone =
-      | "marketing"
-      | "hospitality"
-      | "rialto"
-      | "gen"
-      | "api:users"
-      | "api:reservations"
-      | "api:agent";
+      "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     export const ZONES: readonly Zone[] = [
       "marketing",
       "hospitality",
@@ -13314,14 +13278,7 @@
   </file>
   <file path="packages/agent-core/src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="packages/agent-core/src/circuit-breaker.ts">
@@ -13510,10 +13467,7 @@
       readonly commitTitle?: string;
     }
     export type SkipReason =
-      | "empty_diff"
-      | "trivial_commit"
-      | "test_only_changes"
-      | "small_diff_tests_passed";
+      "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
   </file>
   <file path="packages/agent-core/src/event-mapper.ts">
     export interface ToolUseEvent {
@@ -14492,12 +14446,7 @@
   </file>
   <file path="packages/agent-core/src/types.ts">
     export type FailureCategory =
-      | "api_error"
-      | "rate_limited"
-      | "stuck_loop"
-      | "budget_exceeded"
-      | "tool_error"
-      | "logic_error";
+      "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
     export interface TurnMetrics {
       /** 1-based turn index within the session */
       readonly turnIndex: number;
@@ -16600,12 +16549,7 @@
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
-      | "pending"
-      | "held"
-      | "applied"
-      | "refunded"
-      | "partial_refunded"
-      | "forfeited";
+      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
   </file>
   <file path="packages/types/src/schema-compat.ts">
     interface JsonSchemaProperty {
