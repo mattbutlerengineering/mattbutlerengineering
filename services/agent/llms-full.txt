@@ -1133,7 +1133,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const status = request.query.status as AgentSessionStatus | undefined;
     
           const prismaStatus = status?.toUpperCase() as
