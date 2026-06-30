@@ -68,7 +68,7 @@ describe("all-artifacts drift: single introspectComponents() parse, all four art
   // ── 3. package.json exports map ───────────────────────────────────────────
 
   it("package.json exports map matches buildExportsMap() output", () => {
-    const desired = buildExportsMap();
+    const desired = buildExportsMap(RIALTO_ROOT);
     const currentExports = pkg.exports;
     expect(JSON.stringify(currentExports, null, 2)).toBe(JSON.stringify(desired, null, 2));
   });
