@@ -200,6 +200,14 @@
       }
     </item>
   </file>
+  <file path="src/services/prisma-session-store.ts">
+    <item priority="medium">
+      function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toStoredSession(session: AgentSession): StoredSession { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/remediation-circuit-breaker.ts">
     <item priority="high">
       interface CircuitState {

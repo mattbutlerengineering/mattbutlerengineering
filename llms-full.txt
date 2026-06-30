@@ -11595,6 +11595,35 @@
       stop(): void;
     }
   </file>
+  <file path="services/agent/src/services/prisma-session-store.ts">
+    function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
+      return status.toUpperCase() as PrismaSessionStatus;
+    }
+    function toStoredSession(session: AgentSession): StoredSession {
+      return {
+        id: session.id,
+        status: session.status,
+        taskDescription: session.taskDescription,
+        baseBranch: session.baseBranch,
+        model: session.model,
+        maxTurns: session.maxTurns,
+        maxBudgetUsd: session.maxBudgetUsd,
+        createPr: session.maxBudgetUsd > 0,
+        userId: session.userId,
+        parentId: session.parentId,
+        branchName: session.branchName,
+        prUrl: session.prUrl,
+        prNumber: session.prNumber,
+        resultText: session.resultText,
+        costUsd: session.costUsd ?? undefined,
+        inputTokens: session.inputTokens ?? undefined,
+        outputTokens: session.outputTokens ?? undefined,
+        numTurns: session.numTurns ?? undefined,
+        durationMs: session.durationMs ?? undefined,
+        errors: session.errors,
+      };
+    }
+  </file>
   <file path="services/agent/src/services/remediation-circuit-breaker.ts">
     interface CircuitState {
       consecutiveFailures: number;
@@ -13058,6 +13087,237 @@
         }
       },
     };
+  </file>
+  </section>
+  <section priority="medium" role="session-lifecycle">
+  <file path="packages/agent-core/src/session-lifecycle/in-memory-store.ts">
+    export interface InMemorySessionStore extends SessionLifecycleStore {
+      /** All events recorded for a session, in insertion order. */
+      listEvents(id: string): readonly StoredEvent[];
+    }
+    export function createInMemorySessionStore(): InMemorySessionStore {
+      const sessions = new Map<string, StoredSession>();
+      const events = new Map<string, StoredEvent[]>();
+    
+      return {
+        async create(input: CreateSessionInput): Promise<StoredSession> {
+          const session: StoredSession = {
+            id: randomUUID(),
+            status: "pending",
+            taskDescription: input.taskDescription,
+            baseBranch: input.baseBranch ?? DEFAULT_SESSION_CONFIG.baseBranch,
+            model: input.model ?? DEFAULT_SESSION_CONFIG.model,
+            maxTurns: input.maxTurns ?? DEFAULT_SESSION_CONFIG.maxTurns,
+            maxBudgetUsd: input.maxBudgetUsd ?? DEFAULT_SESSION_CONFIG.maxBudgetUsd,
+            createPr: input.createPr ?? DEFAULT_SESSION_CONFIG.createPr,
+            userId: input.userId ?? null,
+            parentId: input.parentId ?? null,
+            errors: [],
+          };
+          sessions.set(session.id, session);
+          return session;
+        },
+    
+        async getById(id: string): Promise<StoredSession | null> {
+          return sessions.get(id) ?? null;
+        },
+    
+        async updateStatus(
+          id: string,
+          status: SessionStatus,
+          patch?: SessionResultPatch
+        ): Promise<StoredSession | null> {
+          const existing = sessions.get(id);
+          if (!existing) return null;
+    
+          const updated: StoredSession = {
+            ...existing,
+            status,
+            ...(patch?.branchName !== undefined && { branchName: patch.branchName }),
+            ...(patch?.prUrl !== undefined && { prUrl: patch.prUrl }),
+            ...(patch?.prNumber !== undefined && { prNumber: patch.prNumber }),
+            ...(patch?.resultText !== undefined && { resultText: patch.resultText }),
+            ...(patch?.costUsd !== undefined && { costUsd: patch.costUsd }),
+            ...(patch?.inputTokens !== undefined && { inputTokens: patch.inputTokens }),
+            ...(patch?.outputTokens !== undefined && { outputTokens: patch.outputTokens }),
+            ...(patch?.numTurns !== undefined && { numTurns: patch.numTurns }),
+            ...(patch?.durationMs !== undefined && { durationMs: patch.durationMs }),
+            ...(patch?.errors !== undefined && { errors: [...patch.errors] }),
+            ...(patch?.sdkSessionId !== undefined && { sdkSessionId: patch.sdkSessionId }),
+          };
+          sessions.set(id, updated);
+          return updated;
+        },
+    
+        async addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void> {
+          const list = events.get(id) ?? [];
+          list.push({ type, data });
+          events.set(id, list);
+        },
+    
+        listEvents(id: string): readonly StoredEvent[] {
+          return events.get(id) ?? [];
+        },
+      };
+    }
+  </file>
+  <file path="packages/agent-core/src/session-lifecycle/orchestrator.ts">
+    export function createSessionLifecycleOrchestrator(
+      deps: SessionLifecycleDeps
+    ): SessionLifecycleOrchestrator {
+      const {
+        store,
+        resolveRepoPath,
+        runSession = defaultRunSession,
+        concurrency,
+        projectEvent = passthroughProjector,
+        allowedTools = DEFAULT_SESSION_CONFIG.allowedTools,
+        feedbackLoop,
+      } = deps;
+    
+      // AbortControllers keyed by session id — cancellation handles only. The
+      // active-slot count is owned by the injected concurrency gate, not here.
+      const activeControllers = new Map<string, AbortController>();
+    
+      function toSessionConfig(session: StoredSession): SessionConfig {
+        return {
+          taskDescription: session.taskDescription,
+          repoPath: resolveRepoPath(),
+          baseBranch: session.baseBranch,
+          model: session.model,
+          maxTurns: session.maxTurns,
+          maxBudgetUsd: session.maxBudgetUsd,
+          allowedTools: [...allowedTools],
+          createPr: session.createPr,
+          ...(feedbackLoop ? { feedbackLoop } : {}),
+        };
+      }
+    
+      async function addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void> {
+        try {
+          await store.addEvent(id, type, data);
+        } catch {
+          // Event persistence is best-effort — never fail a session over logging.
+        }
+      }
+    
+      async function create(input: CreateSessionInput): Promise<StoredSession> {
+        return store.create(input);
+      }
+    
+      async function execute(sessionId: string): Promise<SessionResult | null> {
+        const session = await store.getById(sessionId);
+        if (!session) return null;
+    
+        // Atomic check-and-reserve through the single gate (when provided).
+        if (concurrency && !concurrency.acquire(sessionId)) {
+          await store.updateStatus(sessionId, "failed", {
+            errors: [`Max concurrent sessions (${concurrency.limit}) reached`],
+          });
+          return null;
+        }
+    
+        const controller = new AbortController();
+        activeControllers.set(sessionId, controller);
+    
+        try {
+          await store.updateStatus(sessionId, "running");
+          await addEvent(sessionId, "session:start", { message: "Session execution started" });
+    
+          const onEvent = (event: SessionEvent): void => {
+            const stored = projectEvent(event);
+            if (stored) void addEvent(sessionId, stored.type, stored.data);
+          };
+    
+          const result = await runSession(toSessionConfig(session), onEvent);
+    
+          // If cancel() fired while the pipeline was running, it already wrote the
+          // terminal `cancelled` state — do not clobber it with the run result.
+          if (controller.signal.aborted) return result;
+    
+          const finalStatus = result.status === "succeeded" ? "succeeded" : "failed";
+    
+          await store.updateStatus(sessionId, finalStatus, {
+            branchName: result.branchName,
+            prUrl: result.prUrl ?? undefined,
+            resultText: result.resultText,
+            costUsd: result.costUsd,
+            inputTokens: result.tokenUsage.inputTokens,
+            outputTokens: result.tokenUsage.outputTokens,
+            numTurns: result.numTurns,
+            durationMs: result.durationMs,
+            errors: [...result.errors],
+            sdkSessionId: result.sessionId,
+          });
+    
+          await addEvent(sessionId, "session:complete", {
+            status: finalStatus,
+            costUsd: result.costUsd,
+            prUrl: result.prUrl,
+          });
+    
+          return result;
+        } catch (error) {
+          // A cancelled session already holds its terminal state — don't overwrite.
+          if (controller.signal.aborted) return null;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          await store.updateStatus(sessionId, "failed", { errors: [errorMessage] });
+          await addEvent(sessionId, "session:error", { message: errorMessage });
+          return null;
+        } finally {
+          activeControllers.delete(sessionId);
+          concurrency?.release(sessionId);
+        }
+      }
+    
+      async function cancel(sessionId: string): Promise<boolean> {
+        const controller = activeControllers.get(sessionId);
+        if (!controller) return false;
+    
+        // Mark terminal + free the slot. NOTE: runSession does not yet accept an
+        // AbortSignal, so the in-flight pipeline runs to its natural end — see the
+        // design note's cancellation-semantics section.
+        controller.abort();
+        activeControllers.delete(sessionId);
+        concurrency?.release(sessionId);
+    
+        await store.updateStatus(sessionId, "cancelled", { errors: ["Cancelled by user"] });
+        await addEvent(sessionId, "session:cancelled", { message: "Session cancelled by user" });
+    
+        return true;
+      }
+    
+      function getActiveSessionCount(): number {
+        return concurrency ? concurrency.activeCount() : activeControllers.size;
+      }
+    
+      return { create, execute, cancel, getActiveSessionCount };
+    }
+  </file>
+  <file path="packages/agent-core/src/session-lifecycle/types.ts">
+    export interface CreateSessionInput {
+      readonly taskDescription: string;
+      readonly baseBranch?: string;
+      readonly model?: string;
+      readonly maxTurns?: number;
+      readonly maxBudgetUsd?: number;
+      readonly createPr?: boolean;
+      readonly userId?: string | null;
+      readonly parentId?: string | null;
+    }
+    export interface SessionResultPatch {
+      readonly branchName?: string;
+      readonly prUrl?: string;
+      readonly prNumber?: number;
+      readonly resultText?: string;
+      readonly costUsd?: number;
+      readonly inputTokens?: number;
+      readonly outputTokens?: number;
+      readonly numTurns?: number;
+      readonly durationMs?: number;
+      readonly errors?: readonly string[];
+      readonly sdkSessionId?: string;
+    }
   </file>
   </section>
   <section priority="medium" role="src">

@@ -1320,6 +1320,35 @@
       stop(): void;
     }
   </file>
+  <file path="src/services/prisma-session-store.ts">
+    function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
+      return status.toUpperCase() as PrismaSessionStatus;
+    }
+    function toStoredSession(session: AgentSession): StoredSession {
+      return {
+        id: session.id,
+        status: session.status,
+        taskDescription: session.taskDescription,
+        baseBranch: session.baseBranch,
+        model: session.model,
+        maxTurns: session.maxTurns,
+        maxBudgetUsd: session.maxBudgetUsd,
+        createPr: session.maxBudgetUsd > 0,
+        userId: session.userId,
+        parentId: session.parentId,
+        branchName: session.branchName,
+        prUrl: session.prUrl,
+        prNumber: session.prNumber,
+        resultText: session.resultText,
+        costUsd: session.costUsd ?? undefined,
+        inputTokens: session.inputTokens ?? undefined,
+        outputTokens: session.outputTokens ?? undefined,
+        numTurns: session.numTurns ?? undefined,
+        durationMs: session.durationMs ?? undefined,
+        errors: session.errors,
+      };
+    }
+  </file>
   <file path="src/services/remediation-circuit-breaker.ts">
     interface CircuitState {
       consecutiveFailures: number;
