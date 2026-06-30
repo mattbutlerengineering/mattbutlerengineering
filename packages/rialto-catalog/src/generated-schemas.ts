@@ -118,7 +118,7 @@ export const generatedSchemas = {
     collapsed: z.boolean().optional(),
   }),
   Stack: z.object({
-    direction: z.enum(["column", "row"]).optional(),
+    direction: z.enum(["row", "column"]).optional(),
     gap: z.enum(["sm", "md", "lg", "xl", "2xs", "xs", "2xl", "3xl"]).optional(),
     align: z.enum(["start", "center", "end", "stretch", "baseline"]).optional(),
     justify: z.enum(["start", "center", "end", "between"]).optional(),
@@ -135,7 +135,7 @@ export const generatedSchemas = {
   Text: z.object({
     variant: z.enum(["body", "caption", "label", "detail", "display"]).optional(),
     color: z.enum(["success", "warning", "error", "accent", "primary", "secondary", "tertiary", "on-accent"]).optional(),
-    align: z.enum(["center", "left", "right"]).optional(),
+    align: z.enum(["right", "left", "center"]).optional(),
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
   }),
