@@ -415,7 +415,14 @@ function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
   return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
 }
 
-/** Expand union members explicitly — mirrors generate-catalog.ts resolveTypeAlias. */
+/** Byte-order comparator (NOT localeCompare) — locale-sensitive sorts diverge
+ * between macOS and Linux CI. See the #2195→#2217 Integrity-failure class. */
+const byteOrder = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Expand union members explicitly — mirrors generate-catalog.ts resolveTypeAlias.
+ * Members are sorted with the byte comparator so that enum value order in all
+ * four generated artifacts is a pure function of the enum's own members, not of
+ * TypeScript's program-order (which varies with component-set size). */
 function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
   const propType = checker.getTypeOfSymbol(prop);
 
@@ -426,11 +433,12 @@ function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
         const nested = t as ts.UnionType;
         return nested.types
           .map((nt) => checker.typeToString(nt, undefined, ts.TypeFormatFlags.NoTruncation))
+          .sort(byteOrder)
           .join(" | ");
       }
       return checker.typeToString(t, undefined, ts.TypeFormatFlags.NoTruncation);
     });
-    return memberStrings.join(" | ");
+    return memberStrings.sort(byteOrder).join(" | ");
   }
 
   return checker.typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation);
