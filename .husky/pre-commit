@@ -8,7 +8,15 @@ if command -v gitleaks >/dev/null 2>&1; then
   gitleaks protect --staged --config .gitleaks.toml --verbose
 fi
 
-# Security scanning with Semgrep
+# Security scanning with Semgrep — scan only staged files so per-commit
+# latency scales with change size, not the full repo size.
+# Try --staged first (limits the scan to the git index). Fall back to
+# --git (includes staged + unstaged dirty files) for older installs that
+# lack --staged. Either is far faster than a whole-tree scan.
 if command -v semgrep >/dev/null 2>&1; then
-  semgrep --config semgrep.yml --error
+  if semgrep --help 2>&1 | grep -q '\-\-staged'; then
+    semgrep --config semgrep.yml --error --staged
+  else
+    semgrep --config semgrep.yml --error --git
+  fi
 fi
