@@ -569,6 +569,34 @@ describe("FloorPlanEditorPage", () => {
       });
     });
 
+    it("shows inline error and keeps floor plan visible when bulk position save fails", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      mockBulkUpdatePositions.mockRejectedValue(new Error("Connection refused"));
+
+      renderPage();
+
+      // Wait for floor plan to load and canvas to appear
+      await waitFor(() => screen.getByTestId("floor-plan-canvas"));
+
+      // Trigger a table move to create a pending update
+      fireEvent.click(screen.getByTestId("canvas-table-table-a"));
+
+      // Wait for Save Changes button (hasChanges becomes true)
+      await waitFor(() => screen.getByText("Save Changes"));
+
+      // Manually trigger save
+      fireEvent.click(screen.getByText("Save Changes"));
+
+      // (a) Error must be surfaced to the user
+      await waitFor(() => {
+        expect(screen.getByText("Connection refused")).toBeDefined();
+      });
+
+      // (b) Floor plan canvas must still be visible — layout changes not silently lost
+      expect(screen.getByTestId("floor-plan-canvas")).toBeDefined();
+      expect(screen.getByTestId("canvas-table-table-a")).toBeDefined();
+    });
+
     it("shows Save Changes button text when there are pending changes", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       mockBulkUpdatePositions.mockResolvedValue(undefined);
