@@ -64,6 +64,16 @@ gh issue edit <N> --add-label "in-progress" --remove-label "ready"
 
 ## Phase 2: Implement in Parallel
 
+**Dispatch is decoupled from the merge train.** Spawning workers must NEVER wait on the merge-train lock — a long merge train for one zone should not stall picking up fresh `ready` issues. The single source of truth for "may I dispatch more workers right now?" is `canDispatchWorkers()` in `scripts/worker-dispatch.mjs`, which is gated **only** by worker capacity (`MAX_CONCURRENT_WORKERS`, default 3) and never imports or consults the merge-train lock:
+
+```js
+import { canDispatchWorkers } from "./scripts/worker-dispatch.mjs";
+
+if (canDispatchWorkers({ activeWorkers }).allowed) {
+  // dispatch the next worker — independent of any in-flight merge train
+}
+```
+
 **Resolve each issue's model first.** Per-issue routing beats a one-size model — trivial deps/docs run on haiku, complex refactors on opus-4.8:
 
 ```bash
@@ -132,25 +142,34 @@ appendTelemetryRow({
 
 ## Phase 3: Serial Merge Train
 
-Merge one PR at a time, oldest green first. **Exactly one merge train may run at a time across all sessions** — concurrent trains race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a lock, not the honor system.
+Merge one PR at a time, oldest green first. **At most one merge train may run per zone across all sessions** — concurrent trains in the same zone race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a per-zone lock, not the honor system. Non-overlapping zones (e.g. `apps/hospitality` vs `packages/rialto`) merge concurrently.
 
 ### Acquire the merge-train lock (before merging anything)
 
-The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), and fully tested. Use it via Node:
+The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), per-zone, and fully tested.
+
+**Pick the zone from the PR's changed files** with `zoneForPaths()`. A PR confined to one workspace area (`apps/<x>`, `packages/<x>`, `services/<x>`, or `root` for top-level/config/docs/scripts) locks only that zone; a cross-cutting PR (`zoneForPaths` returns `null`) takes the **global** lock (no `zone`), serializing against everything — the safe, conservative default. Passing no `zone` is 100% backward compatible with the historical single global lock.
 
 ```js
 import {
   acquireMergeTrainLock,
   releaseMergeTrainLock,
   heartbeatMergeTrainLock,
+  zoneForPaths,
 } from "./scripts/merge-train-lock.mjs";
 
-const result = acquireMergeTrainLock(); // { acquired: true } or { acquired: false, owner: <pid> }
+// changedFiles from `gh pr diff <N> --name-only`
+const zone = zoneForPaths(changedFiles); // string (per-zone) or null (global)
+const result = acquireMergeTrainLock({ zone }); // { acquired: true } or { acquired: false, owner: <pid> }
 if (!result.acquired) {
-  console.log(`merge-train lock held by PID ${result.owner} — SKIP Phase 3 this iteration.`);
-  // Do NOT run the merge train. Drop to monitor-only (report open PR state) and go to Phase 4.
+  console.log(
+    `merge-train lock for zone ${zone ?? "<global>"} held by PID ${result.owner} — SKIP this PR's zone this iteration.`
+  );
+  // Do NOT merge a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
 }
 ```
+
+Heartbeat and release with the **same `zone`** you acquired: `heartbeatMergeTrainLock({ zone })` / `releaseMergeTrainLock({ zone })`.
 
 Or as a one-liner from the shell (e.g. in a bash orchestration wrapper):
 
@@ -163,18 +182,18 @@ node -e "
 "
 ```
 
-If `acquired` is `false`, **skip the entire merge loop below** and proceed to Phase 4 in monitor-only mode (report PR state; merge nothing).
+If `acquired` is `false`, **skip merging PRs in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode.
 
-If `acquired` is `true`: call `heartbeatMergeTrainLock()` at the **start of each PR iteration** (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
+If `acquired` is `true`: call `heartbeatMergeTrainLock({ zone })` at the **start of each PR iteration** for that zone (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
 
 ```js
-releaseMergeTrainLock();
+releaseMergeTrainLock({ zone });
 ```
 
 For each green PR (lock held):
 
 1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
-2. Wait for CI (`gh pr checks <N> --watch` or poll).
+2. **Enqueue with auto-merge — do not block on CI.** Native GitHub merge queue is unavailable here (personal-account repo; `merge_queue` rulesets are org-only), so we use **auto-merge**: the final `gh pr merge --auto` (step 5) tells GitHub to complete the merge once CI Gate is green and the branch is up to date. Do **not** block the session on `gh pr checks <N> --watch`. The review gate (steps 3–4) runs now against the **static diff** — it does not need CI green.
 3. **Reviewer sub-agent (non-low-risk PRs only).** Before the specialized diff-matched reviewers, run the general-purpose Reviewer sub-agent:
 
    ```bash
@@ -207,17 +226,17 @@ For each green PR (lock held):
 
    For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
 
-5. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+5. `gh pr merge <N> --auto --squash --delete-branch` — GitHub completes the merge once CI Gate is green and the branch is up to date; the linked issue closes via `Closes #N`. The session **does not wait** — it moves to the next PR (or Phase 4). PRs that fall behind `main` after a sibling merges won't auto-merge until re-updated; the next loop iteration's step 1 (`update-branch`) catches them.
 
-**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
+**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and enqueue immediately with `gh pr merge <N> --auto --squash --delete-branch`, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
 
 If CI fails on a PR: one fix attempt in the main session (small fixes) or create a `ci-fix` issue and label the original `agent-failed`. Counts toward the circuit breaker.
 
 ## Phase 4: Loop or Stop
 
-- **Release the merge-train lock** (`releaseMergeTrainLock()` from `scripts/merge-train-lock.mjs`) before looping or stopping — if you acquired it in Phase 3. (A crash leaves it for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
+- **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - More `ready` issues and time/budget remain → back to Phase 0.
-- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock, then stop and report.
+- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /implement-queue`.
