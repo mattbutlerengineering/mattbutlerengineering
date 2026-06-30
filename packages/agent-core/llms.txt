@@ -920,10 +920,10 @@
   </file>
   <file path="src/worktree-manager.ts">
     <item priority="high">
-      export function validateGitRef(ref: string, label: string): void { /* ... */ }
+      export const INSTALL_SENTINEL_FILENAME: unknown;
     </item>
     <item priority="high">
-      export function validatePath(path: string, label: string): void { /* ... */ }
+      export function validateGitRef(ref: string, label: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/worktree-reaper.ts">

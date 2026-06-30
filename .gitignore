@@ -44,6 +44,9 @@ coverage/
 .claude/worktrees/
 .claire/worktrees/
 
+# Install sentinel written by implement-queue workers (ephemeral, never commit)
+.worktree-installed
+
 # GSD planning artifacts (internal project-management state, not for consumers)
 .planning/
 

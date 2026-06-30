@@ -21,8 +21,10 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 0. **Install dependencies** — worktrees are bare checkouts without `node_modules`:
 
    ```bash
-   pnpm install --frozen-lockfile
+   pnpm install --frozen-lockfile && touch .worktree-installed
    ```
+
+   The sentinel file `.worktree-installed` tells the verification phase that install already ran, so it can skip its own redundant install and save 20–90s per session.
 
 1. **Understand the issue** — Read the issue description carefully. Identify which files and code areas are affected. If the issue says `Depends on: #N` and #N is open, stop and report.
 
