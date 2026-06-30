@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,8 +10,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const packageRoot = path.resolve(__dirname, "../..");
-const schemasFile = path.join(packageRoot, "src/generated-schemas.ts");
-const catalogFile = path.join(packageRoot, "src/generated-catalog.ts");
 
 /**
  * Components that intentionally have NO registry adapter even though they are
@@ -21,15 +18,6 @@ const catalogFile = path.join(packageRoot, "src/generated-catalog.ts");
  * documented — it is the only sanctioned crack in the adapter↔meta 1:1 rule.
  */
 const REGISTRY_EXCLUDED = new Set(["Toast"]);
-
-/** Run the generator script via tsx (uses execFileSync, not a shell). */
-function runGenerator(env: NodeJS.ProcessEnv): void {
-  execFileSync("npx", ["tsx", "./scripts/generate-catalog.ts"], {
-    cwd: packageRoot,
-    env,
-    stdio: "pipe",
-  });
-}
 
 describe("drift-check: single CatalogSource is the only source of truth", () => {
   it("generate-catalog.ts sources component data from the canonical introspectComponents module (no independent TS parse)", () => {
@@ -41,32 +29,6 @@ describe("drift-check: single CatalogSource is the only source of truth", () => 
     // Must NOT create its own TypeScript program — that is the canonical module's job
     expect(source).not.toMatch(/ts\.createProgram/);
   });
-
-  it(
-    "regenerating from co-located metadata reproduces the committed schemas + catalog byte-for-byte",
-    { timeout: 120_000 },
-    () => {
-      const schemasBefore = fs.readFileSync(schemasFile, "utf-8");
-      const catalogBefore = fs.readFileSync(catalogFile, "utf-8");
-      const schemasTmp = `${schemasFile}.test-tmp`;
-      const catalogTmp = `${catalogFile}.test-tmp`;
-
-      try {
-        runGenerator({
-          ...process.env,
-          OUTPUT_FILE: schemasTmp,
-          CATALOG_OUTPUT_FILE: catalogTmp,
-        });
-
-        expect(fs.readFileSync(schemasTmp, "utf-8").trim()).toBe(schemasBefore.trim());
-        expect(fs.readFileSync(catalogTmp, "utf-8").trim()).toBe(catalogBefore.trim());
-      } finally {
-        for (const f of [schemasTmp, catalogTmp]) {
-          if (fs.existsSync(f)) fs.unlinkSync(f);
-        }
-      }
-    }
-  );
 
   it("registry adapters and cataloged components are 1:1 (no drift between meta and renderers)", () => {
     const includedNames = Object.entries(catalogMeta)

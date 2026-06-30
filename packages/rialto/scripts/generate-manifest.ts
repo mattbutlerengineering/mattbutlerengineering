@@ -11,6 +11,7 @@
 
 import * as path from "path";
 import * as fs from "fs";
+import { fileURLToPath } from "node:url";
 import { introspectComponents, type ComponentMetadata } from "./component-metadata.js";
 
 /* ── Types ───────────────────────────────────── */
@@ -105,4 +106,7 @@ function main() {
   console.log(`Generated manifest: ${components.length} components → ${outPath}`);
 }
 
-main();
+// Run as script, not when imported by another module (e.g. generate-all.ts).
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}
