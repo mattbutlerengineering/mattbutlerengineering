@@ -1223,13 +1223,7 @@
   </file>
   <file path="src/audit-surface-registry.ts">
     export type Zone =
-      | "marketing"
-      | "hospitality"
-      | "rialto"
-      | "gen"
-      | "api:users"
-      | "api:reservations"
-      | "api:agent";
+      "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
     export const ZONES: readonly Zone[] = [
       "marketing",
       "hospitality",
@@ -1290,14 +1284,7 @@
   </file>
   <file path="src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="src/circuit-breaker.ts">
@@ -1486,10 +1473,7 @@
       readonly commitTitle?: string;
     }
     export type SkipReason =
-      | "empty_diff"
-      | "trivial_commit"
-      | "test_only_changes"
-      | "small_diff_tests_passed";
+      "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
   </file>
   <file path="src/event-mapper.ts">
     export interface ToolUseEvent {
@@ -2468,12 +2452,7 @@
   </file>
   <file path="src/types.ts">
     export type FailureCategory =
-      | "api_error"
-      | "rate_limited"
-      | "stuck_loop"
-      | "budget_exceeded"
-      | "tool_error"
-      | "logic_error";
+      "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
     export interface TurnMetrics {
       /** 1-based turn index within the session */
       readonly turnIndex: number;
