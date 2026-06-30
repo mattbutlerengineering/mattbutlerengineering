@@ -942,6 +942,9 @@ importers:
       '@mbe/config':
         specifier: workspace:*
         version: link:../config
+      '@playwright/test':
+        specifier: ^1.61.1
+        version: 1.61.1
       '@storybook/addon-a11y':
         specifier: ^10.4.6
         version: 10.4.6(storybook@10.4.6(@testing-library/dom@10.4.0)(@types/react@19.2.17)(prettier@3.9.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))
