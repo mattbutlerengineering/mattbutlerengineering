@@ -193,7 +193,7 @@ releaseMergeTrainLock({ zone });
 For each green PR (lock held):
 
 1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
-2. Wait for CI (`gh pr checks <N> --watch` or poll).
+2. **Enqueue with auto-merge — do not block on CI.** Native GitHub merge queue is unavailable here (personal-account repo; `merge_queue` rulesets are org-only), so we use **auto-merge**: the final `gh pr merge --auto` (step 5) tells GitHub to complete the merge once CI Gate is green and the branch is up to date. Do **not** block the session on `gh pr checks <N> --watch`. The review gate (steps 3–4) runs now against the **static diff** — it does not need CI green.
 3. **Reviewer sub-agent (non-low-risk PRs only).** Before the specialized diff-matched reviewers, run the general-purpose Reviewer sub-agent:
 
    ```bash
@@ -226,9 +226,9 @@ For each green PR (lock held):
 
    For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
 
-5. `gh pr merge <N> --squash --delete-branch` — the linked issue closes via `Closes #N`.
+5. `gh pr merge <N> --auto --squash --delete-branch` — GitHub completes the merge once CI Gate is green and the branch is up to date; the linked issue closes via `Closes #N`. The session **does not wait** — it moves to the next PR (or Phase 4). PRs that fall behind `main` after a sibling merges won't auto-merge until re-updated; the next loop iteration's step 1 (`update-branch`) catches them.
 
-**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and merge immediately on green, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
+**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and enqueue immediately with `gh pr merge <N> --auto --squash --delete-branch`, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
 
 If CI fails on a PR: one fix attempt in the main session (small fixes) or create a `ci-fix` issue and label the original `agent-failed`. Counts toward the circuit breaker.
 
