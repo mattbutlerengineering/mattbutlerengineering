@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { introspectComponents } from "./component-metadata.js";
 import { buildRegistry } from "./generate-registry.js";
 import { buildManifest } from "./generate-manifest.js";
-import { buildExportsMap } from "./generate-exports.js";
+import { buildExportsMap, writeStylesTypeStub } from "./generate-exports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +52,10 @@ function main(): void {
 
   // ── package.json exports ───────────────────────────────────────────────────
   // buildExportsMap(rootDir) derives lib entries from src/components/.
+  // The ./styles subpath points at a dist/lib/styles.d.ts stub that vite does
+  // not emit (no styles.ts source) — write it here so consumers' typecheck can
+  // resolve the side-effect CSS import. (Previously done by `pnpm exports`.)
+  writeStylesTypeStub(rootDir);
   const exportsMap = buildExportsMap(rootDir);
   const pkgFull = JSON.parse(
     fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")

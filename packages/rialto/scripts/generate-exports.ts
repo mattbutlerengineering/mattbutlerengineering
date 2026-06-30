@@ -101,7 +101,7 @@ export function buildExportsMap(rootDir: string): ExportsMap {
   return exportsMap;
 }
 
-function writeStylesTypeStub(rootDir: string): void {
+export function writeStylesTypeStub(rootDir: string): void {
   const stubPath = path.join(rootDir, "dist", "lib", "styles.d.ts");
   if (!fs.existsSync(path.dirname(stubPath))) return;
   fs.writeFileSync(stubPath, "// Side-effect-only CSS bundle — no exported symbols.\nexport {};\n");

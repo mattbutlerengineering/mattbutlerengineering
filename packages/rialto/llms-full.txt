@@ -1328,6 +1328,10 @@
     
       // ── package.json exports ───────────────────────────────────────────────────
       // buildExportsMap(rootDir) derives lib entries from src/components/.
+      // The ./styles subpath points at a dist/lib/styles.d.ts stub that vite does
+      // not emit (no styles.ts source) — write it here so consumers' typecheck can
+      // resolve the side-effect CSS import. (Previously done by `pnpm exports`.)
+      writeStylesTypeStub(rootDir);
       const exportsMap = buildExportsMap(rootDir);
       const pkgFull = JSON.parse(
         fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")
