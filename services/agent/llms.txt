@@ -33,7 +33,7 @@
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
     <item priority="high">
-      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) { /* ... */ }
+      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="src/routes/gen-agent.ts">

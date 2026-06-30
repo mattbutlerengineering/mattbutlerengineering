@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 // eslint-disable-next-line no-restricted-imports -- agent tools call reservation API on behalf of user
@@ -6,7 +7,7 @@ import type { createApiClient } from "@mbe/api-client";
 
 type ApiClient = ReturnType<typeof createApiClient>;
 
-export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
+export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
   return {
     // ── Read tools (instant, no confirmation) ──────────────
     check_availability: tool({
