@@ -12,11 +12,12 @@ test.describe("CF-2: Dashboard morning load", () => {
   test("stats widgets render with mocked data", async ({ mockedPage }) => {
     await mockedPage.goto("dashboard");
 
-    // All four Stat widgets defined in HomePage
-    await expect(mockedPage.getByRole("heading", { name: "Today's Reservations" })).toBeVisible();
-    await expect(mockedPage.getByRole("heading", { name: "Expected Covers" })).toBeVisible();
-    await expect(mockedPage.getByRole("heading", { name: "Upcoming (2 hrs)" })).toBeVisible();
-    await expect(mockedPage.getByRole("heading", { name: "Cancellation Rate" })).toBeVisible();
+    // All four Stat widgets defined in HomePage. Rialto's Stat renders
+    // role="group" with aria-label={label} (not a heading), so query by group.
+    await expect(mockedPage.getByRole("group", { name: "Today's Reservations" })).toBeVisible();
+    await expect(mockedPage.getByRole("group", { name: "Expected Covers" })).toBeVisible();
+    await expect(mockedPage.getByRole("group", { name: "Upcoming (2 hrs)" })).toBeVisible();
+    await expect(mockedPage.getByRole("group", { name: "Cancellation Rate" })).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-stats.png", fullPage: true });
   });
 
