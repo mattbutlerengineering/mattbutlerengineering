@@ -230,11 +230,7 @@
   </file>
   <file path="src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
+      "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
     export interface UseFlipDotAnimationOptions {
       /** Text to render (used by typewriter, scroll, blink modes). */
       text?: string;
@@ -428,12 +424,7 @@
   </file>
   <file path="src/components/TapeChart/types.ts">
     export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
+      "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
@@ -1303,6 +1294,49 @@
         reason: "Step description; sits below label",
       },
     ];
+  </file>
+  <file path="scripts/generate-all.ts">
+    function main(): void {
+      const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
+        version: string;
+      };
+    
+      // Single parse — shared by every generator that needs component metadata.
+      const components = introspectComponents(rootDir);
+    
+      // ── registry.json ──────────────────────────────────────────────────────────
+      const registry = buildRegistry(components, pkg.version);
+      const registryPath = path.join(rootDir, "registry.json");
+      fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + "\n");
+      console.log(`Generated registry: ${components.length} components → ${registryPath}`);
+    
+      // ── dist/manifest.json ─────────────────────────────────────────────────────
+      const manifestPath = path.join(rootDir, "dist/manifest.json");
+      fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+      const manifest = buildManifest(components, pkg.version, new Date().toISOString());
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      console.log(`Generated manifest: ${components.length} components → ${manifestPath}`);
+    
+      // ── package.json exports ───────────────────────────────────────────────────
+      // buildExportsMap() reads src/components/ to derive lib entries — no TS parse.
+      const exportsMap = buildExportsMap();
+      const pkgFull = JSON.parse(
+        fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")
+      ) as Record<string, unknown>;
+    
+      const currentExports = JSON.stringify(pkgFull.exports, null, 2);
+      const desiredExports = JSON.stringify(exportsMap, null, 2);
+    
+      if (currentExports !== desiredExports) {
+        pkgFull.exports = exportsMap;
+        fs.writeFileSync(path.join(rootDir, "package.json"), JSON.stringify(pkgFull, null, 2) + "\n");
+        console.log(
+          `[generate-all] wrote ${Object.keys(exportsMap).length} export entries to package.json`
+        );
+      } else {
+        console.log("[generate-all] exports map already in sync.");
+      }
+    }
   </file>
   <file path="scripts/generate-exports.ts">
     interface ExportEntry {

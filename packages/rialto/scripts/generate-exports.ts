@@ -28,7 +28,7 @@ interface ExportEntry {
 
 type ExportsMap = Record<string, string | ExportEntry>;
 
-function buildExportsMap(): ExportsMap {
+export function buildExportsMap(): ExportsMap {
   const exportsMap: ExportsMap = {};
 
   for (const entry of libEntries) {
@@ -110,4 +110,7 @@ function main(): void {
   );
 }
 
-main();
+// Run as script, not when imported by another module (e.g. generate-all.ts).
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}
