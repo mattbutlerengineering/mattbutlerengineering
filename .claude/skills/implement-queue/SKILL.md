@@ -140,11 +140,62 @@ appendTelemetryRow({
 - Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; the `queueEfficiency` sensor reconciles them from GitHub in its next run.
 - `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
 
+### Worker→train boundary (per PR, after CI green)
+
+Once a worker opens a PR, the orchestrator waits for PR-level CI then gates before enqueue. **This is the last safety layer before GitHub auto-merges** — a PR enqueued with `--auto` merges the moment CI Gate is green, with no further gate.
+
+For each PR opened by a worker (can overlap with remaining workers completing):
+
+1. **Wait for PR-level CI green.** Poll until CI Gate passes:
+
+   ```bash
+   gh pr checks <N> --watch
+   ```
+
+2. **Low-risk fast path.** If ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip review and enqueue immediately:
+
+   ```bash
+   gh pr merge <N> --auto --squash --delete-branch
+   ```
+
+   (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.) Move to the next PR.
+
+3. **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:
+
+   ```bash
+   gh pr diff <N>              # → diff for ReviewInput
+   gh pr diff <N> --name-only  # → changedFiles for ReviewInput
+   ```
+
+   Dispatch via Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
+   model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
+
+   The Reviewer's prompt MUST include:
+   - The full [Reviewer Contract](./.claude/skills/implement-queue/REVIEWER_CONTRACT.md)
+   - The serialised `ReviewInput` (diff, verification output, task description,
+     acceptance criteria, changed files, commit message)
+
+   **On timeout/error:** log warning, proceed to enqueue (fail-open).
+
+4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
+
+5. **On all-pass verdict:** enqueue:
+
+   ```bash
+   gh pr merge <N> --auto --squash --delete-branch
+   ```
+
+   GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3).
+
+6. **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](./.claude/skills/implement-queue/REVIEWER_CONTRACT.md) for the full policy.
+
+   **Manual verification path (after `needs-review`):** the Reviewer's full output is in the PR comment. A human (or a new agent session pointed at the issue) reads the flagged issues, fixes the code, pushes to the branch, and manually enqueues with `gh pr merge <N> --auto --squash --delete-branch` once satisfied.
+
 ## Phase 3: Serial Merge Train
 
-Merge one PR at a time, oldest green first. **At most one merge train may run per zone across all sessions** — concurrent trains in the same zone race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a per-zone lock, not the honor system. Non-overlapping zones (e.g. `apps/hospitality` vs `packages/rialto`) merge concurrently.
+PRs are pre-enqueued (with `--auto`) in Phase 2 after the review gate passes. Phase 3 **unsticks stragglers** — PRs that fell behind `main` after a sibling merged (GitHub will not auto-merge an out-of-date branch). **At most one update-branch may run per zone across all sessions** — concurrent branch-updates in the same zone can collide. This is enforced by a per-zone lock, not the honor system. Non-overlapping zones (e.g. `apps/hospitality` vs `packages/rialto`) update concurrently.
 
-### Acquire the merge-train lock (before merging anything)
+### Acquire the merge-train lock (before updating branches)
 
 The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), per-zone, and fully tested.
 
@@ -165,7 +216,7 @@ if (!result.acquired) {
   console.log(
     `merge-train lock for zone ${zone ?? "<global>"} held by PID ${result.owner} — SKIP this PR's zone this iteration.`
   );
-  // Do NOT merge a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
+  // Do NOT update-branch a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
 }
 ```
 
@@ -182,7 +233,7 @@ node -e "
 "
 ```
 
-If `acquired` is `false`, **skip merging PRs in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode.
+If `acquired` is `false`, **skip updating branches in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode.
 
 If `acquired` is `true`: call `heartbeatMergeTrainLock({ zone })` at the **start of each PR iteration** for that zone (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
 
@@ -190,47 +241,13 @@ If `acquired` is `true`: call `heartbeatMergeTrainLock({ zone })` at the **start
 releaseMergeTrainLock({ zone });
 ```
 
-For each green PR (lock held):
+For each enqueued PR that is behind `main` (lock held):
 
-1. **If behind main:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
-2. **Enqueue with auto-merge — do not block on CI.** Native GitHub merge queue is unavailable here (personal-account repo; `merge_queue` rulesets are org-only), so we use **auto-merge**: the final `gh pr merge --auto` (step 5) tells GitHub to complete the merge once CI Gate is green and the branch is up to date. Do **not** block the session on `gh pr checks <N> --watch`. The review gate (steps 3–4) runs now against the **static diff** — it does not need CI green.
-3. **Reviewer sub-agent (non-low-risk PRs only).** Before the specialized diff-matched reviewers, run the general-purpose Reviewer sub-agent:
+1. **Update branch:** `gh pr update-branch <N>` — **unless `package.json` changed on either side**. In that case update-branch can desync `pnpm-lock.yaml` and break main post-merge; instead rebase the branch locally, run `pnpm install --lockfile-only`, commit, push.
 
-   ```bash
-   gh pr diff <N>   # → diff for ReviewInput
-   gh pr diff <N> --name-only   # → changedFiles for ReviewInput
-   ```
+The PR re-enters GitHub's auto-merge flow and merges once CI Gate is green on the updated branch.
 
-   Build a `ReviewInput` from the worker output and dispatch the Reviewer
-   via the Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
-   model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
-
-   The Reviewer's prompt MUST include:
-   - The full [Reviewer Contract](../.claude/skills/implement-queue/REVIEWER_CONTRACT.md)
-   - The serialised `ReviewInput` (diff, verification output, task description,
-     acceptance criteria, changed files, commit message)
-
-   **On `"flag"` verdict:** apply the retry policy (see contract — default:
-   one retry, then file issue). Label the linked issue accordingly and
-   **do not merge this PR** — move to the next PR in the train.
-
-   **On timeout/error:** log warning, proceed to merge (fail-open).
-
-   After the Reviewer passes, proceed to the specialized reviewers.
-
-4. **Diff-matched specialized review gate.** Compute the reviewers for the diff:
-
-   ```bash
-   gh pr diff <N> --name-only   # → reviewersForDiff() in @mbe/agent-core maps these to reviewer agents
-   ```
-
-   For each returned reviewer (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch it via the Agent tool with that `subagent_type` against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A reviewer `block` verdict holds the PR:** label the linked issue `needs-review`, skip the merge, move to the next PR. Most PRs match 0–1 reviewers.
-
-5. `gh pr merge <N> --auto --squash --delete-branch` — GitHub completes the merge once CI Gate is green and the branch is up to date; the linked issue closes via `Closes #N`. The session **does not wait** — it moves to the next PR (or Phase 4). PRs that fall behind `main` after a sibling merges won't auto-merge until re-updated; the next loop iteration's step 1 (`update-branch`) catches them.
-
-**Low-risk fast path:** if ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip the review gate and enqueue immediately with `gh pr merge <N> --auto --squash --delete-branch`, even mid-batch. (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.)
-
-If CI fails on a PR: one fix attempt in the main session (small fixes) or create a `ci-fix` issue and label the original `agent-failed`. Counts toward the circuit breaker.
+If CI fails on the updated branch: one fix attempt in the main session (small fixes) or create a `ci-fix` issue and label the original `agent-failed`. Counts toward the circuit breaker.
 
 ## Phase 4: Loop or Stop
 
