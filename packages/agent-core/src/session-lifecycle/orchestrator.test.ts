@@ -149,9 +149,11 @@ describe("SessionLifecycleOrchestrator", () => {
   });
 
   it("cancel aborts a running session and transitions to cancelled", async () => {
+    let entered = false;
     let resolveRun: (() => void) | undefined;
     const runSession: RunSessionFn = (_config) =>
       new Promise<SessionResult>((resolve) => {
+        entered = true;
         resolveRun = () => resolve(buildResult());
       });
 
@@ -164,8 +166,11 @@ describe("SessionLifecycleOrchestrator", () => {
 
     const session = await orchestrator.create({ taskDescription: "task" });
     const exec = orchestrator.execute(session.id);
-    // allow execute to reach the running state
-    await new Promise((r) => setTimeout(r, 0));
+    // Yield until the pipeline is running (controller registered) — microtask
+    // loop, immune to timer starvation under parallel load.
+    while (!entered) {
+      await Promise.resolve();
+    }
 
     const cancelled = await orchestrator.cancel(session.id);
     resolveRun?.();
