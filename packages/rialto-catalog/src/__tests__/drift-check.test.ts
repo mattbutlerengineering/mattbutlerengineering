@@ -32,6 +32,16 @@ function runGenerator(env: NodeJS.ProcessEnv): void {
 }
 
 describe("drift-check: single CatalogSource is the only source of truth", () => {
+  it("generate-catalog.ts sources component data from the canonical introspectComponents module (no independent TS parse)", () => {
+    const scriptPath = path.join(packageRoot, "scripts/generate-catalog.ts");
+    const source = fs.readFileSync(scriptPath, "utf-8");
+    // Must import the canonical model
+    expect(source).toMatch(/introspectComponents/);
+    expect(source).toMatch(/component-metadata/);
+    // Must NOT create its own TypeScript program — that is the canonical module's job
+    expect(source).not.toMatch(/ts\.createProgram/);
+  });
+
   it(
     "regenerating from co-located metadata reproduces the committed schemas + catalog byte-for-byte",
     { timeout: 120_000 },
