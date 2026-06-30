@@ -227,6 +227,33 @@ Notes:
    in-memory store, so CLI and API share the exact code path; the returned
    `SessionResult` keeps the CLI's rich console output intact.
 
+## Implementation status (this PR)
+
+This is a **draft PR for design validation** — the human reviewer is asked to
+validate the interface above **before** the remaining wiring lands.
+
+- ✅ **Step 1 — agent-core** (done): `session-lifecycle/` module
+  (`types.ts`, `in-memory-store.ts`, `orchestrator.ts`) + a lifecycle test suite
+  against the in-memory store (create, execute, cancel, fail, feedback-event
+  forwarding, complete). Exported from the package index.
+- ✅ **Step 2 — services/agent** (done): `prisma-session-store.ts` implements
+  the seam against `sessionService`; `session-executor.ts` is now a thin
+  construction of the shared orchestrator (injected `runSession` +
+  `defaultConcurrency` + the `mapForStorage` projector) and keeps its exported
+  `executeSession` / `cancelSession` / `getActiveSessionCount` surface, so
+  routes and the liveness monitor are untouched. The API session lifecycle now
+  runs entirely through the orchestrator.
+- ⏳ **Step 3 — CLI** (deferred, pending interface approval): `mbe agent run`
+  already shares the real execution unit (`runSession`); routing the stateless
+  CLI through an in-memory orchestrator changes error-propagation semantics
+  (`execute` records a terminal event and returns `null` instead of throwing)
+  and is best decided once the interface is validated.
+- ⏳ **`routes/orchestrate.ts`** (deferred): the orchestration parent runs a
+  **different** execution unit (`runOrchestrator`, a meta-agent), not
+  `runSession`. Consolidating it requires generalizing the orchestrator's
+  execution unit — a design decision for the reviewer to weigh against the
+  current `runSession`-shaped seam.
+
 ## Reviewer questions
 
 Please validate **before** approving the implementation:
