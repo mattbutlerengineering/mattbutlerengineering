@@ -108,6 +108,16 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 
 ---
 
+## Domain Language
+
+Core concepts are defined in the canonical glossary:
+[`docs/domain/ubiquitous-language.md`](docs/domain/ubiquitous-language.md)
+
+When naming a symbol or writing docs, check the glossary first.
+Synonyms listed there as "avoid" must not appear in code or API responses.
+
+---
+
 ## Architecture & Conventions
 
 ### Routing & URLs
