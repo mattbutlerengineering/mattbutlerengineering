@@ -142,6 +142,43 @@ export const FAMILIES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Regen-gating: source paths that trigger full regen vs. --check fast path
+// ---------------------------------------------------------------------------
+
+/**
+ * Path prefixes: a changed file starting with any of these may affect one or
+ * more generated artifact families and therefore requires `pnpm regen` (full).
+ * Used by scripts/check-regen-needed.mjs to gate the regen step in the
+ * implement-queue worker.
+ *
+ * Mirrors the workspace directories read by `mbe pack` (llms-txt) and the
+ * package.json paths read by the dep-graph generators.
+ */
+export const REGEN_SOURCE_PREFIXES = [
+  "apps/",
+  "packages/",
+  "services/",
+  "tools/",
+  "pnpm-workspace.yaml",
+];
+
+/**
+ * Exclusion patterns: paths that match a REGEN_SOURCE_PREFIX but should NOT
+ * trigger full regen. Mirrors the `ignore` list in `mbe pack`
+ * (tools/cli/src/commands/pack.ts) so the gating decision stays in sync with
+ * what the generator actually reads.
+ */
+export const REGEN_SOURCE_EXCLUDES = [
+  /\.test\.[cm]?[jt]sx?$/,
+  /\.spec\.[cm]?[jt]sx?$/,
+  /\/dist\//,
+  /\/generated\//,
+  /\/node_modules\//,
+  /vitest\.config\.[cm]?[jt]sx?$/,
+  /llms(?:-full)?\.txt$/,
+];
+
+// ---------------------------------------------------------------------------
 // llms.txt packages — derived from the manifest outputs list
 // ---------------------------------------------------------------------------
 

@@ -10,6 +10,9 @@ const execFileAsync = promisify(execFile);
 
 const WORKTREE_DIR = ".agent-worktrees";
 
+/** Written by the worker after a successful `pnpm install --frozen-lockfile`. */
+export const INSTALL_SENTINEL_FILENAME = ".worktree-installed";
+
 // ── Input validation ─────────────────────────────────────────────────────────
 // Defence-in-depth: although execFile avoids shell injection, we validate
 // inputs to prevent git argument injection (e.g. branch names starting with
@@ -205,9 +208,14 @@ export interface VerificationResult {
 
 /**
  * Ensure pnpm-lock.yaml is in sync with any package.json changes.
+ * Skips the install entirely when the worker already installed successfully
+ * (indicated by the `.worktree-installed` sentinel at the worktree root).
  * If out of sync, runs `pnpm install` and amends the commit to include the lockfile.
  */
-async function syncLockfileIfNeeded(worktreePath: string): Promise<void> {
+export async function syncLockfileIfNeeded(worktreePath: string): Promise<void> {
+  if (existsSync(join(worktreePath, INSTALL_SENTINEL_FILENAME))) {
+    return;
+  }
   try {
     await execFileAsync("pnpm", ["install", "--frozen-lockfile"], {
       cwd: worktreePath,

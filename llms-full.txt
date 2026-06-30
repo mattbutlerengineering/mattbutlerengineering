@@ -14533,17 +14533,11 @@
     }
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
+    export const INSTALL_SENTINEL_FILENAME = ".worktree-installed";
     export function validateGitRef(ref: string, label: string): void {
       if (!ref || !SAFE_GIT_REF.test(ref)) {
         throw new Error(
           `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
-        );
-      }
-    }
-    export function validatePath(path: string, label: string): void {
-      if (!path || UNSAFE_PATH_CHARS.test(path)) {
-        throw new Error(
-          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
         );
       }
     }
