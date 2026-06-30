@@ -6,20 +6,33 @@
  * duplicate-fixing the same branch. The lock lives inside the git
  * common dir so it is shared across all worktrees of the same repo.
  *
+ * Per-zone locking: pass a `zone` to scope the lock to one workspace area
+ * (e.g. `apps/hospitality`, `packages/rialto`). Non-overlapping zones acquire
+ * concurrently; same-zone acquires serialize. With NO `zone` the behavior is
+ * identical to the historical single global lock (`mbe-merge-train.lock`), so
+ * every existing caller is 100% backward compatible.
+ *
  * Public API:
  *   acquireMergeTrainLock(opts?)  → { acquired: true } | { acquired: false, owner: number }
  *   releaseMergeTrainLock(opts?)  → void
  *   heartbeatMergeTrainLock(opts?) → void
  *   defaultLockDir()               → string  (git common dir path)
+ *   zoneForPaths(paths)            → string | null  (deterministic zone derivation)
+ *   lockNameForZone(zone?)         → string  (lockfile name for a zone)
  *
  * Options (all optional, primarily for testing):
  *   lockDir   {string}   — directory that contains the lock sub-dir (default: git common dir)
+ *   zone      {string}   — workspace zone to scope the lock to (default: global lock)
  *   isPidAlive {fn}      — (pid: number) => boolean  injectable liveness check
  *   staleMs   {number}   — staleness window in ms (default: 45 minutes)
  *
- * Lock layout:
+ * Lock layout (global):
  *   <lockDir>/mbe-merge-train.lock/   ← atomic mkdir creates this
  *   <lockDir>/mbe-merge-train.lock/pid  ← owner PID as a decimal string
+ *
+ * Lock layout (zoned, e.g. zone "apps/hospitality"):
+ *   <lockDir>/mbe-merge-train.apps__hospitality.lock/
+ *   <lockDir>/mbe-merge-train.apps__hospitality.lock/pid
  *
  * Staleness reclaim: if the lock directory mtime is older than staleMs
  * OR the PID recorded in the pid file is no longer alive, the lock is
@@ -38,6 +51,69 @@ import { execFileSync } from "node:child_process";
 
 const LOCK_NAME = "mbe-merge-train.lock";
 const DEFAULT_STALE_MS = 45 * 60 * 1000; // 45 minutes
+
+// Top-level workspace roots that define a "zone". A changed file under one of
+// these (e.g. apps/hospitality/...) belongs to the `<root>/<name>` zone.
+const WORKSPACE_ROOTS = ["apps", "packages", "services"];
+
+// Zone used for any changed file that is NOT under a workspace root
+// (top-level config, docs/**, scripts/**, infrastructure/**, etc.).
+const ROOT_ZONE = "root";
+
+// ---------------------------------------------------------------------------
+// Zone derivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps a single changed file path to its zone.
+ * `apps/<x>/...` → `apps/<x>`; same for packages/services. Everything else → "root".
+ *
+ * @param {string} filePath — repo-relative changed path (POSIX separators)
+ * @returns {string}
+ */
+function zoneForPath(filePath) {
+  const segments = filePath.split("/");
+  if (segments.length >= 2 && WORKSPACE_ROOTS.includes(segments[0])) {
+    return `${segments[0]}/${segments[1]}`;
+  }
+  return ROOT_ZONE;
+}
+
+/**
+ * Derives a single zone for a changeset.
+ *
+ * - All files map to the same zone  → that zone (per-zone lock).
+ * - Files span multiple zones, or the changeset is empty → null.
+ *
+ * A `null` result means the caller should fall back to the GLOBAL lock
+ * (no `zone`), which serializes against every other train — the safe,
+ * conservative choice for a cross-cutting PR.
+ *
+ * @param {string[]} paths — repo-relative changed paths
+ * @returns {string | null}
+ */
+function zoneForPaths(paths) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    return null;
+  }
+  const zones = new Set(paths.map(zoneForPath));
+  return zones.size === 1 ? [...zones][0] : null;
+}
+
+/**
+ * Returns the lockfile directory name for a zone.
+ * No zone (null/undefined) → the historical global name (backward compatible).
+ *
+ * @param {string | null} [zone]
+ * @returns {string}
+ */
+function lockNameForZone(zone) {
+  if (!zone) {
+    return LOCK_NAME;
+  }
+  const safe = zone.replace(/[^a-zA-Z0-9._-]/g, "__");
+  return `mbe-merge-train.${safe}.lock`;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,6 +198,7 @@ function removeLock(lockPath) {
  *
  * @param {object} [opts]
  * @param {string} [opts.lockDir]      — directory containing the lock (default: git common dir)
+ * @param {string} [opts.zone]         — workspace zone to scope the lock to (default: global lock)
  * @param {function} [opts.isPidAlive] — (pid: number) => boolean  (default: signal-0 check)
  * @param {number} [opts.staleMs]      — staleness window in ms (default: 45 min)
  * @returns {{ acquired: true } | { acquired: false, owner: number }}
@@ -131,7 +208,7 @@ function acquireMergeTrainLock(opts = {}) {
   const isPidAlive = opts.isPidAlive ?? defaultIsPidAlive;
   const staleMs = opts.staleMs ?? DEFAULT_STALE_MS;
 
-  const lockPath = path.join(lockDir, LOCK_NAME);
+  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
 
   // Fast path: atomic mkdir succeeds → we own the lock.
   try {
@@ -165,10 +242,11 @@ function acquireMergeTrainLock(opts = {}) {
  *
  * @param {object} [opts]
  * @param {string} [opts.lockDir] — directory containing the lock (default: git common dir)
+ * @param {string} [opts.zone]    — workspace zone scoping the lock (default: global lock)
  */
 function releaseMergeTrainLock(opts = {}) {
   const lockDir = opts.lockDir ?? defaultLockDir();
-  const lockPath = path.join(lockDir, LOCK_NAME);
+  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
   removeLock(lockPath);
 }
 
@@ -179,10 +257,11 @@ function releaseMergeTrainLock(opts = {}) {
  *
  * @param {object} [opts]
  * @param {string} [opts.lockDir] — directory containing the lock (default: git common dir)
+ * @param {string} [opts.zone]    — workspace zone scoping the lock (default: global lock)
  */
 function heartbeatMergeTrainLock(opts = {}) {
   const lockDir = opts.lockDir ?? defaultLockDir();
-  const lockPath = path.join(lockDir, LOCK_NAME);
+  const lockPath = path.join(lockDir, lockNameForZone(opts.zone));
   try {
     const now = new Date();
     fs.utimesSync(lockPath, now, now);
@@ -191,4 +270,12 @@ function heartbeatMergeTrainLock(opts = {}) {
   }
 }
 
-export { acquireMergeTrainLock, releaseMergeTrainLock, heartbeatMergeTrainLock, defaultLockDir };
+export {
+  acquireMergeTrainLock,
+  releaseMergeTrainLock,
+  heartbeatMergeTrainLock,
+  defaultLockDir,
+  zoneForPath,
+  zoneForPaths,
+  lockNameForZone,
+};

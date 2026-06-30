@@ -143,4 +143,141 @@ describe("merge-train-lock", () => {
       expect(() => heartbeatMergeTrainLock({ lockDir: tmpDir })).not.toThrow();
     });
   });
+
+  // ── zone derivation ─────────────────────────────────────────────────────────
+
+  describe("zoneForPaths", () => {
+    test("derives apps/<x> zone from a changed path", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths(["apps/hospitality/src/foo.ts"])).toBe("apps/hospitality");
+    });
+
+    test("derives packages/<x> and services/<x> zones", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths(["packages/rialto/src/Button.tsx"])).toBe("packages/rialto");
+      expect(zoneForPaths(["services/reservations/src/app.ts"])).toBe("services/reservations");
+    });
+
+    test("maps top-level / non-workspace files to the 'root' zone", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths(["package.json"])).toBe("root");
+      expect(zoneForPaths(["docs/architecture/x.md", "scripts/foo.mjs"])).toBe("root");
+    });
+
+    test("returns null (→ global lock) when files span multiple zones", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths(["apps/hospitality/src/a.ts", "packages/rialto/src/b.ts"])).toBeNull();
+    });
+
+    test("returns null for an empty changeset", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths([])).toBeNull();
+    });
+  });
+
+  describe("lockNameForZone", () => {
+    test("uses the global lock name when zone is null/undefined (backward compat)", async () => {
+      const { lockNameForZone } = await import("../merge-train-lock.mjs");
+      expect(lockNameForZone()).toBe("mbe-merge-train.lock");
+      expect(lockNameForZone(null)).toBe("mbe-merge-train.lock");
+    });
+
+    test("derives a filesystem-safe per-zone lock name", async () => {
+      const { lockNameForZone } = await import("../merge-train-lock.mjs");
+      expect(lockNameForZone("apps/hospitality")).toBe("mbe-merge-train.apps__hospitality.lock");
+    });
+  });
+
+  // ── per-zone locking ────────────────────────────────────────────────────────
+
+  describe("per-zone locking", () => {
+    test("two different zones acquire concurrently (both succeed)", async () => {
+      const { acquireMergeTrainLock } = await import("../merge-train-lock.mjs");
+
+      const a = acquireMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+      const b = acquireMergeTrainLock({ lockDir: tmpDir, zone: "packages/rialto" });
+
+      expect(a.acquired).toBe(true);
+      expect(b.acquired).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, "mbe-merge-train.apps__hospitality.lock"))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, "mbe-merge-train.packages__rialto.lock"))).toBe(true);
+    });
+
+    test("same zone serializes — second acquire is blocked while first holds", async () => {
+      const { acquireMergeTrainLock } = await import("../merge-train-lock.mjs");
+
+      const first = acquireMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+      const second = acquireMergeTrainLock({
+        lockDir: tmpDir,
+        zone: "apps/hospitality",
+        isPidAlive: () => true,
+      });
+
+      expect(first.acquired).toBe(true);
+      expect(second.acquired).toBe(false);
+      expect(second.owner).toBe(process.pid);
+    });
+
+    test("zoned lock does not collide with the global lock", async () => {
+      const { acquireMergeTrainLock } = await import("../merge-train-lock.mjs");
+
+      const global = acquireMergeTrainLock({ lockDir: tmpDir });
+      const zoned = acquireMergeTrainLock({
+        lockDir: tmpDir,
+        zone: "apps/hospitality",
+        isPidAlive: () => true,
+      });
+
+      expect(global.acquired).toBe(true);
+      expect(zoned.acquired).toBe(true);
+    });
+
+    test("stale reclaim works per zone (dead owner)", async () => {
+      const { acquireMergeTrainLock } = await import("../merge-train-lock.mjs");
+
+      const lockPath = path.join(tmpDir, "mbe-merge-train.apps__hospitality.lock");
+      fs.mkdirSync(lockPath);
+      fs.writeFileSync(path.join(lockPath, "pid"), "999999999");
+
+      const result = acquireMergeTrainLock({
+        lockDir: tmpDir,
+        zone: "apps/hospitality",
+        isPidAlive: () => false,
+      });
+
+      expect(result.acquired).toBe(true);
+      expect(parseInt(fs.readFileSync(path.join(lockPath, "pid"), "utf8").trim(), 10)).toBe(
+        process.pid
+      );
+    });
+
+    test("PID-aware release removes only the zone's lock", async () => {
+      const { acquireMergeTrainLock, releaseMergeTrainLock } =
+        await import("../merge-train-lock.mjs");
+
+      acquireMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+      acquireMergeTrainLock({ lockDir: tmpDir, zone: "packages/rialto" });
+
+      releaseMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+
+      expect(fs.existsSync(path.join(tmpDir, "mbe-merge-train.apps__hospitality.lock"))).toBe(
+        false
+      );
+      expect(fs.existsSync(path.join(tmpDir, "mbe-merge-train.packages__rialto.lock"))).toBe(true);
+    });
+
+    test("heartbeat refreshes only the zone's lock mtime", async () => {
+      const { acquireMergeTrainLock, heartbeatMergeTrainLock } =
+        await import("../merge-train-lock.mjs");
+
+      acquireMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+      const lockPath = path.join(tmpDir, "mbe-merge-train.apps__hospitality.lock");
+      const oldTime = new Date(Date.now() - 50 * 60 * 1000);
+      fs.utimesSync(lockPath, oldTime, oldTime);
+
+      heartbeatMergeTrainLock({ lockDir: tmpDir, zone: "apps/hospitality" });
+
+      expect(Date.now() - fs.statSync(lockPath).mtimeMs).toBeLessThan(5000);
+    });
+  });
 });
