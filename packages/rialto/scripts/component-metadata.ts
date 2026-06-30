@@ -379,6 +379,15 @@ export interface ComponentMetadata {
   exportIdentifier: string;
   /** Fixed import path for consumers: `"@mattbutlerengineering/rialto"`. */
   importPath: string;
+  /**
+   * Package.json exports subpath segment (the directory name under
+   * `src/components/`).  For most components this equals `name`; for
+   * components where the export name differs from the directory (e.g.
+   * `ToastProvider` in `src/components/Toast/`) this is the directory name
+   * (e.g. `"Toast"`).  Used by generate-exports.ts to build the `./Toast`
+   * subpath without falling back to a filesystem scan.
+   */
+  subpath: string;
   /** JSDoc description from the Props interface or the component symbol. */
   description?: string;
   /** All props except those classified as slots. */
@@ -450,6 +459,28 @@ function isDeclaredInRialto(prop: ts.Symbol, rialtoComponentsDir: string): boole
   if (!decl) return false;
   const fileName = decl.getSourceFile().fileName.replace(/\\/g, "/");
   return fileName.startsWith(rialtoComponentsDir.replace(/\\/g, "/"));
+}
+
+/**
+ * Derive the package.json exports subpath (directory name) for a component
+ * from where its symbol is declared.
+ *
+ * For `Button` declared in `src/components/Button/Button.tsx` → `"Button"`.
+ * For `ToastProvider` declared in `src/components/Toast/Toast.tsx` → `"Toast"`.
+ * Falls back to the export name when the declaration can't be located.
+ */
+function getComponentSubpath(
+  resolved: ts.Symbol,
+  name: string,
+  rialtoComponentsDir: string
+): string {
+  const decl = resolved.declarations?.[0];
+  if (!decl) return name;
+  const declDir = path.dirname(decl.getSourceFile().fileName);
+  const relative = path.relative(rialtoComponentsDir, declDir);
+  // Take the first segment only (immediate child of componentsDir).
+  const segment = relative.split(path.sep)[0];
+  return segment && segment !== ".." ? segment : name;
 }
 
 /* ── Core extraction ──────────────────────────────────── */
@@ -550,6 +581,7 @@ function extractComponents(
       name,
       exportIdentifier: name,
       importPath: "@mattbutlerengineering/rialto",
+      subpath: getComponentSubpath(resolved, name, rialtoComponentsDir),
       description,
       props,
       slots,

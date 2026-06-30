@@ -20,6 +20,7 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 | [`reflections/`](reflections/)           | Lessons learned from AI sessions (ACMM L5)                   |
 | [`research/`](research/)                 | Weekly research intake notes                                 |
 | [`runbooks/`](runbooks/)                 | Operational runbooks for CI, deploys, services, static sites |
+| [`domain/`](domain/)                     | Ubiquitous language glossary and domain model docs           |
 | [`security/`](security/)                 | Security-specific docs (prompt injection guide)              |
 
 ## Top-Level Documents
@@ -54,3 +55,4 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 - **Understanding a decision?** Check [`adr/`](adr/) for architecture decision records
 - **Debugging production?** See [`runbooks/`](runbooks/) for operational procedures
 - **Working with agents?** See [`agent-tasks/`](agent-tasks/) and [`AGENT-WORKFLOW.md`](AGENT-WORKFLOW.md)
+- **Looking up a domain term?** See [`domain/ubiquitous-language.md`](domain/ubiquitous-language.md) for the canonical glossary
