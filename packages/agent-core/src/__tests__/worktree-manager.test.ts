@@ -23,6 +23,8 @@ import {
   hasChanges,
   validateGitRef,
   validatePath,
+  syncLockfileIfNeeded,
+  INSTALL_SENTINEL_FILENAME,
 } from "../worktree-manager.js";
 
 // Helper to set up promisified execFile mock
@@ -331,5 +333,62 @@ describe("hasChanges", () => {
 
     const result = await hasChanges("/worktree");
     expect(result).toBe(false);
+  });
+});
+
+// ── syncLockfileIfNeeded (sentinel) ──────────────────────────────────────────
+
+describe("syncLockfileIfNeeded", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("exports INSTALL_SENTINEL_FILENAME as '.worktree-installed'", () => {
+    expect(INSTALL_SENTINEL_FILENAME).toBe(".worktree-installed");
+  });
+
+  it("skips pnpm install when sentinel file is present", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+
+    await syncLockfileIfNeeded("/worktree");
+
+    const pnpmCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "pnpm");
+    expect(pnpmCalls).toHaveLength(0);
+  });
+
+  it("runs pnpm install --frozen-lockfile when sentinel is absent", async () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    setupExecFileMock([""]);
+
+    await syncLockfileIfNeeded("/worktree");
+
+    const pnpmCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "pnpm");
+    expect(pnpmCalls).toHaveLength(1);
+    expect(pnpmCalls[0][1]).toEqual(["install", "--frozen-lockfile"]);
+  });
+
+  it("regenerates lockfile when frozen install fails and sentinel is absent", async () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    let callCount = 0;
+    vi.mocked(execFile).mockImplementation(((...args: unknown[]) => {
+      const callback = args[args.length - 1];
+      callCount++;
+      if (callCount === 1) {
+        // First call: pnpm install --frozen-lockfile fails (lockfile out of sync)
+        (callback as (err: Error) => void)(new Error("lockfile out of sync"));
+      } else {
+        // Subsequent calls (pnpm install + git add + git commit) succeed
+        (callback as (err: null, result: { stdout: string }) => void)(null, { stdout: "" });
+      }
+      return {} as ReturnType<typeof execFile>;
+    }) as typeof execFile);
+
+    await syncLockfileIfNeeded("/worktree");
+
+    // Should have called pnpm install (without --frozen-lockfile) to regenerate
+    const pnpmCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "pnpm");
+    expect(pnpmCalls).toHaveLength(2);
+    expect(pnpmCalls[1][1]).toEqual(["install"]);
   });
 });
