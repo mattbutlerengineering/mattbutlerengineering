@@ -1,0 +1,68 @@
+<codebase path="packages/supply-chain-scanner">
+  <section priority="medium" role="heuristics">
+  <file path="src/heuristics/data-exfiltration.ts">
+    <item priority="high">
+      export function detectDataExfiltration(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/heuristics/malicious-commands.ts">
+    <item priority="high">
+      export function detectMaliciousCommands(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/heuristics/prompt-injection.ts">
+    <item priority="high">
+      export function detectPromptInjection(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="src">
+  <file path="src/collect-files.ts">
+    <item priority="medium">
+      function extensionOf(name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/rule-engine.ts">
+    <item priority="low">
+      interface Rule {
+        pattern: RegExp;
+        category: Category;
+        severity: Severity;
+      }
+    </item>
+    <item priority="high">
+      export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/run-cli.ts">
+    <item priority="low">
+      interface CliIo {
+        stdout: (text: string) => void;
+        stderr: (text: string) => void;
+      }
+    </item>
+    <item priority="high">
+      export function run(argv: readonly string[], io: CliIo): number { /* ... */ }
+    </item>
+  </file>
+  <file path="src/scan-package.ts">
+    <item priority="high">
+      export function computeVerdict(findings: readonly Finding[]): Verdict { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scanPackage(dir: string): ScanResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/types.ts">
+    <item priority="low">
+      type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
+    </item>
+    <item priority="low">
+      type Severity = "low" | "med" | "high";
+    </item>
+  </file>
+  </section>
+</codebase>
