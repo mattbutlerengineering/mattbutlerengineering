@@ -1,5 +1,6 @@
 import type { ElementType, HTMLAttributes, ReactNode } from "react";
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Heading.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -92,16 +93,14 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
     const Tag = as ?? (`h${level}` as ElementType);
     const resolvedSize = size ?? level;
 
-    const classes = [
+    const classes = cn(
       styles.heading,
       styles[sizeClass[resolvedSize]],
-      color ? styles[colorClass[color]] : "",
-      align ? styles[alignClass[align]] : "",
-      truncate ? styles.truncate : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      color && styles[colorClass[color]],
+      align && styles[alignClass[align]],
+      truncate && styles.truncate,
+      className
+    );
 
     return (
       <Tag ref={ref} className={classes} {...props}>

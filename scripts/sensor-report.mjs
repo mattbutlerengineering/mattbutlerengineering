@@ -27,6 +27,12 @@ import {
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 import { collectMutationScore } from "./collect-mutation-score.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
+import { computeE2eStability } from "./collect-e2e-stability.mjs";
+import {
+  collectQueueEfficiency,
+  QUEUE_EFFICIENCY_COMPOSITE_DROP,
+  QUEUE_EFFICIENCY_FPS_DROP,
+} from "./collect-queue-efficiency.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -43,6 +49,8 @@ const THRESHOLDS = {
   error_rate_increase: 20,
   service_uptime_min: 99.5,
   code_churn_rate_max: CODE_CHURN_THRESHOLD,
+  queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
+  queue_efficiency_fps_drop: QUEUE_EFFICIENCY_FPS_DROP,
 };
 
 const now = new Date();
@@ -200,6 +208,39 @@ function collectMutationScoreSensor() {
   return collectMutationScore(reportJson, now);
 }
 
+function collectQueueEfficiencySensor() {
+  // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
+  // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
+  const prsRaw = safe(
+    () =>
+      execFileSync(
+        "gh",
+        [
+          "pr",
+          "list",
+          "--state",
+          "all",
+          "--limit",
+          "45",
+          "--json",
+          "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+        ],
+        { encoding: "utf-8", timeout: 15000 }
+      ),
+    null
+  );
+  const readPrs = () => {
+    if (!prsRaw) return null;
+    const prs = safe(() => JSON.parse(prsRaw), null);
+    if (!prs) return null;
+    return prs.map((pr) => ({
+      ...pr,
+      commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
+    }));
+  };
+  return collectQueueEfficiency(readPrs, undefined, now);
+}
+
 function collectCiHealth() {
   const runs = safe(
     () => ghClient.workflow.runs(["--limit", "30", "--json", "status,conclusion,createdAt,name"]),
@@ -330,6 +371,52 @@ function collectSessionLogs() {
   };
 }
 
+/**
+ * E2E stability sensor — wraps the pure computeE2eStability collector with
+ * live GitHub run data. Changed paths are resolved best-effort via `git show`
+ * for each run's headSha; falls back to an empty array (run treated as
+ * non-frontend, conservatively counted in the streak) when the SHA is not
+ * in local history. Does NOT auto-block merges — reporting only.
+ */
+function collectE2eStabilitySensor() {
+  const rawRuns = safe(
+    () =>
+      execFileSync(
+        "gh",
+        ["run", "list", "--limit", "30", "--json", "conclusion,createdAt,headBranch,headSha"],
+        { encoding: "utf-8", timeout: 15000 }
+      ),
+    null
+  );
+  if (!rawRuns) return { available: false };
+
+  const ghRuns = safe(() => JSON.parse(rawRuns), null);
+  if (!ghRuns) return { available: false };
+
+  const injected = ghRuns.map((run) => {
+    const changedPaths = safe(
+      () =>
+        execFileSync("git", ["show", "--name-only", "--format=", run.headSha], {
+          encoding: "utf-8",
+          timeout: 3000,
+          cwd: ROOT,
+        })
+          .split("\n")
+          .filter(Boolean),
+      []
+    );
+    return {
+      sha: run.headSha ?? "",
+      conclusion: run.conclusion,
+      changedPaths,
+      headRefName: run.headBranch ?? "",
+      createdAt: run.createdAt,
+    };
+  });
+
+  return computeE2eStability(injected);
+}
+
 /* ── Regression detection ────────────────────────────── */
 
 function detectRegressions(current, previous) {
@@ -402,6 +489,28 @@ function detectRegressions(current, previous) {
     }
   }
 
+  // queueEfficiency: propagate internally-detected regressions (PR-history rolling median).
+  if (current.queueEfficiency?.available) {
+    for (const r of current.queueEfficiency.regressions ?? []) {
+      regressions.push(r);
+    }
+    // Also compare against the PREVIOUS stored report so regressions are detectable
+    // even when the live PR-history baseline window is sparse (active repos exhaust 45 PRs).
+    if (previous?.queueEfficiency?.available) {
+      const qeDelta = current.queueEfficiency.composite - previous.queueEfficiency.composite;
+      if (qeDelta < -THRESHOLDS.queue_efficiency_composite_drop) {
+        regressions.push({
+          sensor: "queueEfficiency",
+          metric: "composite_vs_previous_report",
+          current: current.queueEfficiency.composite,
+          previous: previous.queueEfficiency.composite,
+          delta: Math.round(qeDelta * 1000) / 1000,
+          severity: qeDelta < -0.15 ? "high" : "medium",
+        });
+      }
+    }
+  }
+
   return regressions;
 }
 
@@ -427,6 +536,8 @@ const report = {
     codeChurn: collectCodeChurnSensor(),
     mutationScore: collectMutationScoreSensor(),
     flakyTests: computeFlakyTests([]),
+    e2eStability: collectE2eStabilitySensor(),
+    queueEfficiency: collectQueueEfficiencySensor(),
   },
   thresholds: THRESHOLDS,
   regressions: [],
@@ -525,6 +636,21 @@ if (JSON_ONLY) {
           `   ${name}: ${data.flaky_count} flaky (${data.total_runs} runs, ${data.window_shas} SHAs)`
         );
         break;
+      case "e2eStability":
+        console.log(
+          `   ${name}: ${data.consecutive_failures} consecutive failure(s) on non-frontend runs (${data.total_non_frontend_runs}/${data.total_runs} non-frontend)`
+        );
+        break;
+      case "queueEfficiency": {
+        const baselineStr =
+          data.baseline != null
+            ? ` (baseline ${data.baseline.composite_median?.toFixed(3)}, ${data.baseline.weeks_sampled}w)`
+            : " (no baseline yet)";
+        console.log(
+          `   ${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | $${data.sub_metrics?.cost_per_issue_usd}/issue${baselineStr}`
+        );
+        break;
+      }
       default:
         console.log(`   ${name}: available`);
     }

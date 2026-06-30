@@ -21,8 +21,10 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 0. **Install dependencies** — worktrees are bare checkouts without `node_modules`:
 
    ```bash
-   pnpm install --frozen-lockfile
+   pnpm install --frozen-lockfile && touch .worktree-installed
    ```
+
+   The sentinel file `.worktree-installed` tells the verification phase that install already ran, so it can skip its own redundant install and save 20–90s per session.
 
 1. **Understand the issue** — Read the issue description carefully. Identify which files and code areas are affected. If the issue says `Depends on: #N` and #N is open, stop and report.
 
@@ -57,14 +59,22 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    ```bash
    # Architecture audit (ADR + dependency constraints)
    pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps
-   # Generated-artifact drift — regenerate EVERYTHING from source, exactly like CI
+   # Generated-artifact drift — gate on whether the diff touches generated-artifact sources
    pnpm build --filter @mbe/cli...            # build CLI + transitive deps (agent-core) so regen runs in a bare worktree
-   pnpm regen                                  # CI-EQUIVALENT: regenerate every artifact family from source
+   # Two branches (logic lives in scripts/check-regen-needed.mjs, sourced from regen-manifest.mjs):
+   #   empty intersection (test-only diff) → pnpm regen --check  (seconds, no rebuild)
+   #   non-empty intersection (source diff) → pnpm regen         (full, CI-equivalent)
+   REGEN_MODE=$(node scripts/check-regen-needed.mjs)
+   if [ "$REGEN_MODE" = "full" ]; then
+     pnpm regen                               # full regen: diff touches generated-artifact sources
+   else
+     pnpm regen --check                       # fast path: test-only or unrelated changes
+   fi
    node scripts/detect-instruction-rot.mjs    # CI runs this; catches stale instruction refs
    git status --short                          # surfaces any artifact the regen changed
    ```
 
-   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick `pack-changed`.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pack-changed` has blind spots that have repeatedly broken the merge train: it skips the root (workspace-aggregate) `llms.txt`, skips families like `registry.json` / `generated-schemas.ts`, and misses `llms-full.txt`-only drift. `pnpm regen` covers all of them. (Note: `pnpm regen --check` is only a working-tree-vs-index `git diff` — it catches "regenerated but forgot to stage," NOT "committed artifact is stale vs source," so it is **not** a substitute for actually running `pnpm regen`.)
+   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick `pack-changed`.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pack-changed` has blind spots that have repeatedly broken the merge train: it skips the root (workspace-aggregate) `llms.txt`, skips families like `registry.json` / `generated-schemas.ts`, and misses `llms-full.txt`-only drift. `pnpm regen` covers all of them.
 
    If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
 

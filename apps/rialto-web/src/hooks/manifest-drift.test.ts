@@ -1,7 +1,7 @@
 /**
- * Drift guard: verifies that the forms, feedback, navigation, layout, and overlays
- * category components documented in the showcase have corresponding entries in the
- * compiled rialto manifest.
+ * Drift guard: verifies that the forms, feedback, navigation, layout, overlays,
+ * and data category components documented in the showcase have corresponding entries
+ * in the compiled rialto manifest.
  *
  * When a component is added to a category but the manifest is not
  * regenerated, this test fails — preventing silent documentation drift.
@@ -171,4 +171,52 @@ describe("manifest drift guard — overlays category", () => {
       ).toBe(true);
     }
   );
+});
+
+/**
+ * The component names documented in the data showcase category that are migrated
+ * to consume props from the manifest (via <PropsTable component="X" />).
+ *
+ * Deferred (not in this list):
+ * - Toast: imperative API (toast() function call), not rendered as JSX with props;
+ *   no manifest entry.
+ * - ChalkboardSection: extends HTMLElement with 278 inherited HTML props and only
+ *   has `heading` and `children` as own props — kept hand-written for clarity.
+ * - TimelineEvent, TreeNode: internal type shapes, not top-level components.
+ * - DropdownMenu's "MenuItem Type": internal union type, not a manifest component.
+ *
+ * Update this list only when adding or removing a data category page.
+ */
+const DATA_COMPONENTS = [
+  "Avatar",
+  "AvatarGroup",
+  "Badge",
+  "Card",
+  "Chalkboard",
+  "ChalkboardItem",
+  "DataList",
+  "Ferrofluid",
+  "Kbd",
+  "Meter",
+  "Shortcut",
+  "SplitFlap",
+  "Stat",
+  "Table",
+  "Tag",
+  "AnimatedTag",
+  "TapeChart",
+  "Timeline",
+  "Tree",
+] as const;
+
+describe("manifest drift guard — data category", () => {
+  const manifestNames = new Set(manifest.components.map((c) => c.name));
+
+  it.each(DATA_COMPONENTS)("manifest contains props for data component: %s", (componentName) => {
+    expect(
+      manifestNames.has(componentName),
+      `Component "${componentName}" is documented in the data showcase but missing from the rialto manifest. ` +
+        `Run "pnpm build --filter @mattbutlerengineering/rialto" to regenerate the manifest.`
+    ).toBe(true);
+  });
 });

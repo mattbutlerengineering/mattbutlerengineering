@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { boop } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import styles from "./Pagination.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -121,7 +122,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
       : { scale: boop.scale, transition: boop.transition };
 
     return (
-      <nav ref={ref} aria-label="Pagination" className={`${styles.pagination} ${className}`}>
+      <nav ref={ref} aria-label="Pagination" className={cn(styles.pagination, className)}>
         {/* Previous */}
         <motion.button
           type="button"
@@ -144,7 +145,7 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
             <motion.button
               type="button"
               key={item}
-              className={`${styles.page} ${item === page ? styles.active : ""}`}
+              className={cn(styles.page, item === page && styles.active)}
               onClick={() => onChange(item)}
               aria-label={`Page ${item}`}
               aria-current={item === page ? "page" : undefined}

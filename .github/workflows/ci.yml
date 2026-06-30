@@ -65,7 +65,7 @@ jobs:
 
       - name: Cache Prisma clients
         id: cache-prisma
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
@@ -173,7 +173,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Restore Prisma clients
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
@@ -236,7 +236,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Restore Prisma clients
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
@@ -341,7 +341,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Restore Prisma clients
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
@@ -414,7 +414,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Restore Prisma clients
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
@@ -514,7 +514,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check for migration changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- 'services/*/prisma/migrations/' | head -20)
+          if [ -z "$CHANGED" ]; then
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            echo "No migration changes detected"
+          else
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+            echo "Migration files changed:"
+            echo "$CHANGED"
+          fi
+
       - name: Start postgres
+        if: steps.changes.outputs.has_migrations == 'true'
         run: |
           for i in 1 2 3; do
             docker pull postgres:16-alpine && break || (echo "Pull attempt $i failed, retrying in 10s..." && sleep 10)
@@ -528,19 +542,6 @@ jobs:
           for i in $(seq 1 20); do
             docker exec postgres pg_isready -U dryrun && break || sleep 3
           done
-
-      - name: Check for migration changes
-        id: changes
-        run: |
-          CHANGED=$(git diff --name-only origin/main...HEAD -- 'services/*/prisma/migrations/' | head -20)
-          if [ -z "$CHANGED" ]; then
-            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
-            echo "No migration changes detected"
-          else
-            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
-            echo "Migration files changed:"
-            echo "$CHANGED"
-          fi
 
       - name: Install Prisma CLI
         if: steps.changes.outputs.has_migrations == 'true'

@@ -878,7 +878,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
@@ -1189,7 +1189,7 @@
                 page: { type: "string", default: "1", description: "Page number (1-indexed)" },
                 limit: {
                   type: "string",
-                  default: "20",
+                  default: "10",
                   description: "Number of guests per page (max 100)",
                 },
               },
@@ -1214,7 +1214,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const { page, limit } = validatePagination(request.query.page, request.query.limit);
+          const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
         }
       );
@@ -2927,7 +2927,7 @@
           },
         },
         async (request, _reply) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.list({
             page,
             limit,
@@ -2999,7 +2999,7 @@
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.listByUserId(authUser.id, page, limit);
         }
       );
@@ -3665,7 +3665,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
           return tableService.list(page, limit, activeOnly);
         }
@@ -4081,7 +4081,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueGroupService.list(page, limit);
         }
       );
@@ -4380,7 +4380,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueService.list(page, limit, request.query.venueGroupId);
         }
       );
@@ -5046,7 +5046,7 @@
     export interface ResolveChannelInput {
       email: string | null;
       phone: string | null;
-      communicationPreference: string | null;
+      communicationPreference: CommunicationPreference | null;
     }
   </file>
   <file path="src/services/briefing.ts">

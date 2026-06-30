@@ -158,42 +158,7 @@ export function CardPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"elevated" | "glass" | "flat"',
-              default: '"elevated"',
-              description: "Surface treatment for the card.",
-            },
-            {
-              name: "title",
-              type: "string",
-              description: "Optional card heading.",
-            },
-            {
-              name: "subtitle",
-              type: "string",
-              description: "Optional secondary line below the title.",
-            },
-            {
-              name: "tilt",
-              type: "boolean",
-              default: "false",
-              description: "Enables cursor-tracking 3D tilt with specular highlight.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Card body content.",
-            },
-            {
-              name: "onClick",
-              type: "() => void",
-              description: "Makes the card interactive.",
-            },
-          ]}
-        />
+        <PropsTable component="Card" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

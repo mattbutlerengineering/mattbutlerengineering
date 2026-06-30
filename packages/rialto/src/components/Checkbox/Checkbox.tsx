@@ -2,6 +2,7 @@ import { forwardRef, useId, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring, boop } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Checkbox.module.css";
 
@@ -53,7 +54,7 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div
           ref={ref}
-          className={`${styles.checkboxItem} ${className}`}
+          className={cn(styles.checkboxItem, className)}
           aria-disabled={disabled || undefined}
         >
           <label className={styles.label} htmlFor={id}>
@@ -182,7 +183,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
         <div
           ref={ref}
-          className={`${styles.radioItem} ${className}`}
+          className={cn(styles.radioItem, className)}
           aria-disabled={disabled || undefined}
         >
           <label className={styles.label} htmlFor={id}>
@@ -257,7 +258,7 @@ export interface RadioGroupProps {
 export const RadioGroup = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
   ({ label, name, value, onChange, children, className = "" }, ref) => {
     return (
-      <fieldset ref={ref} className={`${styles.radioGroup} ${className}`} role="radiogroup">
+      <fieldset ref={ref} className={cn(styles.radioGroup, className)} role="radiogroup">
         {label && <legend className={styles.radioGroupLabel}>{label}</legend>}
         {/* Clone children to inject name/value/onChange */}
         {Array.isArray(children)

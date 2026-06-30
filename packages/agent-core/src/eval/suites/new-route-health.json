@@ -1,0 +1,20 @@
+{
+  "id": "new-route-health",
+  "category": "new-route",
+  "prompt": "Add a `GET /eval/health` route to the agent service (`services/agent/src/routes/`) that returns `{ status: 'ok', ts: <ISO timestamp> }` with HTTP 200. Register the route in the Express app. Add a unit test that mounts the router and asserts the shape of the response.",
+  "fixtureRef": "fixtures/new-route-health",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A new route file is created rather than modifying an unrelated file.",
+      "The route is registered in the Express app.",
+      "A test covers the 200 response shape."
+    ]
+  },
+  "budget": {
+    "maxTurns": 30,
+    "maxCostUsd": 0.4
+  }
+}

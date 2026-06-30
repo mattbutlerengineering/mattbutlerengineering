@@ -1,4 +1,4 @@
-import { Checkbox, DataList, Meter, Select } from "@mattbutlerengineering/rialto";
+import { Checkbox, DataList, Input, Meter, Select, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
@@ -49,7 +49,7 @@ function MeterPlayground() {
         />
         <Checkbox label="Show value" checked={showValue} onCheckedChange={setShowValue} />
       </div>
-      <input
+      <Input
         type="range"
         min={0}
         max={100}
@@ -100,7 +100,7 @@ export function MeterPage() {
             border: "1px solid var(--rialto-border)",
           }}
         >
-          <p
+          <Text
             style={{
               fontSize: "var(--rialto-text-xs)",
               color: "var(--rialto-text-tertiary)",
@@ -110,7 +110,7 @@ export function MeterPage() {
             }}
           >
             System Status
-          </p>
+          </Text>
           <div className={styles.stack}>
             <Meter value={72} label="Fuel" showValue size="sm" variant="accent" />
             <Meter value={88} label="Brake Temp" showValue size="sm" variant="error" />
@@ -127,50 +127,7 @@ export function MeterPage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "value",
-              type: "number",
-              description: "Current value (within min–max range).",
-            },
-            {
-              name: "min",
-              type: "number",
-              default: "0",
-              description: "Minimum of the range.",
-            },
-            {
-              name: "max",
-              type: "number",
-              default: "100",
-              description: "Maximum of the range.",
-            },
-            {
-              name: "label",
-              type: "string",
-              description: "Descriptive label for the meter.",
-            },
-            {
-              name: "showValue",
-              type: "boolean",
-              default: "false",
-              description: "Shows the numeric value beside the label.",
-            },
-            {
-              name: "variant",
-              type: '"default" | "accent" | "success" | "error"',
-              default: '"default"',
-              description: "Color of the filled track.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md"',
-              default: '"md"',
-              description: "Height of the meter track.",
-            },
-          ]}
-        />
+        <PropsTable component="Meter" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

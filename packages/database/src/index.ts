@@ -2,7 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
 export {
-  parseListQuery,
+  parsePaginationQuery,
   paginate,
   toPaginationMeta,
   createListResponseSchema,
@@ -13,7 +13,6 @@ export type { PaginationMeta, PaginatedResponse } from "./list-utils.js";
 export {
   validateDateString,
   validatePartySize,
-  validatePagination,
   validateDateRange,
   validateEnum,
 } from "./validators.js";
@@ -54,10 +53,10 @@ export interface PoolStats {
 }
 
 export interface PoolMetrics {
-  active: number;
-  idle: number;
+  total: number;
   busy: number;
-  size: number;
+  idle: number;
+  waiting: number;
   utilization: number;
   isDegraded: boolean;
 }
@@ -67,7 +66,6 @@ export type ServiceStatus = "ok" | "degraded";
 export interface DatabaseInstance<T> {
   prisma: T;
   getSlowQueryStats: () => SlowQueryStats;
-  getPoolStats: () => PoolStats;
   getPoolMetrics: () => PoolMetrics;
   getServiceStatus: () => ServiceStatus;
   shutdown: () => Promise<void>;
@@ -136,10 +134,10 @@ export function createDatabase<T extends PrismaLike>(
   function getPoolMetrics(): PoolMetrics {
     const stats = getPoolStats();
     return {
-      active: stats.total,
-      idle: stats.idle,
+      total: stats.total,
       busy: stats.active,
-      size: connectionLimit,
+      idle: stats.idle,
+      waiting: stats.waiting,
       utilization: stats.utilization,
       isDegraded: stats.utilization >= poolUtilizationThreshold,
     };
@@ -227,7 +225,6 @@ export function createDatabase<T extends PrismaLike>(
   return {
     prisma,
     getSlowQueryStats,
-    getPoolStats,
     getPoolMetrics,
     getServiceStatus,
     shutdown,

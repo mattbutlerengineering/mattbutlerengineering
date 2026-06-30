@@ -111,7 +111,7 @@ export function BadgePage() {
       {/* ── In Context ────────────────────────────────────────────── */}
       <Section title="In Context">
         <div className={styles.row}>
-          <span
+          <Text
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -124,8 +124,8 @@ export function BadgePage() {
             <Badge variant="success" dot>
               Live
             </Badge>
-          </span>
-          <span
+          </Text>
+          <Text
             style={{
               fontSize: "var(--rialto-text-sm)",
               color: "var(--rialto-text-secondary)",
@@ -138,7 +138,7 @@ export function BadgePage() {
             <Badge variant="error" size="sm">
               12
             </Badge>
-          </span>
+          </Text>
           <Text variant="caption" color="secondary" as="span">
             Version{" "}
             <Badge size="sm" variant="neutral">
@@ -155,33 +155,7 @@ export function BadgePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "variant",
-              type: '"neutral" | "accent" | "success" | "error"',
-              default: '"neutral"',
-              description: "Color variant of the badge.",
-            },
-            {
-              name: "size",
-              type: '"sm" | "md"',
-              default: '"md"',
-              description: "Size of the badge.",
-            },
-            {
-              name: "dot",
-              type: "boolean",
-              default: "false",
-              description: "Shows a status dot before the text.",
-            },
-            {
-              name: "children",
-              type: "ReactNode",
-              description: "Badge label content.",
-            },
-          ]}
-        />
+        <PropsTable component="Badge" />
       </Section>
 
       {/* ── Accessibility ─────────────────────────────────────────── */}

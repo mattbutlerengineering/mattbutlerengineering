@@ -127,4 +127,32 @@ describe("runEvalSuite", () => {
     expect(report.aggregate.meanCostUsd).toBeCloseTo(0.3);
     expect(report.aggregate.meanTurns).toBe(6);
   });
+
+  it("breaks down results by category", async () => {
+    const tasks = [
+      makeTask("a", { category: "bugfix" }),
+      makeTask("b", { category: "bugfix" }),
+      makeTask("c", { category: "refactor" }),
+    ];
+    const report = await runEvalSuite(tasks, {
+      runId: "r",
+      runTask: runnerFrom({
+        a: { checks: PASS },
+        b: { checks: FAIL },
+        c: { checks: PASS },
+      }),
+    });
+
+    expect(report.byCategory["bugfix"]?.total).toBe(2);
+    expect(report.byCategory["bugfix"]?.passRate).toBe(0.5);
+    expect(report.byCategory["refactor"]?.total).toBe(1);
+    expect(report.byCategory["refactor"]?.passRate).toBe(1);
+    // categories not present in the run are absent from the map
+    expect(report.byCategory["dep-bump"]).toBeUndefined();
+  });
+
+  it("byCategory is empty object for an empty suite", async () => {
+    const report = await runEvalSuite([], { runId: "r", runTask: runnerFrom({}) });
+    expect(report.byCategory).toEqual({});
+  });
 });

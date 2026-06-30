@@ -43,7 +43,7 @@ vi.mock("ioredis", () => {
 import { JobScheduler } from "./scheduler.js";
 import { JobWorker } from "./worker.js";
 import { JOB_TYPES } from "./job-types.js";
-import type { BookingReminderPayload, JobHandlerMap } from "./index.js";
+import type { ReminderPayload, JobHandlerMap } from "./index.js";
 
 function makeHandlers(overrides: Partial<JobHandlerMap> = {}): JobHandlerMap {
   return {
@@ -78,7 +78,7 @@ describe("JobScheduler + JobWorker integration", () => {
       handlers,
     });
 
-    const payload: BookingReminderPayload = {
+    const payload: ReminderPayload = {
       reservationId: "res_e2e_1",
       guestPhone: "+15551234567",
       guestEmail: "test@example.com",

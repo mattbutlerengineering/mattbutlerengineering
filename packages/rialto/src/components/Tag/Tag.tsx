@@ -1,6 +1,7 @@
 import { forwardRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { spring, boop } from "../../tokens/motion";
+import { cn, variantClass } from "../../utils/class-composer";
 import styles from "./Tag.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -48,16 +49,13 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
   ) => {
     const isInteractive = !!onClick;
     const shouldReduceMotion = useReducedMotion();
-    const variantClass = variant !== "default" ? (styles[variant] ?? "") : "";
-    const classes = [
+    const classes = cn(
       styles.tag,
-      variantClass,
-      isInteractive ? styles.interactive : "",
-      selected ? styles.selected : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      variantClass(styles, variant, "default"),
+      isInteractive && styles.interactive,
+      selected && styles.selected,
+      className
+    );
 
     if (isInteractive) {
       return (
@@ -190,7 +188,7 @@ export interface TagGroupProps {
 export const TagGroup = forwardRef<HTMLDivElement, TagGroupProps>(
   ({ children, className = "" }, ref) => {
     return (
-      <div ref={ref} className={`${styles.group} ${className}`}>
+      <div ref={ref} className={cn(styles.group, className)}>
         <AnimatePresence>{children}</AnimatePresence>
       </div>
     );

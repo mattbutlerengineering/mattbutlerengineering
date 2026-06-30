@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { IssueIntentSchema, extractIssueIntent } from "./intent-extractor.js";
+import {
+  IssueIntentSchema,
+  extractIssueIntent,
+  intentToRoutingContext,
+} from "./intent-extractor.js";
 
 const mockMessagesCreate = vi.fn();
 
@@ -68,5 +72,42 @@ describe("extractIssueIntent", () => {
 
     const result = await extractIssueIntent("Title", "Body", 123);
     expect(result).toBeNull();
+  });
+});
+
+describe("intentToRoutingContext", () => {
+  const baseIntent = {
+    summary: "Fix bug",
+    acceptanceCriteria: ["It works"],
+    taskDescription: "Fix the bug in foo.ts",
+    estimatedScope: "small" as const,
+  };
+
+  it.each([
+    ["trivial", "trivial"],
+    ["small", "simple"],
+    ["medium", "standard"],
+    ["large", "complex"],
+  ] as const)("maps estimatedScope %s to tier %s", (scope, expectedTier) => {
+    const intent = { ...baseIntent, estimatedScope: scope };
+    const ctx = intentToRoutingContext(intent);
+    expect(ctx.taskSignals?.tier).toBe(expectedTier);
+  });
+
+  it("maps affectedFiles to sourceFilePaths", () => {
+    const intent = { ...baseIntent, affectedFiles: ["src/foo.ts", "src/bar.ts"] };
+    const ctx = intentToRoutingContext(intent);
+    expect(ctx.sourceFilePaths).toEqual(["src/foo.ts", "src/bar.ts"]);
+  });
+
+  it("omits sourceFilePaths when affectedFiles is undefined", () => {
+    const intent = { ...baseIntent, affectedFiles: undefined };
+    const ctx = intentToRoutingContext(intent);
+    expect(ctx.sourceFilePaths).toBeUndefined();
+  });
+
+  it("returns frozen object (immutable)", () => {
+    const ctx = intentToRoutingContext(baseIntent);
+    expect(Object.isFrozen(ctx)).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { DataList, Stack, Timeline } from "@mattbutlerengineering/rialto";
+import { DataList, Stack, Text, Timeline } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
@@ -16,7 +16,7 @@ export function TimelinePage() {
       <Section title="Full Timeline">
         <Stack direction="row" gap="sm" align="start" wrap>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <p
+            <Text
               style={{
                 fontSize: "var(--rialto-text-xs)",
                 color: "var(--rialto-text-tertiary)",
@@ -24,7 +24,7 @@ export function TimelinePage() {
               }}
             >
               Race weekend
-            </p>
+            </Text>
             <Timeline
               events={[
                 {
@@ -56,7 +56,7 @@ export function TimelinePage() {
             />
           </div>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <p
+            <Text
               style={{
                 fontSize: "var(--rialto-text-xs)",
                 color: "var(--rialto-text-tertiary)",
@@ -64,7 +64,7 @@ export function TimelinePage() {
               }}
             >
               CI pipeline
-            </p>
+            </Text>
             <Timeline
               compact
               events={[
@@ -121,21 +121,7 @@ export function TimelinePage() {
 
       {/* ── Props Table ───────────────────────────────────────────── */}
       <Section title="Props">
-        <PropsTable
-          props={[
-            {
-              name: "events",
-              type: "Array<TimelineEvent>",
-              description: "List of timeline events to render.",
-            },
-            {
-              name: "compact",
-              type: "boolean",
-              default: "false",
-              description: "Reduces vertical spacing between events.",
-            },
-          ]}
-        />
+        <PropsTable component="Timeline" />
       </Section>
 
       {/* ── TimelineEvent Shape ───────────────────────────────────── */}

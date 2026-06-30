@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { StatusLED } from "../StatusLED";
+import { cn } from "../../utils/class-composer";
 import styles from "./Avatar.module.css";
 
 /* ── Avatar ──────────────────────────────────── */
@@ -83,7 +84,7 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
     return (
       <div
         ref={ref}
-        className={[styles.avatar, styles[size], className].filter(Boolean).join(" ")}
+        className={cn(styles.avatar, styles[size], className)}
         aria-label={alt ?? name}
       >
         {showImage ? (
@@ -159,7 +160,7 @@ function FlapStage({ prevSrc, onComplete }: FlapStageProps) {
   return (
     <div className={styles.flapStage} aria-hidden="true" data-testid="avatar-flap-stage">
       <motion.div
-        className={`${styles.flapHalf} ${styles.flapHalfTop}`}
+        className={cn(styles.flapHalf, styles.flapHalfTop)}
         initial={{ rotateX: 0 }}
         animate={{ rotateX: -180 }}
         transition={{ duration: FLAP_DURATION_MS / 1000, ease: "easeIn" }}
@@ -167,7 +168,7 @@ function FlapStage({ prevSrc, onComplete }: FlapStageProps) {
         <img className={styles.flapImage} src={prevSrc} alt="" />
       </motion.div>
       <motion.div
-        className={`${styles.flapHalf} ${styles.flapHalfBottom}`}
+        className={cn(styles.flapHalf, styles.flapHalfBottom)}
         initial={{ rotateX: 0 }}
         animate={{ rotateX: 180 }}
         transition={{
@@ -212,9 +213,9 @@ export const AvatarGroup = forwardRef<HTMLDivElement, AvatarGroupProps>(
     const overflow = avatars.length - max;
 
     return (
-      <div ref={ref} className={[styles.group, className].filter(Boolean).join(" ")}>
+      <div ref={ref} className={cn(styles.group, className)}>
         {overflow > 0 && (
-          <div className={`${styles.overflow} ${styles[size]}`} aria-label={`${overflow} more`}>
+          <div className={cn(styles.overflow, styles[size])} aria-label={`${overflow} more`}>
             <span className={styles.overflowText} aria-hidden="true">
               +{overflow}
             </span>

@@ -21,6 +21,12 @@ export class JobWorker {
   constructor(config: JobWorkerConfig) {
     this.redis = new Redis(config.redisUrl, {
       maxRetriesPerRequest: null,
+      // Defer the connection to the first command so constructing a JobWorker
+      // is side-effect-free. Without this, ioredis connects eagerly and (with
+      // maxRetriesPerRequest: null) retries forever, so merely building app
+      // wiring opens a background ECONNREFUSED loop in tests/CI where no Redis
+      // is present.
+      lazyConnect: true,
     });
 
     this.worker = new Worker(

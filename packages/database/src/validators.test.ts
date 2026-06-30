@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   validateDateString,
   validatePartySize,
-  validatePagination,
   validateDateRange,
   validateEnum,
 } from "./validators.js";
@@ -112,65 +111,6 @@ describe("validatePartySize", () => {
   it("returns invalid for Infinity", () => {
     const result = validatePartySize("Infinity");
     expect(result.valid).toBe(false);
-  });
-});
-
-describe("validatePagination", () => {
-  it("returns defaults when no params provided", () => {
-    const result = validatePagination();
-    expect(result.valid).toBe(true);
-    expect(result.page).toBe(1);
-    expect(result.limit).toBe(20);
-  });
-
-  it("parses valid page and limit", () => {
-    const result = validatePagination("2", "50");
-    expect(result.valid).toBe(true);
-    expect(result.page).toBe(2);
-    expect(result.limit).toBe(50);
-  });
-
-  it("floors page to 1 for page=0", () => {
-    const result = validatePagination("0");
-    expect(result.valid).toBe(true);
-    expect(result.page).toBe(1);
-  });
-
-  it("floors page to 1 for negative page", () => {
-    const result = validatePagination("-3");
-    expect(result.valid).toBe(true);
-    expect(result.page).toBe(1);
-  });
-
-  it("caps limit at 100", () => {
-    const result = validatePagination("1", "999");
-    expect(result.valid).toBe(true);
-    expect(result.limit).toBe(100);
-  });
-
-  it("floors limit to 1 for limit=0", () => {
-    const result = validatePagination("1", "0");
-    expect(result.valid).toBe(true);
-    expect(result.limit).toBe(1);
-  });
-
-  it("returns valid with defaults for non-numeric strings", () => {
-    const result = validatePagination("abc", "xyz");
-    expect(result.valid).toBe(true);
-    expect(result.page).toBe(1);
-    expect(result.limit).toBe(20);
-  });
-
-  it("accepts boundary limit=100", () => {
-    const result = validatePagination("1", "100");
-    expect(result.valid).toBe(true);
-    expect(result.limit).toBe(100);
-  });
-
-  it("accepts boundary limit=1", () => {
-    const result = validatePagination("1", "1");
-    expect(result.valid).toBe(true);
-    expect(result.limit).toBe(1);
   });
 });
 

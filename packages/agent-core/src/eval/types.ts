@@ -106,6 +106,8 @@ export interface EvalReport {
   readonly runId: string;
   readonly tasks: readonly TaskScore[];
   readonly aggregate: EvalAggregate;
+  /** Per-category aggregates — only categories present in the run appear. */
+  readonly byCategory: Partial<Record<TaskCategory, EvalAggregate>>;
 }
 
 /** Injected agent-invocation seam. Real impl runs `runSession` + checks; tests stub it. */

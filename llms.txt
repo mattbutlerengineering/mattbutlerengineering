@@ -1595,6 +1595,30 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pages">
+  <file path="apps/gen/src/pages/createRefinementPrompt.ts">
+    <item priority="high">
+      export function createRefinementPrompt(
+        currentSpec: Spec,
+        userInstruction: string,
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/gen/src/pages/usePlaygroundState.ts">
+    <item priority="low">
+      type PlaygroundMode = "generate" | "refine";
+    </item>
+    <item priority="low">
+      interface PlaygroundState {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        enterRefinement: () => void;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="phases">
   <file path="packages/agent-core/src/phases/default-deps.ts">
     <item priority="high">
@@ -1758,7 +1782,7 @@
       type ApiClient = ReturnType<typeof createApiClient>;
     </item>
     <item priority="high">
-      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) { /* ... */ }
+      export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent.ts">
@@ -2248,7 +2272,7 @@
       }
     </item>
   </file>
-  <file path="packages/rialto/scripts/character-limits.ts">
+  <file path="packages/rialto/scripts/component-metadata.ts">
     <item priority="low">
       interface CharacterLimit {
         component: string;
@@ -2477,7 +2501,7 @@
       interface ResolveChannelInput {
         email: string | null;
         phone: string | null;
-        communicationPreference: string | null;
+        communicationPreference: CommunicationPreference | null;
       }
     </item>
   </file>
@@ -3061,6 +3085,22 @@
     </item>
     <item priority="high">
       export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/budget-gate.ts">
+    <item priority="low">
+      interface BudgetBreachResult {
+        exceeded: boolean;
+        accumulatedCostUsd: number;
+        maxBudgetUsd: number;
+        overageUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function shouldHaltForBudget(
+        turnMetrics: readonly TurnMetrics[],
+        maxBudgetUsd: number
+      ): BudgetBreachResult { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/bundle-size-tracker.ts">
@@ -3707,10 +3747,10 @@
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
     <item priority="high">
-      export function validateGitRef(ref: string, label: string): void { /* ... */ }
+      export const INSTALL_SENTINEL_FILENAME: unknown;
     </item>
     <item priority="high">
-      export function validatePath(path: string, label: string): void { /* ... */ }
+      export function validateGitRef(ref: string, label: string): void { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/worktree-reaper.ts">
@@ -4033,7 +4073,7 @@
   </file>
   <file path="packages/database/src/list-utils.ts">
     <item priority="high">
-      export function parseListQuery(query: { page?: string; limit?: string }): {
+      export function parsePaginationQuery(query: { page?: string; limit?: string }): {
         page: number;
         limit: number;
       } { /* ... */ }

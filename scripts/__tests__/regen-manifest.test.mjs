@@ -6,6 +6,7 @@ import { FAMILIES, llmsPackages } from "../regen-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(resolve(__dirname, "../regen-manifest.mjs"), "utf8");
+const REGEN_SOURCE = readFileSync(resolve(__dirname, "../regen.mjs"), "utf8");
 
 describe("regen-manifest", () => {
   it("exports an array of families", () => {
@@ -139,5 +140,23 @@ describe("regen-manifest", () => {
 
   it("uses execFileSync for subprocess execution (no shell invocation)", () => {
     expect(SOURCE).toContain("execFileSync");
+  });
+
+  // Ordering invariant: llms-txt embeds content from generated-schemas.ts.
+  // If regen.mjs runs regenLlms() before regenFamily() for rialto-catalog-schemas,
+  // the llms files embed the pre-regen schema → CI detects drift after regenerating
+  // the schema. Enforcing this order here prevents the recurring treadmill.
+  it("regen.mjs runRegen executes regenLlms() after all regenFamily() calls", () => {
+    const fnStart = REGEN_SOURCE.indexOf("function runRegen()");
+    expect(fnStart, "runRegen() not found in regen.mjs").toBeGreaterThan(-1);
+    const afterFn = REGEN_SOURCE.slice(fnStart);
+    const regenLlmsIdx = afterFn.lastIndexOf("regenLlms()");
+    const regenFamilyIdx = afterFn.lastIndexOf("regenFamily(family)");
+    expect(regenLlmsIdx, "regenLlms() not found in runRegen").toBeGreaterThan(-1);
+    expect(regenFamilyIdx, "regenFamily(family) not found in runRegen").toBeGreaterThan(-1);
+    expect(
+      regenLlmsIdx,
+      "regenLlms() must come AFTER regenFamily(family) so llms embeds the freshly-generated schema"
+    ).toBeGreaterThan(regenFamilyIdx);
   });
 });

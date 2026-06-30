@@ -1,4 +1,5 @@
 import { JobScheduler, JOB_TYPES } from "@mbe/jobs";
+import type { ReminderPayload } from "@mbe/jobs";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { CommunicationPreference } from "@mbe/types";
 import type { Reservation, Venue } from "@mbe/types";
@@ -16,14 +17,15 @@ function reminderJobId(jobType: string, reservationId: string): string {
 export interface ResolveChannelInput {
   email: string | null;
   phone: string | null;
-  communicationPreference: string | null;
+  communicationPreference: CommunicationPreference | null;
 }
 
 export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "both" {
   const { email, phone, communicationPreference } = input;
-  if (communicationPreference === "email") return "email";
-  if (communicationPreference === "sms") return "sms";
+  if (communicationPreference === "email_only") return "email";
+  if (communicationPreference === "sms_only") return "sms";
   if (communicationPreference === "both") return "both";
+  if (communicationPreference === "transactional_only") return "email";
   // Fall back to data availability
   if (email && phone) return "both";
   if (phone) return "sms";
@@ -93,14 +95,23 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     const channel = resolveChannel({
       email: guestEmail,
       phone: guestPhone,
-      communicationPreference: reservation.guest?.communicationPreference ?? null,
+      communicationPreference:
+        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
     });
+
+    const reminderPayload: ReminderPayload = {
+      reservationId: id,
+      guestEmail,
+      guestPhone: guestPhone ?? null,
+      venueId,
+      channel,
+    };
 
     const dayBeforeDelay = startMs - now - DAY_MS;
     if (dayBeforeDelay > 0) {
       await scheduler.schedule(
         JOB_TYPES.BOOKING_REMINDER,
-        { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
+        reminderPayload,
         dayBeforeDelay,
         reminderJobId(JOB_TYPES.BOOKING_REMINDER, id)
       );
@@ -110,7 +121,7 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     if (dayOfDelay > 0) {
       await scheduler.schedule(
         JOB_TYPES.DAY_OF_REMINDER,
-        { reservationId: id, guestEmail, guestPhone: guestPhone ?? null, venueId, channel },
+        reminderPayload,
         dayOfDelay,
         reminderJobId(JOB_TYPES.DAY_OF_REMINDER, id)
       );

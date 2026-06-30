@@ -260,6 +260,22 @@
       export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
     </item>
   </file>
+  <file path="src/budget-gate.ts">
+    <item priority="low">
+      interface BudgetBreachResult {
+        exceeded: boolean;
+        accumulatedCostUsd: number;
+        maxBudgetUsd: number;
+        overageUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function shouldHaltForBudget(
+        turnMetrics: readonly TurnMetrics[],
+        maxBudgetUsd: number
+      ): BudgetBreachResult { /* ... */ }
+    </item>
+  </file>
   <file path="src/bundle-size-tracker.ts">
     <item priority="low">
       interface FileSize {
@@ -904,10 +920,10 @@
   </file>
   <file path="src/worktree-manager.ts">
     <item priority="high">
-      export function validateGitRef(ref: string, label: string): void { /* ... */ }
+      export const INSTALL_SENTINEL_FILENAME: unknown;
     </item>
     <item priority="high">
-      export function validatePath(path: string, label: string): void { /* ... */ }
+      export function validateGitRef(ref: string, label: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/worktree-reaper.ts">

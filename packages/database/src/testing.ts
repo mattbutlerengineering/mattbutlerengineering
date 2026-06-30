@@ -36,10 +36,10 @@ export interface MockDatabaseServiceOverrides {
 }
 
 const DEFAULT_POOL_METRICS: PoolMetrics = {
-  active: 1,
-  idle: 4,
+  total: 5,
   busy: 1,
-  size: 5,
+  idle: 4,
+  waiting: 0,
   utilization: 0.2,
   isDegraded: false,
 };

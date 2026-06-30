@@ -1,5 +1,6 @@
 import { forwardRef, useState, useRef, useCallback, type TextareaHTMLAttributes } from "react";
 import { Lock } from "lucide-react";
+import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import { useField } from "../../hooks/useField";
 import styles from "./TextArea.module.css";
@@ -82,7 +83,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
-        <div ref={ref} className={`${styles.wrapper} ${error ? styles.error : ""} ${className}`}>
+        <div ref={ref} className={cn(styles.wrapper, error && styles.error, className)}>
           {label && (
             <label {...field.labelProps} className={styles.label}>
               {label}
@@ -99,7 +100,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
             <textarea
               ref={textareaRef}
               {...field.controlProps}
-              className={`${styles.textarea} ${autoResize ? styles.autoResize : ""}`}
+              className={cn(styles.textarea, autoResize && styles.autoResize)}
               rows={rows}
               value={value}
               onChange={handleChange}
@@ -123,7 +124,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
                 </span>
               )}
               {maxLength != null && (
-                <span className={`${styles.counter} ${isOver ? styles.counterOver : ""}`}>
+                <span className={cn(styles.counter, isOver && styles.counterOver)}>
                   {currentLength}/{maxLength}
                 </span>
               )}

@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Stat.module.css";
 
 /**
@@ -46,13 +47,11 @@ function TrendArrow({ trend }: { trend: "up" | "down" }) {
 
 export const Stat = forwardRef<HTMLDivElement, StatProps>(
   ({ value, label, delta, trend = "neutral", size = "md", className, ...props }, ref) => {
-    const classes = [
+    const classes = cn(
       styles.stat,
-      size === "sm" ? styles.sm : size === "lg" ? styles.lg : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      size === "sm" ? styles.sm : size === "lg" ? styles.lg : false,
+      className
+    );
 
     const trendClass =
       trend === "up" ? styles.trendUp : trend === "down" ? styles.trendDown : styles.trendNeutral;
@@ -62,7 +61,7 @@ export const Stat = forwardRef<HTMLDivElement, StatProps>(
         <span className={styles.label}>{label}</span>
         <span className={styles.value}>{value}</span>
         {delta && (
-          <span className={[styles.delta, trendClass].join(" ")}>
+          <span className={cn(styles.delta, trendClass)}>
             {trend !== "neutral" && <TrendArrow trend={trend} />}
             {delta}
           </span>

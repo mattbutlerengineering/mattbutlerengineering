@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { spring } from "../../tokens/motion";
+import { cn } from "../../utils/class-composer";
 import type { ToastData, ToastVariant } from "./ToastContext";
 import styles from "./Toast.module.css";
 
@@ -61,7 +62,7 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
   return (
     <motion.div
       layout
-      className={`${styles.toast} ${styles[t.variant ?? "default"]}`}
+      className={cn(styles.toast, styles[t.variant ?? "default"])}
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 80, scale: 0.95 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.95 }}

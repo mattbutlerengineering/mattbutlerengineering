@@ -64,6 +64,16 @@ gh issue edit <N> --add-label "in-progress" --remove-label "ready"
 
 ## Phase 2: Implement in Parallel
 
+**Dispatch is decoupled from the merge train.** Spawning workers must NEVER wait on the merge-train lock — a long merge train for one zone should not stall picking up fresh `ready` issues. The single source of truth for "may I dispatch more workers right now?" is `canDispatchWorkers()` in `scripts/worker-dispatch.mjs`, which is gated **only** by worker capacity (`MAX_CONCURRENT_WORKERS`, default 3) and never imports or consults the merge-train lock:
+
+```js
+import { canDispatchWorkers } from "./scripts/worker-dispatch.mjs";
+
+if (canDispatchWorkers({ activeWorkers }).allowed) {
+  // dispatch the next worker — independent of any in-flight merge train
+}
+```
+
 **Resolve each issue's model first.** Per-issue routing beats a one-size model — trivial deps/docs run on haiku, complex refactors on opus-4.8:
 
 ```bash
@@ -98,27 +108,68 @@ Each agent prompt MUST include:
 | No usable changes            | `agent-failed`, remove `in-progress` |
 | Second failure on same issue | add `stealable`                      |
 
+### Worker telemetry capture
+
+After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/collect-queue-telemetry.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+
+```js
+import { appendTelemetryRow } from "./scripts/collect-queue-telemetry.mjs";
+
+appendTelemetryRow({
+  issue_number: 2747, // required
+  labels: ["feature", "ready"],
+  model_tier: "sonnet", // haiku | sonnet | opus
+  subagent_tokens: usage.totalTokens, // from worker completion <usage>
+  tool_uses: usage.toolUses ?? 0,
+  duration_ms: Date.now() - claimedAt,
+  pr_number: prNumber ?? null,
+  merged: null, // reconciled by sensor later
+  ci_first_pass: null, // reconciled by sensor later
+  rework_cycles: null, // reconciled by sensor later
+  reviewer_verdict: verdict, // "pass" | "flag" | "skipped"
+  claimed_at: claimedAtIso,
+  merged_at: null, // reconciled by sensor later
+  cost_usd: usage.costUsd ?? null, // include when known; enables precise cost in scorecard
+});
+```
+
+**Rules:**
+
+- Write only schema fields — unknown keys (e.g. API keys, tokens) cause the writer to throw before any disk write.
+- The row is idempotent per `(issue_number, pr_number)` — safe to retry on transient errors.
+- Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; the `queueEfficiency` sensor reconciles them from GitHub in its next run.
+- `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
+
 ## Phase 3: Serial Merge Train
 
-Merge one PR at a time, oldest green first. **Exactly one merge train may run at a time across all sessions** — concurrent trains race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a lock, not the honor system.
+Merge one PR at a time, oldest green first. **At most one merge train may run per zone across all sessions** — concurrent trains in the same zone race and duplicate-fix the same branch, burning CI runs and tokens. This is enforced by a per-zone lock, not the honor system. Non-overlapping zones (e.g. `apps/hospitality` vs `packages/rialto`) merge concurrently.
 
 ### Acquire the merge-train lock (before merging anything)
 
-The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), and fully tested. Use it via Node:
+The lock lives in the shared git common dir, so it is visible to every worktree/session of this repo. The guard is implemented in `scripts/merge-train-lock.mjs` — PID-aware, stale-reclaiming (45-min mtime window), per-zone, and fully tested.
+
+**Pick the zone from the PR's changed files** with `zoneForPaths()`. A PR confined to one workspace area (`apps/<x>`, `packages/<x>`, `services/<x>`, or `root` for top-level/config/docs/scripts) locks only that zone; a cross-cutting PR (`zoneForPaths` returns `null`) takes the **global** lock (no `zone`), serializing against everything — the safe, conservative default. Passing no `zone` is 100% backward compatible with the historical single global lock.
 
 ```js
 import {
   acquireMergeTrainLock,
   releaseMergeTrainLock,
   heartbeatMergeTrainLock,
+  zoneForPaths,
 } from "./scripts/merge-train-lock.mjs";
 
-const result = acquireMergeTrainLock(); // { acquired: true } or { acquired: false, owner: <pid> }
+// changedFiles from `gh pr diff <N> --name-only`
+const zone = zoneForPaths(changedFiles); // string (per-zone) or null (global)
+const result = acquireMergeTrainLock({ zone }); // { acquired: true } or { acquired: false, owner: <pid> }
 if (!result.acquired) {
-  console.log(`merge-train lock held by PID ${result.owner} — SKIP Phase 3 this iteration.`);
-  // Do NOT run the merge train. Drop to monitor-only (report open PR state) and go to Phase 4.
+  console.log(
+    `merge-train lock for zone ${zone ?? "<global>"} held by PID ${result.owner} — SKIP this PR's zone this iteration.`
+  );
+  // Do NOT merge a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
 }
 ```
+
+Heartbeat and release with the **same `zone`** you acquired: `heartbeatMergeTrainLock({ zone })` / `releaseMergeTrainLock({ zone })`.
 
 Or as a one-liner from the shell (e.g. in a bash orchestration wrapper):
 
@@ -131,12 +182,12 @@ node -e "
 "
 ```
 
-If `acquired` is `false`, **skip the entire merge loop below** and proceed to Phase 4 in monitor-only mode (report PR state; merge nothing).
+If `acquired` is `false`, **skip merging PRs in that zone** and continue with PRs in other (acquirable) zones; report the blocked zone's PR state in monitor-only mode.
 
-If `acquired` is `true`: call `heartbeatMergeTrainLock()` at the **start of each PR iteration** (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
+If `acquired` is `true`: call `heartbeatMergeTrainLock({ zone })` at the **start of each PR iteration** for that zone (keeps a legitimately long train from being reclaimed), and **release it when the train ends** — on completion, on circuit-break, or on any abort:
 
 ```js
-releaseMergeTrainLock();
+releaseMergeTrainLock({ zone });
 ```
 
 For each green PR (lock held):
@@ -183,9 +234,9 @@ If CI fails on a PR: one fix attempt in the main session (small fixes) or create
 
 ## Phase 4: Loop or Stop
 
-- **Release the merge-train lock** (`releaseMergeTrainLock()` from `scripts/merge-train-lock.mjs`) before looping or stopping — if you acquired it in Phase 3. (A crash leaves it for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
+- **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - More `ready` issues and time/budget remain → back to Phase 0.
-- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock, then stop and report.
+- **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /implement-queue`.

@@ -1,5 +1,6 @@
 import type { ElementType, HTMLAttributes, ReactNode } from "react";
 import { forwardRef } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Text.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -92,17 +93,15 @@ export const Text = forwardRef<HTMLElement, TextProps>(
   ) => {
     const Tag = as ?? DEFAULT_ELEMENT[variant];
 
-    const classes = [
+    const classes = cn(
       styles.text,
       styles[variant],
-      color ? styles[colorClass[color]] : "",
-      align ? styles[alignClass[align]] : "",
-      mono ? styles.mono : "",
-      truncate ? styles.truncate : "",
-      className,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      color && styles[colorClass[color]],
+      align && styles[alignClass[align]],
+      mono && styles.mono,
+      truncate && styles.truncate,
+      className
+    );
 
     return (
       <Tag ref={ref} className={classes} {...props}>

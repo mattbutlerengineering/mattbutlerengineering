@@ -116,9 +116,9 @@ export function FloorPlanEditorPage() {
       setPendingUpdates(new Map());
       setHasChanges(false);
     } catch (err) {
-      // Rollback to previous table positions on failure
+      // Rollback to previous table positions on failure.
+      // Keep pendingUpdates so the user can retry via the Save Changes button.
       setTables(previousTablesRef.current);
-      setPendingUpdates(new Map());
       setSaveError(
         err instanceof Error ? err.message : "Failed to save changes — positions reverted"
       );
@@ -143,14 +143,15 @@ export function FloorPlanEditorPage() {
     [deleteTableMutation]
   );
 
-  // Auto-save with 1s debounce after changes
+  // Auto-save with 1s debounce after changes.
+  // Skip when saveError is set — user must retry manually to avoid an infinite retry loop.
   useEffect(() => {
-    if (!hasChanges || pendingUpdates.size === 0) return;
+    if (!hasChanges || pendingUpdates.size === 0 || saveError) return;
     const timer = setTimeout(() => {
       handleSave();
     }, 1000);
     return () => clearTimeout(timer);
-  }, [hasChanges, pendingUpdates, handleSave]);
+  }, [hasChanges, pendingUpdates, handleSave, saveError]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -210,7 +211,9 @@ export function FloorPlanEditorPage() {
   };
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
-  const displayError = saveError ?? (error ? error.message : null);
+  // displayError only covers query-load failures. Save/mutation errors use saveError
+  // and are shown inline so the floor plan editor remains accessible.
+  const displayError = error ? error.message : null;
 
   if (isLoading) {
     return (
@@ -272,6 +275,9 @@ export function FloorPlanEditorPage() {
           </Button>
         </div>
       </div>
+
+      {/* Inline save/mutation error — shown without replacing the editor */}
+      {saveError && <ErrorRetryBanner error={saveError} onRetry={handleSave} />}
 
       {/* Add Table dialog */}
       {showAddDialog && (

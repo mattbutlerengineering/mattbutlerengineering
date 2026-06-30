@@ -44,6 +44,9 @@ coverage/
 .claude/worktrees/
 .claire/worktrees/
 
+# Install sentinel written by implement-queue workers (ephemeral, never commit)
+.worktree-installed
+
 # GSD planning artifacts (internal project-management state, not for consumers)
 .planning/
 
@@ -70,7 +73,14 @@ services/*/src/generated/
 .claude/agent-spend.jsonl
 .claude/governor-state.json
 .claude/session-logs/*.json
-.claude/acmm/
+# Ignore acmm dir *contents* (not the dir itself) so the negations below can
+# re-include the tracked files — git won't descend into a dir ignored as a whole.
+.claude/acmm/*
+# These ACMM files are intentionally tracked and required in a fresh checkout
+# (regression baseline + scanner inputs).
+!.claude/acmm/state.json
+!.claude/acmm/repo-bench-results.json
+!.claude/acmm/onboarding-benchmark.json
 .claude/*.lock
 .superpowers/
 

@@ -50,7 +50,12 @@ describe("createAgentTools", () => {
     vi.clearAllMocks();
   });
 
-  const toolCtx = { toolCallId: "call-1", messages: [], abortSignal: undefined as never };
+  const toolCtx = {
+    toolCallId: "call-1",
+    messages: [],
+    abortSignal: undefined as never,
+    context: undefined as never,
+  };
 
   describe("check_availability", () => {
     it("calls api.availability.getTimeSlots with correct params", async () => {

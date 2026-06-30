@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadSuite } from "./golden-task-set.js";
+import { TASK_CATEGORIES } from "./types.js";
 
 let dir: string;
 
@@ -65,5 +67,25 @@ describe("loadSuite", () => {
 
     const tasks = await loadSuite(dir);
     expect(tasks).toHaveLength(1);
+  });
+});
+
+describe("bundled golden suite", () => {
+  it("covers all 5 task categories", async () => {
+    const suitesDir = join(dirname(fileURLToPath(import.meta.url)), "suites");
+    const tasks = await loadSuite(suitesDir);
+
+    const categories = new Set(tasks.map((t) => t.category));
+    for (const cat of TASK_CATEGORIES) {
+      expect(categories, `missing category: ${cat}`).toContain(cat);
+    }
+  });
+
+  it("has no duplicate task ids in the bundled suite", async () => {
+    const suitesDir = join(dirname(fileURLToPath(import.meta.url)), "suites");
+    const tasks = await loadSuite(suitesDir);
+
+    const ids = tasks.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

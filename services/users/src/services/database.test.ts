@@ -80,7 +80,7 @@ vi.mock("@prisma/adapter-pg", () => ({
 
 // Import the module under test AFTER all mocks are in place
 import { db } from "./database.js";
-const { getSlowQueryStats, getPoolStats, getPoolMetrics, getServiceStatus } = db;
+const { getSlowQueryStats, getPoolMetrics, getServiceStatus } = db;
 
 describe("database module", () => {
   beforeEach(() => {
@@ -129,57 +129,41 @@ describe("database module", () => {
     });
   });
 
-  // ─── getPoolStats ─────────────────────────────────────────────────────────
-
-  describe("getPoolStats", () => {
-    it("reads totalCount, idleCount, waitingCount from the pg pool", () => {
-      const stats = getPoolStats();
-      expect(stats.total).toBe(3);
-      expect(stats.idle).toBe(2);
-      expect(stats.waiting).toBe(0);
-    });
-
-    it("reads activeCount from pool", () => {
-      const stats = getPoolStats();
-      expect(stats.active).toBe(1);
-    });
-
-    it("calculates utilization as active / CONNECTION_LIMIT", () => {
-      const stats = getPoolStats();
-      // CONNECTION_LIMIT defaults to 5 (env var unset)
-      expect(stats.utilization).toBeCloseTo(1 / 5, 5);
-    });
-
-    it("returns utilization 0 when pool has no connections open", () => {
-      mockPoolProps.totalCount = 0;
-      mockPoolProps.activeCount = 0;
-      mockPoolProps.idleCount = 0;
-      const stats = getPoolStats();
-      expect(stats.utilization).toBe(0);
-    });
-  });
-
   // ─── getPoolMetrics ───────────────────────────────────────────────────────
 
   describe("getPoolMetrics", () => {
-    it("returns an object with all required PoolMetrics fields", () => {
+    it("returns all required PoolMetrics fields with correct values", () => {
       const metrics = getPoolMetrics();
-      expect(metrics).toHaveProperty("active");
-      expect(metrics).toHaveProperty("idle");
+      expect(metrics).toHaveProperty("total");
       expect(metrics).toHaveProperty("busy");
-      expect(metrics).toHaveProperty("size");
+      expect(metrics).toHaveProperty("idle");
+      expect(metrics).toHaveProperty("waiting");
       expect(metrics).toHaveProperty("utilization");
       expect(metrics).toHaveProperty("isDegraded");
     });
 
-    it("busy equals active connections (total - idle)", () => {
+    it("total equals pool.totalCount", () => {
       const metrics = getPoolMetrics();
-      expect(metrics.busy).toBe(1); // 3 - 2
+      expect(metrics.total).toBe(3); // mockPoolProps.totalCount
     });
 
-    it("size equals CONNECTION_LIMIT (5 by default)", () => {
+    it("busy equals pool.activeCount", () => {
       const metrics = getPoolMetrics();
-      expect(metrics.size).toBe(5);
+      expect(metrics.busy).toBe(1); // mockPoolProps.activeCount
+    });
+
+    it("calculates utilization as activeCount / CONNECTION_LIMIT", () => {
+      const metrics = getPoolMetrics();
+      // CONNECTION_LIMIT defaults to 5 (env var unset)
+      expect(metrics.utilization).toBeCloseTo(1 / 5, 5);
+    });
+
+    it("returns utilization 0 when pool has no active connections", () => {
+      mockPoolProps.totalCount = 0;
+      mockPoolProps.activeCount = 0;
+      mockPoolProps.idleCount = 0;
+      const metrics = getPoolMetrics();
+      expect(metrics.utilization).toBe(0);
     });
 
     it("isDegraded is false when utilization is below 0.8 threshold", () => {

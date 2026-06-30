@@ -2909,7 +2909,12 @@
         }
       }
     
-      return { runId: opts.runId, tasks: scores, aggregate: aggregate(scores) };
+      return {
+        runId: opts.runId,
+        tasks: scores,
+        aggregate: aggregate(scores),
+        byCategory: aggregateByCategory(scores),
+      };
     }
   </file>
   <file path="packages/agent-core/src/eval/golden-task-set.ts">
@@ -3666,7 +3671,10 @@
       const entry = manifest.components.find((c) => c.name === componentName);
       if (!entry) return [];
     
-      return entry.props.map((p) => ({
+      const noiseStart = entry.props.findIndex((p) => HTML_NOISE_SENTINELS.has(p.name));
+      const ownProps = noiseStart === -1 ? entry.props : entry.props.slice(0, noiseStart);
+    
+      return ownProps.map((p) => ({
         name: p.name,
         type: p.type.replace(/\s*\|\s*undefined$/, ""),
         description: p.description ?? "",
@@ -4067,6 +4075,46 @@
       }
     
       request.managedReservationId = result.reservationId!;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="pages">
+  <file path="apps/gen/src/pages/createRefinementPrompt.ts">
+    export function createRefinementPrompt(
+      currentSpec: Spec,
+      userInstruction: string,
+    ): string {
+      return (
+        `Here is an existing UI spec generated from Rialto components. ` +
+        `Please modify it according to the user's instruction. ` +
+        `Output the COMPLETE modified spec (not just the changes).\n\n` +
+        `Existing spec:\n${JSON.stringify(currentSpec)}\n\n` +
+        `Modification requested: ${userInstruction}`
+      );
+    }
+  </file>
+  <file path="apps/gen/src/pages/usePlaygroundState.ts">
+    export type PlaygroundMode = "generate" | "refine";
+    export interface PlaygroundState {
+      /** generate (fresh prompt) vs refine (modify the current spec) */
+      mode: PlaygroundMode;
+      /** distraction-free layout */
+      isFullscreen: boolean;
+      /** template gallery overlay */
+      galleryOpen: boolean;
+      /** keyboard-shortcuts help overlay */
+      shortcutsOpen: boolean;
+    
+      enterRefinement: () => void;
+      exitRefinement: () => void;
+      /** flip fullscreen; entering/leaving also dismisses open overlays */
+      toggleFullscreen: () => void;
+      openGallery: () => void;
+      closeGallery: () => void;
+      toggleGallery: () => void;
+      openShortcuts: () => void;
+      closeShortcuts: () => void;
+      toggleShortcuts: () => void;
     }
   </file>
   </section>
@@ -4904,7 +4952,7 @@
   <section priority="medium" role="routes">
   <file path="services/agent/src/routes/gen-agent-tools.ts">
     type ApiClient = ReturnType<typeof createApiClient>;
-    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient) {
+    export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSet {
       return {
         // ── Read tools (instant, no confirmation) ──────────────
         check_availability: tool({
@@ -5826,7 +5874,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const status = request.query.status as AgentSessionStatus | undefined;
     
           const prismaStatus = status?.toUpperCase() as
@@ -6744,7 +6792,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return floorPlanService.list(page, limit, request.query.venueId);
         }
       );
@@ -7055,7 +7103,7 @@
                 page: { type: "string", default: "1", description: "Page number (1-indexed)" },
                 limit: {
                   type: "string",
-                  default: "20",
+                  default: "10",
                   description: "Number of guests per page (max 100)",
                 },
               },
@@ -7080,7 +7128,7 @@
               .code(400)
               .send(createProblemDetails(400, "Bad Request", "venueId is required"));
           }
-          const { page, limit } = validatePagination(request.query.page, request.query.limit);
+          const { page, limit } = parsePaginationQuery(request.query);
           return guestService.list(venueId, page, limit);
         }
       );
@@ -8793,7 +8841,7 @@
           },
         },
         async (request, _reply) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.list({
             page,
             limit,
@@ -8865,7 +8913,7 @@
               .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
           }
     
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return reservationService.listByUserId(authUser.id, page, limit);
         }
       );
@@ -9531,7 +9579,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
           return tableService.list(page, limit, activeOnly);
         }
@@ -9947,7 +9995,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueGroupService.list(page, limit);
         }
       );
@@ -10246,7 +10294,7 @@
           },
         },
         async (request) => {
-          const { page, limit } = parseListQuery(request.query);
+          const { page, limit } = parsePaginationQuery(request.query);
           return venueService.list(page, limit, request.query.venueGroupId);
         }
       );
@@ -11140,7 +11188,7 @@
       reason?: string;
     }
   </file>
-  <file path="packages/rialto/scripts/character-limits.ts">
+  <file path="packages/rialto/scripts/component-metadata.ts">
     export interface CharacterLimit {
       component: string;
       prop: string;
@@ -11756,7 +11804,7 @@
     export interface ResolveChannelInput {
       email: string | null;
       phone: string | null;
-      communicationPreference: string | null;
+      communicationPreference: CommunicationPreference | null;
     }
   </file>
   <file path="services/reservations/src/services/briefing.ts">
@@ -13227,6 +13275,31 @@
       return tier === "trivial" ? "simple" : tier;
     }
   </file>
+  <file path="packages/agent-core/src/budget-gate.ts">
+    export interface BudgetBreachResult {
+      /** Whether the accumulated turn costs strictly exceed the budget ceiling. */
+      readonly exceeded: boolean;
+      /** Sum of all per-turn costUsd values. */
+      readonly accumulatedCostUsd: number;
+      /** The budget ceiling passed in by the caller. */
+      readonly maxBudgetUsd: number;
+      /** Amount by which the budget was exceeded (0 when not exceeded). */
+      readonly overageUsd: number;
+    }
+    export function shouldHaltForBudget(
+      turnMetrics: readonly TurnMetrics[],
+      maxBudgetUsd: number
+    ): BudgetBreachResult {
+      const accumulatedCostUsd = turnMetrics.reduce((sum, t) => sum + t.costUsd, 0);
+      const exceeded = accumulatedCostUsd > maxBudgetUsd;
+      return {
+        exceeded,
+        accumulatedCostUsd,
+        maxBudgetUsd,
+        overageUsd: exceeded ? accumulatedCostUsd - maxBudgetUsd : 0,
+      };
+    }
+  </file>
   <file path="packages/agent-core/src/bundle-size-tracker.ts">
     export interface FileSize {
       readonly path: string;
@@ -14178,6 +14251,8 @@
       prUrl: string | null;
       prNumber?: number;
       errors: string[];
+      /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
+      budgetEnforced?: boolean;
     }
     export async function runSession(
       config: SessionConfig,
@@ -14458,17 +14533,11 @@
     }
   </file>
   <file path="packages/agent-core/src/worktree-manager.ts">
+    export const INSTALL_SENTINEL_FILENAME = ".worktree-installed";
     export function validateGitRef(ref: string, label: string): void {
       if (!ref || !SAFE_GIT_REF.test(ref)) {
         throw new Error(
           `Invalid ${label}: "${ref}" — must match ${String(SAFE_GIT_REF)} (no leading dash, no shell metacharacters)`
-        );
-      }
-    }
-    export function validatePath(path: string, label: string): void {
-      if (!path || UNSAFE_PATH_CHARS.test(path)) {
-        throw new Error(
-          `Invalid ${label}: "${path}" — must not contain shell metacharacters (${String(UNSAFE_PATH_CHARS)})`
         );
       }
     }
@@ -15271,7 +15340,7 @@
     }
   </file>
   <file path="packages/database/src/list-utils.ts">
-    export function parseListQuery(query: { page?: string; limit?: string }): {
+    export function parsePaginationQuery(query: { page?: string; limit?: string }): {
       page: number;
       limit: number;
     } {
@@ -15397,6 +15466,12 @@
       constructor(config: JobSchedulerConfig) {
         this.redis = new Redis(config.redisUrl, {
           maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobScheduler
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring — e.g. createDefaultWaitlistNotifier() in reservations — opens a
+          // background ECONNREFUSED loop in tests/CI where no Redis is present.
+          lazyConnect: true,
         });
     
         this.queue = new Queue(config.queueName ?? DEFAULT_QUEUE_NAME, {
@@ -15575,6 +15650,18 @@
         return (preference === "sms_only" || preference === "both") && this.smsAdapter !== null;
       }
     
+      /**
+       * Returns true when an sms_only guest must receive a message via email
+       * because no SMS adapter is configured.
+       *
+       * Used for messages that CAN travel via SMS (e.g. reminders) — when the
+       * SMS channel is unavailable, we fall back to email rather than silently
+       * dropping the notification.
+       */
+      private requiresEmailFallback(preference: CommunicationPreference): boolean {
+        return preference === "sms_only" && this.smsAdapter === null;
+      }
+    
       /** Booking confirmation — transactional, always sent. */
       async sendBookingConfirmation(
         emailInput: BookingNotificationInput,
@@ -15593,7 +15680,7 @@
       ): Promise<void> {
         const sends: Promise<void>[] = [];
     
-        if (this.shouldSendEmail(preference)) {
+        if (this.shouldSendEmail(preference) || this.requiresEmailFallback(preference)) {
           sends.push(this.emailAdapter.sendBookingReminder(input));
         }
     

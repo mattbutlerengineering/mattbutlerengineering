@@ -1,0 +1,20 @@
+{
+  "id": "test-writing-scorer",
+  "category": "test-writing",
+  "prompt": "The `scoreTask` function in `packages/agent-core/src/eval/task-scorer.ts` has no test for the branch where `rubric.lintMustPass` is `true` and `checks.lintPass` is `false`. Add a focused unit test to `task-scorer.test.ts` covering this branch, and verify that `passed` is `false` and `score` is less than 1 when lint fails and `lintMustPass` is set.",
+  "fixtureRef": "fixtures/test-writing-scorer",
+  "rubric": {
+    "testsMustPass": true,
+    "typecheckMustPass": true,
+    "lintMustPass": false,
+    "judgeCriteria": [
+      "A new test is added to `task-scorer.test.ts` — no production code is changed.",
+      "The test specifically exercises the `lintMustPass: true` + `lintPass: false` branch.",
+      "The test asserts both `passed === false` and `score < 1`."
+    ]
+  },
+  "budget": {
+    "maxTurns": 15,
+    "maxCostUsd": 0.15
+  }
+}

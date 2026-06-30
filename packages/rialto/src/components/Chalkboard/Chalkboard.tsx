@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
+import { cn } from "../../utils/class-composer";
 import styles from "./Chalkboard.module.css";
 
 /**
@@ -28,9 +29,12 @@ export interface ChalkboardProps extends HTMLAttributes<HTMLElement> {
 
 export const Chalkboard = forwardRef<HTMLElement, ChalkboardProps>(
   ({ title, subtitle, children, variant = "slate", framed = false, className, ...rest }, ref) => {
-    const classes = [styles.board, styles[`variant-${variant}`], framed && styles.framed, className]
-      .filter(Boolean)
-      .join(" ");
+    const classes = cn(
+      styles.board,
+      styles[`variant-${variant}`],
+      framed && styles.framed,
+      className
+    );
 
     return (
       <section ref={ref} className={classes} {...rest}>
@@ -61,11 +65,7 @@ export interface ChalkboardSectionProps extends HTMLAttributes<HTMLElement> {
 export const ChalkboardSection = forwardRef<HTMLElement, ChalkboardSectionProps>(
   ({ heading, children, className, ...rest }, ref) => {
     return (
-      <section
-        ref={ref}
-        className={[styles.section, className].filter(Boolean).join(" ")}
-        {...rest}
-      >
+      <section ref={ref} className={cn(styles.section, className)} {...rest}>
         {heading && <h3 className={styles.sectionHeading}>{heading}</h3>}
         <ul className={styles.itemList}>{children}</ul>
       </section>
@@ -88,7 +88,7 @@ export interface ChalkboardItemProps {
 }
 
 export function ChalkboardItem({ name, price, description, soldOut = false }: ChalkboardItemProps) {
-  const classes = [styles.item, soldOut && styles.soldOut].filter(Boolean).join(" ");
+  const classes = cn(styles.item, soldOut && styles.soldOut);
 
   return (
     <li className={classes}>
