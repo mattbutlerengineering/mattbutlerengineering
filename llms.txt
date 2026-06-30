@@ -1093,6 +1093,23 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="heuristics">
+  <file path="packages/supply-chain-scanner/src/heuristics/data-exfiltration.ts">
+    <item priority="high">
+      export function detectDataExfiltration(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/heuristics/malicious-commands.ts">
+    <item priority="high">
+      export function detectMaliciousCommands(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/heuristics/prompt-injection.ts">
+    <item priority="high">
+      export function detectPromptInjection(file: SourceFile): Finding[] { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
     <item priority="high">
@@ -2283,6 +2300,11 @@
     </item>
     <item priority="high">
       export const characterLimits: CharacterLimit[];
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/generate-all.ts">
+    <item priority="medium">
+      function main(): void { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
@@ -4633,6 +4655,53 @@
     </item>
     <item priority="high">
       export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/collect-files.ts">
+    <item priority="medium">
+      function extensionOf(name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function collectFiles(rootDir: string): SourceFile[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/rule-engine.ts">
+    <item priority="low">
+      interface Rule {
+        pattern: RegExp;
+        category: Category;
+        severity: Severity;
+      }
+    </item>
+    <item priority="high">
+      export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/run-cli.ts">
+    <item priority="low">
+      interface CliIo {
+        stdout: (text: string) => void;
+        stderr: (text: string) => void;
+      }
+    </item>
+    <item priority="high">
+      export function run(argv: readonly string[], io: CliIo): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/scan-package.ts">
+    <item priority="high">
+      export function computeVerdict(findings: readonly Finding[]): Verdict { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scanPackage(dir: string): ScanResult { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/supply-chain-scanner/src/types.ts">
+    <item priority="low">
+      type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
+    </item>
+    <item priority="low">
+      type Severity = "low" | "med" | "high";
     </item>
   </file>
   <file path="packages/test-fixtures/src/jwt.ts">

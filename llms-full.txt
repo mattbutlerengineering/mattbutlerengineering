@@ -3301,6 +3301,54 @@
     }
   </file>
   </section>
+  <section priority="medium" role="heuristics">
+  <file path="packages/supply-chain-scanner/src/heuristics/data-exfiltration.ts">
+    export function detectDataExfiltration(file: SourceFile): Finding[] {
+      const outbound = applyRules(file.relPath, file.content, OUTBOUND_RULES);
+      const secrets = applyRules(file.relPath, file.content, SECRET_RULES);
+      const findings: Finding[] = [...outbound, ...secrets];
+    
+      if (outbound.length > 0 && secrets.length > 0) {
+        findings.push({
+          category: "data-exfiltration",
+          severity: "high",
+          file: file.relPath,
+          line: outbound[0].line,
+          evidence: `outbound call (line ${outbound[0].line}) combined with secret read (line ${secrets[0].line})`,
+        });
+      }
+    
+      return findings;
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/heuristics/malicious-commands.ts">
+    export function detectMaliciousCommands(file: SourceFile): Finding[] {
+      return applyRules(file.relPath, file.content, RULES);
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/heuristics/prompt-injection.ts">
+    export function detectPromptInjection(file: SourceFile): Finding[] {
+      const findings = applyRules(file.relPath, file.content, RULES);
+    
+      if (isProseFile(file.relPath)) {
+        const lines = file.content.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (BASE64_BLOB.test(lines[i])) {
+            findings.push({
+              category: "prompt-injection",
+              severity: "med",
+              file: file.relPath,
+              line: i + 1,
+              evidence: `base64-like blob (${lines[i].trim().length} chars) embedded in prose`,
+            });
+          }
+        }
+      }
+    
+      return findings;
+    }
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
     export function useCopyToClipboard() {
@@ -11497,6 +11545,53 @@
       },
     ];
   </file>
+  <file path="packages/rialto/scripts/generate-all.ts">
+    function main(): void {
+      const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
+        version: string;
+      };
+    
+      // Single parse — shared by every generator that needs component metadata.
+      const components = introspectComponents(rootDir);
+    
+      // ── registry.json ──────────────────────────────────────────────────────────
+      const registry = buildRegistry(components, pkg.version);
+      const registryPath = path.join(rootDir, "registry.json");
+      fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + "\n");
+      console.log(`Generated registry: ${components.length} components → ${registryPath}`);
+    
+      // ── dist/manifest.json ─────────────────────────────────────────────────────
+      const manifestPath = path.join(rootDir, "dist/manifest.json");
+      fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+      const manifest = buildManifest(components, pkg.version, new Date().toISOString());
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      console.log(`Generated manifest: ${components.length} components → ${manifestPath}`);
+    
+      // ── package.json exports ───────────────────────────────────────────────────
+      // buildExportsMap(rootDir) derives lib entries from src/components/.
+      // The ./styles subpath points at a dist/lib/styles.d.ts stub that vite does
+      // not emit (no styles.ts source) — write it here so consumers' typecheck can
+      // resolve the side-effect CSS import. (Previously done by `pnpm exports`.)
+      writeStylesTypeStub(rootDir);
+      const exportsMap = buildExportsMap(rootDir);
+      const pkgFull = JSON.parse(
+        fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")
+      ) as Record<string, unknown>;
+    
+      const currentExports = JSON.stringify(pkgFull.exports, null, 2);
+      const desiredExports = JSON.stringify(exportsMap, null, 2);
+    
+      if (currentExports !== desiredExports) {
+        pkgFull.exports = exportsMap;
+        fs.writeFileSync(path.join(rootDir, "package.json"), JSON.stringify(pkgFull, null, 2) + "\n");
+        console.log(
+          `[generate-all] wrote ${Object.keys(exportsMap).length} export entries to package.json`
+        );
+      } else {
+        console.log("[generate-all] exports map already in sync.");
+      }
+    }
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     interface ExportEntry {
       types?: string;
@@ -16662,6 +16757,97 @@
         process.exit(1);
       }
     }
+  </file>
+  <file path="packages/supply-chain-scanner/src/collect-files.ts">
+    function extensionOf(name: string): string {
+      const dot = name.lastIndexOf(".");
+      return dot === -1 ? "" : name.slice(dot).toLowerCase();
+    }
+    export function collectFiles(rootDir: string): SourceFile[] {
+      const out: SourceFile[] = [];
+    
+      const walk = (dir: string): void => {
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            if (!SKIP_DIRS.has(entry.name)) walk(full);
+            continue;
+          }
+          if (!entry.isFile()) continue; // ignore symlinks/sockets — never follow them
+          if (!TEXT_EXTENSIONS.has(extensionOf(entry.name))) continue;
+          if (statSync(full).size > MAX_FILE_BYTES) continue;
+          const relPath = relative(rootDir, full).split(sep).join("/");
+          out.push({ relPath, content: readFileSync(full, "utf8") });
+        }
+      };
+    
+      walk(rootDir);
+      return out;
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/rule-engine.ts">
+    export interface Rule {
+      /** Non-global regex tested per line. (Global regexes carry lastIndex state — banned.) */
+      readonly pattern: RegExp;
+      readonly category: Category;
+      readonly severity: Severity;
+    }
+    export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
+      const findings: Finding[] = [];
+      const lines = content.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const rule of rules) {
+          if (rule.pattern.test(line)) {
+            findings.push({
+              category: rule.category,
+              severity: rule.severity,
+              file,
+              line: i + 1,
+              evidence: line.trim().slice(0, MAX_EVIDENCE),
+            });
+          }
+        }
+      }
+      return findings;
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/run-cli.ts">
+    export interface CliIo {
+      readonly stdout: (text: string) => void;
+      readonly stderr: (text: string) => void;
+    }
+    export function run(argv: readonly string[], io: CliIo): number {
+      const target = argv[2];
+      if (!target) {
+        io.stderr("usage: mbe-scan <path-to-package>\n");
+        return 2;
+      }
+      const result = scanPackage(target);
+      io.stdout(`${JSON.stringify(result, null, 2)}\n`);
+      return result.verdict === "block" ? 1 : 0;
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/scan-package.ts">
+    export function computeVerdict(findings: readonly Finding[]): Verdict {
+      if (findings.some((f) => f.severity === "high")) return "block";
+      if (findings.some((f) => f.severity === "med")) return "flag";
+      return "pass";
+    }
+    export function scanPackage(dir: string): ScanResult {
+      const files = collectFiles(dir);
+      const findings: Finding[] = files.flatMap((file) => [
+        ...detectPromptInjection(file),
+        ...detectDataExfiltration(file),
+        ...detectMaliciousCommands(file),
+      ]);
+      return { verdict: computeVerdict(findings), findings };
+    }
+  </file>
+  <file path="packages/supply-chain-scanner/src/types.ts">
+    export type Category = "prompt-injection" | "data-exfiltration" | "malicious-command";
+    export type Severity = "low" | "med" | "high";
   </file>
   <file path="packages/test-fixtures/src/jwt.ts">
     export interface MockJWTPayload {

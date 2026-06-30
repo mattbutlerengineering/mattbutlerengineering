@@ -10,7 +10,8 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExportsMap } from "./generate-exports.js";
+import * as os from "node:os";
+import { buildExportsMap, writeStylesTypeStub } from "./generate-exports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,5 +43,22 @@ describe("buildExportsMap", () => {
 
     const committed = JSON.stringify(pkg.exports, null, 2);
     expect(serialized).toBe(committed);
+  });
+});
+
+describe("writeStylesTypeStub", () => {
+  // The ./styles subpath's `types` points at dist/lib/styles.d.ts, which vite
+  // does not emit (there is no styles.ts source). The build must write this
+  // stub or consumers fail to typecheck the side-effect CSS import (TS2882).
+  it("writes a side-effect-only declaration stub into dist/lib", () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rialto-stub-"));
+    try {
+      fs.mkdirSync(path.join(tmpRoot, "dist", "lib"), { recursive: true });
+      writeStylesTypeStub(tmpRoot);
+      const stub = fs.readFileSync(path.join(tmpRoot, "dist", "lib", "styles.d.ts"), "utf-8");
+      expect(stub).toContain("export {};");
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
   });
 });

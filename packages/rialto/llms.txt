@@ -514,6 +514,11 @@
       export const characterLimits: CharacterLimit[];
     </item>
   </file>
+  <file path="scripts/generate-all.ts">
+    <item priority="medium">
+      function main(): void { /* ... */ }
+    </item>
+  </file>
   <file path="scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {

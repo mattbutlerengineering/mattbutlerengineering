@@ -127,6 +127,20 @@ jobs:
             echo "----- reservations-api log -----"; cat /tmp/reservations-api.log || true; exit 1;
           }
 
+      # Confirm the E2E seed user can obtain an Auth0 token before launching the
+      # full suite. Exits non-zero with "E2E auth preflight failed: <reason>" so
+      # auth/seed drift surfaces as a one-line cause instead of ~25 test fails.
+      # Distinguishes: (a) missing env vars, (b) auth rejected, (c) network error.
+      - name: Auth0 seed-user preflight
+        id: auth-preflight
+        run: node scripts/e2e-auth-preflight.mjs
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
       - name: Run E2E tests
         run: pnpm --dir apps/hospitality test:e2e
         env:
@@ -140,6 +154,40 @@ jobs:
           E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
           E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+
+      # On any E2E failure, write a structured summary to $GITHUB_STEP_SUMMARY so
+      # one glance classifies the failure mode: backend boot failure, auth/seed
+      # drift, or test regression.
+      - name: Write E2E failure summary
+        if: failure()
+        run: |
+          # Backend health re-probe (quick liveness check)
+          users_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/v1/users/health || echo "000")
+          res_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3004/api/v1/reservations/health || echo "000")
+          [ "$users_code" = "200" ] && users_status="healthy" || users_status="unhealthy (HTTP $users_code)"
+          [ "$res_code" = "200" ] && res_status="healthy" || res_status="unhealthy (HTTP $res_code)"
+
+          # Pass/fail counts from Playwright JSON reporter
+          RESULTS="apps/hospitality/playwright-results.json"
+          if [ -f "$RESULTS" ]; then
+            passed=$(node -e "const j=JSON.parse(require('fs').readFileSync('$RESULTS')); process.stdout.write(String(j.stats?.expected??0))")
+            failed=$(node -e "const j=JSON.parse(require('fs').readFileSync('$RESULTS')); process.stdout.write(String(j.stats?.unexpected??0))")
+          else
+            passed="N/A"
+            failed="N/A"
+          fi
+
+          {
+            echo "## E2E Failure Diagnostic Summary"
+            echo ""
+            echo "| Component | Status |"
+            echo "|-----------|--------|"
+            echo "| users-api | $users_status |"
+            echo "| reservations-api | $res_status |"
+            echo "| Auth0 preflight | ${{ steps.auth-preflight.outcome }} |"
+            echo "| Tests passed | $passed |"
+            echo "| Tests failed | $failed |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dump backend logs on failure
         if: failure()
