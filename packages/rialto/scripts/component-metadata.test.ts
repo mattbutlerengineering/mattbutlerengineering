@@ -129,4 +129,26 @@ describe("introspectComponents", () => {
       }
     }
   });
+
+  it("enum values in resolvedType are byte-sorted (not localeCompare, not program-order)", () => {
+    // Stack.direction is a known multi-value enum whose order was non-deterministic
+    // before this fix (reordered when component count changed from 26→135).
+    // Byte comparator: (a,b)=>(a<b?-1:a>b?1:0) — matches the component-name sort.
+    const stack = getComponents().find((c) => c.name === "Stack");
+    expect(stack).toBeDefined();
+
+    const direction = stack!.props.find((p) => p.name === "direction");
+    expect(direction).toBeDefined();
+
+    // resolvedType for an optional "column" | "row" prop contains the quoted
+    // string literals plus "undefined". Strip undefined and check byte order.
+    const members = direction!.resolvedType
+      .split(" | ")
+      .map((m) => m.trim())
+      .filter((m) => m !== "undefined");
+
+    const byteComparator = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+    const sorted = [...members].sort(byteComparator);
+    expect(members).toEqual(sorted);
+  });
 });

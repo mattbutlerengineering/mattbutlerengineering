@@ -51,8 +51,8 @@ function main(): void {
   console.log(`Generated manifest: ${components.length} components → ${manifestPath}`);
 
   // ── package.json exports ───────────────────────────────────────────────────
-  // buildExportsMap() reads src/components/ to derive lib entries — no TS parse.
-  const exportsMap = buildExportsMap();
+  // buildExportsMap(rootDir) derives lib entries from src/components/.
+  const exportsMap = buildExportsMap(rootDir);
   const pkgFull = JSON.parse(
     fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")
   ) as Record<string, unknown>;
