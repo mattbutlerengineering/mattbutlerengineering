@@ -230,7 +230,11 @@
   </file>
   <file path="src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
-      "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
+      | "typewriter"
+      | "scroll-left"
+      | "scroll-right"
+      | "blink"
+      | "frames";
     export interface UseFlipDotAnimationOptions {
       /** Text to render (used by typewriter, scroll, blink modes). */
       text?: string;
@@ -424,7 +428,12 @@
   </file>
   <file path="src/components/TapeChart/types.ts">
     export type TapeChartStatus =
-      "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
+      | "tentative"
+      | "confirmed"
+      | "checkedIn"
+      | "checkedOut"
+      | "cancelled"
+      | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
