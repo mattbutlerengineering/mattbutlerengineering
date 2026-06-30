@@ -29,24 +29,24 @@ Defined in `packages/agent-core/src/reviewer-contract.ts` — type `ReviewInput`
 
 Defined in `packages/agent-core/src/reviewer-contract.ts` — type `ReviewVerdict`.
 
-| Field        | Type            | Description                                          |
+| Field | Type | Description |
 | ------------ | --------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| `verdict`    | `"pass"         | "flag"`                                              | Pass = proceed to PR; flag = block and handle per policy |
-| `score`      | `number` (0–10) | Numeric quality score (see rubric below)             |
-| `issues`     | `ReviewIssue[]` | Specific issues found (empty on pass)                |
-| `strengths`  | `string?`       | Optional positive feedback for reward-model training |
-| `assessment` | `string`        | Free-text qualitative assessment                     |
-| `reviewedAt` | `string`        | ISO-8601 timestamp                                   |
+| `verdict` | `"pass"         | "flag"` | Pass = proceed to PR; flag = block and handle per policy |
+| `score` | `number` (0–10) | Numeric quality score (see rubric below) |
+| `issues` | `ReviewIssue[]` | Specific issues found (empty on pass) |
+| `strengths` | `string?` | Optional positive feedback for reward-model training |
+| `assessment` | `string` | Free-text qualitative assessment |
+| `reviewedAt` | `string` | ISO-8601 timestamp |
 
 Each `ReviewIssue` has:
 
-| Field         | Type                  | Description                            |
+| Field | Type | Description |
 | ------------- | --------------------- | -------------------------------------- | ---------- | ------------ | -------------- | ---------- | -------- | ---------- | -------- |
-| `category`    | `ReviewIssueCategory` | `hallucination                         | regression | test_failure | lint_violation | type_error | security | incomplete | quality` |
-| `description` | `string`              | Concise problem description            |
-| `filePath`    | `string?`             | File path where the issue manifests    |
-| `lineNumber`  | `number?`             | Line number of the issue               |
-| `suggestion`  | `string?`             | Optional fix suggestion (code or text) |
+| `category` | `ReviewIssueCategory` | `hallucination                         | regression | test_failure | lint_violation | type_error | security | incomplete | quality` |
+| `description` | `string` | Concise problem description |
+| `filePath` | `string?` | File path where the issue manifests |
+| `lineNumber` | `number?` | Line number of the issue |
+| `suggestion` | `string?` | Optional fix suggestion (code or text) |
 
 ## Scoring rubric (0–10)
 
@@ -71,9 +71,9 @@ Scores ≥ **7** constitute a passing grade. Scores ≤ **6** produce a `"flag"`
 ## Dispatch model
 
 ```
-implement-queue (phase 3: merge train)
+implement-queue (Phase 2: worker→train boundary, after PR-level CI green)
   │
-  ├─ 1. For each green PR (skipped for low-risk PRs per isLowRiskPR)
+  ├─ 1. After PR-level CI goes green (skipped for low-risk PRs per isLowRiskPR)
   │
   ├─ 2. Build ReviewInput from worker output
   │
@@ -85,17 +85,19 @@ implement-queue (phase 3: merge train)
   ├─ 4. Await verdict (≤30s timeout, fail-open on timeout → pass)
   │
   ├─ 5. Decision:
-  │   ├─ pass  → proceed to gh pr merge
+  │   ├─ pass  → proceed to gh pr merge --auto
   │   ├─ flag  → apply Retry Policy (below)
   │   └─ timeout/error → log warning, proceed (fail-open)
 ```
 
 ### When the Reviewer runs
 
-The Reviewer runs in **Phase 3 (merge train)** of the implement-queue,
-**after** CI is green and **before** `gh pr merge`. This catches issues
-that CI cannot (semantic regressions, hallucinated behaviour, skipped
-acceptance criteria).
+The Reviewer runs at the **Phase 2 worker→train boundary** of the implement-queue,
+**after** PR-level CI is green and **before** `gh pr merge --auto`. Because GitHub
+merges auto-enqueued PRs the moment CI Gate is green (with no further gate), the
+Reviewer must fire here — before enqueue — to remain effective. This catches issues
+that CI cannot (semantic regressions, hallucinated behaviour, skipped acceptance
+criteria).
 
 Review is **skipped** for low-risk PRs (tests-only, docs, config, deps)
 as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
@@ -150,11 +152,11 @@ in the issue's YAML frontmatter.
 
 ### implement-queue SKILL.md
 
-The relevant section is **Phase 3: Serial Merge Train** (lines 94–116).
-The existing "Diff-matched review gate" step already dispatches
-specialized reviewers (`migration-reviewer`, `adr-compliance-reviewer`,
-etc.). The general-purpose Reviewer sub-agent described in this contract
-runs **before** those specialized reviewers, as a universal gate.
+The relevant section is the **Worker→train boundary** subsection within **Phase 2**
+(see SKILL.md). The general-purpose Reviewer sub-agent described in this contract
+runs **before** the diff-matched specialized reviewers (`migration-reviewer`,
+`adr-compliance-reviewer`, etc.) and **before** `gh pr merge --auto`, as a
+universal gate at the worker→train boundary on PR-level CI green.
 
 ### Future: `@mbe/agent-core` runtime
 
