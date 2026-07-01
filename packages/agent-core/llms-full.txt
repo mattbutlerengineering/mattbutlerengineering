@@ -2038,6 +2038,43 @@
       }
     }
   </file>
+  <file path="src/result-builder.ts">
+    export interface SessionState {
+      worktree?: WorktreeInfo;
+      systemPrompt?: string;
+      resultMessage?: SDKResultMessage;
+      stuckReason?: StuckPattern;
+      turnMetrics: readonly TurnMetrics[];
+      toolCallMetrics: readonly ToolCallMetrics[];
+      contextMetrics?: ContextMetrics;
+      hasChanges: boolean;
+      commitMsg?: string;
+      gatewayVerdict?: GatewayVerdict;
+      gatewayEvaluation?: EvaluationResult;
+      prUrl: string | null;
+      prNumber?: number;
+      errors: string[];
+      /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
+      budgetEnforced?: boolean;
+    }
+    export function buildRootSpanAttributes(
+      config: SessionConfig,
+      tuning: QaTuningThresholds | null
+    ): Record<string, string | number | boolean> {
+      return {
+        "session.task": config.taskDescription.slice(0, 200),
+        "session.model": config.model,
+        "session.max_turns": config.maxTurns,
+        "session.max_budget_usd": config.maxBudgetUsd,
+        "session.base_branch": config.baseBranch,
+        ...(tuning ? { "session.qa_tuning_applied": true } : {}),
+        ...(config.modelRoutingReason
+          ? { "session.model_routing_reason": config.modelRoutingReason }
+          : {}),
+        ...(config.modelRoutingTier ? { "session.model_routing_tier": config.modelRoutingTier } : {}),
+      };
+    }
+  </file>
   <file path="src/retry.ts">
     export interface RetryConfig {
       /** Maximum number of retry attempts (default: 3) */
@@ -2212,24 +2249,6 @@
     }
   </file>
   <file path="src/session-runner.ts">
-    interface SessionState {
-      worktree?: WorktreeInfo;
-      systemPrompt?: string;
-      resultMessage?: SDKResultMessage;
-      stuckReason?: StuckPattern;
-      turnMetrics: readonly TurnMetrics[];
-      toolCallMetrics: readonly ToolCallMetrics[];
-      contextMetrics?: ContextMetrics;
-      hasChanges: boolean;
-      commitMsg?: string;
-      gatewayVerdict?: GatewayVerdict;
-      gatewayEvaluation?: EvaluationResult;
-      prUrl: string | null;
-      prNumber?: number;
-      errors: string[];
-      /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
-      budgetEnforced?: boolean;
-    }
     export async function runSession(
       config: SessionConfig,
       onEvent?: SessionEventCallback,
@@ -2348,6 +2367,104 @@
           );
         }
       );
+    }
+    async function runPipeline(
+      config: SessionConfig,
+      onEvent: SessionEventCallback | undefined,
+      deps: PhaseDeps,
+      state: SessionState
+    ): Promise<void> {
+      // WorktreePhase
+      const worktreeExec = await worktreePhase.run({ config, onEvent }, deps);
+      if (worktreeExec.output) {
+        state.worktree = worktreeExec.output.worktree;
+        state.systemPrompt = worktreeExec.output.systemPrompt;
+      }
+      if (await abortOnFailure(worktreeExec.result, config, state, deps, onEvent)) return;
+    
+      // QueryPhase
+      const queryExec = await queryPhase.run(
+        { config, onEvent, worktree: state.worktree!, systemPrompt: state.systemPrompt! },
+        deps
+      );
+      if (queryExec.output) {
+        state.resultMessage = queryExec.output.resultMessage;
+        state.stuckReason = queryExec.output.stuckReason;
+        state.turnMetrics = queryExec.output.turnMetrics;
+        state.toolCallMetrics = queryExec.output.toolCallMetrics;
+        state.contextMetrics = queryExec.output.contextMetrics;
+      }
+      if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
+    
+      // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
+      const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
+      if (breach.exceeded) {
+        emitEvent(onEvent, "session:budget_breach", {
+          message: JSON.stringify(breach),
+        });
+        if (config.enforceBudget) {
+          const breachMsg = `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`;
+          state.errors.push(breachMsg);
+          state.budgetEnforced = true;
+          return;
+        }
+      }
+    
+      // VerificationPhase
+      const verifyExec = await verificationPhase.run(
+        {
+          config,
+          onEvent,
+          worktree: state.worktree!,
+          resultMessage: state.resultMessage,
+          stuckReason: state.stuckReason,
+        },
+        deps
+      );
+      if (verifyExec.output) {
+        state.hasChanges = verifyExec.output.hasChanges;
+        state.commitMsg = verifyExec.output.commitMsg;
+        state.gatewayVerdict = verifyExec.output.gatewayVerdict;
+        state.gatewayEvaluation = verifyExec.output.gatewayEvaluation;
+      }
+      // VerificationPhase always succeeds; its gateway errors flow into the
+      // final result via state.errors (e.g. a draft PR with failing gates).
+      state.errors.push(...verifyExec.result.errors);
+      if (await abortOnFailure(verifyExec.result, config, state, deps, onEvent)) return;
+    
+      // PublishPhase
+      const publishExec = await publishPhase.run(
+        {
+          config,
+          onEvent,
+          worktree: state.worktree!,
+          hasChanges: state.hasChanges,
+          resultMessage: state.resultMessage,
+          stuckReason: state.stuckReason,
+          gatewayVerdict: state.gatewayVerdict,
+          errors: state.errors,
+        },
+        deps
+      );
+      if (publishExec.output) {
+        state.prUrl = publishExec.output.prUrl;
+        state.prNumber = publishExec.output.prNumber;
+      }
+      if (await abortOnFailure(publishExec.result, config, state, deps, onEvent)) return;
+    
+      // FeedbackPhase
+      const feedbackExec = await feedbackPhase.run(
+        {
+          config,
+          onEvent,
+          worktree: state.worktree!,
+          resultMessage: state.resultMessage,
+          prUrl: state.prUrl,
+          prNumber: state.prNumber,
+        },
+        deps
+      );
+      await abortOnFailure(feedbackExec.result, config, state, deps, onEvent);
     }
   </file>
   <file path="src/source-resolver.ts">
