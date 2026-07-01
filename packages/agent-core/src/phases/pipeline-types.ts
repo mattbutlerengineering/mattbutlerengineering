@@ -168,7 +168,6 @@ export interface VerificationPhaseInput {
 export interface VerificationPhaseOutput {
   readonly hasChanges: boolean;
   readonly commitMsg?: string;
-  readonly cachedDiff?: string;
   readonly gatewayVerdict?: GatewayVerdict;
   readonly gatewayEvaluation?: EvaluationResult;
 }

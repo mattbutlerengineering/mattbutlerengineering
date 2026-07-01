@@ -63,7 +63,6 @@ interface SessionState {
   contextMetrics?: ContextMetrics;
   hasChanges: boolean;
   commitMsg?: string;
-  cachedDiff?: string;
   gatewayVerdict?: GatewayVerdict;
   gatewayEvaluation?: EvaluationResult;
   prUrl: string | null;
@@ -257,7 +256,6 @@ async function runPipeline(
   if (verifyExec.output) {
     state.hasChanges = verifyExec.output.hasChanges;
     state.commitMsg = verifyExec.output.commitMsg;
-    state.cachedDiff = verifyExec.output.cachedDiff;
     state.gatewayVerdict = verifyExec.output.gatewayVerdict;
     state.gatewayEvaluation = verifyExec.output.gatewayEvaluation;
   }
