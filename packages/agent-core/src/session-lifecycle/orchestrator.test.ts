@@ -298,6 +298,54 @@ describe("SessionLifecycleOrchestrator", () => {
     expect(store.listEvents(session.id).map((e) => e.type)).toContain("session:cancelled");
   });
 
+  it("passes the AbortController's signal into runSession so cancel() short-circuits the pipeline (#2853)", async () => {
+    let receivedSignal: AbortSignal | undefined;
+    let laterPhaseRan = false;
+    let entered = false;
+    let resolveEarlyPhase: (() => void) | undefined;
+
+    // Fake/stub pipeline: simulates a phase boundary — it awaits until the
+    // test signals the "first phase" is done, then checks the signal before
+    // running its "later phase", exactly like `runPipeline`'s real boundary
+    // checks in session-runner.ts.
+    const runSession: RunSessionFn = async (_config, _onEvent, _deps, signal) => {
+      receivedSignal = signal;
+      entered = true;
+      await new Promise<void>((resolve) => {
+        resolveEarlyPhase = resolve;
+      });
+      if (signal?.aborted) {
+        return buildResult({ status: "failed", errors: ["Session aborted"] });
+      }
+      laterPhaseRan = true;
+      return buildResult();
+    };
+
+    const store = createInMemorySessionStore();
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession,
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+    const exec = orchestrator.execute(session.id);
+    while (!entered) {
+      await Promise.resolve();
+    }
+
+    const cancelled = await orchestrator.cancel(session.id);
+    expect(cancelled).toBe(true);
+    expect(receivedSignal?.aborted).toBe(true);
+
+    resolveEarlyPhase?.();
+    await exec;
+
+    expect(laterPhaseRan).toBe(false);
+    const persisted = await store.getById(session.id);
+    expect(persisted?.status).toBe("cancelled");
+  });
+
   it("cancel returns false when no live execution exists", async () => {
     const { orchestrator } = setup({ runSession: vi.fn() });
     const session = await orchestrator.create({ taskDescription: "task" });
