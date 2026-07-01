@@ -13104,11 +13104,17 @@
             if (stored) void addEvent(sessionId, stored.type, stored.data);
           };
     
-          const result = await runSession(toSessionConfig(session), onEvent);
+          const result = await runSession(
+            toSessionConfig(session),
+            onEvent,
+            undefined,
+            controller.signal
+          );
           pipelineResult = result;
     
           // If cancel() fired while the pipeline was running, it already wrote the
-          // terminal `cancelled` state. The pipeline is not force-killed and may
+          // terminal `cancelled` state. The pipeline short-circuits at the next
+          // phase boundary rather than being force-killed mid-phase, and may
           // still have produced a real branch/PR/cost — persist that onto the
           // already-`cancelled` row instead of discarding it (#2887A).
           if (controller.signal.aborted) {
@@ -13166,9 +13172,10 @@
         const controller = activeControllers.get(sessionId);
         if (!controller) return false;
     
-        // Mark terminal + free the slot. NOTE: runSession does not yet accept an
-        // AbortSignal, so the in-flight pipeline runs to its natural end — see the
-        // design note's cancellation-semantics section.
+        // Mark terminal + free the slot. `runSession` is given this same signal
+        // (see `execute`) and checks it at each phase boundary, so the in-flight
+        // pipeline short-circuits at the next boundary rather than running to its
+        // natural end — see the design note's cancellation-semantics section.
         controller.abort();
         activeControllers.delete(sessionId);
         concurrency?.release(sessionId);
@@ -14438,7 +14445,8 @@
     export async function runSession(
       config: SessionConfig,
       onEvent?: SessionEventCallback,
-      deps: PhaseDeps = createDefaultPhaseDeps()
+      deps: PhaseDeps = createDefaultPhaseDeps(),
+      signal?: AbortSignal
     ): Promise<SessionResult> {
       return startActiveObservation(
         "agent-session",
@@ -14472,7 +14480,7 @@
               let pendingResult: SessionResult | undefined;
     
               try {
-                await runPipeline(effectiveConfig, onEvent, deps, state);
+                await runPipeline(effectiveConfig, onEvent, deps, state, signal);
                 pendingResult = buildFinalResult(effectiveConfig, state, rootSpan, onEvent);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -14558,7 +14566,8 @@
       config: SessionConfig,
       onEvent: SessionEventCallback | undefined,
       deps: PhaseDeps,
-      state: SessionState
+      state: SessionState,
+      signal?: AbortSignal
     ): Promise<void> {
       // WorktreePhase
       const worktreeExec = await worktreePhase.run({ config, onEvent }, deps);
@@ -14567,6 +14576,7 @@
         state.systemPrompt = worktreeExec.output.systemPrompt;
       }
       if (await abortOnFailure(worktreeExec.result, config, state, deps, onEvent)) return;
+      throwIfAborted(signal);
     
       // QueryPhase
       const queryExec = await queryPhase.run(
@@ -14595,6 +14605,7 @@
           return;
         }
       }
+      throwIfAborted(signal);
     
       // VerificationPhase
       const verifyExec = await verificationPhase.run(
@@ -14617,6 +14628,7 @@
       // final result via state.errors (e.g. a draft PR with failing gates).
       state.errors.push(...verifyExec.result.errors);
       if (await abortOnFailure(verifyExec.result, config, state, deps, onEvent)) return;
+      throwIfAborted(signal);
     
       // PublishPhase
       const publishExec = await publishPhase.run(
@@ -14637,6 +14649,7 @@
         state.prNumber = publishExec.output.prNumber;
       }
       if (await abortOnFailure(publishExec.result, config, state, deps, onEvent)) return;
+      throwIfAborted(signal);
     
       // FeedbackPhase
       const feedbackExec = await feedbackPhase.run(
