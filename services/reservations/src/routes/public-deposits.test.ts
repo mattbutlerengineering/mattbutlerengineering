@@ -377,7 +377,6 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       client_secret: "pi_test_idem_secret",
     });
     vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
-    vi.mocked(depositService.linkPaymentIntent).mockResolvedValueOnce(mockDeposit);
 
     const app = await buildApp({ logger: false });
     await app.ready();
