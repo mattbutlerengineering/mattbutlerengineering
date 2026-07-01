@@ -1,6 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { FloorPlan, CreateTableRequest, Table } from "@mbe/types";
-import { useApiClient } from "./useApiClient.js";
+import type { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
@@ -59,24 +58,19 @@ export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
 /* ── useCloneFloorPlan mutation ──────────────────────── */
 
 export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
-  invalidateKey: FLOOR_PLANS_QUERY_KEY,
+  invalidateKeys: FLOOR_PLANS_QUERY_KEY,
   mutationFn: (api, id) => api.floorPlans.clone(id),
 });
 
 /* ── useActivateFloorPlan mutation ───────────────────── */
 
-export function useActivateFloorPlan() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.floorPlans.setActive(id),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLANS_QUERY_KEY] });
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
-    },
-  });
-}
+export const useActivateFloorPlan = createMutationHook<string>({
+  invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+  mutationFn: (api, id) => api.floorPlans.setActive(id),
+  onSuccess: (queryClient, _data, id) => {
+    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
+  },
+});
 
 /* ── useBulkUpdatePositions mutation ─────────────────── */
 
@@ -85,44 +79,29 @@ export interface BulkUpdatePositionsPayload {
   positions: Parameters<ReturnType<typeof useApiClient>["floorPlans"]["bulkUpdatePositions"]>[1];
 }
 
-export function useBulkUpdatePositions() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ floorPlanId, positions }: BulkUpdatePositionsPayload) =>
-      api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
-    },
-  });
-}
+export const useBulkUpdatePositions = createMutationHook<BulkUpdatePositionsPayload>({
+  invalidateKeys: [],
+  mutationFn: (api, { floorPlanId, positions }) =>
+    api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
+  onSuccess: (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+  },
+});
 
 /* ── useAddTable mutation ────────────────────────────── */
 
-export function useAddTable() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: CreateTableRequest) => api.tables.create(data),
-    onSuccess: (_data: Table, variables: CreateTableRequest) => {
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
-    },
-  });
-}
+export const useAddTable = createMutationHook<CreateTableRequest, Table>({
+  invalidateKeys: [],
+  mutationFn: (api, data) => api.tables.create(data),
+  onSuccess: (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+  },
+});
 
 /* ── useDeleteTable mutation ─────────────────────────── */
 
-export function useDeleteTable() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (tableId: string) => api.tables.delete(tableId),
-    onSuccess: () => {
-      // Invalidate all floor plan detail queries since we don't know which plan
-      queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY] });
-    },
-  });
-}
+export const useDeleteTable = createMutationHook<string>({
+  // Invalidate all floor plan detail queries since we don't know which plan
+  invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+  mutationFn: (api, tableId) => api.tables.delete(tableId),
+});
