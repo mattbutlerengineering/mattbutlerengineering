@@ -1,7 +1,11 @@
-# ADR-006: Health Check Architecture
+---
+id: ADR-006
+title: Health Check Architecture
+status: active
+date: 2026-04-06
+---
 
-**Status:** active
-**Date:** 2026-04-06
+# ADR-006: Health Check Architecture
 
 ## Context
 

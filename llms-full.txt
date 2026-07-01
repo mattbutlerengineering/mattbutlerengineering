@@ -1403,6 +1403,20 @@
   </file>
   </section>
   <section priority="medium" role="commands">
+  <file path="tools/cli/src/commands/adr-structural.ts">
+    export interface StructuralViolation {
+      file: string;
+      rule: string;
+      remedy: string;
+    }
+    interface AdrFields {
+      id?: unknown;
+      title?: unknown;
+      status?: unknown;
+      date?: unknown;
+      prohibited_patterns?: unknown;
+    }
+  </file>
   <file path="tools/cli/src/commands/adr.ts">
     interface ADRFrontmatter {
       id: string;
