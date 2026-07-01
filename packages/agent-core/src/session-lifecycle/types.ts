@@ -65,11 +65,19 @@ export interface SessionLifecycleStore {
   /** Persist a new session in `pending` status and return it. */
   create(input: CreateSessionInput): Promise<StoredSession>;
   getById(id: string): Promise<StoredSession | null>;
-  /** Transition status and merge terminal result fields. Returns null if absent. */
+  /**
+   * Transition status and merge terminal result fields. Returns null if absent.
+   *
+   * When `opts.fromStatus` is given, the transition is a compare-and-swap: it
+   * only applies if the session's current status is one of the given values.
+   * A non-matching current status is a lost CAS — returns null without
+   * mutating, instead of unconditionally overwriting.
+   */
   updateStatus(
     id: string,
     status: SessionStatus,
-    patch?: SessionResultPatch
+    patch?: SessionResultPatch,
+    opts?: { readonly fromStatus?: readonly SessionStatus[] }
   ): Promise<StoredSession | null>;
   /** Append a lifecycle/runtime event. Best-effort; never throws into the caller. */
   addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void>;

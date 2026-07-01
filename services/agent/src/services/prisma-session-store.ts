@@ -77,17 +77,26 @@ export function createPrismaSessionStore(
     async updateStatus(
       id: string,
       status: LifecycleStatus,
-      patch?: SessionResultPatch
+      patch?: SessionResultPatch,
+      opts?: { readonly fromStatus?: readonly LifecycleStatus[] }
     ): Promise<StoredSession | null> {
-      // Preserve the exact sessionService call shape — no third arg when there
-      // is no result patch (the RUNNING transition).
+      const prismaStatus = toPrismaStatus(status);
+      const fromStatus = opts?.fromStatus?.map(toPrismaStatus);
+      const svcOpts = fromStatus ? { fromStatus } : undefined;
+
+      // Preserve the exact sessionService call shape — no extra args beyond
+      // what's actually needed (the bare RUNNING transition passes neither a
+      // result patch nor a CAS guard).
       let session: AgentSession | null;
-      if (patch === undefined) {
-        session = await sessionService.updateStatus(id, toPrismaStatus(status));
+      if (patch === undefined && svcOpts === undefined) {
+        session = await sessionService.updateStatus(id, prismaStatus);
       } else {
-        const { errors, ...rest } = patch;
+        const { errors, ...rest } = patch ?? {};
         const result = errors !== undefined ? { ...rest, errors: [...errors] } : rest;
-        session = await sessionService.updateStatus(id, toPrismaStatus(status), result);
+        session =
+          svcOpts === undefined
+            ? await sessionService.updateStatus(id, prismaStatus, result)
+            : await sessionService.updateStatus(id, prismaStatus, result, svcOpts);
       }
       return session ? toStoredSession(session) : null;
     },

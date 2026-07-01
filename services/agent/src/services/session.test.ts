@@ -7,6 +7,7 @@ vi.mock("./database.js", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
       count: vi.fn(),
     },
@@ -493,6 +494,43 @@ describe("sessionService", () => {
       const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
       expect(callData).not.toHaveProperty("startedAt");
       expect(callData).not.toHaveProperty("completedAt");
+    });
+
+    describe("with opts.fromStatus (CAS)", () => {
+      it("scopes the write to the expected prior status via updateMany", async () => {
+        vi.mocked(prisma.session.updateMany).mockResolvedValueOnce({ count: 1 });
+        vi.mocked(prisma.session.findUnique).mockResolvedValueOnce(
+          makePrismaSession({ status: "CANCELLED" })
+        );
+
+        const result = await sessionService.updateStatus(
+          "sess-1",
+          "CANCELLED",
+          { errors: ["Cancelled by user"] },
+          { fromStatus: ["RUNNING"] }
+        );
+
+        expect(prisma.session.updateMany).toHaveBeenCalledWith({
+          where: { id: "sess-1", status: { in: ["RUNNING"] } },
+          data: expect.objectContaining({ status: "CANCELLED" }),
+        });
+        expect(result?.status).toBe("cancelled");
+        expect(prisma.session.update).not.toHaveBeenCalled();
+      });
+
+      it("returns null without calling findUnique when the CAS loses the race (count 0)", async () => {
+        vi.mocked(prisma.session.updateMany).mockResolvedValueOnce({ count: 0 });
+
+        const result = await sessionService.updateStatus(
+          "sess-1",
+          "CANCELLED",
+          { errors: ["Cancelled by user"] },
+          { fromStatus: ["RUNNING"] }
+        );
+
+        expect(result).toBeNull();
+        expect(prisma.session.findUnique).not.toHaveBeenCalled();
+      });
     });
   });
 

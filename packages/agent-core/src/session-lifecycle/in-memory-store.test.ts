@@ -69,6 +69,31 @@ describe("createInMemorySessionStore", () => {
     expect(await store.updateStatus("missing", "failed")).toBeNull();
   });
 
+  it("updateStatus with opts.fromStatus applies the write when the current status matches", async () => {
+    const store = createInMemorySessionStore();
+    const created = await store.create({ taskDescription: "task" });
+    await store.updateStatus(created.id, "running");
+
+    const updated = await store.updateStatus(created.id, "succeeded", undefined, {
+      fromStatus: ["running"],
+    });
+
+    expect(updated?.status).toBe("succeeded");
+  });
+
+  it("updateStatus with opts.fromStatus returns null and does not mutate on a non-matching status (CAS)", async () => {
+    const store = createInMemorySessionStore();
+    const created = await store.create({ taskDescription: "task" });
+    // created is "pending" — fromStatus expects "running", so this is a lost CAS.
+    const result = await store.updateStatus(created.id, "cancelled", undefined, {
+      fromStatus: ["running"],
+    });
+
+    expect(result).toBeNull();
+    const persisted = await store.getById(created.id);
+    expect(persisted?.status).toBe("pending");
+  });
+
   it("addEvent records events retrievable via listEvents", async () => {
     const store = createInMemorySessionStore();
     const created = await store.create({ taskDescription: "task" });

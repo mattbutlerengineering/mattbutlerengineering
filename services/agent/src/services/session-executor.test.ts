@@ -123,7 +123,8 @@ describe("session-executor", () => {
           durationMs: 30000,
           errors: [],
           sdkSessionId: "sdk-sess-1",
-        })
+        }),
+        { fromStatus: ["RUNNING"] }
       );
       // The session:complete event carries the orchestrator's lowercase status
       // vocabulary; the persisted session row status remains uppercase (above).
@@ -152,7 +153,8 @@ describe("session-executor", () => {
         "FAILED",
         expect.objectContaining({
           errors: ["Budget exceeded"],
-        })
+        }),
+        { fromStatus: ["RUNNING"] }
       );
     });
 
@@ -161,9 +163,12 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "FAILED", {
-        errors: ["SDK connection failed"],
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "FAILED",
+        { errors: ["SDK connection failed"] },
+        { fromStatus: ["RUNNING"] }
+      );
       expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:error", {
         message: "SDK connection failed",
       });
@@ -174,9 +179,12 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "FAILED", {
-        errors: ["string error"],
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "FAILED",
+        { errors: ["string error"] },
+        { fromStatus: ["RUNNING"] }
+      );
     });
 
     it("rejects when max concurrent sessions reached", async () => {
@@ -335,6 +343,13 @@ describe("session-executor", () => {
         return makeSuccessResult();
       });
 
+      // The CAS write requires the store to report the session as still
+      // `running` — simulate that by resolving the (mocked) updateStatus
+      // call with a session in the transitioned status.
+      vi.mocked(sessionService.updateStatus).mockResolvedValue(
+        makeSession({ id: "cancel-target", status: "cancelled" })
+      );
+
       const session = makeSession({ id: "cancel-target" });
       const execPromise = executeSession(session);
 
@@ -346,9 +361,12 @@ describe("session-executor", () => {
       const cancelled = await cancelSession("cancel-target");
       expect(cancelled).toBe(true);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("cancel-target", "CANCELLED", {
-        errors: ["Cancelled by user"],
-      });
+      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+        "cancel-target",
+        "CANCELLED",
+        { errors: ["Cancelled by user"] },
+        { fromStatus: ["RUNNING"] }
+      );
       expect(sessionService.addEvent).toHaveBeenCalledWith("cancel-target", "session:cancelled", {
         message: "Session cancelled by user",
       });

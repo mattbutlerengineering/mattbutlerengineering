@@ -97,18 +97,23 @@ export function createSessionLifecycleOrchestrator(
 
       const finalStatus = result.status === "succeeded" ? "succeeded" : "failed";
 
-      await store.updateStatus(sessionId, finalStatus, {
-        branchName: result.branchName,
-        prUrl: result.prUrl ?? undefined,
-        resultText: result.resultText,
-        costUsd: result.costUsd,
-        inputTokens: result.tokenUsage.inputTokens,
-        outputTokens: result.tokenUsage.outputTokens,
-        numTurns: result.numTurns,
-        durationMs: result.durationMs,
-        errors: [...result.errors],
-        sdkSessionId: result.sessionId,
-      });
+      await store.updateStatus(
+        sessionId,
+        finalStatus,
+        {
+          branchName: result.branchName,
+          prUrl: result.prUrl ?? undefined,
+          resultText: result.resultText,
+          costUsd: result.costUsd,
+          inputTokens: result.tokenUsage.inputTokens,
+          outputTokens: result.tokenUsage.outputTokens,
+          numTurns: result.numTurns,
+          durationMs: result.durationMs,
+          errors: [...result.errors],
+          sdkSessionId: result.sessionId,
+        },
+        { fromStatus: ["running"] }
+      );
 
       await addEvent(sessionId, "session:complete", {
         status: finalStatus,
@@ -121,7 +126,12 @@ export function createSessionLifecycleOrchestrator(
       // A cancelled session already holds its terminal state — don't overwrite.
       if (controller.signal.aborted) return null;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      await store.updateStatus(sessionId, "failed", { errors: [errorMessage] });
+      await store.updateStatus(
+        sessionId,
+        "failed",
+        { errors: [errorMessage] },
+        { fromStatus: ["running"] }
+      );
       await addEvent(sessionId, "session:error", { message: errorMessage });
       return null;
     } finally {
@@ -141,7 +151,18 @@ export function createSessionLifecycleOrchestrator(
     activeControllers.delete(sessionId);
     concurrency?.release(sessionId);
 
-    await store.updateStatus(sessionId, "cancelled", { errors: ["Cancelled by user"] });
+    // CAS: only transition a still-`running` session. If execute() already
+    // persisted a terminal status (succeeded/failed) in the window between
+    // that write and this call, the store rejects the write and returns null —
+    // cancel() must not clobber a completed session back to `cancelled`.
+    const updated = await store.updateStatus(
+      sessionId,
+      "cancelled",
+      { errors: ["Cancelled by user"] },
+      { fromStatus: ["running"] }
+    );
+    if (!updated) return false;
+
     await addEvent(sessionId, "session:cancelled", { message: "Session cancelled by user" });
 
     return true;
