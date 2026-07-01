@@ -43,18 +43,20 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
       maxRetries: 3,
     });
 
-    // Run post-commit gateway (verification + quality gates) only on success
+    // Run post-commit gateway (verification + quality gates) only on success.
+    // The diff is fetched once and passed straight through as an immutable
+    // argument into the gateway/gate pipeline — it never lives on shared
+    // session state, so no downstream phase or gate can read a stale value.
     const errors: string[] = [];
     let gatewayVerdict: GatewayVerdict | undefined;
     let gatewayEvaluation: EvaluationResult | undefined;
-    let cachedDiff: string | undefined;
 
     if (isSuccess) {
-      cachedDiff = await successEvaluator.getGitDiff(worktree.path);
+      const diff = await successEvaluator.getGitDiff(worktree.path);
       gatewayVerdict = await gateway.runPostCommitGateway(
         {
           worktreePath: worktree.path,
-          diff: cachedDiff,
+          diff,
           commitMsg,
           taskDescription: config.taskDescription,
           config: {
@@ -74,7 +76,6 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
       output: {
         hasChanges: true,
         commitMsg,
-        cachedDiff,
         gatewayVerdict,
         gatewayEvaluation,
       },
