@@ -188,9 +188,31 @@ describe("StripeService", () => {
           email: "test@example.com",
           name: "Test User",
           metadata: expect.objectContaining({ guestId: "guest-1" }),
-        })
+        }),
+        undefined
       );
       expect(result.id).toBe("cus_new_123");
+    });
+
+    it("forwards an idempotency key as Stripe request options", async () => {
+      mockCustomers.create.mockResolvedValueOnce({
+        id: "cus_idem_1",
+        email: "guest@example.com",
+        name: "Guest",
+      });
+
+      await stripeService.createCustomer({
+        email: "guest@example.com",
+        name: "Guest",
+        idempotencyKey: "res-1:customer",
+      });
+
+      expect(mockCustomers.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "guest@example.com" }),
+        {
+          idempotencyKey: "res-1:customer",
+        }
+      );
     });
   });
 

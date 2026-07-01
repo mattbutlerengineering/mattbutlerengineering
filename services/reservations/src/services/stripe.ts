@@ -61,6 +61,13 @@ export interface CreateCustomerOptions {
   email?: string;
   name?: string;
   metadata?: Record<string, string>;
+  /**
+   * Idempotency key for the create call. Passing a stable key makes a
+   * lost-response retry safe — Stripe returns the original customer instead
+   * of minting a duplicate, which would otherwise defeat the PaymentIntent
+   * idempotency key on the guest booking path.
+   */
+  idempotencyKey?: string;
 }
 
 export interface CustomerResult {
@@ -205,7 +212,10 @@ export class StripeService {
       params.name = options.name;
     }
 
-    const customer = await this.stripe.customers.create(params);
+    const customer = await this.stripe.customers.create(
+      params,
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined
+    );
 
     return {
       id: customer.id,

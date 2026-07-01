@@ -395,6 +395,62 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     await app.close();
   });
 
+  it("passes a stable customer idempotency key so guest-path retries reuse the same customer + PaymentIntent", async () => {
+    // Two identical guest-path attempts model a lost-response retry: attempt 1's
+    // response never reaches the client, so it retries before the deposit row is
+    // observed. A stable `${reservationId}:customer` key lets Stripe dedupe the
+    // customer create, so attempt 2 reuses the same customer instead of minting a
+    // second one (which would break the PaymentIntent idempotency and 502).
+    vi.mocked(venueService.getRawBySlug).mockResolvedValue(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
+    vi.mocked(calculateDepositAmount).mockReturnValue(2500);
+    // Stripe dedupes on the stable idempotency key: same customer + PI both times.
+    mockCustomers.create.mockResolvedValue({
+      id: "cus_stable",
+      email: "jane@example.com",
+      name: "Jane Doe",
+    });
+    mockPaymentIntents.create.mockResolvedValue({
+      id: "pi_stable",
+      status: "requires_payment_method",
+      client_secret: "pi_stable_secret",
+    });
+    vi.mocked(depositService.create).mockResolvedValue({
+      ...mockDeposit,
+      stripePaymentIntentId: "pi_stable",
+      stripeCustomerId: "cus_stable",
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const payload = {
+      reservationId: "res-1",
+      guestEmail: "jane@example.com",
+      guestName: "Jane Doe",
+    };
+    const first = await app.inject({ method: "POST", url: TEST_URL, payload });
+    const second = await app.inject({ method: "POST", url: TEST_URL, payload });
+
+    expect(first.statusCode).toBe(201);
+    expect(second.statusCode).toBe(201);
+
+    // Both attempts sent the SAME stable customer idempotency key.
+    const firstKey = (mockCustomers.create.mock.calls[0][1] as { idempotencyKey?: string })
+      .idempotencyKey;
+    const secondKey = (mockCustomers.create.mock.calls[1][1] as { idempotencyKey?: string })
+      .idempotencyKey;
+    expect(firstKey).toBe("res-1:customer");
+    expect(secondKey).toBe("res-1:customer");
+
+    // Same customer + PaymentIntent surfaced on both attempts — no duplicate hold, no 502.
+    const firstBody = first.json<{ data: { clientSecret: string } }>();
+    const secondBody = second.json<{ data: { clientSecret: string } }>();
+    expect(firstBody.data.clientSecret).toBe("pi_stable_secret");
+    expect(secondBody.data.clientSecret).toBe("pi_stable_secret");
+  });
+
   it("returns an ADR-008 problem-details response when createPaymentIntent throws a Stripe error", async () => {
     vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);

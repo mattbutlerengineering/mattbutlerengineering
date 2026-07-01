@@ -109,6 +109,11 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           const customer = await stripeService.createCustomer({
             email: guestEmail,
             name: guestName,
+            // Stable key so a lost-response retry reuses the same customer
+            // instead of minting a new one — otherwise the second attempt would
+            // change the PaymentIntent's customer param and break its own
+            // idempotency key, degrading a safe retry into a 502.
+            idempotencyKey: `${reservationId}:customer`,
           });
           stripeCustomerId = customer.id;
         } catch {
