@@ -1,5 +1,5 @@
-import type { FastifyPluginAsync } from "fastify";
-import { requireAuth } from "@mbe/auth/fastify";
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 import {
   depositService,
@@ -10,6 +10,20 @@ import type { Deposit } from "../generated/prisma/index.js";
 
 interface ApiResponse<T> {
   data: T;
+}
+
+/**
+ * Authorization guard for the back-office deposit routes. Deposit
+ * capture/refund/forfeit are staff-only money-moving actions; guest
+ * self-service runs through the public manage-token routes, not these.
+ * Assumes `requireAuth` ran first (request.user is set).
+ */
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
+  if (!hasPermission(request.user, "admin")) {
+    return reply
+      .code(403)
+      .send(createProblemDetails(403, "Forbidden", "Admin permission required"));
+  }
 }
 
 const depositProperties = {
@@ -39,7 +53,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Create a deposit",
         operationId: "createDeposit",
@@ -83,7 +97,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Get deposit by ID",
         operationId: "getDepositById",
@@ -122,7 +136,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/capture",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Capture (apply) a deposit",
         operationId: "captureDeposit",
@@ -174,7 +188,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/refund",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Refund a deposit",
         operationId: "refundDeposit",
@@ -226,7 +240,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/forfeit",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Forfeit a deposit",
         operationId: "forfeitDeposit",
