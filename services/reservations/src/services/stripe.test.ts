@@ -65,10 +65,33 @@ describe("StripeService", () => {
             reservationId: "res-123",
             venueId: "venue-1",
           }),
-        })
+        }),
+        undefined
       );
       expect(result.id).toBe("pi_test_123");
       expect(result.clientSecret).toBe("pi_test_123_secret");
+    });
+
+    it("forwards an idempotency key as Stripe request options", async () => {
+      mockPaymentIntents.create.mockResolvedValueOnce({
+        id: "pi_test_789",
+        status: "requires_payment_method",
+        client_secret: "pi_test_789_secret",
+      });
+
+      await stripeService.createPaymentIntent({
+        amountCents: 5000,
+        currency: "usd",
+        reservationId: "res-789",
+        idempotencyKey: "res-789:paymentIntent:5000",
+      });
+
+      expect(mockPaymentIntents.create).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 5000 }),
+        {
+          idempotencyKey: "res-789:paymentIntent:5000",
+        }
+      );
     });
 
     it("creates PaymentIntent without customer if not provided", async () => {
