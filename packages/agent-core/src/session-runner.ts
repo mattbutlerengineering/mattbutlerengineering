@@ -272,7 +272,8 @@ async function runPipeline(
 }
 
 /** Throws when `signal` has fired, so a phase boundary check short-circuits
- * the pipeline via the same catch/finally as any other pipeline error. */
+ * the pipeline via the same catch/finally used for every other pipeline
+ * error. */
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw new Error("Session aborted");
