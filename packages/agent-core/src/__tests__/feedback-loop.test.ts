@@ -87,8 +87,15 @@ describe("runFeedbackLoop", () => {
         };
       }
       if (command === "git" && argList[0] === "diff") {
-        // git diff --cached --quiet throws when there are changes
-        throw new Error("changes exist");
+        // git diff --cached --quiet exits 1 when there are changes (real
+        // Node execFile error shape: code set, killed/signal unset).
+        const changesExistError = new Error("changes exist") as Error & {
+          code: number;
+          killed: boolean;
+        };
+        changesExistError.code = 1;
+        changesExistError.killed = false;
+        throw changesExistError;
       }
       if (command === "git") {
         return { stdout: "" };
@@ -197,5 +204,61 @@ describe("runFeedbackLoop", () => {
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(1);
     expect(buildReviewFixPrompt).toHaveBeenCalledWith(feedbackWithCI.context);
+  });
+
+  // ── Subprocess timeouts ─────────────────────────────────────────────
+  // A hung `git`/`gh` call must fail fast instead of blocking the session
+  // indefinitely — every call needs a numeric timeout.
+
+  it("passes a numeric timeout on the gh repo view and git add/diff/commit/push calls", async () => {
+    vi.mocked(pollForFeedback)
+      .mockResolvedValueOnce(createMockPollResult())
+      .mockResolvedValueOnce(null);
+
+    await runFeedbackLoop(BASE_PARAMS);
+
+    const relevantCalls = mockExecFile.mock.calls.filter(
+      (call) => call[0] === "gh" || call[0] === "git"
+    );
+    expect(relevantCalls.length).toBeGreaterThan(0);
+    for (const call of relevantCalls) {
+      const options = call[2] as { timeout?: number } | undefined;
+      expect(typeof options?.timeout).toBe("number");
+      expect(options?.timeout).toBeGreaterThan(0);
+    }
+  });
+
+  it("propagates a timeout on `git diff --cached --quiet` instead of treating it as no changes", async () => {
+    vi.mocked(pollForFeedback)
+      .mockResolvedValueOnce(createMockPollResult())
+      .mockResolvedValueOnce(null);
+
+    // Simulate a real Node execFile timeout error shape: code is null,
+    // killed is true, signal is set — distinct from a genuine exit-code-1
+    // "there are changes" result.
+    mockExecFile.mockImplementation(async (cmd: unknown, args: unknown, _opts?: unknown) => {
+      const command = cmd as string;
+      const argList = args as string[];
+      if (command === "gh" && argList[0] === "repo") {
+        return { stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }) };
+      }
+      if (command === "git" && argList[0] === "diff") {
+        const timeoutError = new Error("Command timed out") as Error & {
+          code: null;
+          killed: boolean;
+          signal: string;
+        };
+        timeoutError.code = null;
+        timeoutError.killed = true;
+        timeoutError.signal = "SIGTERM";
+        throw timeoutError;
+      }
+      if (command === "git") {
+        return { stdout: "" };
+      }
+      return { stdout: "" };
+    });
+
+    await expect(runFeedbackLoop(BASE_PARAMS)).rejects.toThrow("Command timed out");
   });
 });

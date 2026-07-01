@@ -3,6 +3,9 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound every `git` subprocess call so a hang fails fast. */
+const GIT_TIMEOUT_MS = 60_000;
+
 export interface RevertCommit {
   sha: string;
   oneline: string;
@@ -33,6 +36,7 @@ export async function detectRecentReverts(
       ["log", `--since=${hoursBack} hours ago`, "--oneline", "--grep=^Revert", "main"],
       {
         cwd: repoPath,
+        timeout: GIT_TIMEOUT_MS,
       }
     );
 
@@ -53,6 +57,7 @@ export async function detectRecentReverts(
         ["show", "-s", "--format=%B", commit.sha],
         {
           cwd: repoPath,
+          timeout: GIT_TIMEOUT_MS,
         }
       );
 
@@ -68,7 +73,7 @@ export async function detectRecentReverts(
       const { stdout: timestampStr } = await execFileAsync(
         "git",
         ["show", "-s", "--format=%aI", commit.sha],
-        { cwd: repoPath }
+        { cwd: repoPath, timeout: GIT_TIMEOUT_MS }
       );
 
       detailed.push({
@@ -113,9 +118,11 @@ export async function getCommitDetails(
   try {
     const { stdout: message } = await execFileAsync("git", ["show", "-s", "--format=%B", sha], {
       cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
     });
     const { stdout: timestamp } = await execFileAsync("git", ["show", "-s", "--format=%aI", sha], {
       cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
     });
     return {
       message: message.trim(),

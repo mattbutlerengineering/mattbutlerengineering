@@ -3,6 +3,9 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound `gh` subprocess calls so a hang (GitHub API latency) fails fast. */
+const GH_TIMEOUT_MS = 30_000;
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface ReviewComment {
@@ -98,7 +101,7 @@ export async function fetchUnresolvedComments(
         "-F",
         `number=${prNumber}`,
       ],
-      { cwd: repoPath }
+      { cwd: repoPath, timeout: GH_TIMEOUT_MS }
     );
 
     const response = JSON.parse(stdout) as GraphQLResponse;
@@ -144,7 +147,7 @@ export async function fetchCIFailures(
     const { stdout: checksJson } = await execFileAsync(
       "gh",
       ["pr", "checks", String(prNumber), "--json", "name,state,conclusion"],
-      { cwd: repoPath }
+      { cwd: repoPath, timeout: GH_TIMEOUT_MS }
     );
 
     const checks = JSON.parse(checksJson) as readonly CheckResult[];
@@ -158,14 +161,14 @@ export async function fetchCIFailures(
       const { stdout: runJson } = await execFileAsync(
         "gh",
         ["run", "list", "--status", "failure", "--limit", "1", "--json", "databaseId"],
-        { cwd: repoPath }
+        { cwd: repoPath, timeout: GH_TIMEOUT_MS }
       );
       const runs = JSON.parse(runJson) as readonly { databaseId: number }[];
       if (runs.length > 0) {
         const { stdout: logs } = await execFileAsync(
           "gh",
           ["run", "view", String(runs[0].databaseId), "--log-failed"],
-          { cwd: repoPath, maxBuffer: 5 * 1024 * 1024 }
+          { cwd: repoPath, maxBuffer: 5 * 1024 * 1024, timeout: GH_TIMEOUT_MS }
         );
         const lines = logs.split("\n");
         logSnippet = lines.slice(-tailLines).join("\n");
