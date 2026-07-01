@@ -74,8 +74,10 @@ test.describe("CF-4: Reservation edit flow", () => {
     await expect(drawer).not.toBeVisible();
 
     // Reservation block updates with new party size
-    // Verify sidebar reflects the change
-    await expect(sidebar.getByText(newValue)).toBeVisible();
+    // Verify sidebar reflects the change. The detail sidebar renders party
+    // size as "<n> guests" — match that to avoid strict-mode collisions with
+    // other digits on the panel (e.g. a "6:30 PM" time).
+    await expect(sidebar.getByText(`${newValue} guests`)).toBeVisible();
   });
 
   test("cancels edit without saving", async ({ mockedPage }) => {

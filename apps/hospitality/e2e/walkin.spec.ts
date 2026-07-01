@@ -23,8 +23,11 @@ test.describe("CF-3: Walk-in creation", () => {
   test("creates walk-in and verifies timeline update", async ({ mockedPage }) => {
     await mockedPage.goto("timeline");
 
-    // Capture reservation count before walk-in creation
+    // Capture reservation count before walk-in creation. Wait for the grid to
+    // render its seeded reservations first — counting before they mount yields
+    // 0, then the post-create assertion fails (expected 1, got fixtures + 1).
     const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
+    await expect(reservationBlocks.first()).toBeVisible();
     const initialCount = await reservationBlocks.count();
 
     // Click "Walk-In" button

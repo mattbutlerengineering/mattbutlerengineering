@@ -7,7 +7,9 @@ Prisma/Postgres connection pool wrapper. Creates a `DatabaseInstance` that manag
 ```
 src/
 ├── index.ts        # createDatabase — Prisma client + pg.Pool + monitoring
-└── list-utils.ts   # parsePaginationQuery, createListResponseSchema
+├── list-utils.ts   # parsePaginationQuery, createListResponseSchema
+├── validators.ts   # validateDateString, validatePartySize, validateDateRange, validateEnum — query-param validation
+└── testing.ts      # createMockDatabaseService, createMockDatabaseModule — mocks for the "./testing" subpath export
 ```
 
 ## createDatabase
@@ -42,6 +44,17 @@ const { page, limit } = parsePaginationQuery({ page: "2", limit: "25" });
 
 // Response schema (Fastify)
 const schema = createListResponseSchema("$ref:User");
+```
+
+## Testing helpers
+
+`src/testing.ts` is published as the `@mbe/database/testing` subpath export. It provides typed mocks (`createMockDatabaseService`, `createMockDatabaseModule`) for a service's database module — a stubbed `prisma` (always includes `$queryRaw`) plus `getSlowQueryStats`/`getServiceStatus`/`getPoolMetrics` — so consuming services can mock their `database.js` module in tests without re-implementing the shape by hand:
+
+```typescript
+vi.mock("../services/database.js", async () => {
+  const { createMockDatabaseService } = await import("@mbe/database/testing");
+  return createMockDatabaseService();
+});
 ```
 
 ## Commands
