@@ -141,15 +141,16 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      // Create deposit record in pending state
+      // Create deposit record in pending state with the PaymentIntent id already
+      // set, in one atomic write. This guarantees the succeeded webhook can always
+      // find the row — no create → link two-write window that could strand it.
       const deposit = await depositService.create({
         reservationId,
         amountCents: depositAmountCents,
         currency,
+        stripePaymentIntentId: paymentIntent.id,
+        stripeCustomerId,
       });
-
-      // Store the PaymentIntent ID on the deposit immediately so the webhook can find it
-      await depositService.linkPaymentIntent(deposit.id, paymentIntent.id, stripeCustomerId);
 
       return reply.status(201).send({
         data: {

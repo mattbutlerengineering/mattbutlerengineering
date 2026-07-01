@@ -35,7 +35,6 @@ vi.mock("../services/deposit.js", () => ({
   depositService: {
     getByReservationId: vi.fn(),
     create: vi.fn(),
-    linkPaymentIntent: vi.fn(),
     getById: vi.fn(),
     apply: vi.fn(),
     refund: vi.fn(),
@@ -253,8 +252,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       status: "requires_payment_method",
       client_secret: "pi_test_abc_secret",
     });
-    vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
-    vi.mocked(depositService.linkPaymentIntent).mockResolvedValueOnce({
+    vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_abc",
     });
@@ -276,6 +274,10 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(body.data.depositId).toBe("dep-1");
     expect(body.data.amountCents).toBe(2500);
     expect(body.data.currency).toBe("usd");
+
+    // The PaymentIntent id is written in the single create — no second link write.
+    const createCall = vi.mocked(depositService.create).mock.calls[0][0];
+    expect(createCall.stripePaymentIntentId).toBe("pi_test_abc");
     await app.close();
   });
 
@@ -292,8 +294,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       status: "requires_payment_method",
       client_secret: "pi_test_xyz_secret",
     });
-    vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
-    vi.mocked(depositService.linkPaymentIntent).mockResolvedValueOnce({
+    vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_xyz",
     });
@@ -337,8 +338,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
       status: "requires_payment_method",
       client_secret: "pi_test_cus_secret",
     });
-    vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
-    vi.mocked(depositService.linkPaymentIntent).mockResolvedValueOnce({
+    vi.mocked(depositService.create).mockResolvedValueOnce({
       ...mockDeposit,
       stripePaymentIntentId: "pi_test_cus",
       stripeCustomerId: "cus_abc",
@@ -358,6 +358,11 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // PaymentIntent was created with the customer ID
     const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
     expect(piCreateCall.customer).toBe("cus_abc");
+
+    // The customer id is written atomically in the single deposit create.
+    const createCall = vi.mocked(depositService.create).mock.calls[0][0];
+    expect(createCall.stripeCustomerId).toBe("cus_abc");
+    expect(createCall.stripePaymentIntentId).toBe("pi_test_cus");
     await app.close();
   });
 

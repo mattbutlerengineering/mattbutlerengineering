@@ -1090,6 +1090,7 @@
     <item priority="high">
       class LlmEvaluationGate {
         name: unknown;
+        eventType: unknown;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -1099,6 +1100,7 @@
     <item priority="high">
       class SecurityReviewGate {
         name: unknown;
+        eventType: unknown;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -1108,6 +1110,7 @@
     <item priority="high">
       class StaticAnalysisGate {
         name: unknown;
+        eventType: unknown;
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
@@ -1181,8 +1184,9 @@
   <file path="apps/hospitality/src/hooks/create-mutation-hook.ts">
     <item priority="low">
       interface CreateMutationHookOptions {
-        invalidateKey: string;
+        invalidateKeys: string | readonly string[];
         mutationFn: (api: ReturnType<typeof useApiClient>, variables: TVariab...;
+        onSuccess?: (queryClient: QueryClient, data: TData, variables: TVaria...;
       }
     </item>
     <item priority="low">

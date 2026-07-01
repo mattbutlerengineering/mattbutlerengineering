@@ -30,7 +30,7 @@ export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
 /* ── useUpdateVenue mutation ─────────────────────────── */
 
 export const useUpdateVenue = createMutationHook<{ venueId: string; data: UpdateVenueRequest }>({
-  invalidateKey: VENUES_QUERY_KEY,
+  invalidateKeys: VENUES_QUERY_KEY,
   mutationFn: (api, { venueId, data }) => api.venues.update(venueId, data),
 });
 

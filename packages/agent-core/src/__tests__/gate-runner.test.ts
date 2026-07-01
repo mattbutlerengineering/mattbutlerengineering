@@ -43,27 +43,23 @@ function makeContext(overrides: Partial<GateContext> = {}): GateContext {
 function passingGate(name: string): QualityGate {
   return {
     name,
-    evaluate: vi.fn(
-      async (): Promise<GateResult> => ({
-        passed: true,
-        gateName: name,
-        severity: "error",
-      })
-    ),
+    evaluate: vi.fn(async (): Promise<GateResult> => ({
+      passed: true,
+      gateName: name,
+      severity: "error",
+    })),
   };
 }
 
 function failingGate(name: string, details = "something went wrong"): QualityGate {
   return {
     name,
-    evaluate: vi.fn(
-      async (): Promise<GateResult> => ({
-        passed: false,
-        gateName: name,
-        severity: "error",
-        details,
-      })
-    ),
+    evaluate: vi.fn(async (): Promise<GateResult> => ({
+      passed: false,
+      gateName: name,
+      severity: "error",
+      details,
+    })),
   };
 }
 
@@ -413,6 +409,16 @@ describe("GateRunner integration with real gates", () => {
     await runner.run(makeRealContext({ runSecurityReview: false }));
 
     expect(reviewDiff).not.toHaveBeenCalled();
+  });
+
+  it("each real gate declares the eventType used to route session events", async () => {
+    const { StaticAnalysisGate } = await import("../gates/static-analysis-gate.js");
+    const { LlmEvaluationGate } = await import("../gates/llm-evaluation-gate.js");
+    const { SecurityReviewGate } = await import("../gates/security-review-gate.js");
+
+    expect(new StaticAnalysisGate().eventType).toBe("session:verification");
+    expect(new LlmEvaluationGate().eventType).toBe("session:evaluation");
+    expect(new SecurityReviewGate().eventType).toBe("session:review");
   });
 
   it("SecurityReviewGate skips when static-analysis gate failed in previousResults", async () => {
