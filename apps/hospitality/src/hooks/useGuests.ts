@@ -1,7 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Guest, GuestSegment, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
-import { useApiClient } from "./useApiClient.js";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
@@ -100,38 +98,27 @@ export function useGuest(guestId: string | null | undefined): UseGuestResult {
 
 /* ── useAddGuest mutation ────────────────────────────── */
 
-export function useAddGuest() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: FindOrCreateGuestRequest) => api.guests.findOrCreate(data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-      queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
-    },
-  });
-}
+export const useAddGuest = createMutationHook<FindOrCreateGuestRequest>({
+  invalidateKeys: GUESTS_QUERY_KEY,
+  mutationFn: (api, data) => api.guests.findOrCreate(data),
+  onSuccess: (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
+  },
+});
 
 /* ── useUpdateGuest mutation ─────────────────────────── */
 
 export const useUpdateGuest = createMutationHook<{ guestId: string; data: UpdateGuestRequest }>({
-  invalidateKey: GUESTS_QUERY_KEY,
+  invalidateKeys: GUESTS_QUERY_KEY,
   mutationFn: (api, { guestId, data }) => api.guests.update(guestId, data),
 });
 
 /* ── useAddStaffNote mutation ────────────────────────── */
 
-export function useAddStaffNote() {
-  const api = useApiClient();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ guestId, text }: { guestId: string; text: string }) =>
-      api.guests.addNote(guestId, text),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
-      queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
-    },
-  });
-}
+export const useAddStaffNote = createMutationHook<{ guestId: string; text: string }>({
+  invalidateKeys: GUESTS_QUERY_KEY,
+  mutationFn: (api, { guestId, text }) => api.guests.addNote(guestId, text),
+  onSuccess: (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
+  },
+});
