@@ -47,7 +47,7 @@ coverage/
 # Install sentinel written by implement-queue workers (ephemeral, never commit)
 .worktree-installed
 
-# GSD planning artifacts (internal project-management state, not for consumers)
+# Agent scratch/planning state (RIPER workflow, mbe stats --auto-plan)
 .planning/
 
 # Misc
