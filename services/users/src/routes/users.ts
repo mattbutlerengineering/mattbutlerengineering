@@ -10,7 +10,7 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { userService } from "../services/user.js";
 
 /** Returns the requesting user's database cuid by looking up their JWT email. */
@@ -65,14 +65,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated user list",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "User#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("User#"),
           },
           500: {
             description: "Internal server error",
