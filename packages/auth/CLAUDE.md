@@ -12,7 +12,8 @@ src/
 │   └── hooks.ts          # useAuth, useAccessToken, useRequireAuth
 └── fastify/
     ├── plugin.ts         # authPlugin, requireAuth, optionalAuth
-    └── plugin.test.ts    # Test patterns with mocked jose
+    ├── plugin.test.ts    # Test patterns with mocked jose
+    └── ownership.ts      # requireOwnershipOrAdmin — route-level owner-or-admin authorization guard
 ```
 
 ## React API
