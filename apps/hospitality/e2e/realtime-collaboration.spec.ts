@@ -42,6 +42,8 @@ const WALKIN_RESERVATION = {
   partySize: 2,
   status: "CONFIRMED",
   notes: "Walk-in",
+  cancellationReason: null,
+  cancellationNote: null,
   guestName: "Collab Test Guest",
   guestEmail: null,
   guestPhone: null,
