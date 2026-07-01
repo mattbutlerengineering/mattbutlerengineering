@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
+import { loadReservationForManage } from "./load-reservation-for-manage.js";
 
 interface ModifyBody {
   date?: string;
@@ -10,6 +11,12 @@ interface ModifyBody {
   partySize?: number;
   specialRequests?: string;
 }
+
+const NOT_OK_MESSAGES = {
+  not_found: { title: "Reservation Not Found", detail: "Reservation not found" },
+  cancelled: { title: "Cannot Modify", detail: "Cannot modify a cancelled reservation" },
+  completed: { title: "Cannot Modify", detail: "Cannot modify a completed reservation" },
+} as const;
 
 export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{ Querystring: { token?: string }; Body: ModifyBody }>(
@@ -21,33 +28,17 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: requireManageToken,
     },
     async (request, reply) => {
-      const reservation = await reservationService.getById(request.managedReservationId);
-      if (!reservation) {
-        return reply.status(404).send({
+      const preamble = await loadReservationForManage(request.managedReservationId);
+      if (!preamble.ok) {
+        const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
+        return reply.status(preamble.status).send({
           type: "about:blank",
-          title: "Reservation Not Found",
-          status: 404,
-          detail: "Reservation not found",
+          title,
+          status: preamble.status,
+          detail,
         });
       }
-
-      if (reservation.status === "CANCELLED") {
-        return reply.status(409).send({
-          type: "about:blank",
-          title: "Cannot Modify",
-          status: 409,
-          detail: "Cannot modify a cancelled reservation",
-        });
-      }
-
-      if (reservation.status === "COMPLETED") {
-        return reply.status(409).send({
-          type: "about:blank",
-          title: "Cannot Modify",
-          status: 409,
-          detail: "Cannot modify a completed reservation",
-        });
-      }
+      const reservation = preamble.reservation;
 
       const body = request.body ?? {};
       const { date, startTime, endTime, partySize, specialRequests } = body;
@@ -112,11 +103,7 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       if (updated.guestEmail && venue) {
         const preference =
           (updated.guest?.communicationPreference as
-            | "email_only"
-            | "sms_only"
-            | "both"
-            | "transactional_only"
-            | null) ?? "email_only";
+            "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
         try {
           await fastify.notificationPort.sendBookingModified(
             {

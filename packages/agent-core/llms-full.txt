@@ -157,17 +157,6 @@
        */
       protected abstract buildArgs(config: AdapterConfig): string[];
     
-      /**
-       * Extract structured information from CLI stdout/stderr.
-       * Used to determine `hasChanges` when the CLI itself reports changes
-       * (subclasses may override; default implementation always returns false
-       * and defers to the git-status check in `run`).
-       */
-      protected abstract parseOutput(
-        stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string };
-    
       // ── Public AgentAdapter implementation ──────────────────────────
     
       /**
@@ -275,12 +264,7 @@
           });
           return { stdout: result.stdout, stderr: result.stderr, exitedSuccessfully: true };
         } catch (err: unknown) {
-          const execError = err as {
-            stdout?: string;
-            stderr?: string;
-            code?: string | number;
-            killed?: boolean;
-          };
+          const execError = err as { stdout?: string; stderr?: string };
           return {
             stdout: execError.stdout ?? "",
             stderr: execError.stderr ?? "",
@@ -328,13 +312,6 @@
       protected buildArgs(config: AdapterConfig): string[] {
         return ["-p", config.taskDescription, "--yolo"];
       }
-    
-      protected parseOutput(
-        _stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string } {
-        return { hasChanges: false, summary: stderr || undefined };
-      }
     }
   </file>
   <file path="src/adapters/opencode-adapter.ts">
@@ -347,13 +324,6 @@
     
       protected buildArgs(config: AdapterConfig): string[] {
         return ["run", config.taskDescription];
-      }
-    
-      protected parseOutput(
-        _stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string } {
-        return { hasChanges: false, summary: stderr || undefined };
       }
     }
   </file>

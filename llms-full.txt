@@ -837,17 +837,6 @@
        */
       protected abstract buildArgs(config: AdapterConfig): string[];
     
-      /**
-       * Extract structured information from CLI stdout/stderr.
-       * Used to determine `hasChanges` when the CLI itself reports changes
-       * (subclasses may override; default implementation always returns false
-       * and defers to the git-status check in `run`).
-       */
-      protected abstract parseOutput(
-        stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string };
-    
       // ── Public AgentAdapter implementation ──────────────────────────
     
       /**
@@ -955,12 +944,7 @@
           });
           return { stdout: result.stdout, stderr: result.stderr, exitedSuccessfully: true };
         } catch (err: unknown) {
-          const execError = err as {
-            stdout?: string;
-            stderr?: string;
-            code?: string | number;
-            killed?: boolean;
-          };
+          const execError = err as { stdout?: string; stderr?: string };
           return {
             stdout: execError.stdout ?? "",
             stderr: execError.stderr ?? "",
@@ -1008,13 +992,6 @@
       protected buildArgs(config: AdapterConfig): string[] {
         return ["-p", config.taskDescription, "--yolo"];
       }
-    
-      protected parseOutput(
-        _stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string } {
-        return { hasChanges: false, summary: stderr || undefined };
-      }
     }
   </file>
   <file path="packages/agent-core/src/adapters/opencode-adapter.ts">
@@ -1028,164 +1005,6 @@
       protected buildArgs(config: AdapterConfig): string[] {
         return ["run", config.taskDescription];
       }
-    
-      protected parseOutput(
-        _stdout: string,
-        stderr: string
-      ): { hasChanges: boolean; summary?: string } {
-        return { hasChanges: false, summary: stderr || undefined };
-      }
-    }
-  </file>
-  <file path="tools/cli/src/adapters/cli-adapter.ts">
-    export interface AdapterConfig {
-      /** Human-readable description of the task for the agent to perform. */
-      readonly taskDescription: string;
-      /** Absolute path to the isolated worktree where the agent operates. */
-      readonly worktreePath: string;
-      /** Absolute path to the original repository root. */
-      readonly repoPath: string;
-      /** Git branch to base work on (e.g. "main"). */
-      readonly baseBranch: string;
-      /** Model identifier override (adapter-specific, e.g. "claude-sonnet-4-6", "gemini-2.5-pro"). */
-      readonly model?: string;
-      /** Maximum number of conversation turns before the adapter should stop. */
-      readonly maxTurns?: number;
-      /** Hard wall-clock timeout in milliseconds for the entire run. */
-      readonly timeoutMs?: number;
-    }
-    export interface AdapterResult {
-      /** Whether the agent session completed successfully. */
-      readonly success: boolean;
-      /** Whether the agent made any git-visible changes in the worktree. */
-      readonly hasChanges: boolean;
-      /** Whether the run was terminated due to rate limiting (maps to FailureCategory "rate_limited"). */
-      readonly rateLimited: boolean;
-      /** Human-readable error message when success is false. */
-      readonly error?: string;
-      /** Wall-clock duration of the run in milliseconds. */
-      readonly durationMs: number;
-    }
-  </file>
-  <file path="tools/cli/src/adapters/failover-router.ts">
-    export class AllAdaptersUnavailableError extends Error {
-      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
-      readonly cooldowns: ReadonlyMap<string, number>;
-    
-      constructor(cooldowns: ReadonlyMap<string, number>) {
-        super("All agent adapters are rate-limited or unavailable");
-        this.name = "AllAdaptersUnavailableError";
-        this.cooldowns = cooldowns;
-      }
-    }
-    export type RoutedAdapterResult = AdapterResult & {
-      /** Name of the adapter that produced this result. */
-      readonly adapter: string;
-    };
-  </file>
-  <file path="tools/cli/src/adapters/gemini-adapter.ts">
-    export class GeminiCliAdapter extends SpawnAndCommitBase {
-      readonly name = "gemini";
-      protected readonly binary = "gemini";
-      protected readonly defaultError = "Gemini CLI exited with non-zero status";
-    
-      /**
-       * Gemini CLI args: `-p <task> --yolo` for non-interactive execution.
-       */
-      protected buildArgs(task: string): string[] {
-        return ["-p", task, "--yolo"];
-      }
-    }
-  </file>
-  <file path="tools/cli/src/adapters/opencode-adapter.ts">
-    export class OpenCodeAdapter extends SpawnAndCommitBase {
-      readonly name = "opencode";
-      protected readonly binary = "opencode";
-      protected readonly defaultError = "OpenCode CLI exited with non-zero status";
-    
-      protected buildArgs(task: string): string[] {
-        return ["run", task];
-      }
-    }
-  </file>
-  <file path="tools/cli/src/adapters/rate-limit-detector.ts">
-    export function scanForRateLimitPatterns(output: string): boolean {
-      return RATE_LIMIT_PATTERNS.some((pattern) => pattern.test(output));
-    }
-    export class RateLimitDetector {
-      private readonly states: Map<string, AdapterState> = new Map();
-      private readonly cooldownMs: number;
-    
-      constructor(adapterNames: readonly string[], cooldownMs = DEFAULT_COOLDOWN_MS) {
-        this.cooldownMs = cooldownMs;
-        for (const name of adapterNames) {
-          this.states.set(name, {
-            name,
-            available: true,
-            cooldownUntil: null,
-            consecutiveFailures: 0,
-          });
-        }
-      }
-    
-      markRateLimited(adapterName: string): void {
-        const state = this.states.get(adapterName);
-        if (!state) return;
-        // Create new state object (immutability pattern)
-        this.states.set(adapterName, {
-          ...state,
-          available: false,
-          cooldownUntil: Date.now() + this.cooldownMs,
-          consecutiveFailures: state.consecutiveFailures + 1,
-        });
-      }
-    
-      markSuccess(adapterName: string): void {
-        const state = this.states.get(adapterName);
-        if (!state) return;
-        this.states.set(adapterName, {
-          ...state,
-          available: true,
-          cooldownUntil: null,
-          consecutiveFailures: 0,
-        });
-      }
-    
-      isAvailable(adapterName: string): boolean {
-        const state = this.states.get(adapterName);
-        if (!state) return false;
-        if (state.available) return true;
-        // Check if cooldown has expired
-        if (state.cooldownUntil !== null && Date.now() >= state.cooldownUntil) {
-          this.states.set(adapterName, {
-            ...state,
-            available: true,
-            cooldownUntil: null,
-          });
-          return true;
-        }
-        return false;
-      }
-    
-      getAvailableAdapters(): readonly string[] {
-        return [...this.states.keys()].filter((name) => this.isAvailable(name));
-      }
-    
-      getState(adapterName: string): AdapterState | undefined {
-        return this.states.get(adapterName);
-      }
-    }
-  </file>
-  <file path="tools/cli/src/adapters/spawn-and-commit-base.ts">
-    function truncateTask(task: string): string {
-      if (task.length <= MAX_TASK_LENGTH) return task;
-      return task.slice(0, MAX_TASK_LENGTH - 3) + "...";
-    }
-    function buildCommitMessage(task: string): string {
-      const prefix = "feat: ";
-      const available = MAX_COMMIT_SUBJECT - prefix.length;
-      const subject = task.length > available ? task.slice(0, available - 3) + "..." : task;
-      return `${prefix}${subject}`;
     }
   </file>
   </section>
@@ -6391,175 +6210,38 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.managedReservationId);
-          if (!reservation) {
-            return reply.status(404).send({
+          const preamble = await loadReservationForManage(request.managedReservationId);
+          if (!preamble.ok) {
+            const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
+            return reply.status(preamble.status).send({
               type: "about:blank",
-              title: "Reservation Not Found",
-              status: 404,
-              detail: "Reservation not found",
+              title,
+              status: preamble.status,
+              detail,
             });
           }
     
-          if (reservation.status === "CANCELLED") {
-            return reply.status(409).send({
+          const result = await cancelReservationWithDeposit(
+            preamble.reservation,
+            request.query.token!,
+            {
+              bookingNotifier: fastify.bookingNotifier,
+              notificationPort: fastify.notificationPort,
+              logger: request.log,
+            }
+          );
+    
+          if (!result.success) {
+            return reply.status(result.status).send({
               type: "about:blank",
-              title: "Already Cancelled",
-              status: 409,
-              detail: "This reservation is already cancelled",
+              title: result.title,
+              status: result.status,
+              detail: result.detail,
             });
-          }
-    
-          if (reservation.status === "COMPLETED") {
-            return reply.status(409).send({
-              type: "about:blank",
-              title: "Cannot Cancel",
-              status: 409,
-              detail: "Cannot cancel a completed reservation",
-            });
-          }
-    
-          // Resolve any held deposit BEFORE flipping the reservation to CANCELLED.
-          // A deposit and a reservation must never diverge: cancelling the
-          // reservation while leaving the deposit `held` would strand the guest's
-          // money (a "ghost" charge with no path to refund). On a money-path
-          // failure we surface a 500 and leave both records untouched so the guest
-          // can retry rather than silently swallowing the error.
-          const deposit = await depositService.getByReservationId(reservation.id);
-    
-          // Retry guard: a previous attempt succeeded on capture but failed on refund,
-          // leaving the deposit in `partial_refunded`. Re-deriving the action from the
-          // current clock risks crossing the no-show boundary and calling forfeit() on
-          // an already-captured deposit (DepositTransitionError → permanent 500).
-          // Replay refundPartial using the PERSISTED amounts instead.
-          if (deposit && deposit.status === "partial_refunded") {
-            if (deposit.refundAmountCents == null) {
-              // Deposit is partial_refunded but has no persisted amounts — data integrity
-              // gap that cannot be safely replayed. Surface a 500.
-              request.log.error(
-                { depositId: deposit.id, reservationId: reservation.id },
-                "partial_refunded deposit missing persisted refund amount; cannot replay"
-              );
-              return reply.status(500).send({
-                type: "about:blank",
-                title: "Cancellation Failed",
-                status: 500,
-                detail: "Could not process the deposit refund. The reservation was not cancelled.",
-              });
-            }
-            try {
-              await depositService.refundPartial(deposit.id, deposit.refundAmountCents);
-            } catch (err) {
-              request.log.error(
-                { err, reservationId: reservation.id, depositId: deposit.id },
-                "Failed to replay partial refund on cancellation retry; aborting cancel"
-              );
-              return reply.status(500).send({
-                type: "about:blank",
-                title: "Cancellation Failed",
-                status: 500,
-                detail: "Could not process the deposit refund. The reservation was not cancelled.",
-              });
-            }
-          } else if (deposit && deposit.status === "held") {
-            const rawVenue = reservation.venueId
-              ? await venueService.getRawById(reservation.venueId)
-              : null;
-    
-            const policy =
-              rawVenue?.freeCancellationHours != null
-                ? {
-                    depositAmountCents: deposit.amountCents,
-                    freeCancellationHours: rawVenue.freeCancellationHours,
-                    lateCancellationFeePercent: rawVenue.lateCancellationFeePercent ?? null,
-                    noShowFeePercent: rawVenue.noShowFeePercent ?? null,
-                  }
-                : null;
-    
-            const reservationTime = new Date(reservation.startTime);
-            const cancellationTime = new Date();
-            const feeResult = evaluateCancellationFee(policy, reservationTime, cancellationTime);
-    
-            try {
-              if (feeResult.depositAction === "refund_full") {
-                await depositService.refund(deposit.id);
-              } else if (feeResult.depositAction === "forfeit") {
-                await depositService.forfeit(deposit.id);
-              } else {
-                // refund_partial: capture then partially refund (also covers a
-                // partial no-show where noShowFeePercent < 100).
-                await depositService.refundPartial(deposit.id, feeResult.refundAmountCents);
-              }
-            } catch (err) {
-              // Do NOT cancel the reservation — keep deposit + reservation
-              // consistent. Log structured context for triage and surface an error.
-              request.log.error(
-                { err, reservationId: reservation.id, depositId: deposit.id },
-                "Failed to process deposit on cancellation; aborting cancel to avoid ghost state"
-              );
-              return reply.status(500).send({
-                type: "about:blank",
-                title: "Cancellation Failed",
-                status: 500,
-                detail: "Could not process the deposit refund. The reservation was not cancelled.",
-              });
-            }
-          }
-    
-          const updated = await reservationService.update(reservation.id, {
-            status: "CANCELLED",
-          });
-    
-          if (!updated) {
-            return reply.status(500).send({
-              type: "about:blank",
-              title: "Update Failed",
-              status: 500,
-              detail: "Failed to cancel reservation",
-            });
-          }
-    
-          const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
-    
-          // Cancel any pending reminder jobs for this reservation
-          fastify.bookingNotifier
-            .cancelBookingReminders(reservation.id)
-            .catch((err) => fastify.log.error({ err }, "Failed to cancel booking reminders"));
-    
-          if (reservation.guestEmail && venue) {
-            const preference =
-              (reservation.guest?.communicationPreference as
-                | "email_only"
-                | "sms_only"
-                | "both"
-                | "transactional_only"
-                | null) ?? "email_only";
-            try {
-              await fastify.notificationPort.sendBookingCancelled(
-                {
-                  reservationId: reservation.id,
-                  date: reservation.date,
-                  startTime: reservation.startTime,
-                  endTime: reservation.endTime,
-                  partySize: reservation.partySize,
-                  guestName: reservation.guestName,
-                  guestEmail: reservation.guestEmail,
-                  guestPhone: reservation.guestPhone ?? null,
-                  specialRequests: reservation.notes ?? null,
-                  venueName: venue.name,
-                  venueTimezone: venue.ianaTimezone,
-                  venueAddress: null,
-                  manageToken: request.query.token!,
-                },
-                preference
-              );
-            } catch {
-              request.log.error("Failed to send booking cancelled notification");
-            }
           }
     
           return reply.status(200).send({
-            data: { status: updated.status },
+            data: { status: result.reservation.status },
           });
         }
       );
@@ -7863,6 +7545,25 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/load-reservation-for-manage.ts">
+    export type ManagePreambleResult =
+      | { ok: true; reservation: Reservation }
+      | { ok: false; status: 404; reason: "not_found" }
+      | { ok: false; status: 409; reason: "cancelled" | "completed" };
+    export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> {
+      const reservation = await reservationService.getById(id);
+      if (!reservation) {
+        return { ok: false, status: 404, reason: "not_found" };
+      }
+      if (reservation.status === "CANCELLED") {
+        return { ok: false, status: 409, reason: "cancelled" };
+      }
+      if (reservation.status === "COMPLETED") {
+        return { ok: false, status: 409, reason: "completed" };
+      }
+      return { ok: true, reservation };
+    }
+  </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{ Querystring: { token?: string } }>(
@@ -7927,33 +7628,17 @@
           preHandler: requireManageToken,
         },
         async (request, reply) => {
-          const reservation = await reservationService.getById(request.managedReservationId);
-          if (!reservation) {
-            return reply.status(404).send({
+          const preamble = await loadReservationForManage(request.managedReservationId);
+          if (!preamble.ok) {
+            const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
+            return reply.status(preamble.status).send({
               type: "about:blank",
-              title: "Reservation Not Found",
-              status: 404,
-              detail: "Reservation not found",
+              title,
+              status: preamble.status,
+              detail,
             });
           }
-    
-          if (reservation.status === "CANCELLED") {
-            return reply.status(409).send({
-              type: "about:blank",
-              title: "Cannot Modify",
-              status: 409,
-              detail: "Cannot modify a cancelled reservation",
-            });
-          }
-    
-          if (reservation.status === "COMPLETED") {
-            return reply.status(409).send({
-              type: "about:blank",
-              title: "Cannot Modify",
-              status: 409,
-              detail: "Cannot modify a completed reservation",
-            });
-          }
+          const reservation = preamble.reservation;
     
           const body = request.body ?? {};
           const { date, startTime, endTime, partySize, specialRequests } = body;
@@ -8018,11 +7703,7 @@
           if (updated.guestEmail && venue) {
             const preference =
               (updated.guest?.communicationPreference as
-                | "email_only"
-                | "sms_only"
-                | "both"
-                | "transactional_only"
-                | null) ?? "email_only";
+                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
             try {
               await fastify.notificationPort.sendBookingModified(
                 {
@@ -12338,6 +12019,16 @@
         include: { venue: true },
       });
     }
+  </file>
+  <file path="services/reservations/src/services/reservation-cancellation.ts">
+    export interface CancelReservationDeps {
+      bookingNotifier: BookingNotifier;
+      notificationPort: NotificationDispatcher;
+      logger: FastifyBaseLogger;
+    }
+    export type CancelReservationResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; status: number; title: string; detail: string };
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     export const reservationMachine = createStateMachine<ReservationStatus>(

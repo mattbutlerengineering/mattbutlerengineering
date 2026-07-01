@@ -385,7 +385,7 @@
         name: string;
         cliBinary: string;
         async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
+        async isAvailable(): Promise<unknown>;
       }
     </item>
   </file>
@@ -395,7 +395,6 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
       }
     </item>
   </file>
@@ -405,80 +404,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
-        async parseOutput(): Promise<unknown>;
       }
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/cli-adapter.ts">
-    <item priority="low">
-      interface AdapterConfig {
-        taskDescription: string;
-        worktreePath: string;
-        repoPath: string;
-        baseBranch: string;
-        model?: string;
-      }
-    </item>
-    <item priority="low">
-      interface AdapterResult {
-        success: boolean;
-        hasChanges: boolean;
-        rateLimited: boolean;
-        error?: string;
-        durationMs: number;
-      }
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/failover-router.ts">
-    <item priority="high">
-      class AllAdaptersUnavailableError {
-        cooldowns: ReadonlyMap<string, number>;
-      }
-    </item>
-    <item priority="low">
-      type RoutedAdapterResult = AdapterResult & {
-        /** Name of the adapter that produced...;
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/gemini-adapter.ts">
-    <item priority="high">
-      class GeminiCliAdapter {
-        name: unknown;
-        binary: unknown;
-        defaultError: unknown;
-        async buildArgs(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/opencode-adapter.ts">
-    <item priority="high">
-      class OpenCodeAdapter {
-        name: unknown;
-        binary: unknown;
-        defaultError: unknown;
-        async buildArgs(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/rate-limit-detector.ts">
-    <item priority="high">
-      export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      class RateLimitDetector {
-        states: Map<string, AdapterState>;
-        cooldownMs: number;
-        async markRateLimited(): Promise<unknown>;
-        async markSuccess(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="tools/cli/src/adapters/spawn-and-commit-base.ts">
-    <item priority="medium">
-      function truncateTask(task: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildCommitMessage(task: string): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -2017,6 +1943,14 @@
       export const holdRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/load-reservation-for-manage.ts">
+    <item priority="low">
+      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 404; reas | { ok: false; status: 409; reas;
+    </item>
+    <item priority="high">
+      export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/routes/manage-reservation.ts">
     <item priority="high">
       export const manageReservationRoutes: FastifyPluginAsync;
@@ -2783,6 +2717,18 @@
   <file path="services/reservations/src/services/reminder.ts">
     <item priority="high">
       export async function findReservationsNeedingReminder() { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation-cancellation.ts">
+    <item priority="low">
+      interface CancelReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
