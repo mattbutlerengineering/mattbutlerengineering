@@ -41,7 +41,7 @@ Clones a downstream repo, creates a feature branch, applies changes, commits, pu
 
 ## Development Flow with Metrics & Continuous Improvement
 
-The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for the full skill catalog and scheduling.
+The continuous-improvement loop (audit → fix → ship → verify) runs as **slash-skills** for Claude Code, or `mbe` CLI subcommands for other tools. Claude Code loads skills from both `.claude/skills/` (project automation) and `.agents/skills/` (general engineering advice). See [CLAUDE.md](./CLAUDE.md#continuous-improvement-loop) for the full skill catalog and scheduling.
 
 Quick reference:
 
