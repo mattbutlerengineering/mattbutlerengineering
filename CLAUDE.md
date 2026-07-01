@@ -63,6 +63,15 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | `/acmm-audit`       | Score repo against canonical AI Codebase Maturity Model (6 levels, 100+ criteria from ACMM/Fullsend/AEF/Reflect), file next-level-gap issues, update README badge |
 | `/token-report`     | Pull real-time token spend summary via ccusage: daily totals, session breakdown, block usage, per-model cost and cache-read/output/cache-creation breakdown       |
 
+### Scaffolding Skills
+
+| Skill                | Purpose                                                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/new-adr`           | Scaffold a new Architecture Decision Record in docs/adr/ with the repo's canonical format and the next available sequential number                                                           |
+| `/new-component`     | Scaffold a new rialto design system component with all required files (component, CSS module, test, story, barrel export) following established conventions                                  |
+| `/new-e2e-test`      | Scaffold a Playwright E2E test in one of the apps that has a Playwright config, matching the existing test fixtures and auth patterns                                                        |
+| `/new-service-route` | Scaffold a new Fastify route in services/{reservations,users,agent} matching the house pattern — schema validation, auth, error envelope per ADR-002, SSE broadcast (if reservations), tests |
+
 ## mbe CLI Commands
 
 ```bash
@@ -148,6 +157,8 @@ Always use TDD (test-driven development) for feature work. Write tests FIRST, ve
 ## Before Committing
 
 Always perform the **Zero-Touch Audit** defined in [AGENTS.md](./AGENTS.md) before committing. This includes running `pnpm lint`, `pnpm typecheck`, and `pnpm test`, scanning for conflict markers, verifying imports, and updating generated files.
+
+Use `/local-ci-precheck` before opening or pushing to a PR — it runs the same lint + typecheck + architecture-audit + drift checks CI runs, locally and in parallel, catching workspace issues and stale generated artifacts in 30 seconds instead of waiting 5 minutes for CI.
 
 **Known gotchas:** see [.claude/rules/gotchas.md](./.claude/rules/gotchas.md) — covers pre-commit, builds, CI, dependencies, releases, tooling artifacts, and Prisma/DO migrate.
 
