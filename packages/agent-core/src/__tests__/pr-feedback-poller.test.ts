@@ -125,6 +125,46 @@ describe("fetchCIFailures", () => {
   });
 });
 
+describe("gh subprocess timeout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes a numeric timeout on every gh call in fetchUnresolvedComments and fetchCIFailures", async () => {
+    mockExecFile.mockImplementation(async (...args: unknown[]) => {
+      const argList = args[1] as string[];
+      if (argList[0] === "pr" && argList[1] === "checks") {
+        return {
+          stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "failure" }]),
+        };
+      }
+      if (argList[0] === "run" && argList[1] === "list") {
+        return { stdout: JSON.stringify([{ databaseId: 123 }]) };
+      }
+      if (argList[0] === "run" && argList[1] === "view") {
+        return { stdout: "FAIL" };
+      }
+      return {
+        stdout: JSON.stringify({
+          data: {
+            repository: { pullRequest: { reviewDecision: null, reviewThreads: { nodes: [] } } },
+          },
+        }),
+      };
+    });
+
+    await fetchUnresolvedComments("owner", "repo", 42, "/repo");
+    await fetchCIFailures(42, "/repo");
+
+    expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
+    for (const call of mockExecFile.mock.calls) {
+      const options = call[2] as { timeout?: number } | undefined;
+      expect(typeof options?.timeout).toBe("number");
+      expect(options?.timeout).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("pollForFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();

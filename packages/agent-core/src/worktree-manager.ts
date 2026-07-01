@@ -8,6 +8,12 @@ import type { WorktreeInfo, WorktreeMode } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Bound every `git` subprocess call so a hang (stuck lock, network stall on
+ * clone/push) fails fast instead of blocking the session indefinitely.
+ */
+const GIT_TIMEOUT_MS = 60_000;
+
 const WORKTREE_DIR = ".agent-worktrees";
 
 /** Written by the worker after a successful `pnpm install --frozen-lockfile`. */
@@ -59,7 +65,7 @@ function generateBranchName(taskDescription: string): string {
 }
 
 async function git(args: readonly string[], cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync("git", [...args], { cwd });
+  const { stdout } = await execFileAsync("git", [...args], { cwd, timeout: GIT_TIMEOUT_MS });
   return stdout.trim();
 }
 
@@ -93,16 +99,11 @@ async function createLightweightWorktree(
   const clonePath = join(repoPath, WORKTREE_DIR, branchName.replace(/\//g, "-"));
   // Shallow clone from the local repo; --depth 1 keeps it fast and minimal.
   // `--` prevents baseBranch/repoPath from being parsed as flags.
-  await execFileAsync("git", [
-    "clone",
-    "--depth",
-    "1",
-    "--branch",
-    baseBranch,
-    "--",
-    repoPath,
-    clonePath,
-  ]);
+  await execFileAsync(
+    "git",
+    ["clone", "--depth", "1", "--branch", baseBranch, "--", repoPath, clonePath],
+    { timeout: GIT_TIMEOUT_MS }
+  );
   // Create and switch to the task branch inside the clone.
   await git(["checkout", "-b", branchName, "--"], clonePath);
   return clonePath;

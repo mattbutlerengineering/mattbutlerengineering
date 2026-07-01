@@ -5,6 +5,9 @@ import { join } from "node:path";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound every `git` subprocess call so a hang fails fast. */
+const GIT_TIMEOUT_MS = 60_000;
+
 export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
 
 export interface SyntheticBugConfig {
@@ -31,7 +34,10 @@ export interface BugSeedResult {
 export async function seedSyntheticBug(config: SyntheticBugConfig): Promise<BugSeedResult> {
   try {
     // Create branch
-    await execFileAsync("git", ["checkout", "-b", config.branchName], { cwd: config.repoPath });
+    await execFileAsync("git", ["checkout", "-b", config.branchName], {
+      cwd: config.repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
 
     // Create directory if needed
     const dir = join(config.repoPath, config.filePath, "..");
@@ -42,18 +48,24 @@ export async function seedSyntheticBug(config: SyntheticBugConfig): Promise<BugS
     await writeFile(fullPath, config.fileContent, "utf-8");
 
     // Stage and commit
-    await execFileAsync("git", ["add", config.filePath], { cwd: config.repoPath });
+    await execFileAsync("git", ["add", config.filePath], {
+      cwd: config.repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
     const { stdout: commitSha } = await execFileAsync(
       "git",
       ["commit", "-m", config.commitMessage],
-      { cwd: config.repoPath }
+      { cwd: config.repoPath, timeout: GIT_TIMEOUT_MS }
     );
 
     // Extract SHA from output
     const sha = commitSha.match(/\[.*?(\w{7})\]/)?.[1] || "unknown";
 
     // Push to remote
-    await execFileAsync("git", ["push", "origin", config.branchName], { cwd: config.repoPath });
+    await execFileAsync("git", ["push", "origin", config.branchName], {
+      cwd: config.repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
 
     return {
       success: true,
@@ -165,14 +177,21 @@ export async function cleanupSyntheticBugBranch(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Switch back to main
-    await execFileAsync("git", ["checkout", "main"], { cwd: repoPath });
+    await execFileAsync("git", ["checkout", "main"], {
+      cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
 
     // Delete local branch
-    await execFileAsync("git", ["branch", "-D", branchName], { cwd: repoPath });
+    await execFileAsync("git", ["branch", "-D", branchName], {
+      cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
 
     // Delete remote branch
     await execFileAsync("git", ["push", "origin", "--delete", branchName], {
       cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
     });
 
     return { success: true };

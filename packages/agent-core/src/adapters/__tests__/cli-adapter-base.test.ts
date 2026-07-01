@@ -390,5 +390,24 @@ describe("CliAdapterBase", () => {
       // TestAdapter.buildArgs returns ["run", taskDescription]
       expect(cliCall![1]).toEqual(["run", "do something"]);
     });
+
+    it("passes a numeric timeout on every git call (status/add/commit)", async () => {
+      setupExecFileMock({
+        "test-cli": [{ stdout: "done" }],
+        "git-status": [{ stdout: " M file.ts\n" }],
+        "git-add": [{ stdout: "" }],
+        "git-commit": [{ stdout: "" }],
+      });
+
+      await adapter.run(makeConfig());
+
+      const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
+      expect(gitCalls.length).toBeGreaterThan(0);
+      for (const call of gitCalls) {
+        const options = call[2] as { timeout?: number } | undefined;
+        expect(typeof options?.timeout).toBe("number");
+        expect(options?.timeout).toBeGreaterThan(0);
+      }
+    });
   });
 });
