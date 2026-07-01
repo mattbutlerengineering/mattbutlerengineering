@@ -172,8 +172,18 @@ export async function mockApi(page: Page): Promise<void> {
   // subsequent GET /api/v1/reservations?* returns count+1.
   await page.route("**/api/v1/reservations/walk-in", (route) => {
     const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
     const newRes: Record<string, unknown> = {
       ...fixture.data[0],
+      ...body,
       id: `res_e2e_walkin_${Date.now()}`,
       status: "CONFIRMED",
       notes: "Walk-in",
