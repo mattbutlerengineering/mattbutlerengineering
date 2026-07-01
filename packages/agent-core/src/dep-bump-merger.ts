@@ -5,6 +5,9 @@ const execFileAsync = promisify(execFile);
 
 // ── Constants ────────────────────────────────────────────────────────
 
+/** Bound `gh` subprocess calls so a hang (GitHub API latency) fails fast. */
+const GH_TIMEOUT_MS = 30_000;
+
 /** Files that are allowed to change in a trivial dependency bump. */
 const ALLOWED_DEP_FILES = new Set(["package.json", "pnpm-lock.yaml"]);
 
@@ -154,13 +157,16 @@ export async function mergeDirectly(options: {
     "url",
   ];
 
-  const { stdout: createOut } = await execFileAsync("gh", createArgs, { cwd: repoPath });
+  const { stdout: createOut } = await execFileAsync("gh", createArgs, {
+    cwd: repoPath,
+    timeout: GH_TIMEOUT_MS,
+  });
   const { url } = JSON.parse(createOut.trim()) as { url: string };
 
   // Step 2: Squash-merge and delete the branch immediately
   const mergeArgs = ["pr", "merge", "--squash", "--delete-branch", "--auto", url];
 
-  await execFileAsync("gh", mergeArgs, { cwd: repoPath });
+  await execFileAsync("gh", mergeArgs, { cwd: repoPath, timeout: GH_TIMEOUT_MS });
 
   return url;
 }

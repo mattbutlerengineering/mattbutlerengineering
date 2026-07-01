@@ -1,5 +1,19 @@
-import { describe, it, expect } from "vitest";
-import { isTrivialDepBump } from "../dep-bump-merger.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("node:child_process", () => ({
+  execFile: vi.fn(),
+}));
+
+vi.mock("node:util", () => ({
+  promisify: vi.fn((fn: unknown) => fn),
+}));
+
+import { execFile } from "node:child_process";
+import { isTrivialDepBump, mergeDirectly } from "../dep-bump-merger.js";
+
+const mockExecFile = vi.mocked(
+  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+);
 
 // ── Diff fixtures ────────────────────────────────────────────────────
 
@@ -269,5 +283,33 @@ index aaaaaaa..bbbbbbb 100644
       const result = isTrivialDepBump(diff);
       expect(result.isTrivial).toBe(true);
     });
+  });
+});
+
+// ── gh subprocess timeout ────────────────────────────────────────────────────
+
+describe("mergeDirectly", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes a numeric timeout on both gh pr create and gh pr merge calls", async () => {
+    mockExecFile
+      .mockResolvedValueOnce({ stdout: JSON.stringify({ url: "https://github.com/o/r/pull/1" }) })
+      .mockResolvedValueOnce({ stdout: "" });
+
+    await mergeDirectly({
+      branchName: "chore/bump",
+      baseBranch: "main",
+      repoPath: "/repo",
+      commitTitle: "chore: bump lodash",
+    });
+
+    expect(mockExecFile).toHaveBeenCalledTimes(2);
+    for (const call of mockExecFile.mock.calls) {
+      const options = call[2] as { timeout?: number } | undefined;
+      expect(typeof options?.timeout).toBe("number");
+      expect(options?.timeout).toBeGreaterThan(0);
+    }
   });
 });

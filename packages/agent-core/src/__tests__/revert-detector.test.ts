@@ -1,9 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("node:child_process", () => ({
+  execFile: vi.fn(),
+}));
+
+vi.mock("node:util", () => ({
+  promisify: vi.fn((fn: unknown) => fn),
+}));
+
+import { execFile } from "node:child_process";
 import {
   isPrAiAuthor,
   extractPrNumberFromMessage,
   formatRevertForIssue,
+  detectRecentReverts,
+  getCommitDetails,
 } from "../revert-detector.js";
+
+const mockExecFile = vi.mocked(
+  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+);
 
 describe("revert-detector", () => {
   describe("isPrAiAuthor", () => {
@@ -106,5 +122,45 @@ Manual fix for a bug`;
 
       expect(formatted).toContain("unknown");
     });
+  });
+});
+
+// ── git subprocess timeout ──────────────────────────────────────────────────
+
+describe("git subprocess timeout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes a numeric timeout on every git call in detectRecentReverts", async () => {
+    mockExecFile.mockImplementation(async (...args: unknown[]) => {
+      const argList = args[1] as string[];
+      if (argList[0] === "log") {
+        return { stdout: 'abc1234 Revert "feat: thing (#42)"' };
+      }
+      return { stdout: "Revert commit\n\nThis reverts commit abc1234" };
+    });
+
+    await detectRecentReverts("/repo");
+
+    expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
+    for (const call of mockExecFile.mock.calls) {
+      const options = call[2] as { timeout?: number } | undefined;
+      expect(typeof options?.timeout).toBe("number");
+      expect(options?.timeout).toBeGreaterThan(0);
+    }
+  });
+
+  it("passes a numeric timeout on every git call in getCommitDetails", async () => {
+    mockExecFile.mockResolvedValue({ stdout: "some output" });
+
+    await getCommitDetails("/repo", "abc1234");
+
+    expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
+    for (const call of mockExecFile.mock.calls) {
+      const options = call[2] as { timeout?: number } | undefined;
+      expect(typeof options?.timeout).toBe("number");
+      expect(options?.timeout).toBeGreaterThan(0);
+    }
   });
 });

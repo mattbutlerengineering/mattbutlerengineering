@@ -74,7 +74,7 @@ describe("pr-creator", () => {
       expect(execFile).toHaveBeenCalledWith(
         "gh",
         expect.arrayContaining(["pr", "create", "--draft"]),
-        expect.objectContaining({ cwd: "/path" }),
+        expect.objectContaining({ cwd: "/path", timeout: expect.any(Number) }),
         expect.any(Function)
       );
     });

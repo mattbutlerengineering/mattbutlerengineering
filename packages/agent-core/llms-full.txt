@@ -294,7 +294,9 @@
        */
       private async checkForChanges(worktreePath: string): Promise<boolean> {
         try {
-          const { stdout } = await execFileAsync("git", ["-C", worktreePath, "status", "--porcelain"]);
+          const { stdout } = await execFileAsync("git", ["-C", worktreePath, "status", "--porcelain"], {
+            timeout: GIT_TIMEOUT_MS,
+          });
           return stdout.trim().length > 0;
         } catch {
           return false;
@@ -305,7 +307,7 @@
        * Stage all changes and commit with a descriptive message.
        */
       private async commitChanges(worktreePath: string, task: string): Promise<void> {
-        const gitOpts = { cwd: worktreePath };
+        const gitOpts = { cwd: worktreePath, timeout: GIT_TIMEOUT_MS };
         await execFileAsync("git", ["-C", worktreePath, "add", "-A"], gitOpts);
         await execFileAsync(
           "git",
@@ -1902,7 +1904,7 @@
         args.push("--draft");
       }
     
-      const { stdout } = await execFileAsync("gh", args, { cwd: repoPath });
+      const { stdout } = await execFileAsync("gh", args, { cwd: repoPath, timeout: GH_TIMEOUT_MS });
     
       const parsed = GhPrResultSchema.parse(JSON.parse(stdout.trim()));
       return { url: parsed.url, number: parsed.number };

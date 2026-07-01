@@ -7,6 +7,11 @@ import type { SessionEventCallback, SessionEvent } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound `git` subprocess calls (covers network stalls on push). */
+const GIT_TIMEOUT_MS = 60_000;
+/** Bound `gh` subprocess calls (GitHub API latency). */
+const GH_TIMEOUT_MS = 30_000;
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface FeedbackLoopParams {
@@ -49,25 +54,47 @@ function delay(ms: number): Promise<void> {
 async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> {
   const { stdout } = await execFileAsync("gh", ["repo", "view", "--json", "owner,name"], {
     cwd: repoPath,
+    timeout: GH_TIMEOUT_MS,
   });
   const parsed = JSON.parse(stdout) as { owner: { login: string }; name: string };
   return { owner: parsed.owner.login, repo: parsed.name };
 }
 
+/**
+ * True only for a genuine `git diff --cached --quiet` exit code 1 ("there are
+ * changes"). A timeout kills the process (`killed: true`, `code: null`) and
+ * must NOT be mistaken for that clean exit — it needs to propagate instead.
+ */
+function isExitCodeOne(err: unknown): boolean {
+  const execError = err as { code?: number | string | null; killed?: boolean };
+  return execError.code === 1 && !execError.killed;
+}
+
 async function commitAndPush(repoPath: string, message: string): Promise<void> {
-  await execFileAsync("git", ["add", "-A"], { cwd: repoPath });
+  await execFileAsync("git", ["add", "-A"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
 
   // Check if there are staged changes before committing
   try {
-    await execFileAsync("git", ["diff", "--cached", "--quiet"], { cwd: repoPath });
+    await execFileAsync("git", ["diff", "--cached", "--quiet"], {
+      cwd: repoPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
     // Exit code 0 means no changes — nothing to commit
     return;
-  } catch {
+  } catch (err) {
+    if (!isExitCodeOne(err)) {
+      // A timeout (or any other non-exit-1 failure) must propagate rather
+      // than being silently treated as "no changes".
+      throw err;
+    }
     // Exit code 1 means there are changes — proceed with commit
   }
 
-  await execFileAsync("git", ["commit", "-m", message], { cwd: repoPath });
-  await execFileAsync("git", ["push"], { cwd: repoPath });
+  await execFileAsync("git", ["commit", "-m", message], {
+    cwd: repoPath,
+    timeout: GIT_TIMEOUT_MS,
+  });
+  await execFileAsync("git", ["push"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
 }
 
 // ── Main feedback loop ──────────────────────────────────────────────

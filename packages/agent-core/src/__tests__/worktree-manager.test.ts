@@ -392,3 +392,40 @@ describe("syncLockfileIfNeeded", () => {
     expect(pnpmCalls[1][1]).toEqual(["install"]);
   });
 });
+
+// ── git subprocess timeouts ─────────────────────────────────────────────────
+// A hung `git` call (stuck lock, network stall) must fail fast rather than
+// blocking the session indefinitely — every git call needs a numeric timeout.
+
+describe("git subprocess timeout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes a numeric timeout on the shared git() helper (via commitChanges)", async () => {
+    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+
+    await commitChanges("/worktree", "feat: test commit");
+
+    const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
+    expect(gitCalls.length).toBeGreaterThan(0);
+    for (const call of gitCalls) {
+      const options = call[2] as { timeout?: number };
+      expect(typeof options.timeout).toBe("number");
+      expect(options.timeout).toBeGreaterThan(0);
+    }
+  });
+
+  it("passes a numeric timeout on the direct `git clone` call (lightweight worktree)", async () => {
+    setupExecFileMock(["", ""]);
+
+    await createWorktree("/repo", "main", "Fix typo", { mode: "lightweight" });
+
+    const calls = vi.mocked(execFile).mock.calls;
+    const cloneArgs = calls[0][1] as string[];
+    expect(cloneArgs).toContain("clone");
+    const cloneOptions = calls[0][2] as { timeout?: number };
+    expect(typeof cloneOptions.timeout).toBe("number");
+    expect(cloneOptions.timeout).toBeGreaterThan(0);
+  });
+});
