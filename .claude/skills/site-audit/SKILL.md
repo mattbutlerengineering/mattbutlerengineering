@@ -16,6 +16,32 @@ Inventory-tracked 3-mode audit: smoke (regression), sweep (zone rotation), scout
 cat .audit-state/inventory.json 2>/dev/null || echo "No inventory"
 ```
 
+## Environment Reachability (preflight — run FIRST, before any live check)
+
+The agent proxy gateway in remote (claude.ai/code) containers may reject CONNECT
+tunnels to the live site with HTTP 403 ("policy denial or upstream failure").
+This is a **sandbox egress limitation, not a site defect** — the site is healthy;
+this container simply has no route out. It surfaces as a curl **connection**
+failure (exit 56 / `http_code == 000`), NOT an HTTP 403 *body* (which is the
+separate Cloudflare case — see [Access Restrictions](#access-restrictions)).
+
+```bash
+PROBE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "https://mattbutlerengineering.com" 2>/dev/null)
+PROBE_EXIT=$?
+if [ "${PROBE:-000}" = "000" ]; then
+  echo "ENVIRONMENT-BLOCKED: sandbox cannot reach the live site (proxy/CONNECT denial, curl exit ${PROBE_EXIT})."
+  echo "The site is NOT down and NOT restricted — this container has no egress."
+  echo "Run the audit from a local checkout instead (no agent proxy):"
+  echo "  /site-audit <mode>"
+  # Do NOT file 'site unreachable' / regression / infrastructure issues — a blinded
+  # audit cannot judge the site, and doing so files noise (see #2913). Exit clean.
+  exit 0
+fi
+```
+
+Only proceed to the modes below once the probe returns a real HTTP status
+(200/301/403/5xx). A `000` means "cannot see the site", never "site is broken".
+
 ## Mode 1: Smoke (per-commit)
 
 1. `git diff HEAD~1 --name-only`
@@ -112,7 +138,8 @@ test("loads", async ({ authPage }) => {
 
 ## Access Restrictions
 
-403 from Cloudflare Bot Management:
+403 from Cloudflare Bot Management (curl **completes** with an HTTP 403 body — distinct
+from the preflight `000` CONNECT-denial case in [Environment Reachability](#environment-reachability-preflight--run-first-before-any-live-check)):
 
 1. Log `ACCESS-RESTRICTED: <url>`
 2. Mark `restricted` in inventory
@@ -156,4 +183,5 @@ npx @lhci/cli assert --assertions.categories:performance="error,minScore,0.9" --
 - Dedup first
 - Full down (5xx) → one issue + stop
 - 403 ≠ down
+- `ENVIRONMENT-BLOCKED` (proxy/CONNECT denial, curl exit 56 / http `000`) ≠ down and ≠ restricted → run preflight, skip, run locally, file **no** issues
 - Regressions → `ci-fix`
