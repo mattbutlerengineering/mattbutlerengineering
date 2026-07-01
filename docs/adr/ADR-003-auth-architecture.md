@@ -1,7 +1,11 @@
-# ADR-003: Auth Architecture (Auth0 OIDC + Permissive Plugin)
+---
+id: ADR-003
+title: Auth Architecture
+status: active
+date: 2026-04-06
+---
 
-**Status:** active
-**Date:** 2026-04-06
+# ADR-003: Auth Architecture (Auth0 OIDC + Permissive Plugin)
 
 ## Context
 
