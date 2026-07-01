@@ -23,6 +23,18 @@ export interface CreateDepositOptions {
   reservationId: string;
   amountCents: number;
   currency?: string;
+  /**
+   * Stripe PaymentIntent id, set at creation so the row is never orphaned in
+   * `pending` with a null intent (which would make the `payment_intent.succeeded`
+   * webhook unable to find it). Written atomically in the single create.
+   *
+   * Optional because the authenticated staff-deposit flow ({@link ../routes/deposits.ts})
+   * records a manual deposit with no Stripe PaymentIntent. The public booking-widget
+   * flow always supplies it, closing the former create → link two-write window.
+   */
+  stripePaymentIntentId?: string;
+  /** Optional Stripe customer id, written in the same atomic create. */
+  stripeCustomerId?: string;
 }
 
 /**
@@ -38,7 +50,10 @@ export class DepositService {
   }
 
   /**
-   * Creates a new deposit in `pending` state.
+   * Creates a new deposit in `pending` state with its Stripe PaymentIntent id
+   * already set, in a single atomic write. This eliminates the former
+   * create → linkPaymentIntent two-write window that could leave the row stuck
+   * in `pending` with a null intent (invisible to the succeeded webhook).
    */
   async create(options: CreateDepositOptions): Promise<Deposit> {
     return prisma.deposit.create({
@@ -47,6 +62,10 @@ export class DepositService {
         amountCents: options.amountCents,
         currency: options.currency ?? "usd",
         status: "pending",
+        ...(options.stripePaymentIntentId
+          ? { stripePaymentIntentId: options.stripePaymentIntentId }
+          : {}),
+        ...(options.stripeCustomerId ? { stripeCustomerId: options.stripeCustomerId } : {}),
       },
     });
   }

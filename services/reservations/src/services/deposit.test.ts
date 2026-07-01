@@ -77,16 +77,19 @@ describe("DepositService", () => {
   });
 
   describe("create", () => {
-    it("creates a deposit record in pending state", async () => {
-      const mockDeposit = makeDeposit();
+    it("creates a deposit record in pending state with the payment intent already set", async () => {
+      const mockDeposit = makeDeposit({ stripePaymentIntentId: "pi_test_123" });
       mockDepositDb.create.mockResolvedValueOnce(mockDeposit);
 
       const result = await depositService.create({
         reservationId: "res-123",
         amountCents: 5000,
         currency: "usd",
+        stripePaymentIntentId: "pi_test_123",
       });
 
+      // The PaymentIntent id must be written in the single atomic create — no
+      // follow-up linkPaymentIntent write that could leave the row orphaned.
       expect(mockDepositDb.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -94,10 +97,36 @@ describe("DepositService", () => {
             amountCents: 5000,
             currency: "usd",
             status: "pending",
+            stripePaymentIntentId: "pi_test_123",
           }),
         })
       );
       expect(result.status).toBe("pending");
+      expect(result.stripePaymentIntentId).toBe("pi_test_123");
+    });
+
+    it("writes the optional stripeCustomerId atomically when provided", async () => {
+      const mockDeposit = makeDeposit({
+        stripePaymentIntentId: "pi_test_123",
+        stripeCustomerId: "cus_test_123",
+      });
+      mockDepositDb.create.mockResolvedValueOnce(mockDeposit);
+
+      await depositService.create({
+        reservationId: "res-123",
+        amountCents: 5000,
+        stripePaymentIntentId: "pi_test_123",
+        stripeCustomerId: "cus_test_123",
+      });
+
+      expect(mockDepositDb.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stripePaymentIntentId: "pi_test_123",
+            stripeCustomerId: "cus_test_123",
+          }),
+        })
+      );
     });
   });
 
