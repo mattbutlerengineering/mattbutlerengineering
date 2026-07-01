@@ -917,6 +917,16 @@
       );
     };
   </file>
+  <file path="src/routes/session-authorization.ts">
+    export function isOwnerOrAdmin(
+      caller: AuthUser | undefined,
+      sessionUserId: string | null
+    ): boolean {
+      if (hasPermission(caller, "admin")) return true;
+      if (sessionUserId === null) return false;
+      return caller?.id === sessionUserId;
+    }
+  </file>
   <file path="src/routes/session-events.ts">
     export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
       // GET /v1/sessions/:id/events — SSE stream of session events
@@ -951,7 +961,7 @@
         },
         async (request, reply) => {
           const session = await sessionService.getById(request.params.id);
-          if (!session) {
+          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
     
@@ -1040,11 +1050,6 @@
     };
   </file>
   <file path="src/routes/sessions.ts">
-    function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
-      if (hasPermission(caller, "admin")) return true;
-      if (sessionUserId === null) return false;
-      return caller?.id === sessionUserId;
-    }
     export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       // POST /v1/sessions — Create + start a new session
       fastify.post<{

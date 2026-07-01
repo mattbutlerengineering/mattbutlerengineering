@@ -127,15 +127,20 @@
       export const remediationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/session-authorization.ts">
+    <item priority="high">
+      export function isOwnerOrAdmin(
+        caller: AuthUser | undefined,
+        sessionUserId: string | null
+      ): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/session-events.ts">
     <item priority="high">
       export const sessionEventsRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/sessions.ts">
-    <item priority="medium">
-      function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean { /* ... */ }
-    </item>
     <item priority="high">
       export const sessionRoutes: FastifyPluginAsync;
     </item>
