@@ -58,7 +58,6 @@ const catalog = await getCatalog();
 ```bash
 pnpm generate       # Regenerate catalog from @mbe/rialto
 pnpm build          # Compile TypeScript
-pnpm lint           # ESLint
 pnpm typecheck      # TypeScript check
 pnpm test           # Vitest unit tests
 pnpm test:drift     # Check catalog drift — fails if catalog is stale

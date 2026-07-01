@@ -64,11 +64,19 @@ test.describe("Venue onboarding wizard", () => {
     await mockedPage.getByLabel("Venue Name").fill("E2E Test Venue");
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
+    // Step 2 (Location & Time) requires a timezone. It defaults from the browser's
+    // detected IANA timezone, which is empty when the runner's TZ isn't in the
+    // supported list (e.g. CI runners default to UTC) — select one explicitly.
     await expect(mockedPage.getByLabel("Timezone")).toBeVisible();
+    await mockedPage.getByLabel("Timezone").fill("America/New_York");
+    await mockedPage.getByRole("option", { name: "Eastern Time (America/New_York)" }).click();
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
+    // Step 3 (Operating Hours) requires at least one day to be open.
+    await mockedPage.getByLabel("monday").check();
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
+    // Step 4 (Settings) — all fields optional, defaults apply.
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
     await expect(mockedPage.getByRole("button", { name: /create venue/i })).toBeVisible();

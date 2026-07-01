@@ -4,8 +4,13 @@ import { test as base } from "@playwright/test";
 
 base.describe("Authentication — unauthenticated", () => {
   base("unauthenticated user sees login prompt", async ({ browser }) => {
-    // Fresh context with no stored auth state
-    const context = await browser.newContext();
+    // Fresh context with no stored auth state.
+    // NOTE: browser.newContext() with no options still inherits the project's
+    // configured `use.storageState` (the "chromium" project points it at the
+    // authenticated e2e/.auth/user.json written by auth.setup.ts). Passing
+    // `storageState: undefined` explicitly overrides that default so this
+    // context is genuinely logged out.
+    const context = await browser.newContext({ storageState: undefined });
     const page = await context.newPage();
 
     await page.goto("");
