@@ -18,6 +18,7 @@ const tracer = trace.getTracer("@mbe/agent-core");
  */
 export class LlmEvaluationGate implements QualityGate {
   readonly name = "evaluation";
+  readonly eventType = "session:evaluation" as const;
 
   shouldSkip(context: GateContext): boolean {
     return context.evaluateSuccess === false;

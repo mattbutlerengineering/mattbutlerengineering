@@ -3204,6 +3204,7 @@
   <file path="packages/agent-core/src/gates/llm-evaluation-gate.ts">
     export class LlmEvaluationGate implements QualityGate {
       readonly name = "evaluation";
+      readonly eventType = "session:evaluation" as const;
     
       shouldSkip(context: GateContext): boolean {
         return context.evaluateSuccess === false;
@@ -3248,6 +3249,7 @@
   <file path="packages/agent-core/src/gates/security-review-gate.ts">
     export class SecurityReviewGate implements QualityGate {
       readonly name = "security-review";
+      readonly eventType = "session:review" as const;
     
       shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
         if (context.runSecurityReview === false) return true;
@@ -3281,6 +3283,7 @@
   <file path="packages/agent-core/src/gates/static-analysis-gate.ts">
     export class StaticAnalysisGate implements QualityGate {
       readonly name = "static-analysis";
+      readonly eventType = "session:verification" as const;
     
       shouldSkip(context: GateContext): boolean {
         return context.runStaticAnalysis === false;

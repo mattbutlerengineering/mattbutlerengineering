@@ -130,36 +130,28 @@ export async function runPostCommitGateway(
     runSecurityReview: config.runSecurityReview !== false,
   };
 
-  const runner = new GateRunner([
-    new StaticAnalysisGate(),
-    new LlmEvaluationGate(),
-    new SecurityReviewGate(),
-  ]);
+  const gates = [new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()];
+  const runner = new GateRunner(gates);
   const gateRunResult = await runner.run(gateContext);
 
-  // Collect failures and errors from gate results; emit events per gate
+  // Collect failures and errors from gate results; emit events per gate.
+  // eventType is read from the gate instance (declared at the gate
+  // definition) rather than switched on gate name here — adding a new
+  // QualityGate with an eventType routes correctly with no changes below.
   for (const gateResult of gateRunResult.results) {
     if (gateResult.details === "skipped") continue;
+
+    const eventType =
+      gates.find((g) => g.name === gateResult.gateName)?.eventType ?? "session:verification";
 
     if (!gateResult.passed) {
       gateFailures.push(gateResult.gateName);
       if (gateResult.details) {
         errors.push(gateResult.details);
-        const eventType =
-          gateResult.gateName === "evaluation"
-            ? "session:evaluation"
-            : gateResult.gateName === "security-review"
-              ? "session:review"
-              : "session:verification";
         emitEvent(onEvent, eventType, { message: gateResult.details });
       }
-    } else {
-      // Emit pass events for certain gates
-      if (gateResult.gateName === "evaluation" && gateResult.details) {
-        emitEvent(onEvent, "session:evaluation", { message: gateResult.details });
-      } else if (gateResult.gateName === "static-analysis" && gateResult.details) {
-        emitEvent(onEvent, "session:verification", { message: gateResult.details });
-      }
+    } else if (gateResult.details) {
+      emitEvent(onEvent, eventType, { message: gateResult.details });
     }
   }
 
