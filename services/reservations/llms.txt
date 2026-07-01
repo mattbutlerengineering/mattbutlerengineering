@@ -94,8 +94,8 @@
         data: T;
       }
     </item>
-    <item priority="high">
-      export const depositRoutes: FastifyPluginAsync;
+    <item priority="low">
+      async function requireAdmin(request: FastifyRequest, reply: FastifyReply) { /* ... */ }
     </item>
   </file>
   <file path="src/routes/events.ts">
