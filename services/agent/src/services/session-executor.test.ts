@@ -167,7 +167,7 @@ describe("session-executor", () => {
         "test-session-1",
         "FAILED",
         { errors: ["SDK connection failed"] },
-        { fromStatus: ["RUNNING"] }
+        { fromStatus: ["PENDING", "RUNNING"] }
       );
       expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:error", {
         message: "SDK connection failed",
@@ -183,7 +183,7 @@ describe("session-executor", () => {
         "test-session-1",
         "FAILED",
         { errors: ["string error"] },
-        { fromStatus: ["RUNNING"] }
+        { fromStatus: ["PENDING", "RUNNING"] }
       );
     });
 

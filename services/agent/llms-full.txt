@@ -1311,6 +1311,14 @@
       stop(): void;
     }
   </file>
+  <file path="src/services/logger.ts">
+    export function setServiceLogger(logger: FastifyBaseLogger): void {
+      activeLogger = { error: (meta, message) => logger.error(meta, message) };
+    }
+    export function getServiceLogger(): SessionLifecycleLogger {
+      return activeLogger;
+    }
+  </file>
   <file path="src/services/prisma-session-store.ts">
     function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
       return status.toUpperCase() as PrismaSessionStatus;

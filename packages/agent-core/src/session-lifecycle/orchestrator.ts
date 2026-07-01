@@ -5,7 +5,9 @@ import type {
   CreateSessionInput,
   EventProjector,
   SessionLifecycleDeps,
+  SessionLifecycleLogger,
   SessionLifecycleOrchestrator,
+  SessionResultPatch,
   StoredSession,
 } from "./types.js";
 
@@ -14,6 +16,27 @@ const passthroughProjector: EventProjector = (event: SessionEvent) => ({
   type: event.type,
   data: event.data as Record<string, unknown>,
 });
+
+/** Default logger: agent-core is a library, so this is the last resort. */
+const consoleLogger: SessionLifecycleLogger = {
+  error: (meta, message) => console.error(meta, message),
+};
+
+/** Projects a pipeline SessionResult onto the store's terminal-write patch. */
+function buildResultPatch(result: SessionResult): SessionResultPatch {
+  return {
+    branchName: result.branchName,
+    prUrl: result.prUrl ?? undefined,
+    resultText: result.resultText,
+    costUsd: result.costUsd,
+    inputTokens: result.tokenUsage.inputTokens,
+    outputTokens: result.tokenUsage.outputTokens,
+    numTurns: result.numTurns,
+    durationMs: result.durationMs,
+    errors: [...result.errors],
+    sdkSessionId: result.sessionId,
+  };
+}
 
 /**
  * Owns every session state transition — create → running →
@@ -33,6 +56,7 @@ export function createSessionLifecycleOrchestrator(
     projectEvent = passthroughProjector,
     allowedTools = DEFAULT_SESSION_CONFIG.allowedTools,
     feedbackLoop,
+    logger = consoleLogger,
   } = deps;
 
   // AbortControllers keyed by session id — cancellation handles only. The
@@ -56,8 +80,10 @@ export function createSessionLifecycleOrchestrator(
   async function addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void> {
     try {
       await store.addEvent(id, type, data);
-    } catch {
-      // Event persistence is best-effort — never fail a session over logging.
+    } catch (err) {
+      // Event persistence is best-effort — never fail a session over logging —
+      // but the failure itself must stay visible, not silently absorbed.
+      logger.error({ sessionId: id, type, err }, "session event persistence failed");
     }
   }
 
@@ -66,21 +92,32 @@ export function createSessionLifecycleOrchestrator(
   }
 
   async function execute(sessionId: string): Promise<SessionResult | null> {
-    const session = await store.getById(sessionId);
-    if (!session) return null;
-
-    // Atomic check-and-reserve through the single gate (when provided).
-    if (concurrency && !concurrency.acquire(sessionId)) {
-      await store.updateStatus(sessionId, "failed", {
-        errors: [`Max concurrent sessions (${concurrency.limit}) reached`],
-      });
-      return null;
-    }
-
-    const controller = new AbortController();
-    activeControllers.set(sessionId, controller);
+    // Every DB call this function makes — including the initial fetch and the
+    // concurrency-reject write — sits inside this try/finally so a transient
+    // failure anywhere always resolves the session instead of leaving it
+    // stranded in `pending` with no error signal (#2886).
+    let controller: AbortController | undefined;
+    // Set once runSession resolves. Distinguishes "the pipeline failed" from
+    // "the pipeline succeeded but a later storage write threw" in the catch
+    // below, so a storage hiccup after a genuine success never masquerades as
+    // a pipeline failure that drops the result (#2887B).
+    let pipelineResult: SessionResult | undefined;
 
     try {
+      const session = await store.getById(sessionId);
+      if (!session) return null;
+
+      // Atomic check-and-reserve through the single gate (when provided).
+      if (concurrency && !concurrency.acquire(sessionId)) {
+        await store.updateStatus(sessionId, "failed", {
+          errors: [`Max concurrent sessions (${concurrency.limit}) reached`],
+        });
+        return null;
+      }
+
+      controller = new AbortController();
+      activeControllers.set(sessionId, controller);
+
       await store.updateStatus(sessionId, "running");
       await addEvent(sessionId, "session:start", { message: "Session execution started" });
 
@@ -90,30 +127,24 @@ export function createSessionLifecycleOrchestrator(
       };
 
       const result = await runSession(toSessionConfig(session), onEvent);
+      pipelineResult = result;
 
       // If cancel() fired while the pipeline was running, it already wrote the
-      // terminal `cancelled` state — do not clobber it with the run result.
-      if (controller.signal.aborted) return result;
+      // terminal `cancelled` state. The pipeline is not force-killed and may
+      // still have produced a real branch/PR/cost — persist that onto the
+      // already-`cancelled` row instead of discarding it (#2887A).
+      if (controller.signal.aborted) {
+        await store.updateStatus(sessionId, "cancelled", buildResultPatch(result), {
+          fromStatus: ["cancelled"],
+        });
+        return result;
+      }
 
       const finalStatus = result.status === "succeeded" ? "succeeded" : "failed";
 
-      await store.updateStatus(
-        sessionId,
-        finalStatus,
-        {
-          branchName: result.branchName,
-          prUrl: result.prUrl ?? undefined,
-          resultText: result.resultText,
-          costUsd: result.costUsd,
-          inputTokens: result.tokenUsage.inputTokens,
-          outputTokens: result.tokenUsage.outputTokens,
-          numTurns: result.numTurns,
-          durationMs: result.durationMs,
-          errors: [...result.errors],
-          sdkSessionId: result.sessionId,
-        },
-        { fromStatus: ["running"] }
-      );
+      await store.updateStatus(sessionId, finalStatus, buildResultPatch(result), {
+        fromStatus: ["running"],
+      });
 
       await addEvent(sessionId, "session:complete", {
         status: finalStatus,
@@ -123,14 +154,27 @@ export function createSessionLifecycleOrchestrator(
 
       return result;
     } catch (error) {
+      if (pipelineResult) {
+        // The run genuinely succeeded — only the write that followed it
+        // threw. Log the storage failure and return the real result rather
+        // than clobbering the row with a bare `failed: <db error>` that would
+        // discard it (#2887B).
+        logger.error(
+          { sessionId, err: error },
+          "session result-patch write failed after a successful run"
+        );
+        return pipelineResult;
+      }
+
       // A cancelled session already holds its terminal state — don't overwrite.
-      if (controller.signal.aborted) return null;
+      if (controller?.signal.aborted) return null;
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       await store.updateStatus(
         sessionId,
         "failed",
         { errors: [errorMessage] },
-        { fromStatus: ["running"] }
+        { fromStatus: ["pending", "running"] }
       );
       await addEvent(sessionId, "session:error", { message: errorMessage });
       return null;
