@@ -14,6 +14,7 @@ const tracer = trace.getTracer("@mbe/agent-core");
  */
 export class StaticAnalysisGate implements QualityGate {
   readonly name = "static-analysis";
+  readonly eventType = "session:verification" as const;
 
   shouldSkip(context: GateContext): boolean {
     return context.runStaticAnalysis === false;
