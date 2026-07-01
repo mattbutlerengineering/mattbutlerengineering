@@ -16,13 +16,22 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 
 | Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                    |
 | ------------------------ | ------------------- | ------------ | --------------------- | ---------------------------------------------------------- |
-| `mbe-deep-audit`         | Mon 8:23am          | —            | issues                | Weekly full site audit (Playwright + Lighthouse)           |
+| `mbe-deep-audit`         | Mon 9:23am          | `23 16 * * 1`| issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
 | `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + issue-worker               |
 | `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions     |
 | `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | issue-worker + CI monitor                                  |
 | `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | issue-worker + progress-tracker + optimize-implement-queue |
 | `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change    |
 | `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health                |
+
+> **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
+> remote environment has **no egress to the live site** — its agent proxy denies
+> the outbound CONNECT tunnel (`curl (56) CONNECT tunnel failed`, HTTP `000`), so
+> a cloud routine can never reach production (verified 2026-07-01, issue #2920).
+> The deep audit therefore executes in `.github/workflows/audit-sweep.yml`, where
+> GitHub runners have both egress and the `AUDIT_TOKEN` secret. The claude.ai
+> `mbe-deep-audit` RemoteTrigger is disabled to avoid re-filing the same
+> infrastructure issue every week.
 
 > The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
 > their exact prompts live there. The two improvement routines below were created
@@ -103,9 +112,9 @@ new weekday schedule slot** (see Plan budget below).
 
 The Max 5x plan allows ~5 scheduled runs/day. The **daily** baseline is 4 runs
 (`mbe-morning`, `mbe-midday`, `mbe-evening`, `mbe-learning-loop`). Weekly/occasional
-triggers add a 5th run on their day:
+triggers add a 5th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
+it does **not** count against the claude.ai plan quota):
 
-- Mon: + `mbe-deep-audit` → 5
 - Fri: + `mbe-weekly-improve` → 5
 - 1st of month: + `mbe-monthly-meta-audit` → 5 (or briefly 6 if the 1st is a Mon/Fri)
 
@@ -120,9 +129,10 @@ The rare 6-run overlap is acceptable; if it causes throttling, shift
 
 ## Required secrets
 
-Site-audit routines (`mbe-deep-audit`, `mbe-morning`) hit the live site via curl
-and Playwright. Without the WAF bypass token, Cloudflare Bot Management returns
-HTTP 403 and the audit silently produces no findings.
+Site-audit runners hit the live site via curl. Without the WAF bypass token,
+Cloudflare Bot Management returns HTTP 403 and the audit silently produces no
+findings. `mbe-deep-audit` reads `AUDIT_TOKEN` from GitHub Actions secrets; the
+claude.ai `mbe-morning` light audit reads it from the RemoteTrigger environment.
 
 | Secret        | Where to set                                                 | Purpose                                                   |
 | ------------- | ------------------------------------------------------------ | --------------------------------------------------------- |

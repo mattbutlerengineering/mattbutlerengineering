@@ -6,12 +6,14 @@ on:
 
 permissions:
   contents: read
+  issues: write # files `audit` issues for down/erroring surfaces
 
 jobs:
   sweep:
     runs-on: ubuntu-latest
     env:
       AUDIT_TOKEN: ${{ secrets.AUDIT_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4/v5
 
@@ -24,12 +26,10 @@ jobs:
           fi
           echo "::notice::AUDIT_TOKEN is configured — audit requests will bypass Cloudflare Bot Management."
 
-      - name: Trigger sweep audit
-        run: |
-          echo "::notice::Sweep audit scheduled — run '/site-audit sweep' via Claude Code remote trigger"
-          echo "This workflow serves as a scheduling backup. Primary execution is via RemoteTrigger 'mbe-deep-audit'."
-          echo ""
-          echo "To run manually: claude --print '/site-audit sweep'"
-          # Note: Full sweep execution requires Claude Code CLI with API access.
-          # This workflow creates a GitHub notification as a scheduling reminder.
-          # The actual execution happens via RemoteTriggers on claude.ai/code/scheduled.
+      - name: Run live-site availability sweep
+        # Executes the deep audit here (not on claude.ai): GitHub runners have
+        # both outbound egress and the AUDIT_TOKEN secret. The claude.ai remote
+        # environment cannot reach the live site — its proxy denies the outbound
+        # CONNECT tunnel (curl 56 / HTTP 000), so a cloud RemoteTrigger can never
+        # audit production. Files deduped `audit` issues for down surfaces.
+        run: bash scripts/audit/live-sweep.sh
