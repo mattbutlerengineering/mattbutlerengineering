@@ -99,11 +99,17 @@ cancel(sessionId: string): Promise<boolean>;
   releases the concurrency slot, transitions the session to `cancelled`, and
   appends a `session:cancelled` event. Returns `true` if a live execution was
   found, `false` otherwise.
-- **Honest limitation (preserved from today):** `runSession` does not yet accept
-  an `AbortSignal`, so cancellation marks the terminal state and frees the slot
-  but does **not** force-kill the underlying SDK query — the in-process pipeline
-  runs to its natural end. Wiring the signal into `runSession` is future work,
-  out of scope for this consolidation (it must not change execution behaviour).
+- **Signal wiring (#2853):** `execute` passes that same `AbortController`'s
+  `signal` into `runSession` (the same signal `cancel` aborts). `runSession`'s
+  pipeline (`runPipeline`) checks `signal.aborted` at each boundary between its
+  sequential phases (worktree → query → verify → PR → feedback) and
+  short-circuits there — it does **not** force-kill an in-flight phase (e.g. a
+  running SDK query still completes its current turn), but no phase after the
+  boundary starts. The short-circuit throws, which is caught by `runSession`'s
+  existing error handling: it emits `session:error`, attempts a best-effort
+  partial-work push (branch/PR from whatever changes exist), and still runs the
+  worktree-cleanup `finally`. The result this produces is not force-discarded —
+  `execute` persists it onto the already-`cancelled` row (see #2887A above).
 
 ### Event-emission contract
 
@@ -260,9 +266,10 @@ Please validate **before** approving the implementation:
 
 1. Is the **storage seam** (`SessionLifecycleStore`) the right cut — four
    methods, lowercase status, store owns persistence detail?
-2. Are the **cancellation semantics** acceptable, including the honest
-   limitation that the in-flight `runSession` is not force-killed until it
-   accepts an `AbortSignal`?
+2. Are the **cancellation semantics** acceptable, including the remaining
+   limitation that cancellation short-circuits at the next phase boundary
+   rather than force-killing an in-flight phase (e.g. a running SDK query
+   still completes its current turn; see #2853)?
 3. Is the **event-emission contract** (injected `EventProjector` + four
    orchestrator-owned lifecycle events) the right division between generic
    lifecycle events and service-specific projection?

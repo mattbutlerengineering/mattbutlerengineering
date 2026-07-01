@@ -108,7 +108,9 @@ describe("session-executor", () => {
           maxBudgetUsd: 1.0,
           baseBranch: "main",
         }),
-        expect.any(Function)
+        expect.any(Function),
+        undefined,
+        expect.any(AbortSignal)
       );
       expect(sessionService.updateStatus).toHaveBeenCalledWith(
         "test-session-1",

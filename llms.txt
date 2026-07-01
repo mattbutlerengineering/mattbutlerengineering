@@ -3747,7 +3747,8 @@
       export async function runSession(
         config: SessionConfig,
         onEvent?: SessionEventCallback,
-        deps: PhaseDeps = createDefaultPhaseDeps()
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
       ): Promise<SessionResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -3755,7 +3756,8 @@
         config: SessionConfig,
         onEvent: SessionEventCallback | undefined,
         deps: PhaseDeps,
-        state: SessionState
+        state: SessionState,
+        signal?: AbortSignal
       ): Promise<void> { /* ... */ }
     </item>
   </file>
