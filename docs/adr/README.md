@@ -19,6 +19,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-011](ADR-011-edge-routing-architecture.md)    | Edge Routing Architecture                            | active | 2026-06-14 |
 | [ADR-012](ADR-012-single-primary-memory-system.md) | Single Primary Memory System                         | active | 2026-06-21 |
 | [ADR-013](ADR-013-rialto-catalog-source.md)        | Co-located CatalogSource for Rialto Catalog Metadata | active | 2026-06-21 |
+| [ADR-014](ADR-014-deployment-topology.md)          | Deployment Topology                                  | active | 2026-06-30 |
 
 ## Format
 
