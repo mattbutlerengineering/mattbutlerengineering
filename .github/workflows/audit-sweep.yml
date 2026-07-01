@@ -24,12 +24,32 @@ jobs:
           fi
           echo "::notice::AUDIT_TOKEN is configured — audit requests will bypass Cloudflare Bot Management."
 
-      - name: Trigger sweep audit
+      - name: Egress + token preflight probe
+        # Verifies a GitHub runner can reach the live site AND that the token
+        # bypasses Cloudflare (200/3xx, not 403). This is the check the claude.ai
+        # remote environment fails — its proxy denies outbound CONNECT (curl 56 /
+        # code 000), so the audit must run here. Read-only; no issues filed yet.
         run: |
-          echo "::notice::Sweep audit scheduled — run '/site-audit sweep' via Claude Code remote trigger"
-          echo "This workflow serves as a scheduling backup. Primary execution is via RemoteTrigger 'mbe-deep-audit'."
-          echo ""
-          echo "To run manually: claude --print '/site-audit sweep'"
-          # Note: Full sweep execution requires Claude Code CLI with API access.
-          # This workflow creates a GitHub notification as a scheduling reminder.
-          # The actual execution happens via RemoteTriggers on claude.ai/code/scheduled.
+          set -uo pipefail
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+          SURFACES=(
+            "https://mattbutlerengineering.com/"
+            "https://mattbutlerengineering.com/hospitality"
+            "https://mattbutlerengineering.com/rialto"
+            "https://mattbutlerengineering.com/gen"
+          )
+          fail=0
+          for url in "${SURFACES[@]}"; do
+            code=$(curl -o /dev/null -sS -m 30 -w "%{http_code}" \
+              -A "$UA" -H "X-Audit-Token: ${AUDIT_TOKEN}" "$url" || echo "000")
+            printf 'PROBE %-3s %s\n' "$code" "$url"
+            case "$code" in
+              2*|3*) : ;;
+              *) fail=1 ;;
+            esac
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::warning::One or more surfaces did not return 2xx/3xx — see PROBE lines above."
+          else
+            echo "::notice::Egress + token OK — all surfaces reachable from GitHub Actions."
+          fi
