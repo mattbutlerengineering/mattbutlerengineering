@@ -481,6 +481,126 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     await app.close();
   });
 
+  it("returns 502 problem-details when createCustomer fails with a RETRIABLE Stripe error", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
+    // A retriable transient Stripe failure (connection error) must NOT be
+    // swallowed — swallowing would mint a customer-less PaymentIntent under the
+    // shared idempotency key, so a later retry that succeeds at customer-create
+    // would 502 on the param mismatch. Fail-fast so the retry re-attempts cleanly.
+    const stripeError = Object.assign(new Error("Stripe is unreachable"), {
+      type: "StripeConnectionError",
+    });
+    mockCustomers.create.mockRejectedValueOnce(stripeError);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
+    });
+
+    expect(response.statusCode).toBe(502);
+    const body = response.json<{ status: number; title: string; detail: string }>();
+    expect(body.status).toBe(502);
+    expect(body.detail).toBeTruthy();
+    // Must not mint a PaymentIntent nor a dangling deposit on a retriable failure.
+    expect(mockPaymentIntents.create).not.toHaveBeenCalled();
+    expect(depositService.create).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("proceeds customer-less (201) when createCustomer fails with a NON-retriable Stripe error", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
+    // A permanent customer error (invalid request) stays gracefully degraded:
+    // the deposit is still worth taking without a Stripe customer attached.
+    const stripeError = Object.assign(new Error("No such customer field"), {
+      type: "StripeInvalidRequestError",
+    });
+    mockCustomers.create.mockRejectedValueOnce(stripeError);
+    mockPaymentIntents.create.mockResolvedValueOnce({
+      id: "pi_test_noncust",
+      status: "requires_payment_method",
+      client_secret: "pi_test_noncust_secret",
+    });
+    vi.mocked(depositService.create).mockResolvedValueOnce({
+      ...mockDeposit,
+      stripePaymentIntentId: "pi_test_noncust",
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: { reservationId: "res-1", guestEmail: "jane@example.com", guestName: "Jane Doe" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const body = response.json<{ data: { clientSecret: string } }>();
+    expect(body.data.clientSecret).toBe("pi_test_noncust_secret");
+    // PaymentIntent minted without a customer — the intentional graceful path.
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
+    expect(piCreateCall.customer).toBeUndefined();
+    await app.close();
+  });
+
+  it("retriable-fail-then-retry-succeeds yields a consistent PaymentIntent customer param (no idempotency mismatch)", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValue(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
+    vi.mocked(calculateDepositAmount).mockReturnValue(2500);
+    // Attempt 1: customer-create hits a transient failure → route 502s (no PI minted).
+    // Attempt 2 (the retry): customer-create succeeds → PI minted WITH the customer.
+    // Because attempt 1 never minted a customer-less PI under the shared key, the
+    // single PI create carries the customer with no param mismatch and no 502.
+    const stripeError = Object.assign(new Error("Stripe is unreachable"), {
+      type: "StripeConnectionError",
+    });
+    mockCustomers.create
+      .mockRejectedValueOnce(stripeError)
+      .mockResolvedValueOnce({ id: "cus_retry", email: "jane@example.com", name: "Jane Doe" });
+    mockPaymentIntents.create.mockResolvedValue({
+      id: "pi_retry",
+      status: "requires_payment_method",
+      client_secret: "pi_retry_secret",
+    });
+    vi.mocked(depositService.create).mockResolvedValue({
+      ...mockDeposit,
+      stripePaymentIntentId: "pi_retry",
+      stripeCustomerId: "cus_retry",
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const payload = {
+      reservationId: "res-1",
+      guestEmail: "jane@example.com",
+      guestName: "Jane Doe",
+    };
+    const first = await app.inject({ method: "POST", url: TEST_URL, payload });
+    const second = await app.inject({ method: "POST", url: TEST_URL, payload });
+
+    expect(first.statusCode).toBe(502);
+    expect(second.statusCode).toBe(201);
+
+    // The PaymentIntent was created exactly once (only on the successful retry)
+    // and carried the customer — no earlier customer-less PI under the same key.
+    expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
+    expect(piCreateCall.customer).toBe("cus_retry");
+    await app.close();
+  });
+
   it("returns 400 when reservationId is missing from body", async () => {
     const app = await buildApp({ logger: false });
     await app.ready();

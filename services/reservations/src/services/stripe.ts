@@ -212,16 +212,20 @@ export class StripeService {
       params.name = options.name;
     }
 
-    const customer = await this.stripe.customers.create(
-      params,
-      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined
-    );
+    try {
+      const customer = await this.stripe.customers.create(
+        params,
+        options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined
+      );
 
-    return {
-      id: customer.id,
-      email: typeof customer.email === "string" ? customer.email : null,
-      name: typeof customer.name === "string" ? customer.name : null,
-    };
+      return {
+        id: customer.id,
+        email: typeof customer.email === "string" ? customer.email : null,
+        name: typeof customer.name === "string" ? customer.name : null,
+      };
+    } catch (err) {
+      wrapStripeError(err);
+    }
   }
 
   /**
