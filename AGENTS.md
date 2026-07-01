@@ -224,7 +224,9 @@ To maintain high-velocity engineering without sacrificing quality, agents follow
 1.  **Research:** Explore the codebase, identify root causes, and gather requirements. **No file edits.**
     - **JIT Priming:** At the start of this phase, run `mbe prime "<directive>"` to ensure all relevant directories have fresh `llms.txt` context skeletons.
 2.  **Innovate:** Brainstorm multiple approaches, evaluate trade-offs, and select the optimal path.
-    ...
+    - **Approach Score:** For each of 2–3 candidate solutions, score on correctness, code complexity, blast radius, and reversibility. Document trade-offs.
+    - **Decision Log:** Record the chosen approach and rationale for rejected alternatives (in comments, commit message, or `.planning/quick/` doc if complex).
+    - **Time-box:** ~5 minutes for routine tasks; ~20 minutes for architectural decisions. If exceeding time-box, flag for HITL review.
 3.  **Plan:** Create a detailed implementation plan (e.g., `.planning/quick/TASK-PLAN.md`) including file changes and verification steps.
 4.  **Execute:** Implement the approved plan using **Silent TDD Mode**. Break work into 5-minute micro-tasks.
 5.  **Review:** Run tests, linting, and typechecks. Perform a self-review of the changes against the plan.
