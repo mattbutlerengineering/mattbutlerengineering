@@ -112,7 +112,15 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
         return { stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }) };
       }
       if (command === "git" && argList[0] === "diff") {
-        throw new Error("changes exist"); // simulate staged changes
+        // git diff --cached --quiet exits 1 when there are changes (real
+        // Node execFile error shape: code set, killed/signal unset).
+        const changesExistError = new Error("changes exist") as Error & {
+          code: number;
+          killed: boolean;
+        };
+        changesExistError.code = 1;
+        changesExistError.killed = false;
+        throw changesExistError;
       }
       return { stdout: "" };
     });

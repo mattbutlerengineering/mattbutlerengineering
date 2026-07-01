@@ -5,6 +5,9 @@ import type { PrOptions, PrResult } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound `gh` subprocess calls so a hang (API latency) fails fast. */
+const GH_TIMEOUT_MS = 30_000;
+
 const GhPrResultSchema = z.object({
   url: z.url(),
   number: z.number().int(),
@@ -32,7 +35,7 @@ export async function createPullRequest(options: PrOptions): Promise<PrResult> {
     args.push("--draft");
   }
 
-  const { stdout } = await execFileAsync("gh", args, { cwd: repoPath });
+  const { stdout } = await execFileAsync("gh", args, { cwd: repoPath, timeout: GH_TIMEOUT_MS });
 
   const parsed = GhPrResultSchema.parse(JSON.parse(stdout.trim()));
   return { url: parsed.url, number: parsed.number };

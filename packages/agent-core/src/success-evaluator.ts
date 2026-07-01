@@ -9,6 +9,9 @@ import type { SkipPolicyInput, SkipReason } from "./evaluation-skip-policy.js";
 
 const execFileAsync = promisify(execFile);
 
+/** Bound the `git diff` subprocess call so a hang fails fast. */
+const GIT_TIMEOUT_MS = 60_000;
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface EvaluationResult {
@@ -71,6 +74,7 @@ export async function getGitDiff(worktreePath: string): Promise<string> {
     const { stdout } = await execFileAsync("git", ["diff", "HEAD~1..HEAD"], {
       cwd: worktreePath,
       maxBuffer: 10 * 1024 * 1024,
+      timeout: GIT_TIMEOUT_MS,
     });
     return stdout;
   } catch {

@@ -1,9 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("node:child_process", () => ({
+  execFile: vi.fn(),
+}));
+
+vi.mock("node:util", () => ({
+  promisify: vi.fn((fn: unknown) => fn),
+}));
+
+vi.mock("node:fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { execFile } from "node:child_process";
 import {
   createLintViolationBug,
   createDeadLinkBug,
   createA11yBug,
+  seedSyntheticBug,
+  cleanupSyntheticBugBranch,
 } from "../synthetic-bug-seeder.js";
+
+const mockExecFile = vi.mocked(
+  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+);
 
 describe("synthetic-bug-seeder", () => {
   const mockRepoPath = "/mock/repo";
@@ -94,6 +115,34 @@ describe("synthetic-bug-seeder", () => {
       expect(lintConfig.branchName.startsWith("chaos/")).toBe(true);
       expect(linkConfig.branchName.startsWith("chaos/")).toBe(true);
       expect(a11yConfig.branchName.startsWith("chaos/")).toBe(true);
+    });
+  });
+
+  describe("git subprocess timeout", () => {
+    it("passes a numeric timeout on every git call in seedSyntheticBug", async () => {
+      mockExecFile.mockResolvedValue({ stdout: "[main abc1234] test commit" });
+
+      await seedSyntheticBug(createLintViolationBug(mockRepoPath));
+
+      expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
+      for (const call of mockExecFile.mock.calls) {
+        const options = call[2] as { timeout?: number } | undefined;
+        expect(typeof options?.timeout).toBe("number");
+        expect(options?.timeout).toBeGreaterThan(0);
+      }
+    });
+
+    it("passes a numeric timeout on every git call in cleanupSyntheticBugBranch", async () => {
+      mockExecFile.mockResolvedValue({ stdout: "" });
+
+      await cleanupSyntheticBugBranch(mockRepoPath, "chaos/lint-violation-123");
+
+      expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
+      for (const call of mockExecFile.mock.calls) {
+        const options = call[2] as { timeout?: number } | undefined;
+        expect(typeof options?.timeout).toBe("number");
+        expect(options?.timeout).toBeGreaterThan(0);
+      }
     });
   });
 });

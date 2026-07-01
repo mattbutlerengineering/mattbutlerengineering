@@ -292,4 +292,18 @@ describe("getGitDiff", () => {
 
     expect(diff).toBe("");
   });
+
+  it("passes a numeric timeout on the git diff call", async () => {
+    const mockExecFile = vi.mocked(
+      execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
+    );
+    mockExecFile.mockResolvedValue({ stdout: "" });
+
+    await getGitDiff("/repo");
+
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
+    const options = mockExecFile.mock.calls[0][2] as { timeout?: number };
+    expect(typeof options.timeout).toBe("number");
+    expect(options.timeout).toBeGreaterThan(0);
+  });
 });

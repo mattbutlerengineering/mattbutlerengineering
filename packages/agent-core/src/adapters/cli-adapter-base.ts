@@ -21,6 +21,9 @@ const execFileAsync = promisify(execFileCb);
 /** Default subprocess timeout: 10 minutes */
 const DEFAULT_TIMEOUT_MS = 600_000;
 
+/** Bound every `git` subprocess call so a hang fails fast. */
+const GIT_TIMEOUT_MS = 60_000;
+
 /** Maximum task description length passed to CLI (prevent arg overflow) */
 const MAX_TASK_LENGTH = 8_000;
 
@@ -182,7 +185,9 @@ export abstract class CliAdapterBase implements AgentAdapter {
    */
   private async checkForChanges(worktreePath: string): Promise<boolean> {
     try {
-      const { stdout } = await execFileAsync("git", ["-C", worktreePath, "status", "--porcelain"]);
+      const { stdout } = await execFileAsync("git", ["-C", worktreePath, "status", "--porcelain"], {
+        timeout: GIT_TIMEOUT_MS,
+      });
       return stdout.trim().length > 0;
     } catch {
       return false;
@@ -193,7 +198,7 @@ export abstract class CliAdapterBase implements AgentAdapter {
    * Stage all changes and commit with a descriptive message.
    */
   private async commitChanges(worktreePath: string, task: string): Promise<void> {
-    const gitOpts = { cwd: worktreePath };
+    const gitOpts = { cwd: worktreePath, timeout: GIT_TIMEOUT_MS };
     await execFileAsync("git", ["-C", worktreePath, "add", "-A"], gitOpts);
     await execFileAsync(
       "git",
