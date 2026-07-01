@@ -12,7 +12,7 @@ import type {
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
@@ -81,14 +81,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated reservation list",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Reservation#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Reservation#"),
           },
           500: {
             description: "Internal server error",
@@ -142,14 +135,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "User's reservations",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Reservation#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Reservation#"),
           },
           401: {
             description: "Authentication required",
