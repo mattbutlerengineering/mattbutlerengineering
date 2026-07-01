@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { depositService, calculateDepositAmount } from "../services/deposit.js";
-import { stripeService } from "../services/stripe.js";
+import { stripeService, StripeOperationError } from "../services/stripe.js";
 import { reservationService } from "../services/reservation.js";
 
 interface CreatePublicPaymentIntentBody {
@@ -116,8 +116,28 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
             idempotencyKey: `${reservationId}:customer`,
           });
           stripeCustomerId = customer.id;
-        } catch {
-          // Non-fatal — continue without customer
+        } catch (err) {
+          // A retriable transient failure must fail-fast, not be swallowed:
+          // swallowing mints a customer-less PaymentIntent under the shared
+          // `${reservationId}:paymentIntent:${amount}` key, so a later retry that
+          // succeeds at customer-create would attach a customer and 502 on the
+          // Stripe idempotency param mismatch. Returning 502 here lets the retry
+          // re-attempt customer creation deterministically.
+          if (err instanceof StripeOperationError && err.isRetriable) {
+            request.log.error({ err }, "Stripe customer creation failed (retriable)");
+            return reply
+              .status(502)
+              .send(
+                createProblemDetails(
+                  502,
+                  "Bad Gateway",
+                  "Failed to create payment intent with the payment provider."
+                )
+              );
+          }
+          // Non-retriable (permanent) customer error — degrade gracefully and
+          // take the deposit without a Stripe customer attached.
+          request.log.warn({ err }, "Stripe customer creation failed (non-retriable), continuing without customer");
         }
       }
 
