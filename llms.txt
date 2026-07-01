@@ -682,6 +682,9 @@
   </file>
   <file path="tools/cli/src/commands/sync-rules.ts">
     <item priority="high">
+      export const syncRulesRun: unknown;
+    </item>
+    <item priority="high">
       export const syncRulesCommand: unknown;
     </item>
   </file>
