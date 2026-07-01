@@ -22,6 +22,10 @@ function makeContext(diff: string): GateContext {
 }
 
 describe("StaticAnalysisGate (isolated diff-fixture test)", () => {
+  it("declares eventType session:verification for gateway event routing", () => {
+    expect(new StaticAnalysisGate().eventType).toBe("session:verification");
+  });
+
   it("fails on a diff fixture containing an error-severity violation", async () => {
     const diff = [
       "diff --git a/src/widget.ts b/src/widget.ts",

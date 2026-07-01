@@ -359,4 +359,61 @@ describe("runPostCommitGateway", () => {
       expect.objectContaining({ message: expect.stringContaining("Verification passed") })
     );
   });
+
+  // ── Gate eventType routing (derived from gate.eventType, not gate name) ──
+
+  it("emits session:evaluation event when the evaluation gate fails", async () => {
+    const { emitEvent } = await import("../utils.js");
+    const onEvent = vi.fn();
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: false,
+      confidence: 0.2,
+      reasoning: "diff does not address task",
+      issues: [],
+    });
+
+    await runPostCommitGateway(VALID_INPUT, onEvent);
+
+    expect(emitEvent).toHaveBeenCalledWith(
+      onEvent,
+      "session:evaluation",
+      expect.objectContaining({ message: expect.stringContaining("diff does not address task") })
+    );
+  });
+
+  it("emits session:review event when the security-review gate fails", async () => {
+    const { emitEvent } = await import("../utils.js");
+    const onEvent = vi.fn();
+    vi.mocked(reviewDiff).mockResolvedValue({
+      approved: false,
+      issues: ["Hardcoded secret detected"],
+    });
+
+    await runPostCommitGateway(VALID_INPUT, onEvent);
+
+    expect(emitEvent).toHaveBeenCalledWith(
+      onEvent,
+      "session:review",
+      expect.objectContaining({ message: expect.stringContaining("Hardcoded secret detected") })
+    );
+  });
+
+  it("emits session:evaluation event when the evaluation gate passes with details", async () => {
+    const { emitEvent } = await import("../utils.js");
+    const onEvent = vi.fn();
+    vi.mocked(evaluateSuccess).mockResolvedValue({
+      passed: true,
+      confidence: 0.9,
+      reasoning: "Good",
+      issues: [],
+    });
+
+    await runPostCommitGateway(VALID_INPUT, onEvent);
+
+    expect(emitEvent).toHaveBeenCalledWith(
+      onEvent,
+      "session:evaluation",
+      expect.objectContaining({ message: expect.stringContaining("confidence") })
+    );
+  });
 });
