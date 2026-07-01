@@ -6,13 +6,12 @@
 ## Core reference
 
 - **Primary Source of Truth:** [AGENTS.md](./AGENTS.md)
-- **Roadmap & State:** See `.planning/ROADMAP.md` and `.planning/STATE.md`.
 
 ## Gemini-Specific Mandates
 
 ### 1. Directives First
 
-Prioritize direct implementation over inquiries. If a task is clear, proceed immediately. If a task is complex, use the `gsd-planner` sub-agent.
+Prioritize direct implementation over inquiries. If a task is clear, proceed immediately. If a task is complex, break it into a plan before executing.
 
 ### 2. RIPER Workflow
 
@@ -24,7 +23,7 @@ Before executing any logic changes, write a failing Vitest/Playwright test, writ
 
 ### 4. Extreme Speed
 
-Use sub-agents (`codebase_investigator`, `generalist`, `gsd-executor`) aggressively for multi-file or repetitive tasks to keep the main session context lean.
+Use sub-agents (`codebase_investigator`, `generalist`) aggressively for multi-file or repetitive tasks to keep the main session context lean.
 
 ### 5. Validation & Goal-Backward Verification
 
