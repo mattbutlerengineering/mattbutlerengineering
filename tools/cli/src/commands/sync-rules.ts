@@ -2,46 +2,61 @@ import { Command } from "commander";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { findMonorepoRoot } from "../monorepo-root.js";
+import { defineCommand, runCommand } from "../command-seam.js";
+import type { CommandResult } from "../command-seam.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const MANAGED_HEADER = "<!-- @mbe-managed - DO NOT EDIT MANUALLY -->\n";
 
-// ── Command ───────────────────────────────────────────────────────────────
+// ── Pure run function (returns CommandResult, no console/process.exit) ────
 
-export const syncRulesCommand = new Command("sync-rules")
-  .description("Synchronize agent rules from AGENTS.md to tool-specific files")
-  .action(async () => {
+export const syncRulesRun = defineCommand({
+  requiresAuth: false,
+  async run(): Promise<CommandResult> {
     const root = findMonorepoRoot(process.cwd());
     const agentsPath = join(root, "AGENTS.md");
 
     if (!existsSync(agentsPath)) {
-      console.error(`Error: AGENTS.md not found at ${agentsPath}`);
-      process.exit(1);
+      return {
+        kind: "error",
+        message: `AGENTS.md not found at ${agentsPath}`,
+        exitCode: 1,
+      };
     }
 
-    console.log("Syncing agent rules...");
-
     const agentsContent = readFileSync(agentsPath, "utf8");
+    const updated: string[] = [];
 
     // 1. Update .cursorrules
     const cursorRulesPath = join(root, ".cursorrules");
     const cursorRulesContent = `${MANAGED_HEADER}# Cursor Rules - mattbutlerengineering\n\n${agentsContent}`;
     writeFileSync(cursorRulesPath, cursorRulesContent);
-    console.log("✅ Updated .cursorrules");
+    updated.push(".cursorrules");
 
-    // 2. Update GEMINI.md (Injecting core content into specialized mandates)
+    // 2. Update GEMINI.md (inject an AGENTS.md reference if missing)
     const geminiPath = join(root, "GEMINI.md");
     if (existsSync(geminiPath)) {
-      let geminiContent = readFileSync(geminiPath, "utf8");
-      // We want to keep the "Gemini-Specific Mandates" but sync the rest or reference it
-      // For simplicity in this first version, we'll ensure AGENTS.md is referenced
+      const geminiContent = readFileSync(geminiPath, "utf8");
       if (!geminiContent.includes("AGENTS.md")) {
-        geminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
-        writeFileSync(geminiPath, geminiContent);
+        const newGeminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
+        writeFileSync(geminiPath, newGeminiContent);
+        updated.push("GEMINI.md");
       }
-      console.log("✅ Verified GEMINI.md reference");
     }
 
-    console.log("Successfully synchronized all agent rules.");
+    return {
+      kind: "rows",
+      rows: updated.map((file) => ({ file, status: "updated" })),
+    };
+  },
+});
+
+// ── Commander wiring ────────────────────────────────────────────────────────
+
+export const syncRulesCommand = new Command("sync-rules")
+  .description("Synchronize agent rules from AGENTS.md to tool-specific files")
+  .action(async () => {
+    const result = await syncRulesRun({});
+    await runCommand(result, {});
   });

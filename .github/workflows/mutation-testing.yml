@@ -73,6 +73,7 @@ jobs:
             services/users/src/generated
             services/reservations/src/generated
             services/agent/src/generated
+          include-hidden-files: true
           retention-days: 1
 
   mutation-test:
