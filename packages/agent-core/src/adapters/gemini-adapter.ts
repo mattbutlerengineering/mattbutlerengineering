@@ -18,11 +18,4 @@ export class GeminiCliAdapter extends CliAdapterBase {
   protected buildArgs(config: AdapterConfig): string[] {
     return ["-p", config.taskDescription, "--yolo"];
   }
-
-  protected parseOutput(
-    _stdout: string,
-    stderr: string
-  ): { hasChanges: boolean; summary?: string } {
-    return { hasChanges: false, summary: stderr || undefined };
-  }
 }

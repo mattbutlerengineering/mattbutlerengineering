@@ -1,62 +1,121 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
 
+/**
+ * Canonical pattern coverage test — this is the single surviving suite for
+ * scanForRateLimitPatterns (previously duplicated verbatim in
+ * tools/cli/src/adapters/rate-limit-detector.ts, collapsed in #2923).
+ */
 describe("scanForRateLimitPatterns", () => {
-  it("returns true for 'rate limit exceeded'", () => {
-    expect(scanForRateLimitPatterns("Error: rate limit exceeded")).toBe(true);
+  describe("rate.?limit pattern", () => {
+    it("matches 'rate limit'", () => {
+      expect(scanForRateLimitPatterns("Error: rate limit exceeded")).toBe(true);
+    });
+
+    it("matches 'rate-limit' (hyphenated)", () => {
+      expect(scanForRateLimitPatterns("rate-limit reached")).toBe(true);
+    });
+
+    it("matches 'rate_limit' (underscore)", () => {
+      expect(scanForRateLimitPatterns("rate_limit hit")).toBe(true);
+    });
+
+    it("matches 'ratelimit' (no separator)", () => {
+      expect(scanForRateLimitPatterns("ratelimit error")).toBe(true);
+    });
   });
 
-  it("returns true for 'rate_limit' with underscore", () => {
-    expect(scanForRateLimitPatterns("rate_limit hit")).toBe(true);
+  describe("quota.?exceeded pattern", () => {
+    it("matches 'quota exceeded'", () => {
+      expect(scanForRateLimitPatterns("API quota exceeded for project")).toBe(true);
+    });
+
+    it("matches 'quota-exceeded' (hyphenated)", () => {
+      expect(scanForRateLimitPatterns("quota-exceeded")).toBe(true);
+    });
+
+    it("matches 'quota_exceeded' (underscore)", () => {
+      expect(scanForRateLimitPatterns("quota_exceeded")).toBe(true);
+    });
   });
 
-  it("returns true for 'ratelimit' without separator", () => {
-    expect(scanForRateLimitPatterns("ratelimit error")).toBe(true);
+  describe("usage.?limit pattern", () => {
+    it("matches 'usage limit'", () => {
+      expect(scanForRateLimitPatterns("usage limit reached")).toBe(true);
+    });
+
+    it("matches 'usage-limit' (hyphenated)", () => {
+      expect(scanForRateLimitPatterns("usage-limit exceeded")).toBe(true);
+    });
   });
 
-  it("returns true for '429 Too Many Requests'", () => {
-    expect(scanForRateLimitPatterns("HTTP 429 Too Many Requests")).toBe(true);
+  describe("try.?again.?later pattern", () => {
+    it("matches 'try again later'", () => {
+      expect(scanForRateLimitPatterns("Please try again later")).toBe(true);
+    });
+
+    it("matches 'try-again-later' (hyphenated)", () => {
+      expect(scanForRateLimitPatterns("try-again-later")).toBe(true);
+    });
   });
 
-  it("returns true for 'quota exceeded'", () => {
-    expect(scanForRateLimitPatterns("API quota exceeded for project")).toBe(true);
+  describe("429 pattern", () => {
+    it("matches '429' as a word boundary", () => {
+      expect(scanForRateLimitPatterns("HTTP 429 Too Many Requests")).toBe(true);
+    });
+
+    it("matches 'status 429'", () => {
+      expect(scanForRateLimitPatterns("Request failed with status 429: Too Many Requests")).toBe(
+        true
+      );
+    });
+
+    it("does not match '429' embedded in a larger number", () => {
+      // \b429\b should not match "14290"
+      expect(scanForRateLimitPatterns("port 14290 is open")).toBe(false);
+    });
   });
 
-  it("returns true for 'quota_exceeded' with underscore", () => {
-    expect(scanForRateLimitPatterns("quota_exceeded")).toBe(true);
+  describe("throttled pattern", () => {
+    it("matches 'throttled'", () => {
+      expect(scanForRateLimitPatterns("Request was throttled")).toBe(true);
+    });
+
+    it("matches 'THROTTLED' (case insensitive)", () => {
+      expect(scanForRateLimitPatterns("THROTTLED")).toBe(true);
+    });
   });
 
-  it("returns true for 'throttled'", () => {
-    expect(scanForRateLimitPatterns("Request was throttled")).toBe(true);
+  describe("too.?many.?requests pattern", () => {
+    it("matches 'too many requests'", () => {
+      expect(scanForRateLimitPatterns("too many requests, slow down")).toBe(true);
+    });
+
+    it("matches 'too-many-requests' (hyphenated)", () => {
+      expect(scanForRateLimitPatterns("too-many-requests")).toBe(true);
+    });
   });
 
-  it("returns true for 'too many requests'", () => {
-    expect(scanForRateLimitPatterns("too many requests, slow down")).toBe(true);
-  });
+  describe("non-matching inputs", () => {
+    it("returns false for normal output", () => {
+      expect(scanForRateLimitPatterns("Build succeeded with 0 errors")).toBe(false);
+    });
 
-  it("returns true for 'usage limit'", () => {
-    expect(scanForRateLimitPatterns("usage limit reached")).toBe(true);
-  });
+    it("returns false for 'rate' alone (not 'rate limit')", () => {
+      expect(scanForRateLimitPatterns("the rate of change is high")).toBe(false);
+    });
 
-  it("returns true for 'try again later'", () => {
-    expect(scanForRateLimitPatterns("Please try again later")).toBe(true);
-  });
+    it("returns false for empty string", () => {
+      expect(scanForRateLimitPatterns("")).toBe(false);
+    });
 
-  it("returns false for normal output", () => {
-    expect(scanForRateLimitPatterns("Build succeeded with 0 errors")).toBe(false);
-  });
+    it("returns false for unrelated error", () => {
+      expect(scanForRateLimitPatterns("Network timeout connecting to API")).toBe(false);
+    });
 
-  it("returns false for 'rate' alone (not 'rate limit')", () => {
-    expect(scanForRateLimitPatterns("the rate of change is high")).toBe(false);
-  });
-
-  it("returns false for empty string", () => {
-    expect(scanForRateLimitPatterns("")).toBe(false);
-  });
-
-  it("returns false for '429' embedded in a larger number", () => {
-    // \b429\b should not match "14290"
-    expect(scanForRateLimitPatterns("port 14290 is open")).toBe(false);
+    it("returns false for internal server error", () => {
+      expect(scanForRateLimitPatterns("Internal server error")).toBe(false);
+    });
   });
 });
 

@@ -3,7 +3,7 @@ import { resolve, dirname, join } from "node:path";
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { SessionConfig, SessionEvent } from "@mbe/agent-core";
+import type { SessionConfig, SessionEvent, AdapterConfig, AdapterResult } from "@mbe/agent-core";
 import { resolveIssueModel } from "../resolve-issue-model.js";
 import { agentEvalCommand } from "./agent-eval.js";
 import { frontmatterCommand } from "./agent-frontmatter.js";
@@ -21,12 +21,12 @@ import {
   createPullRequest,
   buildPrTitle,
   buildPrBody,
+  GeminiCliAdapter,
+  OpenCodeAdapter,
+  RateLimitDetector,
+  FailoverRouter,
+  AllAdaptersUnavailableError,
 } from "@mbe/agent-core";
-import type { AdapterConfig, AdapterResult } from "../adapters/cli-adapter.js";
-import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
-import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
-import { RateLimitDetector } from "../adapters/rate-limit-detector.js";
-import { FailoverRouter, AllAdaptersUnavailableError } from "../adapters/failover-router.js";
 import type { AgentSession, ApiResponse, PaginatedResponse, AgentSessionEvent } from "@mbe/types";
 import { createAgentApiClient } from "../cli-api-client.js";
 

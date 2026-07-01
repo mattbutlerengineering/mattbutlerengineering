@@ -70,13 +70,6 @@ class TestAdapter extends CliAdapterBase {
   protected buildArgs(config: AdapterConfig): string[] {
     return ["run", config.taskDescription];
   }
-
-  protected parseOutput(
-    _stdout: string,
-    stderr: string
-  ): { hasChanges: boolean; summary?: string } {
-    return { hasChanges: false, summary: stderr || undefined };
-  }
 }
 
 // ── Tests ───────────────────────────────────────────────────────────
@@ -317,6 +310,18 @@ describe("CliAdapterBase", () => {
 
       const result = await adapter.run(makeConfig());
       expect(result.success).toBe(false);
+    });
+
+    it("returns generic '<displayName> CLI exited with non-zero status' when stderr is empty", async () => {
+      setupExecFileMock({
+        "test-cli": [{ error: true, stderr: "" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+      expect(result.success).toBe(false);
+      // TestAdapter does not override displayName, so it defaults to `name`.
+      expect(result.error).toBe("test-cli CLI exited with non-zero status");
     });
 
     it("detects changes via git status --porcelain", async () => {
