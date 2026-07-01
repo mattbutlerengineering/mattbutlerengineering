@@ -35,7 +35,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm --filter ${{ matrix.app.pkg }} build
+        # Use the root turbo `build` (not pnpm's recursive runner) so workspace
+        # dependencies build first via turbo's `^build`. rialto-web's `tsc -b`
+        # needs @mattbutlerengineering/rialto's dist/*.d.ts, which only exist
+        # after rialto is built — `pnpm --filter <app> build` skips that and
+        # fails with TS2307. Matches deploy-static.yml.
+        run: pnpm build --filter=${{ matrix.app.pkg }}
 
       - name: Run Lighthouse
         id: lh
