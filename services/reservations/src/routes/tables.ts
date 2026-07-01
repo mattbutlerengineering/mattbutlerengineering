@@ -9,7 +9,7 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { tableService, TableTransitionError } from "../services/table.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
@@ -50,14 +50,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated table list",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Table#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Table#"),
           },
           500: {
             description: "Internal server error",

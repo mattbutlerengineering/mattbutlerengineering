@@ -12,7 +12,7 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { venueService, venueGroupService } from "../services/venue.js";
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
@@ -48,14 +48,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated venue group list",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "VenueGroup#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("VenueGroup#"),
           },
           500: {
             description: "Internal server error",
@@ -347,14 +340,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated venue list",
-            type: "object",
-            properties: {
-              data: {
-                type: "array",
-                items: { $ref: "Venue#" },
-              },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Venue#"),
           },
           500: {
             description: "Internal server error",

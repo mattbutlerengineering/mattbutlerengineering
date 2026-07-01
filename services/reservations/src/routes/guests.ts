@@ -10,7 +10,7 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { requireAuth } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
@@ -48,11 +48,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Successful response with paginated guest list",
-            type: "object",
-            properties: {
-              data: { type: "array", items: { $ref: "Guest#" } },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Guest#"),
           },
           401: { description: "Authentication required", $ref: "Error#" },
         },
@@ -100,11 +96,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Search results",
-            type: "object",
-            properties: {
-              data: { type: "array", items: { $ref: "Guest#" } },
-              pagination: { $ref: "Pagination#" },
-            },
+            ...createListResponseSchema("Guest#"),
           },
           401: { description: "Authentication required", $ref: "Error#" },
         },

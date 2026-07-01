@@ -3606,6 +3606,23 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/result-builder.ts">
+    <item priority="low">
+      interface SessionState {
+        worktree?: WorktreeInfo;
+        systemPrompt?: string;
+        resultMessage?: SDKResultMessage;
+        stuckReason?: StuckPattern;
+        turnMetrics: readonly TurnMetrics[];
+      }
+    </item>
+    <item priority="high">
+      export function buildRootSpanAttributes(
+        config: SessionConfig,
+        tuning: QaTuningThresholds | null
+      ): Record<string, string | number | boolean> { /* ... */ }
+    </item>
+  </file>
   <file path="packages/agent-core/src/retry.ts">
     <item priority="low">
       interface RetryConfig {
@@ -3698,20 +3715,19 @@
   </file>
   <file path="packages/agent-core/src/session-runner.ts">
     <item priority="high">
-      interface SessionState {
-        worktree?: WorktreeInfo;
-        systemPrompt?: string;
-        resultMessage?: SDKResultMessage;
-        stuckReason?: StuckPattern;
-        turnMetrics: readonly TurnMetrics[];
-      }
-    </item>
-    <item priority="high">
       export async function runSession(
         config: SessionConfig,
         onEvent?: SessionEventCallback,
         deps: PhaseDeps = createDefaultPhaseDeps()
       ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runPipeline(
+        config: SessionConfig,
+        onEvent: SessionEventCallback | undefined,
+        deps: PhaseDeps,
+        state: SessionState
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">

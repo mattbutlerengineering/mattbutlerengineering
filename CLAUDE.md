@@ -192,13 +192,6 @@ LANGFUSE_BASEURL=https://cloud.langfuse.com  # Default
 
 When `LANGFUSE_PUBLIC_KEY` is unset, Langfuse is not loaded — zero overhead.
 
-### MCP Server
-
-The Langfuse MCP server (`.mcp.json`) gives Claude Code access to:
-
-- `get-prompts` — List prompts in the Langfuse project
-- `get-prompt` — Fetch a specific prompt by name
-
 ## Security Scanning (Semgrep)
 
 See [AGENTS.md](./AGENTS.md#security-scanning-semgrep) for Semgrep configuration, rules, and usage. Claude Code additionally has the Semgrep MCP server (`.mcp.json`) for invoking scans via `@semgrep/mcp`.
