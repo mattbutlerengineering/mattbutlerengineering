@@ -8,17 +8,19 @@ vi.mock("./database.js", () => ({
 
 vi.mock("./session.js", () => ({
   sessionService: {
+    getById: vi.fn(),
+    create: vi.fn(),
     updateStatus: vi.fn().mockResolvedValue(null),
     addEvent: vi.fn().mockResolvedValue(null),
   },
 }));
 
-vi.mock("@mbe/agent-core", () => ({
-  runSession: vi.fn(),
-  DEFAULT_SESSION_CONFIG: {
-    allowedTools: ["Bash", "Read", "Write", "Edit"],
-  },
-}));
+// Use the real SessionLifecycleOrchestrator + in-memory/prisma adapters, but
+// override `runSession` (the injected execution unit) so no SDK/git runs.
+vi.mock("@mbe/agent-core", async () => {
+  const actual = (await vi.importActual("@mbe/agent-core")) as Record<string, unknown>;
+  return { ...actual, runSession: vi.fn() };
+});
 
 import { runSession } from "@mbe/agent-core";
 import { sessionService } from "./session.js";
@@ -76,6 +78,9 @@ describe("session-executor", () => {
     vi.resetAllMocks();
     vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
     vi.mocked(sessionService.addEvent).mockResolvedValue(null as never);
+    // The orchestrator loads the session by id before executing. Return a
+    // session whose id matches the requested one (defaults otherwise).
+    vi.mocked(sessionService.getById).mockImplementation(async (id: string) => makeSession({ id }));
   });
 
   describe("getActiveSessionCount", () => {
@@ -120,11 +125,13 @@ describe("session-executor", () => {
           sdkSessionId: "sdk-sess-1",
         })
       );
+      // The session:complete event carries the orchestrator's lowercase status
+      // vocabulary; the persisted session row status remains uppercase (above).
       expect(sessionService.addEvent).toHaveBeenCalledWith(
         "test-session-1",
         "session:complete",
         expect.objectContaining({
-          status: "SUCCEEDED",
+          status: "succeeded",
           costUsd: 0.5,
         })
       );

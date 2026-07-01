@@ -26,6 +26,26 @@ export type {
 // Core session runner
 export { runSession } from "./session-runner.js";
 
+// Session lifecycle orchestrator — single owner of session state transitions,
+// with storage injected at the seam (#2001).
+export {
+  createSessionLifecycleOrchestrator,
+  createInMemorySessionStore,
+} from "./session-lifecycle/index.js";
+export type {
+  CreateSessionInput,
+  ConcurrencyGate,
+  EventProjector,
+  InMemorySessionStore,
+  RunSessionFn,
+  SessionLifecycleDeps,
+  SessionLifecycleOrchestrator,
+  SessionLifecycleStore,
+  SessionResultPatch,
+  StoredEvent,
+  StoredSession,
+} from "./session-lifecycle/index.js";
+
 // Worktree management
 export {
   createWorktree,

@@ -212,6 +212,45 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="session-lifecycle">
+  <file path="src/session-lifecycle/in-memory-store.ts">
+    <item priority="low">
+      interface InMemorySessionStore {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createInMemorySessionStore(): InMemorySessionStore { /* ... */ }
+    </item>
+  </file>
+  <file path="src/session-lifecycle/orchestrator.ts">
+    <item priority="high">
+      export function createSessionLifecycleOrchestrator(
+        deps: SessionLifecycleDeps
+      ): SessionLifecycleOrchestrator { /* ... */ }
+    </item>
+  </file>
+  <file path="src/session-lifecycle/types.ts">
+    <item priority="low">
+      interface CreateSessionInput {
+        taskDescription: string;
+        baseBranch?: string;
+        model?: string;
+        maxTurns?: number;
+        maxBudgetUsd?: number;
+      }
+    </item>
+    <item priority="low">
+      interface SessionResultPatch {
+        branchName?: string;
+        prUrl?: string;
+        prNumber?: number;
+        resultText?: string;
+        costUsd?: number;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/audit-inventory-store.ts">
     <item priority="high">

@@ -1,15 +1,16 @@
 import { resolve } from "node:path";
 import {
+  createSessionLifecycleOrchestrator,
   runSession,
-  DEFAULT_SESSION_CONFIG,
-  type SessionConfig,
-  type SessionEvent,
+  type EventProjector,
   type MappedEvent,
+  type SessionEvent,
 } from "@mbe/agent-core";
 import type { AgentSession } from "@mbe/types";
 import type { sessionService as SessionServiceType } from "./session.js";
 import type { SessionConcurrency } from "./session-concurrency.js";
 import { mapForStorage } from "./storage-event-mapper.js";
+import { createPrismaSessionStore } from "./prisma-session-store.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -25,140 +26,59 @@ export interface SessionExecutor {
   getActiveSessionCount(): number;
 }
 
+// ── Event projection ──────────────────────────────────────────────────
+
+/**
+ * Projects a runtime SessionEvent to the stored shape. `run-hardened-query`
+ * emits typed MappedEvents as JSON in the event message; those are parsed and
+ * passed through `mapForStorage` (truncation + field selection). Plain message
+ * events (session:start, session:error, …) are stored verbatim.
+ */
+const projectEvent: EventProjector = (event: SessionEvent) => {
+  const eventData = event.data as { message?: string };
+  if (typeof eventData.message === "string") {
+    try {
+      const parsed = JSON.parse(eventData.message) as MappedEvent;
+      if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
+        return mapForStorage(parsed);
+      }
+    } catch {
+      // Not JSON — fall through to plain message storage.
+    }
+  }
+  return { type: event.type, data: event.data as Record<string, unknown> };
+};
+
 // ── Factory ───────────────────────────────────────────────────────────
 
+/**
+ * Thin construction of the shared SessionLifecycleOrchestrator (@mbe/agent-core)
+ * with the Prisma-backed store and the injected concurrency gate. All session
+ * state transitions live in the orchestrator; this module only adapts the
+ * service's `(session: AgentSession)` calling convention onto it.
+ */
 export function createSessionExecutor(config: SessionExecutorConfig): SessionExecutor {
   const { concurrency, sessionService } = config;
-  // AbortControllers keyed by session id, used purely for cancellation handles.
-  // The active-slot COUNT is owned by the injected `concurrency` gate, not here.
-  const activeControllers = new Map<string, AbortController>();
 
-  function getRepoPath(): string {
-    return resolve(process.env.REPO_PATH ?? process.cwd());
-  }
+  const orchestrator = createSessionLifecycleOrchestrator({
+    store: createPrismaSessionStore(sessionService),
+    resolveRepoPath: () => resolve(process.env.REPO_PATH ?? process.cwd()),
+    runSession,
+    concurrency,
+    projectEvent,
+  });
 
-  function getActiveSessionCount(): number {
-    return concurrency.activeCount();
-  }
-
-  async function executeSession(session: AgentSession): Promise<void> {
-    // Atomic check-and-reserve through the single gate. A slot freed elsewhere
-    // (e.g. the liveness monitor cancelling a stale session) can be claimed
-    // here exactly once — no over-subscription.
-    if (!concurrency.acquire(session.id)) {
-      await sessionService.updateStatus(session.id, "FAILED", {
-        errors: [`Max concurrent sessions (${concurrency.limit}) reached`],
-      });
-      return;
-    }
-
-    const controller = new AbortController();
-    activeControllers.set(session.id, controller);
-
-    try {
-      await sessionService.updateStatus(session.id, "RUNNING");
-      await sessionService.addEvent(session.id, "session:start", {
-        message: "Session execution started",
-      });
-
-      const sessionConfig: SessionConfig = {
-        taskDescription: session.taskDescription,
-        repoPath: getRepoPath(),
-        baseBranch: session.baseBranch,
-        model: session.model,
-        maxTurns: session.maxTurns,
-        maxBudgetUsd: session.maxBudgetUsd,
-        allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-        createPr: session.maxBudgetUsd > 0,
-      };
-
-      const onEvent = async (event: SessionEvent) => {
-        try {
-          const eventData = event.data as { message?: string };
-          if (typeof eventData.message === "string") {
-            // Try to parse as a MappedEvent (emitted by run-hardened-query as JSON)
-            try {
-              const parsed = JSON.parse(eventData.message) as MappedEvent;
-              if (parsed && typeof parsed.type === "string" && parsed.type.startsWith("session:")) {
-                const stored = mapForStorage(parsed);
-                await sessionService.addEvent(session.id, stored.type, stored.data);
-                return;
-              }
-            } catch {
-              // Not JSON — fall through to plain message storage
-            }
-          }
-          // Plain message events (session:start, session:error, etc.) — store as-is
-          await sessionService.addEvent(
-            session.id,
-            event.type,
-            event.data as Record<string, unknown>
-          );
-        } catch {
-          // Event logging is best-effort
-        }
-      };
-
-      const result = await runSession(sessionConfig, onEvent);
-
-      const finalStatus = result.status === "succeeded" ? "SUCCEEDED" : "FAILED";
-
-      await sessionService.updateStatus(session.id, finalStatus, {
-        branchName: result.branchName,
-        prUrl: result.prUrl ?? undefined,
-        resultText: result.resultText,
-        costUsd: result.costUsd,
-        inputTokens: result.tokenUsage.inputTokens,
-        outputTokens: result.tokenUsage.outputTokens,
-        numTurns: result.numTurns,
-        durationMs: result.durationMs,
-        errors: [...result.errors],
-        sdkSessionId: result.sessionId,
-      });
-
-      await sessionService.addEvent(session.id, "session:complete", {
-        status: finalStatus,
-        costUsd: result.costUsd,
-        prUrl: result.prUrl,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      await sessionService.updateStatus(session.id, "FAILED", {
-        errors: [errorMessage],
-      });
-
-      await sessionService.addEvent(session.id, "session:error", {
-        message: errorMessage,
-      });
-    } finally {
-      activeControllers.delete(session.id);
-      concurrency.release(session.id);
-    }
-  }
-
-  async function cancelSession(sessionId: string): Promise<boolean> {
-    const controller = activeControllers.get(sessionId);
-    if (!controller) {
-      return false;
-    }
-
-    controller.abort();
-    activeControllers.delete(sessionId);
-    concurrency.release(sessionId);
-
-    await sessionService.updateStatus(sessionId, "CANCELLED", {
-      errors: ["Cancelled by user"],
-    });
-
-    await sessionService.addEvent(sessionId, "session:cancelled", {
-      message: "Session cancelled by user",
-    });
-
-    return true;
-  }
-
-  return { executeSession, cancelSession, getActiveSessionCount };
+  return {
+    async executeSession(session: AgentSession): Promise<void> {
+      await orchestrator.execute(session.id);
+    },
+    cancelSession(sessionId: string): Promise<boolean> {
+      return orchestrator.cancel(sessionId);
+    },
+    getActiveSessionCount(): number {
+      return orchestrator.getActiveSessionCount();
+    },
+  };
 }
 
 // ── Default instance (backward-compat module-level exports) ───────────
@@ -166,11 +86,17 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
 import { sessionService } from "./session.js";
 import { defaultConcurrency } from "./session-concurrency.js";
 
-const _defaultExecutor = createSessionExecutor({
-  concurrency: defaultConcurrency,
-  sessionService,
-});
+// Built lazily on first use so importing this module is side-effect-free — the
+// orchestrator is constructed only when a session is actually executed, which
+// keeps test doubles for @mbe/agent-core simple.
+let _defaultExecutor: SessionExecutor | undefined;
+function defaultExecutor(): SessionExecutor {
+  _defaultExecutor ??= createSessionExecutor({ concurrency: defaultConcurrency, sessionService });
+  return _defaultExecutor;
+}
 
-export const getActiveSessionCount = _defaultExecutor.getActiveSessionCount;
-export const executeSession = _defaultExecutor.executeSession;
-export const cancelSession = _defaultExecutor.cancelSession;
+export const getActiveSessionCount = (): number => defaultExecutor().getActiveSessionCount();
+export const executeSession = (session: AgentSession): Promise<void> =>
+  defaultExecutor().executeSession(session);
+export const cancelSession = (sessionId: string): Promise<boolean> =>
+  defaultExecutor().cancelSession(sessionId);
