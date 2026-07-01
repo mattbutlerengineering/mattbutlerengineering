@@ -10,7 +10,7 @@ import {
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import type { AuthUser } from "@mbe/auth/fastify";
-import { parsePaginationQuery } from "@mbe/database";
+import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import { cancelSession } from "../services/session-executor.js";
 import { defaultConcurrency } from "../services/session-concurrency.js";
@@ -104,11 +104,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
         response: {
           200: {
             description: "Paginated list of sessions",
-            type: "object",
-            properties: {
-              data: { type: "array", items: { $ref: "Session#" } },
-              pagination: { $ref: "AgentPagination#" },
-            },
+            ...createListResponseSchema("Session#"),
           },
         },
       },
@@ -118,12 +114,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       const status = request.query.status as AgentSessionStatus | undefined;
 
       const prismaStatus = status?.toUpperCase() as
-        | "PENDING"
-        | "RUNNING"
-        | "SUCCEEDED"
-        | "FAILED"
-        | "CANCELLED"
-        | undefined;
+        "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | undefined;
 
       // Admins see all sessions; non-admins see only their own
       const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;

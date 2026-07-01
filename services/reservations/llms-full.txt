@@ -1197,11 +1197,7 @@
             response: {
               200: {
                 description: "Successful response with paginated guest list",
-                type: "object",
-                properties: {
-                  data: { type: "array", items: { $ref: "Guest#" } },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Guest#"),
               },
               401: { description: "Authentication required", $ref: "Error#" },
             },
@@ -1249,11 +1245,7 @@
             response: {
               200: {
                 description: "Search results",
-                type: "object",
-                properties: {
-                  data: { type: "array", items: { $ref: "Guest#" } },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Guest#"),
               },
               401: { description: "Authentication required", $ref: "Error#" },
             },
@@ -2910,14 +2902,7 @@
             response: {
               200: {
                 description: "Successful response with paginated reservation list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Reservation#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Reservation#"),
               },
               500: {
                 description: "Internal server error",
@@ -2971,14 +2956,7 @@
             response: {
               200: {
                 description: "User's reservations",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Reservation#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Reservation#"),
               },
               401: {
                 description: "Authentication required",
@@ -3648,14 +3626,7 @@
             response: {
               200: {
                 description: "Successful response with paginated table list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Table#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Table#"),
               },
               500: {
                 description: "Internal server error",
@@ -4064,14 +4035,7 @@
             response: {
               200: {
                 description: "Successful response with paginated venue group list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "VenueGroup#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("VenueGroup#"),
               },
               500: {
                 description: "Internal server error",
@@ -4363,14 +4327,7 @@
             response: {
               200: {
                 description: "Successful response with paginated venue list",
-                type: "object",
-                properties: {
-                  data: {
-                    type: "array",
-                    items: { $ref: "Venue#" },
-                  },
-                  pagination: { $ref: "Pagination#" },
-                },
+                ...createListResponseSchema("Venue#"),
               },
               500: {
                 description: "Internal server error",
