@@ -12,6 +12,7 @@ src/
 ├── scheduler.test.ts
 ├── worker.ts         # JobWorker — process jobs from the queue
 ├── worker.test.ts
+├── dispatch-job.ts   # dispatchJob — routes a job to its registered handler; throws UnknownJobTypeError if none matches
 └── integration.test.ts
 ```
 

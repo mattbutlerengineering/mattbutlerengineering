@@ -6,20 +6,25 @@ Typed HTTP client for the MBE platform API. Wraps `fetch` with auth token inject
 
 ```
 src/
-├── agent-sessions.ts  # AgentSessionsClient
-├── availability.ts    # AvailabilityClient, HoldsClient
-├── client.ts          # ApiClient base class, retry, timeout, errors
-├── client.test.ts     # Core client tests
-├── floor-plans.ts     # FloorPlansClient
-├── guests.ts          # GuestsClient
-├── health.ts          # HealthClient
-├── index.ts           # createApiClient factory + re-exports
-├── reservations.ts    # ReservationsClient
-├── streaming.ts       # StreamingClient (SSE event streams)
-├── tables.ts          # TablesClient
-├── users.ts           # UsersClient
-└── venues.ts          # VenuesClient, VenueGroupsClient
+├── agent-sessions.ts   # AgentSessionsClient
+├── availability.ts     # AvailabilityClient, HoldsClient
+├── briefing.ts         # BriefingClient — pre-arrival staff briefing entries
+├── client.ts           # ApiClient base class, retry, timeout, errors
+├── client.test.ts      # Core client tests
+├── floor-plans.ts      # FloorPlansClient
+├── guests.ts           # GuestsClient
+├── health.ts           # HealthClient
+├── index.ts            # createApiClient factory + re-exports
+├── problem-details.ts  # Parses response bodies into typed RFC 7807 ProblemDetails
+├── reservations.ts     # ReservationsClient
+├── retry.ts            # Exponential-backoff retry policy shared by ApiClient
+├── streaming.ts        # StreamingClient (SSE event streams)
+├── tables.ts           # TablesClient
+├── users.ts            # UsersClient
+└── venues.ts           # VenuesClient, VenueGroupsClient
 ```
+
+Subpath exports: `@mbe/api-client/users` and `@mbe/api-client/streaming` allow importing `UsersClient`/`StreamingClient` without pulling in the full barrel.
 
 ## Quick Start
 

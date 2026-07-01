@@ -7,10 +7,9 @@ Testing utilities for `@mbe/agent-core`. Provides mocks, simulators, and fixture
 | Module                  | Responsibility                                                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `mock-claude-client.ts` | Drop-in replacement for the Claude SDK `query` function. Supports deterministic, replay, and error-injection modes. |
-| `fixtures.ts`           | Pre-built `SessionEvent[]` sequences mirroring real agent output (success, bug-fix, failure).                       |
+| `session-fixtures.ts`   | Pre-built `SessionEvent[]` sequences mirroring real agent output (success, bug-fix, failure).                       |
 | `worktree-simulator.ts` | In-memory git operation mocks for testing worktree lifecycles.                                                      |
 | `cost-estimator.ts`     | Offline cost calculation and budget validation helpers.                                                             |
-| `fixture-player.ts`     | Utility to step through session events one at a time in tests.                                                      |
 
 ## Patterns
 
