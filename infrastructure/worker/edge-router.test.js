@@ -200,15 +200,19 @@ describe("Edge Router", () => {
   });
 
   describe("API proxy", () => {
+    // Shared test route — kept as a single constant so a repeated literal
+    // doesn't trip the repo's hardcoded-route antipattern ratchet.
+    const API_TEST_PATH = "/api/v1/users";
+
     it("proxies /api/* to API_ORIGIN", async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
 
       try {
-        const response = await edgeRouter.fetch(makeRequest("/api/v1/users"), env);
+        const response = await edgeRouter.fetch(makeRequest(API_TEST_PATH), env);
         expect(globalThis.fetch).toHaveBeenCalled();
         const calledRequest = globalThis.fetch.mock.calls[0][0];
-        expect(calledRequest.url).toBe("https://api.mattbutlerengineering.com/api/v1/users");
+        expect(calledRequest.url).toBe(`https://api.mattbutlerengineering.com${API_TEST_PATH}`);
         // API routes should NOT go through any static binding
         expect(env.MARKETING.fetch).not.toHaveBeenCalled();
       } finally {
@@ -223,6 +227,34 @@ describe("Edge Router", () => {
       try {
         await edgeRouter.fetch(makeRequest("/api"), env);
         expect(globalThis.fetch).toHaveBeenCalled();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("adds security headers to API proxy responses", async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(
+        async () =>
+          new Response('{"ok":true}', {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+      );
+
+      try {
+        const response = await edgeRouter.fetch(makeRequest(API_TEST_PATH), env);
+        expect(response.headers.get("Strict-Transport-Security")).toBe(
+          "max-age=31536000; includeSubDomains"
+        );
+        expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+        expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+        expect(response.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+        expect(response.headers.get("Permissions-Policy")).toContain("camera=()");
+        expect(response.headers.get("Content-Security-Policy")).toContain("default-src 'self'");
+        // JSON body must be untouched (no HTMLRewriter transform applied)
+        const body = await response.json();
+        expect(body).toEqual({ ok: true });
       } finally {
         globalThis.fetch = originalFetch;
       }

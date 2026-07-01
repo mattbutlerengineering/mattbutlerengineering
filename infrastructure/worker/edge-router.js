@@ -329,7 +329,7 @@ export default {
 
       // Pass through the response (including 4xx which should show app error pages)
       writeAnalytics(env, request, "api", apiResponse.status, startTime);
-      return apiResponse;
+      return addHeaders(apiResponse, url.pathname, nonce, kvPolicy);
     }
 
     // ── Block source maps (defense-in-depth) ─────────────────────────
