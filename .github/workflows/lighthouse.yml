@@ -46,8 +46,15 @@ jobs:
         id: lh
         uses: treosh/lighthouse-ci-action@v12
         with:
-          staticDistDir: ./apps/${{ matrix.app.dir }}/dist
+          # `staticDistDir` is NOT a valid input for this action (it silently
+          # produced "No URLs provided to collect" on every run). Feed the dir
+          # through a track-only config via env instead. The action bundles its
+          # own isolated deps, avoiding the monorepo's express/path-to-regexp
+          # clash that breaks a raw `lhci collect` in this workspace.
+          configPath: ./lighthouserc.ci.cjs
           temporaryPublicStorage: true
+        env:
+          LH_STATIC_DIST_DIR: ./apps/${{ matrix.app.dir }}/dist
 
       - name: Extract and store scores
         env:
