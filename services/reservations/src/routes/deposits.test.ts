@@ -57,10 +57,14 @@ vi.mock("@mbe/auth/fastify", () => ({
     };
   }),
   optionalAuth: vi.fn(async () => {}),
-  hasPermission: vi.fn(() => true),
+  hasPermission: vi.fn(
+    (user: { permissions?: string[] } | undefined, permission: string) =>
+      Array.isArray(user?.permissions) && user.permissions.includes(permission)
+  ),
   requireOwnershipOrAdmin: vi.fn().mockReturnValue(vi.fn(async () => {})),
 }));
 
+import { requireAuth } from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
@@ -365,6 +369,96 @@ describe("Deposit API routes", () => {
       });
 
       expect(response.statusCode).toBe(422);
+      await app.close();
+    });
+  });
+
+  describe("non-admin authorization", () => {
+    beforeEach(() => {
+      vi.mocked(requireAuth).mockImplementationOnce(async (request: { user?: unknown }) => {
+        request.user = {
+          sub: "auth0|guest-456",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          iat: Math.floor(Date.now() / 1000),
+          email: "guest@example.com",
+          email_verified: true,
+          name: "Guest User",
+          picture: "https://example.com/pic.jpg",
+          permissions: [],
+        };
+      });
+    });
+
+    it("returns 403 for POST /api/v1/deposits as non-admin", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/deposits",
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000 },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("returns 403 for GET /api/v1/deposits/:id as non-admin", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/deposits/dep-123",
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("returns 403 for POST /api/v1/deposits/:id/capture as non-admin", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/deposits/dep-123/capture",
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("returns 403 for POST /api/v1/deposits/:id/refund as non-admin", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/deposits/dep-123/refund",
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
+      await app.close();
+    });
+
+    it("returns 403 for POST /api/v1/deposits/:id/forfeit as non-admin", async () => {
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/deposits/dep-123/forfeit",
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(403);
       await app.close();
     });
   });
