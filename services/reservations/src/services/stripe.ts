@@ -43,6 +43,12 @@ export interface CreatePaymentIntentOptions {
   customerId?: string;
   reservationId: string;
   metadata?: Record<string, string>;
+  /**
+   * Idempotency key for the create call. Passing a stable key makes a
+   * lost-response retry safe — Stripe returns the original PaymentIntent
+   * instead of minting a second (duplicate card hold).
+   */
+  idempotencyKey?: string;
 }
 
 export interface PaymentIntentResult {
@@ -92,7 +98,10 @@ export class StripeService {
       params.customer = options.customerId;
     }
 
-    const intent = await this.stripe.paymentIntents.create(params);
+    const intent = await this.stripe.paymentIntents.create(
+      params,
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined
+    );
 
     return {
       id: intent.id,

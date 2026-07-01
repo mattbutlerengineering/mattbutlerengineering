@@ -116,12 +116,31 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      const paymentIntent = await stripeService.createPaymentIntent({
-        amountCents: depositAmountCents,
-        currency,
-        customerId: stripeCustomerId,
-        reservationId,
-      });
+      // Stable idempotency key (reservationId + amount) makes a lost-response
+      // retry safe — Stripe returns the original PaymentIntent instead of
+      // minting a second hold. Matches the `${id}:${action}` key convention
+      // used by the capture/cancel/refund flows.
+      let paymentIntent;
+      try {
+        paymentIntent = await stripeService.createPaymentIntent({
+          amountCents: depositAmountCents,
+          currency,
+          customerId: stripeCustomerId,
+          reservationId,
+          idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
+        });
+      } catch (err) {
+        request.log.error({ err }, "Stripe PaymentIntent creation failed");
+        return reply
+          .status(502)
+          .send(
+            createProblemDetails(
+              502,
+              "Bad Gateway",
+              "Failed to create payment intent with the payment provider."
+            )
+          );
+      }
 
       // Create deposit record in pending state with the PaymentIntent id already
       // set, in one atomic write. This guarantees the succeeded webhook can always

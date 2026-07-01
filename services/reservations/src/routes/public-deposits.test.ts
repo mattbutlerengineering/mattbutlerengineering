@@ -366,6 +366,65 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     await app.close();
   });
 
+  it("passes an idempotency key derived from reservationId + amount to Stripe", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
+    mockPaymentIntents.create.mockResolvedValueOnce({
+      id: "pi_test_idem",
+      status: "requires_payment_method",
+      client_secret: "pi_test_idem_secret",
+    });
+    vi.mocked(depositService.create).mockResolvedValueOnce(mockDeposit);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: { reservationId: "res-1" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const requestOptions = mockPaymentIntents.create.mock.calls[0][1] as {
+      idempotencyKey?: string;
+    };
+    expect(requestOptions.idempotencyKey).toBe("res-1:paymentIntent:2500");
+    await app.close();
+  });
+
+  it("returns an ADR-008 problem-details response when createPaymentIntent throws a Stripe error", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+    vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
+    // Stripe PaymentIntent creation fails with a Stripe error
+    const stripeError = Object.assign(new Error("Stripe is down"), {
+      type: "StripeConnectionError",
+    });
+    mockPaymentIntents.create.mockRejectedValueOnce(stripeError);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: { reservationId: "res-1" },
+    });
+
+    // Must be a structured problem-details envelope, not a raw 500
+    expect(response.statusCode).toBe(502);
+    const body = response.json<{ status: number; title: string; detail: string }>();
+    expect(body.status).toBe(502);
+    expect(body.detail).toBeTruthy();
+    // A failed PaymentIntent must NOT leave a dangling deposit record
+    expect(depositService.create).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it("returns 400 when reservationId is missing from body", async () => {
     const app = await buildApp({ logger: false });
     await app.ready();
