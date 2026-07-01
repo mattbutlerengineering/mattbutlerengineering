@@ -129,7 +129,8 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           reservationId,
           idempotencyKey: `${reservationId}:paymentIntent:${depositAmountCents}`,
         });
-      } catch {
+      } catch (err) {
+        request.log.error({ err }, "Stripe PaymentIntent creation failed");
         return reply
           .status(502)
           .send(
