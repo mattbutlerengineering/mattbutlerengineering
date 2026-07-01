@@ -19,7 +19,7 @@ import {
   AgentSessionEventSchema,
   CreateAgentSessionRequestSchema,
 } from "./agent.js";
-import { VenueGroupSchema, VenueSchema } from "./venue.js";
+import { VenueGroupSchema, VenueSchema, PublicVenueConfigSchema } from "./venue.js";
 import { GuestSchema, GuestSegmentSchema } from "./guest.js";
 import { ProblemDetailsSchema } from "./api.js";
 import { PaginationSchema, ErrorResponseSchema } from "./common.js";
@@ -90,6 +90,11 @@ export const reservationJsonSchema = toFastifyJsonSchema("Reservation", Reservat
 export const venueGroupJsonSchema = toFastifyJsonSchema("VenueGroup", VenueGroupSchema);
 
 export const venueJsonSchema = toFastifyJsonSchema("Venue", VenueSchema);
+
+export const publicVenueConfigJsonSchema = toFastifyJsonSchema(
+  "PublicVenueConfig",
+  PublicVenueConfigSchema
+);
 
 // ── Guest schemas ─────────────────────────────────────────────
 export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);

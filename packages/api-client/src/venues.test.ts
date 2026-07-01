@@ -207,6 +207,66 @@ describe("VenuesClient", () => {
   });
 });
 
+describe("VenuesClient.getPublicConfig", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const fakePublicConfig = {
+    name: "The Oak Table",
+    slug: "the-oak-table",
+    ianaTimezone: "America/New_York",
+    currencyCode: "USD",
+    operatingHours: null,
+    settings: {
+      defaultReservationDuration: 90,
+      maxPartySize: 8,
+      maxAdvanceBooking: 60,
+      slotIntervalMinutes: 15,
+    },
+    deposit: {
+      enabled: true,
+      depositType: "flat",
+      amountCents: 5000,
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    },
+  };
+
+  it("requests GET /public/v1/venues/:slug", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakePublicConfig }));
+
+    await makeVenuesClient().getPublicConfig("the-oak-table");
+
+    const [url] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table");
+  });
+
+  it("unwraps and returns the validated public venue config", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakePublicConfig }));
+
+    const result = await makeVenuesClient().getPublicConfig("the-oak-table");
+    expect(result).toEqual(fakePublicConfig);
+  });
+
+  it("throws ApiValidationError when the response is malformed", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { name: "The Oak Table" } }));
+
+    await expect(makeVenuesClient().getPublicConfig("the-oak-table")).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
+  });
+
+  it("propagates 404 errors", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Not Found", message: "Venue not found", statusCode: 404 }, 404)
+    );
+
+    await expect(makeVenuesClient().getPublicConfig("missing")).rejects.toThrow();
+  });
+});
+
 describe("VenueGroupsClient", () => {
   beforeEach(() => {
     mockFetch.mockReset();

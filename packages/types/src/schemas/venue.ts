@@ -37,3 +37,34 @@ export const VenueSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+export const PublicVenueDepositSchema = z.object({
+  enabled: z.boolean(),
+  depositType: z.enum(["flat", "per_person"]).nullable(),
+  amountCents: z.number().nullable(),
+  freeCancellationHours: z.number().nullable(),
+  lateCancellationFeePercent: z.number().nullable(),
+  noShowFeePercent: z.number().nullable(),
+});
+
+export const PublicVenueConfigSchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  ianaTimezone: z.string(),
+  currencyCode: z.string(),
+  operatingHours: VenueSchema.shape.operatingHours,
+  settings: z.object({
+    defaultReservationDuration: z.number().optional(),
+    maxPartySize: z.number().optional(),
+    maxAdvanceBooking: z.number().optional(),
+    slotIntervalMinutes: z.number().optional(),
+  }),
+  deposit: PublicVenueDepositSchema,
+});
+
+export const DepositPaymentIntentSchema = z.object({
+  clientSecret: z.string(),
+  depositId: z.string(),
+  amountCents: z.number(),
+  currency: z.string(),
+});
