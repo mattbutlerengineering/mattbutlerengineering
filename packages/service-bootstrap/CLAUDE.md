@@ -9,6 +9,10 @@ src/
 ├── index.ts                    # Re-exports
 ├── create-service-app.ts       # Fastify app factory
 ├── create-service-app.test.ts
+├── apply-versioning.ts         # API-Version / Link / Sunset header policy (ADR-002)
+├── classify-error.ts           # Maps a thrown error to { status, title, detail, extensions }
+├── error-handler.ts            # Fastify error-handler plugin — wraps classify-error into RFC 7807 problem-details bodies
+├── readiness-routes.ts         # registerReadinessRoutes — /ready probe backed by @mbe/observability checks
 ├── feature-flags.ts            # Inline feature-flag evaluation (former @mbe/feature-flags)
 ├── feature-flags.test.ts
 ├── start-service-server.ts     # Telemetry + listen + graceful shutdown
