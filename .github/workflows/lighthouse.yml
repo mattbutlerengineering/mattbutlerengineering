@@ -16,10 +16,17 @@ jobs:
 
     strategy:
       matrix:
+        # `base` is the app's Vite `base` path — rialto-web builds with
+        # base "/rialto/", so its index.html references assets under /rialto/.
+        # LHCI serves the dist at server root, so the dist must be staged under
+        # that base subpath or the page 404s its assets and never paints (NO_FCP).
+        # hospitality is intentionally omitted: it is an Auth0-gated SPA that
+        # renders a blank shell when served as a static bundle (no auth session),
+        # so Lighthouse reports NO_FCP and can't score it. Its live, authenticated
+        # performance is covered by the deep audit / E2E, not this static tracker.
         app:
-          - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing" }
-          - { name: "hospitality", pkg: "@mbe/hospitality", dir: "hospitality" }
-          - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web" }
+          - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing", base: "" }
+          - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web", base: "rialto" }
 
     steps:
       - uses: actions/checkout@v7.0.0
@@ -35,14 +42,36 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm --filter ${{ matrix.app.pkg }} build
+        # Use the root turbo `build` (not pnpm's recursive runner) so workspace
+        # dependencies build first via turbo's `^build`. rialto-web's `tsc -b`
+        # needs @mattbutlerengineering/rialto's dist/*.d.ts, which only exist
+        # after rialto is built — `pnpm --filter <app> build` skips that and
+        # fails with TS2307. Matches deploy-static.yml.
+        run: pnpm build --filter=${{ matrix.app.pkg }}
+
+      - name: Stage dist under app base path
+        # LHCI's static server serves the dist at server root. Apps built with a
+        # non-root Vite base (rialto-web → /rialto/) reference their assets under
+        # that path, so we nest the dist under it; the audited URL then matches
+        # the deployed URL and assets resolve (no NO_FCP). Root-base apps
+        # (base "") copy straight to lh-dist.
+        run: |
+          mkdir -p lh-dist/${{ matrix.app.base }}
+          cp -r apps/${{ matrix.app.dir }}/dist/. lh-dist/${{ matrix.app.base }}/
 
       - name: Run Lighthouse
         id: lh
         uses: treosh/lighthouse-ci-action@v12
         with:
-          staticDistDir: ./apps/${{ matrix.app.dir }}/dist
+          # `staticDistDir` is NOT a valid input for this action (it silently
+          # produced "No URLs provided to collect" on every run). Feed the dir
+          # through a track-only config via env instead. The action bundles its
+          # own isolated deps, avoiding the monorepo's express/path-to-regexp
+          # clash that breaks a raw `lhci collect` in this workspace.
+          configPath: ./lighthouserc.ci.cjs
           temporaryPublicStorage: true
+        env:
+          LH_STATIC_DIST_DIR: ./lh-dist
 
       - name: Extract and store scores
         env:
