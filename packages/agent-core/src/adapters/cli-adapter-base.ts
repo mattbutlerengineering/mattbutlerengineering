@@ -5,7 +5,6 @@
  *   - `name`        — unique adapter identifier
  *   - `cliBinary`   — the CLI binary name used with `which` and `execFile`
  *   - `buildArgs`   — construct the CLI argument list for a given config
- *   - `parseOutput` — extract hasChanges / summary from stdout+stderr
  *
  * The base class owns: isAvailable, run (full lifecycle), truncateTask,
  * detectRateLimiting, buildCommitMessage, checkForChanges, commitChanges, spawnCli.
@@ -47,17 +46,6 @@ export abstract class CliAdapterBase implements AgentAdapter {
    * The task description passed here is already truncated.
    */
   protected abstract buildArgs(config: AdapterConfig): string[];
-
-  /**
-   * Extract structured information from CLI stdout/stderr.
-   * Used to determine `hasChanges` when the CLI itself reports changes
-   * (subclasses may override; default implementation always returns false
-   * and defers to the git-status check in `run`).
-   */
-  protected abstract parseOutput(
-    stdout: string,
-    stderr: string
-  ): { hasChanges: boolean; summary?: string };
 
   // ── Public AgentAdapter implementation ──────────────────────────
 
@@ -166,12 +154,7 @@ export abstract class CliAdapterBase implements AgentAdapter {
       });
       return { stdout: result.stdout, stderr: result.stderr, exitedSuccessfully: true };
     } catch (err: unknown) {
-      const execError = err as {
-        stdout?: string;
-        stderr?: string;
-        code?: string | number;
-        killed?: boolean;
-      };
+      const execError = err as { stdout?: string; stderr?: string };
       return {
         stdout: execError.stdout ?? "",
         stderr: execError.stderr ?? "",

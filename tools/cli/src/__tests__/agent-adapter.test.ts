@@ -40,9 +40,6 @@ vi.mock("@mbe/agent-core", () => ({
   createPullRequest: (...args: unknown[]) => mockCreatePullRequest(...args),
   buildPrTitle: (task: string) => `agent: ${task}`,
   buildPrBody: () => "PR body",
-}));
-
-vi.mock("../adapters/failover-router.js", () => ({
   FailoverRouter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.route = mockRouterRoute;
     this.getAvailableAdapters = () => ["claude", "gemini", "opencode"];
@@ -55,25 +52,16 @@ vi.mock("../adapters/failover-router.js", () => ({
       this.cooldowns = cooldowns;
     }
   },
-}));
-
-vi.mock("../adapters/gemini-adapter.js", () => ({
   GeminiCliAdapter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.name = "gemini";
     this.isAvailable = mockGeminiIsAvailable;
     this.run = mockGeminiRun;
   }),
-}));
-
-vi.mock("../adapters/opencode-adapter.js", () => ({
   OpenCodeAdapter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.name = "opencode";
     this.isAvailable = mockOpenCodeIsAvailable;
     this.run = mockOpenCodeRun;
   }),
-}));
-
-vi.mock("../adapters/rate-limit-detector.js", () => ({
   RateLimitDetector: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     this.isAvailable = () => true;
     this.markRateLimited = vi.fn();
@@ -145,8 +133,7 @@ describe("agent run --adapter", () => {
     expect(sessionConfig.taskDescription).toBe("fix bug");
 
     // Verify CLI adapter constructors were NOT invoked (runSession called directly)
-    const { GeminiCliAdapter } = await import("../adapters/gemini-adapter.js");
-    const { OpenCodeAdapter } = await import("../adapters/opencode-adapter.js");
+    const { GeminiCliAdapter, OpenCodeAdapter } = await import("@mbe/agent-core");
     expect(GeminiCliAdapter).not.toHaveBeenCalled();
     expect(OpenCodeAdapter).not.toHaveBeenCalled();
   });
@@ -178,9 +165,7 @@ describe("agent run --adapter", () => {
       "--no-pr",
     ]);
 
-    const { FailoverRouter } = await import("../adapters/failover-router.js");
-    const { GeminiCliAdapter } = await import("../adapters/gemini-adapter.js");
-    const { OpenCodeAdapter } = await import("../adapters/opencode-adapter.js");
+    const { FailoverRouter, GeminiCliAdapter, OpenCodeAdapter } = await import("@mbe/agent-core");
 
     expect(FailoverRouter).toHaveBeenCalledTimes(1);
     expect(GeminiCliAdapter).toHaveBeenCalledTimes(1);

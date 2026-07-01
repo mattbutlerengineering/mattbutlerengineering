@@ -26,6 +26,16 @@ export type {
 // Core session runner
 export { runSession } from "./session-runner.js";
 
+// Multi-CLI adapter stack (Claude SDK / Gemini CLI / OpenCode CLI failover)
+export type { AdapterConfig, AdapterResult, AdapterState, AgentAdapter } from "./cli-adapter.js";
+export { CliAdapterBase } from "./adapters/cli-adapter-base.js";
+export { ClaudeAdapter } from "./adapters/claude-adapter.js";
+export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
+export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
+export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
+export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
+export type { RoutedAdapterResult } from "./failover-router.js";
+
 // Session lifecycle orchestrator — single owner of session state transitions,
 // with storage injected at the seam (#2001).
 export {
