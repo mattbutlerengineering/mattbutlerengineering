@@ -84,6 +84,48 @@ describe("createPrismaSessionStore", () => {
     expect(svc.updateStatus).toHaveBeenCalledWith("s-1", "RUNNING");
   });
 
+  it("translates opts.fromStatus to the uppercase Prisma enum", async () => {
+    const svc = fakeService({ updateStatus: vi.fn().mockResolvedValue(makeSession()) });
+    const store = createPrismaSessionStore(svc);
+
+    await store.updateStatus(
+      "s-1",
+      "cancelled",
+      { errors: ["Cancelled by user"] },
+      { fromStatus: ["running"] }
+    );
+
+    expect(svc.updateStatus).toHaveBeenCalledWith(
+      "s-1",
+      "CANCELLED",
+      { errors: ["Cancelled by user"] },
+      { fromStatus: ["RUNNING"] }
+    );
+  });
+
+  it("omits opts when fromStatus is not provided, preserving the bare call shape", async () => {
+    const svc = fakeService({ updateStatus: vi.fn().mockResolvedValue(makeSession()) });
+    const store = createPrismaSessionStore(svc);
+
+    await store.updateStatus("s-1", "running");
+
+    expect(svc.updateStatus).toHaveBeenCalledWith("s-1", "RUNNING");
+  });
+
+  it("returns null when the CAS write loses the race", async () => {
+    const svc = fakeService({ updateStatus: vi.fn().mockResolvedValue(null) });
+    const store = createPrismaSessionStore(svc);
+
+    const result = await store.updateStatus(
+      "s-1",
+      "cancelled",
+      { errors: ["Cancelled by user"] },
+      { fromStatus: ["running"] }
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("forwards events to sessionService.addEvent", async () => {
     const svc = fakeService({ addEvent: vi.fn().mockResolvedValue(null) });
     const store = createPrismaSessionStore(svc);

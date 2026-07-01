@@ -168,31 +168,45 @@ export const sessionService = {
       durationMs?: number;
       errors?: string[];
       sdkSessionId?: string;
-    }
+    },
+    opts?: { fromStatus?: SessionStatus[] }
   ): Promise<AgentSession | null> {
     try {
       const now = new Date();
-      const session = await prisma.session.update({
-        where: { id },
-        data: {
-          status,
-          ...(status === "RUNNING" && { startedAt: now }),
-          ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
-            completedAt: now,
-          }),
-          ...(result?.branchName !== undefined && { branchName: result.branchName }),
-          ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
-          ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
-          ...(result?.resultText !== undefined && { resultText: result.resultText }),
-          ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
-          ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
-          ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
-          ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
-          ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
-          ...(result?.errors !== undefined && { errors: result.errors }),
-          ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
-        },
-      });
+      const data = {
+        status,
+        ...(status === "RUNNING" && { startedAt: now }),
+        ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
+          completedAt: now,
+        }),
+        ...(result?.branchName !== undefined && { branchName: result.branchName }),
+        ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
+        ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
+        ...(result?.resultText !== undefined && { resultText: result.resultText }),
+        ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
+        ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
+        ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
+        ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
+        ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
+        ...(result?.errors !== undefined && { errors: result.errors }),
+        ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
+      };
+
+      if (opts?.fromStatus) {
+        // Compare-and-swap: scope the update to rows still in an expected
+        // prior status so the DB enforces the transition. A 0-row update
+        // means the CAS lost the race (e.g. the session already reached a
+        // terminal state) — signal that with null instead of clobbering.
+        const { count } = await prisma.session.updateMany({
+          where: { id, status: { in: opts.fromStatus } },
+          data,
+        });
+        if (count === 0) return null;
+        const session = await prisma.session.findUnique({ where: { id } });
+        return session ? mapPrismaSession(session) : null;
+      }
+
+      const session = await prisma.session.update({ where: { id }, data });
       return mapPrismaSession(session);
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return null;

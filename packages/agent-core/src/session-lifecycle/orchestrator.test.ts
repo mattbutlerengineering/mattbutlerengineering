@@ -188,6 +188,39 @@ describe("SessionLifecycleOrchestrator", () => {
     expect(await orchestrator.cancel(session.id)).toBe(false);
   });
 
+  it("cancel() landing after execute() persists a terminal status does not clobber it (reverse-race)", async () => {
+    const store = createInMemorySessionStore();
+    const runSession: RunSessionFn = async () => buildResult({ status: "succeeded" });
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession,
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+
+    // Simulate the race window: intercept the terminal `updateStatus` write so
+    // that cancel() runs AFTER the terminal status is persisted but BEFORE
+    // execute()'s `finally` removes the controller from activeControllers —
+    // exactly the window described in the bug.
+    const originalUpdateStatus = store.updateStatus.bind(store);
+    let cancelResult: boolean | undefined;
+    store.updateStatus = async (id, status, patch, opts) => {
+      const result = await originalUpdateStatus(id, status, patch, opts);
+      if (status === "succeeded") {
+        cancelResult = await orchestrator.cancel(id);
+      }
+      return result;
+    };
+
+    await orchestrator.execute(session.id);
+
+    expect(cancelResult).toBe(false);
+    const persisted = await store.getById(session.id);
+    expect(persisted?.status).toBe("succeeded");
+    expect(store.listEvents(session.id).map((e) => e.type)).not.toContain("session:cancelled");
+  });
+
   describe("with a concurrency gate", () => {
     function gate(limit: number): ConcurrencyGate {
       const active = new Set<string>();

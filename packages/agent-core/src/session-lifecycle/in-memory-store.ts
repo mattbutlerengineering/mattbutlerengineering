@@ -50,10 +50,12 @@ export function createInMemorySessionStore(): InMemorySessionStore {
     async updateStatus(
       id: string,
       status: SessionStatus,
-      patch?: SessionResultPatch
+      patch?: SessionResultPatch,
+      opts?: { readonly fromStatus?: readonly SessionStatus[] }
     ): Promise<StoredSession | null> {
       const existing = sessions.get(id);
       if (!existing) return null;
+      if (opts?.fromStatus && !opts.fromStatus.includes(existing.status)) return null;
 
       const updated: StoredSession = {
         ...existing,
