@@ -1,7 +1,11 @@
-# ADR-004: Edge Routing (Cloudflare Workers + Service Bindings)
+---
+id: ADR-004
+title: Edge Routing
+status: active
+date: 2026-04-06
+---
 
-**Status:** active
-**Date:** 2026-04-06
+# ADR-004: Edge Routing (Cloudflare Workers + Service Bindings)
 
 ## Context
 

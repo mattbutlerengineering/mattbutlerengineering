@@ -537,6 +537,24 @@
   </file>
   </section>
   <section priority="medium" role="commands">
+  <file path="tools/cli/src/commands/adr-structural.ts">
+    <item priority="low">
+      interface StructuralViolation {
+        file: string;
+        rule: string;
+        remedy: string;
+      }
+    </item>
+    <item priority="high">
+      interface AdrFields {
+        id?: unknown;
+        title?: unknown;
+        status?: unknown;
+        date?: unknown;
+        prohibited_patterns?: unknown;
+      }
+    </item>
+  </file>
   <file path="tools/cli/src/commands/adr.ts">
     <item priority="high">
       interface ADRFrontmatter {

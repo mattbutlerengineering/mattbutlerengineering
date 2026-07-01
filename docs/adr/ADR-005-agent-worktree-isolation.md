@@ -1,7 +1,11 @@
-# ADR-005: Agent Worktree Isolation
+---
+id: ADR-005
+title: Agent Worktree Isolation
+status: active
+date: 2026-04-06
+---
 
-**Status:** active
-**Date:** 2026-04-06
+# ADR-005: Agent Worktree Isolation
 
 ## Context
 
