@@ -1,3 +1,7 @@
+/**
+ * Tests for the migrated sync-rules command using the defineCommand seam.
+ * Asserts returned CommandResult values directly — no console/process.exit spies.
+ */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -11,62 +15,54 @@ const mockExistsSync = vi.mocked(existsSync);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 
-describe("sync-rules command", () => {
-  let logSpy: ReturnType<typeof vi.spyOn>;
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-  let exitSpy: ReturnType<typeof vi.spyOn>;
-
+describe("sync-rules command (value-asserted via seam)", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.resetAllMocks();
-    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
   });
 
-  async function runSyncRules(): Promise<void> {
-    const { syncRulesCommand } = await import("../commands/sync-rules.js");
-    await syncRulesCommand.parseAsync([], { from: "user" });
-  }
-
-  it("exits with error when AGENTS.md not found", async () => {
+  it("returns an error result when AGENTS.md is missing", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
       return false;
     });
 
-    await runSyncRules();
+    const { syncRulesRun } = await import("./sync-rules.js");
+    const result = await syncRulesRun({});
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
-    const errOutput = errorSpy.mock.calls.flat().join("\n");
-    expect(errOutput).toContain("AGENTS.md not found");
+    expect(result.kind).toBe("error");
+    const err = result as Extract<typeof result, { kind: "error" }>;
+    expect(err.message).toContain("AGENTS.md not found");
+    expect(err.exitCode).toBe(1);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it("writes .cursorrules when AGENTS.md exists (no GEMINI.md)", async () => {
+  it("returns rows naming .cursorrules as updated when GEMINI.md is absent", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
       if (path.endsWith("AGENTS.md")) return true;
       return false; // no GEMINI.md
     });
-
     mockReadFileSync.mockReturnValue("# Agents content" as never);
 
-    await runSyncRules();
+    const { syncRulesRun } = await import("./sync-rules.js");
+    const result = await syncRulesRun({});
+
+    expect(result.kind).toBe("rows");
+    const rows = result as Extract<typeof result, { kind: "rows" }>;
+    const flat = JSON.stringify(rows.rows);
+    expect(flat).toContain(".cursorrules");
+    expect(flat).not.toContain("GEMINI.md");
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining(".cursorrules"),
       expect.stringContaining("# Agents content")
     );
-
-    // Success is now routed through runCommand → console.log (tab-separated rows)
-    const output = logSpy.mock.calls.flat().join("\n");
-    expect(output).toContain(".cursorrules");
   });
 
-  it("updates GEMINI.md when it exists and lacks AGENTS.md reference", async () => {
+  it("returns rows naming GEMINI.md as updated when it lacks an AGENTS.md reference", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
@@ -74,28 +70,29 @@ describe("sync-rules command", () => {
       if (path.endsWith("GEMINI.md")) return true;
       return false;
     });
-
     mockReadFileSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("GEMINI.md")) return "# Gemini specific content" as never;
       return "# Agents content" as never;
     });
 
-    await runSyncRules();
+    const { syncRulesRun } = await import("./sync-rules.js");
+    const result = await syncRulesRun({});
 
-    // Should write to GEMINI.md since it doesn't contain AGENTS.md reference
+    expect(result.kind).toBe("rows");
+    const rows = result as Extract<typeof result, { kind: "rows" }>;
+    const flat = JSON.stringify(rows.rows);
+    expect(flat).toContain(".cursorrules");
+    expect(flat).toContain("GEMINI.md");
+
     const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
       String(path).endsWith("GEMINI.md")
     );
     expect(geminiWrite).toBeDefined();
     expect(String(geminiWrite![1])).toContain("AGENTS.md");
-
-    // Success is now routed through runCommand → console.log (tab-separated rows)
-    const output = logSpy.mock.calls.flat().join("\n");
-    expect(output).toContain("GEMINI.md");
   });
 
-  it("skips GEMINI.md update when AGENTS.md reference already present", async () => {
+  it("omits GEMINI.md from rows when it already references AGENTS.md", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
@@ -103,7 +100,6 @@ describe("sync-rules command", () => {
       if (path.endsWith("GEMINI.md")) return true;
       return false;
     });
-
     mockReadFileSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("GEMINI.md"))
@@ -111,9 +107,15 @@ describe("sync-rules command", () => {
       return "# Agents content" as never;
     });
 
-    await runSyncRules();
+    const { syncRulesRun } = await import("./sync-rules.js");
+    const result = await syncRulesRun({});
 
-    // GEMINI.md should NOT be rewritten since it already has the reference
+    expect(result.kind).toBe("rows");
+    const rows = result as Extract<typeof result, { kind: "rows" }>;
+    const flat = JSON.stringify(rows.rows);
+    expect(flat).toContain(".cursorrules");
+    expect(flat).not.toContain("GEMINI.md");
+
     const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
       String(path).endsWith("GEMINI.md")
     );
