@@ -684,59 +684,6 @@ describe("runSession", () => {
     // getGitDiff should only be called once despite multiple stages using it
     expect(deps.successEvaluator.getGitDiff).toHaveBeenCalledTimes(1);
   });
-
-  // ── AbortSignal cancellation (#2853) ────────────────────────────────
-
-  describe("AbortSignal cancellation", () => {
-    it("short-circuits before QueryPhase when the signal is already aborted", async () => {
-      const controller = new AbortController();
-      controller.abort();
-
-      const result = await runSession(BASE_CONFIG, undefined, deps, controller.signal);
-
-      expect(deps.queryRunner.runHardenedQuery).not.toHaveBeenCalled();
-      expect(result.status).toBe("failed");
-      expect(result.errors).toContain("Session aborted");
-    });
-
-    it("short-circuits before PublishPhase when the signal is aborted mid-pipeline (simulating a concurrent cancel())", async () => {
-      const controller = new AbortController();
-      withResult(deps, createMockResultMessage());
-      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
-      // Simulate cancel() firing while VerificationPhase's gateway call is
-      // in flight — the abort should be observed at the next boundary
-      // (before PublishPhase), not force-kill this in-flight call.
-      vi.mocked(deps.gateway.runPostCommitGateway).mockImplementation(async () => {
-        controller.abort();
-        return { outcome: "create-pr", passed: true, gateFailures: [], errors: [] };
-      });
-
-      const result = await runSession(BASE_CONFIG, undefined, deps, controller.signal);
-
-      // VerificationPhase's own gateway call still completed naturally.
-      expect(deps.gateway.runPostCommitGateway).toHaveBeenCalled();
-      // But PublishPhase (a later phase) never ran.
-      expect(deps.prCreator.buildPrTitle).not.toHaveBeenCalled();
-      expect(result.status).toBe("failed");
-      expect(result.errors).toContain("Session aborted");
-    });
-
-    it("does not change behavior on the normal (non-cancelled) path when no signal is passed", async () => {
-      withResult(deps, createMockResultMessage());
-      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
-      vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
-      vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
-      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
-        url: "https://github.com/repo/pull/1",
-        number: 1,
-      });
-
-      const result = await runSession(BASE_CONFIG, undefined, deps);
-
-      expect(result.status).toBe("succeeded");
-      expect(result.prUrl).toBe("https://github.com/repo/pull/1");
-    });
-  });
 });
 
 describe("Langfuse tracing", () => {

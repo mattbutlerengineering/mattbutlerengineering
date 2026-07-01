@@ -1,6 +1,5 @@
 import type { SessionConfig, SessionEvent, SessionResult, SessionStatus } from "../types.js";
 import type { FeedbackLoopConfig } from "../types.js";
-import type { PhaseDeps } from "../phases/index.js";
 
 // ── Stored session ────────────────────────────────────────────────────
 
@@ -124,9 +123,7 @@ export interface ConcurrencyGate {
 
 export type RunSessionFn = (
   config: SessionConfig,
-  onEvent?: (event: SessionEvent) => void,
-  deps?: PhaseDeps,
-  signal?: AbortSignal
+  onEvent?: (event: SessionEvent) => void
 ) => Promise<SessionResult>;
 
 export interface SessionLifecycleDeps {

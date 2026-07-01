@@ -126,17 +126,11 @@ export function createSessionLifecycleOrchestrator(
         if (stored) void addEvent(sessionId, stored.type, stored.data);
       };
 
-      const result = await runSession(
-        toSessionConfig(session),
-        onEvent,
-        undefined,
-        controller.signal
-      );
+      const result = await runSession(toSessionConfig(session), onEvent);
       pipelineResult = result;
 
       // If cancel() fired while the pipeline was running, it already wrote the
-      // terminal `cancelled` state. The pipeline short-circuits at the next
-      // phase boundary rather than being force-killed mid-phase, and may
+      // terminal `cancelled` state. The pipeline is not force-killed and may
       // still have produced a real branch/PR/cost — persist that onto the
       // already-`cancelled` row instead of discarding it (#2887A).
       if (controller.signal.aborted) {
@@ -194,10 +188,9 @@ export function createSessionLifecycleOrchestrator(
     const controller = activeControllers.get(sessionId);
     if (!controller) return false;
 
-    // Mark terminal + free the slot. `runSession` is given this same signal
-    // (see `execute`) and checks it at each phase boundary, so the in-flight
-    // pipeline short-circuits at the next boundary rather than running to its
-    // natural end — see the design note's cancellation-semantics section.
+    // Mark terminal + free the slot. NOTE: runSession does not yet accept an
+    // AbortSignal, so the in-flight pipeline runs to its natural end — see the
+    // design note's cancellation-semantics section.
     controller.abort();
     activeControllers.delete(sessionId);
     concurrency?.release(sessionId);

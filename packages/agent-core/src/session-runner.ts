@@ -36,8 +36,7 @@ const feedbackPhase = new FeedbackPhase();
 export async function runSession(
   config: SessionConfig,
   onEvent?: SessionEventCallback,
-  deps: PhaseDeps = createDefaultPhaseDeps(),
-  signal?: AbortSignal
+  deps: PhaseDeps = createDefaultPhaseDeps()
 ): Promise<SessionResult> {
   return startActiveObservation(
     "agent-session",
@@ -71,7 +70,7 @@ export async function runSession(
           let pendingResult: SessionResult | undefined;
 
           try {
-            await runPipeline(effectiveConfig, onEvent, deps, state, signal);
+            await runPipeline(effectiveConfig, onEvent, deps, state);
             pendingResult = buildFinalResult(effectiveConfig, state, rootSpan, onEvent);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -159,20 +158,12 @@ export async function runSession(
 // Each phase receives a typed input composed from prior phase outputs.
 // A failed phase short-circuits the pipeline (after a best-effort
 // partial-work push), mirroring the prior break-on-failure behaviour.
-//
-// An aborted `signal` is checked at each boundary between phases (never
-// mid-phase — an in-flight phase always runs to its own natural end) and
-// throws, so it short-circuits through the same catch in `runSession` as
-// any other pipeline error: `session:error` is emitted, a best-effort
-// partial-work push is attempted, and the `finally` worktree cleanup still
-// runs.
 
 async function runPipeline(
   config: SessionConfig,
   onEvent: SessionEventCallback | undefined,
   deps: PhaseDeps,
-  state: SessionState,
-  signal?: AbortSignal
+  state: SessionState
 ): Promise<void> {
   // WorktreePhase
   const worktreeExec = await worktreePhase.run({ config, onEvent }, deps);
@@ -181,7 +172,6 @@ async function runPipeline(
     state.systemPrompt = worktreeExec.output.systemPrompt;
   }
   if (await abortOnFailure(worktreeExec.result, config, state, deps, onEvent)) return;
-  throwIfAborted(signal);
 
   // QueryPhase
   const queryExec = await queryPhase.run(
@@ -210,7 +200,6 @@ async function runPipeline(
       return;
     }
   }
-  throwIfAborted(signal);
 
   // VerificationPhase
   const verifyExec = await verificationPhase.run(
@@ -233,7 +222,6 @@ async function runPipeline(
   // final result via state.errors (e.g. a draft PR with failing gates).
   state.errors.push(...verifyExec.result.errors);
   if (await abortOnFailure(verifyExec.result, config, state, deps, onEvent)) return;
-  throwIfAborted(signal);
 
   // PublishPhase
   const publishExec = await publishPhase.run(
@@ -254,7 +242,6 @@ async function runPipeline(
     state.prNumber = publishExec.output.prNumber;
   }
   if (await abortOnFailure(publishExec.result, config, state, deps, onEvent)) return;
-  throwIfAborted(signal);
 
   // FeedbackPhase
   const feedbackExec = await feedbackPhase.run(
@@ -269,15 +256,6 @@ async function runPipeline(
     deps
   );
   await abortOnFailure(feedbackExec.result, config, state, deps, onEvent);
-}
-
-/** Throws when `signal` has fired, so a phase boundary check short-circuits
- * the pipeline via the same catch/finally used for every other pipeline
- * error. */
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    throw new Error("Session aborted");
-  }
 }
 
 /**
