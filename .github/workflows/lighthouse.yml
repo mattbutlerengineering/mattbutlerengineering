@@ -20,9 +20,12 @@ jobs:
         # base "/rialto/", so its index.html references assets under /rialto/.
         # LHCI serves the dist at server root, so the dist must be staged under
         # that base subpath or the page 404s its assets and never paints (NO_FCP).
+        # hospitality is intentionally omitted: it is an Auth0-gated SPA that
+        # renders a blank shell when served as a static bundle (no auth session),
+        # so Lighthouse reports NO_FCP and can't score it. Its live, authenticated
+        # performance is covered by the deep audit / E2E, not this static tracker.
         app:
           - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing", base: "" }
-          - { name: "hospitality", pkg: "@mbe/hospitality", dir: "hospitality", base: "" }
           - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web", base: "rialto" }
 
     steps:
