@@ -1,7 +1,11 @@
-# ADR-002: API Error Format (RFC 7807 Problem Details)
+---
+id: ADR-002
+title: API Error Format
+status: active
+date: 2026-04-06
+---
 
-**Status:** active
-**Date:** 2026-04-06
+# ADR-002: API Error Format (RFC 7807 Problem Details)
 
 ## Context
 
