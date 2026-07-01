@@ -14,6 +14,7 @@ const tracer = trace.getTracer("@mbe/agent-core");
  */
 export class SecurityReviewGate implements QualityGate {
   readonly name = "security-review";
+  readonly eventType = "session:review" as const;
 
   shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
     if (context.runSecurityReview === false) return true;

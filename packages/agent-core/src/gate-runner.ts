@@ -1,3 +1,5 @@
+import type { SessionEventType } from "./types.js";
+
 // ── Types ─────────────────────────────────────────────────────────────
 
 /**
@@ -56,6 +58,13 @@ export interface GateRunResult {
 export interface QualityGate {
   /** Stable identifier shown in draft-PR failure messages. */
   readonly name: string;
+
+  /**
+   * Session event type emitted when this gate's result carries `details`.
+   * Callers should default to "session:verification" when this is absent
+   * rather than switching on `name` — see post-commit-gateway.ts.
+   */
+  readonly eventType?: SessionEventType;
 
   /**
    * Evaluate the diff context and return a result.
