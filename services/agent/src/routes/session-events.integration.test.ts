@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { AgentSessionEvent } from "@mbe/types";
+import type { AuthUser } from "@mbe/auth/fastify";
 import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
 
 /**
@@ -10,20 +11,41 @@ import { buildMinimalSuccessFixture } from "@mbe/agent-test-utils";
  * (catch-up), then streams new events live via the in-process subscription
  * seam — no fixed-interval poll loop. These tests verify the wire format,
  * catch-up, terminal close, live delivery without a poll timer, single DB
- * read per connect, and shared fan-out across concurrent subscribers.
+ * read per connect, shared fan-out across concurrent subscribers, and
+ * session-ownership authorization.
+ *
+ * Auth mocking follows sessions-authz.test.ts: the whole `@mbe/auth/fastify`
+ * module is replaced so `request.user` is fully controllable per test,
+ * without relying on real JWT verification. The 'x-auth-bypass' header keeps
+ * working (hardcoded admin identity) for the pre-existing streaming tests;
+ * `currentUser` drives the new ownership tests that need non-admin identities.
  */
 
-vi.mock("jose", () => ({
-  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
-  jwtVerify: vi.fn().mockResolvedValue({
-    payload: {
-      sub: "test-user",
-      email: "test@example.com",
-      permissions: [],
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      iat: Math.floor(Date.now() / 1000),
-    },
-    protectedHeader: { alg: "RS256" },
+let currentUser: AuthUser | undefined;
+
+const BYPASS_ADMIN_USER: AuthUser = {
+  id: "auth0|user-123",
+  email: "test@example.com",
+  raw: {
+    sub: "auth0|user-123",
+    iss: "https://test.auth0.com",
+    aud: ["https://api.test.com"],
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000),
+    permissions: ["admin"],
+  },
+};
+
+vi.mock("@mbe/auth/fastify", () => ({
+  authPlugin: vi.fn(async () => {}),
+  getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
+  requireAuth: vi.fn(async (req: { headers: Record<string, unknown>; user?: AuthUser }) => {
+    req.user = req.headers["x-auth-bypass"] === "true" ? BYPASS_ADMIN_USER : currentUser;
+  }),
+  hasPermission: vi.fn((user: AuthUser | undefined, permission: string) => {
+    if (!user) return false;
+    const permissions = user.raw?.permissions;
+    return Array.isArray(permissions) && (permissions as string[]).includes(permission);
   }),
 }));
 
@@ -83,9 +105,7 @@ describe("Session Events SSE Integration", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
-    process.env.AUTH_AUTHORITY = "https://test.auth0.com";
-    process.env.AUTH_AUDIENCE = "https://api.test.com";
-    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    currentUser = undefined;
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -285,5 +305,85 @@ describe("Session Events SSE Integration", () => {
 
     expect(response.body).toContain("event: stream:error");
     expect(response.body).toContain("Internal stream error");
+  });
+});
+
+describe("Session Events SSE Integration — ownership", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    currentUser = undefined;
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  function makeUser(id: string, permissions: string[] = []): AuthUser {
+    return {
+      id,
+      email: `${id}@example.com`,
+      raw: {
+        sub: id,
+        iss: "https://test.auth0.com/",
+        aud: ["https://api.example.com"],
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+        permissions,
+      },
+    };
+  }
+
+  const ownedSession = {
+    id: "session-owned",
+    userId: "owner-abc",
+    status: "SUCCEEDED",
+    taskDescription: "test",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it("returns 404 (no SSE stream) for a non-owner non-admin caller", async () => {
+    currentUser = makeUser("stranger-999");
+    vi.mocked(prisma.session.findUnique).mockResolvedValue(ownedSession as unknown as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-owned/events",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.headers["content-type"]).not.toContain("text/event-stream");
+    // Ownership check short-circuits before the catch-up read.
+    expect(prisma.sessionEvent.findMany).not.toHaveBeenCalled();
+  });
+
+  it("streams for the session owner", async () => {
+    currentUser = makeUser("owner-abc");
+    vi.mocked(prisma.session.findUnique).mockResolvedValue(ownedSession as unknown as never);
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue([] as unknown as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-owned/events",
+    });
+
+    expect(response.headers["content-type"]).toContain("text/event-stream");
+  });
+
+  it("streams for an admin caller on someone else's session", async () => {
+    currentUser = makeUser("admin-1", ["admin"]);
+    vi.mocked(prisma.session.findUnique).mockResolvedValue(ownedSession as unknown as never);
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValue([] as unknown as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-owned/events",
+    });
+
+    expect(response.headers["content-type"]).toContain("text/event-stream");
   });
 });

@@ -9,22 +9,11 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
-import type { AuthUser } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import { cancelSession } from "../services/session-executor.js";
 import { defaultConcurrency } from "../services/session-concurrency.js";
-
-/**
- * Returns true if the caller is the session owner or an admin.
- * Sessions with null userId are admin-only (no owner to match).
- * Uses 404 (not 403) to avoid revealing session existence to unauthorized callers.
- */
-function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
-  if (hasPermission(caller, "admin")) return true;
-  if (sessionUserId === null) return false;
-  return caller?.id === sessionUserId;
-}
+import { isOwnerOrAdmin } from "./session-authorization.js";
 
 export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
