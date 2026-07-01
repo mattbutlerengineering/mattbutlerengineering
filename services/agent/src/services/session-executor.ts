@@ -11,6 +11,7 @@ import type { sessionService as SessionServiceType } from "./session.js";
 import type { SessionConcurrency } from "./session-concurrency.js";
 import { mapForStorage } from "./storage-event-mapper.js";
 import { createPrismaSessionStore } from "./prisma-session-store.js";
+import { getServiceLogger } from "./logger.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -66,6 +67,10 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
     runSession,
     concurrency,
     projectEvent,
+    // Live-bound so the real Fastify logger — wired in later at boot via
+    // setServiceLogger — is used even though this orchestrator may be
+    // constructed before that happens (the default executor is lazy).
+    logger: { error: (meta, message) => getServiceLogger().error(meta, message) },
   });
 
   return {

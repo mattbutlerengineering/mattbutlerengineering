@@ -224,6 +224,9 @@
     </item>
   </file>
   <file path="src/session-lifecycle/orchestrator.ts">
+    <item priority="medium">
+      function buildResultPatch(result: SessionResult): SessionResultPatch { /* ... */ }
+    </item>
     <item priority="high">
       export function createSessionLifecycleOrchestrator(
         deps: SessionLifecycleDeps

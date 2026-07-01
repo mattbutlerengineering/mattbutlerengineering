@@ -39,6 +39,7 @@ export type {
   InMemorySessionStore,
   RunSessionFn,
   SessionLifecycleDeps,
+  SessionLifecycleLogger,
   SessionLifecycleOrchestrator,
   SessionLifecycleStore,
   SessionResultPatch,

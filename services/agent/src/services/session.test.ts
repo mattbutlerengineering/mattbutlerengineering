@@ -32,10 +32,16 @@ vi.mock("./session-concurrency.js", () => ({
   },
 }));
 
+vi.mock("./logger.js", () => {
+  const error = vi.fn();
+  return { getServiceLogger: () => ({ error }), setServiceLogger: vi.fn() };
+});
+
 import { prisma } from "./database.js";
 import { sessionService } from "./session.js";
 import { executeSession } from "./session-executor.js";
 import { defaultConcurrency } from "./session-concurrency.js";
+import { getServiceLogger } from "./logger.js";
 
 const baseDate = new Date("2026-03-01T12:00:00Z");
 
@@ -371,6 +377,23 @@ describe("sessionService", () => {
       });
 
       await vi.waitFor(() => expect(onSettled).toHaveBeenCalledWith(false));
+    });
+
+    it("logs a failed execution via the structured service logger, not raw console.error (#2888B)", async () => {
+      vi.mocked(prisma.session.create).mockResolvedValueOnce(makePrismaSession());
+      vi.mocked(executeSession).mockRejectedValueOnce(new Error("SDK crash"));
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await sessionService.triggerSession({ taskDescription: "Fix the bug" });
+
+      await vi.waitFor(() => expect(getServiceLogger().error).toHaveBeenCalled());
+      expect(getServiceLogger().error).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionId: "sess-1", err: expect.any(Error) }),
+        expect.any(String)
+      );
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
     });
 
     it("does not call onSettled when execution succeeds if not provided", async () => {

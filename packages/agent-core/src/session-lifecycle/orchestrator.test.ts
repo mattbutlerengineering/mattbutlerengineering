@@ -148,6 +148,122 @@ describe("SessionLifecycleOrchestrator", () => {
     expect(await orchestrator.execute("missing")).toBeNull();
   });
 
+  it("marks the session failed (not left pending) when store.getById throws (#2886)", async () => {
+    const store = createInMemorySessionStore();
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession: vi.fn(),
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+    const originalGetById = store.getById.bind(store);
+    store.getById = async () => {
+      throw new Error("transient db error");
+    };
+
+    const result = await orchestrator.execute(session.id);
+
+    expect(result).toBeNull();
+    const persisted = await originalGetById(session.id);
+    expect(persisted?.status).toBe("failed");
+    expect(persisted?.errors).toEqual(["transient db error"]);
+  });
+
+  it("persists result data on cancel-after-complete while keeping status cancelled (#2887A)", async () => {
+    let entered = false;
+    let resolveRun: ((result: SessionResult) => void) | undefined;
+    const runSession: RunSessionFn = () =>
+      new Promise<SessionResult>((resolve) => {
+        entered = true;
+        resolveRun = resolve;
+      });
+
+    const store = createInMemorySessionStore();
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession,
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+    const exec = orchestrator.execute(session.id);
+    while (!entered) {
+      await Promise.resolve();
+    }
+
+    const cancelled = await orchestrator.cancel(session.id);
+    expect(cancelled).toBe(true);
+
+    // The pipeline is not force-killed — it runs to its natural end and can
+    // still produce a real branch/PR/cost.
+    resolveRun?.(buildResult({ branchName: "agent/x", prUrl: "https://pr/1", costUsd: 0.42 }));
+    await exec;
+
+    const persisted = await store.getById(session.id);
+    expect(persisted?.status).toBe("cancelled");
+    expect(persisted?.branchName).toBe("agent/x");
+    expect(persisted?.prUrl).toBe("https://pr/1");
+    expect(persisted?.costUsd).toBe(0.42);
+  });
+
+  it("does not masquerade a post-success terminal-write failure as a dropped-result pipeline failure (#2887B)", async () => {
+    const store = createInMemorySessionStore();
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession: async () => buildResult({ costUsd: 1.23, prUrl: "https://pr/7" }),
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+    const originalUpdateStatus = store.updateStatus.bind(store);
+    store.updateStatus = async (id, status, patch, opts) => {
+      if (status === "succeeded") throw new Error("terminal write boom");
+      return originalUpdateStatus(id, status, patch, opts);
+    };
+
+    const result = await orchestrator.execute(session.id);
+
+    // The real result is still returned to the caller — not dropped.
+    expect(result?.status).toBe("succeeded");
+    expect(result?.costUsd).toBe(1.23);
+    expect(result?.prUrl).toBe("https://pr/7");
+
+    // The row must not have been clobbered to `failed` with the result
+    // discarded — the terminal write never applied, so it's still `running`.
+    const persisted = await store.getById(session.id);
+    expect(persisted?.status).toBe("running");
+    expect(persisted?.errors).toEqual([]);
+  });
+
+  it("logs a swallowed addEvent failure with {sessionId, type, err} instead of failing the session (#2888A)", async () => {
+    const store = createInMemorySessionStore();
+    store.addEvent = async () => {
+      throw new Error("event write boom");
+    };
+    const logger = { error: vi.fn() };
+
+    const orchestrator = createSessionLifecycleOrchestrator({
+      store,
+      resolveRepoPath: () => "/repo",
+      runSession: async () => buildResult(),
+      logger,
+    });
+
+    const session = await orchestrator.create({ taskDescription: "task" });
+    const result = await orchestrator.execute(session.id);
+
+    expect(result?.status).toBe("succeeded");
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: session.id,
+        type: "session:start",
+        err: expect.any(Error),
+      }),
+      expect.any(String)
+    );
+  });
+
   it("cancel aborts a running session and transitions to cancelled", async () => {
     let entered = false;
     let resolveRun: (() => void) | undefined;

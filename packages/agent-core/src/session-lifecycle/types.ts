@@ -83,6 +83,18 @@ export interface SessionLifecycleStore {
   addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void>;
 }
 
+// ── Logging seam ───────────────────────────────────────────────────────
+
+/**
+ * Minimal structured error-logger seam. Defaults to a `console.error`-backed
+ * implementation when not injected — agent-core is a library and must not
+ * hard-import a service's logger. The real caller (e.g. the agent service)
+ * wires its own structured/service logger through `SessionLifecycleDeps`.
+ */
+export interface SessionLifecycleLogger {
+  error(meta: Record<string, unknown>, message: string): void;
+}
+
 // ── Event projection ──────────────────────────────────────────────────
 
 export interface StoredEvent {
@@ -124,6 +136,8 @@ export interface SessionLifecycleDeps {
   readonly projectEvent?: EventProjector;
   readonly allowedTools?: readonly string[];
   readonly feedbackLoop?: FeedbackLoopConfig;
+  /** Defaults to a `console.error`-backed logger. See `SessionLifecycleLogger`. */
+  readonly logger?: SessionLifecycleLogger;
 }
 
 export interface SessionLifecycleOrchestrator {

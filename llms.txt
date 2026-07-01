@@ -2429,6 +2429,14 @@
       }
     </item>
   </file>
+  <file path="services/agent/src/services/logger.ts">
+    <item priority="high">
+      export function setServiceLogger(logger: FastifyBaseLogger): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getServiceLogger(): SessionLifecycleLogger { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/services/prisma-session-store.ts">
     <item priority="medium">
       function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus { /* ... */ }
@@ -3035,6 +3043,9 @@
     </item>
   </file>
   <file path="packages/agent-core/src/session-lifecycle/orchestrator.ts">
+    <item priority="medium">
+      function buildResultPatch(result: SessionResult): SessionResultPatch { /* ... */ }
+    </item>
     <item priority="high">
       export function createSessionLifecycleOrchestrator(
         deps: SessionLifecycleDeps

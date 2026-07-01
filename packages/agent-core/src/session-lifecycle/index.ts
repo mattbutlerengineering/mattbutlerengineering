@@ -7,6 +7,7 @@ export type {
   EventProjector,
   RunSessionFn,
   SessionLifecycleDeps,
+  SessionLifecycleLogger,
   SessionLifecycleOrchestrator,
   SessionLifecycleStore,
   SessionResultPatch,

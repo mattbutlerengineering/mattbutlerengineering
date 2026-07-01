@@ -4,6 +4,7 @@ import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { getSessionEventEmitter } from "./session-event-emitter.js";
 import { defaultConcurrency } from "./session-concurrency.js";
+import { getServiceLogger } from "./logger.js";
 
 function mapPrismaSession(session: Session): AgentSession {
   return {
@@ -147,7 +148,7 @@ export const sessionService = {
       .then(() => opts.onSettled?.(true))
       .catch((err) => {
         opts.onSettled?.(false);
-        console.error({ sessionId: session.id, err }, "triggerSession execution failed");
+        getServiceLogger().error({ sessionId: session.id, err }, "triggerSession execution failed");
       });
 
     return { session, accepted: true };
