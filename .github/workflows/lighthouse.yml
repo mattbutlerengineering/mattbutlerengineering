@@ -16,10 +16,14 @@ jobs:
 
     strategy:
       matrix:
+        # `base` is the app's Vite `base` path — rialto-web builds with
+        # base "/rialto/", so its index.html references assets under /rialto/.
+        # LHCI serves the dist at server root, so the dist must be staged under
+        # that base subpath or the page 404s its assets and never paints (NO_FCP).
         app:
-          - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing" }
-          - { name: "hospitality", pkg: "@mbe/hospitality", dir: "hospitality" }
-          - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web" }
+          - { name: "marketing", pkg: "@mbe/marketing", dir: "marketing", base: "" }
+          - { name: "hospitality", pkg: "@mbe/hospitality", dir: "hospitality", base: "" }
+          - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web", base: "rialto" }
 
     steps:
       - uses: actions/checkout@v7.0.0
@@ -42,6 +46,16 @@ jobs:
         # fails with TS2307. Matches deploy-static.yml.
         run: pnpm build --filter=${{ matrix.app.pkg }}
 
+      - name: Stage dist under app base path
+        # LHCI's static server serves the dist at server root. Apps built with a
+        # non-root Vite base (rialto-web → /rialto/) reference their assets under
+        # that path, so we nest the dist under it; the audited URL then matches
+        # the deployed URL and assets resolve (no NO_FCP). Root-base apps
+        # (base "") copy straight to lh-dist.
+        run: |
+          mkdir -p lh-dist/${{ matrix.app.base }}
+          cp -r apps/${{ matrix.app.dir }}/dist/. lh-dist/${{ matrix.app.base }}/
+
       - name: Run Lighthouse
         id: lh
         uses: treosh/lighthouse-ci-action@v12
@@ -54,7 +68,7 @@ jobs:
           configPath: ./lighthouserc.ci.cjs
           temporaryPublicStorage: true
         env:
-          LH_STATIC_DIST_DIR: ./apps/${{ matrix.app.dir }}/dist
+          LH_STATIC_DIST_DIR: ./lh-dist
 
       - name: Extract and store scores
         env:
