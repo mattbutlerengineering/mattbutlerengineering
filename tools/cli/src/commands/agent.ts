@@ -14,7 +14,7 @@ import { resolveIssueModel } from "../resolve-issue-model.js";
 import { agentEvalCommand } from "./agent-eval.js";
 import { frontmatterCommand } from "./agent-frontmatter.js";
 import {
-  runSession,
+  runAgentSession,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   resolveBudget,
@@ -378,7 +378,7 @@ agentCommand
         ? smartBudget.budgetUsd
         : parseFloat(options.maxBudget);
 
-      // ── claude adapter: preserve existing runSession() behavior ──────
+      // ── claude adapter: single entry point → ClaudeAdapter → runSession() ──
       if (adapterType === "claude") {
         const config: SessionConfig = {
           taskDescription: task,
@@ -402,7 +402,9 @@ agentCommand
         console.log("");
 
         try {
-          const result = await runSession(config, (event) => handleEvent(event, options.verbose));
+          const result = await runAgentSession(config, {
+            onEvent: (event) => handleEvent(event, options.verbose),
+          });
 
           // Log spend telemetry to .claude/agent-spend.jsonl (best-effort).
           logSpend({
@@ -484,7 +486,7 @@ agentCommand
 
         try {
           if (adapterType === "auto") {
-            // Failover routing across CLI-backed adapters (claude calls runSession directly above)
+            // Failover routing across CLI-backed adapters (claude goes through runAgentSession above)
             const adapters = [new GeminiCliAdapter(), new OpenCodeAdapter()];
             const detector = new RateLimitDetector(adapters.map((a) => a.name));
             const router = new FailoverRouter(adapters, detector);
