@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Chaos Agent — Seeds detectable non-breaking bugs (#1191).
+ * Chaos Agent — Seeds detectable non-breaking bugs (#1191, #2927).
  *
  * This script injects synthetic bugs into the codebase to verify that
  * site-audit and lint loops are functioning correctly.
  *
- * Bug Types:
+ * The bug catalog (which types exist, and how each is injected) lives in
+ * `@mbe/agent-core`'s `BUG_CATALOG`/`injectBug` (packages/agent-core/src/synthetic-bug-seeder.ts)
+ * — this script is a thin I/O shell around that single source of truth:
  * 1. console-error: Adds a console.error in a useEffect (caught by site-audit Playwright)
  * 2. lighthouse-perf: Adds a large invisible image (caught by Lighthouse)
  * 3. accessibility: Removes an aria-label (caught by Lighthouse a11y)
@@ -15,6 +17,7 @@
  * Usage:
  *   node scripts/chaos-agent.mjs --type <type> [--file <path>]
  *   node scripts/chaos-agent.mjs --random
+ *   node scripts/chaos-agent.mjs --type <type> --file <path> --dry-run  # no git/PR side effects
  */
 
 import { execFileSync } from "node:child_process";
@@ -22,42 +25,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { BUG_CATALOG, injectBug } from "@mbe/agent-core";
+
+// Re-exported for tests: proves this script delegates to the agent-core
+// catalog rather than reimplementing its own (#2927).
+export { BUG_CATALOG };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
 const ghClient = createGhClient();
 
-const BUG_TYPES = {
-  "console-error": {
-    description: "Injects a console error into a React component",
-    pattern: /export (default )?function (\w+)/,
-    injection: (name) =>
-      `\n  React.useEffect(() => { console.error("CHAOS-ERROR: Synthetic bug for #${name}"); }, []);\n`,
-    imports: 'import React from "react";\n',
-  },
-  "lighthouse-perf": {
-    description: "Adds a huge invisible image to trigger a performance regression",
-    pattern: /<\/\w+>/, // Find a closing tag
-    injection: () =>
-      `\n      {/* Synthetic performance regression */} \n      <img src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION" style={{ display: 'none' }} alt="" />\n`,
-  },
-  accessibility: {
-    description: "Removes an aria-label or alt tag from a button, link, or image",
-    pattern: /(aria-label|alt)="[^"]+"/,
-    replacement: "",
-  },
-  "scout-todo": {
-    description: "Adds a FIXME comment for scout mode to find",
-    pattern: /^/,
-    injection: () =>
-      `// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.\n`,
-  },
-};
-
 const TARGET_APPS = ["apps/marketing", "apps/hospitality", "apps/rialto-web"];
 
-function findTargetFile(type) {
+export function findTargetFile(type) {
   const app = TARGET_APPS[Math.floor(Math.random() * TARGET_APPS.length)];
   const files = execFileSync("find", [path.join(ROOT, app, "src"), "-name", "*.tsx"], {
     encoding: "utf-8",
@@ -68,40 +49,24 @@ function findTargetFile(type) {
   return files[Math.floor(Math.random() * files.length)];
 }
 
-function injectBug(type, filePath) {
-  let content = fs.readFileSync(filePath, "utf-8");
-  const bug = BUG_TYPES[type];
+/** Reads `filePath` and delegates to the pure `injectBug` catalog transform. */
+function computeInjection(type, filePath) {
+  return injectBug(type, fs.readFileSync(filePath, "utf-8"));
+}
 
-  if (type === "accessibility") {
-    if (!bug.pattern.test(content)) {
-      console.log(`File ${filePath} doesn't have an aria-label, skipping...`);
-      return false;
-    }
-    content = content.replace(bug.pattern, bug.replacement);
-  } else if (type === "console-error") {
-    const match = content.match(bug.pattern);
-    if (!match) return false;
+/**
+ * Applies a catalog bug to the file at `filePath` (writes the transformed
+ * content back). Returns whether an injection actually happened.
+ */
+export function injectBugIntoFile(type, filePath) {
+  const result = computeInjection(type, filePath);
 
-    // Check if React is imported
-    if (!content.includes("import React")) {
-      content = bug.imports + content;
-    }
-
-    const insertionPoint = content.indexOf("{", match.index) + 1;
-    content =
-      content.slice(0, insertionPoint) + bug.injection(match[2]) + content.slice(insertionPoint);
-  } else {
-    const match = content.match(bug.pattern);
-    if (!match) return false;
-
-    if (type === "scout-todo") {
-      content = bug.injection() + content;
-    } else {
-      content = content.replace(bug.pattern, (m) => bug.injection() + m);
-    }
+  if (!result.injected) {
+    console.log(`No injection point found for ${type} in ${filePath}, skipping...`);
+    return false;
   }
 
-  fs.writeFileSync(filePath, content);
+  fs.writeFileSync(filePath, result.content);
   return true;
 }
 
@@ -109,22 +74,33 @@ function main() {
   const args = process.argv.slice(2);
   let type = args.includes("--type") ? args[args.indexOf("--type") + 1] : null;
   const randomMode = args.includes("--random");
+  const dryRun = args.includes("--dry-run");
 
   if (randomMode) {
-    const types = Object.keys(BUG_TYPES);
+    const types = Object.keys(BUG_CATALOG);
     type = types[Math.floor(Math.random() * types.length)];
   }
 
-  if (!type || !BUG_TYPES[type]) {
-    console.error(`Invalid bug type. Available: ${Object.keys(BUG_TYPES).join(", ")}`);
+  if (!type || !BUG_CATALOG[type]) {
+    console.error(`Invalid bug type. Available: ${Object.keys(BUG_CATALOG).join(", ")}`);
     process.exit(1);
   }
 
   const fileIdx = args.indexOf("--file");
   const targetFile = fileIdx !== -1 ? args[fileIdx + 1] : findTargetFile(type);
-  console.log(`Targeting file: ${targetFile} with bug type: ${type}`);
+  console.log(`Targeting file: ${targetFile} with bug type: ${type}${dryRun ? " (dry run)" : ""}`);
 
-  if (injectBug(type, targetFile)) {
+  if (dryRun) {
+    const result = computeInjection(type, targetFile);
+    console.log(
+      result.injected
+        ? `Dry run: would inject ${type} into ${targetFile} (no files or git state changed).`
+        : `Dry run: no injection point found for ${type} in ${targetFile}.`
+    );
+    process.exit(result.injected ? 0 : 1);
+  }
+
+  if (injectBugIntoFile(type, targetFile)) {
     const relativePath = path.relative(ROOT, targetFile);
     const branchName = `chaos/synthetic-bug-${Date.now()}`;
 
@@ -143,14 +119,14 @@ function main() {
       execFileSync("git", ["push", "origin", branchName]);
 
       const prBody = `## Chaos Agent Synthetic Bug Audit
-      
+
       This PR contains a synthetic **${type}** bug injected by the Chaos Agent.
-      
+
       **File:** ${relativePath}
       **Goal:** Verify that site-audit and lint loops detect this issue and file a corresponding GitHub issue.
-      
+
       This PR is designed to be detectable but non-breaking for the build.
-      
+
       Labels: \`chaos-audit\`, \`ready\`, \`audit\``;
 
       try {
@@ -176,4 +152,6 @@ function main() {
   }
 }
 
-main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}
