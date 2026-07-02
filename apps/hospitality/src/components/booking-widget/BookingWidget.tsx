@@ -228,7 +228,17 @@ export function BookingWidget({
     actions.resetFlow();
   }, [actions]);
 
-  const hasDeposit = Boolean(data.depositConfig?.enabled && venueSlug && stripePublishableKey);
+  const hasDeposit = Boolean(
+    effectiveDepositPolicy({
+      depositConfig: data.depositConfig,
+      venueSlug,
+      stripePublishableKey,
+      // Guest risk isn't known yet at this point in the flow (it's resolved
+      // during guest-details submission) — this gate only reflects the
+      // venue's general policy, matching the prior `enabled`-only check.
+      guestIsRisky: false,
+    })
+  );
   const stepKeys = hasDeposit ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
   const bookingSteps = hasDeposit ? BOOKING_STEPS_WITH_DEPOSIT : BOOKING_STEPS_NO_DEPOSIT;
   const currentStepIndex = stepKeys.indexOf(state);

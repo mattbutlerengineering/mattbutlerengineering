@@ -2,6 +2,8 @@ import type { Deposit } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { StripeService } from "./stripe.js";
 import { transitionDeposit, DepositTransitionError } from "./deposit-state-machine.js";
+import { quoteDeposit } from "@mbe/cancellation-policy";
+import type { DepositType } from "@mbe/cancellation-policy";
 
 export class DepositNotFoundError extends Error {
   constructor(id: string) {
@@ -396,20 +398,23 @@ export const depositService = new DepositService(
 export { DepositTransitionError };
 
 /**
- * Pure function: calculates the deposit amount in cents for a reservation.
+ * Calculates the deposit amount in cents for a reservation.
  *
- * Rules:
- * - "per_person": amount × partySize
- * - "fixed" (or any other type): amount as-is
- * - null depositAmountCents: zero
+ * Delegates to the shared {@link quoteDeposit} pricing rule in
+ * `@mbe/cancellation-policy` — the same function the booking widget calls to
+ * display the amount, so the guest never sees a different number than what
+ * Stripe authorizes.
+ *
+ * `venue.depositType` is typed loosely (`string | null`) here to match the
+ * Prisma-raw venue shape callers pass in; the DB column is a Postgres enum
+ * (`flat` | `per_person`) so the cast below is safe for real data.
  */
 export function calculateDepositAmount(
   venue: { depositType: string | null; depositAmountCents: number | null },
   partySize: number
 ): number {
-  const amount = venue.depositAmountCents ?? 0;
-  if (venue.depositType === "per_person") {
-    return amount * partySize;
-  }
-  return amount;
+  return quoteDeposit(
+    { depositType: venue.depositType as DepositType | null, amountCents: venue.depositAmountCents },
+    partySize
+  );
 }

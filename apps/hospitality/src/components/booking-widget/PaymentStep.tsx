@@ -6,7 +6,9 @@ import { ApiClientError, type createApiClient } from "@mbe/api-client";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { DepositConfig, DepositPaymentIntent } from "@mbe/types";
 import { DepositPaymentIntentSchema } from "@mbe/types";
+import { quoteDeposit } from "@mbe/cancellation-policy";
 import { formatCurrencyFromCents } from "../../utils/format.js";
+import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./PaymentStep.module.css";
 
 export type BookingWidgetApiClient = ReturnType<typeof createApiClient>;
@@ -20,14 +22,6 @@ export interface PaymentStepProps {
   stripePublishableKey: string;
   onSuccess: (paymentIntentId: string) => void;
   onBack: () => void;
-}
-
-function calculateAmount(config: DepositConfig, partySize: number): number {
-  if (!config.amountCents) return 0;
-  if (config.depositType === "per_person") {
-    return config.amountCents * partySize;
-  }
-  return config.amountCents;
 }
 
 interface CardFormProps {
@@ -54,9 +48,10 @@ function CardForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountCents = calculateAmount(depositConfig, partySize);
+  const amountCents = quoteDeposit(depositConfig, partySize);
   const currency = depositConfig.currency ?? "usd";
   const displayAmount = formatCurrencyFromCents(amountCents, currency);
+  const cancellationTerms = formatDepositCancellationTerms(depositConfig);
 
   const handleSubmit = useCallback(async () => {
     if (!stripe || !elements) return;
@@ -126,32 +121,12 @@ function CardForm({
         </Text>
       </div>
 
-      {depositConfig.freeCancellationHours !== null && (
+      {cancellationTerms && (
         <div className={styles.policyCard}>
           <Text variant="label" as="h4">
             Cancellation Policy
           </Text>
-          <ul className={styles.policyList}>
-            <li>
-              <Text variant="caption">
-                Free cancellation within {depositConfig.freeCancellationHours} hours of booking
-              </Text>
-            </li>
-            {depositConfig.lateCancellationFeePercent !== null && (
-              <li>
-                <Text variant="caption">
-                  Late cancellation fee: {depositConfig.lateCancellationFeePercent}% of deposit
-                </Text>
-              </li>
-            )}
-            {depositConfig.noShowFeePercent !== null && (
-              <li>
-                <Text variant="caption">
-                  No-show fee: {depositConfig.noShowFeePercent}% of deposit
-                </Text>
-              </li>
-            )}
-          </ul>
+          <Text variant="caption">{cancellationTerms}</Text>
         </div>
       )}
 
