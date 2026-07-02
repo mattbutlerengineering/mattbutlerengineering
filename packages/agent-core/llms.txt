@@ -30,6 +30,38 @@
       }
     </item>
   </file>
+  <file path="src/adapters/cli-adapter-session-runner.ts">
+    <item priority="high">
+      export async function runCliAdapterSession(
+        cliAdapter: AgentAdapter,
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        _signal?: AbortSignal
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PublishCliAdapterInput {
+        config: SessionConfig;
+        worktree: WorktreeInfo;
+        adapterSucceeded: boolean;
+        gatewayVerdict: GatewayVerdict | undefined;
+        cliAdapterName: string;
+      }
+    </item>
+  </file>
+  <file path="src/adapters/failover-session-adapter.ts">
+    <item priority="low">
+      type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    </item>
+    <item priority="high">
+      class FailoverSessionAdapter {
+        adapters: readonly FailoverCapableAdapter[];
+        detector: RateLimitDetector;
+        async runSession(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="src/adapters/gemini-adapter.ts">
     <item priority="high">
       class GeminiCliAdapter {
@@ -257,6 +289,14 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/adapter-resolution.ts">
+    <item priority="low">
+      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    </item>
+    <item priority="high">
+      export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }
+    </item>
+  </file>
   <file path="src/audit-inventory-store.ts">
     <item priority="high">
       export async function loadInventory(repoPath: string): Promise<AuditInventory> { /* ... */ }
