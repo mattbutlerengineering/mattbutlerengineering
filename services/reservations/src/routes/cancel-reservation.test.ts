@@ -204,6 +204,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().detail).toContain("already cancelled");
+    expect(response.json().code).toBe("RESERVATION_ALREADY_CANCELLED");
   });
 
   it("returns 409 when reservation is completed", async () => {
@@ -222,6 +223,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("RESERVATION_ALREADY_COMPLETED");
   });
 
   it("returns 404 when reservation not found", async () => {
@@ -235,6 +237,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("RESERVATION_NOT_FOUND");
   });
 
   describe("booking notifier injection", () => {

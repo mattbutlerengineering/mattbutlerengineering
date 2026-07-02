@@ -3,8 +3,6 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 import { classifyError } from "./classify-error.js";
 
-export { getTitleForStatus } from "./classify-error.js";
-
 export const errorHandlerPlugin: FastifyPluginAsync = fp(async (fastify) => {
   fastify.setErrorHandler((error, request: FastifyRequest, reply: FastifyReply) => {
     request.log.error(error);

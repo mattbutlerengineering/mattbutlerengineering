@@ -2,7 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
 import type { JWTPayload, AuthUser } from "../types/index.js";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, titleForStatus } from "@mbe/types";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -122,7 +122,7 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
           return reply
             .code(429)
             .send(
-              createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded")
+              createProblemDetails(429, titleForStatus(429), "Authentication rate limit exceeded")
             );
         }
         // Fall through on other errors — don't block auth due to rate limit failures
@@ -139,7 +139,7 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
         request.log.warn("JWT missing required 'sub' claim");
         return reply
           .code(401)
-          .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+          .send(createProblemDetails(401, titleForStatus(401), "Invalid token: missing sub"));
       }
 
       const { payload } = result;
@@ -167,7 +167,7 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
       };
     } catch (error) {
       request.log.warn({ error }, "JWT validation failed");
-      return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
+      return reply.code(401).send(createProblemDetails(401, titleForStatus(401), "Invalid token"));
     }
   });
 }
@@ -192,7 +192,9 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   if (!request.user && !isBypassed) {
     return reply
       .code(401)
-      .send(createProblemDetails(401, "Unauthorized", "Missing or invalid authorization header"));
+      .send(
+        createProblemDetails(401, titleForStatus(401), "Missing or invalid authorization header")
+      );
   }
 }
 

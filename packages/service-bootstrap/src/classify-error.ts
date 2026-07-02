@@ -1,3 +1,5 @@
+import { titleForStatus } from "@mbe/types";
+
 interface CustomError extends Error {
   statusCode?: number;
   status?: number;
@@ -21,39 +23,6 @@ export interface ErrorClassification {
   extensions: Record<string, unknown>;
 }
 
-export function getTitleForStatus(status: number): string {
-  switch (status) {
-    case 400:
-      return "Bad Request";
-    case 401:
-      return "Unauthorized";
-    case 403:
-      return "Forbidden";
-    case 404:
-      return "Not Found";
-    case 405:
-      return "Method Not Allowed";
-    case 406:
-      return "Not Acceptable";
-    case 408:
-      return "Request Timeout";
-    case 409:
-      return "Conflict";
-    case 410:
-      return "Gone";
-    case 415:
-      return "Unsupported Media Type";
-    case 422:
-      return "Unprocessable Entity";
-    case 429:
-      return "Too Many Requests";
-    case 503:
-      return "Service Unavailable";
-    default:
-      return "Error";
-  }
-}
-
 export function classifyError(err: unknown): ErrorClassification {
   const e = err as CustomError;
 
@@ -65,7 +34,7 @@ export function classifyError(err: unknown): ErrorClassification {
   if (e.name === "AppError" && typeof e.code === "string" && typeof e.statusCode === "number") {
     return {
       status: e.statusCode,
-      title: getTitleForStatus(e.statusCode),
+      title: titleForStatus(e.statusCode),
       detail: e.message,
       extensions: { code: e.code },
     };
@@ -88,9 +57,10 @@ export function classifyError(err: unknown): ErrorClassification {
     return classifyHttpError(e);
   }
 
+  const status = e.statusCode || e.status || 500;
   return {
-    status: e.statusCode || e.status || 500,
-    title: "Internal Server Error",
+    status,
+    title: titleForStatus(status),
     detail: e.message || "An unexpected error occurred",
     extensions: {},
   };
@@ -164,7 +134,7 @@ function classifyHttpError(e: CustomError): ErrorClassification {
   }
   return {
     status,
-    title: getTitleForStatus(status),
+    title: titleForStatus(status),
     detail: e.message,
     extensions,
   };

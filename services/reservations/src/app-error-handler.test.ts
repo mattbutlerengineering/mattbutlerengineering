@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { classifyError, getTitleForStatus } from "@mbe/service-bootstrap";
-import { AppError } from "@mbe/types";
+import { classifyError } from "@mbe/service-bootstrap";
+import { AppError, titleForStatus } from "@mbe/types";
 
 /**
  * AppError serialization is handled centrally by errorHandlerPlugin →
@@ -18,7 +18,7 @@ describe("AppError classification (via classifyError)", () => {
 
       expect(result).toEqual({
         status,
-        title: getTitleForStatus(status),
+        title: titleForStatus(status),
         detail: `Test error for status ${status}`,
         extensions: { code: "TEST_CODE" },
       });

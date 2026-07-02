@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, titleForStatus } from "@mbe/types";
 import { hasPermission } from "./plugin.js";
 
 /**
@@ -65,7 +65,9 @@ export function requireOwnershipOrAdmin(
     ]);
 
     if (currentId === null) {
-      reply.code(401).send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+      reply
+        .code(401)
+        .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
       return;
     }
 
@@ -74,7 +76,9 @@ export function requireOwnershipOrAdmin(
     if (!isOwner) {
       reply
         .code(403)
-        .send(createProblemDetails(403, "Forbidden", "You do not have access to this resource"));
+        .send(
+          createProblemDetails(403, titleForStatus(403), "You do not have access to this resource")
+        );
       return;
     }
 
