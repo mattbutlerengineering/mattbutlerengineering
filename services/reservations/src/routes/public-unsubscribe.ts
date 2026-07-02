@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { createProblemDetails, titleForStatus } from "@mbe/types";
 import { verifyUnsubscribeToken } from "../services/post-visit-notifier.js";
 import { guestService } from "../services/guest.js";
 
@@ -48,34 +49,45 @@ export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
       const { token } = request.query;
 
       if (!token) {
-        return reply.status(400).send({
-          type: "about:blank",
-          title: "Missing Token",
-          status: 400,
-          detail: "token query parameter is required",
-        });
+        return reply
+          .status(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Missing Token",
+              "token query parameter is required",
+              "about:blank",
+              undefined,
+              { code: "MISSING_TOKEN" }
+            )
+          );
       }
 
       const result = verifyUnsubscribeToken(token);
       if (!result.valid || !result.guestId) {
-        return reply.status(400).send({
-          type: "about:blank",
-          title: "Invalid Token",
-          status: 400,
-          detail: "Invalid or malformed unsubscribe token",
-        });
+        return reply
+          .status(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Invalid Token",
+              "Invalid or malformed unsubscribe token",
+              "about:blank",
+              undefined,
+              { code: "INVALID_TOKEN" }
+            )
+          );
       }
 
       try {
         await guestService.markUnsubscribed(result.guestId);
       } catch (err) {
         request.log.error({ err }, "Failed to mark guest as unsubscribed");
-        return reply.status(500).send({
-          type: "about:blank",
-          title: "Server Error",
-          status: 500,
-          detail: "Failed to process unsubscribe request",
-        });
+        return reply
+          .status(500)
+          .send(
+            createProblemDetails(500, titleForStatus(500), "Failed to process unsubscribe request")
+          );
       }
 
       return reply

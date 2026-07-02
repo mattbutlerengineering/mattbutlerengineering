@@ -108,7 +108,7 @@
               return reply
                 .code(429)
                 .send(
-                  createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded")
+                  createProblemDetails(429, titleForStatus(429), "Authentication rate limit exceeded")
                 );
             }
             // Fall through on other errors — don't block auth due to rate limit failures
@@ -125,7 +125,7 @@
             request.log.warn("JWT missing required 'sub' claim");
             return reply
               .code(401)
-              .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+              .send(createProblemDetails(401, titleForStatus(401), "Invalid token: missing sub"));
           }
     
           const { payload } = result;
@@ -153,7 +153,7 @@
           };
         } catch (error) {
           request.log.warn({ error }, "JWT validation failed");
-          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
+          return reply.code(401).send(createProblemDetails(401, titleForStatus(401), "Invalid token"));
         }
       });
     }

@@ -2984,7 +2984,7 @@
               return reply
                 .code(429)
                 .send(
-                  createProblemDetails(429, "Too Many Requests", "Authentication rate limit exceeded")
+                  createProblemDetails(429, titleForStatus(429), "Authentication rate limit exceeded")
                 );
             }
             // Fall through on other errors — don't block auth due to rate limit failures
@@ -3001,7 +3001,7 @@
             request.log.warn("JWT missing required 'sub' claim");
             return reply
               .code(401)
-              .send(createProblemDetails(401, "Unauthorized", "Invalid token: missing sub"));
+              .send(createProblemDetails(401, titleForStatus(401), "Invalid token: missing sub"));
           }
     
           const { payload } = result;
@@ -3029,7 +3029,7 @@
           };
         } catch (error) {
           request.log.warn({ error }, "JWT validation failed");
-          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Invalid token"));
+          return reply.code(401).send(createProblemDetails(401, titleForStatus(401), "Invalid token"));
         }
       });
     }
@@ -6234,13 +6234,12 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
-            return reply.status(preamble.status).send({
-              type: "about:blank",
-              title,
-              status: preamble.status,
-              detail,
-            });
+            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
+            return reply
+              .status(preamble.status)
+              .send(
+                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
+              );
           }
     
           const result = await cancelReservationWithDeposit(
@@ -6254,12 +6253,9 @@
           );
     
           if (!result.success) {
-            return reply.status(result.status).send({
-              type: "about:blank",
-              title: result.title,
-              status: result.status,
-              detail: result.detail,
-            });
+            return reply
+              .status(result.status)
+              .send(createProblemDetails(result.status, result.title, result.detail));
           }
     
           return reply.status(200).send({
@@ -7599,12 +7595,18 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
-            return reply.status(404).send({
-              type: "about:blank",
-              title: "Reservation Not Found",
-              status: 404,
-              detail: "Reservation not found",
-            });
+            return reply.status(404).send(
+              createProblemDetails(
+                404,
+                "Reservation Not Found",
+                "Reservation not found",
+                "about:blank",
+                undefined,
+                {
+                  code: "RESERVATION_NOT_FOUND",
+                }
+              )
+            );
           }
     
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
@@ -7652,13 +7654,12 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
-            return reply.status(preamble.status).send({
-              type: "about:blank",
-              title,
-              status: preamble.status,
-              detail,
-            });
+            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
+            return reply
+              .status(preamble.status)
+              .send(
+                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
+              );
           }
           const reservation = preamble.reservation;
     
@@ -7673,12 +7674,18 @@
             specialRequests !== undefined;
     
           if (!hasChanges) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "No Changes",
-              status: 400,
-              detail: "At least one field must be provided to modify",
-            });
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "No Changes",
+                  "At least one field must be provided to modify",
+                  "about:blank",
+                  undefined,
+                  { code: "NO_CHANGES_PROVIDED" }
+                )
+              );
           }
     
           const updateData = {
@@ -7696,19 +7703,31 @@
     
           if (!updateResult.success) {
             if (updateResult.conflict) {
-              return reply.status(409).send({
-                type: "about:blank",
-                title: "Slot Unavailable",
-                status: 409,
-                detail: updateResult.error,
-              });
+              return reply
+                .status(409)
+                .send(
+                  createProblemDetails(
+                    409,
+                    "Slot Unavailable",
+                    updateResult.error!,
+                    "about:blank",
+                    undefined,
+                    { code: "SLOT_UNAVAILABLE" }
+                  )
+                );
             }
-            return reply.status(500).send({
-              type: "about:blank",
-              title: "Update Failed",
-              status: 500,
-              detail: updateResult.error ?? "Failed to modify reservation",
-            });
+            return reply
+              .status(500)
+              .send(
+                createProblemDetails(
+                  500,
+                  "Update Failed",
+                  updateResult.error ?? "Failed to modify reservation",
+                  "about:blank",
+                  undefined,
+                  { code: "RESERVATION_UPDATE_FAILED" }
+                )
+              );
           }
     
           const updated = updateResult.reservation!;
@@ -8163,34 +8182,45 @@
           const { token } = request.query;
     
           if (!token) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Missing Token",
-              status: 400,
-              detail: "token query parameter is required",
-            });
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Missing Token",
+                  "token query parameter is required",
+                  "about:blank",
+                  undefined,
+                  { code: "MISSING_TOKEN" }
+                )
+              );
           }
     
           const result = verifyUnsubscribeToken(token);
           if (!result.valid || !result.guestId) {
-            return reply.status(400).send({
-              type: "about:blank",
-              title: "Invalid Token",
-              status: 400,
-              detail: "Invalid or malformed unsubscribe token",
-            });
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(
+                  400,
+                  "Invalid Token",
+                  "Invalid or malformed unsubscribe token",
+                  "about:blank",
+                  undefined,
+                  { code: "INVALID_TOKEN" }
+                )
+              );
           }
     
           try {
             await guestService.markUnsubscribed(result.guestId);
           } catch (err) {
             request.log.error({ err }, "Failed to mark guest as unsubscribed");
-            return reply.status(500).send({
-              type: "about:blank",
-              title: "Server Error",
-              status: 500,
-              detail: "Failed to process unsubscribe request",
-            });
+            return reply
+              .status(500)
+              .send(
+                createProblemDetails(500, titleForStatus(500), "Failed to process unsubscribe request")
+              );
           }
     
           return reply
@@ -15009,7 +15039,7 @@
     
       return {
         type: "about:blank",
-        title: httpStatusTitle(httpStatus),
+        title: titleForStatus(httpStatus),
         status: httpStatus,
         detail: fallbackDetail,
       };
@@ -15025,7 +15055,7 @@
           return candidate;
         }
       }
-      return httpStatusTitle(httpStatus);
+      return titleForStatus(httpStatus);
     }
   </file>
   <file path="packages/api-client/src/reservations.ts">
