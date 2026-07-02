@@ -86,6 +86,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
+import { GuestRecognitionSchema } from "@mbe/types/schemas";
 
 const mockVenue = {
   id: "venue-123",
@@ -258,5 +259,25 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     }
     // 11th should be rate limited (429)
     expect(responses[10].statusCode).toBe(429);
+  });
+
+  it("contract: live response validates against the shared GuestRecognition Zod schema", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(recognizeGuest).mockResolvedValueOnce({
+      recognized: true,
+      firstName: "Jane",
+      visitCount: 7,
+      hasPreferences: false,
+      lastVisit: "2026-05-01T18:00:00.000Z",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guests/recognize?email=jane@example.com",
+    });
+
+    const body = response.json() as { data: unknown };
+    const result = GuestRecognitionSchema.safeParse(body.data);
+    expect(result.success).toBe(true);
   });
 });

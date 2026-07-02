@@ -89,6 +89,7 @@ vi.mock("../services/database.js", async () => {
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import type { Guest } from "@mbe/types";
+import { GuestRiskResultSchema } from "@mbe/types/schemas";
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {
   return {
@@ -257,5 +258,20 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     const body = JSON.parse(res.payload) as { data: { requiresDeposit: boolean } };
     // With threshold=3, 2 no-shows = standard → no auto-deposit
     expect(body.data.requiresDeposit).toBe(false);
+  });
+
+  it("contract: live response validates against the shared GuestRiskResult Zod schema", async () => {
+    vi.mocked(guestService.findByEmail).mockResolvedValue(
+      makeGuest({ noShowCount: 0, riskScore: "trusted" })
+    );
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guest-risk?email=alice%40example.com",
+    });
+
+    const body = JSON.parse(res.payload) as { data: unknown };
+    const result = GuestRiskResultSchema.safeParse(body.data);
+    expect(result.success).toBe(true);
   });
 });
