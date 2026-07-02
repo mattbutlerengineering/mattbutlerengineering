@@ -59,8 +59,10 @@ gh issue list --label "ready" --state open --json number,title,body,labels --lim
 **Claim up to 3:**
 
 ```bash
-gh issue edit <N> --add-label "in-progress" --remove-label "ready"
+mbe issue transition <N> --to in-progress
 ```
+
+State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) always go through `mbe issue transition <N> --to <state>` — it wraps `@mbe/gh-client`'s tested label machine, the single source of truth for which labels come off on each edge. If `mbe` isn't on PATH (fresh worktree/CI), build once: `pnpm build --filter @mbe/cli...`, then `node tools/cli/dist/index.js issue transition <N> --to <state>`.
 
 ## Phase 2: Implement in Parallel
 
@@ -101,12 +103,12 @@ Each agent prompt MUST include:
 
 **Outcome labels as each agent finishes:**
 
-| Outcome                      | Labels                               |
-| ---------------------------- | ------------------------------------ |
-| PR created, gates green      | `has-pr`, remove `in-progress`       |
-| Partial work (draft PR)      | `needs-review`, remove `in-progress` |
-| No usable changes            | `agent-failed`, remove `in-progress` |
-| Second failure on same issue | add `stealable`                      |
+| Outcome                      | Command                                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| PR created, gates green      | `mbe issue transition <N> --to has-pr`                                                                |
+| Partial work (draft PR)      | `gh issue edit <N> --add-label "needs-review" --remove-label "in-progress"` (not state-machine — raw) |
+| No usable changes            | `mbe issue transition <N> --to agent-failed`                                                          |
+| Second failure on same issue | `gh issue edit <N> --add-label "stealable"` (not state-machine — raw)                                 |
 
 ### Worker telemetry capture
 

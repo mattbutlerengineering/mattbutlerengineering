@@ -130,3 +130,6 @@ storybook-static
 # AI-generated plan/spec docs (superpowers artifacts)
 docs/superpowers/plans/
 docs/superpowers/specs/
+
+# CI-generated a11y test output (ci.yml writes it, process-a11y-results.mjs consumes it)
+a11y-results.json
