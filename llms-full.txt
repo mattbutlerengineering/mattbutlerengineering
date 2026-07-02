@@ -1410,6 +1410,25 @@
       });
   </file>
   <file path="tools/cli/src/commands/agent.ts">
+    function loadTelemetryHistory(): TelemetryRow[] {
+      let content: string;
+      try {
+        content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
+      } catch {
+        return [];
+      }
+      return content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line) as TelemetryRow];
+          } catch {
+            return [];
+          }
+        });
+    }
     interface SpendRecord {
       date: string;
       timestamp: string;
@@ -1419,17 +1438,6 @@
       inputTokens: number;
       outputTokens: number;
       numTurns: number;
-    }
-    function logSpend(record: SpendRecord): void {
-      try {
-        const logDir = dirname(SPEND_LOG_PATH);
-        if (!existsSync(logDir)) {
-          mkdirSync(logDir, { recursive: true });
-        }
-        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
-      } catch {
-        // Silently swallow — spend logging is best-effort
-      }
     }
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
@@ -14645,6 +14653,22 @@
   <file path="packages/agent-core/src/task-signal-registry.ts">
     export type TaskTier = "trivial" | "simple" | "standard" | "complex";
     export type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
+  </file>
+  <file path="packages/agent-core/src/token-estimator.ts">
+    export interface TelemetryRow {
+      readonly issue_number: number;
+      readonly labels?: string[];
+      readonly model_tier?: string;
+      readonly subagent_tokens?: number;
+      readonly cost_usd?: number | null;
+    }
+    export interface TokenEstimate {
+      readonly estimatedTokens: number;
+      readonly estimatedCostUsd: number;
+      readonly confidence: "low" | "medium" | "high";
+      /** Human-readable explanation of which fallback tier produced the estimate. */
+      readonly basis: string;
+    }
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">
     function isPathWithinWorktree(filePath: string, worktreePath: string): boolean {

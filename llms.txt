@@ -529,6 +529,9 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent.ts">
+    <item priority="medium">
+      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
+    </item>
     <item priority="high">
       interface SpendRecord {
         date: string;
@@ -537,9 +540,6 @@
         issueNumber: number | null;
         model: string;
       }
-    </item>
-    <item priority="medium">
-      function logSpend(record: SpendRecord): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
@@ -3803,6 +3803,25 @@
     </item>
     <item priority="low">
       type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
+    </item>
+  </file>
+  <file path="packages/agent-core/src/token-estimator.ts">
+    <item priority="low">
+      interface TelemetryRow {
+        issue_number: number;
+        labels?: string[];
+        model_tier?: string;
+        subagent_tokens?: number;
+        cost_usd?: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface TokenEstimate {
+        estimatedTokens: number;
+        estimatedCostUsd: number;
+        confidence: "low" | "medium" | "high";
+        basis: string;
+      }
     </item>
   </file>
   <file path="packages/agent-core/src/tool-permissions.ts">

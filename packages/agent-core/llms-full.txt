@@ -2821,6 +2821,22 @@
     export type TaskTier = "trivial" | "simple" | "standard" | "complex";
     export type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
   </file>
+  <file path="src/token-estimator.ts">
+    export interface TelemetryRow {
+      readonly issue_number: number;
+      readonly labels?: string[];
+      readonly model_tier?: string;
+      readonly subagent_tokens?: number;
+      readonly cost_usd?: number | null;
+    }
+    export interface TokenEstimate {
+      readonly estimatedTokens: number;
+      readonly estimatedCostUsd: number;
+      readonly confidence: "low" | "medium" | "high";
+      /** Human-readable explanation of which fallback tier produced the estimate. */
+      readonly basis: string;
+    }
+  </file>
   <file path="src/tool-permissions.ts">
     function isPathWithinWorktree(filePath: string, worktreePath: string): boolean {
       const resolvedFile = resolve(filePath);

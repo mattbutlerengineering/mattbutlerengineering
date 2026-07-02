@@ -1,9 +1,15 @@
 import { Command } from "commander";
 import { resolve, dirname, join } from "node:path";
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { SessionConfig, SessionEvent, AdapterConfig, AdapterResult } from "@mbe/agent-core";
+import type {
+  SessionConfig,
+  SessionEvent,
+  AdapterConfig,
+  AdapterResult,
+  TelemetryRow,
+} from "@mbe/agent-core";
 import { resolveIssueModel } from "../resolve-issue-model.js";
 import { agentEvalCommand } from "./agent-eval.js";
 import { frontmatterCommand } from "./agent-frontmatter.js";
@@ -21,6 +27,7 @@ import {
   createPullRequest,
   buildPrTitle,
   buildPrBody,
+  estimateIssueTokens,
   GeminiCliAdapter,
   OpenCodeAdapter,
   RateLimitDetector,
@@ -44,6 +51,42 @@ const SPEND_LOG_PATH = join(
   ".claude",
   "agent-spend.jsonl"
 );
+
+/** Absolute path to the per-issue queue telemetry log (JSONL). */
+const QUEUE_TELEMETRY_PATH = join(
+  dirname(new URL(import.meta.url).pathname),
+  "..",
+  "..",
+  "..",
+  "..",
+  "metrics",
+  "queue-telemetry.jsonl"
+);
+
+/**
+ * Read historical queue telemetry rows for token estimation. Fail-soft: a
+ * missing/unreadable file or malformed lines yield an empty (or partial) list
+ * rather than an error — check-model must never crash on telemetry problems.
+ */
+function loadTelemetryHistory(): TelemetryRow[] {
+  let content: string;
+  try {
+    content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
+  } catch {
+    return [];
+  }
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line) as TelemetryRow];
+      } catch {
+        return [];
+      }
+    });
+}
 
 interface SpendRecord {
   date: string;
@@ -234,6 +277,15 @@ export const checkModelCommand = new Command("check-model")
       console.error(
         `check-model: #${options.issue} → ${result.tier} (${result.source}, ${result.modelId}): ${result.reason}`
       );
+
+      // Token-usage estimate from historical telemetry (stderr only — stdout
+      // stays the tier-only contract the implement-queue skill parses).
+      const estimate = estimateIssueTokens(issue, loadTelemetryHistory());
+      console.error(
+        `check-model: #${options.issue} estimate → ~${estimate.estimatedTokens} tokens ` +
+          `(~$${estimate.estimatedCostUsd.toFixed(2)}, ${estimate.confidence} confidence): ${estimate.basis}`
+      );
+
       console.log(result.tier);
       return;
     }
