@@ -1217,13 +1217,13 @@
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
     export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
       if (!config || config.freeCancellationHours == null) return null;
-      const feePercent = config.lateCancellationFeePercent ?? 0;
-      const feeAmountCents = Math.floor(((config.amountCents ?? 0) * feePercent) / 100);
-      const formattedFee = formatCurrencyFromCents(feeAmountCents, config.currency);
-      return (
-        `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
-        `After that, a ${feePercent}% fee (${formattedFee}) applies.`
-      );
+      const policy: CancellationPolicy = {
+        depositAmountCents: config.amountCents ?? 0,
+        freeCancellationHours: config.freeCancellationHours,
+        lateCancellationFeePercent: config.lateCancellationFeePercent,
+        noShowFeePercent: config.noShowFeePercent,
+      };
+      return formatCancellationTerms(policy, config.currency);
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
@@ -15572,6 +15572,13 @@
       noShowFeePercent: number | null;
     }
     export type FeeType = "none" | "late" | "noshow";
+  </file>
+  <file path="packages/cancellation-policy/src/deposit-quote.ts">
+    export type DepositType = "flat" | "per_person";
+    export interface DepositQuoteConfig {
+      depositType: DepositType | null;
+      amountCents: number | null;
+    }
   </file>
   <file path="packages/database/src/index.ts">
     export function isPrismaNotFound(err: unknown): boolean {
