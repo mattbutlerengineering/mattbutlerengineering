@@ -751,6 +751,11 @@ export function buildCategoryMap() {
  * Builds the LABEL_MAP format expected by sensor-correlator:
  * { sensorId → primary issue label (first in issueLabels array) }
  *
+ * Keyed by both `id` and `reportKey` (when set) — regression signals emitted
+ * by a sensor's `detectRegression` use its `reportKey` (e.g. "ci"'s regressions
+ * carry `sensor: "ciHealth"`), so the map must resolve either name to the
+ * same label.
+ *
  * @returns {Record<string, string>}
  */
 export function buildLabelMap() {
@@ -759,8 +764,35 @@ export function buildLabelMap() {
   for (const sensor of SENSORS) {
     if (!sensor.issueLabels || sensor.issueLabels.length === 0) continue;
     map[sensor.id] = sensor.issueLabels[0];
+    if (sensor.reportKey) map[sensor.reportKey] = sensor.issueLabels[0];
   }
   return map;
+}
+
+/**
+ * Collects every report-participating sensor's data. An expected "no data"
+ * case (missing file, unreachable API) is handled inside the sensor's own
+ * `collect` (usually via `safe()`) and returns `{ available: false }` directly.
+ * This wrapper is the last-resort net for a genuinely unexpected collector
+ * bug — it must not swallow silently, or the bug vanishes as a quiet
+ * "not available" sensor instead of surfacing.
+ *
+ * @param {SensorEntry[]} entries - typically getReportSensors()
+ * @param {CollectContext} ctx
+ * @returns {Record<string, object>} keyed by each entry's reportKey (or id)
+ */
+export function collectReportSensors(entries, ctx) {
+  return Object.fromEntries(
+    entries.map((sensor) => {
+      const key = sensor.reportKey ?? sensor.id;
+      try {
+        return [key, sensor.collect(ctx)];
+      } catch (err) {
+        console.error(`[sensor-report] unexpected error in "${sensor.id}" collector:`, err);
+        return [key, { available: false }];
+      }
+    })
+  );
 }
 
 /**

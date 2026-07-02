@@ -1,202 +1,97 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+/**
+ * Synthetic bug catalog for chaos-agent testing (#2927).
+ *
+ * The single source of truth for "detectable but non-breaking" bugs that the
+ * Chaos Agent (scripts/chaos-agent.mjs) injects into the codebase to verify
+ * that site-audit / lint / Lighthouse loops actually catch regressions.
+ *
+ * `injectBug` is a pure content transform — callers own reading/writing the
+ * target file, which keeps this module trivially unit-testable.
+ */
 
-const execFileAsync = promisify(execFile);
+export type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo";
 
-/** Bound every `git` subprocess call so a hang fails fast. */
-const GIT_TIMEOUT_MS = 60_000;
-
-export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
-
-export interface SyntheticBugConfig {
-  type: BugType;
-  repoPath: string;
-  filePath: string;
-  fileContent: string;
-  commitMessage: string;
-  branchName: string;
+export interface BugInjector {
+  description: string;
+  /** Pattern used to locate the injection point (or presence check). */
+  pattern: RegExp;
+  /** Builds the snippet to insert; receives the pattern's capture group when relevant. */
+  injection?: (capture?: string) => string;
+  /** For attribute-stripping bugs: replaces every pattern match with this string. */
+  replacement?: string;
+  /** Import statement to prepend when the target file doesn't already have it. */
+  imports?: string;
 }
 
-export interface BugSeedResult {
-  success: boolean;
-  branchName: string;
-  commitSha?: string;
-  filePath: string;
-  error?: string;
+export const BUG_CATALOG: Record<BugType, BugInjector> = {
+  "console-error": {
+    description: "Injects a console error into a React component",
+    pattern: /export (default )?function (\w+)/,
+    injection: (name) =>
+      `\n  React.useEffect(() => { console.error("CHAOS-ERROR: Synthetic bug for #${name}"); }, []);\n`,
+    imports: 'import React from "react";\n',
+  },
+  "lighthouse-perf": {
+    description: "Adds a huge invisible image to trigger a performance regression",
+    pattern: /<\/\w+>/, // Find a closing tag
+    injection: () =>
+      `\n      {/* Synthetic performance regression */} \n      <img src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION" style={{ display: 'none' }} alt="" />\n`,
+  },
+  accessibility: {
+    description: "Removes an aria-label or alt tag from a button, link, or image",
+    pattern: /(aria-label|alt)="[^"]+"/,
+    replacement: "",
+  },
+  "scout-todo": {
+    description: "Adds a FIXME comment for scout mode to find",
+    pattern: /^/,
+    injection: () =>
+      `// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.\n`,
+  },
+};
+
+export interface InjectBugResult {
+  injected: boolean;
+  content: string;
 }
 
 /**
- * Seeds a non-breaking but detectable bug for testing audit loops.
- * Creates a branch with the synthetic bug and pushes it.
+ * Applies a catalog bug to `content`. Pure — never touches the filesystem.
+ * Mirrors the pre-#2927 chaos-agent.mjs behavior exactly (including the
+ * console-error insertion-point quirk, preserved verbatim for compatibility).
  */
-export async function seedSyntheticBug(config: SyntheticBugConfig): Promise<BugSeedResult> {
-  try {
-    // Create branch
-    await execFileAsync("git", ["checkout", "-b", config.branchName], {
-      cwd: config.repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
+export function injectBug(type: BugType, content: string): InjectBugResult {
+  const bug = BUG_CATALOG[type];
 
-    // Create directory if needed
-    const dir = join(config.repoPath, config.filePath, "..");
-    await mkdir(dir, { recursive: true });
-
-    // Write file
-    const fullPath = join(config.repoPath, config.filePath);
-    await writeFile(fullPath, config.fileContent, "utf-8");
-
-    // Stage and commit
-    await execFileAsync("git", ["add", config.filePath], {
-      cwd: config.repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-    const { stdout: commitSha } = await execFileAsync(
-      "git",
-      ["commit", "-m", config.commitMessage],
-      { cwd: config.repoPath, timeout: GIT_TIMEOUT_MS }
-    );
-
-    // Extract SHA from output
-    const sha = commitSha.match(/\[.*?(\w{7})\]/)?.[1] || "unknown";
-
-    // Push to remote
-    await execFileAsync("git", ["push", "origin", config.branchName], {
-      cwd: config.repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-
-    return {
-      success: true,
-      branchName: config.branchName,
-      commitSha: sha,
-      filePath: config.filePath,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      branchName: config.branchName,
-      filePath: config.filePath,
-      error: message,
-    };
+  if (type === "accessibility") {
+    if (!bug.pattern.test(content)) {
+      return { injected: false, content };
+    }
+    return { injected: true, content: content.replace(bug.pattern, bug.replacement ?? "") };
   }
-}
 
-/**
- * Creates a lint violation for testing (unused variable).
- */
-export function createLintViolationBug(repoPath: string): SyntheticBugConfig {
-  const timestamp = Date.now();
-  const branchName = `chaos/lint-violation-${timestamp}`;
+  if (type === "console-error") {
+    const match = content.match(bug.pattern);
+    if (!match) return { injected: false, content };
 
-  return {
-    type: "lint-violation",
-    repoPath,
-    branchName,
-    filePath: "apps/marketing/src/utils/chaos-test-lint.ts",
-    fileContent: `// Synthetic lint violation for audit loop testing
-// This file intentionally contains an ESLint no-unused-vars violation
-const unusedVariable = "This variable is never used and triggers ESLint";
-
-export function testFunction(): void {
-  console.log("Function that should trigger audit loop");
-}
-`,
-    commitMessage: "test(chaos): seed synthetic lint violation for audit verification",
-  };
-}
-
-/**
- * Creates a dead link for testing (Playwright link check).
- */
-export function createDeadLinkBug(repoPath: string): SyntheticBugConfig {
-  const timestamp = Date.now();
-  const branchName = `chaos/dead-link-${timestamp}`;
-
-  return {
-    type: "dead-link",
-    repoPath,
-    branchName,
-    filePath: "apps/marketing/src/pages/chaos-test.mdx",
-    fileContent: `# Chaos Test Page
-
-This page contains a dead link for testing the site audit's link checker.
-
-[This link points to a non-existent page](https://mattbutlerengineering.com/chaos/nonexistent-page-${Date.now()})
-
-## Purpose
-
-This synthetic bug verifies that the autonomous audit loop can detect broken links.
-`,
-    commitMessage: "test(chaos): seed synthetic dead link for audit verification",
-  };
-}
-
-/**
- * Creates an accessibility issue for testing (missing alt text).
- */
-export function createA11yBug(repoPath: string): SyntheticBugConfig {
-  const timestamp = Date.now();
-  const branchName = `chaos/a11y-issue-${timestamp}`;
-
-  return {
-    type: "a11y-issue",
-    repoPath,
-    branchName,
-    filePath: "apps/rialto-web/src/pages/chaos-test.tsx",
-    fileContent: `import React from "react";
-
-/**
- * Chaos test page with accessibility violation (missing alt text).
- * This page intentionally has an accessibility issue for testing audit loops.
- */
-export default function ChaosTestPage(): JSX.Element {
-  return (
-    <div>
-      <h1>Chaos Test Page</h1>
-      <p>This page contains an accessibility violation.</p>
-      {/* eslint-disable-next-line jsx-a11y/alt-text */}
-      <img src="/test-image.png" />
-      <p>The image above is missing alt text, which should trigger Lighthouse a11y audit.</p>
-    </div>
-  );
-}
-`,
-    commitMessage: "test(chaos): seed synthetic a11y issue for audit verification",
-  };
-}
-
-/**
- * Cleans up a branch created by seedSyntheticBug.
- */
-export async function cleanupSyntheticBugBranch(
-  repoPath: string,
-  branchName: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Switch back to main
-    await execFileAsync("git", ["checkout", "main"], {
-      cwd: repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-
-    // Delete local branch
-    await execFileAsync("git", ["branch", "-D", branchName], {
-      cwd: repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-
-    // Delete remote branch
-    await execFileAsync("git", ["push", "origin", "--delete", branchName], {
-      cwd: repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-
-    return { success: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, error: message };
+    let next = content;
+    if (!next.includes("import React")) {
+      next = (bug.imports ?? "") + next;
+    }
+    const insertionPoint = next.indexOf("{", match.index) + 1;
+    next = next.slice(0, insertionPoint) + bug.injection!(match[2]) + next.slice(insertionPoint);
+    return { injected: true, content: next };
   }
+
+  const match = content.match(bug.pattern);
+  if (!match) return { injected: false, content };
+
+  if (type === "scout-todo") {
+    return { injected: true, content: bug.injection!() + content };
+  }
+
+  return {
+    injected: true,
+    content: content.replace(bug.pattern, (m) => bug.injection!() + m),
+  };
 }

@@ -1,148 +1,81 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
+import { BUG_CATALOG, injectBug } from "../synthetic-bug-seeder.js";
 
-vi.mock("node:child_process", () => ({
-  execFile: vi.fn(),
-}));
+const COMPONENT_FIXTURE = `
+export default function MyComponent() {
+  return (
+    <div aria-label="test-label">
+      <h1>Hello</h1>
+    </div>
+  );
+}
+`;
 
-vi.mock("node:util", () => ({
-  promisify: vi.fn((fn: unknown) => fn),
-}));
-
-vi.mock("node:fs/promises", () => ({
-  mkdir: vi.fn().mockResolvedValue(undefined),
-  writeFile: vi.fn().mockResolvedValue(undefined),
-}));
-
-import { execFile } from "node:child_process";
-import {
-  createLintViolationBug,
-  createDeadLinkBug,
-  createA11yBug,
-  seedSyntheticBug,
-  cleanupSyntheticBugBranch,
-} from "../synthetic-bug-seeder.js";
-
-const mockExecFile = vi.mocked(
-  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
-);
-
-describe("synthetic-bug-seeder", () => {
-  const mockRepoPath = "/mock/repo";
-
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe("BUG_CATALOG", () => {
+  it("exposes exactly the four live chaos-agent bug types", () => {
+    expect(Object.keys(BUG_CATALOG).sort()).toEqual(
+      ["accessibility", "console-error", "lighthouse-perf", "scout-todo"].sort()
+    );
   });
 
-  describe("createLintViolationBug", () => {
-    it("creates lint violation bug config", () => {
-      const config = createLintViolationBug(mockRepoPath);
+  it("gives every catalog entry a description and a pattern", () => {
+    for (const bug of Object.values(BUG_CATALOG)) {
+      expect(typeof bug.description).toBe("string");
+      expect(bug.description.length).toBeGreaterThan(0);
+      expect(bug.pattern).toBeInstanceOf(RegExp);
+    }
+  });
+});
 
-      expect(config.type).toBe("lint-violation");
-      expect(config.repoPath).toBe(mockRepoPath);
-      expect(config.filePath).toBe("apps/marketing/src/utils/chaos-test-lint.ts");
-      expect(config.fileContent).toContain("unusedVariable");
-      expect(config.fileContent).toContain("no-unused-vars");
-      expect(config.commitMessage).toContain("lint violation");
-      expect(config.branchName).toMatch(/^chaos\/lint-violation-\d+$/);
-    });
+describe("injectBug", () => {
+  it("injects a console.error and adds the React import when missing", () => {
+    const result = injectBug("console-error", COMPONENT_FIXTURE);
 
-    it("includes unused variable that triggers eslint", () => {
-      const config = createLintViolationBug(mockRepoPath);
-      expect(config.fileContent).toContain("const unusedVariable");
-    });
+    expect(result.injected).toBe(true);
+    expect(result.content).toContain("CHAOS-ERROR");
+    expect(result.content).toContain("import React");
   });
 
-  describe("createDeadLinkBug", () => {
-    it("creates dead link bug config", () => {
-      const config = createDeadLinkBug(mockRepoPath);
+  it("does not duplicate the React import when already present", () => {
+    const withImport = `import React from "react";\n${COMPONENT_FIXTURE}`;
+    const result = injectBug("console-error", withImport);
 
-      expect(config.type).toBe("dead-link");
-      expect(config.repoPath).toBe(mockRepoPath);
-      expect(config.filePath).toBe("apps/marketing/src/pages/chaos-test.mdx");
-      expect(config.fileContent).toContain("dead link");
-      expect(config.fileContent).toContain("nonexistent-page");
-      expect(config.commitMessage).toContain("dead link");
-      expect(config.branchName).toMatch(/^chaos\/dead-link-\d+$/);
-    });
-
-    it("includes markdown link to non-existent page", () => {
-      const config = createDeadLinkBug(mockRepoPath);
-      expect(config.fileContent).toMatch(
-        /\[.*\]\(https:\/\/mattbutlerengineering\.com\/chaos\/nonexistent-page-\d+\)/
-      );
-    });
+    expect(result.injected).toBe(true);
+    expect(result.content.match(/import React/g)).toHaveLength(1);
   });
 
-  describe("createA11yBug", () => {
-    it("creates a11y bug config", () => {
-      const config = createA11yBug(mockRepoPath);
-
-      expect(config.type).toBe("a11y-issue");
-      expect(config.repoPath).toBe(mockRepoPath);
-      expect(config.filePath).toBe("apps/rialto-web/src/pages/chaos-test.tsx");
-      expect(config.fileContent).toContain("missing alt text");
-      expect(config.fileContent).toContain("<img");
-      expect(config.commitMessage).toContain("a11y");
-      expect(config.branchName).toMatch(/^chaos\/a11y-issue-\d+$/);
-    });
-
-    it("includes image without alt attribute", () => {
-      const config = createA11yBug(mockRepoPath);
-      expect(config.fileContent).toMatch(/<img src="\/test-image\.png" \/>/);
-    });
-
-    it("includes jsx-a11y eslint disable comment", () => {
-      const config = createA11yBug(mockRepoPath);
-      expect(config.fileContent).toContain("jsx-a11y/alt-text");
-    });
+  it("reports no injection when no function component is found", () => {
+    const result = injectBug("console-error", "const x = 1;");
+    expect(result.injected).toBe(false);
+    expect(result.content).toBe("const x = 1;");
   });
 
-  describe("branch naming", () => {
-    it("generates unique branch names with timestamps", async () => {
-      const config1 = createLintViolationBug(mockRepoPath);
-      // Add small delay to ensure different timestamp
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      const config2 = createLintViolationBug(mockRepoPath);
+  it("inserts an oversized invisible image before a closing tag", () => {
+    const result = injectBug("lighthouse-perf", COMPONENT_FIXTURE);
 
-      expect(config1.branchName).not.toBe(config2.branchName);
-    });
-
-    it("uses chaos prefix for all bug types", () => {
-      const lintConfig = createLintViolationBug(mockRepoPath);
-      const linkConfig = createDeadLinkBug(mockRepoPath);
-      const a11yConfig = createA11yBug(mockRepoPath);
-
-      expect(lintConfig.branchName.startsWith("chaos/")).toBe(true);
-      expect(linkConfig.branchName.startsWith("chaos/")).toBe(true);
-      expect(a11yConfig.branchName.startsWith("chaos/")).toBe(true);
-    });
+    expect(result.injected).toBe(true);
+    expect(result.content).toContain("CHAOS-REGRESSION");
   });
 
-  describe("git subprocess timeout", () => {
-    it("passes a numeric timeout on every git call in seedSyntheticBug", async () => {
-      mockExecFile.mockResolvedValue({ stdout: "[main abc1234] test commit" });
+  it("removes an aria-label attribute", () => {
+    const result = injectBug("accessibility", COMPONENT_FIXTURE);
 
-      await seedSyntheticBug(createLintViolationBug(mockRepoPath));
+    expect(result.injected).toBe(true);
+    expect(result.content).not.toContain('aria-label="test-label"');
+  });
 
-      expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
-      for (const call of mockExecFile.mock.calls) {
-        const options = call[2] as { timeout?: number } | undefined;
-        expect(typeof options?.timeout).toBe("number");
-        expect(options?.timeout).toBeGreaterThan(0);
-      }
-    });
+  it("reports no injection when there is no aria-label or alt attribute", () => {
+    const clean = "<div><h1>Hello</h1></div>";
+    const result = injectBug("accessibility", clean);
 
-    it("passes a numeric timeout on every git call in cleanupSyntheticBugBranch", async () => {
-      mockExecFile.mockResolvedValue({ stdout: "" });
+    expect(result.injected).toBe(false);
+    expect(result.content).toBe(clean);
+  });
 
-      await cleanupSyntheticBugBranch(mockRepoPath, "chaos/lint-violation-123");
+  it("prepends a FIXME comment for scout-todo", () => {
+    const result = injectBug("scout-todo", COMPONENT_FIXTURE);
 
-      expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
-      for (const call of mockExecFile.mock.calls) {
-        const options = call[2] as { timeout?: number } | undefined;
-        expect(typeof options?.timeout).toBe("number");
-        expect(options?.timeout).toBeGreaterThan(0);
-      }
-    });
+    expect(result.injected).toBe(true);
+    expect(result.content.startsWith("// FIXME:")).toBe(true);
   });
 });

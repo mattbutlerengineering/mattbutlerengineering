@@ -26,7 +26,7 @@ import {
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
-import { getReportSensors, safe, readJson } from "./sensors-registry.mjs";
+import { getReportSensors, safe, readJson, collectReportSensors } from "./sensors-registry.mjs";
 import { buildReport, formatSensorDisplay } from "./build-sensor-report.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,12 +54,7 @@ const ctx = { root: ROOT, now, ghClient };
 
 /* ── Collect (IO) — iterates the registry so adding a sensor needs no shim change ── */
 
-const collectedSensors = Object.fromEntries(
-  getReportSensors().map((sensor) => [
-    sensor.reportKey ?? sensor.id,
-    safe(() => sensor.collect(ctx), { available: false }),
-  ])
-);
+const collectedSensors = collectReportSensors(getReportSensors(), ctx);
 
 const previousReport = safe(() => readJson(REPORT_PATH));
 const report = buildReport(collectedSensors, previousReport?.sensors, THRESHOLDS, now);
