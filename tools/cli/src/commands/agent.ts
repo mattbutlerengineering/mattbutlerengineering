@@ -3,35 +3,19 @@ import { resolve, dirname, join } from "node:path";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type {
-  SessionConfig,
-  SessionEvent,
-  AdapterConfig,
-  AdapterResult,
-  TelemetryRow,
-} from "@mbe/agent-core";
+import type { SessionConfig, SessionEvent, TelemetryRow, AdapterType } from "@mbe/agent-core";
 import { resolveIssueModel } from "../resolve-issue-model.js";
 import { agentEvalCommand } from "./agent-eval.js";
 import { frontmatterCommand } from "./agent-frontmatter.js";
 import {
   runAgentSession,
+  resolveSessionAdapter,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   resolveBudget,
   resolveModel,
   routeModelWithReason,
-  createWorktree,
-  removeWorktree,
-  runVerification,
-  pushBranch,
-  createPullRequest,
-  buildPrTitle,
-  buildPrBody,
   estimateIssueTokens,
-  GeminiCliAdapter,
-  OpenCodeAdapter,
-  RateLimitDetector,
-  FailoverRouter,
   AllAdaptersUnavailableError,
 } from "@mbe/agent-core";
 import type { AgentSession, ApiResponse, PaginatedResponse, AgentSessionEvent } from "@mbe/types";
@@ -316,6 +300,12 @@ export const agentCommand = new Command("agent").description("Run autonomous cod
 
 // ── Local execution: mbe agent run ───────────────────────────────────────
 
+const VALID_ADAPTERS: readonly AdapterType[] = ["auto", "claude", "gemini", "opencode"];
+
+function isAdapterType(value: string): value is AdapterType {
+  return (VALID_ADAPTERS as readonly string[]).includes(value);
+}
+
 agentCommand
   .command("run <task>")
   .description("Run an agent session locally (no API server required)")
@@ -349,15 +339,15 @@ agentCommand
       command: Command
     ) => {
       const repoPath = resolve(process.cwd());
-      const adapterType = options.adapter;
 
-      const validAdapters = ["auto", "claude", "gemini", "opencode"];
-      if (!validAdapters.includes(adapterType)) {
+      if (!isAdapterType(options.adapter)) {
         console.error(
-          `Invalid adapter: "${adapterType}". Must be one of: ${validAdapters.join(", ")}`
+          `Invalid adapter: "${options.adapter}". Must be one of: ${VALID_ADAPTERS.join(", ")}`
         );
         process.exit(1);
+        return;
       }
+      const adapterType = options.adapter;
 
       // Use task intelligence for smart defaults when user doesn't override
       const smartBudget = resolveBudget(task);
@@ -378,160 +368,82 @@ agentCommand
         ? smartBudget.budgetUsd
         : parseFloat(options.maxBudget);
 
-      // ── claude adapter: single entry point → ClaudeAdapter → runSession() ──
-      if (adapterType === "claude") {
-        const config: SessionConfig = {
-          taskDescription: task,
-          repoPath,
-          baseBranch: options.baseBranch,
-          model: resolvedModel,
-          maxTurns: resolvedMaxTurns,
-          maxBudgetUsd: resolvedMaxBudgetUsd,
-          allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
-          createPr: options.pr,
-          feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
-        };
+      // Single entry point for every adapter (#2973): the failover cascade
+      // and the full gate/publish pipeline live in agent-core, behind
+      // runAgentSession(). The CLI just resolves the adapter string and
+      // prints the result.
+      const config: SessionConfig = {
+        taskDescription: task,
+        repoPath,
+        baseBranch: options.baseBranch,
+        model: resolvedModel,
+        maxTurns: resolvedMaxTurns,
+        maxBudgetUsd: resolvedMaxBudgetUsd,
+        allowedTools: [...DEFAULT_SESSION_CONFIG.allowedTools],
+        createPr: options.pr,
+        feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
+      };
 
-        console.log("Agent Session (local)");
-        console.log("─────────────────────");
-        console.log(`Task:       ${task}`);
-        console.log(`Model:      ${config.model}`);
-        console.log(`Budget:     ${formatCost(config.maxBudgetUsd)}`);
-        console.log(`Max turns:  ${config.maxTurns}`);
-        console.log(`Create PR:  ${config.createPr ? "yes" : "no"}`);
-        console.log("");
-
-        try {
-          const result = await runAgentSession(config, {
-            onEvent: (event) => handleEvent(event, options.verbose),
-          });
-
-          // Log spend telemetry to .claude/agent-spend.jsonl (best-effort).
-          logSpend({
-            date: new Date().toISOString().slice(0, 10),
-            timestamp: new Date().toISOString(),
-            costUsd: result.costUsd,
-            issueNumber: null,
-            model: config.model,
-            inputTokens: result.tokenUsage.inputTokens,
-            outputTokens: result.tokenUsage.outputTokens,
-            numTurns: result.numTurns,
-          });
-
-          console.log("");
-          console.log("Result");
-          console.log("──────");
-          console.log(`Status:     ${formatStatus(result.status)}`);
-          console.log(`Branch:     ${result.branchName}`);
-          console.log(`Duration:   ${formatDuration(result.durationMs)}`);
-          console.log(`Cost:       ${formatCost(result.costUsd)}`);
-          console.log(`Turns:      ${result.numTurns}`);
-          console.log(
-            `Tokens:     ${result.tokenUsage.inputTokens.toLocaleString()} in / ${result.tokenUsage.outputTokens.toLocaleString()} out`
-          );
-
-          if (result.prUrl) {
-            console.log(`PR:         ${result.prUrl}`);
-          }
-
-          if (result.errors.length > 0) {
-            console.log("");
-            console.log("Errors:");
-            for (const error of result.errors) {
-              console.log(`  - ${error}`);
-            }
-          }
-
-          if (result.resultText && options.verbose) {
-            console.log("");
-            console.log("Agent output:");
-            console.log(result.resultText);
-          }
-
-          process.exit(result.status === "succeeded" ? 0 : 1);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error(`\nFatal error: ${message}`);
-          process.exit(1);
-        }
-        return;
-      }
-
-      // ── auto / gemini / opencode: worktree-managed adapter path ──────
       console.log("Agent Session (local)");
       console.log("─────────────────────");
       console.log(`Task:       ${task}`);
       console.log(`Adapter:    ${adapterType}`);
-      console.log(`Model:      ${resolvedModel}`);
-      console.log(`Max turns:  ${resolvedMaxTurns}`);
-      console.log(`Create PR:  ${options.pr ? "yes" : "no"}`);
+      console.log(`Model:      ${config.model}`);
+      console.log(`Budget:     ${formatCost(config.maxBudgetUsd)}`);
+      console.log(`Max turns:  ${config.maxTurns}`);
+      console.log(`Create PR:  ${config.createPr ? "yes" : "no"}`);
       console.log("");
 
       try {
-        // Create isolated worktree for the adapter
-        const worktree = await createWorktree(repoPath, options.baseBranch, task);
-        console.log(`Worktree:   ${worktree.path}`);
-        console.log(`Branch:     ${worktree.branchName}`);
+        const adapter = resolveSessionAdapter(adapterType);
+        const result = await runAgentSession(config, {
+          adapter,
+          onEvent: (event) => handleEvent(event, options.verbose),
+        });
+
+        // Log spend telemetry to .claude/agent-spend.jsonl (best-effort).
+        logSpend({
+          date: new Date().toISOString().slice(0, 10),
+          timestamp: new Date().toISOString(),
+          costUsd: result.costUsd,
+          issueNumber: null,
+          model: config.model,
+          inputTokens: result.tokenUsage.inputTokens,
+          outputTokens: result.tokenUsage.outputTokens,
+          numTurns: result.numTurns,
+        });
+
         console.log("");
+        console.log("Result");
+        console.log("──────");
+        console.log(`Status:     ${formatStatus(result.status)}`);
+        console.log(`Branch:     ${result.branchName}`);
+        console.log(`Duration:   ${formatDuration(result.durationMs)}`);
+        console.log(`Cost:       ${formatCost(result.costUsd)}`);
+        console.log(`Turns:      ${result.numTurns}`);
+        console.log(
+          `Tokens:     ${result.tokenUsage.inputTokens.toLocaleString()} in / ${result.tokenUsage.outputTokens.toLocaleString()} out`
+        );
 
-        const adapterCfg: AdapterConfig = {
-          taskDescription: task,
-          worktreePath: worktree.path,
-          repoPath,
-          baseBranch: options.baseBranch,
-          model: resolvedModel,
-          maxTurns: resolvedMaxTurns,
-          timeoutMs: resolvedMaxTurns * 120_000, // ~2 min per turn
-        };
+        if (result.prUrl) {
+          console.log(`PR:         ${result.prUrl}`);
+        }
 
-        try {
-          if (adapterType === "auto") {
-            // Failover routing across CLI-backed adapters (claude goes through runAgentSession above)
-            const adapters = [new GeminiCliAdapter(), new OpenCodeAdapter()];
-            const detector = new RateLimitDetector(adapters.map((a) => a.name));
-            const router = new FailoverRouter(adapters, detector);
-
-            console.log("Routing to best available adapter...");
-            const routedResult = await router.route(adapterCfg);
-            console.log(`Routed to: ${routedResult.adapter}`);
-            console.log("");
-
-            await handleAdapterResult(
-              routedResult,
-              worktree.path,
-              worktree.branchName,
-              repoPath,
-              options.baseBranch,
-              task,
-              options.pr
-            );
-          } else {
-            // Direct adapter invocation (gemini or opencode)
-            const adapter =
-              adapterType === "gemini" ? new GeminiCliAdapter() : new OpenCodeAdapter();
-
-            console.log(`Running ${adapter.name} adapter...`);
-            console.log("");
-
-            const adapterResult = await adapter.run(adapterCfg);
-
-            await handleAdapterResult(
-              adapterResult,
-              worktree.path,
-              worktree.branchName,
-              repoPath,
-              options.baseBranch,
-              task,
-              options.pr
-            );
-          }
-        } finally {
-          if (options.pr) {
-            await removeWorktree(repoPath, worktree.path, worktree.mode);
-          } else {
-            console.log(`Worktree preserved at: ${worktree.path}`);
+        if (result.errors.length > 0) {
+          console.log("");
+          console.log("Errors:");
+          for (const error of result.errors) {
+            console.log(`  - ${error}`);
           }
         }
+
+        if (result.resultText && options.verbose) {
+          console.log("");
+          console.log("Agent output:");
+          console.log(result.resultText);
+        }
+
+        process.exit(result.status === "succeeded" ? 0 : 1);
       } catch (error) {
         if (error instanceof AllAdaptersUnavailableError) {
           console.error("\nAll agent adapters are rate-limited or unavailable.");
@@ -544,6 +456,7 @@ agentCommand
             }
           }
           process.exit(1);
+          return;
         }
         const message = error instanceof Error ? error.message : String(error);
         console.error(`\nFatal error: ${message}`);
@@ -551,64 +464,6 @@ agentCommand
       }
     }
   );
-
-// ── Adapter result handler ──────────────────────────────────────────────
-
-async function handleAdapterResult(
-  result: AdapterResult,
-  worktreePath: string,
-  branchName: string,
-  repoPath: string,
-  baseBranch: string,
-  task: string,
-  createPr: boolean
-): Promise<void> {
-  console.log("Result");
-  console.log("──────");
-  console.log(`Success:    ${result.success ? "yes" : "no"}`);
-  console.log(`Changes:    ${result.hasChanges ? "yes" : "no"}`);
-  console.log(`Duration:   ${formatDuration(result.durationMs)}`);
-
-  if (result.error) {
-    console.log(`Error:      ${result.error}`);
-  }
-
-  if (result.hasChanges && createPr) {
-    console.log("");
-    console.log("Running quality gates...");
-
-    const verification = await runVerification(worktreePath);
-    const verificationPassed = verification.passed;
-
-    if (!verificationPassed) {
-      const failures = [
-        !verification.lintOk && "lint",
-        !verification.typecheckOk && "typecheck",
-        !verification.testsOk && "tests",
-      ]
-        .filter(Boolean)
-        .join(", ");
-      console.log(`Quality gates failed (${failures}) - PR will be created as draft.`);
-    } else {
-      console.log("Quality gates passed.");
-    }
-
-    await pushBranch(worktreePath, branchName);
-
-    const pr = await createPullRequest({
-      title: buildPrTitle(task),
-      body: buildPrBody(task, "cli-adapter", 0, 0),
-      baseBranch,
-      branchName,
-      repoPath,
-      draft: !verificationPassed,
-    });
-
-    console.log(`PR:         ${pr.url}`);
-  }
-
-  process.exit(result.success ? 0 : 1);
-}
 
 // ── API-backed commands ──────────────────────────────────────────────────
 

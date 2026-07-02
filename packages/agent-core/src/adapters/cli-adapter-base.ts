@@ -14,6 +14,10 @@ import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
 import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
+import { createDefaultPhaseDeps } from "../phases/default-deps.js";
+import type { PhaseDeps } from "../phases/index.js";
+import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
+import { runCliAdapterSession } from "./cli-adapter-session-runner.js";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -104,6 +108,21 @@ export abstract class CliAdapterBase implements AgentAdapter {
         ? {}
         : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
     };
+  }
+
+  /**
+   * Run a full agent session (worktree → CLI dispatch → gates → publish)
+   * through the shared `runCliAdapterSession()` pipeline — the seam
+   * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+   * mirroring `ClaudeAdapter.runSession()` (#2973).
+   */
+  async runSession(
+    config: SessionConfig,
+    onEvent?: SessionEventCallback,
+    deps: PhaseDeps = createDefaultPhaseDeps(),
+    signal?: AbortSignal
+  ): Promise<SessionResult> {
+    return runCliAdapterSession(this, config, onEvent, deps, signal);
   }
 
   // ── Protected shared utilities ───────────────────────────────────

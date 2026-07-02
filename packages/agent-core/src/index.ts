@@ -39,6 +39,10 @@ export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
 export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
 export type { RoutedAdapterResult } from "./failover-router.js";
+export { FailoverSessionAdapter } from "./adapters/failover-session-adapter.js";
+export type { FailoverCapableAdapter } from "./adapters/failover-session-adapter.js";
+export { resolveSessionAdapter } from "./adapter-resolution.js";
+export type { AdapterType } from "./adapter-resolution.js";
 
 // Session lifecycle orchestrator — single owner of session state transitions,
 // with storage injected at the seam (#2001).
