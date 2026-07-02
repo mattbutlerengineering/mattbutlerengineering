@@ -61,12 +61,38 @@ jobs:
           fi
 
       - name: Open Broken Main Issue
+        id: create_issue
         if: ${{ steps.baseline.outputs.skip != 'true' }}
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
         run: node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR"
+
+      # Backstop: a transient install/build flake in the node path above must
+      # not mean "no issue filed" for a real broken-main event. Title format
+      # is byte-identical to buildBrokenMainTitle() in revert-watchdog.mjs so
+      # selectIssuesToClose()'s regex still matches it for auto-close.
+      - name: Fallback - file broken-main issue via gh CLI
+        if: ${{ steps.baseline.outputs.skip != 'true' && steps.create_issue.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+        run: |
+          gh issue create \
+            --title "🚨 CRITICAL: Broken Main at commit $SHA" \
+            --body "The main branch CI is currently FAILING.
+
+          **Culprit:** commit $SHA
+          **PR:** #$PR
+          **Action Required:** Investigating or revert immediately.
+
+          _(filed by the gh-CLI fallback — the node issue-filer step failed, see job logs)_" \
+            --label "ci-fix" \
+            --label "ready" \
+            --label "priority:critical"
 
       - name: Propose Revert PR
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
