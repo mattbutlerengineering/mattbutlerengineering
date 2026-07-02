@@ -1,18 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import { checkStaleReferences } from "./lib/markdown-refs.mjs";
-import { runCheck } from "./lib/fitness-check.mjs";
 
 /**
  * Detects "instruction rot" in key AI instruction files.
  * Checks for:
- * 1. Dead internal file links in Markdown files (via the shared markdown-ref
- *    extractor also used by check-doc-freshness.mjs).
+ * 1. Dead internal file links in Markdown files.
  * 2. References to deleted packages.
- * 3. References to deleted apps.
+ * 3. References to non-existent symbols (future enhancement).
  */
 
-export const FILES_TO_CHECK = [
+const FILES_TO_CHECK = [
   "CLAUDE.md",
   "AGENTS.md",
   "GEMINI.md",
@@ -21,93 +18,62 @@ export const FILES_TO_CHECK = [
   ".cursorrules",
 ];
 
-/**
- * Find dead `[text](link)` references in the given instruction files,
- * reusing the shared markdown-ref extractor's link parsing (skips http(s),
- * anchors, and mailto links; resolves relative paths).
- */
-export function findDeadLinkFindings(root, files = FILES_TO_CHECK) {
-  const findings = [];
+function checkFiles() {
+  let errors = 0;
+  const root = process.cwd();
 
-  for (const file of files) {
-    const filePath = path.resolve(root, file);
-    if (!fs.existsSync(filePath)) continue;
+  for (const file of FILES_TO_CHECK) {
+    if (!fs.existsSync(file)) continue;
+    const content = fs.readFileSync(file, "utf-8");
+    const fileDir = path.dirname(path.resolve(root, file));
 
-    const content = fs.readFileSync(filePath, "utf-8");
-    const stale = checkStaleReferences(content, filePath).filter(
-      (ref) => ref.type === "markdown-link"
-    );
+    // 1. Detect internal links to non-existent files: [text](link)
+    const fileLinks = content.match(/\[.*?\]\((.*?)\)/g) || [];
+    for (const linkMatch of fileLinks) {
+      const link = linkMatch.match(/\((.*?)\)/)[1];
 
-    for (const ref of stale) {
-      findings.push({
-        file,
-        type: "dead-link",
-        reference: ref.referencedPath,
-        resolvedPath: ref.resolvedPath,
-      });
+      // Skip external links, anchors, and mailto
+      if (link.startsWith("http") || link.startsWith("#") || link.startsWith("mailto:")) continue;
+
+      const cleanLink = link.split("#")[0];
+      if (!cleanLink) continue;
+
+      const targetPath = path.resolve(fileDir, cleanLink);
+      if (!fs.existsSync(targetPath)) {
+        console.error(`[ROT] ${file}: Dead link to ${cleanLink} (resolved to ${targetPath})`);
+        errors++;
+      }
     }
-  }
 
-  return findings;
-}
+    // 2. Detect references to deleted packages: packages/name
+    const packageRefs = content.match(/packages\/([a-zA-Z0-9-]+)/g) || [];
+    for (const ref of packageRefs) {
+      const pkgPath = path.resolve(root, ref);
+      if (!fs.existsSync(pkgPath)) {
+        console.error(`[ROT] ${file}: Reference to deleted package ${ref}`);
+        errors++;
+      }
+    }
 
-/** Find `packages/<name>` or `apps/<name>` references whose target no longer exists. */
-export function findDeletedPackageOrAppFindings(root, files = FILES_TO_CHECK) {
-  const findings = [];
-
-  for (const file of files) {
-    const filePath = path.resolve(root, file);
-    if (!fs.existsSync(filePath)) continue;
-    const content = fs.readFileSync(filePath, "utf-8");
-
-    for (const [type, re] of [
-      ["deleted-package", /packages\/([a-zA-Z0-9-]+)/g],
-      ["deleted-app", /apps\/([a-zA-Z0-9-]+)/g],
-    ]) {
-      for (const ref of content.match(re) || []) {
-        if (!fs.existsSync(path.resolve(root, ref))) {
-          findings.push({ file, type, reference: ref });
-        }
+    // 3. Detect references to deleted apps: apps/name
+    const appRefs = content.match(/apps\/([a-zA-Z0-9-]+)/g) || [];
+    for (const ref of appRefs) {
+      const appPath = path.resolve(root, ref);
+      if (!fs.existsSync(appPath)) {
+        console.error(`[ROT] ${file}: Reference to deleted app ${ref}`);
+        errors++;
       }
     }
   }
-
-  return findings;
+  return errors;
 }
 
-export function findInstructionRotFindings(root, files = FILES_TO_CHECK) {
-  return [...findDeadLinkFindings(root, files), ...findDeletedPackageOrAppFindings(root, files)];
+console.log("Checking for instruction rot...");
+const errorCount = checkFiles();
+
+if (errorCount > 0) {
+  console.error(`\nFound ${errorCount} instances of instruction rot.`);
+  process.exit(1);
 }
 
-function formatFinding(finding) {
-  switch (finding.type) {
-    case "dead-link":
-      return `${finding.file}: Dead link to ${finding.reference} (resolved to ${finding.resolvedPath})`;
-    case "deleted-package":
-      return `${finding.file}: Reference to deleted package ${finding.reference}`;
-    case "deleted-app":
-      return `${finding.file}: Reference to deleted app ${finding.reference}`;
-    default:
-      return `${finding.file}: ${finding.reference}`;
-  }
-}
-
-const isMain = process.argv[1] && process.argv[1].endsWith("detect-instruction-rot.mjs");
-
-if (isMain) {
-  console.log("Checking for instruction rot...");
-  const root = process.cwd();
-  const findings = findInstructionRotFindings(root);
-
-  for (const finding of findings) {
-    console.error(`[ROT] ${formatFinding(finding)}`);
-  }
-
-  const exitCode = runCheck({
-    name: "instruction rot",
-    findings,
-    passMessage: "✓ No instruction rot detected.",
-    failMessage: `Found ${findings.length} instances of instruction rot.`,
-  });
-  process.exit(exitCode);
-}
+console.log("✓ No instruction rot detected.");
