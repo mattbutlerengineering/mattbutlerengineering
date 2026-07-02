@@ -20,6 +20,7 @@ import { checkDepsCommand } from "./commands/check-deps.js";
 import { cleanupWorktreesCommand } from "./commands/cleanup-worktrees.js";
 import { healthCommand } from "./commands/health.js";
 import { mcpCommand } from "./commands/mcp.js";
+import { issueCommand } from "./commands/issue.js";
 
 const program = new Command();
 
@@ -58,6 +59,9 @@ program.addCommand(auditPerfCommand);
 // Architecture commands
 program.addCommand(checkAdrCommand);
 program.addCommand(checkDepsCommand);
+
+// Issue coordination commands
+program.addCommand(issueCommand);
 
 // Infrastructure commands
 program.addCommand(cleanupWorktreesCommand);

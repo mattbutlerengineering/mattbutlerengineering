@@ -1558,6 +1558,9 @@ importers:
       '@mbe/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@mbe/gh-client':
+        specifier: workspace:*
+        version: link:../../packages/gh-client
       '@mbe/types':
         specifier: workspace:*
         version: link:../../packages/types
