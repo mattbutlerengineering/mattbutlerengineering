@@ -2756,6 +2756,24 @@
       type CancelInitiator = "guest" | "staff";
     </item>
   </file>
+  <file path="services/reservations/src/services/reservation-modification.ts">
+    <item priority="low">
+      interface ModifyReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     <item priority="high">
       export const reservationMachine: unknown;
