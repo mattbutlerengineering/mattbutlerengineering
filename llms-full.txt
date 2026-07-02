@@ -14466,14 +14466,17 @@
     }
   </file>
   <file path="packages/agent-core/src/synthetic-bug-seeder.ts">
-    export type BugType = "lint-violation" | "dead-link" | "a11y-issue";
-    export interface SyntheticBugConfig {
-      type: BugType;
-      repoPath: string;
-      filePath: string;
-      fileContent: string;
-      commitMessage: string;
-      branchName: string;
+    export type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo";
+    export interface BugInjector {
+      description: string;
+      /** Pattern used to locate the injection point (or presence check). */
+      pattern: RegExp;
+      /** Builds the snippet to insert; receives the pattern's capture group when relevant. */
+      injection?: (capture?: string) => string;
+      /** For attribute-stripping bugs: replaces every pattern match with this string. */
+      replacement?: string;
+      /** Import statement to prepend when the target file doesn't already have it. */
+      imports?: string;
     }
   </file>
   <file path="packages/agent-core/src/task-decomposer.ts">

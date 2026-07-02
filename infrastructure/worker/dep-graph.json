@@ -644,6 +644,11 @@
     },
     {
       "from": "@mbe/scripts",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/scripts",
       "to": "@mbe/gh-client",
       "type": "dependency"
     }

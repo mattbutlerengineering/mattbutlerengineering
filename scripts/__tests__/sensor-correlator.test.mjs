@@ -296,6 +296,25 @@ describe("correlate", () => {
     expect(result[0].signals.length).toBe(1);
   });
 
+  it("routes a ciHealth regression (as emitted by the ci sensor's detectRegression) to the ci-fix label", () => {
+    const report = {
+      regressions: [
+        {
+          sensor: "ciHealth",
+          metric: "pass_rate_pct",
+          current: 80,
+          previous: 100,
+          delta: -20,
+          severity: "high",
+          timestamp: now,
+        },
+      ],
+    };
+    const result = correlate(report, []);
+    expect(result.length).toBe(1);
+    expect(result[0].suggestedLabel).toBe("ci-fix");
+  });
+
   it("handles signals without timestamps gracefully", () => {
     const report = {
       regressions: [
