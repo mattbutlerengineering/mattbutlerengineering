@@ -138,6 +138,7 @@ flowchart TD
   types --> config
   cli --> agent_core
   cli --> api_client
+  cli --> gh_client
   cli --> types
   cli --> config
 

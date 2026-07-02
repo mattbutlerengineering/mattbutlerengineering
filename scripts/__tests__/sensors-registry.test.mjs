@@ -1,10 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   SENSORS,
   getSensorByLabel,
   getAllLabels,
   buildCategoryMap,
   buildLabelMap,
+  getReportSensors,
+  collectReportSensors,
 } from "../sensors-registry.mjs";
 
 describe("sensors-registry", () => {
@@ -17,15 +19,36 @@ describe("sensors-registry", () => {
     expect(ids).toContain("cors");
   });
 
-  it("every sensor has id, category, issueLabels, severity, and verifyFix", () => {
+  it("every sensor has an id and a category", () => {
     for (const sensor of SENSORS) {
       expect(typeof sensor.id).toBe("string");
       expect(typeof sensor.category).toBe("string");
+    }
+  });
+
+  it("every issue-filing sensor (has issueLabels) also has severity and verifyFix", () => {
+    for (const sensor of SENSORS) {
+      if (!sensor.issueLabels) continue;
       expect(Array.isArray(sensor.issueLabels)).toBe(true);
       expect(sensor.issueLabels.length).toBeGreaterThan(0);
       expect(typeof sensor.severity).toBe("string");
       expect(typeof sensor.verifyFix).toBe("function");
     }
+  });
+
+  it("getReportSensors returns only entries with a collect function, each carrying a format function", () => {
+    const reportSensors = getReportSensors();
+    expect(reportSensors.length).toBeGreaterThan(0);
+    for (const sensor of reportSensors) {
+      expect(typeof sensor.collect).toBe("function");
+      expect(typeof sensor.format).toBe("function");
+    }
+    // sentry/cors/bug are label-only entries — they must NOT appear in the report.
+    const reportIds = reportSensors.map((s) => s.reportKey ?? s.id);
+    expect(reportIds).not.toContain("sentry");
+    expect(reportIds).not.toContain("cors");
+    expect(reportIds).not.toContain("bug");
+    expect(reportIds).toContain("ciHealth");
   });
 
   it("every producer issueLabel is resolvable via getSensorByLabel", () => {
@@ -65,13 +88,53 @@ describe("sensors-registry", () => {
     expect(map.cors).toBeDefined();
   });
 
+  it("buildLabelMap also keys by reportKey, so ciHealth regressions resolve to ci-fix", () => {
+    // detectRegression on the "ci" entry emits `sensor: "ciHealth"` (its reportKey),
+    // not the registry id "ci" — the map must be resolvable by both.
+    const map = buildLabelMap();
+    expect(map.ciHealth).toBe("ci-fix");
+  });
+
   it("getSensorByLabel returns null for unknown labels", () => {
     const sensor = getSensorByLabel("nonexistent-label-xyz");
     expect(sensor).toBeNull();
   });
 
+  describe("collectReportSensors", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("logs and reports unavailable when a collector throws unexpectedly", () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const boom = new Error("boom");
+      const entries = [
+        { id: "brokenSensor", collect: () => { throw boom; } },
+      ];
+
+      const result = collectReportSensors(entries, {});
+
+      expect(result.brokenSensor).toEqual({ available: false });
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0].join(" ")).toContain("brokenSensor");
+    });
+
+    it("keys collected data by reportKey when present, otherwise id", () => {
+      const entries = [
+        { id: "ci", reportKey: "ciHealth", collect: () => ({ available: true }) },
+        { id: "acmm", collect: () => ({ available: true }) },
+      ];
+
+      const result = collectReportSensors(entries, {});
+
+      expect(result.ciHealth).toEqual({ available: true });
+      expect(result.acmm).toEqual({ available: true });
+    });
+  });
+
   it("verifyFix function returns an object with verified and reason fields", () => {
     for (const sensor of SENSORS) {
+      if (!sensor.verifyFix) continue;
       // verifyFix is called with (issueTitle, issueBody) — test stub call
       const result = sensor.verifyFix("test issue title", "test body");
       if (result !== null) {

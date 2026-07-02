@@ -1,24 +1,157 @@
 /**
  * Sensors registry — single source of truth for each sensor's category,
- * issue labels, severity, and verify function.
+ * issue labels, severity, verify function, and (for sensors that feed the
+ * daily sensor report) its collect/format/regression-detection behavior.
  *
  * Consumers:
  *   - sensor-correlator derives CATEGORY_MAP / LABEL_MAP from this
  *   - verify-fixes resolves verifiers via getSensorByLabel()
  *   - producers (cors-audit, etc.) can call getLabelsForSensor()
+ *   - build-sensor-report.mjs iterates SENSORS to assemble/format/detect
+ *     regressions for every entry that carries a `collect` function
+ *   - sensor-report.mjs (thin CLI shim) calls each entry's `collect(ctx)`
+ *     to gather data, then hands the result to build-sensor-report
+ *
+ * Adding a report sensor: add one entry below with `collect`, `format`, and
+ * (optionally) `detectRegression`. No other file needs to change.
  */
+
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { collectAgentCost } from "./collect-agent-cost.mjs";
+import { collectCcusageSensor } from "./collect-ccusage.mjs";
+import { computeCodeChurn, isGeneratedArtifact } from "./collect-code-churn.mjs";
+import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
+import { collectMutationScore } from "./collect-mutation-score.mjs";
+import { computeFlakyTests } from "./collect-flaky-tests.mjs";
+import { computeE2eStability } from "./collect-e2e-stability.mjs";
+import { collectQueueEfficiency } from "./collect-queue-efficiency.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
+ * @typedef {{ root: string; now: Date; ghClient?: import("@mbe/gh-client").GhClient }} CollectContext
  * @typedef {{
  *   id: string;
  *   category: string;
- *   issueLabels: string[];
- *   severity: string;
+ *   issueLabels?: string[];
+ *   severity?: string;
  *   metricKeys?: Array<{ key: string; category?: string }>;
- *   verifyFix: (title: string, body: string) => VerifyResult;
+ *   verifyFix?: (title: string, body: string) => VerifyResult;
+ *   reportKey?: string;
+ *   collect?: (ctx: CollectContext) => object;
+ *   format?: (data: object, name: string) => string;
+ *   detectRegression?: (current: object, previous: object | undefined, thresholds: object) => object[];
  * }} SensorEntry
  */
+
+/**
+ * Runs fn, swallowing any error and returning fallback instead.
+ * Shared by every collector below and by the sensor-report CLI shim.
+ *
+ * @param {() => unknown} fn
+ * @param {unknown} [fallback]
+ * @returns {unknown}
+ */
+export function safe(fn, fallback = null) {
+  try {
+    return fn();
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * @param {string} path
+ * @returns {unknown}
+ */
+export function readJson(path) {
+  return JSON.parse(readFileSync(path, "utf-8"));
+}
+
+/**
+ * Parse `git log --numstat` output into commit objects for the code-churn collector.
+ * Uses execFileSync with an arg array — no shell interpolation, no injection risk.
+ *
+ * @param {string} root
+ * @returns {Array<{ hash: string; timestamp: string; linesAdded: number; linesDeleted: number }>}
+ */
+function parseGitNumstat(root) {
+  const raw = safe(
+    () =>
+      execFileSync(
+        "git",
+        ["-C", root, "log", "--numstat", "--format=%H %aI", "--no-merges", "--since=8 days ago"],
+        { encoding: "utf-8", timeout: 10000 }
+      ),
+    null
+  );
+  if (!raw) return [];
+
+  const commits = [];
+  let current = null;
+
+  for (const line of raw.split("\n")) {
+    const headerMatch = line.match(/^([0-9a-f]{40})\s+(\S+)$/);
+    if (headerMatch) {
+      if (current) commits.push(current);
+      current = { hash: headerMatch[1], timestamp: headerMatch[2], linesAdded: 0, linesDeleted: 0 };
+      continue;
+    }
+    if (current && line.match(/^\d/)) {
+      const parts = line.split("\t");
+      const filePath = parts[2] ?? "";
+      // Skip generated/vendored artifacts — they inflate churn without
+      // reflecting real source instability (e.g. llms.txt, pnpm-lock.yaml,
+      // Prisma clients, dep-graph.json).
+      if (isGeneratedArtifact(filePath)) continue;
+      const added = parseInt(parts[0], 10);
+      const deleted = parseInt(parts[1], 10);
+      if (!isNaN(added)) current = { ...current, linesAdded: current.linesAdded + added };
+      if (!isNaN(deleted)) current = { ...current, linesDeleted: current.linesDeleted + deleted };
+    }
+  }
+  if (current) commits.push(current);
+
+  return commits;
+}
+
+/**
+ * Wraps `gh pr list` for the queue-efficiency collector — includes the
+ * `commits` field (needed for first-pass-success classification) and
+ * normalises it to a `commitCount`.
+ *
+ * @returns {Array<object> | null}
+ */
+function readQueueEfficiencyPrs() {
+  const raw = safe(
+    () =>
+      // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
+      // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
+      execFileSync(
+        "gh",
+        [
+          "pr",
+          "list",
+          "--state",
+          "all",
+          "--limit",
+          "45",
+          "--json",
+          "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+        ],
+        { encoding: "utf-8", timeout: 15000 }
+      ),
+    null
+  );
+  if (!raw) return null;
+  const prs = safe(() => JSON.parse(raw), null);
+  if (!prs) return null;
+  return prs.map((pr) => ({
+    ...pr,
+    commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
+  }));
+}
 
 /**
  * Registry of all known sensors.
@@ -27,9 +160,178 @@
  * This matches the original CATEGORY_MAP where sentry:timeout_rate sits in "performance"
  * and ci:duration also sits in "performance" even though the sensor default is "availability".
  *
+ * Entries that carry a `collect` function participate in the daily sensor report
+ * (build-sensor-report.mjs); their `reportKey` (defaulting to `id`) is the key
+ * under which their data lives in `report.sensors`. Entries without `collect`
+ * (sentry, cors, bug) exist purely for issue-label/verification routing.
+ *
  * @type {SensorEntry[]}
  */
 export const SENSORS = [
+  {
+    id: "acmm",
+    category: "quality",
+    issueLabels: ["acmm"],
+    severity: "medium",
+    metricKeys: [{ key: "acmm:level" }, { key: "acmm:criteria_count" }],
+    verifyFix: (_title, _body) => ({
+      verified: false,
+      reason: "ACMM verification deferred to verify-fixes acmm verifier",
+      confidence: "skip",
+    }),
+    collect: ({ root }) => {
+      const statePath = resolve(root, ".claude", "acmm", "state.json");
+      const state = safe(() => readJson(statePath));
+      if (!state) return { available: false };
+
+      const checks = state.checks ?? {};
+      const total = Object.keys(checks).length;
+      const passed = Object.values(checks).filter((c) => c.passed).length;
+
+      return {
+        available: true,
+        level: state.currentLevel ?? null,
+        level_name: state.levelName ?? null,
+        criteria_met: passed,
+        criteria_total: total,
+        last_run: state.lastRun ?? null,
+      };
+    },
+    format: (data, name) =>
+      `${name}: L${data.level} (${data.criteria_met}/${data.criteria_total} criteria)`,
+  },
+  {
+    id: "prMetrics",
+    category: "quality",
+    collect: ({ root }) => {
+      const metricsPath = resolve(root, "docs", "metrics", "pr-acceptance.json");
+      const data = safe(() => readJson(metricsPath));
+      if (!data) return { available: false };
+
+      const entries = Array.isArray(data) ? data : (data.entries ?? []);
+      const latest = entries[entries.length - 1];
+      const previous = entries.length > 1 ? entries[entries.length - 2] : null;
+
+      return {
+        available: true,
+        latest: latest ?? null,
+        previous: previous ?? null,
+        entry_count: entries.length,
+      };
+    },
+    format: (data, name) => `${name}: ${data.entry_count} entries`,
+  },
+  {
+    id: "prCategoryMetrics",
+    category: "quality",
+    collect: () => {
+      const raw = safe(
+        () =>
+          execFileSync(
+            "gh",
+            [
+              "pr",
+              "list",
+              "--state",
+              "all",
+              "--limit",
+              "100",
+              "--json",
+              "number,state,headRefName,mergedAt,closedAt,labels",
+            ],
+            { encoding: "utf-8", timeout: 15000 }
+          ),
+        null
+      );
+      if (!raw) return { available: false };
+      const prs = safe(() => JSON.parse(raw), null);
+      if (!prs) return { available: false };
+      return computePrCategoryMetrics(prs);
+    },
+    format: (data, name) => {
+      const categoryList = Object.keys(data.by_category ?? {}).join(", ") || "none";
+      const noteStr = data.signal_note ? " [signal uninformative: fix-forward pattern]" : "";
+      return `${name}: ${data.total_merged}/${data.total_prs} merged by category (${categoryList})${noteStr}`;
+    },
+  },
+  {
+    id: "agentCost",
+    category: "cost",
+    collect: ({ root, now }) => {
+      const spendPath = resolve(root, ".claude", "agent-spend.jsonl");
+      return collectAgentCost(spendPath, now);
+    },
+    format: (data, name) =>
+      `${name} (per-issue attribution): $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), ${data.sessions_7d} attributed sessions`,
+  },
+  {
+    id: "ccusageCost",
+    category: "cost",
+    collect: ({ now }) => collectCcusageSensor(undefined, now),
+    format: (data, name) =>
+      `${name}: $${data.spend_30d_usd} (30d), $${data.spend_7d_usd} (7d), $${data.spend_today_usd} (today), cache_hit ${Math.round(data.cache_hit_rate * 100)}%`,
+  },
+  {
+    id: "ci",
+    reportKey: "ciHealth",
+    category: "availability",
+    issueLabels: ["ci-fix"],
+    severity: "high",
+    metricKeys: [
+      { key: "ci:duration", category: "performance" },
+      { key: "ci:pass_rate" },
+      { key: "ci:failures" },
+    ],
+    verifyFix: (_title, _body) => ({
+      verified: false,
+      reason: "CI verification deferred to verify-fixes ci verifier",
+      confidence: "skip",
+    }),
+    collect: ({ ghClient }) => {
+      const runs = safe(
+        () =>
+          ghClient.workflow.runs(["--limit", "30", "--json", "status,conclusion,createdAt,name"]),
+        null
+      );
+      if (!runs) return { available: false };
+      if (runs.length === 0) return { available: false };
+
+      const completed = runs.filter((r) => r.status === "completed");
+      const passed = completed.filter((r) => r.conclusion === "success");
+      const failed = completed.filter((r) => r.conclusion === "failure");
+      const passRate =
+        completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 100;
+
+      return {
+        available: true,
+        total_runs: runs.length,
+        completed: completed.length,
+        passed: passed.length,
+        failed: failed.length,
+        pass_rate_pct: passRate,
+        most_recent: runs[0] ?? null,
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`,
+    detectRegression: (current, previous, thresholds) => {
+      if (!current?.available || !previous?.available) return [];
+      const delta = current.pass_rate_pct - previous.pass_rate_pct;
+      if (delta < -thresholds.ci_pass_rate_drop) {
+        return [
+          {
+            sensor: "ciHealth",
+            metric: "pass_rate_pct",
+            current: current.pass_rate_pct,
+            previous: previous.pass_rate_pct,
+            delta,
+            severity: "high",
+          },
+        ];
+      }
+      return [];
+    },
+  },
   {
     id: "lighthouse",
     category: "performance",
@@ -47,22 +349,266 @@ export const SENSORS = [
       reason: "Lighthouse verification deferred to verify-fixes audit verifier",
       confidence: "skip",
     }),
+    collect: ({ root }) => {
+      const invPath = resolve(root, ".audit-state", "inventory.json");
+      const inv = safe(() => readJson(invPath));
+      if (!inv) return { available: false };
+
+      const surfaces = inv.surfaces ?? inv;
+      if (!Array.isArray(surfaces) && typeof surfaces !== "object") return { available: false };
+
+      const entries = Array.isArray(surfaces) ? surfaces : Object.values(surfaces);
+      const scored = entries.filter((s) => s.scores || s.lighthouse);
+
+      return {
+        available: true,
+        surface_count: entries.length,
+        scored_count: scored.length,
+        surfaces: scored.map((s) => ({
+          url: s.url ?? s.name ?? "unknown",
+          scores: s.scores ?? s.lighthouse ?? {},
+          last_audit: s.lastAudit ?? s.last_audit ?? null,
+        })),
+      };
+    },
+    format: (data, name) => `${name}: ${data.scored_count} surfaces scored`,
+    detectRegression: (current, previous, thresholds) => {
+      if (!current?.available || !previous?.available) return [];
+      const regressions = [];
+      for (const surface of current.surfaces ?? []) {
+        const prevSurface = (previous.surfaces ?? []).find((s) => s.url === surface.url);
+        if (!prevSurface) continue;
+
+        for (const [category, score] of Object.entries(surface.scores)) {
+          const prevScore = prevSurface.scores?.[category];
+          if (prevScore == null) continue;
+          const delta = score - prevScore;
+          if (delta < -thresholds.lighthouse_score_drop) {
+            regressions.push({
+              sensor: "lighthouse",
+              metric: `${surface.url}:${category}`,
+              current: score,
+              previous: prevScore,
+              delta: Math.round(delta * 100) / 100,
+              severity: delta < -0.1 ? "high" : "medium",
+            });
+          }
+        }
+      }
+      return regressions;
+    },
   },
   {
-    id: "ci",
+    id: "issues",
+    category: "quality",
+    collect: ({ ghClient, now }) => {
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const issuesRaw = safe(
+        () =>
+          ghClient.issue.list([
+            "--state",
+            "all",
+            "--limit",
+            "50",
+            "--json",
+            "number,state,labels,createdAt,closedAt",
+          ]),
+        null
+      );
+      if (!issuesRaw) return { available: false };
+      const recentIssues = issuesRaw.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
+      const recentClosed = issuesRaw.filter(
+        (i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo
+      );
+      const openReady = issuesRaw.filter(
+        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "ready")
+      );
+      const agentFailed = issuesRaw.filter(
+        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "agent-failed")
+      );
+
+      return {
+        available: true,
+        created_7d: recentIssues.length,
+        closed_7d: recentClosed.length,
+        closure_rate:
+          recentIssues.length > 0
+            ? Math.round((recentClosed.length / recentIssues.length) * 100)
+            : 100,
+        queue_depth: openReady.length,
+        agent_failed: agentFailed.length,
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.created_7d} created, ${data.closed_7d} closed, ${data.queue_depth} ready`,
+    detectRegression: (current, previous) => {
+      if (!current?.available || !previous?.available) return [];
+      if (current.closure_rate < 50 && previous.closure_rate >= 50) {
+        return [
+          {
+            sensor: "issues",
+            metric: "closure_rate",
+            current: current.closure_rate,
+            previous: previous.closure_rate,
+            delta: current.closure_rate - previous.closure_rate,
+            severity: "medium",
+          },
+        ];
+      }
+      return [];
+    },
+  },
+  {
+    id: "issueFeedback",
+    category: "quality",
+    collect: ({ root }) => {
+      const feedbackPath = resolve(root, "metrics", "ai-issue-feedback.json");
+      const data = safe(() => readJson(feedbackPath));
+      if (!data || !data.categories) return { available: false };
+
+      const categories = data.categories;
+      const unhealthy = Object.entries(categories)
+        .filter(([, stats]) => stats.rejection_rate > 0.4)
+        .map(([cat]) => cat);
+
+      return {
+        available: true,
+        collected_at: data.collected_at ?? null,
+        category_count: Object.keys(categories).length,
+        unhealthy_categories: unhealthy,
+        categories,
+        budgets: data.budgets ?? {},
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.category_count} categories, ${data.unhealthy_categories.length} unhealthy (>${Math.round(0.4 * 100)}% rejected)`,
+  },
+  {
+    id: "sessionLogs",
+    category: "quality",
+    collect: ({ root, now }) => {
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const logDir = resolve(root, ".claude", "session-logs");
+      if (!existsSync(logDir)) return { available: false };
+
+      const files = safe(
+        () => readdirSync(logDir).filter((f) => f.endsWith(".json") && f !== ".gitkeep"),
+        []
+      );
+      const recentFiles = files.filter((f) => {
+        const fstat = safe(() => statSync(join(logDir, f)));
+        return fstat && fstat.mtime >= sevenDaysAgo;
+      });
+
+      const sessions = recentFiles
+        .map((f) => safe(() => readJson(join(logDir, f))))
+        .filter(Boolean);
+
+      const totalCommits = sessions.reduce((sum, s) => sum + (s.commit_count ?? 0), 0);
+      const branches = [...new Set(sessions.map((s) => s.branch).filter(Boolean))];
+
+      return {
+        available: true,
+        total_logs: files.length,
+        logs_7d: recentFiles.length,
+        total_commits_7d: totalCommits,
+        unique_branches_7d: branches.length,
+        branches_7d: branches,
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.logs_7d} sessions (7d), ${data.total_commits_7d} commits`,
+  },
+  {
+    id: "codeChurn",
+    category: "quality",
+    collect: ({ root, now }) => {
+      const commits = parseGitNumstat(root);
+      return computeCodeChurn(commits, now);
+    },
+    format: (data, name) =>
+      `${name}: ${Math.round(data.churn_rate * 100)}% churn rate (${data.lines_churned_7d} deleted / ${data.total_lines_added_7d} added, 7d)`,
+    detectRegression: (current, previous, thresholds) => {
+      if (!current?.available) return [];
+      if (current.churn_rate > thresholds.code_churn_rate_max) {
+        return [
+          {
+            sensor: "codeChurn",
+            metric: "churn_rate",
+            current: current.churn_rate,
+            previous: previous?.churn_rate ?? null,
+            delta:
+              previous?.churn_rate != null
+                ? Math.round((current.churn_rate - previous.churn_rate) * 1000) / 1000
+                : null,
+            severity: current.churn_rate > 0.5 ? "high" : "medium",
+          },
+        ];
+      }
+      return [];
+    },
+  },
+  {
+    id: "mutationScore",
+    category: "quality",
+    collect: ({ root, now }) => {
+      const reportPath = resolve(root, "reports", "mutation", "mutation.json");
+      const reportJson = safe(() => readJson(reportPath));
+      return collectMutationScore(reportJson, now);
+    },
+    format: (data, name) =>
+      `${name}: ${data.mutation_score}% (${data.killed}/${data.total_mutants} killed, threshold ${data.threshold}%) ${data.passes_threshold ? "PASS" : "BELOW TARGET"}`,
+  },
+  {
+    id: "flakyTests",
+    category: "quality",
+    collect: () => computeFlakyTests([]),
+    format: (data, name) =>
+      `${name}: ${data.flaky_count} flaky (${data.total_runs} runs, ${data.window_shas} SHAs)`,
+  },
+  {
+    id: "e2eStability",
     category: "availability",
-    issueLabels: ["ci-fix"],
-    severity: "high",
-    metricKeys: [
-      { key: "ci:duration", category: "performance" },
-      { key: "ci:pass_rate" },
-      { key: "ci:failures" },
-    ],
-    verifyFix: (_title, _body) => ({
-      verified: false,
-      reason: "CI verification deferred to verify-fixes ci verifier",
-      confidence: "skip",
-    }),
+    collect: ({ root }) => {
+      const rawRuns = safe(
+        () =>
+          execFileSync(
+            "gh",
+            ["run", "list", "--limit", "30", "--json", "conclusion,createdAt,headBranch,headSha"],
+            { encoding: "utf-8", timeout: 15000 }
+          ),
+        null
+      );
+      if (!rawRuns) return { available: false };
+
+      const ghRuns = safe(() => JSON.parse(rawRuns), null);
+      if (!ghRuns) return { available: false };
+
+      const injected = ghRuns.map((run) => {
+        const changedPaths = safe(
+          () =>
+            execFileSync("git", ["show", "--name-only", "--format=", run.headSha], {
+              encoding: "utf-8",
+              timeout: 3000,
+              cwd: root,
+            })
+              .split("\n")
+              .filter(Boolean),
+          []
+        );
+        return {
+          sha: run.headSha ?? "",
+          conclusion: run.conclusion,
+          changedPaths,
+          headRefName: run.headBranch ?? "",
+          createdAt: run.createdAt,
+        };
+      });
+
+      return computeE2eStability(injected);
+    },
+    format: (data, name) =>
+      `${name}: ${data.consecutive_failures} consecutive failure(s) on non-frontend runs (${data.total_non_frontend_runs}/${data.total_runs} non-frontend)`,
   },
   {
     id: "sentry",
@@ -77,18 +623,6 @@ export const SENSORS = [
     verifyFix: (_title, _body) => ({
       verified: false,
       reason: "Sentry verification not yet available — requires MCP authentication (#983)",
-      confidence: "skip",
-    }),
-  },
-  {
-    id: "acmm",
-    category: "quality",
-    issueLabels: ["acmm"],
-    severity: "medium",
-    metricKeys: [{ key: "acmm:level" }, { key: "acmm:criteria_count" }],
-    verifyFix: (_title, _body) => ({
-      verified: false,
-      reason: "ACMM verification deferred to verify-fixes acmm verifier",
       confidence: "skip",
     }),
   },
@@ -131,6 +665,32 @@ export const SENSORS = [
         "Queue efficiency verification: re-run sensor-report with --json and inspect queueEfficiency.composite vs baseline",
       confidence: "low",
     }),
+    collect: ({ now }) => collectQueueEfficiency(readQueueEfficiencyPrs, undefined, now),
+    format: (data, name) => {
+      const baselineStr =
+        data.baseline != null
+          ? ` (baseline ${data.baseline.composite_median?.toFixed(3)}, ${data.baseline.weeks_sampled}w)`
+          : " (no baseline yet)";
+      return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | $${data.sub_metrics?.cost_per_issue_usd}/issue${baselineStr}`;
+    },
+    detectRegression: (current, previous, thresholds) => {
+      if (!current?.available) return [];
+      const regressions = [...(current.regressions ?? [])];
+      if (previous?.available) {
+        const delta = current.composite - previous.composite;
+        if (delta < -thresholds.queue_efficiency_composite_drop) {
+          regressions.push({
+            sensor: "queueEfficiency",
+            metric: "composite_vs_previous_report",
+            current: current.composite,
+            previous: previous.composite,
+            delta: Math.round(delta * 1000) / 1000,
+            severity: delta < -0.15 ? "high" : "medium",
+          });
+        }
+      }
+      return regressions;
+    },
   },
 ];
 
@@ -142,7 +702,7 @@ export const SENSORS = [
  * @returns {SensorEntry | null}
  */
 export function getSensorByLabel(label) {
-  return SENSORS.find((s) => s.issueLabels.includes(label)) ?? null;
+  return SENSORS.find((s) => (s.issueLabels ?? []).includes(label)) ?? null;
 }
 
 /**
@@ -151,7 +711,7 @@ export function getSensorByLabel(label) {
  * @returns {string[]}
  */
 export function getAllLabels() {
-  return [...new Set(SENSORS.flatMap((s) => s.issueLabels))];
+  return [...new Set(SENSORS.flatMap((s) => s.issueLabels ?? []))];
 }
 
 /**
@@ -191,13 +751,56 @@ export function buildCategoryMap() {
  * Builds the LABEL_MAP format expected by sensor-correlator:
  * { sensorId → primary issue label (first in issueLabels array) }
  *
+ * Keyed by both `id` and `reportKey` (when set) — regression signals emitted
+ * by a sensor's `detectRegression` use its `reportKey` (e.g. "ci"'s regressions
+ * carry `sensor: "ciHealth"`), so the map must resolve either name to the
+ * same label.
+ *
  * @returns {Record<string, string>}
  */
 export function buildLabelMap() {
   /** @type {Record<string, string>} */
   const map = {};
   for (const sensor of SENSORS) {
+    if (!sensor.issueLabels || sensor.issueLabels.length === 0) continue;
     map[sensor.id] = sensor.issueLabels[0];
+    if (sensor.reportKey) map[sensor.reportKey] = sensor.issueLabels[0];
   }
   return map;
+}
+
+/**
+ * Collects every report-participating sensor's data. An expected "no data"
+ * case (missing file, unreachable API) is handled inside the sensor's own
+ * `collect` (usually via `safe()`) and returns `{ available: false }` directly.
+ * This wrapper is the last-resort net for a genuinely unexpected collector
+ * bug — it must not swallow silently, or the bug vanishes as a quiet
+ * "not available" sensor instead of surfacing.
+ *
+ * @param {SensorEntry[]} entries - typically getReportSensors()
+ * @param {CollectContext} ctx
+ * @returns {Record<string, object>} keyed by each entry's reportKey (or id)
+ */
+export function collectReportSensors(entries, ctx) {
+  return Object.fromEntries(
+    entries.map((sensor) => {
+      const key = sensor.reportKey ?? sensor.id;
+      try {
+        return [key, sensor.collect(ctx)];
+      } catch (err) {
+        console.error(`[sensor-report] unexpected error in "${sensor.id}" collector:`, err);
+        return [key, { available: false }];
+      }
+    })
+  );
+}
+
+/**
+ * Returns the SENSORS entries that participate in the daily sensor report
+ * (i.e. carry a `collect` function).
+ *
+ * @returns {SensorEntry[]}
+ */
+export function getReportSensors() {
+  return SENSORS.filter((s) => typeof s.collect === "function");
 }
