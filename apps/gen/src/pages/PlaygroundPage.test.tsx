@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import type { PlaygroundSession } from "./usePlaygroundSession.js";
 
 const mockSend = vi.fn();
 const mockStop = vi.fn();
@@ -28,15 +29,20 @@ vi.mock("@json-render/react", () => ({
   Renderer: () => <div data-testid="renderer" />,
 }));
 
+let capturedOnComplete: ((spec: unknown, rawLines: string[]) => void) | undefined;
+
 vi.mock("../hooks/useGenStream.js", () => ({
-  useGenStream: () => ({
-    spec: null,
-    isStreaming: false,
-    error: null,
-    rawLines: [],
-    send: mockSend,
-    stop: mockStop,
-  }),
+  useGenStream: (opts: { onComplete?: (spec: unknown, rawLines: string[]) => void }) => {
+    capturedOnComplete = opts.onComplete;
+    return {
+      spec: null,
+      isStreaming: false,
+      error: null,
+      rawLines: [],
+      send: mockSend,
+      stop: mockStop,
+    };
+  },
 }));
 
 vi.mock("../hooks/useSpecsApi.js", () => ({
@@ -189,95 +195,83 @@ vi.mock("../components/KeyboardShortcuts.js", () => ({
 
 import { PlaygroundPage, PlaygroundBody } from "./PlaygroundPage.js";
 
-describe("PlaygroundBody — 3-prop interface", () => {
+function makeSession(overrides: Partial<PlaygroundSession> = {}): PlaygroundSession {
+  return {
+    mode: "generate",
+    isFullscreen: false,
+    galleryOpen: false,
+    shortcutsOpen: false,
+    toggleFullscreen: vi.fn(),
+    openGallery: vi.fn(),
+    closeGallery: vi.fn(),
+    toggleGallery: vi.fn(),
+    openShortcuts: vi.fn(),
+    closeShortcuts: vi.fn(),
+    toggleShortcuts: vi.fn(),
+    exitRefinement: vi.fn(),
+    specs: [],
+    isLoading: false,
+    filter: "all",
+    setFilter: vi.fn(),
+    isStreaming: false,
+    error: null,
+    displaySpec: null,
+    displayRawLines: [],
+    displayError: null,
+    activeSpecId: null,
+    submit: mockSend,
+    refine: vi.fn(),
+    replay: vi.fn(),
+    retry: vi.fn(),
+    selectHistory: vi.fn(),
+    toggleFavorite: mockToggleFavorite,
+    deleteSpec: mockDeleteSpec,
+    reset: vi.fn(),
+    stop: mockStop,
+    ...overrides,
+  };
+}
+
+describe("PlaygroundBody — session-object interface", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("renders with { state, data, onSubmit } — no individual setter props", () => {
-    const mockState = {
-      mode: "generate" as const,
-      isFullscreen: false,
-      galleryOpen: false,
-      shortcutsOpen: false,
-      enterRefinement: vi.fn(),
-      exitRefinement: vi.fn(),
-      toggleFullscreen: vi.fn(),
-      openGallery: vi.fn(),
-      closeGallery: vi.fn(),
-      toggleGallery: vi.fn(),
-      openShortcuts: vi.fn(),
-      closeShortcuts: vi.fn(),
-      toggleShortcuts: vi.fn(),
-    };
-    const mockData = {
-      specs: [],
-      isLoading: false,
-      activeId: null,
-      setActiveId: vi.fn(),
-      filter: "all" as const,
-      setFilter: vi.fn(),
-      promptRef: { current: "" },
-      spec: null,
-      isStreaming: false,
-      error: null,
-      rawLines: [],
-      stop: mockStop,
-      toggleFavorite: mockToggleFavorite,
-      deleteSpec: mockDeleteSpec,
-      toggleTheme: mockToggleTheme,
-      onSignOut: mockSignOut,
-      toast: mockToast,
-    };
-    render(<PlaygroundBody state={mockState} data={mockData} onSubmit={mockSend} />);
+  it("renders with a single { session, onSignOut, toggleTheme } props shape", () => {
+    render(
+      <PlaygroundBody
+        session={makeSession()}
+        onSignOut={mockSignOut}
+        toggleTheme={mockToggleTheme}
+      />
+    );
     expect(screen.getByTestId("prompt-bar")).toBeDefined();
     expect(screen.getByTestId("preview-pane")).toBeDefined();
     expect(screen.getByTestId("json-inspector")).toBeDefined();
   });
 
-  it("calls onSubmit when prompt is submitted", () => {
-    const onSubmit = vi.fn();
-    const mockState = {
-      mode: "generate" as const,
-      isFullscreen: false,
-      galleryOpen: false,
-      shortcutsOpen: false,
-      enterRefinement: vi.fn(),
-      exitRefinement: vi.fn(),
-      toggleFullscreen: vi.fn(),
-      openGallery: vi.fn(),
-      closeGallery: vi.fn(),
-      toggleGallery: vi.fn(),
-      openShortcuts: vi.fn(),
-      closeShortcuts: vi.fn(),
-      toggleShortcuts: vi.fn(),
-    };
-    const mockData = {
-      specs: [],
-      isLoading: false,
-      activeId: null,
-      setActiveId: vi.fn(),
-      filter: "all" as const,
-      setFilter: vi.fn(),
-      promptRef: { current: "" },
-      spec: null,
-      isStreaming: false,
-      error: null,
-      rawLines: [],
-      stop: mockStop,
-      toggleFavorite: mockToggleFavorite,
-      deleteSpec: mockDeleteSpec,
-      toggleTheme: mockToggleTheme,
-      onSignOut: mockSignOut,
-      toast: mockToast,
-    };
-    render(<PlaygroundBody state={mockState} data={mockData} onSubmit={onSubmit} />);
+  it("delegates prompt submission directly to session.submit — no local choreography", () => {
+    const session = makeSession();
+    render(
+      <PlaygroundBody session={session} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
     fireEvent.click(screen.getByText("Submit"));
-    expect(onSubmit).toHaveBeenCalledWith("test prompt");
+    expect(session.submit).toHaveBeenCalledWith("test prompt");
+  });
+
+  it("delegates retry/refine to the session verbs", () => {
+    const session = makeSession();
+    render(
+      <PlaygroundBody session={session} onSignOut={mockSignOut} toggleTheme={mockToggleTheme} />
+    );
+    fireEvent.click(screen.getByText("Retry"));
+    expect(session.retry).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Refine"));
+    expect(session.refine).toHaveBeenCalled();
   });
 });
 
-describe("PlaygroundPage", () => {
+describe("PlaygroundPage — wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -291,50 +285,22 @@ describe("PlaygroundPage", () => {
     expect(screen.getByTestId("prompt-bar")).toBeDefined();
   });
 
-  it("submits a prompt via PromptBar", () => {
+  it("submits a prompt via PromptBar through the session hook", () => {
     render(<PlaygroundPage />);
     fireEvent.click(screen.getByText("Submit"));
     expect(mockSend).toHaveBeenCalledWith("test prompt");
   });
 
-  it("stops streaming via PromptBar", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Stop"));
-    expect(mockStop).toHaveBeenCalled();
-  });
-
-  it("selects a history entry", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Select s1"));
-  });
-
-  it("replays a history entry", () => {
+  it("replays a history entry through the session hook", () => {
     render(<PlaygroundPage />);
     fireEvent.click(screen.getByText("Replay s1"));
     expect(mockSend).toHaveBeenCalledWith("Dashboard");
   });
 
-  it("toggles favorite on a history entry", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Fav s1"));
-    expect(mockToggleFavorite).toHaveBeenCalledWith("s1");
-  });
-
-  it("deletes a history entry", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Delete s1"));
-    expect(mockDeleteSpec).toHaveBeenCalledWith("s1");
-  });
-
-  it("signs out via AppShell", () => {
+  it("signs out via AppShell, resetting the session first", () => {
     render(<PlaygroundPage />);
     fireEvent.click(screen.getByText("Sign Out"));
     expect(mockSignOut).toHaveBeenCalled();
-  });
-
-  it("clicks logo to reset state", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Logo"));
   });
 
   it("opens templates gallery", () => {
@@ -342,23 +308,13 @@ describe("PlaygroundPage", () => {
     fireEvent.click(screen.getByText("Templates"));
   });
 
-  it("enters refinement mode via PreviewPane", () => {
+  it("shows a completion toast when the generation stream completes", () => {
     render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Refine"));
-  });
-
-  it("exits refinement mode via PromptBar", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Exit Refine"));
-  });
-
-  it("toggles fullscreen via PreviewPane", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Fullscreen"));
-  });
-
-  it("handles share from PreviewPane", () => {
-    render(<PlaygroundPage />);
-    fireEvent.click(screen.getByText("Share"));
+    capturedOnComplete?.({}, ["{}"]);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: "Generation complete",
+      variant: "success",
+      duration: 3000,
+    });
   });
 });

@@ -1,10 +1,7 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
 import type { CommandItem } from "@mattbutlerengineering/rialto";
-import type { Spec } from "@json-render/react";
-import { useGenStream } from "../hooks/useGenStream.js";
-import { useSpecsApi } from "../hooks/useSpecsApi.js";
 import { useTheme } from "../contexts/ThemeContext.js";
 import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
@@ -15,16 +12,15 @@ import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
-import { createRefinementPrompt } from "./createRefinementPrompt.js";
-import { usePlaygroundState } from "./usePlaygroundState.js";
-import type { PlaygroundState } from "./usePlaygroundState.js";
-import type { StoredSpec } from "../types.js";
+import { usePlaygroundSession } from "./usePlaygroundSession.js";
+import type { PlaygroundSession } from "./usePlaygroundSession.js";
 import styles from "./PlaygroundPage.module.css";
 
 /**
  * Main playground page.
- * Owns all state: streaming, active entry selection, history filter, refinement mode.
- * History is database-backed via useSpecsApi — survives page refresh.
+ * Session state (streaming, active entry, refinement mode, history) is owned
+ * by usePlaygroundSession. History is database-backed via useSpecsApi —
+ * survives page refresh.
  * Three-column layout: HistoryPanel | PreviewPane | JsonInspector
  * with AppShell wrapping the top bar and PromptBar at the bottom.
  *
@@ -46,30 +42,24 @@ export function PlaygroundPage() {
   const { signOut } = useAuth();
   const { toast } = useToast();
   const { toggleTheme } = useTheme();
-  const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
-
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "favorites">("all");
-  const playground = usePlaygroundState();
-  const { isFullscreen, exitRefinement, openGallery, toggleGallery, toggleShortcuts } = playground;
-
-  // Track the most recently submitted prompt without triggering re-renders
-  const promptRef = useRef("");
-
-  const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
-    api: "/api/gen/ui",
-    onComplete: (completedSpec, completedRawLines) => {
-      toast({ title: "Generation complete", variant: "success", duration: 3000 });
-      // Auto-save completed generation (or refinement) to the database
-      void saveSpec({
-        prompt: promptRef.current,
-        spec: completedSpec,
-        rawLines: completedRawLines,
-      }).then((stored) => {
-        setActiveId(stored.id);
-      });
-    },
+  const session = usePlaygroundSession({
+    onGenerationComplete: () =>
+      toast({ title: "Generation complete", variant: "success", duration: 3000 }),
   });
+  const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
+
+  function handleSignOut() {
+    reset();
+    void signOut();
+  }
+
+  const handleLogoClick = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  function handleTemplatesOpen() {
+    openGallery();
+  }
 
   // Show error toast when generation fails
   useEffect(() => {
@@ -82,21 +72,6 @@ export function PlaygroundPage() {
       });
     }
   }, [error, toast]);
-
-  function handleSignOut() {
-    setActiveId(null);
-    exitRefinement();
-    void signOut();
-  }
-
-  const handleLogoClick = useCallback(() => {
-    setActiveId(null);
-    exitRefinement();
-  }, [exitRefinement]);
-
-  function handleTemplatesOpen() {
-    openGallery();
-  }
 
   // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
   useEffect(() => {
@@ -126,76 +101,30 @@ export function PlaygroundPage() {
 
   return (
     <AppShell
-      isFullscreen={isFullscreen}
+      isFullscreen={session.isFullscreen}
       onSignOut={handleSignOut}
       onLogoClick={handleLogoClick}
       onTemplatesOpen={handleTemplatesOpen}
     >
-      <PlaygroundBody
-        state={playground}
-        data={{
-          specs,
-          isLoading,
-          activeId,
-          setActiveId,
-          filter,
-          setFilter,
-          promptRef,
-          spec,
-          isStreaming,
-          error,
-          rawLines,
-          stop,
-          toggleFavorite,
-          deleteSpec,
-          toggleTheme,
-          onSignOut: handleSignOut,
-          toast,
-        }}
-        onSubmit={send}
-      />
+      <PlaygroundBody session={session} onSignOut={handleSignOut} toggleTheme={toggleTheme} />
     </AppShell>
   );
 }
 
-/** API-hook results and page-managed state threaded into PlaygroundBody. */
-export interface PlaygroundData {
-  // useSpecsApi
-  specs: StoredSpec[];
-  isLoading: boolean;
-  toggleFavorite: (id: string) => Promise<void>;
-  deleteSpec: (id: string) => Promise<void>;
-  // useGenStream
-  spec: Spec | null;
-  isStreaming: boolean;
-  error: Error | null;
-  rawLines: string[];
-  stop: () => void;
-  // Page-managed state (tightly coupled to the API data)
-  activeId: string | null;
-  setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
-  filter: "all" | "favorites";
-  setFilter: React.Dispatch<React.SetStateAction<"all" | "favorites">>;
-  promptRef: React.MutableRefObject<string>;
-  // Other
-  toggleTheme: () => void;
-  onSignOut: () => void;
-  toast: ReturnType<typeof useToast>["toast"];
-}
-
 interface PlaygroundBodyProps {
-  state: PlaygroundState;
-  data: PlaygroundData;
-  /** Raw send function from useGenStream — PlaygroundBody wraps it with refinement logic. */
-  onSubmit: (prompt: string) => Promise<void> | void;
+  session: PlaygroundSession;
+  onSignOut: () => void;
+  toggleTheme: () => void;
 }
 
 /**
  * The playground content rendered inside AppShell. Reads shell-owned panel
  * state (history / inspector visibility, breakpoint, palette controls) via
- * useAppShellPanels and composes the AppShell panel regions + command palette.
+ * useAppShellPanels and composes the AppShell panel regions + command
+ * palette. Session transitions (submit/refine/replay/retry/selectHistory)
+ * are delegated to the session object — this component owns no choreography.
  */
-export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
+export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBodyProps) {
   const {
     historyVisible,
     inspectorVisible,
@@ -205,138 +134,57 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
     closeOverlays,
     closePalette,
   } = useAppShellPanels();
+  const { toast } = useToast();
+  const { copy } = useCopyToClipboard();
+  const isMobileOrTablet = breakpoint !== "desktop";
 
   const {
     mode,
     isFullscreen,
     galleryOpen,
     shortcutsOpen,
-    enterRefinement,
-    exitRefinement,
-    toggleFullscreen,
-    openGallery,
-    closeGallery,
-    openShortcuts,
-    closeShortcuts,
-  } = state;
-
-  const {
     specs,
     isLoading,
-    activeId,
-    setActiveId,
     filter,
     setFilter,
-    promptRef,
-    spec,
     isStreaming,
-    error,
-    rawLines,
-    stop,
+    displaySpec,
+    displayRawLines,
+    displayError,
+    activeSpecId,
+    submit,
+    refine,
+    exitRefinement,
+    replay,
+    retry,
+    selectHistory,
     toggleFavorite,
     deleteSpec,
-    toggleTheme,
-    onSignOut,
-    toast,
-  } = data;
-
-  const { copy } = useCopyToClipboard();
-  const isMobileOrTablet = breakpoint !== "desktop";
-
-  // ---------------------------------------------------------------------------
-  // Display logic — live streaming vs. history review mode
-  // ---------------------------------------------------------------------------
-  const activeEntry = activeId ? specs.find((s) => s.id === activeId) : null;
-  // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
-  const activeEntrySpec = activeEntry?.spec as Spec | undefined;
-  const activeEntryRawLines = activeEntry?.rawLines ?? [];
-
-  const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
-  const displayRawLines = isStreaming
-    ? rawLines
-    : activeEntryRawLines.length > 0
-      ? activeEntryRawLines
-      : rawLines;
-  const displayError = isStreaming ? error : null;
-
-  // activeSpecId for Share/Refine: only set when viewing a non-streaming saved entry
-  const activeSpecId = !isStreaming && activeId ? activeId : null;
+    reset,
+    stop,
+    toggleFullscreen,
+    closeGallery,
+    openGallery,
+    openShortcuts,
+    closeShortcuts,
+  } = session;
 
   // ---------------------------------------------------------------------------
-  // Handlers
+  // Handlers — breakpoint-driven overlay closing is a shell concern, kept here.
   // ---------------------------------------------------------------------------
-
-  function handleSubmit(prompt: string) {
-    if (mode === "refine" && displaySpec) {
-      // Embed the current spec as context so the model modifies rather than regenerates
-      const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
-      promptRef.current = `Refined: ${prompt}`;
-      setActiveId(null); // Switch to live streaming mode
-      void onSubmit(refinementPrompt);
-    } else {
-      promptRef.current = prompt;
-      setActiveId(null); // Switch to live streaming mode
-      void onSubmit(prompt);
-    }
-  }
-
-  function handleStop() {
-    stop();
-  }
 
   function handleSelectHistory(id: string) {
-    if (isStreaming) return; // Don't allow switching while streaming
-    setActiveId(id);
-    // Selecting from history exits refinement mode
-    exitRefinement();
-    // On mobile/tablet, close overlays after selection
-    if (isMobileOrTablet) {
-      closeOverlays();
-    }
+    selectHistory(id);
+    if (isMobileOrTablet) closeOverlays();
   }
 
   function handleReplay(id: string) {
-    const entry = specs.find((s) => s.id === id);
-    if (!entry) return;
-    promptRef.current = entry.prompt;
-    setActiveId(null); // Switch to live streaming mode for new generation
-    exitRefinement();
-    if (isMobileOrTablet) {
-      closeOverlays();
-    }
-    void onSubmit(entry.prompt);
+    replay(id);
+    if (isMobileOrTablet) closeOverlays();
   }
 
   function handleToggleFavorite(id: string) {
-    void toggleFavorite(id);
-  }
-
-  function handleDelete(id: string) {
-    void deleteSpec(id);
-    if (activeId === id) {
-      setActiveId(null);
-    }
-  }
-
-  function handleRetry() {
-    const retryPrompt = activeEntry?.prompt ?? promptRef.current;
-    if (!retryPrompt) return;
-    promptRef.current = retryPrompt;
-    setActiveId(null);
-    exitRefinement();
-    void onSubmit(retryPrompt);
-  }
-
-  function handleEnterRefinement() {
-    enterRefinement();
-  }
-
-  function handleExitRefinement() {
-    exitRefinement();
-  }
-
-  function handleToggleFullscreen() {
-    toggleFullscreen();
+    toggleFavorite(id);
   }
 
   function handleShare(_id: string) {
@@ -345,11 +193,7 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
 
   function handleTemplateSelect(prompt: string) {
     toast({ title: "Generating from template...", variant: "accent", duration: 2000 });
-    handleSubmit(prompt);
-  }
-
-  function handleGalleryClose() {
-    closeGallery();
+    submit(prompt);
   }
 
   // ---------------------------------------------------------------------------
@@ -363,8 +207,7 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
       shortcut: ["⌘", "N"],
       onSelect: () => {
         closePalette();
-        setActiveId(null);
-        exitRefinement();
+        reset();
       },
     },
     {
@@ -486,13 +329,13 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
         <AppShell.HistoryRegion>
           <HistoryPanel
             entries={specs}
-            activeId={activeId}
+            activeId={activeSpecId}
             filter={filter}
             isLoading={isLoading}
             onSelect={handleSelectHistory}
             onReplay={handleReplay}
             onToggleFavorite={handleToggleFavorite}
-            onDelete={handleDelete}
+            onDelete={deleteSpec}
             onFilterChange={setFilter}
           />
         </AppShell.HistoryRegion>
@@ -525,14 +368,14 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
             spec={displaySpec}
             isStreaming={isStreaming}
             error={displayError}
-            onRetry={handleRetry}
+            onRetry={retry}
             activeSpecId={activeSpecId}
             onShare={handleShare}
-            onRefine={handleEnterRefinement}
+            onRefine={refine}
             isRefinementMode={mode === "refine"}
-            onSuggestionClick={handleSubmit}
+            onSuggestionClick={submit}
             isFullscreen={isFullscreen}
-            onToggleFullscreen={handleToggleFullscreen}
+            onToggleFullscreen={toggleFullscreen}
           />
         </ErrorBoundary>
 
@@ -566,18 +409,14 @@ export function PlaygroundBody({ state, data, onSubmit }: PlaygroundBodyProps) {
         </AppShell.InspectorRegion>
       </div>
       <PromptBar
-        onSubmit={handleSubmit}
-        onStop={handleStop}
+        onSubmit={submit}
+        onStop={stop}
         isStreaming={isStreaming}
         disabled={false}
         mode={mode}
-        onExitRefinement={handleExitRefinement}
+        onExitRefinement={exitRefinement}
       />
-      <TemplateGallery
-        open={galleryOpen}
-        onClose={handleGalleryClose}
-        onSelect={handleTemplateSelect}
-      />
+      <TemplateGallery open={galleryOpen} onClose={closeGallery} onSelect={handleTemplateSelect} />
       <KeyboardShortcuts open={shortcutsOpen} onClose={closeShortcuts} />
       <HelpButton onClick={openShortcuts} />
       <AppShell.CommandPalette items={commandItems} />
