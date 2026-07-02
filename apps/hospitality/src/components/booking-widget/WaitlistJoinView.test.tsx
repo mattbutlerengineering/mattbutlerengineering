@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { ApiClientError } from "@mbe/api-client";
 import { WaitlistJoinView } from "./WaitlistJoinView.js";
 import React from "react";
 
@@ -21,9 +22,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         data-testid={`input-${label?.toLowerCase().replace(/\s/g, "-")}`}
         aria-invalid={Boolean(error)}
       />
-      {hint && (
-        <span data-testid={error ? "input-error" : "input-hint"}>{hint}</span>
-      )}
+      {hint && <span data-testid={error ? "input-error" : "input-hint"}>{hint}</span>}
     </div>
   ),
   Alert: ({ children, variant }: any) => (
@@ -35,20 +34,26 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
 }));
 
+const mockApi = {
+  waitlist: {
+    join: vi.fn(),
+  },
+};
+
 const DEFAULT_PROPS = {
   requestedDate: "2026-05-20",
   partySize: 2,
   estimatedWaitMinutes: 30,
   venueSlug: "test-venue",
   venueId: "venue-1",
-  apiBaseUrl: "https://api.example.com",
+  api: mockApi as any,
   onJoined: vi.fn(),
   onBack: vi.fn(),
 };
 
 describe("WaitlistJoinView", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("shows no-availability message with estimated wait time", () => {
@@ -120,18 +125,7 @@ describe("WaitlistJoinView", () => {
 
   it("calls onJoined with position and estimatedWaitMinutes after successful join", async () => {
     const onJoined = vi.fn();
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          id: "wl-1",
-          position: 3,
-          estimatedWaitMinutes: 45,
-          status: "waiting",
-        },
-      }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
+    mockApi.waitlist.join.mockResolvedValue({ position: 3, estimatedWaitMinutes: 45 });
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} onJoined={onJoined} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
@@ -141,16 +135,23 @@ describe("WaitlistJoinView", () => {
     await waitFor(() => {
       expect(onJoined).toHaveBeenCalledWith({ position: 3, estimatedWaitMinutes: 45 });
     });
-    vi.unstubAllGlobals();
+    expect(mockApi.waitlist.join).toHaveBeenCalledWith("test-venue", {
+      venueId: "venue-1",
+      partySize: 2,
+      guestName: "Jane Doe",
+      guestPhone: "+15551234567",
+    });
   });
 
   it("shows error alert on API failure", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({ message: "Server error" }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
+    mockApi.waitlist.join.mockRejectedValue(
+      new ApiClientError(
+        { error: "Error", message: "Server error", statusCode: 500 },
+        "POST",
+        "/public/v1/venues/test-venue/waitlist",
+        { type: "about:blank", title: "Server Error", status: 500, detail: "Server error" }
+      )
+    );
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
@@ -159,16 +160,16 @@ describe("WaitlistJoinView", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("alert")).toBeDefined();
+      expect(screen.getByText("Server error")).toBeDefined();
     });
-    vi.unstubAllGlobals();
   });
 
   it("shows loading state while submitting", async () => {
-    let resolveFetch!: (value: unknown) => void;
-    const pendingFetch = new Promise((r) => {
-      resolveFetch = r;
+    let resolveJoin!: (value: unknown) => void;
+    const pendingJoin = new Promise((r) => {
+      resolveJoin = r;
     });
-    vi.stubGlobal("fetch", vi.fn().mockReturnValue(pendingFetch));
+    mockApi.waitlist.join.mockReturnValue(pendingJoin);
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
@@ -179,10 +180,6 @@ describe("WaitlistJoinView", () => {
       expect(screen.getByText(/Joining.../i)).toBeDefined();
     });
 
-    resolveFetch({
-      ok: true,
-      json: async () => ({ data: { id: "wl-1", position: 1, estimatedWaitMinutes: 15 } }),
-    });
-    vi.unstubAllGlobals();
+    resolveJoin({ position: 1, estimatedWaitMinutes: 15 });
   });
 });
