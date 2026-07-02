@@ -2,8 +2,9 @@ import { test, expect, describe, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { COORDINATION_LABELS } from "@mbe/gh-client";
 import { BUG_CATALOG as coreCatalog } from "@mbe/agent-core";
-import { injectBugIntoFile, BUG_CATALOG } from "../chaos-agent.mjs";
+import { injectBugIntoFile, BUG_CATALOG, buildChaosPrArgs } from "../chaos-agent.mjs";
 
 // #2941: the pre-#2927 version of this suite ran the full chaos-agent CLI via
 // execFileSync, which unconditionally `git checkout -b` + commits on a
@@ -81,5 +82,21 @@ export default function MyComponent() {
     const injected = injectBugIntoFile("console-error", tempFile);
 
     expect(injected).toBe(false);
+  });
+
+  test("builds the chaos PR args using the shared ready label constant (#2933)", () => {
+    const prArgs = buildChaosPrArgs(
+      "console-error",
+      "/repo/apps/marketing/src/Foo.tsx",
+      "apps/marketing/src/Foo.tsx"
+    );
+
+    // The ready label must come from @mbe/gh-client's coordination-label
+    // machine, not a re-typed string literal, so it can't drift (#2933).
+    const readyIdx = prArgs.indexOf(COORDINATION_LABELS.READY);
+    expect(readyIdx).toBeGreaterThan(-1);
+    expect(prArgs[readyIdx - 1]).toBe("--label");
+    expect(prArgs).toContain("chaos-audit");
+    expect(prArgs).toContain("audit");
   });
 });

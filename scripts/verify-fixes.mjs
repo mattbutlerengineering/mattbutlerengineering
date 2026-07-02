@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, markReady } from "@mbe/gh-client";
 import { run as runThresholdTuner } from "./threshold-tuner.mjs";
 import { getAllLabels } from "./sensors-registry.mjs";
 
@@ -272,13 +272,9 @@ for (const issue of issues) {
     safe(() => ghClient.issue.comment(issue.number, comment));
 
     if (!result.verified) {
-      safe(() =>
-        ghClient.label.apply({
-          issueNumber: issue.number,
-          add: ["ready"],
-          remove: ["has-pr"],
-        })
-      );
+      // Single source of truth for the re-queue edge (#2933): @mbe/gh-client's
+      // markReady owns which labels come off, not this call site.
+      safe(() => ghClient.label.apply(markReady(issue.number)));
       safe(() => ghClient.issue.reopen(issue.number));
       console.log(`     ↻ Reopened #${issue.number} for re-triage\n`);
     }

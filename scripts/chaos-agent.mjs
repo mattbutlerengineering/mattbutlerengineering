@@ -24,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { BUG_CATALOG, injectBug } from "@mbe/agent-core";
 
 // Re-exported for tests: proves this script delegates to the agent-core
@@ -47,6 +47,38 @@ export function findTargetFile(type) {
     .filter((f) => f && !f.includes(".test.") && !f.includes("layout.tsx"));
 
   return files[Math.floor(Math.random() * files.length)];
+}
+
+/**
+ * Pure: builds the `gh pr create` args for a pushed chaos-bug PR. The `ready`
+ * label is sourced from `@mbe/gh-client`'s coordination-label machine (#2933)
+ * rather than a re-typed string literal, so it can never drift from the
+ * canonical label name.
+ */
+export function buildChaosPrArgs(type, targetFile, relativePath) {
+  const prBody = `## Chaos Agent Synthetic Bug Audit
+
+      This PR contains a synthetic **${type}** bug injected by the Chaos Agent.
+
+      **File:** ${relativePath}
+      **Goal:** Verify that site-audit and lint loops detect this issue and file a corresponding GitHub issue.
+
+      This PR is designed to be detectable but non-breaking for the build.
+
+      Labels: \`chaos-audit\`, \`${COORDINATION_LABELS.READY}\`, \`audit\``;
+
+  return [
+    "--title",
+    `chaos: synthetic ${type} bug in ${path.basename(targetFile)}`,
+    "--body",
+    prBody,
+    "--label",
+    "chaos-audit",
+    "--label",
+    COORDINATION_LABELS.READY,
+    "--label",
+    "audit",
+  ];
 }
 
 /** Reads `filePath` and delegates to the pure `injectBug` catalog transform. */
@@ -118,30 +150,8 @@ function main() {
       console.log("Pushing and creating PR...");
       execFileSync("git", ["push", "origin", branchName]);
 
-      const prBody = `## Chaos Agent Synthetic Bug Audit
-
-      This PR contains a synthetic **${type}** bug injected by the Chaos Agent.
-
-      **File:** ${relativePath}
-      **Goal:** Verify that site-audit and lint loops detect this issue and file a corresponding GitHub issue.
-
-      This PR is designed to be detectable but non-breaking for the build.
-
-      Labels: \`chaos-audit\`, \`ready\`, \`audit\``;
-
       try {
-        ghClient.pr.create([
-          "--title",
-          `chaos: synthetic ${type} bug in ${path.basename(targetFile)}`,
-          "--body",
-          prBody,
-          "--label",
-          "chaos-audit",
-          "--label",
-          "ready",
-          "--label",
-          "audit",
-        ]);
+        ghClient.pr.create(buildChaosPrArgs(type, targetFile, relativePath));
       } catch (e) {
         console.error(`gh command failed: ${e.message}`);
       }
