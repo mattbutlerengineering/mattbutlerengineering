@@ -237,6 +237,19 @@
       export const publicVenueRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-waitlist.ts">
+    <item priority="high">
+      interface PublicWaitlistJoinBody {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="high">
+      export const publicWaitlistRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/ready.ts">
     <item priority="high">
       export const readinessRoutes: FastifyPluginAsync;
