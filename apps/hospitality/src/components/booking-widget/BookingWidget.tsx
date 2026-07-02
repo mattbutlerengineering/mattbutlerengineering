@@ -204,10 +204,14 @@ export function BookingWidget({
       });
 
       // Only check guest risk when the venue's general policy doesn't already
-      // require a deposit — avoids an unnecessary lookup.
-      const guestIsRisky = !data.depositConfig?.enabled
-        ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
-        : false;
+      // require a deposit, and only when Stripe is actually configured for
+      // this venue (venueSlug + publishable key) — avoids an unnecessary
+      // lookup, and avoids sending guest PII (email/phone) when there's no
+      // deposit flow to gate.
+      const guestIsRisky =
+        !data.depositConfig?.enabled && venueSlug && stripePublishableKey
+          ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
+          : false;
 
       const depositConfig = effectiveDepositPolicy({
         depositConfig: data.depositConfig,
