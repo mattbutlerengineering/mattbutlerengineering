@@ -28,7 +28,7 @@ describe("check-service-bindings", () => {
     test("parse binding names from each of the 3 sources", async () => {
       writeInfra(tmpDir, {
         wrangler: '[[services]]\nbinding = "USERS_API"\nservice = "users-api"\n',
-        routesConfig: { staticRoutes: [{ binding: "USERS_API", path: "/api/users" }] },
+        routesConfig: { staticRoutes: [{ binding: "USERS_API", path: "users" }] },
         pulumi: 'const bindings = [{ name: "USERS_API", service: usersApi }];\n',
       });
 
@@ -70,7 +70,7 @@ describe("check-service-bindings", () => {
     test("aggregates a real fixture end-to-end into no findings when in sync", async () => {
       writeInfra(tmpDir, {
         wrangler: '[[services]]\nbinding = "USERS_API"\nservice = "users-api"\n',
-        routesConfig: { staticRoutes: [{ binding: "USERS_API", path: "/api/users" }] },
+        routesConfig: { staticRoutes: [{ binding: "USERS_API", path: "users" }] },
         pulumi: 'const bindings = [{ name: "USERS_API", service: usersApi }];\n',
       });
 
