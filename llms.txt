@@ -2754,7 +2754,7 @@
       }
     </item>
     <item priority="low">
-      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
+      type CancelInitiator = "guest" | "staff";
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">

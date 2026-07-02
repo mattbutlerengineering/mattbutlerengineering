@@ -196,6 +196,30 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("returns a 409 failure BEFORE touching the deposit when the reservation cannot transition to CANCELLED (stranded-deposit guard, #2930)", async () => {
+    // Reproduces the prod bug: a staff cancel of an already-CANCELLED
+    // reservation that (in prod) still has a held deposit. resolveDeposit()
+    // must never run — the deposit money-move happens before the transition
+    // check would otherwise fire deep inside reservationService.update(),
+    // stranding the refund against a 409 response. No getByReservationId
+    // mock is queued here: the assertion below proves it's never called, so
+    // queuing an unconsumed `mockResolvedValueOnce` would only desync the
+    // shared once-queue for later tests.
+    const reservation = makeReservation({ status: "CANCELLED" });
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps(), {
+      initiator: "staff",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(depositService.getByReservationId).not.toHaveBeenCalled();
+    expect(depositService.refund).not.toHaveBeenCalled();
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
   it("cancels reminder jobs and dispatches the guest notification on success", async () => {
     const reservation = makeReservation();
     const deps = makeDeps();
@@ -218,5 +242,105 @@ describe("cancelReservationWithDeposit", () => {
       expect.objectContaining({ reservationId: "res_1", manageToken: "token123" }),
       "email_only"
     );
+  });
+
+  describe("initiator: staff", () => {
+    it("refunds a held deposit in full, waiving any cancellation fee policy", async () => {
+      // Reservation is well past the free-cancellation window (would be a
+      // partial refund/forfeit under guest policy) — staff cancels must still
+      // refund the deposit in full and must never consult the fee policy.
+      const reservation = makeReservation({
+        startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      });
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(depositService.refund).mockResolvedValueOnce({
+        ...heldDeposit,
+        status: "refunded",
+      } as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...reservation,
+        status: "CANCELLED",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
+
+      const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
+        initiator: "staff",
+      });
+
+      expect(result.success).toBe(true);
+      expect(depositService.refund).toHaveBeenCalledWith("dep_1");
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+      expect(venueService.getRawById).not.toHaveBeenCalled();
+    });
+
+    it("aborts the cancel when the staff refund fails (no ghost state)", async () => {
+      const reservation = makeReservation();
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+      vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+      const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
+        initiator: "staff",
+      });
+
+      expect(result.success).toBe(false);
+      expect(reservationService.update).not.toHaveBeenCalled();
+    });
+
+    it("persists cancellationReason and cancellationNote when provided", async () => {
+      const reservation = makeReservation();
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...reservation,
+        status: "CANCELLED",
+        cancellationReason: "no_show_policy",
+        cancellationNote: "Guest called ahead",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
+
+      const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
+        initiator: "staff",
+        cancellationReason: "no_show_policy",
+        cancellationNote: "Guest called ahead",
+      });
+
+      expect(result.success).toBe(true);
+      expect(reservationService.update).toHaveBeenCalledWith("res_1", {
+        status: "CANCELLED",
+        cancellationReason: "no_show_policy",
+        cancellationNote: "Guest called ahead",
+      });
+    });
+
+    it("still replays a partial_refunded retry from persisted amounts (retry guard is initiator-agnostic)", async () => {
+      const reservation = makeReservation({
+        startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      });
+      const partialRefundedDeposit = {
+        ...heldDeposit,
+        status: "partial_refunded",
+        feeAmountCents: 5000,
+        refundAmountCents: 5000,
+      };
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
+        partialRefundedDeposit as never
+      );
+      vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
+        ...partialRefundedDeposit,
+      } as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...reservation,
+        status: "CANCELLED",
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
+
+      const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
+        initiator: "staff",
+      });
+
+      expect(result.success).toBe(true);
+      expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000);
+      expect(depositService.refund).not.toHaveBeenCalled();
+    });
   });
 });

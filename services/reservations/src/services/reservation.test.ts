@@ -491,6 +491,36 @@ describe("reservationService", () => {
 
       expect(result!.status).toBe("NO_SHOW");
     });
+
+    it("persists cancellationReason and cancellationNote when cancelling", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "PENDING" }) as never
+      );
+      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
+        makePrismaReservation({
+          status: "CANCELLED",
+          cancellationReason: "guest_request",
+          cancellationNote: "Guest changed plans",
+        }) as never
+      );
+
+      const result = await reservationService.update("res-1", {
+        status: "CANCELLED",
+        cancellationReason: "guest_request",
+        cancellationNote: "Guest changed plans",
+      });
+
+      expect(result!.cancellationReason).toBe("guest_request");
+      expect(result!.cancellationNote).toBe("Guest changed plans");
+      expect(prisma.reservation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            cancellationReason: "guest_request",
+            cancellationNote: "Guest changed plans",
+          }),
+        })
+      );
+    });
   });
 
   describe("updateWithConflictCheck", () => {
@@ -927,77 +957,6 @@ describe("reservationService", () => {
       // create was attempted inside the transaction, but because the callback
       // threw afterwards the whole transaction aborts — no committed row.
       expect(tableUpdate).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("cancel", () => {
-    it("sets status to CANCELLED", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "PENDING" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ status: "CANCELLED" }) as never
-      );
-
-      const result = await reservationService.cancel("res-1");
-
-      expect(result!.status).toBe("CANCELLED");
-      expect(prisma.reservation.update).toHaveBeenCalledWith({
-        where: { id: "res-1" },
-        data: expect.objectContaining({ status: "CANCELLED" }),
-        include: {
-          table: true,
-          guest: {
-            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
-          },
-        },
-      });
-    });
-
-    it("stores cancellation reason and note", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "CONFIRMED" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({
-          status: "CANCELLED",
-          cancellationReason: "guest_request",
-          cancellationNote: "Guest changed plans",
-        }) as never
-      );
-
-      const result = await reservationService.cancel(
-        "res-1",
-        "guest_request",
-        "Guest changed plans"
-      );
-
-      expect(result!.cancellationReason).toBe("guest_request");
-      expect(result!.cancellationNote).toBe("Guest changed plans");
-    });
-
-    it("returns null when reservation not found", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(null);
-
-      expect(await reservationService.cancel("missing")).toBeNull();
-    });
-
-    it("throws ReservationTransitionError when cancelling a terminal state", async () => {
-      const { ReservationTransitionError } = await import("./reservation-state-machine.js");
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "COMPLETED" }) as never
-      );
-
-      await expect(reservationService.cancel("res-1")).rejects.toThrow(ReservationTransitionError);
-    });
-
-    it("re-throws non-transition errors from update", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "PENDING" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockRejectedValueOnce(new Error("DB error") as never);
-
-      await expect(reservationService.cancel("res-1")).rejects.toThrow("DB error");
     });
   });
 });
