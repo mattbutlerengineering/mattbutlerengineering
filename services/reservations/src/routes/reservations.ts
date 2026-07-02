@@ -27,17 +27,23 @@ const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   /**
-   * Shared staff-cancel adapter for the PATCH (status: CANCELLED) and DELETE
-   * routes below: both are authenticated staff/admin entry points that must
-   * route through the deposit-safe domain cancel rather than a bare status
-   * flip. Staff cancels waive any cancellation fee (initiator: "staff") —
-   * see {@link cancelReservationWithDeposit}. A manage token is generated
-   * (not faked) so the guest cancellation email still carries a working
-   * manage link when the reservation has a guest email on file.
+   * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
+   * routes below. Both routes are guarded by `requireReservationOwnerOrAdmin`,
+   * which admits the reservation OWNER (guest email match), not only an
+   * admin — so `isAdmin` here MUST come from the verified
+   * `request.authorization.isAdmin` flag set by that guard, never from a
+   * client-supplied value, otherwise an owner could get the fee-waived
+   * staff refund on their own cancellation. Admins get staff semantics
+   * (waived fee, deposit refunded in full); a non-admin owner gets guest
+   * semantics (the venue's cancellation-fee policy applies) — see
+   * {@link cancelReservationWithDeposit}. A manage token is generated (not
+   * faked) so the guest cancellation email still carries a working manage
+   * link when the reservation has a guest email on file.
    */
-  async function cancelReservationAsStaff(
+  async function cancelReservationForRequest(
     reservation: Reservation,
     logger: FastifyBaseLogger,
+    isAdmin: boolean,
     options: { cancellationReason?: string; cancellationNote?: string } = {}
   ) {
     const manageToken = reservation.guestEmail
@@ -51,7 +57,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         notificationPort: fastify.notificationPort,
         logger,
       },
-      { initiator: "staff", ...options }
+      { ...options, initiator: isAdmin ? "staff" : "guest" }
     );
   }
 
@@ -600,10 +606,15 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (request.body.status === "CANCELLED") {
         try {
-          const result = await cancelReservationAsStaff(reservation, request.log, {
-            cancellationReason: request.body.cancellationReason,
-            cancellationNote: request.body.cancellationNote,
-          });
+          const result = await cancelReservationForRequest(
+            reservation,
+            request.log,
+            request.authorization?.isAdmin === true,
+            {
+              cancellationReason: request.body.cancellationReason,
+              cancellationNote: request.body.cancellationNote,
+            }
+          );
 
           if (!result.success) {
             return reply
@@ -748,7 +759,11 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const result = await cancelReservationAsStaff(reservation, request.log);
+        const result = await cancelReservationForRequest(
+          reservation,
+          request.log,
+          request.authorization?.isAdmin === true
+        );
         if (!result.success) {
           return reply
             .code(result.status)

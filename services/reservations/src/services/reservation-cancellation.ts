@@ -5,6 +5,7 @@ import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
+import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import type { BookingNotifier } from "./booking-notifications.js";
 
 export interface CancelReservationDeps {
@@ -180,10 +181,13 @@ async function notifyCancellation(
 }
 
 /**
- * Domain-level cancel: owns deposit resolution ordering, the
- * `partial_refunded` retry guard, abort-on-money-failure, reminder-job
- * cancellation, and guest notification dispatch. Callers (routes) are thin
- * adapters that translate the result into an HTTP response.
+ * Domain-level cancel: validates the status transition BEFORE any money
+ * moves (a stale-status cancel — e.g. staff re-cancelling an already
+ * CANCELLED reservation — must never touch the deposit), then owns deposit
+ * resolution ordering, the `partial_refunded` retry guard,
+ * abort-on-money-failure, reminder-job cancellation, and guest notification
+ * dispatch. Callers (routes) are thin adapters that translate the result
+ * into an HTTP response.
  */
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
@@ -192,6 +196,15 @@ export async function cancelReservationWithDeposit(
   options: CancelReservationOptions = {}
 ): Promise<CancelReservationResult> {
   const { initiator = "guest", cancellationReason, cancellationNote } = options;
+
+  try {
+    transitionReservation(reservation.status, "CANCELLED");
+  } catch (err) {
+    if (err instanceof ReservationTransitionError) {
+      return { success: false, status: 409, title: "Conflict", detail: err.message };
+    }
+    throw err;
+  }
 
   const depositFailure = await resolveDeposit(reservation, deps.logger, initiator);
   if (depositFailure) return depositFailure;

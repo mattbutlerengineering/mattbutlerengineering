@@ -196,6 +196,30 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
+  it("returns a 409 failure BEFORE touching the deposit when the reservation cannot transition to CANCELLED (stranded-deposit guard, #2930)", async () => {
+    // Reproduces the prod bug: a staff cancel of an already-CANCELLED
+    // reservation that (in prod) still has a held deposit. resolveDeposit()
+    // must never run — the deposit money-move happens before the transition
+    // check would otherwise fire deep inside reservationService.update(),
+    // stranding the refund against a 409 response. No getByReservationId
+    // mock is queued here: the assertion below proves it's never called, so
+    // queuing an unconsumed `mockResolvedValueOnce` would only desync the
+    // shared once-queue for later tests.
+    const reservation = makeReservation({ status: "CANCELLED" });
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps(), {
+      initiator: "staff",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(depositService.getByReservationId).not.toHaveBeenCalled();
+    expect(depositService.refund).not.toHaveBeenCalled();
+    expect(reservationService.update).not.toHaveBeenCalled();
+  });
+
   it("cancels reminder jobs and dispatches the guest notification on success", async () => {
     const reservation = makeReservation();
     const deps = makeDeps();

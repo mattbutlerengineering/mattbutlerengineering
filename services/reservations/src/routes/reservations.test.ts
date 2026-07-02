@@ -113,6 +113,7 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { depositService } from "../services/deposit.js";
+import { venueService } from "../services/venue.js";
 import { jwtVerify } from "jose";
 
 describe("Reservation Routes", () => {
@@ -1370,6 +1371,155 @@ describe("Reservation Routes", () => {
         const body = JSON.parse(response.body);
         expect(body.title).toBe(ERROR_FORBIDDEN);
         expect(body.detail).toBe("You do not have access to this resource");
+      });
+    });
+  });
+
+  /**
+   * Security regression coverage for the initiator-escalation fee bypass:
+   * requireReservationOwnerOrAdmin admits the reservation OWNER, not just
+   * admins, so a non-admin owner cancelling their own reservation must get
+   * guest fee semantics (the venue's cancellation policy applies), never the
+   * fee-waived full refund reserved for staff/admin. These tests deliberately
+   * override the JWT fixture to a non-admin owner — the suite's default
+   * fixture (createMockJWTPayload()) is admin, so a naive test here would
+   * silently re-exercise the admin path instead of the owner path.
+   */
+  describe("PATCH & DELETE /v1/reservations/:id — cancel initiator derivation (security)", () => {
+    const ownerEmail = "john@example.com"; // matches createMockReservation() default guestEmail
+    const pastStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const feePolicyVenue = {
+      id: "venue-1",
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    };
+    const heldDeposit = { id: "dep-1", status: "held" };
+
+    // Past its start time with a 100%-no-show-fee venue policy: under the
+    // guest-facing policy this forfeits the deposit, which is trivially
+    // distinguishable from the staff path's unconditional full refund.
+    const reservationPastNoShowBoundary = () =>
+      createMockReservation({
+        guestEmail: ownerEmail,
+        venueId: "venue-1",
+        startTime: pastStartTime,
+      });
+
+    function setupOwnerJWT() {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: createMockJWTPayload({ permissions: [], email: ownerEmail }),
+        protectedHeader: { alg: "RS256" },
+      } as never);
+    }
+
+    describe("PATCH /v1/reservations/:id", () => {
+      it("non-admin owner: applies the guest cancellation-fee policy (forfeits, does not waive)", async () => {
+        setupOwnerJWT();
+        // preHandler owner-resolver call + handler call
+        vi.mocked(reservationService.getById)
+          .mockResolvedValueOnce(reservationPastNoShowBoundary())
+          .mockResolvedValueOnce(reservationPastNoShowBoundary());
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce(feePolicyVenue as never);
+        vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "forfeited",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "CANCELLED" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.refund).not.toHaveBeenCalled();
+      });
+
+      it("admin: waives the fee and refunds the deposit in full regardless of timing", async () => {
+        // Default JWT fixture (mockJWTPayload) is admin.
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          reservationPastNoShowBoundary()
+        );
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+        vi.mocked(depositService.refund).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "refunded",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "CANCELLED" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.refund).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).not.toHaveBeenCalled();
+        expect(venueService.getRawById).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("DELETE /v1/reservations/:id", () => {
+      it("non-admin owner: applies the guest cancellation-fee policy (forfeits, does not waive)", async () => {
+        setupOwnerJWT();
+        vi.mocked(reservationService.getById)
+          .mockResolvedValueOnce(reservationPastNoShowBoundary())
+          .mockResolvedValueOnce(reservationPastNoShowBoundary());
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce(feePolicyVenue as never);
+        vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "forfeited",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "DELETE",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        expect(depositService.refund).not.toHaveBeenCalled();
+      });
+
+      it("admin: waives the fee and refunds the deposit in full regardless of timing", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          reservationPastNoShowBoundary()
+        );
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+        vi.mocked(depositService.refund).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "refunded",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "DELETE",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.refund).toHaveBeenCalledWith("dep-1");
+        expect(depositService.forfeit).not.toHaveBeenCalled();
+        expect(venueService.getRawById).not.toHaveBeenCalled();
       });
     });
   });
