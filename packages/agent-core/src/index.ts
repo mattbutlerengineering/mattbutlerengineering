@@ -276,6 +276,15 @@ export {
 } from "./model-router.js";
 export type { ModelTier, IssueInput, ModelRoutingResult, RoutingContext } from "./model-router.js";
 
+// Token-usage estimator (predict per-issue tokens/cost from telemetry history)
+export {
+  estimateIssueTokens,
+  PER_TIER_COST_PER_MTOK_USD,
+  PER_TIER_DEFAULT_TOKENS,
+  MIN_HIGH_CONFIDENCE_ROWS,
+} from "./token-estimator.js";
+export type { TelemetryRow, TokenEstimate } from "./token-estimator.js";
+
 // Model registry (canonical IDs + tier defaults)
 export { MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
 

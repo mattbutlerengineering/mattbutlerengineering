@@ -48,6 +48,9 @@
     </item>
   </file>
   <file path="src/commands/agent.ts">
+    <item priority="medium">
+      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
+    </item>
     <item priority="high">
       interface SpendRecord {
         date: string;
@@ -56,9 +59,6 @@
         issueNumber: number | null;
         model: string;
       }
-    </item>
-    <item priority="medium">
-      function logSpend(record: SpendRecord): void { /* ... */ }
     </item>
   </file>
   <file path="src/commands/check-deps.ts">

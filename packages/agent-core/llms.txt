@@ -945,6 +945,25 @@
       type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
     </item>
   </file>
+  <file path="src/token-estimator.ts">
+    <item priority="low">
+      interface TelemetryRow {
+        issue_number: number;
+        labels?: string[];
+        model_tier?: string;
+        subagent_tokens?: number;
+        cost_usd?: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface TokenEstimate {
+        estimatedTokens: number;
+        estimatedCostUsd: number;
+        confidence: "low" | "medium" | "high";
+        basis: string;
+      }
+    </item>
+  </file>
   <file path="src/tool-permissions.ts">
     <item priority="medium">
       function isPathWithinWorktree(filePath: string, worktreePath: string): boolean { /* ... */ }

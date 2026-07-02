@@ -30,6 +30,12 @@ vi.mock("@mbe/agent-core", () => ({
     modelId: "claude-sonnet-4-6",
     reason: "Default model selection",
   })),
+  estimateIssueTokens: vi.fn(() => ({
+    estimatedTokens: 180000,
+    estimatedCostUsd: 1.08,
+    confidence: "low",
+    basis: "per-tier default (no opus history)",
+  })),
   AllAdaptersUnavailableError: class AllAdaptersUnavailableError extends Error {
     cooldowns = new Map();
     constructor(msg?: string) {
@@ -127,6 +133,32 @@ describe("agent command", () => {
       const stdout = logSpy.mock.calls.flat().join("\n").trim();
       expect(stdout).toBe("opus");
       expect(stdout).not.toContain("claude-opus");
+    });
+
+    it("issue mode prints a token estimate on stderr without polluting the stdout tier contract", async () => {
+      ghState.stdout = JSON.stringify({
+        title: "refactor: extract the listbox state machine",
+        body: "",
+        labels: [{ name: "feature" }],
+      });
+      vi.mocked(core.routeModelWithReason as ReturnType<typeof vi.fn>).mockReturnValue({
+        tier: "opus",
+        modelId: "claude-opus-4-8",
+        reason: "Feature with complexity keyword",
+      });
+
+      const { checkModelCommand } = await import("../commands/agent.js");
+      await checkModelCommand.parseAsync(["--issue", "123"], { from: "user" });
+
+      // stdout stays byte-identical: just the tier.
+      const stdout = logSpy.mock.calls.flat().join("\n").trim();
+      expect(stdout).toBe("opus");
+
+      // The estimate line goes to stderr only.
+      const stderr = errorSpy.mock.calls.flat().join("\n");
+      expect(stderr.toLowerCase()).toContain("estimate");
+      expect(stderr).toContain("180000");
+      expect(core.estimateIssueTokens).toHaveBeenCalledOnce();
     });
   });
 
