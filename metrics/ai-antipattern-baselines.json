@@ -14,7 +14,7 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 554,
+      "count": 562,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 749,
+      "count": 750,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {

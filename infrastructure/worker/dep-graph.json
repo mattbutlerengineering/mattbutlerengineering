@@ -624,6 +624,11 @@
     },
     {
       "from": "@mbe/cli",
+      "to": "@mbe/gh-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/cli",
       "to": "@mbe/types",
       "type": "dependency"
     },
@@ -636,6 +641,11 @@
       "from": "@mbe/infrastructure",
       "to": "@mbe/config",
       "type": "devDependency"
+    },
+    {
+      "from": "@mbe/scripts",
+      "to": "@mbe/agent-core",
+      "type": "dependency"
     },
     {
       "from": "@mbe/scripts",

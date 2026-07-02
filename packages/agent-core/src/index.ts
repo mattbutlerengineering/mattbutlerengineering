@@ -334,15 +334,9 @@ export type {
   BundleSizeReport,
 } from "./bundle-size-tracker.js";
 
-// Synthetic bug seeding (chaos-agent testing)
-export {
-  seedSyntheticBug,
-  cleanupSyntheticBugBranch,
-  createLintViolationBug,
-  createDeadLinkBug,
-  createA11yBug,
-} from "./synthetic-bug-seeder.js";
-export type { BugType, SyntheticBugConfig, BugSeedResult } from "./synthetic-bug-seeder.js";
+// Synthetic bug seeding (chaos-agent testing, #2927)
+export { BUG_CATALOG, injectBug } from "./synthetic-bug-seeder.js";
+export type { BugType, BugInjector, InjectBugResult } from "./synthetic-bug-seeder.js";
 
 // Revert detection (revert-rca-loop)
 export {

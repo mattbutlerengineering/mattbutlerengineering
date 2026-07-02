@@ -587,6 +587,14 @@
       }
     </item>
   </file>
+  <file path="tools/cli/src/commands/issue.ts">
+    <item priority="high">
+      type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
+    </item>
+    <item priority="high">
+      export const VALID_TRANSITION_STATES: unknown;
+    </item>
+  </file>
   <file path="tools/cli/src/commands/login.ts">
     <item priority="high">
       export const loginCommand: unknown;
@@ -2754,7 +2762,7 @@
       }
     </item>
     <item priority="low">
-      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
+      type CancelInitiator = "guest" | "staff";
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
@@ -3772,15 +3780,15 @@
   </file>
   <file path="packages/agent-core/src/synthetic-bug-seeder.ts">
     <item priority="low">
-      type BugType = "lint-violation" | "dead-link" | "a11y-issue";
+      type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo";
     </item>
     <item priority="low">
-      interface SyntheticBugConfig {
-        type: BugType;
-        repoPath: string;
-        filePath: string;
-        fileContent: string;
-        commitMessage: string;
+      interface BugInjector {
+        description: string;
+        pattern: RegExp;
+        injection?: (capture?: string) => string;
+        replacement?: string;
+        imports?: string;
       }
     </item>
   </file>
