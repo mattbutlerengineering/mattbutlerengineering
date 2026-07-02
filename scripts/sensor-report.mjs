@@ -8,8 +8,10 @@
  *
  * This is a thin CLI shim: it collects each registry sensor's data (IO),
  * hands it to the pure `buildReport`/`formatSensorDisplay` (build-sensor-report.mjs),
- * then prints/persists the result and exits. Adding a sensor means adding one
- * entry to sensors-registry.mjs — this file does not change.
+ * then prints/persists the result and exits. Adding a sensor — including one
+ * with a regression threshold — means adding one entry to sensors-registry.mjs
+ * (thresholds live on the entry, next to its `detectRegression`, and are
+ * assembled here via `buildThresholds()`) — this file does not change.
  *
  * Usage:
  *   node scripts/sensor-report.mjs              # full report
@@ -21,12 +23,13 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
-import { CODE_CHURN_THRESHOLD } from "./collect-code-churn.mjs";
 import {
-  QUEUE_EFFICIENCY_COMPOSITE_DROP,
-  QUEUE_EFFICIENCY_FPS_DROP,
-} from "./collect-queue-efficiency.mjs";
-import { getReportSensors, safe, readJson, collectReportSensors } from "./sensors-registry.mjs";
+  getReportSensors,
+  safe,
+  readJson,
+  collectReportSensors,
+  buildThresholds,
+} from "./sensors-registry.mjs";
 import { buildReport, formatSensorDisplay } from "./build-sensor-report.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,17 +40,6 @@ const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const JSON_ONLY = args.includes("--json");
 
-const THRESHOLDS = {
-  lighthouse_score_drop: 0.05,
-  ci_pass_rate_drop: 5,
-  agent_success_rate_drop: 10,
-  error_rate_increase: 20,
-  service_uptime_min: 99.5,
-  code_churn_rate_max: CODE_CHURN_THRESHOLD,
-  queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
-  queue_efficiency_fps_drop: QUEUE_EFFICIENCY_FPS_DROP,
-};
-
 const now = new Date();
 const ghClient = createGhClient();
 const ctx = { root: ROOT, now, ghClient };
@@ -57,7 +49,7 @@ const ctx = { root: ROOT, now, ghClient };
 const collectedSensors = collectReportSensors(getReportSensors(), ctx);
 
 const previousReport = safe(() => readJson(REPORT_PATH));
-const report = buildReport(collectedSensors, previousReport?.sensors, THRESHOLDS, now);
+const report = buildReport(collectedSensors, previousReport?.sensors, buildThresholds(), now);
 
 /* ── Output (IO) ──────────────────────────────────────────────────────── */
 
