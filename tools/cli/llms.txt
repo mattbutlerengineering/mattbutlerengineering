@@ -1,79 +1,23 @@
 <codebase path="tools/cli">
-  <section priority="medium" role="adapters">
-  <file path="src/adapters/claude-adapter.ts">
-    <item priority="medium">
-      function deriveHasChanges(result: SessionResult): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      class ClaudeAdapter {
-        name: unknown;
-        async isAvailable(): Promise<unknown>;
-        async run(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="src/adapters/cli-adapter.ts">
-    <item priority="low">
-      interface AdapterConfig {
-        taskDescription: string;
-        worktreePath: string;
-        repoPath: string;
-        baseBranch: string;
-        model?: string;
-      }
-    </item>
-    <item priority="low">
-      interface AdapterResult {
-        success: boolean;
-        hasChanges: boolean;
-        rateLimited: boolean;
-        error?: string;
-        durationMs: number;
-      }
-    </item>
-  </file>
-  <file path="src/adapters/failover-router.ts">
-    <item priority="high">
-      class AllAdaptersUnavailableError {
-        cooldowns: ReadonlyMap<string, number>;
-      }
-    </item>
-    <item priority="low">
-      type RoutedAdapterResult = AdapterResult & {
-        /** Name of the adapter that produced...;
-    </item>
-  </file>
-  <file path="src/adapters/gemini-adapter.ts">
-    <item priority="medium">
-      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildCommitMessage(task: string): string { /* ... */ }
-    </item>
-  </file>
-  <file path="src/adapters/opencode-adapter.ts">
-    <item priority="medium">
-      function truncateTask(task: string, maxLength: number = MAX_TASK_LENGTH): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function buildCommitMessage(task: string): string { /* ... */ }
-    </item>
-  </file>
-  <file path="src/adapters/rate-limit-detector.ts">
-    <item priority="high">
-      export function scanForRateLimitPatterns(output: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      class RateLimitDetector {
-        states: Map<string, AdapterState>;
-        cooldownMs: number;
-        async markRateLimited(): Promise<unknown>;
-        async markSuccess(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="commands">
+  <file path="src/commands/adr-structural.ts">
+    <item priority="low">
+      interface StructuralViolation {
+        file: string;
+        rule: string;
+        remedy: string;
+      }
+    </item>
+    <item priority="high">
+      interface AdrFields {
+        id?: unknown;
+        title?: unknown;
+        status?: unknown;
+        date?: unknown;
+        prohibited_patterns?: unknown;
+      }
+    </item>
+  </file>
   <file path="src/commands/adr.ts">
     <item priority="high">
       interface ADRFrontmatter {
@@ -92,7 +36,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner { /* ... */ }
+      function findLogFile(): string { /* ... */ }
     </item>
   </file>
   <file path="src/commands/agent-frontmatter.ts">
@@ -104,11 +48,17 @@
     </item>
   </file>
   <file path="src/commands/agent.ts">
-    <item priority="medium">
-      function formatDuration(ms: number): string { /* ... */ }
+    <item priority="high">
+      interface SpendRecord {
+        date: string;
+        timestamp: string;
+        costUsd: number;
+        issueNumber: number | null;
+        model: string;
+      }
     </item>
     <item priority="medium">
-      function formatCost(usd: number): string { /* ... */ }
+      function logSpend(record: SpendRecord): void { /* ... */ }
     </item>
   </file>
   <file path="src/commands/check-deps.ts">
@@ -213,6 +163,9 @@
   </file>
   <file path="src/commands/sync-rules.ts">
     <item priority="high">
+      export const syncRulesRun: unknown;
+    </item>
+    <item priority="high">
       export const syncRulesCommand: unknown;
     </item>
   </file>
@@ -261,16 +214,12 @@
   </file>
   </section>
   <section priority="medium" role="src">
-  <file path="src/api.ts">
+  <file path="src/cli-api-client.ts">
     <item priority="high">
-      class ApiError {
-        
-      }
+      export function createCliApiClient(): ApiClient { /* ... */ }
     </item>
     <item priority="high">
-      interface ErrorResponse {
-        message?: string;
-      }
+      export function createAgentApiClient(): ApiClient { /* ... */ }
     </item>
   </file>
   <file path="src/command-seam.ts">
@@ -304,6 +253,7 @@
         budget?: number;
         maxTurns?: number;
         adapter?: AdapterType;
+        escalate?: ModelTier;
       }
     </item>
   </file>
@@ -325,8 +275,13 @@
         tier: ModelTier;
         modelId: string;
         reason: string;
-        source: "frontmatter" | "router";
+        source: "frontmatter" | "router" | "escalate";
       }
+    </item>
+  </file>
+  <file path="src/token-counter.ts">
+    <item priority="high">
+      export function countTokens(text: string): number { /* ... */ }
     </item>
   </file>
   </section>
