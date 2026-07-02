@@ -1295,7 +1295,7 @@
     <item priority="low">
       interface UseGuestRecognitionParams {
         venueSlug: string | undefined;
-        apiBaseUrl?: string;
+        api: BookingWidgetApiClient;
       }
     </item>
   </file>
@@ -2222,6 +2222,14 @@
       export const VenueGroupSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/waitlist.ts">
+    <item priority="high">
+      export const WaitlistJoinRequestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistJoinResultSchema: unknown;
+    </item>
+  </file>
   <file path="services/agent/src/schemas/index.ts">
     <item priority="high">
       export const SessionSchema: unknown;
@@ -2754,7 +2762,7 @@
       }
     </item>
     <item priority="low">
-      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
+      type CancelInitiator = "guest" | "staff";
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
@@ -4140,6 +4148,13 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/waitlist.ts">
+    <item priority="high">
+      class WaitlistClient {
+        async join(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
     <item priority="low">
       interface CancellationPolicy {
@@ -4934,6 +4949,22 @@
         venueGroup?: VenueGroup;
         name: string;
         slug: string;
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/waitlist.ts">
+    <item priority="low">
+      interface WaitlistJoinRequest {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistJoinResult {
+        position: number;
+        estimatedWaitMinutes: number;
       }
     </item>
   </file>

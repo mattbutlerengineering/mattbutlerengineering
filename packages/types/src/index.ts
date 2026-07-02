@@ -91,6 +91,8 @@ export type {
 export type {
   Guest,
   GuestRiskScore,
+  GuestRiskResult,
+  GuestRecognition,
   StaffNote,
   CommunicationPreference,
   CreateGuestRequest,
@@ -99,6 +101,9 @@ export type {
   GuestSegment,
   LapsingGuest,
 } from "./guest.js";
+
+// Waitlist types
+export type { WaitlistJoinRequest, WaitlistJoinResult } from "./waitlist.js";
 
 // Agent types
 export type {

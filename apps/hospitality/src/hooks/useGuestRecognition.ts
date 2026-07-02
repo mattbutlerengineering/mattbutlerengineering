@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import type { BookingWidgetApiClient } from "../components/booking-widget/PaymentStep.js";
 
 export interface GuestRecognitionResult {
   firstName: string | null;
@@ -8,7 +9,7 @@ export interface GuestRecognitionResult {
 
 export interface UseGuestRecognitionParams {
   venueSlug: string | undefined;
-  apiBaseUrl?: string;
+  api: BookingWidgetApiClient;
 }
 
 export interface UseGuestRecognitionReturn {
@@ -22,7 +23,7 @@ const DEBOUNCE_MS = 300;
 
 export function useGuestRecognition({
   venueSlug,
-  apiBaseUrl = "",
+  api,
 }: UseGuestRecognitionParams): UseGuestRecognitionReturn {
   const [result, setResult] = useState<GuestRecognitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,20 +46,13 @@ export function useGuestRecognition({
         setError(null);
 
         try {
-          const url = `${apiBaseUrl}/public/v1/venues/${venueSlug}/guests/recognize?email=${encodeURIComponent(email)}`;
-          const res = await fetch(url);
+          const recognition = await api.guests.recognize(venueSlug, email);
 
-          if (!res.ok) {
-            throw new Error(`Recognition request failed: ${res.status}`);
-          }
-
-          const data = await res.json();
-
-          if (data.recognized) {
+          if (recognition.recognized) {
             setResult({
-              firstName: data.firstName ?? null,
-              visitCount: data.visitCount ?? 1,
-              hasPreferences: data.hasPreferences ?? false,
+              firstName: recognition.firstName,
+              visitCount: recognition.visitCount,
+              hasPreferences: recognition.hasPreferences,
             });
           } else {
             setResult(null);
@@ -71,7 +65,7 @@ export function useGuestRecognition({
         }
       }, DEBOUNCE_MS);
     },
-    [venueSlug, apiBaseUrl]
+    [venueSlug, api]
   );
 
   return { result, isLoading, error, recognize };

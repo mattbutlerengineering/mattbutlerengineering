@@ -382,7 +382,7 @@
     }
     export interface UseGuestRecognitionParams {
       venueSlug: string | undefined;
-      apiBaseUrl?: string;
+      api: BookingWidgetApiClient;
     }
   </file>
   <file path="src/hooks/useGuests.ts">
