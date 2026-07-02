@@ -15,7 +15,7 @@ export {
   type FindOrCreateGuestRequest,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
-export { WaitlistClient } from "./waitlist.js";
+export { PublicVenueClient, type GetGuestRiskParams } from "./public-venue.js";
 export {
   BriefingClient,
   type GetBriefingParams,
@@ -46,7 +46,7 @@ import { VenuesClient, VenueGroupsClient } from "./venues.js";
 import { TablesClient } from "./tables.js";
 import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
-import { WaitlistClient } from "./waitlist.js";
+import { PublicVenueClient } from "./public-venue.js";
 import { AvailabilityClient, HoldsClient } from "./availability.js";
 import { BriefingClient } from "./briefing.js";
 /**
@@ -76,7 +76,7 @@ export function createApiClient(config: {
     tables: new TablesClient(client),
     guests: new GuestsClient(client),
     floorPlans: new FloorPlansClient(client),
-    waitlist: new WaitlistClient(client),
+    publicVenue: new PublicVenueClient(client),
     availability: new AvailabilityClient(client),
     holds: new HoldsClient(client),
     briefing: new BriefingClient(client),

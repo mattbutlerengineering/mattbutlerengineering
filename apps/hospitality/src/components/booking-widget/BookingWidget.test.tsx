@@ -68,8 +68,8 @@ describe("BookingWidget", () => {
     venues: {
       getPublicConfig: vi.fn(),
     },
-    guests: {
-      getRisk: vi.fn(),
+    publicVenue: {
+      guestRisk: vi.fn(),
     },
   };
 
@@ -147,8 +147,8 @@ describe("BookingWidget", () => {
   });
 
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {
-    // Guest-risk lookup now goes through the typed api.guests.getRisk() client method.
-    mockApi.guests.getRisk.mockResolvedValue({
+    // Guest-risk lookup now goes through the typed api.publicVenue.guestRisk() client method.
+    mockApi.publicVenue.guestRisk.mockResolvedValue({
       riskScore: "risky",
       noShowCount: 2,
       requiresDeposit: true,
@@ -222,7 +222,7 @@ describe("BookingWidget", () => {
     // actually configured (venueSlug + stripePublishableKey), matching
     // effectiveDepositPolicy's own gating. It must never fire just because the
     // venue's deposit policy happens to be disabled.
-    mockApi.guests.getRisk.mockResolvedValue({
+    mockApi.publicVenue.guestRisk.mockResolvedValue({
       riskScore: "risky",
       noShowCount: 1,
       requiresDeposit: true,
@@ -282,6 +282,6 @@ describe("BookingWidget", () => {
     // Deposit disabled + Stripe unconfigured → straight to Confirmation.
     await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
 
-    expect(mockApi.guests.getRisk).not.toHaveBeenCalled();
+    expect(mockApi.publicVenue.guestRisk).not.toHaveBeenCalled();
   });
 });

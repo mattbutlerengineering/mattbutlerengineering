@@ -4,18 +4,10 @@ import type {
   Guest,
   GuestSegment,
   LapsingGuest,
-  GuestRiskResult,
-  GuestRecognition,
   CreateGuestRequest,
   UpdateGuestRequest,
 } from "@mbe/types";
-import {
-  GuestSchema,
-  GuestSegmentSchema,
-  GuestRiskResultSchema,
-  GuestRecognitionSchema,
-  paginatedResponseSchema,
-} from "@mbe/types";
+import { GuestSchema, GuestSegmentSchema, paginatedResponseSchema } from "@mbe/types";
 
 export interface FindOrCreateGuestRequest {
   venueId: string;
@@ -36,11 +28,6 @@ export interface SearchGuestsParams {
   venueId: string;
   query?: string;
   hasNotVisitedInDays?: number;
-}
-
-export interface GetGuestRiskParams {
-  email?: string;
-  phone?: string;
 }
 
 const guestListSchema: z.ZodSchema<PaginatedResponse<Guest>> = paginatedResponseSchema(GuestSchema);
@@ -135,28 +122,5 @@ export class GuestsClient {
    */
   async sendWinBack(id: string): Promise<{ sent: boolean }> {
     return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
-  }
-
-  /**
-   * Get a guest's risk score for a venue by email or phone (unauthenticated
-   * booking widget lookup).
-   */
-  async getRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
-    return this.client.getOne<GuestRiskResult>(
-      `/public/v1/venues/${slug}/guest-risk`,
-      params as unknown as QueryParams,
-      GuestRiskResultSchema
-    );
-  }
-
-  /**
-   * Recognize a guest by email for a venue (unauthenticated booking widget lookup).
-   */
-  async recognize(slug: string, email: string): Promise<GuestRecognition> {
-    return this.client.getOne<GuestRecognition>(
-      `/public/v1/venues/${slug}/guests/recognize`,
-      { email },
-      GuestRecognitionSchema
-    );
   }
 }
