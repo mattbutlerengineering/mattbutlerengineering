@@ -776,7 +776,7 @@
         const startTime = Date.now();
     
         try {
-          const sessionResult = await runSession({
+          const sessionResult = await runSessionPipeline({
             taskDescription: config.taskDescription,
             repoPath: config.repoPath,
             baseBranch: config.baseBranch,
@@ -812,6 +812,20 @@
             error: message,
           };
         }
+      }
+    
+      /**
+       * Runs a full agent session (worktree → gates → publish → spend) via the
+       * existing runSession() pipeline, forwarding the SessionConfig unchanged.
+       * This is the seam `runAgentSession()` calls for the "claude" backend (#2964).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runSessionPipeline(config, onEvent, deps, signal);
       }
     }
   </file>
@@ -7669,115 +7683,34 @@
                 createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
               );
           }
-          const reservation = preamble.reservation;
     
-          const body = request.body ?? {};
-          const { date, startTime, endTime, partySize, specialRequests } = body;
-    
-          const hasChanges =
-            date !== undefined ||
-            startTime !== undefined ||
-            endTime !== undefined ||
-            partySize !== undefined ||
-            specialRequests !== undefined;
-    
-          if (!hasChanges) {
-            return reply
-              .status(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "No Changes",
-                  "At least one field must be provided to modify",
-                  "about:blank",
-                  undefined,
-                  { code: "NO_CHANGES_PROVIDED" }
-                )
-              );
-          }
-    
-          const updateData = {
-            ...(date !== undefined && { date }),
-            ...(startTime !== undefined && { startTime }),
-            ...(endTime !== undefined && { endTime }),
-            ...(partySize !== undefined && { partySize }),
-            ...(specialRequests !== undefined && { notes: specialRequests }),
-          };
-    
-          const updateResult = await reservationService.updateWithConflictCheck(
-            reservation.id,
-            updateData
+          const result = await modifyReservationWithNotifications(
+            preamble.reservation,
+            request.body ?? {},
+            request.query.token!,
+            {
+              bookingNotifier: fastify.bookingNotifier,
+              notificationPort: fastify.notificationPort,
+              logger: request.log,
+            }
           );
     
-          if (!updateResult.success) {
-            if (updateResult.conflict) {
-              return reply
-                .status(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Slot Unavailable",
-                    updateResult.error!,
-                    "about:blank",
-                    undefined,
-                    { code: "SLOT_UNAVAILABLE" }
-                  )
-                );
-            }
-            return reply
-              .status(500)
-              .send(
-                createProblemDetails(
-                  500,
-                  "Update Failed",
-                  updateResult.error ?? "Failed to modify reservation",
-                  "about:blank",
-                  undefined,
-                  { code: "RESERVATION_UPDATE_FAILED" }
-                )
-              );
-          }
-    
-          const updated = updateResult.reservation!;
-          const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-    
-          // Reschedule reminder jobs if time changed
-          const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
-          if (timeChanged) {
-            fastify.bookingNotifier
-              .rescheduleBookingReminders(updated, request.query.token!)
-              .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
-          }
-    
-          if (updated.guestEmail && venue) {
-            const preference =
-              (updated.guest?.communicationPreference as
-                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
-            try {
-              await fastify.notificationPort.sendBookingModified(
+          if (!result.success) {
+            return reply.status(result.status).send(
+              createProblemDetails(
+                result.status,
+                result.title,
+                result.detail,
+                "about:blank",
+                undefined,
                 {
-                  reservationId: updated.id,
-                  date: updated.date,
-                  startTime: updated.startTime,
-                  endTime: updated.endTime,
-                  partySize: updated.partySize,
-                  guestName: updated.guestName,
-                  guestEmail: updated.guestEmail,
-                  guestPhone: updated.guestPhone ?? null,
-                  specialRequests: updated.notes ?? null,
-                  venueName: venue.name,
-                  venueTimezone: venue.ianaTimezone,
-                  venueAddress: null,
-                  manageToken: request.query.token!,
-                  sequence: 2,
-                },
-                preference
-              );
-            } catch {
-              request.log.error("Failed to send booking modified notification");
-            }
+                  code: result.code,
+                }
+              )
+            );
           }
     
+          const updated = result.reservation;
           return reply.status(200).send({
             data: {
               reservation: {
@@ -12241,6 +12174,20 @@
     }
     export type CancelInitiator = "guest" | "staff";
   </file>
+  <file path="services/reservations/src/services/reservation-modification.ts">
+    export interface ModifyReservationDeps {
+      bookingNotifier: BookingNotifier;
+      notificationPort: NotificationDispatcher;
+      logger: FastifyBaseLogger;
+    }
+    export interface ReservationChanges {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
+    }
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     export const reservationMachine = createStateMachine<ReservationStatus>(
       RESERVATION_TRANSITIONS,
@@ -14263,6 +14210,23 @@
       maxBudgetUsd: 0.05,
       timeoutMs: 30_000,
     };
+  </file>
+  <file path="packages/agent-core/src/run-agent-session.ts">
+    export interface AgentSessionAdapter {
+      runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult>;
+    }
+    export interface RunAgentSessionOptions {
+      /** Adapter that executes the session. Defaults to a new ClaudeAdapter(). Inject a fake in tests. */
+      adapter?: AgentSessionAdapter;
+      onEvent?: SessionEventCallback;
+      deps?: PhaseDeps;
+      signal?: AbortSignal;
+    }
   </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({

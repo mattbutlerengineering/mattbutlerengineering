@@ -376,6 +376,7 @@
         name: unknown;
         async isAvailable(): Promise<unknown>;
         async run(): Promise<unknown>;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -2756,6 +2757,24 @@
       type CancelInitiator = "guest" | "staff";
     </item>
   </file>
+  <file path="services/reservations/src/services/reservation-modification.ts">
+    <item priority="low">
+      interface ModifyReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     <item priority="high">
       export const reservationMachine: unknown;
@@ -3693,6 +3712,21 @@
     </item>
     <item priority="high">
       export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
+    </item>
+  </file>
+  <file path="packages/agent-core/src/run-agent-session.ts">
+    <item priority="low">
+      interface AgentSessionAdapter {
+        
+      }
+    </item>
+    <item priority="low">
+      interface RunAgentSessionOptions {
+        adapter?: AgentSessionAdapter;
+        onEvent?: SessionEventCallback;
+        deps?: PhaseDeps;
+        signal?: AbortSignal;
+      }
     </item>
   </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">

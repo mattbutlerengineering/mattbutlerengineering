@@ -26,6 +26,10 @@ export type {
 // Core session runner
 export { runSession } from "./session-runner.js";
 
+// Single entry point for running an agent session (adapter-resolved, full pipeline)
+export { runAgentSession } from "./run-agent-session.js";
+export type { AgentSessionAdapter, RunAgentSessionOptions } from "./run-agent-session.js";
+
 // Multi-CLI adapter stack (Claude SDK / Gemini CLI / OpenCode CLI failover)
 export type { AdapterConfig, AdapterResult, AdapterState, AgentAdapter } from "./cli-adapter.js";
 export { CliAdapterBase } from "./adapters/cli-adapter-base.js";
