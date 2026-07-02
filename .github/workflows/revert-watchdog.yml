@@ -21,6 +21,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
       - name: Identify culprit commit
         id: culprit
         env:
@@ -56,20 +61,38 @@ jobs:
           fi
 
       - name: Open Broken Main Issue
+        id: create_issue
         if: ${{ steps.baseline.outputs.skip != 'true' }}
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
+        run: node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR"
+
+      # Backstop: a transient install/build flake in the node path above must
+      # not mean "no issue filed" for a real broken-main event. Title format
+      # is byte-identical to buildBrokenMainTitle() in revert-watchdog.mjs so
+      # selectIssuesToClose()'s regex still matches it for auto-close.
+      - name: Fallback - file broken-main issue via gh CLI
+        if: ${{ steps.baseline.outputs.skip != 'true' && steps.create_issue.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ steps.culprit.outputs.culprit_sha }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
         run: |
-          TITLE="🚨 CRITICAL: Broken Main at commit $SHA"
-          BODY="The main branch CI is currently FAILING.
+          gh issue create \
+            --title "🚨 CRITICAL: Broken Main at commit $SHA" \
+            --body "The main branch CI is currently FAILING.
 
           **Culprit:** commit $SHA
           **PR:** #$PR
-          **Action Required:** Investigating or revert immediately."
+          **Action Required:** Investigating or revert immediately.
 
-          gh issue create --title "$TITLE" --body "$BODY" --label "priority:critical"
+          _(filed by the gh-CLI fallback — the node issue-filer step failed, see job logs)_" \
+            --label "ci-fix" \
+            --label "ready" \
+            --label "priority:critical"
 
       - name: Propose Revert PR
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
@@ -101,3 +124,26 @@ jobs:
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
         run: |
           node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"
+
+  # Auto-close (#2958): when a later main CI run is green, close any open
+  # watchdog issue whose culprit commit is now an ancestor of the green
+  # run's head — main has recovered.
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Close recovered broken-main issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/revert-watchdog.mjs close-recovered --sha "$SHA"
