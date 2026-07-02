@@ -1,9 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse } from "@mbe/types";
+import type { ApiResponse, GuestRecognition } from "@mbe/types";
+import { guestRecognitionJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
-import { recognizeGuest, type GuestRecognition } from "../services/guest-recognition.js";
+import { recognizeGuest } from "../services/guest-recognition.js";
 
 export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addSchema(guestRecognitionJsonSchema);
+
   fastify.get<{
     Params: { slug: string };
     Querystring: { email?: string };
@@ -32,6 +35,12 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
             email: { type: "string", format: "email" },
           },
           required: ["email"],
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: { data: { $ref: "GuestRecognition#" } },
+          },
         },
       },
     },
