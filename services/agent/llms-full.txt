@@ -1133,12 +1133,7 @@
           const status = request.query.status as AgentSessionStatus | undefined;
     
           const prismaStatus = status?.toUpperCase() as
-            | "PENDING"
-            | "RUNNING"
-            | "SUCCEEDED"
-            | "FAILED"
-            | "CANCELLED"
-            | undefined;
+            "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | undefined;
     
           // Admins see all sessions; non-admins see only their own
           const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;
