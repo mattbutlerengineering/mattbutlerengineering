@@ -13,12 +13,33 @@
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
 const ghClient = createGhClient();
+
+/**
+ * Pure: builds the `gh issue create` args for an RCA issue. The `ready`
+ * label is sourced from `@mbe/gh-client`'s coordination-label machine
+ * (#2933) rather than a re-typed string literal, so it can never drift from
+ * the canonical label name.
+ */
+export function buildRcaCreateArgs(title, body) {
+  return [
+    "--title",
+    title,
+    "--body",
+    body,
+    "--label",
+    "meta-improvement",
+    "--label",
+    COORDINATION_LABELS.READY,
+    "--label",
+    "critical",
+  ];
+}
 
 function main() {
   const args = process.argv.slice(2);
@@ -75,22 +96,11 @@ The AI-generated PR #${prNumber} was reverted in commit ${revertSha}.
    - Propose a fix that addresses the original issue without the bug.
 4. **Document:** Write the RCA findings to \`.claude/reflections/RCA-PR-${prNumber}.md\`.
 
-Labels: \`meta-improvement\`, \`ready\`, \`critical\``;
+Labels: \`meta-improvement\`, \`${COORDINATION_LABELS.READY}\`, \`critical\``;
 
   let newIssue;
   try {
-    newIssue = ghClient.issue.create([
-      "--title",
-      rcaTitle,
-      "--body",
-      rcaBody,
-      "--label",
-      "meta-improvement",
-      "--label",
-      "ready",
-      "--label",
-      "critical",
-    ]);
+    newIssue = ghClient.issue.create(buildRcaCreateArgs(rcaTitle, rcaBody));
   } catch (e) {
     console.error(`gh command failed: ${e.message}`);
   }
@@ -100,4 +110,6 @@ Labels: \`meta-improvement\`, \`ready\`, \`critical\``;
   }
 }
 
-main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}

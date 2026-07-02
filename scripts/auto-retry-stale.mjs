@@ -17,7 +17,7 @@
  * wires them to the real `@mbe/gh-client`.
  */
 
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, markReady } from "@mbe/gh-client";
 
 /** 3 days, in milliseconds. */
 export const RETRY_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000;
@@ -92,7 +92,10 @@ export async function runAutoRetry({
       log(`[dry-run] would auto-retry #${issue.number}`);
       continue;
     }
-    await editLabels(issue.number, { add: ["ready"], remove: ["agent-failed"] });
+    // Single source of truth for the re-queue edge (#2933): @mbe/gh-client's
+    // markReady owns which labels come off, not this call site.
+    const { add, remove } = markReady(issue.number);
+    await editLabels(issue.number, { add, remove });
     await comment(issue.number, RETRY_COMMENT);
     log(`auto-retried #${issue.number}`);
   }
@@ -110,10 +113,7 @@ async function run() {
     listIssues: async () =>
       gh.issue.list(["--label", "agent-failed", "--state", "open", "--json", ISSUE_JSON_FIELDS]),
     editLabels: async (number, { add, remove }) =>
-      gh.issue.edit(number, [
-        ...add.flatMap((l) => ["--add-label", l]),
-        ...remove.flatMap((l) => ["--remove-label", l]),
-      ]),
+      gh.label.apply({ issueNumber: number, add, remove }),
     comment: async (number, body) => gh.issue.comment(number, body),
     dryRun,
     log: (msg) => console.log(`[auto-retry-stale] ${msg}`),
