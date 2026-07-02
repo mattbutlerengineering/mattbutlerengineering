@@ -2038,6 +2038,8 @@
   </file>
   <file path="src/routes/public-guest-recognition.ts">
     export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addSchema(guestRecognitionJsonSchema);
+    
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string };
@@ -2066,6 +2068,12 @@
                 email: { type: "string", format: "email" },
               },
               required: ["email"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "GuestRecognition#" } },
+              },
             },
           },
         },
@@ -2097,13 +2105,9 @@
     };
   </file>
   <file path="src/routes/public-guest-risk.ts">
-    export interface GuestRiskResult {
-      riskScore: GuestRiskScore;
-      noShowCount: number;
-      /** True when the guest's risk score warrants an automatic deposit requirement. */
-      requiresDeposit: boolean;
-    }
     export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addSchema(guestRiskResultJsonSchema);
+    
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string; phone?: string };
@@ -2129,6 +2133,12 @@
               properties: {
                 email: { type: "string" },
                 phone: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "GuestRiskResult#" } },
               },
             },
           },
@@ -2402,31 +2412,12 @@
     };
   </file>
   <file path="src/routes/public-venues.ts">
-    interface PublicVenueResponse {
-      name: string;
-      slug: string;
-      ianaTimezone: string;
-      currencyCode: string;
-      operatingHours: unknown;
-      settings: {
-        defaultReservationDuration?: number;
-        maxPartySize?: number;
-        maxAdvanceBooking?: number;
-        slotIntervalMinutes?: number;
-      };
-      deposit: {
-        enabled: boolean;
-        depositType: string | null;
-        amountCents: number | null;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      };
-    }
     export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addSchema(publicVenueConfigJsonSchema);
+    
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<PublicVenueResponse>;
+        Reply: ApiResponse<PublicVenueConfig>;
       }>(
         "/:slug",
         {
@@ -2439,6 +2430,12 @@
                 slug: { type: "string" },
               },
               required: ["slug"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "PublicVenueConfig#" } },
+              },
             },
           },
         },
@@ -2455,12 +2452,12 @@
     
           const settings = rawVenue.settings as Record<string, unknown> | null;
     
-          const publicVenue: PublicVenueResponse = {
+          const publicVenue: PublicVenueConfig = {
             name: rawVenue.name,
             slug: rawVenue.slug,
             ianaTimezone: rawVenue.ianaTimezone,
             currencyCode: rawVenue.currencyCode,
-            operatingHours: rawVenue.operatingHours,
+            operatingHours: rawVenue.operatingHours as PublicVenueConfig["operatingHours"],
             settings: {
               defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
               maxPartySize: settings?.maxPartySize as number | undefined,
@@ -4922,15 +4919,17 @@
     };
   </file>
   <file path="src/services/guest-recognition.ts">
-    export interface GuestRecognition {
-      recognized: boolean;
-      firstName: string | null;
-      visitCount: number;
-      hasPreferences: boolean;
-      lastVisit: string | null;
-    }
     function extractFirstName(fullName: string): string {
       return fullName.split(" ")[0];
+    }
+    function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean {
+      if (guest.notes && guest.notes.trim().length > 0) {
+        return true;
+      }
+      if (Array.isArray(guest.tags) && guest.tags.length > 0) {
+        return true;
+      }
+      return false;
     }
   </file>
   <file path="src/services/guest-risk.ts">
