@@ -22,7 +22,16 @@ vi.mock("../services/reservation.js", () => ({
     createWalkIn: vi.fn(),
     update: vi.fn(),
     updateWithConflictCheck: vi.fn(),
-    cancel: vi.fn(),
+  },
+}));
+
+// Mock the deposit service (needed by the staff cancel paths' domain cancel)
+vi.mock("../services/deposit.js", () => ({
+  depositService: {
+    getByReservationId: vi.fn(),
+    refund: vi.fn(),
+    refundPartial: vi.fn(),
+    forfeit: vi.fn(),
   },
 }));
 
@@ -44,6 +53,7 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
+    getRawById: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -102,6 +112,7 @@ vi.mock("jose", () => ({
 }));
 
 import { reservationService } from "../services/reservation.js";
+import { depositService } from "../services/deposit.js";
 import { jwtVerify } from "jose";
 
 describe("Reservation Routes", () => {
@@ -633,7 +644,8 @@ describe("Reservation Routes", () => {
     describe("PATCH /v1/reservations/:id — cancellation", () => {
       it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
           createMockReservation({
             id: "res-123",
             status: "CANCELLED",
@@ -656,16 +668,16 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
         expect(body.data.status).toBe("CANCELLED");
-        expect(reservationService.cancel).toHaveBeenCalledWith(
-          "res-123",
-          "Changed mind",
-          undefined
-        );
+        expect(reservationService.update).toHaveBeenCalledWith("res-123", {
+          status: "CANCELLED",
+          cancellationReason: "Changed mind",
+        });
       });
 
       it("cancels reservation without reason", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
           createMockReservation({ id: "res-123", status: "CANCELLED" })
         );
 
@@ -681,7 +693,7 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(reservationService.cancel).toHaveBeenCalledWith("res-123", undefined, undefined);
+        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "CANCELLED" });
       });
 
       it("returns 404 when cancelling nonexistent reservation via PATCH", async () => {
@@ -699,6 +711,57 @@ describe("Reservation Routes", () => {
         });
 
         expect(response.statusCode).toBe(404);
+      });
+
+      it("resolves a held deposit via full refund (staff cancels waive the fee)", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "held",
+        } as never);
+        vi.mocked(depositService.refund).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "refunded",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "CANCELLED" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.refund).toHaveBeenCalledWith("dep-1");
+        expect(depositService.refundPartial).not.toHaveBeenCalled();
+        expect(depositService.forfeit).not.toHaveBeenCalled();
+        // Money resolves BEFORE the status flip, never after.
+        expect(reservationService.update).toHaveBeenCalledWith(
+          "res-123",
+          expect.objectContaining({ status: "CANCELLED" })
+        );
+      });
+
+      it("aborts the cancel when the deposit refund fails (no ghost state)", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "held",
+        } as never);
+        vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "CANCELLED" },
+        });
+
+        expect(response.statusCode).toBe(500);
+        expect(reservationService.update).not.toHaveBeenCalled();
       });
     });
 
@@ -1027,7 +1090,8 @@ describe("Reservation Routes", () => {
   describe("DELETE /v1/reservations/:id", () => {
     it("cancels reservation and returns 200 with cancelled reservation", async () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce(
         createMockReservation({ id: "res-123", status: "CANCELLED" })
       );
 
@@ -1042,7 +1106,7 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data.status).toBe("CANCELLED");
-      expect(reservationService.cancel).toHaveBeenCalledWith("res-123");
+      expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "CANCELLED" });
     });
 
     it("returns 404 when cancelling nonexistent reservation", async () => {
@@ -1082,7 +1146,8 @@ describe("Reservation Routes", () => {
       vi.mocked(reservationService.getById)
         .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }))
         .mockResolvedValueOnce(createMockReservation({ guestEmail: "john@example.com" }));
-      vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce(
         createMockReservation({ id: "res-123", status: "CANCELLED" })
       );
 
@@ -1093,6 +1158,50 @@ describe("Reservation Routes", () => {
       });
 
       expect(response.statusCode).toBe(200);
+    });
+
+    it("resolves a held deposit via full refund (staff cancels waive the fee)", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+        id: "dep-1",
+        status: "held",
+      } as never);
+      vi.mocked(depositService.refund).mockResolvedValueOnce({
+        id: "dep-1",
+        status: "refunded",
+      } as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce(
+        createMockReservation({ id: "res-123", status: "CANCELLED" })
+      );
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(depositService.refund).toHaveBeenCalledWith("dep-1");
+      expect(depositService.refundPartial).not.toHaveBeenCalled();
+      expect(depositService.forfeit).not.toHaveBeenCalled();
+    });
+
+    it("aborts the cancel when the deposit refund fails (no ghost state)", async () => {
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
+      vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+        id: "dep-1",
+        status: "held",
+      } as never);
+      vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/reservations/res-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(reservationService.update).not.toHaveBeenCalled();
     });
 
     it("denies non-owner non-admin DELETE with 403", async () => {
@@ -1233,7 +1342,8 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById)
           .mockResolvedValueOnce(ownerReservation())
           .mockResolvedValueOnce(ownerReservation());
-        vi.mocked(reservationService.cancel).mockResolvedValueOnce(
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
           createMockReservation({ status: "CANCELLED" })
         );
 

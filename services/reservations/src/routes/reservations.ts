@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyBaseLogger, FastifyPluginAsync } from "fastify";
 import type {
   Reservation,
   ReservationStatus,
@@ -14,9 +14,11 @@ import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fa
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
+import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
+import { generateManageToken } from "./public-reservations.js";
 
 const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   resolveReservationGuestEmail((id) => reservationService.getById(id)),
@@ -24,6 +26,35 @@ const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
 );
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
+  /**
+   * Shared staff-cancel adapter for the PATCH (status: CANCELLED) and DELETE
+   * routes below: both are authenticated staff/admin entry points that must
+   * route through the deposit-safe domain cancel rather than a bare status
+   * flip. Staff cancels waive any cancellation fee (initiator: "staff") —
+   * see {@link cancelReservationWithDeposit}. A manage token is generated
+   * (not faked) so the guest cancellation email still carries a working
+   * manage link when the reservation has a guest email on file.
+   */
+  async function cancelReservationAsStaff(
+    reservation: Reservation,
+    logger: FastifyBaseLogger,
+    options: { cancellationReason?: string; cancellationNote?: string } = {}
+  ) {
+    const manageToken = reservation.guestEmail
+      ? generateManageToken(reservation.id, reservation.guestEmail)
+      : "";
+    return cancelReservationWithDeposit(
+      reservation,
+      manageToken,
+      {
+        bookingNotifier: fastify.bookingNotifier,
+        notificationPort: fastify.notificationPort,
+        logger,
+      },
+      { initiator: "staff", ...options }
+    );
+  }
+
   // List reservations
   fastify.get<{
     Querystring: {
@@ -569,20 +600,19 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (request.body.status === "CANCELLED") {
         try {
-          const cancelled = await reservationService.cancel(
-            request.params.id,
-            request.body.cancellationReason,
-            request.body.cancellationNote
-          );
+          const result = await cancelReservationAsStaff(reservation, request.log, {
+            cancellationReason: request.body.cancellationReason,
+            cancellationNote: request.body.cancellationNote,
+          });
 
-          if (!cancelled) {
+          if (!result.success) {
             return reply
-              .code(404)
-              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+              .code(result.status)
+              .send(createProblemDetails(result.status, result.title, result.detail));
           }
 
-          fastify.reservationEvents.emitReservationCancelled(cancelled);
-          return { data: cancelled };
+          fastify.reservationEvents.emitReservationCancelled(result.reservation);
+          return { data: result.reservation };
         } catch (err) {
           if (err instanceof ReservationTransitionError) {
             return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
@@ -718,13 +748,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const cancelled = await reservationService.cancel(request.params.id);
-        if (!cancelled) {
+        const result = await cancelReservationAsStaff(reservation, request.log);
+        if (!result.success) {
           return reply
-            .code(404)
-            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+            .code(result.status)
+            .send(createProblemDetails(result.status, result.title, result.detail));
         }
-        return { data: cancelled };
+        return { data: result.reservation };
       } catch (err) {
         if (err instanceof ReservationTransitionError) {
           return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));

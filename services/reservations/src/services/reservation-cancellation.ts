@@ -13,6 +13,21 @@ export interface CancelReservationDeps {
   logger: FastifyBaseLogger;
 }
 
+/** Who initiated the cancellation — drives deposit fee policy. */
+export type CancelInitiator = "guest" | "staff";
+
+export interface CancelReservationOptions {
+  /**
+   * Defaults to "guest". Staff cancels waive any cancellation fee and refund
+   * a `held` deposit in full rather than evaluating the guest-facing policy —
+   * staff are cancelling on the venue's behalf, so the guest's deposit is
+   * never partially kept or forfeited.
+   */
+  initiator?: CancelInitiator;
+  cancellationReason?: string;
+  cancellationNote?: string;
+}
+
 export type CancelReservationResult =
   | { success: true; reservation: Reservation }
   | { success: false; status: number; title: string; detail: string };
@@ -36,7 +51,8 @@ const DEPOSIT_FAILURE_RESULT: CancelReservationResult = {
  */
 async function resolveDeposit(
   reservation: Reservation,
-  logger: FastifyBaseLogger
+  logger: FastifyBaseLogger,
+  initiator: CancelInitiator
 ): Promise<CancelReservationResult | null> {
   const deposit = await depositService.getByReservationId(reservation.id);
   if (!deposit) return null;
@@ -67,6 +83,21 @@ async function resolveDeposit(
   }
 
   if (deposit.status !== "held") return null;
+
+  if (initiator === "staff") {
+    // Staff cancels on the venue's behalf — waive any cancellation fee and
+    // refund the deposit in full instead of evaluating guest-facing policy.
+    try {
+      await depositService.refund(deposit.id);
+    } catch (err) {
+      logger.error(
+        { err, reservationId: reservation.id, depositId: deposit.id },
+        "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
+      );
+      return DEPOSIT_FAILURE_RESULT;
+    }
+    return null;
+  }
 
   const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
 
@@ -157,12 +188,19 @@ async function notifyCancellation(
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
   manageToken: string,
-  deps: CancelReservationDeps
+  deps: CancelReservationDeps,
+  options: CancelReservationOptions = {}
 ): Promise<CancelReservationResult> {
-  const depositFailure = await resolveDeposit(reservation, deps.logger);
+  const { initiator = "guest", cancellationReason, cancellationNote } = options;
+
+  const depositFailure = await resolveDeposit(reservation, deps.logger, initiator);
   if (depositFailure) return depositFailure;
 
-  const updated = await reservationService.update(reservation.id, { status: "CANCELLED" });
+  const updated = await reservationService.update(reservation.id, {
+    status: "CANCELLED",
+    ...(cancellationReason !== undefined && { cancellationReason }),
+    ...(cancellationNote !== undefined && { cancellationNote }),
+  });
   if (!updated) {
     return {
       success: false,
