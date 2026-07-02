@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   SENSORS,
   getSensorByLabel,
@@ -6,6 +6,7 @@ import {
   buildCategoryMap,
   buildLabelMap,
   getReportSensors,
+  collectReportSensors,
 } from "../sensors-registry.mjs";
 
 describe("sensors-registry", () => {
@@ -87,9 +88,48 @@ describe("sensors-registry", () => {
     expect(map.cors).toBeDefined();
   });
 
+  it("buildLabelMap also keys by reportKey, so ciHealth regressions resolve to ci-fix", () => {
+    // detectRegression on the "ci" entry emits `sensor: "ciHealth"` (its reportKey),
+    // not the registry id "ci" — the map must be resolvable by both.
+    const map = buildLabelMap();
+    expect(map.ciHealth).toBe("ci-fix");
+  });
+
   it("getSensorByLabel returns null for unknown labels", () => {
     const sensor = getSensorByLabel("nonexistent-label-xyz");
     expect(sensor).toBeNull();
+  });
+
+  describe("collectReportSensors", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("logs and reports unavailable when a collector throws unexpectedly", () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const boom = new Error("boom");
+      const entries = [
+        { id: "brokenSensor", collect: () => { throw boom; } },
+      ];
+
+      const result = collectReportSensors(entries, {});
+
+      expect(result.brokenSensor).toEqual({ available: false });
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy.mock.calls[0].join(" ")).toContain("brokenSensor");
+    });
+
+    it("keys collected data by reportKey when present, otherwise id", () => {
+      const entries = [
+        { id: "ci", reportKey: "ciHealth", collect: () => ({ available: true }) },
+        { id: "acmm", collect: () => ({ available: true }) },
+      ];
+
+      const result = collectReportSensors(entries, {});
+
+      expect(result.ciHealth).toEqual({ available: true });
+      expect(result.acmm).toEqual({ available: true });
+    });
   });
 
   it("verifyFix function returns an object with verified and reason fields", () => {
