@@ -33,6 +33,7 @@ vi.mock("../commands/cleanup-worktrees.js", () => ({
 }));
 vi.mock("../commands/health.js", () => ({ healthCommand: { _name: "health" } }));
 vi.mock("../commands/mcp.js", () => ({ mcpCommand: { _name: "mcp" } }));
+vi.mock("../commands/issue.js", () => ({ issueCommand: { _name: "issue" } }));
 
 // Track addCommand calls
 const addedCommands: string[] = [];
@@ -109,6 +110,7 @@ describe("CLI entry point", () => {
       "health",
       "mcp",
       "visual",
+      "issue",
     ];
 
     for (const cmd of expectedCommands) {
@@ -118,6 +120,6 @@ describe("CLI entry point", () => {
 
   it("registers the correct number of commands", async () => {
     await import("../index.js");
-    expect(addedCommands.length).toBe(24);
+    expect(addedCommands.length).toBe(25);
   });
 });

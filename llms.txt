@@ -587,6 +587,14 @@
       }
     </item>
   </file>
+  <file path="tools/cli/src/commands/issue.ts">
+    <item priority="high">
+      type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
+    </item>
+    <item priority="high">
+      export const VALID_TRANSITION_STATES: unknown;
+    </item>
+  </file>
   <file path="tools/cli/src/commands/login.ts">
     <item priority="high">
       export const loginCommand: unknown;
