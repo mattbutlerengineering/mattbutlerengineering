@@ -262,7 +262,7 @@
     <item priority="low">
       interface UseGuestRecognitionParams {
         venueSlug: string | undefined;
-        apiBaseUrl?: string;
+        api: BookingWidgetApiClient;
       }
     </item>
   </file>

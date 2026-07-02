@@ -3497,7 +3497,7 @@
     }
     export interface UseGuestRecognitionParams {
       venueSlug: string | undefined;
-      apiBaseUrl?: string;
+      api: BookingWidgetApiClient;
     }
   </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
@@ -10680,6 +10680,18 @@
       createdAt: z.string(),
     });
   </file>
+  <file path="packages/types/src/schemas/waitlist.ts">
+    export const WaitlistJoinRequestSchema = z.object({
+      venueId: z.string(),
+      partySize: z.number(),
+      guestName: z.string(),
+      guestPhone: z.string(),
+    });
+    export const WaitlistJoinResultSchema = z.object({
+      position: z.number(),
+      estimatedWaitMinutes: z.number(),
+    });
+  </file>
   <file path="services/agent/src/schemas/index.ts">
     export const SessionSchema = sessionJsonSchema;
     export const SessionEventSchema = sessionEventJsonSchema;
@@ -14880,6 +14892,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        waitlist: new WaitlistClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         briefing: new BriefingClient(client),
@@ -15380,6 +15393,22 @@
        */
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/groups/${id}`);
+      }
+    }
+  </file>
+  <file path="packages/api-client/src/waitlist.ts">
+    export class WaitlistClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Join a venue's walk-in waitlist (unauthenticated booking widget).
+       */
+      async join(slug: string, data: WaitlistJoinRequest): Promise<WaitlistJoinResult> {
+        return this.client.postOne<WaitlistJoinResult>(
+          `/public/v1/venues/${slug}/waitlist`,
+          data,
+          WaitlistJoinResultSchema
+        );
       }
     }
   </file>
@@ -16815,6 +16844,18 @@
       settings: VenueSettings | null;
       createdAt: string;
       updatedAt: string;
+    }
+  </file>
+  <file path="packages/types/src/waitlist.ts">
+    export interface WaitlistJoinRequest {
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+    }
+    export interface WaitlistJoinResult {
+      position: number;
+      estimatedWaitMinutes: number;
     }
   </file>
   <file path="services/agent/src/app.ts">

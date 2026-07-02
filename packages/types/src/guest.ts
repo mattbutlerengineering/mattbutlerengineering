@@ -81,3 +81,20 @@ export interface GuestSegment {
   count: number;
   guests?: Guest[];
 }
+
+/** Response shape for `GET /public/v1/venues/:slug/guest-risk` (unauthenticated booking widget). */
+export interface GuestRiskResult {
+  riskScore: GuestRiskScore;
+  noShowCount: number;
+  /** True when the guest's risk score warrants an automatic deposit requirement. */
+  requiresDeposit: boolean;
+}
+
+/** Response shape for `GET /public/v1/venues/:slug/guests/recognize` (unauthenticated booking widget). */
+export interface GuestRecognition {
+  recognized: boolean;
+  firstName: string | null;
+  visitCount: number;
+  hasPreferences: boolean;
+  lastVisit: string | null;
+}

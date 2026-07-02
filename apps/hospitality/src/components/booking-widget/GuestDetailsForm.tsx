@@ -4,6 +4,7 @@ import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime } from "../../utils/format.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
+import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -23,7 +24,7 @@ export interface GuestDetailsFormProps {
   onSubmit: (details: GuestDetails) => void;
   onBack: () => void;
   venueSlug?: string;
-  apiBaseUrl?: string;
+  api: BookingWidgetApiClient;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -52,7 +53,7 @@ export function GuestDetailsForm({
   onSubmit,
   onBack,
   venueSlug,
-  apiBaseUrl = "",
+  api,
 }: GuestDetailsFormProps) {
   const [nameInput, setNameInput] = useState("");
   const [email, setEmail] = useState("");
@@ -68,7 +69,7 @@ export function GuestDetailsForm({
 
   const { result: recognition, recognize } = useGuestRecognition({
     venueSlug,
-    apiBaseUrl,
+    api,
   });
 
   useEffect(() => {

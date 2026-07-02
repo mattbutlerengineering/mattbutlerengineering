@@ -8,6 +8,9 @@ import {
   ReservationSchema as ZodReservationSchema,
   TableSchema as ZodTableSchema,
   PublicVenueConfigSchema,
+  GuestRiskResultSchema,
+  GuestRecognitionSchema,
+  WaitlistJoinResultSchema,
 } from "@mbe/types/schemas";
 
 // JSON Schemas from @mbe/types (the server's source of truth — services re-export these)
@@ -17,6 +20,9 @@ import {
   reservationJsonSchema as ServiceReservationSchema,
   tableJsonSchema as ServiceTableSchema,
   publicVenueConfigJsonSchema as ServicePublicVenueConfigSchema,
+  guestRiskResultJsonSchema as ServiceGuestRiskResultSchema,
+  guestRecognitionJsonSchema as ServiceGuestRecognitionSchema,
+  waitlistJoinResultJsonSchema as ServiceWaitlistJoinResultSchema,
 } from "@mbe/types/schemas";
 
 /**
@@ -94,6 +100,30 @@ describe("API Client ↔ Service Schema Contracts", () => {
         "PublicVenueConfig",
         zodKeys(PublicVenueConfigSchema),
         jsonSchemaKeys(ServicePublicVenueConfigSchema)
+      );
+    });
+
+    it("GuestRiskResult schema properties match between @mbe/types and reservations service", () => {
+      assertKeysMatch(
+        "GuestRiskResult",
+        zodKeys(GuestRiskResultSchema),
+        jsonSchemaKeys(ServiceGuestRiskResultSchema)
+      );
+    });
+
+    it("GuestRecognition schema properties match between @mbe/types and reservations service", () => {
+      assertKeysMatch(
+        "GuestRecognition",
+        zodKeys(GuestRecognitionSchema),
+        jsonSchemaKeys(ServiceGuestRecognitionSchema)
+      );
+    });
+
+    it("WaitlistJoinResult schema properties match between @mbe/types and reservations service", () => {
+      assertKeysMatch(
+        "WaitlistJoinResult",
+        zodKeys(WaitlistJoinResultSchema),
+        jsonSchemaKeys(ServiceWaitlistJoinResultSchema)
       );
     });
   });
