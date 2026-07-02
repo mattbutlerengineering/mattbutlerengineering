@@ -18,7 +18,7 @@ Run the unified sensor report to gather metrics from all available sensors:
 node scripts/sensor-report.mjs
 ```
 
-Read the output. The script queries 7 sensors (ACMM, PR metrics, agent cost, CI health, Lighthouse, GitHub issues, session logs) and persists the report to `metrics/sensor-report.json`. It also detects regressions by comparing against the previous report.
+Read the output. The script queries every sensor registered in `scripts/sensors-registry.mjs` (the list-of-record — check there for the current count and coverage) and persists the report to `metrics/sensor-report.json`. It also detects regressions by comparing against the previous report.
 
 If the script exits with code 1, regressions were detected. Note them for Step 3.
 
