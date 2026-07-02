@@ -120,6 +120,57 @@
       );
     }
   </file>
+  <file path="src/pages/usePlaygroundSession.ts">
+    export interface PlaygroundSession {
+      // Render mode + transient overlays (passed through from usePlaygroundState)
+      mode: PlaygroundMode;
+      isFullscreen: boolean;
+      galleryOpen: boolean;
+      shortcutsOpen: boolean;
+      toggleFullscreen: () => void;
+      openGallery: () => void;
+      closeGallery: () => void;
+      toggleGallery: () => void;
+      openShortcuts: () => void;
+      closeShortcuts: () => void;
+      toggleShortcuts: () => void;
+      exitRefinement: () => void;
+    
+      // History (from useSpecsApi)
+      specs: StoredSpec[];
+      isLoading: boolean;
+      filter: "all" | "favorites";
+      setFilter: (filter: "all" | "favorites") => void;
+    
+      // Streaming + derived display state (from useGenStream)
+      isStreaming: boolean;
+      error: Error | null;
+      displaySpec: Spec | null;
+      displayRawLines: string[];
+      displayError: Error | null;
+      /** Set only when viewing a non-streaming saved entry (for Share/Refine). */
+      activeSpecId: string | null;
+    
+      // Session verbs — own transition choreography lives here, not in the caller.
+      submit: (prompt: string) => void;
+      refine: () => void;
+      replay: (id: string) => void;
+      retry: () => void;
+      selectHistory: (id: string) => void;
+      toggleFavorite: (id: string) => void;
+      deleteSpec: (id: string) => void;
+      reset: () => void;
+      stop: () => void;
+    }
+    export interface UsePlaygroundSessionOptions {
+      /**
+       * Invoked when a generation (or refinement) stream completes, before the
+       * result is auto-saved. Callers own how completion is surfaced (e.g. a
+       * toast) — the hook itself stays UI-agnostic.
+       */
+      onGenerationComplete?: () => void;
+    }
+  </file>
   <file path="src/pages/usePlaygroundState.ts">
     export type PlaygroundMode = "generate" | "refine";
     export interface PlaygroundState {
