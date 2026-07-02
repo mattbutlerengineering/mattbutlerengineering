@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FAMILIES, llmsPackages } from "../regen-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, "../..");
 const SOURCE = readFileSync(resolve(__dirname, "../regen-manifest.mjs"), "utf8");
 const REGEN_SOURCE = readFileSync(resolve(__dirname, "../regen.mjs"), "utf8");
 
@@ -102,6 +104,27 @@ describe("regen-manifest", () => {
     const llms = FAMILIES.find((f) => f.id === "llms-txt");
     expect(llms.outputs).not.toContain("packages/feature-flags/llms.txt");
     expect(llms.outputs).not.toContain("packages/feature-flags/llms-full.txt");
+  });
+
+  // Regression test for #2937: committed llms.txt/llms-full.txt files that
+  // are never listed as manifest outputs are silently skipped by both
+  // `pnpm regen` (never regenerated) and `pnpm regen --check` (never
+  // verified) — they can drift indefinitely with no CI signal.
+  it("every git-tracked llms.txt/llms-full.txt file has a manifest entry", () => {
+    const tracked = execFileSync("git", ["ls-files", "*llms*.txt"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    const llms = FAMILIES.find((f) => f.id === "llms-txt");
+    const manifestOutputs = new Set(llms.outputs);
+    const uncovered = tracked.filter((p) => !manifestOutputs.has(p));
+    expect(
+      uncovered,
+      `committed llms artifacts missing a regen-manifest entry: ${uncovered.join(", ")}`
+    ).toEqual([]);
   });
 
   it("no family command references the non-existent pack-all alias", () => {
