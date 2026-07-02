@@ -229,12 +229,15 @@ describe("sensors-registry", () => {
 
     it("buildThresholds merges every entry's co-located thresholds into one flat object", () => {
       const thresholds = buildThresholds();
-      expect(thresholds).toMatchObject({
+      expect(thresholds).toEqual({
         ci_pass_rate_drop: 5,
         lighthouse_score_drop: 0.05,
         code_churn_rate_max: 0.3,
         queue_efficiency_composite_drop: 0.05,
         queue_efficiency_fps_drop: 0.1,
+        agent_success_rate_drop: 10,
+        error_rate_increase: 20,
+        service_uptime_min: 99.5,
       });
     });
 
