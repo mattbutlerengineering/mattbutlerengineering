@@ -2024,13 +2024,6 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/public-guest-risk.ts">
-    <item priority="low">
-      interface GuestRiskResult {
-        riskScore: GuestRiskScore;
-        noShowCount: number;
-        requiresDeposit: boolean;
-      }
-    </item>
     <item priority="high">
       export const publicGuestRiskRoutes: FastifyPluginAsync;
     </item>
@@ -2062,15 +2055,6 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/public-venues.ts">
-    <item priority="high">
-      interface PublicVenueResponse {
-        name: string;
-        slug: string;
-        ianaTimezone: string;
-        currencyCode: string;
-        operatingHours: unknown;
-      }
-    </item>
     <item priority="high">
       export const publicVenueRoutes: FastifyPluginAsync;
     </item>
@@ -2646,17 +2630,11 @@
     </item>
   </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
-    <item priority="low">
-      interface GuestRecognition {
-        recognized: boolean;
-        firstName: string | null;
-        visitCount: number;
-        hasPreferences: boolean;
-        lastVisit: string | null;
-      }
-    </item>
     <item priority="medium">
       function extractFirstName(fullName: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/guest-risk.ts">

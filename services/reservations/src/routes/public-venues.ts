@@ -1,33 +1,14 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse } from "@mbe/types";
+import type { ApiResponse, PublicVenueConfig } from "@mbe/types";
+import { publicVenueConfigJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 
-interface PublicVenueResponse {
-  name: string;
-  slug: string;
-  ianaTimezone: string;
-  currencyCode: string;
-  operatingHours: unknown;
-  settings: {
-    defaultReservationDuration?: number;
-    maxPartySize?: number;
-    maxAdvanceBooking?: number;
-    slotIntervalMinutes?: number;
-  };
-  deposit: {
-    enabled: boolean;
-    depositType: string | null;
-    amountCents: number | null;
-    freeCancellationHours: number | null;
-    lateCancellationFeePercent: number | null;
-    noShowFeePercent: number | null;
-  };
-}
-
 export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addSchema(publicVenueConfigJsonSchema);
+
   fastify.get<{
     Params: { slug: string };
-    Reply: ApiResponse<PublicVenueResponse>;
+    Reply: ApiResponse<PublicVenueConfig>;
   }>(
     "/:slug",
     {
@@ -40,6 +21,12 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
             slug: { type: "string" },
           },
           required: ["slug"],
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: { data: { $ref: "PublicVenueConfig#" } },
+          },
         },
       },
     },
@@ -56,12 +43,12 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
 
       const settings = rawVenue.settings as Record<string, unknown> | null;
 
-      const publicVenue: PublicVenueResponse = {
+      const publicVenue: PublicVenueConfig = {
         name: rawVenue.name,
         slug: rawVenue.slug,
         ianaTimezone: rawVenue.ianaTimezone,
         currencyCode: rawVenue.currencyCode,
-        operatingHours: rawVenue.operatingHours,
+        operatingHours: rawVenue.operatingHours as PublicVenueConfig["operatingHours"],
         settings: {
           defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
           maxPartySize: settings?.maxPartySize as number | undefined,

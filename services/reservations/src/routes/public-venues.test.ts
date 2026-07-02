@@ -98,6 +98,7 @@ vi.mock("jose", () => ({
 }));
 
 import { venueService } from "../services/venue.js";
+import { PublicVenueConfigSchema } from "@mbe/types/schemas";
 
 const rawMockVenue = {
   id: "venue_1",
@@ -197,5 +198,18 @@ describe("GET /public/v1/venues/:slug", () => {
     expect(venueService.getBySlug).not.toHaveBeenCalled();
     expect(venueService.getRawBySlug).toHaveBeenCalledOnce();
     expect(venueService.getRawBySlug).toHaveBeenCalledWith("the-oak-table");
+  });
+
+  it("contract: live response validates against the shared PublicVenueConfig Zod schema", async () => {
+    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table",
+    });
+
+    const body = response.json() as { data: unknown };
+    const result = PublicVenueConfigSchema.safeParse(body.data);
+    expect(result.success).toBe(true);
   });
 });

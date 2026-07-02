@@ -1,19 +1,15 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse, GuestRiskScore } from "@mbe/types";
+import type { ApiResponse, GuestRiskResult } from "@mbe/types";
+import { guestRiskResultJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { computeGuestRisk } from "../services/guest-risk.js";
 
 const DEFAULT_AUTO_DEPOSIT_THRESHOLD = 2;
 
-export interface GuestRiskResult {
-  riskScore: GuestRiskScore;
-  noShowCount: number;
-  /** True when the guest's risk score warrants an automatic deposit requirement. */
-  requiresDeposit: boolean;
-}
-
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addSchema(guestRiskResultJsonSchema);
+
   fastify.get<{
     Params: { slug: string };
     Querystring: { email?: string; phone?: string };
@@ -39,6 +35,12 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             email: { type: "string" },
             phone: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: { data: { $ref: "GuestRiskResult#" } },
           },
         },
       },

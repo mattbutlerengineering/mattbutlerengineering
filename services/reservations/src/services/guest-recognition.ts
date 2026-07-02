@@ -1,12 +1,5 @@
+import type { GuestRecognition } from "@mbe/types";
 import { prisma } from "./database.js";
-
-export interface GuestRecognition {
-  recognized: boolean;
-  firstName: string | null;
-  visitCount: number;
-  hasPreferences: boolean;
-  lastVisit: string | null;
-}
 
 const UNRECOGNIZED: GuestRecognition = {
   recognized: false,
