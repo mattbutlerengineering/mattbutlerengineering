@@ -21,12 +21,20 @@ import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
 import { collectCcusageSensor } from "./collect-ccusage.mjs";
-import { computeCodeChurn, isGeneratedArtifact } from "./collect-code-churn.mjs";
+import {
+  computeCodeChurn,
+  isGeneratedArtifact,
+  CODE_CHURN_THRESHOLD,
+} from "./collect-code-churn.mjs";
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 import { collectMutationScore } from "./collect-mutation-score.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
 import { computeE2eStability } from "./collect-e2e-stability.mjs";
-import { collectQueueEfficiency } from "./collect-queue-efficiency.mjs";
+import {
+  collectQueueEfficiency,
+  QUEUE_EFFICIENCY_COMPOSITE_DROP,
+  QUEUE_EFFICIENCY_FPS_DROP,
+} from "./collect-queue-efficiency.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -41,6 +49,7 @@ import { collectQueueEfficiency } from "./collect-queue-efficiency.mjs";
  *   reportKey?: string;
  *   collect?: (ctx: CollectContext) => object;
  *   format?: (data: object, name: string) => string;
+ *   thresholds?: Record<string, number>;
  *   detectRegression?: (current: object, previous: object | undefined, thresholds: object) => object[];
  * }} SensorEntry
  */
@@ -314,6 +323,7 @@ export const SENSORS = [
     },
     format: (data, name) =>
       `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`,
+    thresholds: { ci_pass_rate_drop: 5 },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available || !previous?.available) return [];
       const delta = current.pass_rate_pct - previous.pass_rate_pct;
@@ -372,6 +382,7 @@ export const SENSORS = [
       };
     },
     format: (data, name) => `${name}: ${data.scored_count} surfaces scored`,
+    thresholds: { lighthouse_score_drop: 0.05 },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available || !previous?.available) return [];
       const regressions = [];
@@ -528,6 +539,7 @@ export const SENSORS = [
     },
     format: (data, name) =>
       `${name}: ${Math.round(data.churn_rate * 100)}% churn rate (${data.lines_churned_7d} deleted / ${data.total_lines_added_7d} added, 7d)`,
+    thresholds: { code_churn_rate_max: CODE_CHURN_THRESHOLD },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
       if (current.churn_rate > thresholds.code_churn_rate_max) {
@@ -673,6 +685,10 @@ export const SENSORS = [
           : " (no baseline yet)";
       return `${name}: composite ${data.composite} | fps ${data.sub_metrics?.first_pass_success_rate} | ttm ${data.sub_metrics?.median_time_to_merge_hours}h | $${data.sub_metrics?.cost_per_issue_usd}/issue${baselineStr}`;
     },
+    thresholds: {
+      queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
+      queue_efficiency_fps_drop: QUEUE_EFFICIENCY_FPS_DROP,
+    },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
       const regressions = [...(current.regressions ?? [])];
@@ -803,4 +819,33 @@ export function collectReportSensors(entries, ctx) {
  */
 export function getReportSensors() {
   return SENSORS.filter((s) => typeof s.collect === "function");
+}
+
+/**
+ * Threshold values with no current registry-entry consumer — legacy
+ * placeholders from before per-sensor `detectRegression` logic existed.
+ * Kept here (not sensor-report.mjs) purely for report-output parity;
+ * drop once confirmed safe to remove.
+ *
+ * @type {Record<string, number>}
+ */
+const UNASSIGNED_THRESHOLDS = {
+  agent_success_rate_drop: 10,
+  error_rate_increase: 20,
+  service_uptime_min: 99.5,
+};
+
+/**
+ * Assembles the flat thresholds object consumed by buildReport/detectRegression,
+ * merging each registry entry's co-located `thresholds` (in registry order) on
+ * top of UNASSIGNED_THRESHOLDS. This is the sensor-report shim's one seam for
+ * thresholds — adding or tuning a sensor's threshold means editing its entry
+ * here, not a separate blob in sensor-report.mjs.
+ *
+ * @returns {Record<string, number>}
+ */
+export function buildThresholds() {
+  return SENSORS.reduce((acc, sensor) => ({ ...acc, ...(sensor.thresholds ?? {}) }), {
+    ...UNASSIGNED_THRESHOLDS,
+  });
 }
