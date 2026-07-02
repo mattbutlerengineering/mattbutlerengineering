@@ -146,7 +146,7 @@ describe("WaitlistJoinView", () => {
   it("shows error alert on API failure", async () => {
     mockApi.waitlist.join.mockRejectedValue(
       new ApiClientError(
-        { error: "Error", message: "Server error", statusCode: 500 } as any,
+        { error: "Error", message: "Server error", statusCode: 500 },
         "POST",
         "/public/v1/venues/test-venue/waitlist",
         { type: "about:blank", title: "Server Error", status: 500, detail: "Server error" }

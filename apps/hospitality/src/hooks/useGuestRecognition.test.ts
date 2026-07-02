@@ -8,6 +8,7 @@ const mockApi = {
     recognize: vi.fn(),
   },
 };
+const api = mockApi as any;
 
 describe("useGuestRecognition", () => {
   beforeEach(() => {
@@ -20,9 +21,7 @@ describe("useGuestRecognition", () => {
   });
 
   it("returns idle state initially", () => {
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     expect(result.current.result).toBeNull();
     expect(result.current.isLoading).toBe(false);
@@ -30,9 +29,7 @@ describe("useGuestRecognition", () => {
   });
 
   it("does not fetch when email is empty", async () => {
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("");
@@ -44,9 +41,7 @@ describe("useGuestRecognition", () => {
   });
 
   it("does not fetch when venueSlug is absent", async () => {
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: undefined, api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: undefined, api }));
 
     await act(async () => {
       result.current.recognize("jane@example.com");
@@ -66,9 +61,7 @@ describe("useGuestRecognition", () => {
       lastVisit: null,
     });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     act(() => {
       result.current.recognize("jane@example.com");
@@ -87,9 +80,7 @@ describe("useGuestRecognition", () => {
       lastVisit: null,
     });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("jane@example.com");
@@ -110,9 +101,7 @@ describe("useGuestRecognition", () => {
       lastVisit: null,
     });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("a@example.com");
@@ -138,9 +127,7 @@ describe("useGuestRecognition", () => {
       lastVisit: "2026-01-01",
     });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("jane@example.com");
@@ -168,9 +155,7 @@ describe("useGuestRecognition", () => {
       lastVisit: null,
     });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("new@example.com");
@@ -186,9 +171,7 @@ describe("useGuestRecognition", () => {
   it("yields error state on network failure", async () => {
     mockApi.guests.recognize.mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("jane@example.com");
@@ -205,9 +188,7 @@ describe("useGuestRecognition", () => {
   it("yields error state when the API call rejects (e.g. rate limited)", async () => {
     mockApi.guests.recognize.mockRejectedValue(new Error("Rate limited"));
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     await act(async () => {
       result.current.recognize("jane@example.com");
@@ -237,9 +218,7 @@ describe("useGuestRecognition", () => {
         lastVisit: null,
       });
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     // First call — recognized
     await act(async () => {
@@ -267,9 +246,7 @@ describe("useGuestRecognition", () => {
     });
     mockApi.guests.recognize.mockReturnValue(pending);
 
-    const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
-    );
+    const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
 
     act(() => {
       result.current.recognize("jane@example.com");
