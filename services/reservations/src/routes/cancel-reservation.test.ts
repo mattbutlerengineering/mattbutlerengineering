@@ -96,6 +96,18 @@ function createStubNotificationDispatcher(): Pick<
   };
 }
 
+// Every app instance must inject a stub BookingNotifier: the default notifier
+// lazily opens a BullMQ/ioredis connection on the first cancel, which (with no
+// Redis in CI) leaks a retry-forever ECONNREFUSED loop past the test run and
+// races vitest worker teardown (EnvironmentTeardownError).
+function createStubBookingNotifier(): BookingNotifier {
+  return {
+    scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+    cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+    rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe("DELETE /public/v1/reservations/manage", () => {
   let app: FastifyInstance;
   let stubNotifications: ReturnType<typeof createStubNotificationDispatcher>;
@@ -103,7 +115,11 @@ describe("DELETE /public/v1/reservations/manage", () => {
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     stubNotifications = createStubNotificationDispatcher();
-    app = await buildApp({ logger: false, notificationPort: stubNotifications as never });
+    app = await buildApp({
+      logger: false,
+      notificationPort: stubNotifications as never,
+      bookingNotifier: createStubBookingNotifier(),
+    });
     await app.ready();
   });
 
@@ -292,6 +308,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       depositApp = await buildApp({
         logger: false,
         notificationPort: createStubNotificationDispatcher() as never,
+        bookingNotifier: createStubBookingNotifier(),
       });
       await depositApp.ready();
     });
