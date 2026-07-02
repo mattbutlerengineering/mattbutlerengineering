@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toReservation, toTable } from "./serializers.js";
+import { toReservation, toTable, serializeManagedReservation } from "./serializers.js";
 
 const NOW = new Date("2026-06-14T18:00:00Z");
 
@@ -111,5 +111,36 @@ describe("toReservation", () => {
     const result = toReservation(withoutGuest as Parameters<typeof toReservation>[0]);
     // When no guest key exists, the property should be absent or null
     expect(result.guest == null).toBe(true);
+  });
+});
+
+describe("serializeManagedReservation", () => {
+  it("withholds cancellation fields and phone from the guest-facing manage view", () => {
+    const reservation = toReservation(
+      makePrismaReservation({
+        guestPhone: "+15550001111",
+        cancellationReason: "guest_request",
+        cancellationNote: "plans changed",
+      })
+    );
+
+    const view = serializeManagedReservation(reservation);
+
+    expect(view).not.toHaveProperty("guestPhone");
+    expect(view).not.toHaveProperty("cancellationReason");
+    expect(view).not.toHaveProperty("cancellationNote");
+    expect(view).not.toHaveProperty("table");
+    expect(view).not.toHaveProperty("guest");
+    expect(view).toEqual({
+      id: reservation.id,
+      date: reservation.date,
+      startTime: reservation.startTime,
+      endTime: reservation.endTime,
+      partySize: reservation.partySize,
+      guestName: reservation.guestName,
+      guestEmail: reservation.guestEmail,
+      status: reservation.status,
+      notes: reservation.notes,
+    });
   });
 });
