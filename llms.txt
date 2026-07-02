@@ -1598,6 +1598,20 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/pages/usePlaygroundSession.ts">
+    <item priority="low">
+      interface PlaygroundSession {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        toggleFullscreen: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function usePlaygroundSession(): PlaygroundSession { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">
     <item priority="low">
       type PlaygroundMode = "generate" | "refine";
