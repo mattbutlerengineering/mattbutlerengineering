@@ -99,7 +99,8 @@ export function evaluateCancellationFee(
  * booking widget and cancellation dialog.
  *
  * Example: "Free cancellation until 24 hours before your reservation.
- *           After that, a 50% fee ($50.00) applies."
+ *           After that, a 50% fee ($50.00) applies. If you don't show up
+ *           for your reservation, a 100% no-show fee ($100.00) applies."
  */
 export function formatCancellationTerms(
   policy: CancellationPolicy | null,
@@ -113,9 +114,18 @@ export function formatCancellationTerms(
   const feeAmount = Math.floor((policy.depositAmountCents * feePercent) / 100);
   const formattedFee = formatCents(feeAmount, currency);
 
+  // Mirrors evaluateCancellationFee's own default: no noShowFeePercent on
+  // record means a full 100% forfeit, not "no fee" — the disclosure must
+  // reflect that or guests authorize a hold without seeing the real term.
+  const noShowFeePercent = policy.noShowFeePercent ?? 100;
+  const noShowFeeAmount = Math.floor((policy.depositAmountCents * noShowFeePercent) / 100);
+  const formattedNoShowFee = formatCents(noShowFeeAmount, currency);
+
   return (
     `Free cancellation up to ${policy.freeCancellationHours} hours before your reservation. ` +
-    `After that, a ${feePercent}% fee (${formattedFee}) applies.`
+    `After that, a ${feePercent}% fee (${formattedFee}) applies. ` +
+    `If you don't show up for your reservation, a ${noShowFeePercent}% no-show fee ` +
+    `(${formattedNoShowFee}) applies.`
   );
 }
 

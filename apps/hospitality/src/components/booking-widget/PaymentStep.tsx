@@ -51,7 +51,7 @@ function CardForm({
   const amountCents = quoteDeposit(depositConfig, partySize);
   const currency = depositConfig.currency ?? "usd";
   const displayAmount = formatCurrencyFromCents(amountCents, currency);
-  const cancellationTerms = formatDepositCancellationTerms(depositConfig);
+  const cancellationTerms = formatDepositCancellationTerms(depositConfig, partySize);
 
   const handleSubmit = useCallback(async () => {
     if (!stripe || !elements) return;

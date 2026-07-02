@@ -19,10 +19,13 @@
     }
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
-    export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+    export function formatDepositCancellationTerms(
+      config: DepositConfig | null,
+      partySize: number
+    ): string | null {
       if (!config || config.freeCancellationHours == null) return null;
       const policy: CancellationPolicy = {
-        depositAmountCents: config.amountCents ?? 0,
+        depositAmountCents: quoteDeposit(config, partySize),
         freeCancellationHours: config.freeCancellationHours,
         lateCancellationFeePercent: config.lateCancellationFeePercent,
         noShowFeePercent: config.noShowFeePercent,

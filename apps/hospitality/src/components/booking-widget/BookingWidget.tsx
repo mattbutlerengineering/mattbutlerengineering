@@ -334,7 +334,10 @@ export function BookingWidget({
             data.depositPaymentIntentId ? (data.depositConfig?.amountCents ?? null) : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
-          cancellationPolicySummary={formatDepositCancellationTerms(data.depositConfig ?? null)}
+          cancellationPolicySummary={formatDepositCancellationTerms(
+            data.depositConfig ?? null,
+            data.partySize
+          )}
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
