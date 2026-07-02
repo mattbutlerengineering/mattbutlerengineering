@@ -41,7 +41,9 @@ describe("selectStaleForRetry", () => {
   });
 
   it("treats exactly 3 days as not-yet-stale (strict greater-than)", () => {
-    const issues = [makeIssue({ number: 7, createdAt: new Date(NOW - RETRY_THRESHOLD_MS).toISOString() })];
+    const issues = [
+      makeIssue({ number: 7, createdAt: new Date(NOW - RETRY_THRESHOLD_MS).toISOString() }),
+    ];
     expect(selectStaleForRetry(issues, NOW)).toEqual([]);
   });
 
@@ -113,7 +115,7 @@ describe("runAutoRetry", () => {
     comment: vi.fn(async () => {}),
   });
 
-  it("re-queues each selected issue: ready+remove agent-failed, then comments", async () => {
+  it("re-queues each selected issue via the shared markReady transition, then comments", async () => {
     const issues = [makeIssue({ number: 7, createdAt: at(4 * DAY) })];
     const deps = makeDeps(issues);
     const retried = await runAutoRetry({ ...deps, now: NOW });
@@ -121,7 +123,7 @@ describe("runAutoRetry", () => {
     expect(retried).toEqual([7]);
     expect(deps.editLabels).toHaveBeenCalledWith(7, {
       add: ["ready"],
-      remove: ["agent-failed"],
+      remove: ["has-pr", "in-progress", "agent-failed", "agent-skip"],
     });
     expect(deps.comment).toHaveBeenCalledWith(7, RETRY_COMMENT);
   });

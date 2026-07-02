@@ -37,6 +37,10 @@ done
 
 Unresolved → skip, next.
 
+## Transitions
+
+State changes use `mbe issue transition <NUM> --to <state>` (states: `ready`, `in-progress`, `has-pr`, `agent-failed`, `agent-skip`) — it wraps `@mbe/gh-client`'s tested label machine, the single source of truth for which labels come off on each edge. If `mbe` isn't on PATH (fresh worktree/CI), build once and call the CLI directly: `pnpm build --filter @mbe/cli...` then `node tools/cli/dist/index.js issue transition <NUM> --to <state>`.
+
 ## Retry Count
 
 ```bash
@@ -44,10 +48,10 @@ ATTEMPT=$(gh issue view <NUM> --json comments --jq '[.comments[] | select(.body 
 MAX=$(node -e "console.log(JSON.parse(require('fs').readFileSync('.github/auto-qa-tuning.json','utf-8')).thresholds.maxRetries)")
 
 if [ "$ATTEMPT" -ge "$MAX" ]; then
-  gh issue edit <NUM> --add-label "agent-skip" --remove-label "ready"
+  mbe issue transition <NUM> --to agent-skip
   gh issue comment <NUM> --body "**Auto-skipped** after $ATTEMPT (max: $MAX). Manual retry:
 \`\`\`bash
-gh issue edit <NUM> --add-label ready --remove-label agent-skip
+mbe issue transition <NUM> --to ready
 \`\`\`"
 fi
 ```
@@ -57,7 +61,7 @@ Max hit → skip, next.
 ## Claim
 
 ```bash
-gh issue edit <NUM> --add-label "in-progress" --remove-label "ready"
+mbe issue transition <NUM> --to in-progress
 ```
 
 ## Analyze
@@ -91,7 +95,7 @@ Last flags win (override budget/adapter). Safe (enum/numeric).
 ## Success
 
 ```bash
-gh issue edit <NUM> --add-label "has-pr" --remove-label "in-progress"
+mbe issue transition <NUM> --to has-pr
 gh issue comment <NUM> --body "PR: <URL>"
 gh pr edit <PR> --body "$(gh pr view <PR> --json body -q .body)
 
@@ -113,9 +117,11 @@ Attempts: $NEXT/$MAX
 $([ "$NEXT" -ge "$MAX" ] && echo 'Auto-skipped next.' || echo 'Will retry next cycle.')"
 
 if [ "$NEXT" -ge "$MAX" ]; then
-  gh issue edit <NUM> --add-label "agent-skip" --remove-label "in-progress"
+  mbe issue transition <NUM> --to agent-skip
 else
-  gh issue edit <NUM> --add-label "agent-failed" --add-label "ready" --remove-label "in-progress"
+  # Retry-eligible: canonical edge is straight back to ready (the attempt
+  # count above already lives in the comment history, not the label).
+  mbe issue transition <NUM> --to ready
 fi
 ```
 
@@ -130,20 +136,20 @@ CI=$(gh issue list --label "ready" --label "ci-fix" --state open --limit 5 --sor
 
 ## Retry
 
-Failed auto-re-queue: `agent-failed`+`ready` (unless max).
+Failed auto-re-queue: `ready` (unless max).
 
 After `maxRetries` (`.github/auto-qa-tuning.json`, 2): `agent-skip`.
 
 Manually retry skipped:
 
 ```bash
-gh issue edit <NUM> --add-label "ready" --remove-label "agent-skip"
+mbe issue transition <NUM> --to ready
 ```
 
 Manually retry failed:
 
 ```bash
-gh issue edit <NUM> --add-label "ready" --remove-label "agent-failed"
+mbe issue transition <NUM> --to ready
 ```
 
 ## Rules

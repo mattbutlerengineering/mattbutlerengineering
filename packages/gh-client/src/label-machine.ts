@@ -56,7 +56,7 @@ export function markSkip(issueNumber: number): LabelTransition {
   };
 }
 
-/** has-pr/agent-failed → ready (re-queue) */
+/** has-pr/agent-failed/agent-skip → ready (re-queue) */
 export function markReady(issueNumber: number): LabelTransition {
   return {
     issueNumber,
@@ -65,6 +65,7 @@ export function markReady(issueNumber: number): LabelTransition {
       COORDINATION_LABELS.HAS_PR,
       COORDINATION_LABELS.IN_PROGRESS,
       COORDINATION_LABELS.AGENT_FAILED,
+      COORDINATION_LABELS.AGENT_SKIP,
     ],
   };
 }
