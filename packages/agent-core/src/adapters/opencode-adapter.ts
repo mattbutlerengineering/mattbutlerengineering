@@ -21,11 +21,4 @@ export class OpenCodeAdapter extends CliAdapterBase {
   protected buildArgs(config: AdapterConfig): string[] {
     return ["run", config.taskDescription];
   }
-
-  protected parseOutput(
-    _stdout: string,
-    stderr: string
-  ): { hasChanges: boolean; summary?: string } {
-    return { hasChanges: false, summary: stderr || undefined };
-  }
 }

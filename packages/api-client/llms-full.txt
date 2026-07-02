@@ -620,6 +620,17 @@
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/${id}`);
       }
+    
+      /**
+       * Get a venue's public booking-widget config by slug (unauthenticated).
+       */
+      async getPublicConfig(slug: string): Promise<PublicVenueConfig> {
+        return this.client.getOne<PublicVenueConfig>(
+          `/public/v1/venues/${slug}`,
+          undefined,
+          PublicVenueConfigSchema
+        );
+      }
     }
     export class VenueGroupsClient {
       constructor(private client: ApiClient) {}

@@ -2,12 +2,17 @@ import { useState, useCallback } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import type { Stripe } from "@stripe/stripe-js";
+import { ApiClientError, type createApiClient } from "@mbe/api-client";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
-import type { DepositConfig } from "@mbe/types";
+import type { DepositConfig, DepositPaymentIntent } from "@mbe/types";
+import { DepositPaymentIntentSchema } from "@mbe/types";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./PaymentStep.module.css";
 
+export type BookingWidgetApiClient = ReturnType<typeof createApiClient>;
+
 export interface PaymentStepProps {
+  api: BookingWidgetApiClient;
   depositConfig: DepositConfig;
   partySize: number;
   reservationId: string;
@@ -26,6 +31,7 @@ function calculateAmount(config: DepositConfig, partySize: number): number {
 }
 
 interface CardFormProps {
+  api: BookingWidgetApiClient;
   depositConfig: DepositConfig;
   partySize: number;
   reservationId: string;
@@ -35,6 +41,7 @@ interface CardFormProps {
 }
 
 function CardForm({
+  api,
   depositConfig,
   partySize,
   reservationId,
@@ -62,23 +69,13 @@ function CardForm({
 
     try {
       // Fetch the client secret from our backend
-      const apiBase = import.meta.env.VITE_API_URL ?? "";
-      const resp = await fetch(`${apiBase}/public/v1/venues/${venueSlug}/deposits/payment-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservationId }),
-      });
+      const paymentIntent = await api.client.postOne<DepositPaymentIntent>(
+        `/public/v1/venues/${venueSlug}/deposits/payment-intent`,
+        { reservationId },
+        DepositPaymentIntentSchema
+      );
 
-      if (!resp.ok) {
-        const errBody = await resp.json().catch(() => ({}));
-        throw new Error((errBody as { detail?: string }).detail ?? "Failed to initiate deposit");
-      }
-
-      const { data } = (await resp.json()) as {
-        data: { clientSecret: string; depositId: string };
-      };
-
-      const result = await stripe.confirmCardPayment(data.clientSecret, {
+      const result = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
         payment_method: { card: cardElement },
       });
 
@@ -88,11 +85,17 @@ function CardForm({
         onSuccess(result.paymentIntent.id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed");
+      const message =
+        err instanceof ApiClientError
+          ? err.problemDetails.detail
+          : err instanceof Error
+            ? err.message
+            : "Payment failed";
+      setError(message);
     } finally {
       setIsProcessing(false);
     }
-  }, [stripe, elements, venueSlug, reservationId, onSuccess]);
+  }, [stripe, elements, api, venueSlug, reservationId, onSuccess]);
 
   return (
     <div className={styles.container}>
@@ -188,6 +191,7 @@ export function PaymentStep(props: PaymentStepProps) {
   return (
     <Elements stripe={stripePromise}>
       <CardForm
+        api={props.api}
         depositConfig={props.depositConfig}
         partySize={props.partySize}
         reservationId={props.reservationId}

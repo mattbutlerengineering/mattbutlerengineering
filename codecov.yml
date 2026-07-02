@@ -68,10 +68,6 @@ flags:
     paths:
       - packages/api-client/
     carryforward: true
-  feature-flags:
-    paths:
-      - packages/feature-flags/
-    carryforward: true
   observability:
     paths:
       - packages/observability/

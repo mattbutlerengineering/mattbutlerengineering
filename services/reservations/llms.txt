@@ -131,6 +131,14 @@
       export const holdRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/load-reservation-for-manage.ts">
+    <item priority="low">
+      type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 404; reas | { ok: false; status: 409; reas;
+    </item>
+    <item priority="high">
+      export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/manage-reservation.ts">
     <item priority="high">
       export const manageReservationRoutes: FastifyPluginAsync;
@@ -551,6 +559,18 @@
   <file path="src/services/reminder.ts">
     <item priority="high">
       export async function findReservationsNeedingReminder() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/reservation-cancellation.ts">
+    <item priority="low">
+      interface CancelReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
     </item>
   </file>
   <file path="src/services/reservation-state-machine.ts">

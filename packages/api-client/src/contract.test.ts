@@ -7,6 +7,7 @@ import {
   UserPreferencesSchema,
   ReservationSchema as ZodReservationSchema,
   TableSchema as ZodTableSchema,
+  PublicVenueConfigSchema,
 } from "@mbe/types/schemas";
 
 // JSON Schemas from @mbe/types (the server's source of truth — services re-export these)
@@ -15,6 +16,7 @@ import {
   userPreferencesJsonSchema as ServiceUserPreferencesSchema,
   reservationJsonSchema as ServiceReservationSchema,
   tableJsonSchema as ServiceTableSchema,
+  publicVenueConfigJsonSchema as ServicePublicVenueConfigSchema,
 } from "@mbe/types/schemas";
 
 /**
@@ -85,6 +87,14 @@ describe("API Client ↔ Service Schema Contracts", () => {
 
     it("Table schema properties match between @mbe/types and reservations service", () => {
       assertKeysMatch("Table", zodKeys(ZodTableSchema), jsonSchemaKeys(ServiceTableSchema));
+    });
+
+    it("PublicVenueConfig schema properties match between @mbe/types and reservations service", () => {
+      assertKeysMatch(
+        "PublicVenueConfig",
+        zodKeys(PublicVenueConfigSchema),
+        jsonSchemaKeys(ServicePublicVenueConfigSchema)
+      );
     });
   });
 });
