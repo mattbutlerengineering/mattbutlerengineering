@@ -1592,10 +1592,7 @@
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
     <item priority="high">
-      export function createRefinementPrompt(
-        currentSpec: Spec,
-        userInstruction: string,
-      ): string { /* ... */ }
+      export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">
