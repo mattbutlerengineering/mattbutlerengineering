@@ -96,7 +96,7 @@
         const startTime = Date.now();
     
         try {
-          const sessionResult = await runSession({
+          const sessionResult = await runSessionPipeline({
             taskDescription: config.taskDescription,
             repoPath: config.repoPath,
             baseBranch: config.baseBranch,
@@ -132,6 +132,20 @@
             error: message,
           };
         }
+      }
+    
+      /**
+       * Runs a full agent session (worktree → gates → publish → spend) via the
+       * existing runSession() pipeline, forwarding the SessionConfig unchanged.
+       * This is the seam `runAgentSession()` calls for the "claude" backend (#2964).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runSessionPipeline(config, onEvent, deps, signal);
       }
     }
   </file>
@@ -2430,6 +2444,23 @@
       maxBudgetUsd: 0.05,
       timeoutMs: 30_000,
     };
+  </file>
+  <file path="src/run-agent-session.ts">
+    export interface AgentSessionAdapter {
+      runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult>;
+    }
+    export interface RunAgentSessionOptions {
+      /** Adapter that executes the session. Defaults to a new ClaudeAdapter(). Inject a fake in tests. */
+      adapter?: AgentSessionAdapter;
+      onEvent?: SessionEventCallback;
+      deps?: PhaseDeps;
+      signal?: AbortSignal;
+    }
   </file>
   <file path="src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({
