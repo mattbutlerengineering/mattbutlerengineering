@@ -1257,6 +1257,9 @@ importers:
 
   scripts:
     dependencies:
+      '@mbe/agent-core':
+        specifier: workspace:*
+        version: link:../packages/agent-core
       '@mbe/gh-client':
         specifier: workspace:*
         version: link:../packages/gh-client
