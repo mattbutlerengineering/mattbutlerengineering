@@ -8,7 +8,7 @@ TypeScript monorepo (`mattbutlerengineering`) using **Turborepo + pnpm**.
 
 - `apps/` — React (Vite) frontends: marketing, hospitality, rialto-web, gen
 - `services/` — Fastify + Prisma backends: users (3001), agent (3003), reservations (3004)
-- `packages/` — Shared libraries: agent-core, api-client, api-versioning, auth, config, observability, rialto (design system), types
+- `packages/` — Shared libraries: agent-core, api-client, auth, config, observability, rialto (design system), types
 - `infrastructure/` — Pulumi IaC + Docker
 
 ## Code Style
