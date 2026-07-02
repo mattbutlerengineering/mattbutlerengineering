@@ -13,20 +13,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { walkFiles } from "./lib/repo-scan.mjs";
+import { runCheck } from "./lib/fitness-check.mjs";
 
 const BASELINE_PATH = path.resolve(process.cwd(), "metrics/ai-antipattern-baselines.json");
-
-/** Directories to skip during file scanning. */
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "dist",
-  "generated",
-  ".git",
-  "coverage",
-  ".turbo",
-  ".stryker-tmp",
-  ".claude",
-]);
 
 /** File extensions to scan. */
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
@@ -50,24 +40,13 @@ const PATTERN_DESCRIPTIONS = {
 
 /**
  * Walk a directory tree, yielding absolute file paths that match SCAN_EXTENSIONS.
- * Skips SKIP_DIRS automatically.
+ * Uses the shared repo-scan ignore list (node_modules, dist, generated, etc).
  *
  * @param {string} dir - Absolute directory path to walk
  * @returns {string[]}
  */
 function collectFiles(dir) {
-  const results = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...collectFiles(fullPath));
-    } else if (entry.isFile() && SCAN_EXTENSIONS.has(path.extname(entry.name))) {
-      results.push(fullPath);
-    }
-  }
-  return results;
+  return walkFiles(dir, { match: (name) => SCAN_EXTENSIONS.has(path.extname(name)) });
 }
 
 /** Returns true if the file path looks like a test file. */
@@ -308,7 +287,7 @@ if (isMain) {
   }
 
   const baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, "utf-8"));
-  const { passed, regressions } = compareWithBaseline(counts, baseline);
+  const { regressions } = compareWithBaseline(counts, baseline);
 
   // Print per-pattern report
   console.log("\nPattern results:");
@@ -319,16 +298,19 @@ if (isMain) {
     console.log(`  ${status.padEnd(8)} ${name}: ${count} (baseline: ${baseCount})`);
   }
 
-  if (!passed) {
-    console.error(`\nREGRESSION: ${regressions.length} pattern(s) increased:`);
-    for (const r of regressions) {
-      console.error(`  ${r.pattern}: ${r.baseline} → ${r.current} (+${r.current - r.baseline})`);
-    }
-    console.error(
+  const exitCode = runCheck({
+    name: "AI antipattern ratchet",
+    findings: regressions,
+    formatFinding: (r) => `${r.pattern}: ${r.baseline} → ${r.current} (+${r.current - r.baseline})`,
+    passMessage: "\nAll patterns within baseline. No regressions detected.",
+    failMessage: `\nREGRESSION: ${regressions.length} pattern(s) increased:`,
+  });
+
+  if (exitCode !== 0) {
+    console.log(
       "\nFix the violations above, or run with --update to commit new baselines after intentional cleanup."
     );
-    process.exit(1);
   }
 
-  console.log("\nAll patterns within baseline. No regressions detected.");
+  process.exit(exitCode);
 }
