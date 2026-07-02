@@ -1196,6 +1196,24 @@
   </file>
   </section>
   <section priority="medium" role="booking-widget">
+  <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
+    export interface EffectiveDepositPolicyParams {
+      depositConfig: DepositConfig | null;
+      venueSlug: string | undefined;
+      stripePublishableKey: string | undefined;
+      guestIsRisky: boolean;
+    }
+    export function effectiveDepositPolicy({
+      depositConfig,
+      venueSlug,
+      stripePublishableKey,
+      guestIsRisky,
+    }: EffectiveDepositPolicyParams): DepositConfig | null {
+      if (!venueSlug || !stripePublishableKey || !depositConfig) return null;
+      if (depositConfig.enabled) return depositConfig;
+      return guestIsRisky ? depositConfig : null;
+    }
+  </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
     export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
       if (!config || config.freeCancellationHours == null) return null;
@@ -15246,6 +15264,17 @@
        */
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/${id}`);
+      }
+    
+      /**
+       * Get a venue's public booking-widget config by slug (unauthenticated).
+       */
+      async getPublicConfig(slug: string): Promise<PublicVenueConfig> {
+        return this.client.getOne<PublicVenueConfig>(
+          `/public/v1/venues/${slug}`,
+          undefined,
+          PublicVenueConfigSchema
+        );
       }
     }
     export class VenueGroupsClient {

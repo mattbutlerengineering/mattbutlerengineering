@@ -65,6 +65,9 @@ describe("BookingWidget", () => {
       create: vi.fn(),
       confirm: vi.fn(),
     },
+    venues: {
+      getPublicConfig: vi.fn(),
+    },
   };
 
   beforeEach(() => {
@@ -141,37 +144,34 @@ describe("BookingWidget", () => {
   });
 
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {
-    // Mock global fetch for both venue config and guest risk endpoints
-    const mockFetch = vi.fn().mockImplementation((url: string) => {
-      if (String(url).includes("/guest-risk")) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              data: { riskScore: "risky", noShowCount: 2, requiresDeposit: true },
-            }),
-        });
-      }
-      // Venue config endpoint — deposit enabled with amount (required for payment step)
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: {
-              deposit: {
-                enabled: true,
-                depositType: "flat",
-                amountCents: 5000,
-                freeCancellationHours: null,
-                lateCancellationFeePercent: null,
-                noShowFeePercent: null,
-              },
-              currencyCode: "USD",
-            },
-          }),
-      });
+    // Guest-risk lookup still goes through raw fetch (out of scope — see #2932).
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: { riskScore: "risky", noShowCount: 2, requiresDeposit: true },
+        }),
     });
     vi.stubGlobal("fetch", mockFetch);
+
+    // Venue config — deposit enabled with amount (required for payment step) —
+    // now goes through the typed api.venues.getPublicConfig() client method.
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: true,
+        depositType: "flat",
+        amountCents: 5000,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
 
     render(
       <BookingWidget venueId="v1" venueSlug="the-oak-table" stripePublishableKey="pk_test_abc" />
@@ -214,6 +214,77 @@ describe("BookingWidget", () => {
 
     // Should go to Payment step (not skip to Confirmation)
     await waitFor(() => expect(screen.getByText("Payment")).toBeDefined());
+
+    vi.unstubAllGlobals();
+  });
+
+  it("does not call the guest-risk endpoint when Stripe is not configured", async () => {
+    // Regression test (review retry): the guest-risk lookup carries PII
+    // (email/phone) and must only fire when the venue's Stripe integration is
+    // actually configured (venueSlug + stripePublishableKey), matching
+    // effectiveDepositPolicy's own gating. It must never fire just because the
+    // venue's deposit policy happens to be disabled.
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { requiresDeposit: true } }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
+
+    // venueSlug is set but stripePublishableKey is deliberately omitted
+    // (defaults to "" — Stripe not configured for this venue).
+    render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
+
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Some Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "guest@example.com" },
+    });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-789",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    // Deposit disabled + Stripe unconfigured → straight to Confirmation.
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+
+    expect(mockFetch).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
   });

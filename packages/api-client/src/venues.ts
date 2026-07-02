@@ -3,12 +3,18 @@ import type {
   PaginatedResponse,
   Venue,
   VenueGroup,
+  PublicVenueConfig,
   CreateVenueRequest,
   UpdateVenueRequest,
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
 } from "@mbe/types";
-import { VenueSchema, VenueGroupSchema, paginatedResponseSchema } from "@mbe/types";
+import {
+  VenueSchema,
+  VenueGroupSchema,
+  PublicVenueConfigSchema,
+  paginatedResponseSchema,
+} from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 const venueListSchema: z.ZodSchema<PaginatedResponse<Venue>> = paginatedResponseSchema(VenueSchema);
@@ -64,6 +70,17 @@ export class VenuesClient {
    */
   async delete(id: string): Promise<void> {
     await this.client.delete(`/api/v1/venues/${id}`);
+  }
+
+  /**
+   * Get a venue's public booking-widget config by slug (unauthenticated).
+   */
+  async getPublicConfig(slug: string): Promise<PublicVenueConfig> {
+    return this.client.getOne<PublicVenueConfig>(
+      `/public/v1/venues/${slug}`,
+      undefined,
+      PublicVenueConfigSchema
+    );
   }
 }
 

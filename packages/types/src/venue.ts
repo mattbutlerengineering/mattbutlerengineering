@@ -113,3 +113,51 @@ export interface UpdateVenueRequest {
   operatingHours?: OperatingHours | null;
   settings?: VenueSettings | null;
 }
+
+/**
+ * Deposit policy portion of the public (unauthenticated) venue-config response.
+ * Mirrors `Venue`'s deposit fields but omits `currency` — the public response
+ * carries currency separately as `PublicVenueConfig.currencyCode`.
+ */
+export interface PublicVenueDeposit {
+  enabled: boolean;
+  depositType: DepositType | null;
+  amountCents: number | null;
+  freeCancellationHours: number | null;
+  lateCancellationFeePercent: number | null;
+  noShowFeePercent: number | null;
+}
+
+/** Subset of `VenueSettings` exposed on the public booking-widget config endpoint. */
+export interface PublicVenueSettings {
+  defaultReservationDuration?: number;
+  maxPartySize?: number;
+  maxAdvanceBooking?: number;
+  slotIntervalMinutes?: number;
+}
+
+/** Response shape for `GET /public/v1/venues/:slug` (unauthenticated booking widget). */
+export interface PublicVenueConfig {
+  name: string;
+  slug: string;
+  ianaTimezone: string;
+  currencyCode: string;
+  operatingHours: OperatingHours | null;
+  settings: PublicVenueSettings;
+  deposit: PublicVenueDeposit;
+}
+
+/** Request body for `POST /public/v1/venues/:slug/deposits/payment-intent`. */
+export interface CreateDepositPaymentIntentRequest {
+  reservationId: string;
+  guestEmail?: string;
+  guestName?: string;
+}
+
+/** Response shape for `POST /public/v1/venues/:slug/deposits/payment-intent`. */
+export interface DepositPaymentIntent {
+  clientSecret: string;
+  depositId: string;
+  amountCents: number;
+  currency: string;
+}

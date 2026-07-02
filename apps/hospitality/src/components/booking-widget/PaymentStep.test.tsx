@@ -56,8 +56,15 @@ const mockDepositConfig: DepositConfig = {
   noShowFeePercent: 100,
 };
 
+const mockApi = {
+  client: {
+    postOne: vi.fn(),
+  },
+};
+
 describe("PaymentStep", () => {
   const defaultProps = {
+    api: mockApi as any,
     depositConfig: mockDepositConfig,
     partySize: 2,
     reservationId: "res-123",
@@ -116,6 +123,12 @@ describe("PaymentStep", () => {
     (useElements as any).mockReturnValue({
       getElement: vi.fn().mockReturnValue({}),
     });
+    mockApi.client.postOne.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-1",
+      amountCents: 2500,
+      currency: "usd",
+    });
 
     render(<PaymentStep {...defaultProps} />);
     const payButton = screen.getByTestId("pay-button");
@@ -132,17 +145,12 @@ describe("PaymentStep", () => {
       getElement: vi.fn().mockReturnValue({}),
     } as any);
 
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          )
-        )
-    );
+    mockApi.client.postOne.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-1",
+      amountCents: 2500,
+      currency: "usd",
+    });
 
     render(<PaymentStep {...defaultProps} />);
     fireEvent.click(screen.getByTestId("pay-button"));
@@ -164,17 +172,12 @@ describe("PaymentStep", () => {
       getElement: vi.fn().mockReturnValue({}),
     } as any);
 
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({ data: { clientSecret: "pi_secret_test", depositId: "dep-1" } }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          )
-        )
-    );
+    mockApi.client.postOne.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-1",
+      amountCents: 2500,
+      currency: "usd",
+    });
 
     render(<PaymentStep {...defaultProps} />);
     fireEvent.click(screen.getByTestId("pay-button"));

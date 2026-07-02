@@ -12,6 +12,7 @@ import { WaitlistJoinView } from "./WaitlistJoinView";
 import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
 import { useBookingFlow, type BookingStep } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
+import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
 import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
@@ -108,31 +109,16 @@ export function BookingWidget({
 
     const fetchDepositConfig = async () => {
       try {
-        const resp = await fetch(`${apiBaseUrl}/public/v1/venues/${venueSlug}`);
-        if (!resp.ok) return;
-        const body = (await resp.json()) as {
-          data?: {
-            deposit?: {
-              enabled: boolean;
-              depositType: string | null;
-              amountCents: number | null;
-              freeCancellationHours: number | null;
-              lateCancellationFeePercent: number | null;
-              noShowFeePercent: number | null;
-            };
-            currencyCode?: string;
-          };
-        };
-        const d = body.data?.deposit;
-        if (d?.enabled) {
+        const venueConfig = await api.venues.getPublicConfig(venueSlug);
+        if (venueConfig.deposit.enabled) {
           const config: DepositConfig = {
             enabled: true,
-            depositType: (d.depositType as "flat" | "per_person") ?? "flat",
-            amountCents: d.amountCents,
-            currency: (body.data?.currencyCode ?? "usd").toLowerCase(),
-            freeCancellationHours: d.freeCancellationHours,
-            lateCancellationFeePercent: d.lateCancellationFeePercent,
-            noShowFeePercent: d.noShowFeePercent,
+            depositType: venueConfig.deposit.depositType ?? "flat",
+            amountCents: venueConfig.deposit.amountCents,
+            currency: venueConfig.currencyCode.toLowerCase(),
+            freeCancellationHours: venueConfig.deposit.freeCancellationHours,
+            lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
+            noShowFeePercent: venueConfig.deposit.noShowFeePercent,
           };
           actions.setDepositConfig(config);
         }
@@ -143,7 +129,7 @@ export function BookingWidget({
 
     fetchDepositConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueSlug, apiBaseUrl]);
+  }, [venueSlug, api]);
 
   // Hold expiry timer — captured hold in closure; effect restarts on every hold change
   useEffect(() => {
@@ -217,23 +203,22 @@ export function BookingWidget({
         notes: details.notes || undefined,
       });
 
-      // Determine effective deposit config:
-      // 1. Venue's general deposit config (if enabled)
-      // 2. Force deposit for risky guests (if Stripe is configured)
-      let depositConfig =
-        data.depositConfig?.enabled && venueSlug && stripePublishableKey
-          ? data.depositConfig
-          : null;
+      // Only check guest risk when the venue's general policy doesn't already
+      // require a deposit, and only when Stripe is actually configured for
+      // this venue (venueSlug + publishable key) — avoids an unnecessary
+      // lookup, and avoids sending guest PII (email/phone) when there's no
+      // deposit flow to gate.
+      const guestIsRisky =
+        !data.depositConfig?.enabled && venueSlug && stripePublishableKey
+          ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
+          : false;
 
-      if (!depositConfig && venueSlug && stripePublishableKey) {
-        const guestIsRisky = await fetchGuestRisk(
-          details.email || undefined,
-          details.phone || undefined
-        );
-        if (guestIsRisky && data.depositConfig) {
-          depositConfig = data.depositConfig;
-        }
-      }
+      const depositConfig = effectiveDepositPolicy({
+        depositConfig: data.depositConfig,
+        venueSlug,
+        stripePublishableKey,
+        guestIsRisky,
+      });
 
       actions.confirmReservation(reservationPromise, depositConfig);
     },
@@ -330,6 +315,7 @@ export function BookingWidget({
 
       {state === "payment" && data.depositConfig && data.reservation && venueSlug && (
         <PaymentStep
+          api={api}
           depositConfig={data.depositConfig}
           partySize={data.partySize}
           reservationId={data.reservation.id}
