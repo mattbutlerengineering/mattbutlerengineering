@@ -5,5 +5,6 @@ export * from "./api.js";
 export * from "./agent.js";
 export * from "./venue.js";
 export * from "./guest.js";
+export * from "./waitlist.js";
 export * from "./common.js";
 export * from "./json-schema.js";

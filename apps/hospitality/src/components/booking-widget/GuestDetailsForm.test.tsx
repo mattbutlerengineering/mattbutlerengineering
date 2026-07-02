@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { GuestDetailsForm } from "./GuestDetailsForm.js";
@@ -11,6 +12,12 @@ const mockSlot: TimeSlot = {
 const mockHold: ReservationHold = {
   id: "hold-1",
   expiresAt: new Date(Date.now() + 60000).toISOString(),
+};
+
+const mockApi = {
+  guests: {
+    recognize: vi.fn(),
+  },
 };
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -140,12 +147,12 @@ describe("GuestDetailsForm", () => {
     error: null,
     onSubmit: vi.fn(),
     onBack: vi.fn(),
+    api: mockApi as any,
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.useFakeTimers();
-    global.fetch = vi.fn();
   });
 
   afterEach(() => {
@@ -265,15 +272,16 @@ describe("GuestDetailsForm", () => {
     const propsWithSlug = {
       ...defaultProps,
       venueSlug: "the-grill",
-      apiBaseUrl: "https://api.example.com",
     };
 
     it("calls recognize endpoint after email blur with 300ms debounce", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ recognized: false }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: false,
+        firstName: null,
+        visitCount: 0,
+        hasPreferences: false,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
       const emailInput = screen.getByTestId("email");
@@ -281,30 +289,25 @@ describe("GuestDetailsForm", () => {
       fireEvent.change(emailInput, { target: { value: "jane@example.com" } });
       fireEvent.blur(emailInput);
 
-      // Before debounce fires — fetch not yet called
-      expect(mockFetch).not.toHaveBeenCalled();
+      // Before debounce fires — recognize not yet called
+      expect(mockApi.guests.recognize).not.toHaveBeenCalled();
 
       await act(async () => {
         vi.advanceTimersByTime(300);
         await Promise.resolve();
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com/public/v1/venues/the-grill/guests/recognize?email=jane%40example.com"
-      );
+      expect(mockApi.guests.recognize).toHaveBeenCalledWith("the-grill", "jane@example.com");
     });
 
     it("shows welcome banner when guest is recognized (phone field stays empty)", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          recognized: true,
-          firstName: "Jane",
-          visitCount: 5,
-          hasPreferences: false,
-        }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: true,
+        firstName: "Jane",
+        visitCount: 5,
+        hasPreferences: false,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
@@ -319,16 +322,13 @@ describe("GuestDetailsForm", () => {
     });
 
     it("shows preferences badge when hasPreferences is true", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          recognized: true,
-          firstName: "Jane",
-          visitCount: 3,
-          hasPreferences: true,
-        }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: true,
+        firstName: "Jane",
+        visitCount: 3,
+        hasPreferences: true,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
@@ -339,16 +339,13 @@ describe("GuestDetailsForm", () => {
     });
 
     it("does not show badge when hasPreferences is false", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          recognized: true,
-          firstName: "Jane",
-          visitCount: 2,
-          hasPreferences: false,
-        }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: true,
+        firstName: "Jane",
+        visitCount: 2,
+        hasPreferences: false,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
@@ -359,69 +356,60 @@ describe("GuestDetailsForm", () => {
     });
 
     it("shows no recognition UI when guest is not recognized", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ recognized: false }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: false,
+        firstName: null,
+        visitCount: 0,
+        hasPreferences: false,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
       await triggerRecognition(screen.getByTestId("email"), "new@example.com");
 
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockApi.guests.recognize).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
     it("silently swallows errors — no recognition UI shown", async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error("Network error"));
-      global.fetch = mockFetch;
+      mockApi.guests.recognize.mockRejectedValue(new Error("Network error"));
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockApi.guests.recognize).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
-    it("silently swallows non-ok HTTP responses", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 429,
-      });
-      global.fetch = mockFetch;
+    it("silently swallows API errors (e.g. rate limited)", async () => {
+      mockApi.guests.recognize.mockRejectedValue(new Error("Rate limited"));
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockApi.guests.recognize).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
     it("does not call recognize when venueSlug is not provided", async () => {
-      const mockFetch = vi.fn();
-      global.fetch = mockFetch;
-
       render(<GuestDetailsForm {...defaultProps} />);
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockApi.guests.recognize).not.toHaveBeenCalled();
     });
 
     it("auto-filled name remains editable; phone is never pre-filled", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          recognized: true,
-          firstName: "Jane",
-          visitCount: 1,
-          hasPreferences: false,
-        }),
+      mockApi.guests.recognize.mockResolvedValue({
+        recognized: true,
+        firstName: "Jane",
+        visitCount: 1,
+        hasPreferences: false,
+        lastVisit: null,
       });
-      global.fetch = mockFetch;
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 

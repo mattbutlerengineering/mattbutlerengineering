@@ -1,21 +1,27 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useGuestRecognition } from "./useGuestRecognition.js";
 
+const mockApi = {
+  guests: {
+    recognize: vi.fn(),
+  },
+};
+
 describe("useGuestRecognition", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    global.fetch = vi.fn();
+    vi.resetAllMocks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.restoreAllMocks();
   });
 
   it("returns idle state initially", () => {
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     expect(result.current.result).toBeNull();
@@ -24,11 +30,8 @@ describe("useGuestRecognition", () => {
   });
 
   it("does not fetch when email is empty", async () => {
-    const mockFetch = vi.fn();
-    global.fetch = mockFetch;
-
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -37,15 +40,12 @@ describe("useGuestRecognition", () => {
       await Promise.resolve();
     });
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockApi.guests.recognize).not.toHaveBeenCalled();
   });
 
   it("does not fetch when venueSlug is absent", async () => {
-    const mockFetch = vi.fn();
-    global.fetch = mockFetch;
-
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: undefined, apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: undefined, api: mockApi as any })
     );
 
     await act(async () => {
@@ -54,18 +54,20 @@ describe("useGuestRecognition", () => {
       await Promise.resolve();
     });
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockApi.guests.recognize).not.toHaveBeenCalled();
   });
 
-  it("debounces — fetch not called before 300ms", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ recognized: false }),
+  it("debounces — recognize not called before 300ms", async () => {
+    mockApi.guests.recognize.mockResolvedValue({
+      recognized: false,
+      firstName: null,
+      visitCount: 0,
+      hasPreferences: false,
+      lastVisit: null,
     });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     act(() => {
@@ -73,18 +75,20 @@ describe("useGuestRecognition", () => {
       vi.advanceTimersByTime(299);
     });
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockApi.guests.recognize).not.toHaveBeenCalled();
   });
 
-  it("fetches after 300ms debounce with correct URL", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ recognized: false }),
+  it("calls api.guests.recognize after 300ms debounce with venueSlug and email", async () => {
+    mockApi.guests.recognize.mockResolvedValue({
+      recognized: false,
+      firstName: null,
+      visitCount: 0,
+      hasPreferences: false,
+      lastVisit: null,
     });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -94,20 +98,20 @@ describe("useGuestRecognition", () => {
       await Promise.resolve();
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.example.com/public/v1/venues/the-grill/guests/recognize?email=jane%40example.com"
-    );
+    expect(mockApi.guests.recognize).toHaveBeenCalledWith("the-grill", "jane@example.com");
   });
 
-  it("rapid calls only fire one fetch (last one wins)", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ recognized: false }),
+  it("rapid calls only fire one recognize call (last one wins)", async () => {
+    mockApi.guests.recognize.mockResolvedValue({
+      recognized: false,
+      firstName: null,
+      visitCount: 0,
+      hasPreferences: false,
+      lastVisit: null,
     });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -121,27 +125,21 @@ describe("useGuestRecognition", () => {
       await Promise.resolve();
     });
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.example.com/public/v1/venues/the-grill/guests/recognize?email=abc%40example.com"
-    );
+    expect(mockApi.guests.recognize).toHaveBeenCalledTimes(1);
+    expect(mockApi.guests.recognize).toHaveBeenCalledWith("the-grill", "abc@example.com");
   });
 
   it("populates result on recognized guest (no phone)", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        recognized: true,
-        firstName: "Jane",
-        phone: "555-999-0000",
-        visitCount: 5,
-        hasPreferences: true,
-      }),
+    mockApi.guests.recognize.mockResolvedValue({
+      recognized: true,
+      firstName: "Jane",
+      visitCount: 5,
+      hasPreferences: true,
+      lastVisit: "2026-01-01",
     });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -162,14 +160,16 @@ describe("useGuestRecognition", () => {
   });
 
   it("yields null result when guest is not recognized", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ recognized: false }),
+    mockApi.guests.recognize.mockResolvedValue({
+      recognized: false,
+      firstName: null,
+      visitCount: 0,
+      hasPreferences: false,
+      lastVisit: null,
     });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -184,11 +184,10 @@ describe("useGuestRecognition", () => {
   });
 
   it("yields error state on network failure", async () => {
-    const mockFetch = vi.fn().mockRejectedValue(new Error("Network error"));
-    global.fetch = mockFetch;
+    mockApi.guests.recognize.mockRejectedValue(new Error("Network error"));
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -203,12 +202,11 @@ describe("useGuestRecognition", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("yields error state on non-ok HTTP response", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 429 });
-    global.fetch = mockFetch;
+  it("yields error state when the API call rejects (e.g. rate limited)", async () => {
+    mockApi.guests.recognize.mockRejectedValue(new Error("Rate limited"));
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     await act(async () => {
@@ -223,25 +221,24 @@ describe("useGuestRecognition", () => {
   });
 
   it("clears previous result and error when a new recognize call fires", async () => {
-    const mockFetch = vi
-      .fn()
+    mockApi.guests.recognize
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          recognized: true,
-          firstName: "Jane",
-          visitCount: 1,
-          hasPreferences: false,
-        }),
+        recognized: true,
+        firstName: "Jane",
+        visitCount: 1,
+        hasPreferences: false,
+        lastVisit: null,
       })
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ recognized: false }),
+        recognized: false,
+        firstName: null,
+        visitCount: 0,
+        hasPreferences: false,
+        lastVisit: null,
       });
-    global.fetch = mockFetch;
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     // First call — recognized
@@ -264,18 +261,14 @@ describe("useGuestRecognition", () => {
   });
 
   it("sets isLoading during in-flight request", async () => {
-    let resolveJson!: (v: unknown) => void;
-    const jsonPromise = new Promise((res) => {
-      resolveJson = res;
+    let resolveRecognize!: (v: unknown) => void;
+    const pending = new Promise((res) => {
+      resolveRecognize = res;
     });
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => jsonPromise,
-    });
-    global.fetch = mockFetch;
+    mockApi.guests.recognize.mockReturnValue(pending);
 
     const { result } = renderHook(() =>
-      useGuestRecognition({ venueSlug: "the-grill", apiBaseUrl: "https://api.example.com" })
+      useGuestRecognition({ venueSlug: "the-grill", api: mockApi as any })
     );
 
     act(() => {
@@ -283,16 +276,22 @@ describe("useGuestRecognition", () => {
       vi.advanceTimersByTime(300);
     });
 
-    // After timer fires but before json resolves — still loading
+    // After timer fires but before the promise resolves — still loading
     await act(async () => {
       await Promise.resolve();
     });
 
     expect(result.current.isLoading).toBe(true);
 
-    // Resolve the json
+    // Resolve the recognize call
     await act(async () => {
-      resolveJson({ recognized: false });
+      resolveRecognize({
+        recognized: false,
+        firstName: null,
+        visitCount: 0,
+        hasPreferences: false,
+        lastVisit: null,
+      });
       await Promise.resolve();
       await Promise.resolve();
     });

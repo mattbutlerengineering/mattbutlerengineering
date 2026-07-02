@@ -187,6 +187,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
+        waitlist: new WaitlistClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         briefing: new BriefingClient(client),
@@ -687,6 +688,22 @@
        */
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/groups/${id}`);
+      }
+    }
+  </file>
+  <file path="src/waitlist.ts">
+    export class WaitlistClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Join a venue's walk-in waitlist (unauthenticated booking widget).
+       */
+      async join(slug: string, data: WaitlistJoinRequest): Promise<WaitlistJoinResult> {
+        return this.client.postOne<WaitlistJoinResult>(
+          `/public/v1/venues/${slug}/waitlist`,
+          data,
+          WaitlistJoinResultSchema
+        );
       }
     }
   </file>

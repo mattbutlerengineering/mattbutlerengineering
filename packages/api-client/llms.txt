@@ -219,5 +219,12 @@
       }
     </item>
   </file>
+  <file path="src/waitlist.ts">
+    <item priority="high">
+      class WaitlistClient {
+        async join(): Promise<unknown>;
+      }
+    </item>
+  </file>
   </section>
 </codebase>

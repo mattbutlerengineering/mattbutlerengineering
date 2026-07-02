@@ -31,3 +31,17 @@ export const GuestSegmentSchema = z.object({
   description: z.string(),
   count: z.number(),
 });
+
+export const GuestRiskResultSchema = z.object({
+  riskScore: z.enum(["trusted", "standard", "risky"]),
+  noShowCount: z.number(),
+  requiresDeposit: z.boolean(),
+});
+
+export const GuestRecognitionSchema = z.object({
+  recognized: z.boolean(),
+  firstName: z.string().nullable(),
+  visitCount: z.number(),
+  hasPreferences: z.boolean(),
+  lastVisit: z.string().nullable(),
+});

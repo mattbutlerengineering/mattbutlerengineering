@@ -1,21 +1,9 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text, Heading } from "@mattbutlerengineering/rialto";
+import { ApiClientError } from "@mbe/api-client";
 import { formatLongDate } from "../../utils/format.js";
+import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./WaitlistJoinView.module.css";
-
-/**
- * NOTE: This component calls `POST /public/v1/venues/:slug/waitlist`.
- * That public endpoint does NOT yet exist in the reservations service.
- * The authenticated `POST /api/v1/waitlist` exists but requires a JWT,
- * which the booking widget does not have.
- *
- * Required follow-up: add a public waitlist route under
- *   /public/v1/venues/:slug/waitlist
- * that accepts { partySize, guestName, guestPhone } and delegates to
- * the existing waitlistService.create().
- *
- * Until then this component will receive a 404 in production.
- */
 
 export interface WaitlistJoinedResult {
   position: number;
@@ -29,7 +17,7 @@ export interface WaitlistJoinViewProps {
   estimatedWaitMinutes: number;
   venueSlug: string;
   venueId: string;
-  apiBaseUrl: string;
+  api: BookingWidgetApiClient;
   onJoined: (result: WaitlistJoinedResult) => void;
   onBack: () => void;
 }
@@ -40,39 +28,13 @@ function isValidPhone(value: string): boolean {
   return /^\d{10,15}$/.test(stripped);
 }
 
-async function joinWaitlist(
-  apiBaseUrl: string,
-  venueSlug: string,
-  payload: { venueId: string; partySize: number; guestName: string; guestPhone: string }
-): Promise<WaitlistJoinedResult> {
-  const resp = await fetch(`${apiBaseUrl}/public/v1/venues/${venueSlug}/waitlist`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    const msg =
-      (body as { message?: string; detail?: string }).message ??
-      (body as { message?: string; detail?: string }).detail ??
-      "Failed to join waitlist. Please try again.";
-    throw new Error(String(msg));
-  }
-
-  const { data } = (await resp.json()) as {
-    data: { position: number; estimatedWaitMinutes: number };
-  };
-  return { position: data.position, estimatedWaitMinutes: data.estimatedWaitMinutes };
-}
-
 export function WaitlistJoinView({
   requestedDate,
   partySize,
   estimatedWaitMinutes,
   venueSlug,
   venueId,
-  apiBaseUrl,
+  api,
   onJoined,
   onBack,
 }: WaitlistJoinViewProps) {
@@ -97,7 +59,7 @@ export function WaitlistJoinView({
 
       setIsLoading(true);
       try {
-        const result = await joinWaitlist(apiBaseUrl, venueSlug, {
+        const result = await api.waitlist.join(venueSlug, {
           venueId,
           partySize,
           guestName: name.trim(),
@@ -105,12 +67,18 @@ export function WaitlistJoinView({
         });
         onJoined(result);
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : "Failed to join waitlist.");
+        const message =
+          err instanceof ApiClientError
+            ? err.problemDetails.detail
+            : err instanceof Error
+              ? err.message
+              : "Failed to join waitlist.";
+        setSubmitError(message);
       } finally {
         setIsLoading(false);
       }
     },
-    [name, phone, venueId, venueSlug, partySize, apiBaseUrl, onJoined]
+    [name, phone, venueId, venueSlug, partySize, api, onJoined]
   );
 
   const formattedDate = formatLongDate(requestedDate);

@@ -68,6 +68,9 @@ describe("BookingWidget", () => {
     venues: {
       getPublicConfig: vi.fn(),
     },
+    guests: {
+      getRisk: vi.fn(),
+    },
   };
 
   beforeEach(() => {
@@ -144,15 +147,12 @@ describe("BookingWidget", () => {
   });
 
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {
-    // Guest-risk lookup still goes through raw fetch (out of scope — see #2932).
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: { riskScore: "risky", noShowCount: 2, requiresDeposit: true },
-        }),
+    // Guest-risk lookup now goes through the typed api.guests.getRisk() client method.
+    mockApi.guests.getRisk.mockResolvedValue({
+      riskScore: "risky",
+      noShowCount: 2,
+      requiresDeposit: true,
     });
-    vi.stubGlobal("fetch", mockFetch);
 
     // Venue config — deposit enabled with amount (required for payment step) —
     // now goes through the typed api.venues.getPublicConfig() client method.
@@ -214,8 +214,6 @@ describe("BookingWidget", () => {
 
     // Should go to Payment step (not skip to Confirmation)
     await waitFor(() => expect(screen.getByText("Payment")).toBeDefined());
-
-    vi.unstubAllGlobals();
   });
 
   it("does not call the guest-risk endpoint when Stripe is not configured", async () => {
@@ -224,11 +222,11 @@ describe("BookingWidget", () => {
     // actually configured (venueSlug + stripePublishableKey), matching
     // effectiveDepositPolicy's own gating. It must never fire just because the
     // venue's deposit policy happens to be disabled.
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { requiresDeposit: true } }),
+    mockApi.guests.getRisk.mockResolvedValue({
+      riskScore: "risky",
+      noShowCount: 1,
+      requiresDeposit: true,
     });
-    vi.stubGlobal("fetch", mockFetch);
 
     mockApi.venues.getPublicConfig.mockResolvedValue({
       name: "The Oak Table",
@@ -284,8 +282,6 @@ describe("BookingWidget", () => {
     // Deposit disabled + Stripe unconfigured → straight to Confirmation.
     await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
 
-    expect(mockFetch).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
+    expect(mockApi.guests.getRisk).not.toHaveBeenCalled();
   });
 });
