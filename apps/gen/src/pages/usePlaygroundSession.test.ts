@@ -310,5 +310,36 @@ describe("usePlaygroundSession", () => {
       });
       expect(result.current.activeSpecId).toBe("new-id");
     });
+
+    it("invokes onGenerationComplete when the stream completes", async () => {
+      const onGenerationComplete = vi.fn();
+      const completedSpec = { type: "Box", children: [] } as unknown as Spec;
+      const { result } = renderHook(() => usePlaygroundSession({ onGenerationComplete }));
+
+      act(() => result.current.submit("draw something"));
+
+      await act(async () => {
+        capturedOnComplete?.(completedSpec, ["{line}"]);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(onGenerationComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not throw when onGenerationComplete is omitted", async () => {
+      const completedSpec = { type: "Box", children: [] } as unknown as Spec;
+      const { result } = renderHook(() => usePlaygroundSession());
+
+      act(() => result.current.submit("draw something"));
+
+      await act(async () => {
+        capturedOnComplete?.(completedSpec, ["{line}"]);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockSaveSpec).toHaveBeenCalled();
+    });
   });
 });

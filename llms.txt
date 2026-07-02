@@ -1608,8 +1608,10 @@
         toggleFullscreen: () => void;
       }
     </item>
-    <item priority="high">
-      export function usePlaygroundSession(): PlaygroundSession { /* ... */ }
+    <item priority="low">
+      interface UsePlaygroundSessionOptions {
+        onGenerationComplete?: () => void;
+      }
     </item>
   </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">

@@ -29,15 +29,20 @@ vi.mock("@json-render/react", () => ({
   Renderer: () => <div data-testid="renderer" />,
 }));
 
+let capturedOnComplete: ((spec: unknown, rawLines: string[]) => void) | undefined;
+
 vi.mock("../hooks/useGenStream.js", () => ({
-  useGenStream: () => ({
-    spec: null,
-    isStreaming: false,
-    error: null,
-    rawLines: [],
-    send: mockSend,
-    stop: mockStop,
-  }),
+  useGenStream: (opts: { onComplete?: (spec: unknown, rawLines: string[]) => void }) => {
+    capturedOnComplete = opts.onComplete;
+    return {
+      spec: null,
+      isStreaming: false,
+      error: null,
+      rawLines: [],
+      send: mockSend,
+      stop: mockStop,
+    };
+  },
 }));
 
 vi.mock("../hooks/useSpecsApi.js", () => ({
@@ -301,5 +306,15 @@ describe("PlaygroundPage — wiring", () => {
   it("opens templates gallery", () => {
     render(<PlaygroundPage />);
     fireEvent.click(screen.getByText("Templates"));
+  });
+
+  it("shows a completion toast when the generation stream completes", () => {
+    render(<PlaygroundPage />);
+    capturedOnComplete?.({}, ["{}"]);
+    expect(mockToast).toHaveBeenCalledWith({
+      title: "Generation complete",
+      variant: "success",
+      duration: 3000,
+    });
   });
 });

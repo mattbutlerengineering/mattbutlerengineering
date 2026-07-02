@@ -42,7 +42,10 @@ export function PlaygroundPage() {
   const { signOut } = useAuth();
   const { toast } = useToast();
   const { toggleTheme } = useTheme();
-  const session = usePlaygroundSession();
+  const session = usePlaygroundSession({
+    onGenerationComplete: () =>
+      toast({ title: "Generation complete", variant: "success", duration: 3000 }),
+  });
   const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
 
   function handleSignOut() {

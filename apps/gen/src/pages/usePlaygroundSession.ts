@@ -58,7 +58,16 @@ export interface PlaygroundSession {
  * usePlaygroundState (render mode / overlays) and derives the display state
  * from their outputs at render time — no effects involved in the derivation.
  */
-export function usePlaygroundSession(): PlaygroundSession {
+export interface UsePlaygroundSessionOptions {
+  /**
+   * Invoked when a generation (or refinement) stream completes, before the
+   * result is auto-saved. Callers own how completion is surfaced (e.g. a
+   * toast) — the hook itself stays UI-agnostic.
+   */
+  onGenerationComplete?: () => void;
+}
+
+export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession {
   const playgroundState = usePlaygroundState();
   const { mode, exitRefinement, enterRefinement } = playgroundState;
 
@@ -71,6 +80,7 @@ export function usePlaygroundSession(): PlaygroundSession {
   const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
     api: "/api/gen/ui",
     onComplete: (completedSpec, completedRawLines) => {
+      options?.onGenerationComplete?.();
       void saveSpec({
         prompt: promptRef.current,
         spec: completedSpec,
