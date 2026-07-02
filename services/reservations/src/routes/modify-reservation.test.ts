@@ -93,7 +93,19 @@ describe("PATCH /public/v1/reservations/manage", () => {
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     stubNotifications = createStubNotificationDispatcher();
-    app = await buildApp({ logger: false, notificationPort: stubNotifications as never });
+    // Stub BookingNotifier: the default one lazily opens a BullMQ/ioredis
+    // connection on the first time-change modify, which (with no Redis in CI)
+    // leaks a retry-forever ECONNREFUSED loop that races vitest worker teardown.
+    const stubNotifier: BookingNotifier = {
+      scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+      cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+      rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+    };
+    app = await buildApp({
+      logger: false,
+      notificationPort: stubNotifications as never,
+      bookingNotifier: stubNotifier,
+    });
     await app.ready();
   });
 
