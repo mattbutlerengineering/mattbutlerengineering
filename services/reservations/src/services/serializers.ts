@@ -83,6 +83,40 @@ export function toTable(row: PrismaTableRow): Table {
   };
 }
 
+/**
+ * Guest-facing reservation shape returned by the public manage-token routes
+ * (GET/PATCH /public/v1/reservations/manage). Deliberately narrower than the
+ * full domain Reservation: cancellation fields and guestPhone are withheld
+ * from unauthenticated callers — a small security surface pinned by a test
+ * in serializers.test.ts. Never widen this shape without updating that test.
+ */
+export interface ManagedReservationView {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  partySize: number;
+  guestName: string | null;
+  guestEmail: string | null;
+  status: ReservationStatus;
+  notes: string | null;
+}
+
+/** Narrows a domain Reservation to the guest-facing manage-token view. */
+export function serializeManagedReservation(reservation: Reservation): ManagedReservationView {
+  return {
+    id: reservation.id,
+    date: reservation.date,
+    startTime: reservation.startTime,
+    endTime: reservation.endTime,
+    partySize: reservation.partySize,
+    guestName: reservation.guestName,
+    guestEmail: reservation.guestEmail,
+    status: reservation.status,
+    notes: reservation.notes,
+  };
+}
+
 /** Maps a Prisma reservation row (with optional table/guest relations) to a domain Reservation. */
 export function toReservation(row: PrismaReservationRow): Reservation {
   return {

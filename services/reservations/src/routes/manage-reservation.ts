@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { serializeManagedReservation } from "../services/serializers.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
+import { reservationNotFoundProblem } from "./load-reservation-for-manage.js";
 
 export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: { token?: string } }>(
@@ -16,36 +17,14 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const reservation = await reservationService.getById(request.managedReservationId);
       if (!reservation) {
-        return reply.status(404).send(
-          createProblemDetails(
-            404,
-            "Reservation Not Found",
-            "Reservation not found",
-            "about:blank",
-            undefined,
-            {
-              code: "RESERVATION_NOT_FOUND",
-            }
-          )
-        );
+        return reply.status(404).send(reservationNotFoundProblem());
       }
 
       const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
 
       return reply.status(200).send({
         data: {
-          reservation: {
-            id: reservation.id,
-            date: reservation.date,
-            startTime: reservation.startTime,
-            endTime: reservation.endTime,
-            partySize: reservation.partySize,
-            guestName: reservation.guestName,
-            guestEmail: reservation.guestEmail,
-            guestPhone: reservation.guestPhone,
-            status: reservation.status,
-            notes: reservation.notes,
-          },
+          reservation: serializeManagedReservation(reservation),
           venue: venue
             ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
             : null,
