@@ -47,6 +47,10 @@ export function createGhClient(opts: GhClientOptions = {}) {
       run("gh", ["issue", "reopen", String(number)]);
     },
 
+    close(number: number, args: string[] = []): void {
+      run("gh", ["issue", "close", String(number), ...args]);
+    },
+
     edit(number: number, args: string[]): void {
       run("gh", ["issue", "edit", String(number), ...args]);
     },

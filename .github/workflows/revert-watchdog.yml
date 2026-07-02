@@ -21,6 +21,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
       - name: Identify culprit commit
         id: culprit
         env:
@@ -61,15 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
-        run: |
-          TITLE="🚨 CRITICAL: Broken Main at commit $SHA"
-          BODY="The main branch CI is currently FAILING.
-
-          **Culprit:** commit $SHA
-          **PR:** #$PR
-          **Action Required:** Investigating or revert immediately."
-
-          gh issue create --title "$TITLE" --body "$BODY" --label "priority:critical"
+        run: node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR"
 
       - name: Propose Revert PR
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
@@ -101,3 +98,26 @@ jobs:
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
         run: |
           node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"
+
+  # Auto-close (#2958): when a later main CI run is green, close any open
+  # watchdog issue whose culprit commit is now an ancestor of the green
+  # run's head — main has recovered.
+  on-success:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Close recovered broken-main issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/revert-watchdog.mjs close-recovered --sha "$SHA"

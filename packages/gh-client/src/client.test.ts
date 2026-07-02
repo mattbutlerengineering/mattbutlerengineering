@@ -56,6 +56,17 @@ describe("createGhClient", () => {
       client.issue.reopen(3);
       expect(runner).toHaveBeenCalledWith("gh", ["issue", "reopen", "3"], expect.any(Object));
     });
+
+    it("issue.close runs gh issue close with extra args", () => {
+      const runner = makeMockRunner({ "issue close 9 --comment done": "" });
+      const client = createGhClient({ runner });
+      client.issue.close(9, ["--comment", "done"]);
+      expect(runner).toHaveBeenCalledWith(
+        "gh",
+        ["issue", "close", "9", "--comment", "done"],
+        expect.any(Object)
+      );
+    });
   });
 
   describe("pr facet", () => {
