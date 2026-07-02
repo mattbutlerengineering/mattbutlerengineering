@@ -1,4 +1,4 @@
-import type { FastifyBaseLogger, FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import type {
   Reservation,
   ReservationStatus,
@@ -14,11 +14,9 @@ import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fa
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
-import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
-import { generateManageToken } from "./public-reservations.js";
 
 const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   resolveReservationGuestEmail((id) => reservationService.getById(id)),
@@ -26,41 +24,6 @@ const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
 );
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
-  /**
-   * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
-   * routes below. Both routes are guarded by `requireReservationOwnerOrAdmin`,
-   * which admits the reservation OWNER (guest email match), not only an
-   * admin — so `isAdmin` here MUST come from the verified
-   * `request.authorization.isAdmin` flag set by that guard, never from a
-   * client-supplied value, otherwise an owner could get the fee-waived
-   * staff refund on their own cancellation. Admins get staff semantics
-   * (waived fee, deposit refunded in full); a non-admin owner gets guest
-   * semantics (the venue's cancellation-fee policy applies) — see
-   * {@link cancelReservationWithDeposit}. A manage token is generated (not
-   * faked) so the guest cancellation email still carries a working manage
-   * link when the reservation has a guest email on file.
-   */
-  async function cancelReservationForRequest(
-    reservation: Reservation,
-    logger: FastifyBaseLogger,
-    isAdmin: boolean,
-    options: { cancellationReason?: string; cancellationNote?: string } = {}
-  ) {
-    const manageToken = reservation.guestEmail
-      ? generateManageToken(reservation.id, reservation.guestEmail)
-      : "";
-    return cancelReservationWithDeposit(
-      reservation,
-      manageToken,
-      {
-        bookingNotifier: fastify.bookingNotifier,
-        notificationPort: fastify.notificationPort,
-        logger,
-      },
-      { ...options, initiator: isAdmin ? "staff" : "guest" }
-    );
-  }
-
   // List reservations
   fastify.get<{
     Querystring: {
@@ -606,24 +569,20 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (request.body.status === "CANCELLED") {
         try {
-          const result = await cancelReservationForRequest(
-            reservation,
-            request.log,
-            request.authorization?.isAdmin === true,
-            {
-              cancellationReason: request.body.cancellationReason,
-              cancellationNote: request.body.cancellationNote,
-            }
+          const cancelled = await reservationService.cancel(
+            request.params.id,
+            request.body.cancellationReason,
+            request.body.cancellationNote
           );
 
-          if (!result.success) {
+          if (!cancelled) {
             return reply
-              .code(result.status)
-              .send(createProblemDetails(result.status, result.title, result.detail));
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
           }
 
-          fastify.reservationEvents.emitReservationCancelled(result.reservation);
-          return { data: result.reservation };
+          fastify.reservationEvents.emitReservationCancelled(cancelled);
+          return { data: cancelled };
         } catch (err) {
           if (err instanceof ReservationTransitionError) {
             return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
@@ -759,17 +718,13 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const result = await cancelReservationForRequest(
-          reservation,
-          request.log,
-          request.authorization?.isAdmin === true
-        );
-        if (!result.success) {
+        const cancelled = await reservationService.cancel(request.params.id);
+        if (!cancelled) {
           return reply
-            .code(result.status)
-            .send(createProblemDetails(result.status, result.title, result.detail));
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "Reservation not found"));
         }
-        return { data: result.reservation };
+        return { data: cancelled };
       } catch (err) {
         if (err instanceof ReservationTransitionError) {
           return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));

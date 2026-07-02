@@ -265,10 +265,6 @@ export const reservationService = {
           ...(data.tableId !== undefined && { tableId: data.tableId }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.notes !== undefined && { notes: data.notes }),
-          ...(data.cancellationReason !== undefined && {
-            cancellationReason: data.cancellationReason,
-          }),
-          ...(data.cancellationNote !== undefined && { cancellationNote: data.cancellationNote }),
         },
         include: { table: true },
       });
@@ -460,5 +456,36 @@ export const reservationService = {
       reservation: toReservation(result.reservation),
       table: mapPrismaTable(result.table),
     };
+  },
+
+  async cancel(id: string, reason?: string, note?: string): Promise<Reservation | null> {
+    try {
+      const existing = await prisma.reservation.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (!existing) return null;
+      // Throws ReservationTransitionError if current status cannot be cancelled.
+      transitionReservation(existing.status as ReservationStatus, "CANCELLED");
+
+      const reservation = await prisma.reservation.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+          ...(reason !== undefined && { cancellationReason: reason }),
+          ...(note !== undefined && { cancellationNote: note }),
+        },
+        include: {
+          table: true,
+          guest: {
+            select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+          },
+        },
+      });
+      return toReservation(reservation);
+    } catch (err: unknown) {
+      if (isPrismaNotFound(err)) return null;
+      throw err;
+    }
   },
 };

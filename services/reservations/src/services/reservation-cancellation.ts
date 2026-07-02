@@ -5,28 +5,12 @@ import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
-import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 import type { BookingNotifier } from "./booking-notifications.js";
 
 export interface CancelReservationDeps {
   bookingNotifier: BookingNotifier;
   notificationPort: NotificationDispatcher;
   logger: FastifyBaseLogger;
-}
-
-/** Who initiated the cancellation — drives deposit fee policy. */
-export type CancelInitiator = "guest" | "staff";
-
-export interface CancelReservationOptions {
-  /**
-   * Defaults to "guest". Staff cancels waive any cancellation fee and refund
-   * a `held` deposit in full rather than evaluating the guest-facing policy —
-   * staff are cancelling on the venue's behalf, so the guest's deposit is
-   * never partially kept or forfeited.
-   */
-  initiator?: CancelInitiator;
-  cancellationReason?: string;
-  cancellationNote?: string;
 }
 
 export type CancelReservationResult =
@@ -52,8 +36,7 @@ const DEPOSIT_FAILURE_RESULT: CancelReservationResult = {
  */
 async function resolveDeposit(
   reservation: Reservation,
-  logger: FastifyBaseLogger,
-  initiator: CancelInitiator
+  logger: FastifyBaseLogger
 ): Promise<CancelReservationResult | null> {
   const deposit = await depositService.getByReservationId(reservation.id);
   if (!deposit) return null;
@@ -84,21 +67,6 @@ async function resolveDeposit(
   }
 
   if (deposit.status !== "held") return null;
-
-  if (initiator === "staff") {
-    // Staff cancels on the venue's behalf — waive any cancellation fee and
-    // refund the deposit in full instead of evaluating guest-facing policy.
-    try {
-      await depositService.refund(deposit.id);
-    } catch (err) {
-      logger.error(
-        { err, reservationId: reservation.id, depositId: deposit.id },
-        "Failed to refund deposit on staff cancellation; aborting cancel to avoid ghost state"
-      );
-      return DEPOSIT_FAILURE_RESULT;
-    }
-    return null;
-  }
 
   const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
 
@@ -181,39 +149,20 @@ async function notifyCancellation(
 }
 
 /**
- * Domain-level cancel: validates the status transition BEFORE any money
- * moves (a stale-status cancel — e.g. staff re-cancelling an already
- * CANCELLED reservation — must never touch the deposit), then owns deposit
- * resolution ordering, the `partial_refunded` retry guard,
- * abort-on-money-failure, reminder-job cancellation, and guest notification
- * dispatch. Callers (routes) are thin adapters that translate the result
- * into an HTTP response.
+ * Domain-level cancel: owns deposit resolution ordering, the
+ * `partial_refunded` retry guard, abort-on-money-failure, reminder-job
+ * cancellation, and guest notification dispatch. Callers (routes) are thin
+ * adapters that translate the result into an HTTP response.
  */
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
   manageToken: string,
-  deps: CancelReservationDeps,
-  options: CancelReservationOptions = {}
+  deps: CancelReservationDeps
 ): Promise<CancelReservationResult> {
-  const { initiator = "guest", cancellationReason, cancellationNote } = options;
-
-  try {
-    transitionReservation(reservation.status, "CANCELLED");
-  } catch (err) {
-    if (err instanceof ReservationTransitionError) {
-      return { success: false, status: 409, title: "Conflict", detail: err.message };
-    }
-    throw err;
-  }
-
-  const depositFailure = await resolveDeposit(reservation, deps.logger, initiator);
+  const depositFailure = await resolveDeposit(reservation, deps.logger);
   if (depositFailure) return depositFailure;
 
-  const updated = await reservationService.update(reservation.id, {
-    status: "CANCELLED",
-    ...(cancellationReason !== undefined && { cancellationReason }),
-    ...(cancellationNote !== undefined && { cancellationNote }),
-  });
+  const updated = await reservationService.update(reservation.id, { status: "CANCELLED" });
   if (!updated) {
     return {
       success: false,
