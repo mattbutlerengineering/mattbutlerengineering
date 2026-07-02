@@ -16,6 +16,7 @@
         name: unknown;
         async isAvailable(): Promise<unknown>;
         async run(): Promise<unknown>;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -833,6 +834,21 @@
     </item>
     <item priority="high">
       export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
+    </item>
+  </file>
+  <file path="src/run-agent-session.ts">
+    <item priority="low">
+      interface AgentSessionAdapter {
+        
+      }
+    </item>
+    <item priority="low">
+      interface RunAgentSessionOptions {
+        adapter?: AgentSessionAdapter;
+        onEvent?: SessionEventCallback;
+        deps?: PhaseDeps;
+        signal?: AbortSignal;
+      }
     </item>
   </file>
   <file path="src/run-hardened-query.ts">

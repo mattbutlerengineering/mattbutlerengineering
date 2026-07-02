@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { SessionResult } from "../../types.js";
+import type { SessionConfig, SessionResult } from "../../types.js";
 import type { AdapterConfig } from "../../cli-adapter.js";
 
 // ── Mock runSession before importing the adapter ──────────────────────
@@ -19,6 +19,20 @@ function makeConfig(overrides: Partial<AdapterConfig> = {}): AdapterConfig {
     worktreePath: "/tmp/worktree-abc123",
     repoPath: "/tmp/repo",
     baseBranch: "main",
+    ...overrides,
+  };
+}
+
+function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
+  return {
+    taskDescription: "Fix the login bug in auth.ts",
+    repoPath: "/tmp/repo",
+    baseBranch: "main",
+    model: "claude-sonnet-4-6",
+    maxTurns: 50,
+    maxBudgetUsd: 1.0,
+    allowedTools: ["Read", "Write", "Edit", "Bash"],
+    createPr: true,
     ...overrides,
   };
 }
@@ -312,6 +326,60 @@ describe("ClaudeAdapter", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("unexpected string error");
+    });
+  });
+
+  // ── runSession — full-pipeline passthrough seam (#2964) ─────────────
+
+  describe("runSession — full-pipeline passthrough", () => {
+    it("forwards the SessionConfig unchanged to the underlying runSession() pipeline", async () => {
+      mockRunSession.mockResolvedValueOnce(makeSessionResult());
+
+      const config = {
+        taskDescription: "Add rate limiting to API",
+        repoPath: "/home/user/project",
+        baseBranch: "develop",
+        model: "claude-opus-4-6",
+        maxTurns: 25,
+        maxBudgetUsd: 2.5,
+        allowedTools: ["Read", "Write"],
+        createPr: true,
+      };
+
+      await adapter.runSession(config);
+
+      expect(mockRunSession).toHaveBeenCalledWith(config, undefined, undefined, undefined);
+    });
+
+    it("forwards onEvent, deps, and signal through unchanged", async () => {
+      mockRunSession.mockResolvedValueOnce(makeSessionResult());
+
+      const config = {
+        taskDescription: "Fix bug",
+        repoPath: "/repo",
+        baseBranch: "main",
+        model: "claude-sonnet-4-6",
+        maxTurns: 50,
+        maxBudgetUsd: 1.0,
+        allowedTools: ["Read"],
+        createPr: false,
+      };
+      const onEvent = vi.fn();
+      const deps = {} as never;
+      const controller = new AbortController();
+
+      await adapter.runSession(config, onEvent, deps, controller.signal);
+
+      expect(mockRunSession).toHaveBeenCalledWith(config, onEvent, deps, controller.signal);
+    });
+
+    it("returns the full SessionResult unchanged (not the lossy AdapterResult mapping)", async () => {
+      const sessionResult = makeSessionResult({ status: "failed", errors: ["boom"] });
+      mockRunSession.mockResolvedValueOnce(sessionResult);
+
+      const result = await adapter.runSession(makeSessionConfig());
+
+      expect(result).toBe(sessionResult);
     });
   });
 });
