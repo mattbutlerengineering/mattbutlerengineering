@@ -2,7 +2,8 @@ name: Stale In-Progress Issue Detector
 
 # Detects issues that remain labeled `in-progress` with no agent activity
 # (commits or open PR updates) for longer than STALE_HOURS, then moves them
-# back to `agent-failed` + `ready` so the issue-worker loop can retry them.
+# back to `ready` (via `mbe issue transition`) so the issue-worker loop can
+# retry them.
 
 on:
   schedule:
@@ -31,10 +32,26 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
       STALE_HOURS: ${{ github.event.inputs.stale_hours || '2' }}
 
     steps:
+      - uses: actions/checkout@v7.0.0
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm build --filter @mbe/cli...
+
       - name: Find and remediate stale in-progress issues
         run: |
           node - <<'NODE'
@@ -101,9 +118,11 @@ jobs:
 
             if (DRY_RUN) continue;
 
-            // Transition labels: in-progress → agent-failed + ready
+            // Transition: in-progress → ready (re-queue for retry), via the
+            // single canonical edge in @mbe/gh-client's label machine (#2933)
+            // rather than a re-encoded raw add/remove pair here.
             execSync(
-              `gh issue edit ${number} --repo ${REPO} --add-label agent-failed --add-label ready --remove-label in-progress`,
+              `node tools/cli/dist/index.js issue transition ${number} --to ready`,
               { stdio: 'inherit' }
             );
 
@@ -112,7 +131,7 @@ jobs:
               '**Stale in-progress detected** — This issue was labeled `in-progress` but no agent',
               `activity (commits or PR updates) was detected for ${STALE_HOURS}+ hours.`,
               '',
-              'Automatically moved to `agent-failed` + `ready` for retry by the issue-worker loop.',
+              'Automatically moved back to `ready` for retry by the issue-worker loop.',
               '',
               '---',
               `*Detected by [stale-in-progress](/.github/workflows/stale-in-progress.yml) at ${timestamp}*`,
@@ -123,9 +142,9 @@ jobs:
               { stdio: 'inherit' }
             );
 
-            console.log(`    → Moved #${number} to agent-failed + ready`);
+            console.log(`    → Moved #${number} to ready`);
           }
 
           const action = DRY_RUN ? 'would be moved' : 'moved';
-          console.log(`\nDone. ${staleCount} issue(s) ${action} to agent-failed + ready.`);
+          console.log(`\nDone. ${staleCount} issue(s) ${action} to ready.`);
           NODE

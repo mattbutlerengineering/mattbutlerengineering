@@ -134,13 +134,13 @@ Re-queue issues that have been `agent-failed` for 3+ days (excludes `agent-skip`
 caps at 2/run). Tested logic lives in `scripts/auto-retry-stale.mjs`:
 
 ```bash
-node scripts/auto-retry-stale.mjs           # re-queue: ready + remove agent-failed + comment
+node scripts/auto-retry-stale.mjs           # re-queue via @mbe/gh-client's markReady + comment
 node scripts/auto-retry-stale.mjs --dry-run # report selection, mutate nothing
 ```
 
 The selection rule (`selectStaleForRetry`) is a pure, unit-tested function
 (`scripts/__tests__/auto-retry-stale.test.mjs`); the GitHub mutations run via
-`@mbe/gh-client`. Max 2/run.
+`@mbe/gh-client`'s label machine (`markReady` + `label.apply`, #2933). Max 2/run.
 
 ### Queue Adjust
 

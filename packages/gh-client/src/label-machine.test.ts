@@ -60,11 +60,12 @@ describe("markSkip", () => {
 });
 
 describe("markReady", () => {
-  it("removes has-pr, in-progress, and agent-failed, adds ready", () => {
+  it("removes has-pr, in-progress, agent-failed, and agent-skip, adds ready", () => {
     const t = markReady(10);
     expect(t.add).toContain("ready");
     expect(t.remove).toContain("has-pr");
     expect(t.remove).toContain("in-progress");
     expect(t.remove).toContain("agent-failed");
+    expect(t.remove).toContain("agent-skip");
   });
 });

@@ -110,7 +110,7 @@ describe("transitionIssue", () => {
     ]);
   });
 
-  it("applies the has-pr/agent-failed→ready re-queue edge", () => {
+  it("applies the has-pr/agent-failed/agent-skip→ready re-queue edge", () => {
     const { runner, calls } = makeRunner();
     const client = createGhClient({ runner });
 
@@ -131,6 +131,8 @@ describe("transitionIssue", () => {
           "in-progress",
           "--remove-label",
           "agent-failed",
+          "--remove-label",
+          "agent-skip",
         ],
       },
     ]);
