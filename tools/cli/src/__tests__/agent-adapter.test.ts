@@ -3,7 +3,7 @@ import { Command } from "commander";
 
 // ── Mocks ───────────────────────────────────────────────────────────────
 
-const mockRunSession = vi.fn();
+const mockRunAgentSession = vi.fn();
 const mockCreateWorktree = vi.fn();
 const mockRemoveWorktree = vi.fn();
 const mockRunVerification = vi.fn();
@@ -17,7 +17,7 @@ const mockOpenCodeIsAvailable = vi.fn();
 const mockRouterRoute = vi.fn();
 
 vi.mock("@mbe/agent-core", () => ({
-  runSession: (...args: unknown[]) => mockRunSession(...args),
+  runAgentSession: (...args: unknown[]) => mockRunAgentSession(...args),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -110,8 +110,8 @@ describe("agent run --adapter", () => {
     expect(adapterOpt!.description).toContain("opencode");
   });
 
-  it("claude adapter calls runSession directly (existing behavior)", async () => {
-    mockRunSession.mockResolvedValueOnce({
+  it("claude adapter goes through runAgentSession (ClaudeAdapter seam)", async () => {
+    mockRunAgentSession.mockResolvedValueOnce({
       status: "succeeded",
       branchName: "agent/test-task",
       durationMs: 5000,
@@ -128,11 +128,11 @@ describe("agent run --adapter", () => {
     const program = await buildProgram();
     await program.parseAsync(["node", "mbe", "agent", "run", "fix bug", "--adapter", "claude"]);
 
-    expect(mockRunSession).toHaveBeenCalledTimes(1);
-    const sessionConfig = mockRunSession.mock.calls[0][0];
+    expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
+    const sessionConfig = mockRunAgentSession.mock.calls[0][0];
     expect(sessionConfig.taskDescription).toBe("fix bug");
 
-    // Verify CLI adapter constructors were NOT invoked (runSession called directly)
+    // Verify CLI adapter constructors were NOT invoked (claude goes through runAgentSession)
     const { GeminiCliAdapter, OpenCodeAdapter } = await import("@mbe/agent-core");
     expect(GeminiCliAdapter).not.toHaveBeenCalled();
     expect(OpenCodeAdapter).not.toHaveBeenCalled();
@@ -246,7 +246,7 @@ describe("agent run --adapter", () => {
   });
 
   it("defaults to claude adapter when --adapter is not specified", async () => {
-    mockRunSession.mockResolvedValueOnce({
+    mockRunAgentSession.mockResolvedValueOnce({
       status: "succeeded",
       branchName: "agent/default-test",
       durationMs: 2000,
@@ -263,8 +263,8 @@ describe("agent run --adapter", () => {
     const program = await buildProgram();
     await program.parseAsync(["node", "mbe", "agent", "run", "small fix"]);
 
-    // Should use runSession (claude path), not create worktrees
-    expect(mockRunSession).toHaveBeenCalledTimes(1);
+    // Should use runAgentSession (claude path), not create worktrees
+    expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
     expect(mockCreateWorktree).not.toHaveBeenCalled();
   });
 });

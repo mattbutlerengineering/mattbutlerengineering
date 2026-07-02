@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // The package's dist/ is not compiled in this worktree, so a static import
 // would fail.  vi.mock intercepts the require before the module is resolved.
 vi.mock("@mbe/agent-core", () => ({
-  runSession: vi.fn(),
+  runAgentSession: vi.fn(),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -166,7 +166,7 @@ describe("agent command", () => {
 
   describe("agent run subcommand", () => {
     it("runs a successful session and exits 0", async () => {
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockResolvedValue({
         status: "succeeded",
         branchName: "fix/agent-a1b2c3",
         durationMs: 5000,
@@ -181,8 +181,8 @@ describe("agent command", () => {
       const { agentCommand } = await import("../commands/agent.js");
       await agentCommand.parseAsync(["run", "Fix the login bug"], { from: "user" });
 
-      expect(core.runSession).toHaveBeenCalledOnce();
-      const callConfig = (core.runSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(core.runAgentSession).toHaveBeenCalledOnce();
+      const callConfig = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(callConfig.taskDescription).toBe("Fix the login bug");
 
       const allOutput = logSpy.mock.calls.flat().join("\n");
@@ -193,7 +193,7 @@ describe("agent command", () => {
     });
 
     it("exits 1 when the session fails", async () => {
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockResolvedValue({
         status: "failed",
         branchName: "fix/agent-dead",
         durationMs: 1000,
@@ -215,7 +215,7 @@ describe("agent command", () => {
     });
 
     it("calls process.exit(1) on unexpected thrown error", async () => {
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockRejectedValue(
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error("Unexpected crash")
       );
 
@@ -228,7 +228,7 @@ describe("agent command", () => {
     });
 
     it("uses smart defaults from resolveBudget / resolveModel", async () => {
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockResolvedValue({
         status: "succeeded",
         branchName: "branch",
         durationMs: 1000,
@@ -243,8 +243,8 @@ describe("agent command", () => {
       const { agentCommand } = await import("../commands/agent.js");
       await agentCommand.parseAsync(["run", "Simple fix"], { from: "user" });
 
-      expect(core.runSession).toHaveBeenCalledOnce();
-      const config = (core.runSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(core.runAgentSession).toHaveBeenCalledOnce();
+      const config = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(config.maxBudgetUsd).toBe(1.0);
       expect(config.maxTurns).toBe(50);
     });
@@ -255,7 +255,7 @@ describe("agent command", () => {
       vi.mocked(core.resolveModel as ReturnType<typeof vi.fn>).mockReturnValue(
         "claude-haiku-4-5-20251001"
       );
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockResolvedValue({
         status: "succeeded",
         branchName: "b",
         durationMs: 100,
@@ -272,14 +272,15 @@ describe("agent command", () => {
         from: "user",
       });
 
-      const config = (core.runSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const config = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(config.model).toBe("claude-sonnet-4-6");
     });
 
     it("prints verbose agent events when --verbose flag is set", async () => {
-      vi.mocked(core.runSession as ReturnType<typeof vi.fn>).mockImplementation(
+      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockImplementation(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (_config: unknown, onEvent: (e: any) => void) => {
+        async (_config: unknown, options: { onEvent: (e: any) => void }) => {
+          const { onEvent } = options;
           onEvent({
             type: "session:start",
             timestamp: new Date().toISOString(),
@@ -985,8 +986,8 @@ describe("agent run – invalid adapter and non-default option branches", () => 
   });
 
   it("uses non-default model when --model is explicitly provided", async () => {
-    const { runSession } = await import("@mbe/agent-core");
-    vi.mocked(runSession).mockResolvedValue({
+    const { runAgentSession } = await import("@mbe/agent-core");
+    vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "test",
       status: "succeeded",
       branchName: "test-branch",
@@ -1004,14 +1005,14 @@ describe("agent run – invalid adapter and non-default option branches", () => 
       from: "user",
     });
 
-    expect(runSession).toHaveBeenCalled();
-    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(runAgentSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runAgentSession).mock.calls[0];
     expect(callArgs[0]).toMatchObject({ model: "claude-opus-4-6" });
   });
 
   it("uses non-default budget when --max-budget is explicitly provided", async () => {
-    const { runSession } = await import("@mbe/agent-core");
-    vi.mocked(runSession).mockResolvedValue({
+    const { runAgentSession } = await import("@mbe/agent-core");
+    vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "test",
       status: "succeeded",
       branchName: "test-branch",
@@ -1029,14 +1030,14 @@ describe("agent run – invalid adapter and non-default option branches", () => 
       from: "user",
     });
 
-    expect(runSession).toHaveBeenCalled();
-    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(runAgentSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runAgentSession).mock.calls[0];
     expect(callArgs[0]).toMatchObject({ maxBudgetUsd: 5 });
   });
 
   it("uses non-default maxTurns when --max-turns is explicitly provided", async () => {
-    const { runSession } = await import("@mbe/agent-core");
-    vi.mocked(runSession).mockResolvedValue({
+    const { runAgentSession } = await import("@mbe/agent-core");
+    vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "test",
       status: "succeeded",
       branchName: "test-branch",
@@ -1054,8 +1055,8 @@ describe("agent run – invalid adapter and non-default option branches", () => 
       from: "user",
     });
 
-    expect(runSession).toHaveBeenCalled();
-    const callArgs = vi.mocked(runSession).mock.calls[0];
+    expect(runAgentSession).toHaveBeenCalled();
+    const callArgs = vi.mocked(runAgentSession).mock.calls[0];
     expect(callArgs[0]).toMatchObject({ maxTurns: 25 });
   });
 });
