@@ -1630,6 +1630,10 @@
       deploy?: { status: string };
     }
   </file>
+  <file path="tools/cli/src/commands/issue.ts">
+    type TransitionState = "ready" | "in-progress" | "has-pr" | "agent-failed" | "agent-skip";
+    export const VALID_TRANSITION_STATES = Object.keys(TRANSITIONS) as TransitionState[];
+  </file>
   <file path="tools/cli/src/commands/login.ts">
     export const loginCommand = new Command("login")
       .description("Authenticate with the API")
