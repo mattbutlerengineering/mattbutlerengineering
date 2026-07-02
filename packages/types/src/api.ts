@@ -30,6 +30,37 @@ export type ApiError = z.infer<typeof ApiErrorSchema>;
 export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
 
 /**
+ * Canonical RFC 9457 problem-detail title for a given HTTP status code.
+ *
+ * Single source of truth for the "status -> title" mapping — do not
+ * re-implement this elsewhere. Unlisted 5xx statuses fall back to
+ * "Internal Server Error"; unlisted non-5xx statuses fall back to "Error".
+ */
+const STATUS_TITLES: Readonly<Record<number, string>> = {
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  406: "Not Acceptable",
+  408: "Request Timeout",
+  409: "Conflict",
+  410: "Gone",
+  415: "Unsupported Media Type",
+  422: "Unprocessable Entity",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  503: "Service Unavailable",
+};
+
+export function titleForStatus(status: number): string {
+  if (status in STATUS_TITLES) {
+    return STATUS_TITLES[status]!;
+  }
+  return status >= 500 ? "Internal Server Error" : "Error";
+}
+
+/**
  * Creates a standard RFC 7807 Problem Details object.
  * Returns a combined type for backward compatibility.
  */

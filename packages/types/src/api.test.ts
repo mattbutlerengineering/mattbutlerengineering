@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ProblemDetails, ApiError } from "./api.js";
-import { createProblemDetails } from "./api.js";
+import { createProblemDetails, titleForStatus } from "./api.js";
 import { ProblemDetailsSchema, ApiErrorSchema } from "./schemas/api.js";
 
 describe("createProblemDetails", () => {
@@ -60,6 +60,38 @@ describe("createProblemDetails", () => {
   it("uses about:blank as default type", () => {
     const result = createProblemDetails(503, "Service Unavailable", "Try again later");
     expect(result.type).toBe("about:blank");
+  });
+});
+
+describe("titleForStatus", () => {
+  it("maps 500 to the canonical RFC reason phrase (resolves producer/consumer drift)", () => {
+    expect(titleForStatus(500)).toBe("Internal Server Error");
+  });
+
+  it("maps known 4xx/5xx statuses to their canonical RFC reason phrase", () => {
+    expect(titleForStatus(400)).toBe("Bad Request");
+    expect(titleForStatus(401)).toBe("Unauthorized");
+    expect(titleForStatus(403)).toBe("Forbidden");
+    expect(titleForStatus(404)).toBe("Not Found");
+    expect(titleForStatus(405)).toBe("Method Not Allowed");
+    expect(titleForStatus(406)).toBe("Not Acceptable");
+    expect(titleForStatus(408)).toBe("Request Timeout");
+    expect(titleForStatus(409)).toBe("Conflict");
+    expect(titleForStatus(410)).toBe("Gone");
+    expect(titleForStatus(415)).toBe("Unsupported Media Type");
+    expect(titleForStatus(422)).toBe("Unprocessable Entity");
+    expect(titleForStatus(429)).toBe("Too Many Requests");
+    expect(titleForStatus(503)).toBe("Service Unavailable");
+  });
+
+  it("falls back to a generic server-error title for unlisted 5xx statuses", () => {
+    expect(titleForStatus(502)).toBe("Internal Server Error");
+    expect(titleForStatus(504)).toBe("Internal Server Error");
+  });
+
+  it("falls back to a generic 'Error' title for unlisted non-5xx statuses", () => {
+    expect(titleForStatus(402)).toBe("Error");
+    expect(titleForStatus(200)).toBe("Error");
   });
 });
 

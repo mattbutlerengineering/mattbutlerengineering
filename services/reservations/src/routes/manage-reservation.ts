@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
@@ -15,12 +16,18 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const reservation = await reservationService.getById(request.managedReservationId);
       if (!reservation) {
-        return reply.status(404).send({
-          type: "about:blank",
-          title: "Reservation Not Found",
-          status: 404,
-          detail: "Reservation not found",
-        });
+        return reply.status(404).send(
+          createProblemDetails(
+            404,
+            "Reservation Not Found",
+            "Reservation not found",
+            "about:blank",
+            undefined,
+            {
+              code: "RESERVATION_NOT_FOUND",
+            }
+          )
+        );
       }
 
       const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;

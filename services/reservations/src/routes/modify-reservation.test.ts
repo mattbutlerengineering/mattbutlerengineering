@@ -185,6 +185,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().title).toBe("Slot Unavailable");
+    expect(response.json().code).toBe("SLOT_UNAVAILABLE");
   });
 
   it("returns 409 for cancelled reservation", async () => {
@@ -205,6 +206,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().detail).toContain("cancelled");
+    expect(response.json().code).toBe("RESERVATION_ALREADY_CANCELLED");
   });
 
   it("returns 409 for completed reservation", async () => {
@@ -225,6 +227,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().detail).toContain("completed");
+    expect(response.json().code).toBe("RESERVATION_ALREADY_COMPLETED");
   });
 
   it("returns 400 when no fields provided", async () => {
@@ -242,6 +245,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().detail).toContain("At least one field");
+    expect(response.json().code).toBe("NO_CHANGES_PROVIDED");
   });
 
   it("returns 404 when reservation not found", async () => {
@@ -256,6 +260,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("RESERVATION_NOT_FOUND");
   });
 
   it("allows modifying special requests only", async () => {

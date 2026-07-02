@@ -21,7 +21,7 @@ describe("parseProblemDetails", () => {
     expect(result.instance).toBe("/api/v1/guests/g1");
   });
 
-  it("degrades gracefully for a malformed / partial body", () => {
+  it("degrades gracefully for a malformed / partial body, using the canonical RFC title for 500 (resolves producer/consumer drift)", () => {
     // Body that looks like problem+json but is missing required fields
     const malformed = { type: "about:blank", oops: true };
 
@@ -29,17 +29,17 @@ describe("parseProblemDetails", () => {
 
     expect(result.status).toBe(500);
     expect(result.type).toBe("about:blank");
-    expect(typeof result.title).toBe("string");
+    expect(result.title).toBe("Internal Server Error");
     expect(typeof result.detail).toBe("string");
   });
 
-  it("falls back gracefully for a non-7807 body (plain text / HTML 500)", () => {
+  it("falls back gracefully for a non-7807 body (plain text / HTML 502)", () => {
     // plain text string — not even an object
     const result = parseProblemDetails("Bad Gateway", 502);
 
     expect(result.status).toBe(502);
     expect(result.type).toBe("about:blank");
-    expect(typeof result.title).toBe("string");
+    expect(result.title).toBe("Internal Server Error");
     expect(typeof result.detail).toBe("string");
     // Must not throw
   });

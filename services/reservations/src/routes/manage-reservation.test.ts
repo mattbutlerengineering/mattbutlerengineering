@@ -119,6 +119,21 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(body.data.reservation.partySize).toBe(4);
     expect(body.data.venue.name).toBe("The Oak Table");
   });
+
+  it("returns 404 with a code extension when reservation not found", async () => {
+    const token = generateManageToken("res_nonexistent", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(null as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().title).toBe("Reservation Not Found");
+    expect(response.json().code).toBe("RESERVATION_NOT_FOUND");
+  });
 });
 
 describe("GET /public/v1/reservations/manage — rate limiting", () => {

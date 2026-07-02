@@ -1,4 +1,4 @@
-import { ProblemDetailsSchema } from "@mbe/types";
+import { ProblemDetailsSchema, titleForStatus } from "@mbe/types";
 import type { ProblemDetails } from "@mbe/types";
 
 /**
@@ -20,7 +20,7 @@ export function parseProblemDetails(raw: unknown, httpStatus: number): ProblemDe
 
   return {
     type: "about:blank",
-    title: httpStatusTitle(httpStatus),
+    title: titleForStatus(httpStatus),
     status: httpStatus,
     detail: fallbackDetail,
   };
@@ -37,17 +37,5 @@ function extractDetail(raw: unknown, httpStatus: number): string {
       return candidate;
     }
   }
-  return httpStatusTitle(httpStatus);
-}
-
-function httpStatusTitle(status: number): string {
-  if (status >= 500) return "Server Error";
-  if (status === 429) return "Too Many Requests";
-  if (status === 422) return "Unprocessable Entity";
-  if (status === 409) return "Conflict";
-  if (status === 404) return "Not Found";
-  if (status === 403) return "Forbidden";
-  if (status === 401) return "Unauthorized";
-  if (status === 400) return "Bad Request";
-  return "Error";
+  return titleForStatus(httpStatus);
 }

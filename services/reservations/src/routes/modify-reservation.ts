@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { createProblemDetails } from "@mbe/types";
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
 import { requireManageToken } from "../middleware/require-manage-token.js";
@@ -13,9 +14,21 @@ interface ModifyBody {
 }
 
 const NOT_OK_MESSAGES = {
-  not_found: { title: "Reservation Not Found", detail: "Reservation not found" },
-  cancelled: { title: "Cannot Modify", detail: "Cannot modify a cancelled reservation" },
-  completed: { title: "Cannot Modify", detail: "Cannot modify a completed reservation" },
+  not_found: {
+    title: "Reservation Not Found",
+    detail: "Reservation not found",
+    code: "RESERVATION_NOT_FOUND",
+  },
+  cancelled: {
+    title: "Cannot Modify",
+    detail: "Cannot modify a cancelled reservation",
+    code: "RESERVATION_ALREADY_CANCELLED",
+  },
+  completed: {
+    title: "Cannot Modify",
+    detail: "Cannot modify a completed reservation",
+    code: "RESERVATION_ALREADY_COMPLETED",
+  },
 } as const;
 
 export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -30,13 +43,12 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const preamble = await loadReservationForManage(request.managedReservationId);
       if (!preamble.ok) {
-        const { title, detail } = NOT_OK_MESSAGES[preamble.reason];
-        return reply.status(preamble.status).send({
-          type: "about:blank",
-          title,
-          status: preamble.status,
-          detail,
-        });
+        const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
+        return reply
+          .status(preamble.status)
+          .send(
+            createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
+          );
       }
       const reservation = preamble.reservation;
 
@@ -51,12 +63,18 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
         specialRequests !== undefined;
 
       if (!hasChanges) {
-        return reply.status(400).send({
-          type: "about:blank",
-          title: "No Changes",
-          status: 400,
-          detail: "At least one field must be provided to modify",
-        });
+        return reply
+          .status(400)
+          .send(
+            createProblemDetails(
+              400,
+              "No Changes",
+              "At least one field must be provided to modify",
+              "about:blank",
+              undefined,
+              { code: "NO_CHANGES_PROVIDED" }
+            )
+          );
       }
 
       const updateData = {
@@ -74,19 +92,31 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       if (!updateResult.success) {
         if (updateResult.conflict) {
-          return reply.status(409).send({
-            type: "about:blank",
-            title: "Slot Unavailable",
-            status: 409,
-            detail: updateResult.error,
-          });
+          return reply
+            .status(409)
+            .send(
+              createProblemDetails(
+                409,
+                "Slot Unavailable",
+                updateResult.error!,
+                "about:blank",
+                undefined,
+                { code: "SLOT_UNAVAILABLE" }
+              )
+            );
         }
-        return reply.status(500).send({
-          type: "about:blank",
-          title: "Update Failed",
-          status: 500,
-          detail: updateResult.error ?? "Failed to modify reservation",
-        });
+        return reply
+          .status(500)
+          .send(
+            createProblemDetails(
+              500,
+              "Update Failed",
+              updateResult.error ?? "Failed to modify reservation",
+              "about:blank",
+              undefined,
+              { code: "RESERVATION_UPDATE_FAILED" }
+            )
+          );
       }
 
       const updated = updateResult.reservation!;

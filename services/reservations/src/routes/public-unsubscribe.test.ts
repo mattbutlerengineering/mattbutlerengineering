@@ -69,6 +69,7 @@ describe("GET /public/v1/guests/unsubscribe", () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("MISSING_TOKEN");
   });
 
   it("returns 400 when token is invalid", async () => {
@@ -78,6 +79,7 @@ describe("GET /public/v1/guests/unsubscribe", () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("INVALID_TOKEN");
   });
 
   it("calls markUnsubscribed and returns 200 HTML for valid token", async () => {
@@ -93,5 +95,18 @@ describe("GET /public/v1/guests/unsubscribe", () => {
     expect(response.headers["content-type"]).toContain("text/html");
     expect(guestService.markUnsubscribed).toHaveBeenCalledWith("guest-abc");
     expect(response.body).toContain("unsubscribed");
+  });
+
+  it("returns 500 with the canonical RFC title when markUnsubscribed fails", async () => {
+    const token = generateUnsubscribeToken("guest-abc");
+    vi.mocked(guestService.markUnsubscribed).mockRejectedValueOnce(new Error("db down"));
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/guests/unsubscribe?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json().title).toBe("Internal Server Error");
   });
 });

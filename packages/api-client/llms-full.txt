@@ -205,7 +205,7 @@
     
       return {
         type: "about:blank",
-        title: httpStatusTitle(httpStatus),
+        title: titleForStatus(httpStatus),
         status: httpStatus,
         detail: fallbackDetail,
       };
@@ -221,7 +221,7 @@
           return candidate;
         }
       }
-      return httpStatusTitle(httpStatus);
+      return titleForStatus(httpStatus);
     }
   </file>
   <file path="src/reservations.ts">
