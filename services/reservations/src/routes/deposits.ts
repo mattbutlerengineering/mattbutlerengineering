@@ -1,11 +1,8 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
-import {
-  depositService,
-  DepositTransitionError,
-  DepositNotFoundError,
-} from "../services/deposit.js";
+import { depositService, DepositNotFoundError } from "../services/deposit.js";
+import { depositTransitionHandler } from "./deposit-transition-handler.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
 interface ApiResponse<T> {
@@ -161,24 +158,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const existing = await depositService.getById(request.params.id);
-      if (!existing) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      try {
-        const deposit = await depositService.apply(request.params.id);
-        return { data: deposit };
-      } catch (err) {
-        if (err instanceof DepositTransitionError) {
-          return reply
-            .code(422)
-            .send(createProblemDetails(422, "Unprocessable Entity", err.message));
-        }
-        throw err;
-      }
-    }
+    depositTransitionHandler((id) => depositService.apply(id))
   );
 
   // POST /api/v1/deposits/:id/refund — refund a held deposit
@@ -213,24 +193,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const existing = await depositService.getById(request.params.id);
-      if (!existing) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      try {
-        const deposit = await depositService.refund(request.params.id);
-        return { data: deposit };
-      } catch (err) {
-        if (err instanceof DepositTransitionError) {
-          return reply
-            .code(422)
-            .send(createProblemDetails(422, "Unprocessable Entity", err.message));
-        }
-        throw err;
-      }
-    }
+    depositTransitionHandler((id) => depositService.refund(id))
   );
 
   // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
@@ -265,24 +228,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const existing = await depositService.getById(request.params.id);
-      if (!existing) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
-      }
-
-      try {
-        const deposit = await depositService.forfeit(request.params.id);
-        return { data: deposit };
-      } catch (err) {
-        if (err instanceof DepositTransitionError) {
-          return reply
-            .code(422)
-            .send(createProblemDetails(422, "Unprocessable Entity", err.message));
-        }
-        throw err;
-      }
-    }
+    depositTransitionHandler((id) => depositService.forfeit(id))
   );
 };
 
