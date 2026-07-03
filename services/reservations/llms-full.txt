@@ -2199,37 +2199,10 @@
       const signature = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
       return Buffer.from(`${payload}:${signature}`).toString("base64url");
     }
-    export function verifyManageToken(token: string): {
-      valid: boolean;
-      expired?: boolean;
-      reservationId?: string;
-      guestEmail?: string;
-    } {
-      try {
-        const decoded = Buffer.from(token, "base64url").toString();
-        const parts = decoded.split(":");
-        if (parts.length < 4) return { valid: false };
-    
-        const signature = parts.pop()!;
-        // Pop expiry from the right, shift reservationId from the left, then
-        // rejoin whatever remains as the email. This handles RFC-valid emails
-        // containing colons (e.g. "user:tag@example.com") without breaking the
-        // HMAC payload reconstruction.
-        const expiryStr = parts.pop()!;
-        const reservationId = parts.shift()!;
-        const guestEmail = parts.join(":");
-        const payload = `${reservationId}:${guestEmail}:${expiryStr}`;
-    
-        const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-        if (signature !== expected) return { valid: false };
-    
-        const expiry = parseInt(expiryStr, 10);
-        if (Date.now() > expiry) return { valid: false, expired: true };
-    
-        return { valid: true, reservationId, guestEmail };
-      } catch {
-        return { valid: false };
-      }
+    export function secureCompareHex(actual: string, expected: string): boolean {
+      const actualBuf = Buffer.from(actual, "hex");
+      const expectedBuf = Buffer.from(expected, "hex");
+      return actualBuf.length === expectedBuf.length && timingSafeEqual(actualBuf, expectedBuf);
     }
   </file>
   <file path="src/routes/public-unsubscribe.ts">
