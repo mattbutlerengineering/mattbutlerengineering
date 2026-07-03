@@ -25,7 +25,6 @@ describe("PublicVenueClient.guestRisk", () => {
 
   const fakeRiskResult = {
     riskScore: "risky",
-    noShowCount: 2,
     requiresDeposit: true,
   };
 
