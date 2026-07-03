@@ -10,6 +10,22 @@ vi.mock("../../hooks/usePublicApiClient.js", () => ({
   usePublicApiClient: vi.fn(),
 }));
 
+// Mock Stripe so the real (unmocked) PaymentStep can render and be driven to
+// completion — needed for the per_person-total regression test below, which
+// must exercise the actual confirmation → payment → deposit-success path.
+vi.mock("@stripe/react-stripe-js", () => ({
+  Elements: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="stripe-elements">{children}</div>
+  ),
+  CardElement: () => <div data-testid="card-element" />,
+  useStripe: vi.fn(),
+  useElements: vi.fn(),
+}));
+
+vi.mock("@stripe/stripe-js", () => ({
+  loadStripe: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Steps: ({ currentStep, steps }: any) => (
     <div data-testid="steps" data-current={currentStep}>
@@ -70,6 +86,7 @@ describe("BookingWidget", () => {
     },
     publicVenue: {
       guestRisk: vi.fn(),
+      depositIntent: vi.fn(),
     },
   };
 
@@ -283,5 +300,93 @@ describe("BookingWidget", () => {
     await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
 
     expect(mockApi.publicVenue.guestRisk).not.toHaveBeenCalled();
+  });
+
+  it("shows the charged TOTAL (base × partySize) as the authorized amount for per_person deposits", async () => {
+    // Regression test for #2982: the confirmation screen must show what
+    // Stripe actually authorized (base × partySize), not the per-person
+    // base amount.
+    const { useStripe, useElements } = await import("@stripe/react-stripe-js");
+    vi.mocked(useStripe).mockReturnValue({
+      confirmCardPayment: vi.fn().mockResolvedValue({
+        paymentIntent: { id: "pi_test_total" },
+      }),
+    } as unknown as ReturnType<typeof useStripe>);
+    vi.mocked(useElements).mockReturnValue({
+      getElement: vi.fn().mockReturnValue({ mount: vi.fn() }),
+    } as unknown as ReturnType<typeof useElements>);
+
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: true,
+        depositType: "per_person",
+        amountCents: 1000, // $10.00 per guest
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-1",
+      amountCents: 4000,
+      currency: "usd",
+    });
+
+    render(
+      <BookingWidget venueId="v1" venueSlug="the-oak-table" stripePublishableKey="pk_test_abc" />
+    );
+
+    // Step 1: Date & party of 4
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.click(screen.getByRole("button", { name: "4" }));
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    // Step 2: Time
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    // Step 3: Details
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Party Of Four" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "party@example.com" },
+    });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-per-person",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 4,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    // Step 4: Payment — real PaymentStep renders (only Stripe internals mocked).
+    // 4 guests × $10.00 = $40.00 is the amount Stripe actually authorizes.
+    await waitFor(() => expect(screen.getByText(/Authorize \$40\.00/)).toBeDefined());
+    fireEvent.click(screen.getByText(/Authorize \$40\.00/));
+
+    // Step 5: Confirmation — the "authorized for" notice must show the
+    // charged TOTAL ($40.00), never the per-person base ($10.00).
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+    const depositNotice = screen.getByText(/authorized for/i);
+    expect(depositNotice.textContent).toContain("$40.00");
+    expect(depositNotice.textContent).not.toContain("$10.00");
   });
 });
