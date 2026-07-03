@@ -14,13 +14,13 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runCheck } from "./lib/fitness-check.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
-
+const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const WORKSPACE_DIRS = ["packages", "services", "apps", "tools"];
 
-function discoverPackages() {
+/** Pure discovery of @mbe/* dep edges across every workspace package.json. */
+export function discoverPackages(root = DEFAULT_ROOT) {
   const packages = new Map();
 
   for (const dir of WORKSPACE_DIRS) {
@@ -60,7 +60,8 @@ function discoverPackages() {
   return packages;
 }
 
-function findCycles(packages) {
+/** Pure DFS cycle detection over the discovered package graph — no I/O. */
+export function findCycles(packages) {
   const cycles = [];
 
   for (const [startName] of packages) {
@@ -103,22 +104,33 @@ function findCycles(packages) {
   return cycles;
 }
 
-// Run
-const packages = discoverPackages();
-console.log(`Checking ${packages.size} workspace packages for circular dependencies...\n`);
+/** Pure end-to-end aggregation — discovers packages then finds cycles. */
+export function findCircularDepFindings(root = DEFAULT_ROOT) {
+  const packages = discoverPackages(root);
+  const cycles = findCycles(packages);
+  return { packages, cycles };
+}
 
-const cycles = findCycles(packages);
+const isMain = process.argv[1] && process.argv[1].endsWith("check-circular-deps.js");
 
-if (cycles.length === 0) {
-  console.log("PASS: No circular dependencies found.");
-} else {
-  console.log(`FAIL: Found ${cycles.length} circular dependency cycle(s):\n`);
-  for (const cycle of cycles) {
-    console.log(`  ${cycle}`);
+if (isMain) {
+  const { packages, cycles } = findCircularDepFindings();
+  console.log(`Checking ${packages.size} workspace packages for circular dependencies...\n`);
+
+  const exitCode = runCheck({
+    name: "circular dependencies",
+    findings: cycles,
+    formatFinding: (cycle) => cycle,
+    passMessage: "PASS: No circular dependencies found.",
+    failMessage: `FAIL: Found ${cycles.length} circular dependency cycle(s):\n`,
+  });
+
+  if (exitCode !== 0) {
+    console.log(
+      "\nResolve these cycles by extracting shared code into a new package " +
+        "or inverting the dependency direction."
+    );
   }
-  console.log(
-    "\nResolve these cycles by extracting shared code into a new package " +
-      "or inverting the dependency direction."
-  );
-  process.exit(1);
+
+  process.exit(exitCode);
 }
