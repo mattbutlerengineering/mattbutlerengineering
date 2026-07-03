@@ -306,6 +306,27 @@ export async function runOrchestrator(
       }
     }
 
+    // No sub-tasks were created — decomposition yielded nothing to delegate.
+    // Report failed rather than a false-positive succeeded so callers don't
+    // silently skip error handling.
+    if (childSessionIds.length === 0) {
+      const durationMs = Date.now() - startTime;
+      const summary = "Orchestrator created no child sessions — nothing was delegated";
+
+      emit(
+        "orchestrator:complete",
+        `Orchestration failed in ${Math.round(durationMs / 1000)}s: ${summary}`
+      );
+
+      return {
+        status: "failed",
+        childSessionIds,
+        summary,
+        totalCostUsd: resultMessage?.total_cost_usd ?? 0,
+        durationMs,
+      };
+    }
+
     // Gather final status of all child sessions
     let totalCost = 0;
     let allSucceeded = true;
