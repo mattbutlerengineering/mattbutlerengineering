@@ -656,6 +656,102 @@ describe("Reservation Routes", () => {
       expect(body.error).toBe(ERROR_CONFLICT);
     });
 
+    describe("PATCH /v1/reservations/:id — partySize deposit guard (#2998)", () => {
+      it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          createMockReservation({ partySize: 4, venueId: "venue-1" })
+        );
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+          depositType: "per_person",
+        } as never);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          status: "held",
+        } as never);
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 6 },
+        });
+
+        expect(response.statusCode).toBe(409);
+        const body = JSON.parse(response.body);
+        expect(body.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+        expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+      });
+
+      it("blocks a partySize DECREASE with 409 when a per_person deposit is pending", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          createMockReservation({ partySize: 6, venueId: "venue-1" })
+        );
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+          depositType: "per_person",
+        } as never);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          status: "pending",
+        } as never);
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 4 },
+        });
+
+        expect(response.statusCode).toBe(409);
+        const body = JSON.parse(response.body);
+        expect(body.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+        expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+      });
+
+      it("passes through on a flat-deposit venue even with a held deposit", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          createMockReservation({ partySize: 4, venueId: "venue-1" })
+        );
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+          depositType: "flat",
+        } as never);
+        vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+          success: true,
+          reservation: createMockReservation({ partySize: 6, venueId: "venue-1" }),
+        });
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 6 },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.getByReservationId).not.toHaveBeenCalled();
+      });
+
+      it("passes through when there is no deposit at all", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          createMockReservation({ partySize: 4, venueId: "venue-1" })
+        );
+        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+          depositType: "per_person",
+        } as never);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+        vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+          success: true,
+          reservation: createMockReservation({ partySize: 6, venueId: "venue-1" }),
+        });
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { partySize: 6 },
+        });
+
+        expect(response.statusCode).toBe(200);
+      });
+    });
+
     describe("PATCH /v1/reservations/:id — cancellation", () => {
       it("cancels reservation with reason via PATCH status=CANCELLED", async () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);

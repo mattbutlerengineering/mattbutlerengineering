@@ -15,6 +15,7 @@ import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fa
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
+import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
@@ -587,7 +588,17 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           },
           409: {
             description: "Conflict with existing reservation or hold",
-            $ref: "Error#",
+            type: "object",
+            properties: {
+              error: { type: "string" },
+              message: { type: "string" },
+              statusCode: { type: "number" },
+              // Machine-readable extension (e.g. PARTY_SIZE_DEPOSIT_HELD, #2998)
+              // not present on the shared Error# schema — inlined here so
+              // fast-json-stringify doesn't strip it from the response.
+              code: { type: "string" },
+            },
+            required: ["error", "message", "statusCode"],
           },
           500: {
             description: "Internal server error",
@@ -630,6 +641,32 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           }
           throw err;
         }
+      }
+
+      // #2998: staff PATCH accepts partySize but previously bypassed the
+      // per_person-deposit guard added for the public manage route in
+      // #2997/#2931 (decision: Block) — route through the same check here
+      // so a staff caller can't silently diverge a held/pending deposit
+      // either. Staff who need to override should capture/refund the
+      // deposit first, or cancel and rebook.
+      if (
+        request.body.partySize !== undefined &&
+        (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+      ) {
+        return reply
+          .code(409)
+          .send(
+            createProblemDetails(
+              409,
+              "Conflict",
+              "This venue charges a per-person deposit and a payment is already pending or " +
+                "held for this reservation. Capture or refund the deposit before changing party " +
+                "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+              "about:blank",
+              undefined,
+              { code: "PARTY_SIZE_DEPOSIT_HELD" }
+            )
+          );
       }
 
       try {
