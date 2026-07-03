@@ -1,15 +1,13 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
-import { createApiClient } from "@mbe/api-client";
 import type { Deposit } from "@mbe/types";
+import { useApiClient } from "../../hooks/useApiClient.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./StaffDepositSection.module.css";
 
 interface StaffDepositSectionProps {
   reservationId: string;
   existingDeposit?: Deposit | null;
-  apiBaseUrl?: string;
-  getAccessToken: () => string | null | Promise<string | null>;
 }
 
 function depositStatusLabel(status: string): string {
@@ -23,12 +21,8 @@ function depositStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-export function StaffDepositSection({
-  reservationId,
-  existingDeposit,
-  apiBaseUrl = "",
-  getAccessToken,
-}: StaffDepositSectionProps) {
+export function StaffDepositSection({ reservationId, existingDeposit }: StaffDepositSectionProps) {
+  const api = useApiClient();
   const [amountInput, setAmountInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +41,6 @@ export function StaffDepositSection({
     setError(null);
 
     try {
-      const api = createApiClient({ baseUrl: apiBaseUrl, getAccessToken });
       const created = await api.client.postOne<Deposit>("/api/v1/deposits", {
         reservationId,
         amountCents,
@@ -60,7 +53,7 @@ export function StaffDepositSection({
     } finally {
       setIsCreating(false);
     }
-  }, [amountInput, reservationId, apiBaseUrl, getAccessToken]);
+  }, [amountInput, reservationId, api]);
 
   if (deposit) {
     return (

@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
-import { ApiClient, VenuesClient } from "@mbe/api-client";
 import type { OperatingHours, CreateVenueRequest, VenueSettings } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
@@ -50,6 +50,7 @@ function isValidSlug(slug: string): boolean {
 export function VenueOnboardingPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
+  const api = useApiClient();
   const { refetchVenues } = useVenue();
   const { toast } = useToast();
 
@@ -103,12 +104,7 @@ export function VenueOnboardingPage() {
     slugCheckTimerRef.current = setTimeout(async () => {
       if (!accessToken) return;
       try {
-        const apiClient = new ApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? "",
-          getAccessToken: () => accessToken,
-        });
-        const venuesClient = new VenuesClient(apiClient);
-        await venuesClient.getBySlug(slug);
+        await api.venues.getBySlug(slug);
         // If it returns successfully, the slug is taken
         dispatchSlugStatus("taken");
         setBasicInfoErrors((prev) => ({
@@ -126,7 +122,7 @@ export function VenueOnboardingPage() {
     }, 500);
 
     return () => clearTimeout(slugCheckTimerRef.current);
-  }, [basicInfo.slug, accessToken]);
+  }, [basicInfo.slug, accessToken, api]);
 
   const validateBasicInfo = useCallback((): boolean => {
     const errors: Partial<Record<keyof BasicInfoData, string>> = {};
@@ -283,12 +279,7 @@ export function VenueOnboardingPage() {
     setSubmitError(null);
 
     try {
-      const apiClient = new ApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      });
-      const venuesClient = new VenuesClient(apiClient);
-      await venuesClient.create(buildPayload());
+      await api.venues.create(buildPayload());
       await refetchVenues();
       toast({
         title: "Venue created",

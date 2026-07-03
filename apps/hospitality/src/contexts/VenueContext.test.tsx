@@ -34,15 +34,12 @@ const mockVenues: readonly Venue[] = [
 ];
 
 const mockList = vi.fn();
+// Stable reference across renders — mirrors the real useApiClient()'s useMemo,
+// which only recomputes when the access token changes.
+const mockApiClient = { venues: { list: mockList } };
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: () => ({
-    venues: { list: mockList },
-  }),
-}));
-
-vi.mock("@mbe/auth/react", () => ({
-  useAuth: () => ({ accessToken: "test-token" }),
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => mockApiClient,
 }));
 
 // localStorage mock
