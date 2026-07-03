@@ -157,26 +157,26 @@
       );
   </file>
   <file path="src/commands/agent/run.ts">
-    interface SpendRecord {
-      date: string;
-      timestamp: string;
-      costUsd: number;
-      issueNumber: number | null;
-      model: string;
-      inputTokens: number;
-      outputTokens: number;
-      numTurns: number;
-    }
-    function logSpend(record: SpendRecord): void {
-      try {
-        const logDir = dirname(SPEND_LOG_PATH);
-        if (!existsSync(logDir)) {
-          mkdirSync(logDir, { recursive: true });
+    function handleEvent(event: SessionEvent, verbose: boolean): void {
+      if (!verbose) return;
+    
+      const timestamp = new Date(event.timestamp).toLocaleTimeString();
+    
+      if (event.type === "session:start" || event.type === "session:result") {
+        const data = event.data as { message: string };
+        console.log(`[${timestamp}] ${data.message}`);
+      } else if (event.type === "session:error") {
+        const data = event.data as { message: string };
+        console.error(`[${timestamp}] ERROR: ${data.message}`);
+      } else if (event.type === "session:message" && verbose) {
+        const msg = event.data as { type: string };
+        if (msg.type === "assistant") {
+          console.log(`[${timestamp}] Agent is working...`);
         }
-        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
-      } catch {
-        // Silently swallow — spend logging is best-effort
       }
+    }
+    function isAdapterType(value: string): value is AdapterType {
+      return (VALID_ADAPTERS as readonly string[]).includes(value);
     }
   </file>
   <file path="src/commands/agent/session-api.ts">

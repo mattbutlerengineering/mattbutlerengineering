@@ -3,7 +3,12 @@ import type { AgentAdapter, AdapterConfig, AdapterResult } from "../../cli-adapt
 import type { SessionConfig } from "../../types.js";
 import type { PhaseDeps } from "../../phases/index.js";
 import { makeFakePhaseDeps } from "../../__tests__/fake-phase-deps.js";
+import { recordSpend } from "../../spend-recorder.js";
 import { runCliAdapterSession } from "../cli-adapter-session-runner.js";
+
+vi.mock("../../spend-recorder.js", () => ({
+  recordSpend: vi.fn(),
+}));
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -43,6 +48,7 @@ describe("runCliAdapterSession", () => {
   let deps: PhaseDeps;
 
   beforeEach(() => {
+    vi.mocked(recordSpend).mockClear();
     deps = makeFakePhaseDeps();
     vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
@@ -285,5 +291,46 @@ describe("runCliAdapterSession", () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: false, durationMs: 12_345 });
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
     expect(result.durationMs).toBe(12_345);
+  });
+
+  it("records exactly one spend entry through the single seam, attributed to the adapter", async () => {
+    const adapter = makeCliAdapter("gemini", {
+      hasChanges: false,
+      success: true,
+      costUsd: 0.0234,
+      tokenUsage: { inputTokens: 900, outputTokens: 210 },
+    });
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(recordSpend).toHaveBeenCalledTimes(1);
+    expect(recordSpend).toHaveBeenCalledWith(
+      "/repo",
+      expect.objectContaining({
+        costUsd: 0.0234,
+        adapter: "gemini",
+        model: "gemini-2.5-pro",
+        status: "succeeded",
+        inputTokens: 900,
+        outputTokens: 210,
+      })
+    );
+  });
+
+  it("records a visible spend entry even for a cost-less adapter run", async () => {
+    const adapter = makeCliAdapter("opencode", { hasChanges: false, success: true });
+
+    await runCliAdapterSession(
+      adapter,
+      makeSessionConfig({ model: "opencode-model" }),
+      undefined,
+      deps
+    );
+
+    expect(recordSpend).toHaveBeenCalledTimes(1);
+    expect(recordSpend).toHaveBeenCalledWith(
+      "/repo",
+      expect.objectContaining({ costUsd: 0, adapter: "opencode", status: "succeeded" })
+    );
   });
 });

@@ -42,8 +42,8 @@ vi.mock("../worktree-reaper.js", () => ({
   scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 2 }),
 }));
 
-vi.mock("../cost-logger.js", () => ({
-  recordSessionCost: vi.fn(),
+vi.mock("../spend-recorder.js", () => ({
+  recordSpend: vi.fn(),
 }));
 
 vi.mock("../retry.js", async () => {
@@ -798,25 +798,28 @@ describe("Langfuse tracing", () => {
     );
   });
 
-  it("records cost to .claude/agent-spend/sessions.jsonl after a successful session", async () => {
-    const { recordSessionCost } = await import("../cost-logger.js");
+  it("records exactly one spend entry to the single sink after a successful claude run", async () => {
+    const { recordSpend } = await import("../spend-recorder.js");
     withResult(deps, createMockResultMessage());
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     await runSession(BASE_CONFIG, undefined, deps);
 
-    expect(recordSessionCost).toHaveBeenCalledWith(
+    // Exactly one spend entry — the CLI no longer double-records claude runs.
+    expect(recordSpend).toHaveBeenCalledTimes(1);
+    expect(recordSpend).toHaveBeenCalledWith(
       BASE_CONFIG.repoPath,
       expect.objectContaining({
         costUsd: 0.25,
         model: BASE_CONFIG.model,
+        adapter: "claude",
         status: "succeeded",
       })
     );
   });
 
   it("records cost even when the session throws an unhandled error", async () => {
-    const { recordSessionCost } = await import("../cost-logger.js");
+    const { recordSpend } = await import("../spend-recorder.js");
     vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
       new Error("SDK connection failed")
     );
@@ -824,10 +827,12 @@ describe("Langfuse tracing", () => {
     const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
-    expect(recordSessionCost).toHaveBeenCalledWith(
+    expect(recordSpend).toHaveBeenCalledTimes(1);
+    expect(recordSpend).toHaveBeenCalledWith(
       BASE_CONFIG.repoPath,
       expect.objectContaining({
         costUsd: 0,
+        adapter: "claude",
         status: "failed",
       })
     );

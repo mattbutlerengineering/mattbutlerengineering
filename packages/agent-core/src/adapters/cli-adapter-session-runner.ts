@@ -14,6 +14,7 @@
 import { withRetry } from "../retry.js";
 import { emitEvent } from "../utils.js";
 import { categorizeFailure } from "../observability.js";
+import { recordSpend } from "../spend-recorder.js";
 import { createDefaultPhaseDeps } from "../phases/default-deps.js";
 import type { PhaseDeps, PrCreatorDeps } from "../phases/index.js";
 import type { AgentAdapter } from "../cli-adapter.js";
@@ -116,13 +117,34 @@ export async function runCliAdapterSession(
   const status = adapterResult.success ? "succeeded" : "failed";
   emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
 
+  const tokenUsage = adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+  const costUsd = adapterResult.costUsd ?? 0;
+
+  // Record spend through the single seam — the ONLY spend write for a
+  // gemini/opencode run, mirroring session-runner's write for the claude
+  // path. Subprocess CLIs seldom report cost/tokens, so this may be a 0-cost
+  // entry; recording it anyway keeps every adapter run visible to the
+  // token-cost sensors. Best-effort: never fail a session over spend logging.
+  try {
+    recordSpend(config.repoPath, {
+      costUsd,
+      model: config.model,
+      adapter: cliAdapter.name,
+      status,
+      inputTokens: tokenUsage.inputTokens,
+      outputTokens: tokenUsage.outputTokens,
+    });
+  } catch {
+    // Best-effort — spend logging must never crash a session.
+  }
+
   return {
     sessionId: "",
     status,
     branchName: worktree.branchName,
     prUrl,
-    costUsd: adapterResult.costUsd ?? 0,
-    tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
+    costUsd,
+    tokenUsage,
     durationMs: adapterResult.durationMs,
     numTurns: 0,
     resultText: "",
