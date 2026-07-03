@@ -32,7 +32,7 @@ export const logSessionCommand = new Command("log-session")
   .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
   .action(async (options) => {
     const root = findMonorepoRoot(process.cwd());
-    const logDir = join(root, "docs/logs");
+    const logDir = join(root, "metrics");
     const logFile = join(logDir, "agent-perf.jsonl");
 
     if (!existsSync(logDir)) {
@@ -60,7 +60,7 @@ export const statsCommand = new Command("stats")
   .description("Show agent performance statistics")
   .action(async () => {
     const root = findMonorepoRoot(process.cwd());
-    const logFile = join(root, "docs/logs/agent-perf.jsonl");
+    const logFile = join(root, "metrics/agent-perf.jsonl");
 
     if (!existsSync(logFile)) {
       console.log("No performance data found. Run some tasks first!");
@@ -95,8 +95,8 @@ export const auditPerfCommand = new Command("audit-perf")
   .option("--auto-plan", "Automatically generate a GSD plan for the top improvement", false)
   .action(async (options) => {
     const root = findMonorepoRoot(process.cwd());
-    const logFile = join(root, "docs/logs/agent-perf.jsonl");
-    const lastAuditFile = join(root, "docs/logs/last-audit.json");
+    const logFile = join(root, "metrics/agent-perf.jsonl");
+    const lastAuditFile = join(root, "metrics/last-audit.json");
 
     if (!existsSync(logFile)) {
       console.log("No performance data found. Run some tasks first!");
@@ -172,7 +172,7 @@ export const auditPerfCommand = new Command("audit-perf")
 
       if (!existsSync(quickDir)) mkdirSync(quickDir, { recursive: true });
 
-      const planContent = `# Auto-Generated Performance Optimization: ${top.id}\n\n**Source**: mbe audit-perf\n**Detected Issue**: ${top.msg}\n\n## Objective\n${top.action}\n\n## Implementation Steps\n1. Analyze the last 5 sessions in \`docs/logs/agent-perf.jsonl\` to find specific files.\n2. Apply the recommended optimization.\n3. Verify improvement by running \`mbe stats\`.\n`;
+      const planContent = `# Auto-Generated Performance Optimization: ${top.id}\n\n**Source**: mbe audit-perf\n**Detected Issue**: ${top.msg}\n\n## Objective\n${top.action}\n\n## Implementation Steps\n1. Analyze the last 5 sessions in \`metrics/agent-perf.jsonl\` to find specific files.\n2. Apply the recommended optimization.\n3. Verify improvement by running \`mbe stats\`.\n`;
 
       writeFileSync(planPath, planContent);
       console.log(`\n🚀 Created autonomous optimization plan at: ${planPath}`);

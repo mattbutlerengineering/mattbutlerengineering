@@ -37,6 +37,6 @@ jobs:
           branch: automation/pr-acceptance-metrics
           delete-branch: true
           add-paths: |
-            docs/metrics/pr-acceptance.json
+            metrics/pr-acceptance.json
             apps/marketing/public/metrics.json
           labels: auto-merge
