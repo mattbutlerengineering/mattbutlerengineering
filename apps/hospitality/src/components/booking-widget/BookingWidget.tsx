@@ -3,6 +3,7 @@ import { createApiClient } from "@mbe/api-client";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import type { DepositConfig } from "@mbe/types";
+import { quoteDeposit } from "@mbe/cancellation-policy";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
@@ -331,7 +332,9 @@ export function BookingWidget({
         <ConfirmationView
           reservation={data.reservation}
           depositAmountCents={
-            data.depositPaymentIntentId ? (data.depositConfig?.amountCents ?? null) : null
+            data.depositPaymentIntentId && data.depositConfig
+              ? quoteDeposit(data.depositConfig, data.partySize)
+              : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
           cancellationPolicySummary={formatDepositCancellationTerms(
