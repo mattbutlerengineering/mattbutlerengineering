@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Span } from "@opentelemetry/api";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { SessionConfig } from "./types.js";
-import type { QaTuningThresholds } from "./qa-tuning-loader.js";
+import type { SessionConfig } from "../types.js";
+import type { QaTuningThresholds } from "../qa-tuning-loader.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
 //
@@ -11,7 +11,7 @@ import type { QaTuningThresholds } from "./qa-tuning-loader.js";
 // update. Both are mocked so this test stays a pure unit test over
 // SessionState fixtures — no full-session mocking.
 
-vi.mock("./failure-memory.js", () => ({
+vi.mock("../failure-memory.js", () => ({
   recordFailure: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -19,10 +19,10 @@ vi.mock("@langfuse/tracing", () => ({
   updateActiveObservation: vi.fn(),
 }));
 
-import { recordFailure } from "./failure-memory.js";
+import { recordFailure } from "../failure-memory.js";
 import { updateActiveObservation } from "@langfuse/tracing";
-import { buildFinalResult, buildRootSpanAttributes } from "./result-builder.js";
-import type { SessionState } from "./result-builder.js";
+import { buildFinalResult, buildRootSpanAttributes } from "../result-builder.js";
+import type { SessionState } from "../result-builder.js";
 
 const BASE_CONFIG: SessionConfig = {
   taskDescription: "Fix the login bug",

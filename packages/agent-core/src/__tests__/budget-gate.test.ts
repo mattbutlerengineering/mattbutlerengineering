@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { shouldHaltForBudget } from "./budget-gate.js";
-import type { TurnMetrics } from "./types.js";
+import { shouldHaltForBudget } from "../budget-gate.js";
+import type { TurnMetrics } from "../types.js";
 
 function makeTurn(costUsd: number, turnIndex = 1): TurnMetrics {
   return {

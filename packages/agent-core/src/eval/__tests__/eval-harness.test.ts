@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { runEvalSuite } from "./eval-harness.js";
-import type { DeterministicChecks, Task, TaskRunResult, TaskRunner } from "./types.js";
-import type { SessionResult } from "../types.js";
+import { runEvalSuite } from "../eval-harness.js";
+import type { DeterministicChecks, Task, TaskRunResult, TaskRunner } from "../types.js";
+import type { SessionResult } from "../../types.js";
 
 function makeTask(id: string, overrides: Partial<Task> = {}): Task {
   return {

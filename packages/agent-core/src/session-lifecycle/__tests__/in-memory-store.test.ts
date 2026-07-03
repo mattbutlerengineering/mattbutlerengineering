@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createInMemorySessionStore } from "./in-memory-store.js";
+import { createInMemorySessionStore } from "../in-memory-store.js";
 
 describe("createInMemorySessionStore", () => {
   it("creates a session in pending status with defaults applied", async () => {
