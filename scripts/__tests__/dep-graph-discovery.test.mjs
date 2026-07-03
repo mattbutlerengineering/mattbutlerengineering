@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildGraph, classifyType } from "../dep-graph-discovery.mjs";
+import {
+  buildGraph,
+  classifyType,
+  scanScriptsImports,
+  ENTRYPOINT_PACKAGES,
+} from "../dep-graph-discovery.mjs";
 
 describe("classifyType", () => {
   it("classifies apps/ as app", () => {
@@ -104,5 +109,64 @@ describe("buildGraph", () => {
   it("has at least 20 nodes (known workspace size)", () => {
     const graph = buildGraph();
     expect(graph.nodes.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("discovers @mbe/gh-client as consumed by @mbe/scripts via source import scan", () => {
+    const graph = buildGraph();
+    const edge = graph.edges.find((e) => e.from === "@mbe/scripts" && e.to === "@mbe/gh-client");
+    expect(edge).toBeDefined();
+  });
+
+  it("tags known standalone entrypoint packages", () => {
+    const graph = buildGraph();
+    for (const name of ENTRYPOINT_PACKAGES) {
+      const node = graph.nodes.find((n) => n.name === name);
+      expect(node, `missing node for entrypoint package ${name}`).toBeDefined();
+      expect(node.entrypoint, `${name} should be tagged entrypoint`).toBe(true);
+    }
+  });
+
+  it("does not tag regular packages as entrypoint", () => {
+    const graph = buildGraph();
+    const node = graph.nodes.find((n) => n.name === "@mbe/config");
+    expect(node.entrypoint).toBeUndefined();
+  });
+
+  it("does not duplicate an edge already declared in package.json", () => {
+    const graph = buildGraph();
+    const matches = graph.edges.filter(
+      (e) => e.from === "@mbe/scripts" && e.to === "@mbe/gh-client"
+    );
+    expect(matches.length).toBe(1);
+  });
+});
+
+describe("scanScriptsImports", () => {
+  it("finds an edge for every @mbe/* import statement in scripts/ source files", () => {
+    const nameSet = new Set(["@mbe/gh-client", "@mbe/agent-core", "@mbe/scripts"]);
+    const edges = scanScriptsImports(nameSet);
+    const targets = edges.map((e) => e.to);
+    expect(targets).toContain("@mbe/gh-client");
+    expect(targets).toContain("@mbe/agent-core");
+  });
+
+  it("only produces edges from @mbe/scripts", () => {
+    const nameSet = new Set(["@mbe/gh-client", "@mbe/agent-core"]);
+    const edges = scanScriptsImports(nameSet);
+    expect(edges.every((e) => e.from === "@mbe/scripts")).toBe(true);
+    expect(edges.every((e) => e.type === "dependency")).toBe(true);
+  });
+
+  it("ignores import specifiers not present in the known name set", () => {
+    const nameSet = new Set(["@mbe/nonexistent-package"]);
+    const edges = scanScriptsImports(nameSet);
+    expect(edges.length).toBe(0);
+  });
+
+  it("deduplicates repeated imports of the same package across files", () => {
+    const nameSet = new Set(["@mbe/gh-client"]);
+    const edges = scanScriptsImports(nameSet);
+    const ghClientEdges = edges.filter((e) => e.to === "@mbe/gh-client");
+    expect(ghClientEdges.length).toBe(1);
   });
 });

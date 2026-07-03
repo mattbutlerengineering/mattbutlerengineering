@@ -460,6 +460,72 @@
       function loadEnvFile(): void { /* ... */ }
     </item>
   </file>
+  <file path="tools/cli/src/commands/agent/check-model.ts">
+    <item priority="medium">
+      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface FetchedIssue {
+        title: string;
+        body: string;
+        labels: string[];
+      }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/cost.ts">
+    <item priority="high">
+      interface TurnMetrics {
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+      }
+    </item>
+    <item priority="high">
+      interface ToolCallMetrics {
+        toolName: string;
+        toolUseId: string;
+        latencyMs: number;
+        isError: boolean;
+      }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/orchestrate.ts">
+    <item priority="high">
+      export const orchestrateCommand: unknown;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/run.ts">
+    <item priority="high">
+      interface SpendRecord {
+        date: string;
+        timestamp: string;
+        costUsd: number;
+        issueNumber: number | null;
+        model: string;
+      }
+    </item>
+    <item priority="medium">
+      function logSpend(record: SpendRecord): void { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/session-api.ts">
+    <item priority="low">
+      async function streamEvents(sessionId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const startCommand: unknown;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/shared.ts">
+    <item priority="high">
+      export function formatDuration(ms: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCost(usd: number): string { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -482,7 +548,10 @@
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
     <item priority="high">
-      export function formatDepositCancellationTerms(config: DepositConfig | null): string | null { /* ... */ }
+      export function formatDepositCancellationTerms(
+        config: DepositConfig | null,
+        partySize: number
+      ): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
@@ -546,17 +615,8 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    <item priority="medium">
-      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
-    </item>
     <item priority="high">
-      interface SpendRecord {
-        date: string;
-        timestamp: string;
-        costUsd: number;
-        issueNumber: number | null;
-        model: string;
-      }
+      export const agentCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
@@ -4267,6 +4327,17 @@
     </item>
     <item priority="low">
       type FeeType = "none" | "late" | "noshow";
+    </item>
+  </file>
+  <file path="packages/cancellation-policy/src/deposit-quote.ts">
+    <item priority="low">
+      type DepositType = "flat" | "per_person";
+    </item>
+    <item priority="low">
+      interface DepositQuoteConfig {
+        depositType: DepositType | null;
+        amountCents: number | null;
+      }
     </item>
   </file>
   <file path="packages/database/src/index.ts">

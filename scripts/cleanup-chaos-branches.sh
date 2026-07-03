@@ -1,6 +1,6 @@
 #!/bin/bash
 # cleanup-chaos-branches.sh — delete all stale chaos/synthetic-bug-* branches
-# Usage: ./tools/scripts/cleanup-chaos-branches.sh
+# Usage: ./scripts/cleanup-chaos-branches.sh
 
 set -euo pipefail
 

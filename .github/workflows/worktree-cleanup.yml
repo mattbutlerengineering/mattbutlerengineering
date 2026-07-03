@@ -30,7 +30,7 @@ jobs:
         run: |
           # Agent worktrees live under .claude/worktrees/ locally (gitignored).
           # This job cleans the remote branches those sessions created.
-          # Local worktree cleanup: run scripts/clean-worktrees.sh on dev machines.
+          # Local worktree cleanup: run `mbe cleanup-worktrees` on dev machines.
 
           REMOVED=0
           SKIPPED=0
@@ -84,4 +84,4 @@ jobs:
           echo "Skipped: $SKIPPED"
           echo "Dry run: $DRY_RUN"
           echo ""
-          echo "NOTE: For local worktree cleanup, run: scripts/clean-worktrees.sh"
+          echo "NOTE: For local worktree cleanup, run: mbe cleanup-worktrees"

@@ -20,7 +20,10 @@
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
     <item priority="high">
-      export function formatDepositCancellationTerms(config: DepositConfig | null): string | null { /* ... */ }
+      export function formatDepositCancellationTerms(
+        config: DepositConfig | null,
+        partySize: number
+      ): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">

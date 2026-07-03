@@ -118,7 +118,7 @@ describe("OpenCodeAdapter", () => {
   // ── run — command construction ──────────────────────────────────
 
   describe("run", () => {
-    it("builds correct opencode command arguments with run subcommand", async () => {
+    it("builds correct opencode command arguments with run subcommand, requesting JSON output (#3019)", async () => {
       setupExecFileMock({
         opencode: [{ stdout: "Done!" }],
         "git-status": [{ stdout: "" }], // no changes
@@ -129,7 +129,7 @@ describe("OpenCodeAdapter", () => {
       // Verify opencode was called with correct args
       const opencodeCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "opencode");
       expect(opencodeCall).toBeDefined();
-      expect(opencodeCall![1]).toEqual(["run", "Fix the login bug in auth.ts"]);
+      expect(opencodeCall![1]).toEqual(["run", "Fix the login bug in auth.ts", "--format", "json"]);
       // Verify cwd is set to worktreePath
       expect(opencodeCall![2]).toMatchObject({
         cwd: "/tmp/worktree-abc123",
@@ -245,6 +245,41 @@ describe("OpenCodeAdapter", () => {
 
       expect(result.costUsd).toBeCloseTo(0.015, 6);
       expect(result.tokenUsage).toEqual({ inputTokens: 500, outputTokens: 100 });
+    });
+  });
+
+  // ── run — soft-error extraction from JSON stdout (#3019, ADR-017) ──
+
+  describe("soft-error extraction on failure", () => {
+    it("recovers the error message from a `type: error` NDJSON event when opencode exits non-zero", async () => {
+      // Matches the real `opencode run --format json` failure event shape.
+      const jsonStdout = JSON.stringify({
+        type: "error",
+        sessionID: "ses_abc123",
+        error: { name: "UnknownError", data: { message: "Unexpected server error." } },
+      });
+
+      setupExecFileMock({
+        opencode: [{ error: true, stdout: jsonStdout, stderr: "" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Unexpected server error.");
+    });
+
+    it("falls back to stderr when opencode's stdout is not JSON", async () => {
+      setupExecFileMock({
+        opencode: [{ error: true, stdout: "not json output", stderr: "Something went wrong" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Something went wrong");
     });
   });
 

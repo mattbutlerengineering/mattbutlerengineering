@@ -861,6 +861,17 @@
         return {};
       }
     
+      /**
+       * Recover a human-readable error message from the CLI's stdout when the
+       * run failed, for backends that emit structured JSON there instead of (or
+       * in addition to) stderr. Base implementation reports none — `run()`
+       * falls through to the raw stderr text (see ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected parseErrorFromStdout(_stdout: string): string | undefined {
+        return undefined;
+      }
+    
       // ── Public AgentAdapter implementation ──────────────────────────
     
       /**
@@ -918,7 +929,11 @@
           ...usage,
           ...(exitedSuccessfully
             ? {}
-            : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+            : {
+                error:
+                  this.parseErrorFromStdout(stdout) ??
+                  (stderr || `${this.displayName} CLI exited with non-zero status`),
+              }),
         };
       }
     
@@ -1213,16 +1228,24 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["-p", config.taskDescription, "--yolo"];
+        return ["-p", config.taskDescription, "--yolo", "--output-format", "json"];
       }
     
       /**
-       * Gemini CLI's default text output carries no usage data — this only
-       * yields real tokenUsage if stdout happens to be the `--output-format
-       * json` blob (not currently requested by buildArgs; see cli-usage-parser.ts).
+       * Parses real cost/tokenUsage from the `--output-format json` blob
+       * requested by buildArgs (#3019).
        */
       protected override parseUsage(stdout: string): CliUsage {
         return parseGeminiUsage(stdout);
+      }
+    
+      /**
+       * Recovers Gemini's structured error message from the same JSON stdout
+       * blob on failure, falling back to raw stderr in CliAdapterBase.run()
+       * when stdout isn't JSON (ADR-017 failure-PR-body contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractGeminiError(stdout);
       }
     }
   </file>
@@ -1235,17 +1258,25 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["run", config.taskDescription];
+        return ["run", config.taskDescription, "--format", "json"];
       }
     
       /**
-       * OpenCode CLI's default text output carries no usage data — this only
-       * yields real cost/tokenUsage if stdout happens to be the `--format json`
-       * NDJSON event stream (not currently requested by buildArgs; see
-       * cli-usage-parser.ts).
+       * Parses real cost/tokenUsage from the `--format json` NDJSON event
+       * stream requested by buildArgs (#3019).
        */
       protected override parseUsage(stdout: string): CliUsage {
         return parseOpenCodeUsage(stdout);
+      }
+    
+      /**
+       * Recovers OpenCode's structured `type: "error"` event message from the
+       * same NDJSON stdout stream on failure, falling back to raw stderr in
+       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractOpenCodeError(stdout);
       }
     }
   </file>
@@ -1269,6 +1300,319 @@
       }
     }
   </file>
+  <file path="tools/cli/src/commands/agent/check-model.ts">
+    function loadTelemetryHistory(): TelemetryRow[] {
+      let content: string;
+      try {
+        content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
+      } catch {
+        return [];
+      }
+      return content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line) as TelemetryRow];
+          } catch {
+            return [];
+          }
+        });
+    }
+    interface FetchedIssue {
+      title: string;
+      body: string;
+      labels: string[];
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent/cost.ts">
+    interface TurnMetrics {
+      turnIndex: number;
+      startedAt: string;
+      inputTokens: number;
+      outputTokens: number;
+      thinkingTokens: number;
+      costUsd: number;
+      modelId: string;
+    }
+    interface ToolCallMetrics {
+      toolName: string;
+      toolUseId: string;
+      latencyMs: number;
+      isError: boolean;
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent/orchestrate.ts">
+    export const orchestrateCommand = new Command("orchestrate")
+      .argument("<task>")
+      .description("Decompose a complex task into parallel agent sessions")
+      .option("-m, --model <model>", "Model for the orchestrator agent", DEFAULT_SESSION_CONFIG.model)
+      .option(
+        "--session-model <model>",
+        "Model for child coding sessions",
+        DEFAULT_SESSION_CONFIG.model
+      )
+      .option(
+        "--max-budget <usd>",
+        "Budget cap per child session in USD",
+        String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
+      )
+      .option("--max-turns <n>", "Max turns per child session", String(DEFAULT_SESSION_CONFIG.maxTurns))
+      .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
+      .option("--max-concurrent <n>", "Max parallel child sessions", "3")
+      .action(
+        async (
+          task: string,
+          options: {
+            model: string;
+            sessionModel: string;
+            maxBudget: string;
+            maxTurns: string;
+            baseBranch: string;
+            maxConcurrent: string;
+          }
+        ) => {
+          console.log("Orchestration");
+          console.log("─────────────");
+          console.log(`Task:            ${task}`);
+          console.log(`Orchestrator:    ${options.model}`);
+          console.log(`Session model:   ${options.sessionModel}`);
+          console.log(`Budget/session:  ${formatCost(parseFloat(options.maxBudget))}`);
+          console.log(`Max concurrent:  ${options.maxConcurrent}`);
+          console.log("");
+          console.log("Sending to agent service...");
+          console.log("");
+    
+          try {
+            interface OrchestrateApiResponse {
+              data: {
+                parentSessionId: string;
+                status: string;
+                childSessionIds: string[];
+                summary: string;
+                totalCostUsd: number;
+                durationMs: number;
+              };
+            }
+    
+            const response = await createAgentApiClient().request<OrchestrateApiResponse>(
+              "/v1/orchestrate",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  taskDescription: task,
+                  model: options.model,
+                  sessionModel: options.sessionModel,
+                  maxBudgetPerSession: parseFloat(options.maxBudget),
+                  maxTurnsPerSession: parseInt(options.maxTurns, 10),
+                  baseBranch: options.baseBranch,
+                  maxConcurrentSessions: parseInt(options.maxConcurrent, 10),
+                }),
+              }
+            );
+    
+            const { data } = response;
+    
+            console.log("Orchestration Result");
+            console.log("────────────────────");
+            console.log(`Status:          ${formatStatus(data.status)}`);
+            console.log(`Parent session:  ${data.parentSessionId}`);
+            console.log(`Child sessions:  ${data.childSessionIds.length}`);
+            console.log(`Total cost:      ${formatCost(data.totalCostUsd)}`);
+            console.log(`Duration:        ${formatDuration(data.durationMs)}`);
+            console.log("");
+    
+            if (data.childSessionIds.length > 0) {
+              console.log("Child Sessions:");
+              for (const childId of data.childSessionIds) {
+                try {
+                  const child = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+                    `/v1/sessions/${childId}`
+                  );
+                  const s = child.data;
+                  console.log(
+                    `  ${formatStatus(s.status).padEnd(14)} ${s.id}  ${s.prUrl ?? "(no PR)"}`
+                  );
+                } catch {
+                  console.log(`  ?              ${childId}`);
+                }
+              }
+              console.log("");
+            }
+    
+            if (data.summary) {
+              console.log("Summary:");
+              console.log(data.summary);
+            }
+    
+            const exitCode = data.status === "succeeded" ? 0 : 1;
+            process.exit(exitCode);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Error: ${message}`);
+            process.exit(1);
+          }
+        }
+      );
+  </file>
+  <file path="tools/cli/src/commands/agent/run.ts">
+    interface SpendRecord {
+      date: string;
+      timestamp: string;
+      costUsd: number;
+      issueNumber: number | null;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      numTurns: number;
+    }
+    function logSpend(record: SpendRecord): void {
+      try {
+        const logDir = dirname(SPEND_LOG_PATH);
+        if (!existsSync(logDir)) {
+          mkdirSync(logDir, { recursive: true });
+        }
+        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
+      } catch {
+        // Silently swallow — spend logging is best-effort
+      }
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent/session-api.ts">
+    async function streamEvents(sessionId: string): Promise<void> {
+      const response = await fetch(`${AGENT_API_URL}/v1/sessions/${sessionId}/events`);
+    
+      if (!response.ok) {
+        throw new Error(`Failed to connect to event stream (${response.status})`);
+      }
+    
+      if (!response.body) {
+        throw new Error("No response body for event stream");
+      }
+    
+      const decoder = new TextDecoder();
+      const reader = response.body.getReader();
+    
+      let buffer = "";
+    
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+    
+          buffer += decoder.decode(value, { stream: true });
+    
+          // Parse SSE lines
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+    
+          let currentEvent = "";
+    
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7);
+            } else if (line.startsWith("data: ")) {
+              const rawData = line.slice(6);
+    
+              if (currentEvent === "stream:end") {
+                const data = JSON.parse(rawData) as { reason: string; status?: string };
+                console.log(`\nStream ended: ${data.reason}${data.status ? ` (${data.status})` : ""}`);
+                return;
+              }
+    
+              if (currentEvent === "stream:error") {
+                const data = JSON.parse(rawData) as { message: string };
+                console.error(`\nStream error: ${data.message}`);
+                return;
+              }
+    
+              const event = JSON.parse(rawData) as AgentSessionEvent;
+              const timestamp = new Date(event.createdAt).toLocaleTimeString();
+              const message = (event.data as { message?: string }).message;
+    
+              if (message) {
+                console.log(`[${timestamp}] ${event.type}: ${message}`);
+              } else {
+                console.log(`[${timestamp}] ${event.type}: ${JSON.stringify(event.data)}`);
+              }
+    
+              currentEvent = "";
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    export const startCommand = new Command("start")
+      .argument("<task>")
+      .description("Create and start a session via the agent API")
+      .option("-m, --model <model>", "Claude model to use", DEFAULT_SESSION_CONFIG.model)
+      .option(
+        "--max-budget <usd>",
+        "Maximum budget in USD",
+        String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
+      )
+      .option("--max-turns <n>", "Maximum conversation turns", String(DEFAULT_SESSION_CONFIG.maxTurns))
+      .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
+      .option("-f, --follow", "Follow session logs after creation", false)
+      .action(
+        async (
+          task: string,
+          options: {
+            model: string;
+            maxBudget: string;
+            maxTurns: string;
+            baseBranch: string;
+            follow: boolean;
+          }
+        ) => {
+          try {
+            const response = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+              "/v1/sessions",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  taskDescription: task,
+                  model: options.model,
+                  maxTurns: parseInt(options.maxTurns, 10),
+                  maxBudgetUsd: parseFloat(options.maxBudget),
+                  baseBranch: options.baseBranch,
+                }),
+              }
+            );
+    
+            console.log("Session created");
+            console.log("───────────────");
+            printSession(response.data);
+    
+            if (options.follow) {
+              console.log("");
+              console.log("Streaming events...");
+              console.log("");
+              await streamEvents(response.data.id);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Error: ${message}`);
+            process.exit(1);
+          }
+        }
+      );
+  </file>
+  <file path="tools/cli/src/commands/agent/shared.ts">
+    export function formatDuration(ms: number): string {
+      const seconds = Math.floor(ms / 1000);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      const remaining = seconds % 60;
+      return `${minutes}m ${remaining}s`;
+    }
+    export function formatCost(usd: number): string {
+      return `$${usd.toFixed(4)}`;
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -1290,15 +1634,18 @@
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
-    export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+    export function formatDepositCancellationTerms(
+      config: DepositConfig | null,
+      partySize: number
+    ): string | null {
       if (!config || config.freeCancellationHours == null) return null;
-      const feePercent = config.lateCancellationFeePercent ?? 0;
-      const feeAmountCents = Math.floor(((config.amountCents ?? 0) * feePercent) / 100);
-      const formattedFee = formatCurrencyFromCents(feeAmountCents, config.currency);
-      return (
-        `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
-        `After that, a ${feePercent}% fee (${formattedFee}) applies.`
-      );
+      const policy: CancellationPolicy = {
+        depositAmountCents: quoteDeposit(config, partySize),
+        freeCancellationHours: config.freeCancellationHours,
+        lateCancellationFeePercent: config.lateCancellationFeePercent,
+        noShowFeePercent: config.noShowFeePercent,
+      };
+      return formatCancellationTerms(policy, config.currency);
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
@@ -1485,35 +1832,7 @@
       });
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    function loadTelemetryHistory(): TelemetryRow[] {
-      let content: string;
-      try {
-        content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
-      } catch {
-        return [];
-      }
-      return content
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .flatMap((line) => {
-          try {
-            return [JSON.parse(line) as TelemetryRow];
-          } catch {
-            return [];
-          }
-        });
-    }
-    interface SpendRecord {
-      date: string;
-      timestamp: string;
-      costUsd: number;
-      issueNumber: number | null;
-      model: string;
-      inputTokens: number;
-      outputTokens: number;
-      numTurns: number;
-    }
+    export const agentCommand = new Command("agent").description("Run autonomous coding agents");
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
     export const checkDepsCommand = new Command("check-deps")
@@ -15729,6 +16048,13 @@
       noShowFeePercent: number | null;
     }
     export type FeeType = "none" | "late" | "noshow";
+  </file>
+  <file path="packages/cancellation-policy/src/deposit-quote.ts">
+    export type DepositType = "flat" | "per_person";
+    export interface DepositQuoteConfig {
+      depositType: DepositType | null;
+      amountCents: number | null;
+    }
   </file>
   <file path="packages/database/src/index.ts">
     export function isPrismaNotFound(err: unknown): boolean {
