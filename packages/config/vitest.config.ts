@@ -8,8 +8,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["vitest/*.ts"],
-      exclude: ["vitest/*.test.ts"],
+      include: ["vitest/*.js"],
+      exclude: ["vitest/*.test.ts", "vitest/*.d.ts"],
       thresholds: {
         lines: 90,
         branches: 80,

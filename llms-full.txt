@@ -18285,18 +18285,13 @@
   </file>
   </section>
   <section priority="medium" role="vitest">
-  <file path="packages/config/vitest/base.ts">
-    type TestConfig = NonNullable<ViteUserConfig["test"]>;
-    type CoverageConfig = NonNullable<TestConfig["coverage"]>;
-  </file>
-  <file path="packages/config/vitest/node.ts">
-    export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig {
-      return buildVitestPreset(options);
-    }
-  </file>
-  <file path="packages/config/vitest/react.ts">
-    export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig {
-      return buildVitestPreset({ environment: "jsdom", ...options }, { plugins: [react()] });
+  <file path="packages/config/vitest/base.d.ts">
+    type CoverageConfig = NonNullable<NonNullable<ViteUserConfig["test"]>["coverage"]>;
+    export interface CoverageThresholds {
+      lines?: number;
+      branches?: number;
+      functions?: number;
+      statements?: number;
     }
   </file>
   </section>

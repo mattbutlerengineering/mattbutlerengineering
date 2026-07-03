@@ -10,11 +10,11 @@
     "./eslint/react": "./eslint/react.js",
     "./eslint/node": "./eslint/node.js",
     "./prettier": "./prettier/index.js",
-    "./vitest/node": "./vitest/node.ts",
-    "./vitest/react": "./vitest/react.ts"
+    "./vitest/node": "./vitest/node.js",
+    "./vitest/react": "./vitest/react.js"
   },
   "imports": {
-    "#vitest-base": "./vitest/base.ts"
+    "#vitest-base": "./vitest/base.js"
   },
   "type": "module",
   "scripts": {
