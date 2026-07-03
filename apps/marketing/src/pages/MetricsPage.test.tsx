@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { MetricsPage } from "./MetricsPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -60,6 +62,24 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(
+    <Wrapper>
+      <MetricsPage />
+    </Wrapper>
+  );
+}
+
 const MOCK_METRICS = {
   schema: "acmm-metrics-v1",
   generatedAt: "2026-05-01T10:00:00Z",
@@ -115,9 +135,15 @@ const mockMetrics = {
 };
 
 describe("MetricsPage", () => {
+  it("throws when rendered outside a QueryClientProvider", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<MetricsPage />)).toThrow(/QueryClient/i);
+    consoleError.mockRestore();
+  });
+
   it("renders loading state with spinner", () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
-    render(<MetricsPage />);
+    renderPage();
 
     expect(screen.getByText("Quality Metrics")).toBeInTheDocument();
     expect(screen.getByTestId("spinner")).toBeInTheDocument();
@@ -125,7 +151,7 @@ describe("MetricsPage", () => {
 
   it("renders error state when fetch fails", async () => {
     mockFetch.mockRejectedValue(new Error("Network error"));
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText(/Error loading metrics/)).toBeInTheDocument();
@@ -135,7 +161,7 @@ describe("MetricsPage", () => {
 
   it("renders error state when response is not ok", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 404 });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText(/Error loading metrics:.*404/)).toBeInTheDocument();
@@ -147,7 +173,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => MOCK_METRICS,
     });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Integrated")).toBeInTheDocument();
@@ -161,7 +187,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => MOCK_METRICS,
     });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       const passBadges = screen.getAllByText("Pass");
@@ -176,7 +202,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => MOCK_METRICS,
     });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("85.0%")).toBeInTheDocument();
@@ -191,7 +217,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => MOCK_METRICS,
     });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       const dateTexts = screen.getAllByText(/2026-0[45]-01/);
@@ -206,7 +232,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => MOCK_METRICS,
     });
-    render(<MetricsPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText("Level 1")).toBeInTheDocument();
@@ -220,13 +246,13 @@ describe("MetricsPage", () => {
 
   it("renders loading state initially", () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
-    render(<MetricsPage />);
+    renderPage();
     expect(screen.getByTestId("spinner")).toBeInTheDocument();
   });
 
   it("renders error state on fetch failure", async () => {
     mockFetch.mockRejectedValue(new Error("Network failure"));
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText(/error loading metrics/i)).toBeInTheDocument();
     });
@@ -237,7 +263,7 @@ describe("MetricsPage", () => {
       ok: false,
       status: 404,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText(/error loading metrics/i)).toBeInTheDocument();
     });
@@ -248,7 +274,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => mockMetrics,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Quality Metrics")).toBeInTheDocument();
       expect(screen.getByText("L4 — Managed")).toBeInTheDocument();
@@ -262,7 +288,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => mockMetrics,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("PR Acceptance")).toBeInTheDocument();
       expect(screen.getByText("PR Revert Rate")).toBeInTheDocument();
@@ -276,7 +302,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => mockMetrics,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("2026-04-01")).toBeInTheDocument();
       expect(screen.getByText("2026-05-01")).toBeInTheDocument();
@@ -288,7 +314,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => mockMetrics,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Level 1")).toBeInTheDocument();
       expect(screen.getByText("Level 2")).toBeInTheDocument();
@@ -301,7 +327,7 @@ describe("MetricsPage", () => {
       ok: true,
       json: async () => mockMetrics,
     });
-    render(<MetricsPage />);
+    renderPage();
     await waitFor(() => {
       const link = screen.getByText("View raw JSON");
       expect(link).toBeInTheDocument();

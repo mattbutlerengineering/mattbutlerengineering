@@ -1,6 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
 import { formatRatio, formatDate } from "../utils/formatters.js";
-import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./MetricsPage.module.css";
 
 interface BehavioralGate {
@@ -45,8 +45,23 @@ interface AcmmMetrics {
   readonly behavioralGates: readonly BehavioralGate[];
 }
 
+async function fetchMetrics(signal: AbortSignal): Promise<AcmmMetrics> {
+  const response = await fetch("/metrics.json", { signal });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return (await response.json()) as AcmmMetrics;
+}
+
 export function MetricsPage() {
-  const { data: metrics, isLoading, error } = useDataFetch<AcmmMetrics>({ url: "/metrics.json" });
+  const {
+    data: metrics,
+    isLoading,
+    error,
+  } = useQuery<AcmmMetrics>({
+    queryKey: ["metrics"],
+    queryFn: ({ signal }) => fetchMetrics(signal),
+  });
 
   if (error) {
     return (
