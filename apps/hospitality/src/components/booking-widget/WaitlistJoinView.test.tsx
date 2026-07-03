@@ -35,8 +35,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 const mockApi = {
-  waitlist: {
-    join: vi.fn(),
+  publicVenue: {
+    joinWaitlist: vi.fn(),
   },
 };
 
@@ -125,7 +125,7 @@ describe("WaitlistJoinView", () => {
 
   it("calls onJoined with position and estimatedWaitMinutes after successful join", async () => {
     const onJoined = vi.fn();
-    mockApi.waitlist.join.mockResolvedValue({ position: 3, estimatedWaitMinutes: 45 });
+    mockApi.publicVenue.joinWaitlist.mockResolvedValue({ position: 3, estimatedWaitMinutes: 45 });
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} onJoined={onJoined} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
@@ -135,7 +135,7 @@ describe("WaitlistJoinView", () => {
     await waitFor(() => {
       expect(onJoined).toHaveBeenCalledWith({ position: 3, estimatedWaitMinutes: 45 });
     });
-    expect(mockApi.waitlist.join).toHaveBeenCalledWith("test-venue", {
+    expect(mockApi.publicVenue.joinWaitlist).toHaveBeenCalledWith("test-venue", {
       venueId: "venue-1",
       partySize: 2,
       guestName: "Jane Doe",
@@ -144,7 +144,7 @@ describe("WaitlistJoinView", () => {
   });
 
   it("shows error alert on API failure", async () => {
-    mockApi.waitlist.join.mockRejectedValue(
+    mockApi.publicVenue.joinWaitlist.mockRejectedValue(
       new ApiClientError(
         { error: "Error", message: "Server error", statusCode: 500 },
         "POST",
@@ -169,7 +169,7 @@ describe("WaitlistJoinView", () => {
     const pendingJoin = new Promise((r) => {
       resolveJoin = r;
     });
-    mockApi.waitlist.join.mockReturnValue(pendingJoin);
+    mockApi.publicVenue.joinWaitlist.mockReturnValue(pendingJoin);
 
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
