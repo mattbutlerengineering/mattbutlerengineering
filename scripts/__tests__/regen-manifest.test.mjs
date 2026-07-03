@@ -238,6 +238,26 @@ describe("familiesForChangedFile", () => {
     ]);
   });
 
+  // Regression test for #2983: CLAUDE_PROJECT_DIR (or the git rev-parse
+  // fallback) and CLAUDE_FILE_PATH can disagree on the real path when a
+  // symlink is involved (e.g. macOS /tmp -> /private/tmp). When that happens,
+  // the PostToolUse hook's prefix-strip silently fails and passes an absolute
+  // path straight through to `--families-for`. packageDirFor() must still
+  // resolve the owning package instead of returning null and no-op'ing on a
+  // genuine package-source edit.
+  it("maps an absolute path (root/file-path mismatch, e.g. symlinked /tmp) to a package-scoped llms-txt family", () => {
+    const matches = familiesForChangedFile(
+      "/private/tmp/some-worktree/packages/rialto/src/Foo.tsx"
+    );
+    expect(matches.length).toBe(1);
+    expect(matches[0].id).toBe("llms-txt");
+    expect(matches[0].command).toBe("pnpm --filter @mbe/cli start pack packages/rialto");
+    expect(matches[0].outputs).toEqual([
+      "packages/rialto/llms.txt",
+      "packages/rialto/llms-full.txt",
+    ]);
+  });
+
   it("maps a CLAUDE.md edit inside a covered package to a package-scoped llms-txt family", () => {
     const matches = familiesForChangedFile("services/agent/CLAUDE.md");
     expect(matches.length).toBe(1);
