@@ -163,21 +163,16 @@ describe("DepositService", () => {
   });
 
   describe("hold (pending -> held)", () => {
-    it("updates deposit to held and stores paymentIntentId", async () => {
+    it("updates deposit to held via a pending-guarded CAS and returns true", async () => {
       const pendingDeposit = makeDeposit({ status: "pending" });
-      const heldDeposit = makeDeposit({
-        status: "held",
-        stripePaymentIntentId: "pi_test_123",
-        heldAt: new Date(),
-      });
       mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
-      mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await depositService.hold("dep-123", "pi_test_123");
 
-      expect(mockDepositDb.update).toHaveBeenCalledWith(
+      expect(mockDepositDb.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "dep-123" },
+          where: { id: "dep-123", status: "pending" },
           data: expect.objectContaining({
             status: "held",
             stripePaymentIntentId: "pi_test_123",
@@ -185,7 +180,37 @@ describe("DepositService", () => {
           }),
         })
       );
-      expect(result.status).toBe("held");
+      expect(result).toBe(true);
+    });
+
+    it("returns false without re-transitioning when the CAS races (updateMany returns count 0)", async () => {
+      // A concurrent call (e.g. a retried Stripe webhook delivery) already
+      // moved the row off `pending` between our read and our write.
+      const pendingDeposit = makeDeposit({ status: "pending" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 0 }); // lost the race
+
+      const result = await depositService.hold("dep-123", "pi_test_123");
+
+      expect(result).toBe(false);
+    });
+
+    it("calling hold() twice does not re-transition the second call (idempotent)", async () => {
+      const pendingDeposit = makeDeposit({ status: "pending" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(pendingDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      const firstResult = await depositService.hold("dep-123", "pi_test_123");
+
+      // Second call observes the deposit already `held` — transitionDeposit
+      // rejects it before ever reaching the CAS.
+      const heldDeposit = makeDeposit({ status: "held" });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+
+      expect(firstResult).toBe(true);
+      await expect(depositService.hold("dep-123", "pi_test_123")).rejects.toThrow(
+        /invalid.*transition|cannot transition/i
+      );
+      expect(mockDepositDb.updateMany).toHaveBeenCalledTimes(1);
     });
 
     it("throws if deposit is not in pending state", async () => {

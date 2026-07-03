@@ -9619,7 +9619,11 @@
         return;
       }
     
-      // Only transition from pending to held if not already transitioned
+      // Only transition from pending to held if not already transitioned. hold()
+      // itself is a CAS (updateMany guarded on status = "pending"), so a
+      // concurrent retry of this same webhook that also passes this check safely
+      // no-ops (returns false) instead of double-transitioning — nothing further
+      // to do here either way, so the boolean is intentionally unused.
       if (deposit.status === "pending") {
         await depositService.hold(deposit.id, paymentIntentId);
       }

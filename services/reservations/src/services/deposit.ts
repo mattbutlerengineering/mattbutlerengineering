@@ -114,19 +114,28 @@ export class DepositService {
   /**
    * Transitions deposit from `pending` → `held`.
    * Called after Stripe confirms the PaymentIntent is authorized.
+   *
+   * Atomic compare-and-swap: only writes if the row is still `pending` when
+   * the update runs. Without this guard, a Stripe `payment_intent.succeeded`
+   * webhook delivered twice (Stripe retries on non-2xx) could re-transition
+   * an already-held (or already-refunded) deposit back to `held`. A racing
+   * call gets `count === 0` and returns `false` — the caller treats that as
+   * an idempotent no-op rather than an error.
    */
-  async hold(depositId: string, stripePaymentIntentId: string): Promise<Deposit> {
+  async hold(depositId: string, stripePaymentIntentId: string): Promise<boolean> {
     const deposit = await this._requireDeposit(depositId);
     transitionDeposit(deposit.status, "held"); // throws if invalid
 
-    return prisma.deposit.update({
-      where: { id: depositId },
+    const { count } = await prisma.deposit.updateMany({
+      where: { id: depositId, status: "pending" },
       data: {
         status: "held",
         stripePaymentIntentId,
         heldAt: new Date(),
       },
     });
+
+    return count > 0;
   }
 
   /**
