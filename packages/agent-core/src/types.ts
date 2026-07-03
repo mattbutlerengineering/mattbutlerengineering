@@ -15,12 +15,7 @@ import { resolveModelId } from "./model-registry.js";
  * - logic_error:      Agent produced incorrect output (evaluation / review failed)
  */
 export type FailureCategory =
-  | "api_error"
-  | "rate_limited"
-  | "stuck_loop"
-  | "budget_exceeded"
-  | "tool_error"
-  | "logic_error";
+  "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
 
 // ── Per-turn observability metrics ───────────────────────────────────
 

@@ -14,10 +14,7 @@ export interface SkipPolicyInput {
 }
 
 export type SkipReason =
-  | "empty_diff"
-  | "trivial_commit"
-  | "test_only_changes"
-  | "small_diff_tests_passed";
+  "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
 
 export interface SkipDecision {
   readonly skip: boolean;

@@ -173,9 +173,7 @@ fastify.get(
   "/api/v1/users/me",
   {
     preHandler: requireAuth,
-    schema: {
-      /* ... */
-    },
+    schema: {/* ... */},
   },
   async (request) => {
     const userId = request.user!.id; // From verified JWT (AuthUser.id = JWT sub)

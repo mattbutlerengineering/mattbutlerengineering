@@ -7,8 +7,7 @@ import {
 } from "./slot-rules.js";
 
 export type BookableError =
-  | { code: "CONFLICT"; message: string }
-  | { code: "PACING_EXCEEDED"; message: string };
+  { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
 
 export interface AssertBookableOptions {
   /** Table being checked for conflict. */

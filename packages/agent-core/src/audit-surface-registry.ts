@@ -1,13 +1,7 @@
 // ── Types ───────────────────────────────────────────────────────────
 
 export type Zone =
-  | "marketing"
-  | "hospitality"
-  | "rialto"
-  | "gen"
-  | "api:users"
-  | "api:reservations"
-  | "api:agent";
+  "marketing" | "hospitality" | "rialto" | "gen" | "api:users" | "api:reservations" | "api:agent";
 
 export const ZONES: readonly Zone[] = [
   "marketing",

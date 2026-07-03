@@ -47,12 +47,8 @@ fastify.get<{
       description: "Detailed description for API docs.",
       tags: ["Users"],
       security: [{ bearerAuth: [] }], // Add for auth routes
-      params: {
-        /* JSON Schema */
-      },
-      body: {
-        /* JSON Schema */
-      },
+      params: {/* JSON Schema */},
+      body: {/* JSON Schema */},
       response: {
         200: {
           description: "Success case",
@@ -86,9 +82,7 @@ fastify.get<{ Reply: ApiResponse<User> }>(
       tags: ["Users"],
       security: [{ bearerAuth: [] }], // Documents auth requirement
       response: {
-        200: {
-          /* ... */
-        },
+        200: {/* ... */},
         401: { $ref: "Error#" },
       },
     },

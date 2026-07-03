@@ -66,9 +66,7 @@ interface SSEConnectionState {
 }
 
 type SSEConnectionAction =
-  | { type: "connected" }
-  | { type: "disconnected" }
-  | { type: "error"; error: Error };
+  { type: "connected" } | { type: "disconnected" } | { type: "error"; error: Error };
 
 /* ── Toast rate limiter ──────────────────────────────────────────── */
 

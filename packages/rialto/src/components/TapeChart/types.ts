@@ -1,12 +1,7 @@
 import { type ReactNode } from "react";
 
 export type TapeChartStatus =
-  | "tentative"
-  | "confirmed"
-  | "checkedIn"
-  | "checkedOut"
-  | "cancelled"
-  | "noShow";
+  "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
 
 export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
 

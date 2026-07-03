@@ -2,11 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { textToMatrix, createEmptyMatrix } from "./pixel-font";
 
 export type FlipDotAnimationMode =
-  | "typewriter"
-  | "scroll-left"
-  | "scroll-right"
-  | "blink"
-  | "frames";
+  "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
 
 export interface UseFlipDotAnimationOptions {
   /** Text to render (used by typewriter, scroll, blink modes). */

@@ -8,11 +8,7 @@ import { assertBookable } from "./assert-bookable.js";
 import { toReservation } from "./serializers.js";
 
 type ConfirmHoldErrorCode =
-  | "NOT_FOUND"
-  | "EXPIRED"
-  | "SESSION_MISMATCH"
-  | "CONFLICT"
-  | "PACING_EXCEEDED";
+  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.

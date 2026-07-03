@@ -57,8 +57,7 @@ export function createVerifiedBodyPreHandler(opts: VerifiedWebhookOptions): preH
     }
 
     const rawBody = (request as unknown as Record<string | symbol, unknown>)[kRawBody] as
-      | Buffer
-      | undefined;
+      Buffer | undefined;
     if (!rawBody) {
       return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing raw body"));
     }

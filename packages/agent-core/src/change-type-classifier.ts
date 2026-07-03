@@ -10,14 +10,7 @@
 // ── Types ───────────────────────────────────────────────────────────
 
 export type ChangeType =
-  | "dependency"
-  | "docs"
-  | "config"
-  | "test"
-  | "infrastructure"
-  | "frontend"
-  | "backend"
-  | "mixed";
+  "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
 
 export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
 

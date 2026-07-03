@@ -45,10 +45,7 @@ export function usePlaygroundState(): PlaygroundState {
 
   const openShortcuts = useCallback(() => setShortcutsOpen(true), []);
   const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
-  const toggleShortcuts = useCallback(
-    () => setShortcutsOpen((prev) => !prev),
-    [],
-  );
+  const toggleShortcuts = useCallback(() => setShortcutsOpen((prev) => !prev), []);
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev);

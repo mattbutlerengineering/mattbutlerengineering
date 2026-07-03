@@ -17,7 +17,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks an instruction-override prompt injection", () => {
     const result = scan("prompt-injection-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "prompt-injection" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "prompt-injection" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags a role-reassignment prompt injection (med)", () => {
@@ -29,7 +31,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks credential read paired with an outbound call", () => {
     const result = scan("exfil-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "data-exfiltration" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "data-exfiltration" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags an outbound-only call (med)", () => {
@@ -41,7 +45,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks a curl-pipe-to-shell installer", () => {
     const result = scan("malicious-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "malicious-command" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "malicious-command" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags a raw child_process exec (med)", () => {

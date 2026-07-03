@@ -22,7 +22,7 @@ The agent proxy gateway in remote (claude.ai/code) containers may reject CONNECT
 tunnels to the live site with HTTP 403 ("policy denial or upstream failure").
 This is a **sandbox egress limitation, not a site defect** — the site is healthy;
 this container simply has no route out. It surfaces as a curl **connection**
-failure (exit 56 / `http_code == 000`), NOT an HTTP 403 *body* (which is the
+failure (exit 56 / `http_code == 000`), NOT an HTTP 403 _body_ (which is the
 separate Cloudflare case — see [Access Restrictions](#access-restrictions)).
 
 ```bash
