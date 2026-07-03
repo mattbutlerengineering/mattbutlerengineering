@@ -207,6 +207,44 @@ describe("GeminiCliAdapter", () => {
     });
   });
 
+  // ── run — cost/token usage (#2996) ───────────────────────────────
+
+  describe("cost/token usage", () => {
+    it("leaves costUsd/tokenUsage undefined against Gemini's default text stdout", async () => {
+      setupExecFileMock({
+        gemini: [{ stdout: "All changes applied." }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.costUsd).toBeUndefined();
+      expect(result.tokenUsage).toBeUndefined();
+    });
+
+    it("parses tokenUsage (never costUsd) from a `--output-format json` style stdout blob", async () => {
+      const jsonStdout = JSON.stringify({
+        session_id: "abc",
+        response: "Done.",
+        stats: {
+          models: {
+            "gemini-2.5-pro": { tokens: { prompt: 500, candidates: 120 } },
+          },
+        },
+      });
+
+      setupExecFileMock({
+        gemini: [{ stdout: jsonStdout }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.tokenUsage).toEqual({ inputTokens: 500, outputTokens: 120 });
+      expect(result.costUsd).toBeUndefined();
+    });
+  });
+
   // ── run — rate-limit detection ──────────────────────────────────
 
   describe("rate-limit detection", () => {
