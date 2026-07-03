@@ -5436,4 +5436,19 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="vitest">
+  <file path="packages/config/vitest/base.d.ts">
+    <item priority="high">
+      type CoverageConfig = NonNullable<NonNullable<ViteUserConfig["test"]>["coverage"]>;
+    </item>
+    <item priority="low">
+      interface CoverageThresholds {
+        lines?: number;
+        branches?: number;
+        functions?: number;
+        statements?: number;
+      }
+    </item>
+  </file>
+  </section>
 </codebase>
