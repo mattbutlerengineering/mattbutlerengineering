@@ -154,11 +154,26 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
 
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload) as {
-      data: { riskScore: string; noShowCount: number; requiresDeposit: boolean };
+      data: { riskScore: string; requiresDeposit: boolean };
     };
     expect(body.data.riskScore).toBe("trusted");
-    expect(body.data.noShowCount).toBe(0);
     expect(body.data.requiresDeposit).toBe(false);
+  });
+
+  it("does not leak noShowCount in the public response (behavioral PII)", async () => {
+    vi.mocked(guestService.findByEmail).mockResolvedValue(
+      makeGuest({ noShowCount: 5, riskScore: "risky" })
+    );
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guest-risk?email=alice%40example.com",
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload) as { data: Record<string, unknown> };
+    expect(body.data).not.toHaveProperty("noShowCount");
+    expect(body.data).toEqual({ riskScore: "risky", requiresDeposit: true });
   });
 
   it("returns risky and requiresDeposit=true for a guest with 2+ no-shows", async () => {
