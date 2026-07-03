@@ -83,7 +83,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const { holdId } = request.params;
       const ip = request.ip;
 
-      const released = await holdService.release(holdId, "public");
+      const released = await holdService.releaseById(holdId);
       if (released) {
         decrementHoldCount(ip);
       }
