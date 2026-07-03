@@ -15,9 +15,9 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runCheck } from "./lib/fitness-check.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
+const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Dependencies that must be consistent across all workspace packages
 const SYNCED_DEPS = [
@@ -35,7 +35,8 @@ const SYNCED_DEPS = [
 
 const WORKSPACE_DIRS = ["packages", "services", "apps", "tools"];
 
-function discoverPackageJsons() {
+/** Pure discovery of every workspace package.json's merged deps. */
+export function discoverPackageJsons(root = DEFAULT_ROOT) {
   const results = [];
 
   for (const dir of WORKSPACE_DIRS) {
@@ -70,49 +71,75 @@ function discoverPackageJsons() {
   return results;
 }
 
-const packages = discoverPackageJsons();
-const mismatches = [];
+/**
+ * Pure comparison — for each synced dep, groups packages by resolved version
+ * (skipping workspace:/catalog: protocol references) and reports any dep
+ * that resolves to more than one version.
+ */
+export function findVersionMismatches(packages, syncedDeps = SYNCED_DEPS) {
+  const mismatches = [];
 
-console.log(
-  `Checking ${SYNCED_DEPS.length} shared dependencies across ${packages.length} packages...\n`
-);
+  for (const dep of syncedDeps) {
+    const versions = new Map();
 
-for (const dep of SYNCED_DEPS) {
-  const versions = new Map();
+    for (const pkg of packages) {
+      const version = pkg.deps[dep];
+      if (!version) continue;
+      // Skip workspace protocol references
+      if (version.startsWith("workspace:")) continue;
+      // Skip catalog references
+      if (version.startsWith("catalog:")) continue;
 
-  for (const pkg of packages) {
-    const version = pkg.deps[dep];
-    if (!version) continue;
-    // Skip workspace protocol references
-    if (version.startsWith("workspace:")) continue;
-    // Skip catalog references
-    if (version.startsWith("catalog:")) continue;
-
-    if (!versions.has(version)) {
-      versions.set(version, []);
+      if (!versions.has(version)) {
+        versions.set(version, []);
+      }
+      versions.get(version).push(pkg.path);
     }
-    versions.get(version).push(pkg.path);
+
+    if (versions.size > 1) {
+      mismatches.push({ dep, versions });
+    }
   }
 
-  if (versions.size > 1) {
-    mismatches.push({ dep, versions });
-  }
+  return mismatches;
 }
 
-if (mismatches.length === 0) {
-  console.log("PASS: All shared dependencies are version-consistent.");
-} else {
-  console.log(`FAIL: Found ${mismatches.length} dependency version mismatch(es):\n`);
-  for (const { dep, versions } of mismatches) {
-    console.log(`  ${dep}:`);
-    for (const [version, paths] of versions) {
-      console.log(`    ${version} — ${paths.join(", ")}`);
-    }
-    console.log("");
-  }
+/** Pure end-to-end aggregation — discovers packages then diffs versions. */
+export function findDepVersionFindings(root = DEFAULT_ROOT, syncedDeps = SYNCED_DEPS) {
+  const packages = discoverPackageJsons(root);
+  const mismatches = findVersionMismatches(packages, syncedDeps);
+  return { packages, mismatches };
+}
+
+const isMain = process.argv[1] && process.argv[1].endsWith("check-dep-versions.js");
+
+if (isMain) {
+  const { packages, mismatches } = findDepVersionFindings();
+
   console.log(
-    "Align all packages to the same version range.\n" +
-      "Tip: use pnpm catalog or pnpm.overrides in root package.json for centralized version management."
+    `Checking ${SYNCED_DEPS.length} shared dependencies across ${packages.length} packages...\n`
   );
-  process.exit(1);
+
+  const exitCode = runCheck({
+    name: "dependency version consistency",
+    findings: mismatches,
+    passMessage: "PASS: All shared dependencies are version-consistent.",
+    failMessage: `FAIL: Found ${mismatches.length} dependency version mismatch(es):\n`,
+  });
+
+  if (exitCode !== 0) {
+    for (const { dep, versions } of mismatches) {
+      console.log(`  ${dep}:`);
+      for (const [version, paths] of versions) {
+        console.log(`    ${version} — ${paths.join(", ")}`);
+      }
+      console.log("");
+    }
+    console.log(
+      "Align all packages to the same version range.\n" +
+        "Tip: use pnpm catalog or pnpm.overrides in root package.json for centralized version management."
+    );
+  }
+
+  process.exit(exitCode);
 }

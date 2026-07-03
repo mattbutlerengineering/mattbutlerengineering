@@ -51,9 +51,11 @@ export function buildPrTitle(taskDescription: string): string {
 export function buildPrBody(
   taskDescription: string,
   sessionId: string,
-  costUsd: number,
+  costUsd: number | undefined,
   numTurns: number
 ): string {
+  const costDisplay = costUsd === undefined ? "unknown" : `$${costUsd.toFixed(4)}`;
+
   return [
     "## Summary",
     "",
@@ -66,7 +68,7 @@ export function buildPrBody(
     `| Field | Value |`,
     `|-------|-------|`,
     `| Session ID | \`${sessionId}\` |`,
-    `| Cost | $${costUsd.toFixed(4)} |`,
+    `| Cost | ${costDisplay} |`,
     `| Turns | ${numTurns} |`,
     "",
     "## Test Plan",

@@ -37,6 +37,8 @@ export { ClaudeAdapter } from "./adapters/claude-adapter.js";
 export { GeminiCliAdapter } from "./adapters/gemini-adapter.js";
 export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
+export { parseGeminiUsage, parseOpenCodeUsage } from "./adapters/cli-usage-parser.js";
+export type { CliUsage } from "./adapters/cli-usage-parser.js";
 export { FailoverRouter, AllAdaptersUnavailableError } from "./failover-router.js";
 export type { RoutedAdapterResult } from "./failover-router.js";
 export { FailoverSessionAdapter } from "./adapters/failover-session-adapter.js";

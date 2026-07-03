@@ -209,6 +209,45 @@ describe("OpenCodeAdapter", () => {
     });
   });
 
+  // ── run — cost/token usage (#2996) ───────────────────────────────
+
+  describe("cost/token usage", () => {
+    it("leaves costUsd/tokenUsage undefined against OpenCode's default text stdout", async () => {
+      setupExecFileMock({
+        opencode: [{ stdout: "Applied fix." }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.costUsd).toBeUndefined();
+      expect(result.tokenUsage).toBeUndefined();
+    });
+
+    it("sums cost/tokens from `--format json` style step_finish NDJSON stdout", async () => {
+      const ndjsonStdout = [
+        JSON.stringify({
+          type: "step_finish",
+          part: { cost: 0.01, tokens: { input: 400, output: 80 } },
+        }),
+        JSON.stringify({
+          type: "step_finish",
+          part: { cost: 0.005, tokens: { input: 100, output: 20 } },
+        }),
+      ].join("\n");
+
+      setupExecFileMock({
+        opencode: [{ stdout: ndjsonStdout }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.costUsd).toBeCloseTo(0.015, 6);
+      expect(result.tokenUsage).toEqual({ inputTokens: 500, outputTokens: 100 });
+    });
+  });
+
   // ── run — rate-limit detection ──────────────────────────────────
 
   describe("rate-limit detection", () => {

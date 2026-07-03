@@ -10,6 +10,7 @@
 
 import { CliAdapterBase } from "./cli-adapter-base.js";
 import type { AdapterConfig } from "../cli-adapter.js";
+import { parseOpenCodeUsage, type CliUsage } from "./cli-usage-parser.js";
 
 export class OpenCodeAdapter extends CliAdapterBase {
   readonly name = "opencode";
@@ -20,5 +21,15 @@ export class OpenCodeAdapter extends CliAdapterBase {
 
   protected buildArgs(config: AdapterConfig): string[] {
     return ["run", config.taskDescription];
+  }
+
+  /**
+   * OpenCode CLI's default text output carries no usage data — this only
+   * yields real cost/tokenUsage if stdout happens to be the `--format json`
+   * NDJSON event stream (not currently requested by buildArgs; see
+   * cli-usage-parser.ts).
+   */
+  protected override parseUsage(stdout: string): CliUsage {
+    return parseOpenCodeUsage(stdout);
   }
 }
