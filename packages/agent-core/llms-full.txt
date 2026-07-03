@@ -230,6 +230,21 @@
         };
       }
     
+      /**
+       * Run a full agent session (worktree → CLI dispatch → gates → publish)
+       * through the shared `runCliAdapterSession()` pipeline — the seam
+       * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+       * mirroring `ClaudeAdapter.runSession()` (#2973).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runCliAdapterSession(this, config, onEvent, deps, signal);
+      }
+    
       // ── Protected shared utilities ───────────────────────────────────
     
       /**
@@ -312,6 +327,173 @@
           ["-C", worktreePath, "commit", "-m", this.buildCommitMessage(task)],
           gitOpts
         );
+      }
+    }
+  </file>
+  <file path="src/adapters/cli-adapter-session-runner.ts">
+    export async function runCliAdapterSession(
+      cliAdapter: AgentAdapter,
+      config: SessionConfig,
+      onEvent?: SessionEventCallback,
+      deps: PhaseDeps = createDefaultPhaseDeps(),
+      _signal?: AbortSignal
+    ): Promise<SessionResult> {
+      const { worktreeManager, successEvaluator, gateway, prCreator } = deps;
+    
+      emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
+      const { value: worktree } = await withRetry(
+        () =>
+          worktreeManager.createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+        { maxRetries: 2 }
+      );
+      emitEvent(onEvent, "session:start", {
+        message: `Starting ${cliAdapter.name} on branch ${worktree.branchName}`,
+      });
+    
+      const adapterResult = await cliAdapter.run({
+        taskDescription: config.taskDescription,
+        worktreePath: worktree.path,
+        repoPath: config.repoPath,
+        baseBranch: config.baseBranch,
+        model: config.model,
+        maxTurns: config.maxTurns,
+        timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+      });
+    
+      const errors: string[] = adapterResult.error ? [adapterResult.error] : [];
+      let prUrl: string | null = null;
+    
+      if (!adapterResult.hasChanges) {
+        emitEvent(onEvent, "session:result", { message: "No changes were made by the agent" });
+      } else {
+        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+          maxRetries: 3,
+        });
+    
+        let gatewayVerdict: GatewayVerdict | undefined;
+        if (adapterResult.success) {
+          const diff = await successEvaluator.getGitDiff(worktree.path);
+          gatewayVerdict = await gateway.runPostCommitGateway(
+            {
+              worktreePath: worktree.path,
+              diff,
+              commitMsg: `feat: ${config.taskDescription}`,
+              taskDescription: config.taskDescription,
+              config: {
+                evaluateSuccess: config.evaluateSuccess,
+                runSecurityReview: true,
+                runStaticAnalysis: true,
+              },
+            },
+            onEvent
+          );
+          errors.push(...gatewayVerdict.errors);
+        }
+    
+        if (config.createPr) {
+          prUrl = await publishCliAdapterResult({
+            config,
+            worktree,
+            adapterSucceeded: adapterResult.success,
+            gatewayVerdict,
+            cliAdapterName: cliAdapter.name,
+            errors,
+            prCreator,
+            onEvent,
+          });
+        }
+      }
+    
+      if (config.createPr) {
+        await worktreeManager.removeWorktree(config.repoPath, worktree.path);
+      }
+    
+      const failureCategory: FailureCategory | undefined = !adapterResult.success
+        ? adapterResult.rateLimited
+          ? "rate_limited"
+          : categorizeFailure(errors)
+        : undefined;
+    
+      const status = adapterResult.success ? "succeeded" : "failed";
+      emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
+    
+      return {
+        sessionId: "",
+        status,
+        branchName: worktree.branchName,
+        prUrl,
+        costUsd: 0,
+        tokenUsage: { inputTokens: 0, outputTokens: 0 },
+        durationMs: adapterResult.durationMs,
+        numTurns: 0,
+        resultText: "",
+        errors,
+        ...(failureCategory ? { failureCategory } : {}),
+      };
+    }
+    interface PublishCliAdapterInput {
+      readonly config: SessionConfig;
+      readonly worktree: WorktreeInfo;
+      readonly adapterSucceeded: boolean;
+      readonly gatewayVerdict: GatewayVerdict | undefined;
+      readonly cliAdapterName: string;
+      readonly errors: readonly string[];
+      readonly prCreator: PrCreatorDeps;
+      readonly onEvent: SessionEventCallback | undefined;
+    }
+  </file>
+  <file path="src/adapters/failover-session-adapter.ts">
+    export type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    export class FailoverSessionAdapter implements AgentSessionAdapter {
+      private readonly adapters: readonly FailoverCapableAdapter[];
+      private readonly detector: RateLimitDetector;
+    
+      constructor(adapters: readonly FailoverCapableAdapter[], detector?: RateLimitDetector) {
+        if (adapters.length === 0) {
+          throw new Error("FailoverSessionAdapter requires at least one adapter");
+        }
+        this.adapters = adapters;
+        this.detector = detector ?? new RateLimitDetector(adapters.map((a) => a.name));
+      }
+    
+      /**
+       * Run the task on the highest-priority available adapter. Priority order
+       * matches the constructor's `adapters` array. An adapter is skipped when
+       * it's cooling down, its CLI/SDK isn't available, or its result reports
+       * `failureCategory: "rate_limited"` — the router then marks it and tries
+       * the next adapter. Any other failure is returned as-is (not cascaded).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        for (const adapter of this.adapters) {
+          if (!this.detector.isAvailable(adapter.name)) continue;
+    
+          const cliAvailable = await adapter.isAvailable();
+          if (!cliAvailable) continue;
+    
+          const result = await adapter.runSession(config, onEvent, deps, signal);
+    
+          if (result.failureCategory === "rate_limited") {
+            this.detector.markRateLimited(adapter.name);
+            continue;
+          }
+    
+          this.detector.markSuccess(adapter.name);
+          return result;
+        }
+    
+        const cooldowns = new Map<string, number>();
+        for (const adapter of this.adapters) {
+          const state = this.detector.getState(adapter.name);
+          if (state?.cooldownUntil !== null && state?.cooldownUntil !== undefined) {
+            cooldowns.set(adapter.name, state.cooldownUntil);
+          }
+        }
+        throw new AllAdaptersUnavailableError(cooldowns);
       }
     }
   </file>
@@ -1379,6 +1561,25 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/adapter-resolution.ts">
+    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
+      switch (adapterType) {
+        case "claude":
+          return new ClaudeAdapter();
+        case "gemini":
+          return new GeminiCliAdapter();
+        case "opencode":
+          return new OpenCodeAdapter();
+        case "auto":
+          return new FailoverSessionAdapter([
+            new ClaudeAdapter(),
+            new GeminiCliAdapter(),
+            new OpenCodeAdapter(),
+          ]);
+      }
+    }
+  </file>
   <file path="src/audit-inventory-store.ts">
     export async function loadInventory(repoPath: string): Promise<AuditInventory> {
       const filePath = join(repoPath, INVENTORY_PATH);

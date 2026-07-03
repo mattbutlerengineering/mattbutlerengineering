@@ -2,22 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command } from "commander";
 
 // ── Mocks ───────────────────────────────────────────────────────────────
+//
+// #2973: the CLI no longer constructs adapters, RateLimitDetector, or
+// FailoverRouter itself — it resolves an AgentSessionAdapter via
+// resolveSessionAdapter() and hands it to runAgentSession(). The failover
+// cascade and the full gate/publish pipeline now live entirely in
+// agent-core, so these tests assert on that seam instead of on CLI-side
+// adapter/worktree construction.
 
 const mockRunAgentSession = vi.fn();
-const mockCreateWorktree = vi.fn();
-const mockRemoveWorktree = vi.fn();
-const mockRunVerification = vi.fn();
-const mockPushBranch = vi.fn();
-const mockCreatePullRequest = vi.fn();
-
-const mockGeminiRun = vi.fn();
-const mockOpenCodeRun = vi.fn();
-const mockGeminiIsAvailable = vi.fn();
-const mockOpenCodeIsAvailable = vi.fn();
-const mockRouterRoute = vi.fn();
+const mockResolveSessionAdapter = vi.fn();
 
 vi.mock("@mbe/agent-core", () => ({
   runAgentSession: (...args: unknown[]) => mockRunAgentSession(...args),
+  resolveSessionAdapter: (...args: unknown[]) => mockResolveSessionAdapter(...args),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -33,17 +31,6 @@ vi.mock("@mbe/agent-core", () => ({
     modelId: "claude-sonnet-4-6",
     reason: "default",
   })),
-  createWorktree: (...args: unknown[]) => mockCreateWorktree(...args),
-  removeWorktree: (...args: unknown[]) => mockRemoveWorktree(...args),
-  runVerification: (...args: unknown[]) => mockRunVerification(...args),
-  pushBranch: (...args: unknown[]) => mockPushBranch(...args),
-  createPullRequest: (...args: unknown[]) => mockCreatePullRequest(...args),
-  buildPrTitle: (task: string) => `agent: ${task}`,
-  buildPrBody: () => "PR body",
-  FailoverRouter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.route = mockRouterRoute;
-    this.getAvailableAdapters = () => ["claude", "gemini", "opencode"];
-  }),
   AllAdaptersUnavailableError: class extends Error {
     readonly cooldowns: ReadonlyMap<string, number>;
     constructor(cooldowns: ReadonlyMap<string, number>) {
@@ -52,23 +39,6 @@ vi.mock("@mbe/agent-core", () => ({
       this.cooldowns = cooldowns;
     }
   },
-  GeminiCliAdapter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.name = "gemini";
-    this.isAvailable = mockGeminiIsAvailable;
-    this.run = mockGeminiRun;
-  }),
-  OpenCodeAdapter: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.name = "opencode";
-    this.isAvailable = mockOpenCodeIsAvailable;
-    this.run = mockOpenCodeRun;
-  }),
-  RateLimitDetector: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.isAvailable = () => true;
-    this.markRateLimited = vi.fn();
-    this.markSuccess = vi.fn();
-    this.getAvailableAdapters = () => ["claude", "gemini", "opencode"];
-    this.getState = () => null;
-  }),
 }));
 
 // Prevent process.exit from actually exiting during tests
@@ -78,9 +48,25 @@ const mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as
 vi.spyOn(console, "log").mockImplementation(() => {});
 vi.spyOn(console, "error").mockImplementation(() => {});
 
+function makeSessionResult(overrides: Record<string, unknown> = {}) {
+  return {
+    status: "succeeded",
+    branchName: "agent/test-task",
+    durationMs: 5000,
+    costUsd: 0,
+    numTurns: 0,
+    tokenUsage: { inputTokens: 0, outputTokens: 0 },
+    prUrl: null,
+    errors: [],
+    resultText: null,
+    ...overrides,
+  };
+}
+
 describe("agent run --adapter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolveSessionAdapter.mockReturnValue({ name: "resolved-adapter" });
   });
 
   afterEach(() => {
@@ -110,161 +96,69 @@ describe("agent run --adapter", () => {
     expect(adapterOpt!.description).toContain("opencode");
   });
 
-  it("claude adapter goes through runAgentSession (ClaudeAdapter seam)", async () => {
-    mockRunAgentSession.mockResolvedValueOnce({
-      status: "succeeded",
-      branchName: "agent/test-task",
-      durationMs: 5000,
-      costUsd: 0.05,
-      numTurns: 3,
-      tokenUsage: { inputTokens: 1000, outputTokens: 500 },
-      prUrl: null,
-      errors: [],
-      resultText: null,
-      inputTokens: 1000,
-      outputTokens: 500,
-    });
+  it.each(["claude", "gemini", "opencode", "auto"] as const)(
+    "%s adapter resolves via resolveSessionAdapter and runs through runAgentSession",
+    async (adapterType) => {
+      mockRunAgentSession.mockResolvedValueOnce(makeSessionResult());
 
-    const program = await buildProgram();
-    await program.parseAsync(["node", "mbe", "agent", "run", "fix bug", "--adapter", "claude"]);
+      const program = await buildProgram();
+      await program.parseAsync([
+        "node",
+        "mbe",
+        "agent",
+        "run",
+        "fix bug",
+        "--adapter",
+        adapterType,
+      ]);
 
-    expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
-    const sessionConfig = mockRunAgentSession.mock.calls[0][0];
-    expect(sessionConfig.taskDescription).toBe("fix bug");
+      expect(mockResolveSessionAdapter).toHaveBeenCalledWith(adapterType);
+      expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
 
-    // Verify CLI adapter constructors were NOT invoked (claude goes through runAgentSession)
-    const { GeminiCliAdapter, OpenCodeAdapter } = await import("@mbe/agent-core");
-    expect(GeminiCliAdapter).not.toHaveBeenCalled();
-    expect(OpenCodeAdapter).not.toHaveBeenCalled();
-  });
+      const [sessionConfig, sessionOptions] = mockRunAgentSession.mock.calls[0] as [
+        Record<string, unknown>,
+        Record<string, unknown>,
+      ];
+      expect(sessionConfig.taskDescription).toBe("fix bug");
+      expect(sessionOptions.adapter).toBe(mockResolveSessionAdapter.mock.results[0]?.value);
+    }
+  );
 
-  it("auto adapter creates gemini+opencode adapters and uses FailoverRouter", async () => {
-    mockCreateWorktree.mockResolvedValueOnce({
-      path: "/tmp/worktree-test",
-      branchName: "agent/test-task",
-      mode: "full",
-    });
-    mockRouterRoute.mockResolvedValueOnce({
-      success: true,
-      hasChanges: false,
-      rateLimited: false,
-      durationMs: 3000,
-      adapter: "claude",
-    });
-    mockRemoveWorktree.mockResolvedValueOnce(undefined);
-
-    const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "add feature",
-      "--adapter",
-      "auto",
-      "--no-pr",
-    ]);
-
-    const { FailoverRouter, GeminiCliAdapter, OpenCodeAdapter } = await import("@mbe/agent-core");
-
-    expect(FailoverRouter).toHaveBeenCalledTimes(1);
-    expect(GeminiCliAdapter).toHaveBeenCalledTimes(1);
-    expect(OpenCodeAdapter).toHaveBeenCalledTimes(1);
-
-    expect(mockRouterRoute).toHaveBeenCalledTimes(1);
-    const routeConfig = mockRouterRoute.mock.calls[0][0];
-    expect(routeConfig.taskDescription).toBe("add feature");
-    expect(routeConfig.worktreePath).toBe("/tmp/worktree-test");
-  });
-
-  it("gemini adapter creates GeminiCliAdapter and manages worktree", async () => {
-    mockCreateWorktree.mockResolvedValueOnce({
-      path: "/tmp/worktree-gemini",
-      branchName: "agent/gemini-task",
-      mode: "full",
-    });
-    mockGeminiRun.mockResolvedValueOnce({
-      success: true,
-      hasChanges: false,
-      rateLimited: false,
-      durationMs: 2000,
-    });
-    mockRemoveWorktree.mockResolvedValueOnce(undefined);
-
-    const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "refactor code",
-      "--adapter",
-      "gemini",
-      "--no-pr",
-    ]);
-
-    expect(mockCreateWorktree).toHaveBeenCalledTimes(1);
-    expect(mockGeminiRun).toHaveBeenCalledTimes(1);
-
-    const runConfig = mockGeminiRun.mock.calls[0][0];
-    expect(runConfig.worktreePath).toBe("/tmp/worktree-gemini");
-    expect(runConfig.taskDescription).toBe("refactor code");
-  });
-
-  it("opencode adapter creates OpenCodeAdapter and manages worktree", async () => {
-    mockCreateWorktree.mockResolvedValueOnce({
-      path: "/tmp/worktree-opencode",
-      branchName: "agent/opencode-task",
-      mode: "full",
-    });
-    mockOpenCodeRun.mockResolvedValueOnce({
-      success: true,
-      hasChanges: false,
-      rateLimited: false,
-      durationMs: 1500,
-    });
-    mockRemoveWorktree.mockResolvedValueOnce(undefined);
-
-    const program = await buildProgram();
-    await program.parseAsync([
-      "node",
-      "mbe",
-      "agent",
-      "run",
-      "update docs",
-      "--adapter",
-      "opencode",
-      "--no-pr",
-    ]);
-
-    expect(mockCreateWorktree).toHaveBeenCalledTimes(1);
-    expect(mockOpenCodeRun).toHaveBeenCalledTimes(1);
-
-    const runConfig = mockOpenCodeRun.mock.calls[0][0];
-    expect(runConfig.worktreePath).toBe("/tmp/worktree-opencode");
-    expect(runConfig.taskDescription).toBe("update docs");
-  });
-
-  it("defaults to claude adapter when --adapter is not specified", async () => {
-    mockRunAgentSession.mockResolvedValueOnce({
-      status: "succeeded",
-      branchName: "agent/default-test",
-      durationMs: 2000,
-      costUsd: 0.02,
-      numTurns: 2,
-      tokenUsage: { inputTokens: 500, outputTokens: 200 },
-      prUrl: null,
-      errors: [],
-      resultText: null,
-      inputTokens: 500,
-      outputTokens: 200,
-    });
+  it("defaults to the claude adapter when --adapter is not specified", async () => {
+    mockRunAgentSession.mockResolvedValueOnce(makeSessionResult());
 
     const program = await buildProgram();
     await program.parseAsync(["node", "mbe", "agent", "run", "small fix"]);
 
-    // Should use runAgentSession (claude path), not create worktrees
+    expect(mockResolveSessionAdapter).toHaveBeenCalledWith("claude");
     expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
-    expect(mockCreateWorktree).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid adapter without calling resolveSessionAdapter or runAgentSession", async () => {
+    const program = await buildProgram();
+    await program.parseAsync([
+      "node",
+      "mbe",
+      "agent",
+      "run",
+      "fix bug",
+      "--adapter",
+      "not-a-real-adapter",
+    ]);
+
+    expect(mockExit).toHaveBeenCalledWith(1);
+    expect(mockResolveSessionAdapter).not.toHaveBeenCalled();
+    expect(mockRunAgentSession).not.toHaveBeenCalled();
+  });
+
+  it("prints cooldowns and exits 1 when runAgentSession throws AllAdaptersUnavailableError", async () => {
+    const { AllAdaptersUnavailableError } = await import("@mbe/agent-core");
+    const cooldowns = new Map([["gemini", Date.now() + 5000]]);
+    mockRunAgentSession.mockRejectedValueOnce(new AllAdaptersUnavailableError(cooldowns));
+
+    const program = await buildProgram();
+    await program.parseAsync(["node", "mbe", "agent", "run", "add feature", "--adapter", "auto"]);
+
+    expect(mockExit).toHaveBeenCalledWith(1);
   });
 });
