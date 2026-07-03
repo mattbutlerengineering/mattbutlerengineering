@@ -196,28 +196,15 @@ export const holdService = {
   },
 
   /**
-   * Releases a hold by session ownership. Used by authenticated callers that know
-   * the sessionId.
+   * Releases a hold, requiring the caller to prove ownership via the sessionId
+   * (the high-entropy token returned at creation). Used by both authenticated
+   * and public callers — the sessionId in the WHERE clause is what stops one
+   * caller from releasing another's hold.
    */
   async release(id: string, sessionId: string): Promise<boolean> {
     try {
       const result = await prisma.reservationHold.deleteMany({
         where: { id, sessionId },
-      });
-      return result.count > 0;
-    } catch {
-      return false;
-    }
-  },
-
-  /**
-   * Releases a hold by ID only. Used by the public booking widget where the hold
-   * UUID itself is the caller's proof of ownership — no separate sessionId check needed.
-   */
-  async releaseById(id: string): Promise<boolean> {
-    try {
-      const result = await prisma.reservationHold.deleteMany({
-        where: { id },
       });
       return result.count > 0;
     } catch {

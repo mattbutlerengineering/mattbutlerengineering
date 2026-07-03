@@ -24,7 +24,6 @@ vi.mock("../services/hold.js", () => ({
   holdService: {
     create: vi.fn(),
     release: vi.fn(),
-    releaseById: vi.fn(),
     confirm: vi.fn(),
     getById: vi.fn(),
   },
@@ -87,7 +86,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
-import { resetRateLimitState } from "../middleware/public-rate-limit.js";
+import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
   id: "venue_1",
@@ -190,16 +189,72 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
     delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 
-  it("releases a hold and returns 204", async () => {
-    vi.mocked(holdService.releaseById).mockResolvedValueOnce(true);
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.clearAllMocks();
+  });
 
+  it("returns 401 when the x-session-id header is missing (no ID-only release)", async () => {
     const response = await app.inject({
       method: "DELETE",
       url: "/public/v1/venues/the-oak-table/holds/hold_1",
     });
 
-    expect(response.statusCode).toBe(204);
-    expect(holdService.releaseById).toHaveBeenCalledWith("hold_1");
+    expect(response.statusCode).toBe(401);
+    // A missing capability token must never fall through to a release attempt.
     expect(holdService.release).not.toHaveBeenCalled();
+  });
+
+  it("releases a hold by session ownership and returns 204", async () => {
+    vi.mocked(holdService.release).mockResolvedValueOnce(true);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/venues/the-oak-table/holds/hold_1",
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(holdService.release).toHaveBeenCalledWith("hold_1", "sess_1");
+  });
+
+  it("decrements the active-hold counter on release, unblocking a rate-limited guest", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValue({ success: true, hold: mockHold });
+
+    // Fill up to the active-hold cap.
+    for (let i = 0; i < MAX_ACTIVE_HOLDS; i++) {
+      const created = await app.inject({
+        method: "POST",
+        url: "/public/v1/venues/the-oak-table/holds",
+        payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+      });
+      expect(created.statusCode).toBe(201);
+    }
+
+    // Next create is rate-limited — the exact symptom of the bug.
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+    expect(blocked.statusCode).toBe(429);
+
+    // Releasing a hold with a valid session decrements the counter.
+    vi.mocked(holdService.release).mockResolvedValueOnce(true);
+    const released = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/venues/the-oak-table/holds/hold_1",
+      headers: { "x-session-id": "sess_1" },
+    });
+    expect(released.statusCode).toBe(204);
+
+    // A new create now succeeds again (previously stuck until expiry).
+    const afterRelease = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+    expect(afterRelease.statusCode).toBe(201);
   });
 });
