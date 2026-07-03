@@ -4,24 +4,23 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 
 ## Directory Map
 
-| Directory                                | Contents                                                     |
-| ---------------------------------------- | ------------------------------------------------------------ |
-| [`adr/`](adr/)                           | Architecture Decision Records (ADR-001 through ADR-006)      |
-| [`acmm/`](acmm/)                         | AI Codebase Maturity Model assessments and gap analyses      |
-| [`agent-tasks/`](agent-tasks/)           | Agent task traceability and lifecycle docs                   |
-| [`architecture/`](architecture/)         | Dependency graph and structural documentation                |
-| [`design/`](design/)                     | Product design documents and PRDs                            |
-| [`evaluations/`](evaluations/)           | Technology evaluation reports (21 completed)                 |
-| [`incidents/`](incidents/)               | Incident post-mortems (empty -- no incidents yet)            |
-| [`logs/`](logs/)                         | Agent performance logs and audit state (`agent-perf.jsonl`)  |
-| [`metrics/`](metrics/)                   | PR acceptance and quality metrics (`pr-acceptance.json`)     |
-| [`one-man-dev-team/`](one-man-dev-team/) | Solo developer playbook and architecture guide               |
-| [`plans/`](plans/)                       | Historical platform design and roadmap documents             |
-| [`reflections/`](reflections/)           | Lessons learned from AI sessions (ACMM L5)                   |
-| [`research/`](research/)                 | Weekly research intake notes                                 |
-| [`runbooks/`](runbooks/)                 | Operational runbooks for CI, deploys, services, static sites |
-| [`domain/`](domain/)                     | Ubiquitous language glossary and domain model docs           |
-| [`security/`](security/)                 | Security-specific docs (prompt injection guide)              |
+| Directory                        | Contents                                                     |
+| -------------------------------- | ------------------------------------------------------------ |
+| [`adr/`](adr/)                   | Architecture Decision Records (ADR-001 through ADR-006)      |
+| [`acmm/`](acmm/)                 | AI Codebase Maturity Model assessments and gap analyses      |
+| [`agent-tasks/`](agent-tasks/)   | Agent task traceability and lifecycle docs                   |
+| [`architecture/`](architecture/) | Dependency graph and structural documentation                |
+| [`design/`](design/)             | Product design documents and PRDs                            |
+| [`evaluations/`](evaluations/)   | Technology evaluation reports (21 completed)                 |
+| [`incidents/`](incidents/)       | Incident post-mortems (empty -- no incidents yet)            |
+| [`logs/`](logs/)                 | Agent performance logs and audit state (`agent-perf.jsonl`)  |
+| [`metrics/`](metrics/)           | PR acceptance and quality metrics (`pr-acceptance.json`)     |
+| [`plans/`](plans/)               | Historical platform design and roadmap documents             |
+| [`reflections/`](reflections/)   | Lessons learned from AI sessions (ACMM L5)                   |
+| [`research/`](research/)         | Weekly research intake notes                                 |
+| [`runbooks/`](runbooks/)         | Operational runbooks for CI, deploys, services, static sites |
+| [`domain/`](domain/)             | Ubiquitous language glossary and domain model docs           |
+| [`security/`](security/)         | Security-specific docs (prompt injection guide)              |
 
 ## Top-Level Documents
 

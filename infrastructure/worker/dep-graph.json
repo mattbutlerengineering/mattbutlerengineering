@@ -83,7 +83,8 @@
     {
       "name": "@mbe/mcp-server",
       "type": "package",
-      "path": "packages/mcp-server"
+      "path": "packages/mcp-server",
+      "entrypoint": true
     },
     {
       "name": "@mbe/notifications",
@@ -108,7 +109,8 @@
     {
       "name": "@mbe/rialto-plugin",
       "type": "package",
-      "path": "packages/rialto-plugin"
+      "path": "packages/rialto-plugin",
+      "entrypoint": true
     },
     {
       "name": "@mbe/sentry",
@@ -123,7 +125,8 @@
     {
       "name": "@mbe/supply-chain-scanner",
       "type": "package",
-      "path": "packages/supply-chain-scanner"
+      "path": "packages/supply-chain-scanner",
+      "entrypoint": true
     },
     {
       "name": "@mbe/test-fixtures",

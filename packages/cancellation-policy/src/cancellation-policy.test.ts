@@ -212,4 +212,31 @@ describe("formatCancellationTerms", () => {
     const result = formatCancellationTerms(policy, "usd");
     expect(result).toContain("No cancellation fees");
   });
+
+  it("discloses the no-show fee percent and dollar amount when noShowFeePercent is set", () => {
+    const policy: CancellationPolicy = {
+      depositAmountCents: 10000,
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 75,
+    };
+    const result = formatCancellationTerms(policy, "usd");
+    expect(result).toContain("no-show");
+    expect(result).toContain("75%");
+    // 75% of $100.00 = $75.00
+    expect(result).toContain("$75.00");
+  });
+
+  it("defaults the no-show disclosure to 100% forfeit when noShowFeePercent is null", () => {
+    const policy: CancellationPolicy = {
+      depositAmountCents: 10000,
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: null,
+    };
+    const result = formatCancellationTerms(policy, "usd");
+    expect(result).toContain("no-show");
+    expect(result).toContain("100%");
+    expect(result).toContain("$100.00");
+  });
 });

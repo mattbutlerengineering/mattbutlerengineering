@@ -31,7 +31,7 @@ flowchart TD
     mcp_server["mcp-server"]
     notifications["notifications"]
     observability["observability"]
-    @mattbutlerengineering/rialto["rialto"]
+    rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
@@ -43,15 +43,18 @@ flowchart TD
   subgraph tools["Developer Tools"]
     cli["cli"]
   end
+  subgraph scripts_dir["Automation Scripts"]
+    scripts["scripts"]
+  end
 
-  gen --> @mattbutlerengineering/rialto
+  gen --> rialto
   gen --> api_client
   gen --> auth
   gen --> observability
   gen --> rialto_catalog
   gen --> sentry
   gen --> config
-  hospitality --> @mattbutlerengineering/rialto
+  hospitality --> rialto
   hospitality --> api_client
   hospitality --> auth
   hospitality --> cancellation_policy
@@ -60,11 +63,11 @@ flowchart TD
   hospitality --> sentry
   hospitality --> types
   hospitality --> config
-  marketing --> @mattbutlerengineering/rialto
+  marketing --> rialto
   marketing --> observability
   marketing --> sentry
   marketing --> config
-  rialto_web --> @mattbutlerengineering/rialto
+  rialto_web --> rialto
   rialto_web --> observability
   rialto_web --> sentry
   rialto_web --> config
@@ -118,11 +121,11 @@ flowchart TD
   notifications --> config
   observability --> types
   observability --> config
-  @mattbutlerengineering/rialto --> api_client
-  @mattbutlerengineering/rialto --> config
-  rialto_catalog --> @mattbutlerengineering/rialto
+  rialto --> api_client
+  rialto --> config
+  rialto_catalog --> rialto
   rialto_catalog --> config
-  rialto_plugin --> @mattbutlerengineering/rialto
+  rialto_plugin --> rialto
   rialto_plugin --> config
   sentry --> types
   sentry --> config
@@ -141,11 +144,14 @@ flowchart TD
   cli --> gh_client
   cli --> types
   cli --> config
+  scripts --> agent_core
+  scripts --> gh_client
 
   classDef frontend fill:#e0f2fe,stroke:#0284c7
   classDef backend fill:#fef3c7,stroke:#d97706
   classDef shared fill:#e0e7ff,stroke:#4f46e5
   classDef tooling fill:#f0fdf4,stroke:#16a34a
+  classDef entrypoint fill:#fdf4ff,stroke:#a21caf,stroke-dasharray: 5 5
   class gen frontend
   class hospitality frontend
   class marketing frontend
@@ -162,18 +168,19 @@ flowchart TD
   class database shared
   class gh_client shared
   class jobs shared
-  class mcp_server shared
+  class mcp_server entrypoint
   class notifications shared
   class observability shared
-  class @mattbutlerengineering/rialto shared
+  class rialto shared
   class rialto_catalog shared
-  class rialto_plugin shared
+  class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
-  class supply_chain_scanner shared
+  class supply_chain_scanner entrypoint
   class test_fixtures shared
   class types shared
   class cli tooling
+  class scripts shared
 ```
 
 ## Legend
@@ -184,3 +191,4 @@ flowchart TD
 | Amber | Backend Services (`services/*`) |
 | Indigo | Shared Packages (`packages/*`) |
 | Green | Developer Tools (`tools/*`) |
+| Purple (dashed) | Entrypoint package — invoked externally (CLI bin, MCP config, build plugin), so it has no internal importers by design |
