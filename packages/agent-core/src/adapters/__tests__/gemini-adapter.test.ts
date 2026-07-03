@@ -116,7 +116,7 @@ describe("GeminiCliAdapter", () => {
   // ── run — command construction ──────────────────────────────────
 
   describe("run", () => {
-    it("builds correct gemini command arguments", async () => {
+    it("builds correct gemini command arguments, requesting JSON output (#3019)", async () => {
       setupExecFileMock({
         gemini: [{ stdout: "Done!" }],
         "git-status": [{ stdout: "" }], // no changes
@@ -127,7 +127,13 @@ describe("GeminiCliAdapter", () => {
       // Verify gemini was called with correct args
       const geminiCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "gemini");
       expect(geminiCall).toBeDefined();
-      expect(geminiCall![1]).toEqual(["-p", "Fix the login bug in auth.ts", "--yolo"]);
+      expect(geminiCall![1]).toEqual([
+        "-p",
+        "Fix the login bug in auth.ts",
+        "--yolo",
+        "--output-format",
+        "json",
+      ]);
       // Verify cwd is set to worktreePath
       expect(geminiCall![2]).toMatchObject({
         cwd: "/tmp/worktree-abc123",
@@ -242,6 +248,39 @@ describe("GeminiCliAdapter", () => {
 
       expect(result.tokenUsage).toEqual({ inputTokens: 500, outputTokens: 120 });
       expect(result.costUsd).toBeUndefined();
+    });
+  });
+
+  // ── run — soft-error extraction from JSON stdout (#3019, ADR-017) ──
+
+  describe("soft-error extraction on failure", () => {
+    it("recovers the error message from JSON stdout when gemini exits non-zero", async () => {
+      const jsonStdout = JSON.stringify({
+        session_id: "abc",
+        error: { type: "FatalError", message: "Content generation blocked by safety filter" },
+      });
+
+      setupExecFileMock({
+        gemini: [{ error: true, stdout: jsonStdout, stderr: "" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Content generation blocked by safety filter");
+    });
+
+    it("falls back to stderr when gemini's stdout is not JSON", async () => {
+      setupExecFileMock({
+        gemini: [{ error: true, stdout: "not json output", stderr: "Something went wrong" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Something went wrong");
     });
   });
 

@@ -2,15 +2,14 @@
  * Parses cost/token usage from CLI subprocess stdout, for the two adapters
  * whose backends can emit machine-readable usage data.
  *
- * Neither Gemini CLI nor OpenCode CLI reports this in their default
- * (human-formatted) output — only under an explicit JSON output flag
- * (`--output-format json` for Gemini, `--format json` for OpenCode). These
- * adapters currently invoke the default text mode (see gemini-adapter.ts /
- * opencode-adapter.ts), so parsing here documents the shape each CLI *would*
- * emit if that flag were adopted, while degrading honestly to `undefined`
- * against the plain-text output actually produced today (#2996).
+ * Both Gemini CLI and OpenCode CLI request their JSON output flag
+ * (`--output-format json` for Gemini, `--format json` for OpenCode; see
+ * gemini-adapter.ts / opencode-adapter.ts, #3019), so parsing here operates
+ * against real machine-readable output rather than default human-formatted
+ * text.
  *
- * Parsing never throws — malformed or missing data always yields `{}`.
+ * Parsing never throws — malformed or missing data always yields `{}`
+ * (usage) or `undefined` (error extraction).
  */
 
 import { z } from "zod";
@@ -110,4 +109,43 @@ export function parseOpenCodeUsage(stdout: string): CliUsage {
   }
 
   return found ? { costUsd, tokenUsage: { inputTokens, outputTokens } } : {};
+}
+
+// ── Soft-error extraction from JSON stdout (#3019) ──────────────────
+//
+// On failure, each CLI's JSON output carries structured failure detail in
+// stdout the same way it carries usage — this recovers a human-readable
+// message from it so the ADR-017 failure-PR body stays useful now that a
+// CLI's descriptive error text may no longer land in stderr.
+
+const GeminiJsonErrorSchema = z.object({
+  error: z.object({ message: z.string() }).optional(),
+});
+
+/** Recovers Gemini's `--output-format json` error message, if present. */
+export function extractGeminiError(stdout: string): string | undefined {
+  const parsed = GeminiJsonErrorSchema.safeParse(safeJsonParse(stdout.trim()));
+  return parsed.success ? parsed.data.error?.message : undefined;
+}
+
+const OpenCodeErrorEventSchema = z.object({
+  type: z.literal("error"),
+  error: z.object({
+    name: z.string().optional(),
+    data: z.object({ message: z.string() }).optional(),
+  }),
+});
+
+/** Recovers OpenCode's `--format json` `type: "error"` event message, if present. */
+export function extractOpenCodeError(stdout: string): string | undefined {
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const parsed = OpenCodeErrorEventSchema.safeParse(safeJsonParse(trimmed));
+    if (!parsed.success) continue;
+
+    return parsed.data.error.data?.message ?? parsed.data.error.name;
+  }
+  return undefined;
 }

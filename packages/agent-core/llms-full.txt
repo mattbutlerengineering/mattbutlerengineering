@@ -181,6 +181,17 @@
         return {};
       }
     
+      /**
+       * Recover a human-readable error message from the CLI's stdout when the
+       * run failed, for backends that emit structured JSON there instead of (or
+       * in addition to) stderr. Base implementation reports none — `run()`
+       * falls through to the raw stderr text (see ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected parseErrorFromStdout(_stdout: string): string | undefined {
+        return undefined;
+      }
+    
       // ── Public AgentAdapter implementation ──────────────────────────
     
       /**
@@ -238,7 +249,11 @@
           ...usage,
           ...(exitedSuccessfully
             ? {}
-            : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+            : {
+                error:
+                  this.parseErrorFromStdout(stdout) ??
+                  (stderr || `${this.displayName} CLI exited with non-zero status`),
+              }),
         };
       }
     
@@ -533,16 +548,24 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["-p", config.taskDescription, "--yolo"];
+        return ["-p", config.taskDescription, "--yolo", "--output-format", "json"];
       }
     
       /**
-       * Gemini CLI's default text output carries no usage data — this only
-       * yields real tokenUsage if stdout happens to be the `--output-format
-       * json` blob (not currently requested by buildArgs; see cli-usage-parser.ts).
+       * Parses real cost/tokenUsage from the `--output-format json` blob
+       * requested by buildArgs (#3019).
        */
       protected override parseUsage(stdout: string): CliUsage {
         return parseGeminiUsage(stdout);
+      }
+    
+      /**
+       * Recovers Gemini's structured error message from the same JSON stdout
+       * blob on failure, falling back to raw stderr in CliAdapterBase.run()
+       * when stdout isn't JSON (ADR-017 failure-PR-body contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractGeminiError(stdout);
       }
     }
   </file>
@@ -555,17 +578,25 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["run", config.taskDescription];
+        return ["run", config.taskDescription, "--format", "json"];
       }
     
       /**
-       * OpenCode CLI's default text output carries no usage data — this only
-       * yields real cost/tokenUsage if stdout happens to be the `--format json`
-       * NDJSON event stream (not currently requested by buildArgs; see
-       * cli-usage-parser.ts).
+       * Parses real cost/tokenUsage from the `--format json` NDJSON event
+       * stream requested by buildArgs (#3019).
        */
       protected override parseUsage(stdout: string): CliUsage {
         return parseOpenCodeUsage(stdout);
+      }
+    
+      /**
+       * Recovers OpenCode's structured `type: "error"` event message from the
+       * same NDJSON stdout stream on failure, falling back to raw stderr in
+       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractOpenCodeError(stdout);
       }
     }
   </file>
