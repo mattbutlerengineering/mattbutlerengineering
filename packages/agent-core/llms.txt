@@ -26,7 +26,7 @@
         name: string;
         cliBinary: string;
         async buildArgs(): Promise<unknown>;
-        async isAvailable(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -50,6 +50,17 @@
       }
     </item>
   </file>
+  <file path="src/adapters/cli-usage-parser.ts">
+    <item priority="low">
+      interface CliUsage {
+        costUsd?: number;
+        tokenUsage?: TokenUsage;
+      }
+    </item>
+    <item priority="medium">
+      function safeJsonParse(text: string): unknown { /* ... */ }
+    </item>
+  </file>
   <file path="src/adapters/failover-session-adapter.ts">
     <item priority="low">
       type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
@@ -68,6 +79,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -77,6 +89,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>

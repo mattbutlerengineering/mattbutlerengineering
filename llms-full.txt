@@ -851,6 +851,16 @@
        */
       protected abstract buildArgs(config: AdapterConfig): string[];
     
+      /**
+       * Parse cost/token usage from the CLI's stdout, when the CLI backend
+       * exposes machine-readable usage data. Base implementation reports none;
+       * concrete adapters override this once they know their CLI's usage format
+       * (see cli-usage-parser.ts).
+       */
+      protected parseUsage(_stdout: string): CliUsage {
+        return {};
+      }
+    
       // ── Public AgentAdapter implementation ──────────────────────────
     
       /**
@@ -898,12 +908,14 @@
         }
     
         const durationMs = Date.now() - startTime;
+        const usage = this.parseUsage(stdout);
     
         return {
           success: exitedSuccessfully,
           hasChanges,
           durationMs,
           rateLimited,
+          ...usage,
           ...(exitedSuccessfully
             ? {}
             : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
@@ -1077,6 +1089,7 @@
             adapterSucceeded: adapterResult.success,
             gatewayVerdict,
             cliAdapterName: cliAdapter.name,
+            costUsd: adapterResult.costUsd,
             errors,
             prCreator,
             onEvent,
@@ -1102,8 +1115,8 @@
         status,
         branchName: worktree.branchName,
         prUrl,
-        costUsd: 0,
-        tokenUsage: { inputTokens: 0, outputTokens: 0 },
+        costUsd: adapterResult.costUsd ?? 0,
+        tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
         durationMs: adapterResult.durationMs,
         numTurns: 0,
         resultText: "",
@@ -1117,9 +1130,23 @@
       readonly adapterSucceeded: boolean;
       readonly gatewayVerdict: GatewayVerdict | undefined;
       readonly cliAdapterName: string;
+      readonly costUsd: number | undefined;
       readonly errors: readonly string[];
       readonly prCreator: PrCreatorDeps;
       readonly onEvent: SessionEventCallback | undefined;
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
+    export interface CliUsage {
+      readonly costUsd?: number;
+      readonly tokenUsage?: TokenUsage;
+    }
+    function safeJsonParse(text: string): unknown {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return undefined;
+      }
     }
   </file>
   <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
@@ -1188,6 +1215,15 @@
       protected buildArgs(config: AdapterConfig): string[] {
         return ["-p", config.taskDescription, "--yolo"];
       }
+    
+      /**
+       * Gemini CLI's default text output carries no usage data — this only
+       * yields real tokenUsage if stdout happens to be the `--output-format
+       * json` blob (not currently requested by buildArgs; see cli-usage-parser.ts).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseGeminiUsage(stdout);
+      }
     }
   </file>
   <file path="packages/agent-core/src/adapters/opencode-adapter.ts">
@@ -1200,6 +1236,16 @@
     
       protected buildArgs(config: AdapterConfig): string[] {
         return ["run", config.taskDescription];
+      }
+    
+      /**
+       * OpenCode CLI's default text output carries no usage data — this only
+       * yields real cost/tokenUsage if stdout happens to be the `--format json`
+       * NDJSON event stream (not currently requested by buildArgs; see
+       * cli-usage-parser.ts).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseOpenCodeUsage(stdout);
       }
     }
   </file>
@@ -13622,6 +13668,10 @@
       readonly error?: string;
       /** Wall-clock duration of the run in milliseconds. */
       readonly durationMs: number;
+      /** USD cost of the run, when the backend reports it. Undefined when the CLI exposes no cost data. */
+      readonly costUsd?: number;
+      /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
+      readonly tokenUsage?: TokenUsage;
     }
   </file>
   <file path="packages/agent-core/src/context-budget.ts">
