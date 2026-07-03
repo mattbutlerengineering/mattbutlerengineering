@@ -1158,6 +1158,11 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="apps/gen/src/hooks/useApi.ts">
+    <item priority="high">
+      export function useApi(): ApiClient { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
     <item priority="high">
       export function useCopyToClipboard() { /* ... */ }
@@ -1376,6 +1381,17 @@
     </item>
     <item priority="high">
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
+    <item priority="low">
+      interface UsePublicApiClientOptions {
+        baseUrl?: string;
+        maxRetries?: number;
+      }
+    </item>
+    <item priority="high">
+      export function usePublicApiClient(options: UsePublicApiClientOptions = {}) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">

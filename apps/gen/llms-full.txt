@@ -40,6 +40,16 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/useApi.ts">
+    export function useApi(): ApiClient {
+      const { accessToken } = useAuth();
+    
+      return useMemo(
+        () => new ApiClient({ baseUrl: "", getAccessToken: () => accessToken }),
+        [accessToken]
+      );
+    }
+  </file>
   <file path="src/hooks/useCopyToClipboard.ts">
     export function useCopyToClipboard() {
       const [copied, setCopied] = useState(false);
