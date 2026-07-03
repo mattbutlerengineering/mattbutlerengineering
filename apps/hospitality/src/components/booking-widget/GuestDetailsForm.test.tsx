@@ -15,8 +15,8 @@ const mockHold: ReservationHold = {
 };
 
 const mockApi = {
-  guests: {
-    recognize: vi.fn(),
+  publicVenue: {
+    recognizeGuest: vi.fn(),
   },
 };
 
@@ -275,7 +275,7 @@ describe("GuestDetailsForm", () => {
     };
 
     it("calls recognize endpoint after email blur with 300ms debounce", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: false,
         firstName: null,
         visitCount: 0,
@@ -290,18 +290,18 @@ describe("GuestDetailsForm", () => {
       fireEvent.blur(emailInput);
 
       // Before debounce fires — recognize not yet called
-      expect(mockApi.guests.recognize).not.toHaveBeenCalled();
+      expect(mockApi.publicVenue.recognizeGuest).not.toHaveBeenCalled();
 
       await act(async () => {
         vi.advanceTimersByTime(300);
         await Promise.resolve();
       });
 
-      expect(mockApi.guests.recognize).toHaveBeenCalledWith("the-grill", "jane@example.com");
+      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalledWith("the-grill", "jane@example.com");
     });
 
     it("shows welcome banner when guest is recognized (phone field stays empty)", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: true,
         firstName: "Jane",
         visitCount: 5,
@@ -322,7 +322,7 @@ describe("GuestDetailsForm", () => {
     });
 
     it("shows preferences badge when hasPreferences is true", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: true,
         firstName: "Jane",
         visitCount: 3,
@@ -339,7 +339,7 @@ describe("GuestDetailsForm", () => {
     });
 
     it("does not show badge when hasPreferences is false", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: true,
         firstName: "Jane",
         visitCount: 2,
@@ -356,7 +356,7 @@ describe("GuestDetailsForm", () => {
     });
 
     it("shows no recognition UI when guest is not recognized", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: false,
         firstName: null,
         visitCount: 0,
@@ -368,29 +368,29 @@ describe("GuestDetailsForm", () => {
 
       await triggerRecognition(screen.getByTestId("email"), "new@example.com");
 
-      expect(mockApi.guests.recognize).toHaveBeenCalled();
+      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
     it("silently swallows errors — no recognition UI shown", async () => {
-      mockApi.guests.recognize.mockRejectedValue(new Error("Network error"));
+      mockApi.publicVenue.recognizeGuest.mockRejectedValue(new Error("Network error"));
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockApi.guests.recognize).toHaveBeenCalled();
+      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
     it("silently swallows API errors (e.g. rate limited)", async () => {
-      mockApi.guests.recognize.mockRejectedValue(new Error("Rate limited"));
+      mockApi.publicVenue.recognizeGuest.mockRejectedValue(new Error("Rate limited"));
 
       render(<GuestDetailsForm {...propsWithSlug} />);
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockApi.guests.recognize).toHaveBeenCalled();
+      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalled();
       expect(screen.queryByTestId("recognition-banner")).toBeNull();
     });
 
@@ -399,11 +399,11 @@ describe("GuestDetailsForm", () => {
 
       await triggerRecognition(screen.getByTestId("email"), "jane@example.com");
 
-      expect(mockApi.guests.recognize).not.toHaveBeenCalled();
+      expect(mockApi.publicVenue.recognizeGuest).not.toHaveBeenCalled();
     });
 
     it("auto-filled name remains editable; phone is never pre-filled", async () => {
-      mockApi.guests.recognize.mockResolvedValue({
+      mockApi.publicVenue.recognizeGuest.mockResolvedValue({
         recognized: true,
         firstName: "Jane",
         visitCount: 1,

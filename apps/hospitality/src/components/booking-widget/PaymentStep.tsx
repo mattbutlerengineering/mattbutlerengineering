@@ -4,8 +4,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import type { Stripe } from "@stripe/stripe-js";
 import { ApiClientError, type createApiClient } from "@mbe/api-client";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
-import type { DepositConfig, DepositPaymentIntent } from "@mbe/types";
-import { DepositPaymentIntentSchema } from "@mbe/types";
+import type { DepositConfig } from "@mbe/types";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./PaymentStep.module.css";
 
@@ -69,11 +68,7 @@ function CardForm({
 
     try {
       // Fetch the client secret from our backend
-      const paymentIntent = await api.client.postOne<DepositPaymentIntent>(
-        `/public/v1/venues/${venueSlug}/deposits/payment-intent`,
-        { reservationId },
-        DepositPaymentIntentSchema
-      );
+      const paymentIntent = await api.publicVenue.depositIntent(venueSlug, { reservationId });
 
       const result = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
         payment_method: { card: cardElement },
