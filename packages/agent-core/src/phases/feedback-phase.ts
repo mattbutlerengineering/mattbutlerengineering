@@ -37,6 +37,7 @@ export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
           maxBudgetUsd: remainingBudget,
           allowedTools: config.allowedTools,
         },
+        { worktreeManager: deps.worktreeManager },
         onEvent
       );
       fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);

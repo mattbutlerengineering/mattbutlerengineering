@@ -9,6 +9,7 @@ describe("createDefaultPhaseDeps", () => {
     expect(typeof deps.worktreeManager.hasChanges).toBe("function");
     expect(typeof deps.worktreeManager.commitChanges).toBe("function");
     expect(typeof deps.worktreeManager.pushBranch).toBe("function");
+    expect(typeof deps.worktreeManager.commitAndPush).toBe("function");
     expect(typeof deps.worktreeManager.removeWorktree).toBe("function");
 
     expect(typeof deps.promptBuilder.buildSystemPrompt).toBe("function");
