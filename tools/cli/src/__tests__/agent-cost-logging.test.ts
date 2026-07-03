@@ -34,6 +34,7 @@ vi.mock("node:fs", async (importOriginal) => {
 
 vi.mock("@mbe/agent-core", () => ({
   runAgentSession: vi.fn(),
+  resolveSessionAdapter: vi.fn(() => ({ name: "claude" })),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -59,8 +60,6 @@ vi.mock("@mbe/agent-core", () => ({
       this.name = "AllAdaptersUnavailableError";
     }
   },
-  createWorktree: vi.fn(),
-  removeWorktree: vi.fn(),
 }));
 
 // Mock node:child_process (needed by fetchIssueForRouting inside agent.ts).
