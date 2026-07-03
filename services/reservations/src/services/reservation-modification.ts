@@ -62,35 +62,44 @@ const PARTY_SIZE_DEPOSIT_BLOCKED_RESULT: ModifyReservationResult = {
 };
 
 /**
- * Guards against silently diverging a `per_person` deposit from the
- * reservation when partySize changes (#2931, decision: Block). Re-pricing an
- * in-place deposit was deliberately deferred — the guest-facing path is
- * cancel (deposit-safe, see reservation-cancellation.ts) and rebook, which
- * creates a correctly re-priced hold.
+ * Whether changing `reservation`'s partySize to `newPartySize` would
+ * silently diverge a `per_person` deposit (#2931, decision: Block).
+ * Re-pricing an in-place deposit was deliberately deferred, so any caller
+ * that accepts a partySize update on a reservation (guest self-service or
+ * staff) must consult this before applying the change — see #2998, which
+ * closed the staff-route bypass of this same check.
  *
- * Returns a blocking 409 result, or `null` when the change may proceed: the
- * partySize isn't actually changing, the venue isn't `per_person`, or there
- * is no `pending`/`held` deposit to diverge.
+ * Returns `false` when the change may proceed: the partySize isn't actually
+ * changing, the venue isn't `per_person`, or there is no `pending`/`held`
+ * deposit to diverge.
+ */
+export async function isPartySizeDepositBlocked(
+  reservation: Reservation,
+  newPartySize: number | undefined
+): Promise<boolean> {
+  if (newPartySize === undefined || newPartySize === reservation.partySize) {
+    return false;
+  }
+
+  const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
+  if (rawVenue?.depositType !== "per_person") {
+    return false;
+  }
+
+  const deposit = await depositService.getByReservationId(reservation.id);
+  return Boolean(deposit && DEPOSIT_HELD_STATUSES.has(deposit.status));
+}
+
+/**
+ * Guest-facing adapter over {@link isPartySizeDepositBlocked}: returns a
+ * blocking 409 result, or `null` when the change may proceed.
  */
 async function checkPartySizeDepositGuard(
   reservation: Reservation,
   changes: ReservationChanges
 ): Promise<ModifyReservationResult | null> {
-  if (changes.partySize === undefined || changes.partySize === reservation.partySize) {
-    return null;
-  }
-
-  const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
-  if (rawVenue?.depositType !== "per_person") {
-    return null;
-  }
-
-  const deposit = await depositService.getByReservationId(reservation.id);
-  if (!deposit || !DEPOSIT_HELD_STATUSES.has(deposit.status)) {
-    return null;
-  }
-
-  return PARTY_SIZE_DEPOSIT_BLOCKED_RESULT;
+  const blocked = await isPartySizeDepositBlocked(reservation, changes.partySize);
+  return blocked ? PARTY_SIZE_DEPOSIT_BLOCKED_RESULT : null;
 }
 
 /**
