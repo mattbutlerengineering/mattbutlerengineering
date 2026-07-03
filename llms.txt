@@ -448,35 +448,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="analytics">
-  <file path="web/src/components/analytics/Dashboard.ts">
-    <item priority="high">
-      export function renderStyles(): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function badgeVariant(rate: number): string { /* ... */ }
-    </item>
-  </file>
-  <file path="web/src/components/analytics/QualityMetrics.ts">
-    <item priority="low">
-      interface PrAcceptanceEntry {
-        date: string;
-        windowDays: number;
-        total: number;
-        merged: number;
-        closed: number;
-      }
-    </item>
-    <item priority="low">
-      interface ServiceHealthEntry {
-        service: string;
-        status: "ok" | "degraded" | "down";
-        error_rates: number | null;
-        latency_ms: number | null;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
