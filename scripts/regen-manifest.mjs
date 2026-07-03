@@ -242,7 +242,13 @@ export function llmsPackages() {
 
 const DEP_MANIFEST_RE = /(^|\/)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml)$/;
 const LLMS_SOURCE_RE = /\.(ts|tsx|prisma)$|(^|\/)CLAUDE\.md$/;
-const PACKAGE_DIR_RE = /^((?:apps|packages|services|tools)\/[^/]+)\//;
+// Matches a package segment anywhere in the path (mirrors DEP_MANIFEST_RE's
+// `(^|/)` style), not just at the start. A plain repo-root-relative path
+// (e.g. "packages/rialto/src/Foo.tsx") still matches via `^`, but this also
+// tolerates an absolute path whose prefix doesn't line up with the repo root
+// (e.g. a hook computed `rel_path` from an unresolved CLAUDE_PROJECT_DIR
+// while CLAUDE_FILE_PATH is symlink-resolved, or vice versa — see #2983).
+const PACKAGE_DIR_RE = /(^|\/)((?:apps|packages|services|tools)\/[^/]+)\//;
 
 /** True when `path` matches a REGEN_SOURCE_EXCLUDES pattern (test/dist/generated/etc). */
 function isRegenExcluded(path) {
@@ -262,7 +268,7 @@ function isLlmsSource(path) {
 /** Workspace package directory (e.g. "packages/foo") owning `path`, or null. */
 function packageDirFor(path) {
   const match = PACKAGE_DIR_RE.exec(path);
-  return match ? match[1] : null;
+  return match ? match[2] : null;
 }
 
 /**
