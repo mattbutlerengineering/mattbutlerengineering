@@ -14,6 +14,11 @@ import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
 import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
+import { createDefaultPhaseDeps } from "../phases/default-deps.js";
+import type { PhaseDeps } from "../phases/index.js";
+import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
+import { runCliAdapterSession } from "./cli-adapter-session-runner.js";
+import type { CliUsage } from "./cli-usage-parser.js";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -46,6 +51,27 @@ export abstract class CliAdapterBase implements AgentAdapter {
    * The task description passed here is already truncated.
    */
   protected abstract buildArgs(config: AdapterConfig): string[];
+
+  /**
+   * Parse cost/token usage from the CLI's stdout, when the CLI backend
+   * exposes machine-readable usage data. Base implementation reports none;
+   * concrete adapters override this once they know their CLI's usage format
+   * (see cli-usage-parser.ts).
+   */
+  protected parseUsage(_stdout: string): CliUsage {
+    return {};
+  }
+
+  /**
+   * Recover a human-readable error message from the CLI's stdout when the
+   * run failed, for backends that emit structured JSON there instead of (or
+   * in addition to) stderr. Base implementation reports none — `run()`
+   * falls through to the raw stderr text (see ADR-017 failure-PR-body
+   * contract, #3019).
+   */
+  protected parseErrorFromStdout(_stdout: string): string | undefined {
+    return undefined;
+  }
 
   // ── Public AgentAdapter implementation ──────────────────────────
 
@@ -94,16 +120,37 @@ export abstract class CliAdapterBase implements AgentAdapter {
     }
 
     const durationMs = Date.now() - startTime;
+    const usage = this.parseUsage(stdout);
 
     return {
       success: exitedSuccessfully,
       hasChanges,
       durationMs,
       rateLimited,
+      ...usage,
       ...(exitedSuccessfully
         ? {}
-        : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+        : {
+            error:
+              this.parseErrorFromStdout(stdout) ??
+              (stderr || `${this.displayName} CLI exited with non-zero status`),
+          }),
     };
+  }
+
+  /**
+   * Run a full agent session (worktree → CLI dispatch → gates → publish)
+   * through the shared `runCliAdapterSession()` pipeline — the seam
+   * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+   * mirroring `ClaudeAdapter.runSession()` (#2973).
+   */
+  async runSession(
+    config: SessionConfig,
+    onEvent?: SessionEventCallback,
+    deps: PhaseDeps = createDefaultPhaseDeps(),
+    signal?: AbortSignal
+  ): Promise<SessionResult> {
+    return runCliAdapterSession(this, config, onEvent, deps, signal);
   }
 
   // ── Protected shared utilities ───────────────────────────────────

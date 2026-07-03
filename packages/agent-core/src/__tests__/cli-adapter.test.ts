@@ -186,7 +186,7 @@ describe("GeminiCliAdapter — argument construction", () => {
     adapter = new GeminiCliAdapter();
   });
 
-  it("constructs args as [-p, taskDescription, --yolo]", async () => {
+  it("constructs args as [-p, taskDescription, --yolo, --output-format, json]", async () => {
     setupExecFileMock({
       gemini: [{ stdout: "" }],
       "git-status": [{ stdout: "" }],
@@ -196,7 +196,7 @@ describe("GeminiCliAdapter — argument construction", () => {
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "gemini");
     expect(call).toBeDefined();
-    expect(call![1]).toEqual(["-p", "add feature X", "--yolo"]);
+    expect(call![1]).toEqual(["-p", "add feature X", "--yolo", "--output-format", "json"]);
   });
 
   it("invokes 'gemini' binary", async () => {
@@ -242,7 +242,7 @@ describe("OpenCodeAdapter — argument construction", () => {
     adapter = new OpenCodeAdapter();
   });
 
-  it("constructs args as [run, taskDescription]", async () => {
+  it("constructs args as [run, taskDescription, --format, json]", async () => {
     setupExecFileMock({
       opencode: [{ stdout: "" }],
       "git-status": [{ stdout: "" }],
@@ -252,7 +252,7 @@ describe("OpenCodeAdapter — argument construction", () => {
 
     const call = vi.mocked(execFile).mock.calls.find((c) => c[0] === "opencode");
     expect(call).toBeDefined();
-    expect(call![1]).toEqual(["run", "refactor auth module"]);
+    expect(call![1]).toEqual(["run", "refactor auth module", "--format", "json"]);
   });
 
   it("invokes 'opencode' binary", async () => {

@@ -404,12 +404,7 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
-            return reply
-              .status(preamble.status)
-              .send(
-                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
-              );
+            return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
           const result = await cancelReservationWithDeposit(
@@ -459,6 +454,27 @@
         }
       );
     };
+  </file>
+  <file path="src/routes/deposit-transition-handler.ts">
+    type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
+    export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
+      return async (request: DepositTransitionRequest, reply: FastifyReply) => {
+        const existing = await depositService.getById(request.params.id);
+        if (!existing) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        }
+    
+        try {
+          const deposit = await transition(request.params.id);
+          return { data: deposit };
+        } catch (err) {
+          if (err instanceof DepositTransitionError) {
+            return reply.code(422).send(createProblemDetails(422, "Unprocessable Entity", err.message));
+          }
+          throw err;
+        }
+      };
+    }
   </file>
   <file path="src/routes/deposits.ts">
     interface ApiResponse<T> {
@@ -1765,36 +1781,14 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
-            return reply.status(404).send(
-              createProblemDetails(
-                404,
-                "Reservation Not Found",
-                "Reservation not found",
-                "about:blank",
-                undefined,
-                {
-                  code: "RESERVATION_NOT_FOUND",
-                }
-              )
-            );
+            return reply.status(404).send(reservationNotFoundProblem());
           }
     
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           return reply.status(200).send({
             data: {
-              reservation: {
-                id: reservation.id,
-                date: reservation.date,
-                startTime: reservation.startTime,
-                endTime: reservation.endTime,
-                partySize: reservation.partySize,
-                guestName: reservation.guestName,
-                guestEmail: reservation.guestEmail,
-                guestPhone: reservation.guestPhone,
-                status: reservation.status,
-                notes: reservation.notes,
-              },
+              reservation: serializeManagedReservation(reservation),
               venue: venue
                 ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
                 : null,
@@ -1824,135 +1818,38 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
-            return reply
-              .status(preamble.status)
-              .send(
-                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
-              );
-          }
-          const reservation = preamble.reservation;
-    
-          const body = request.body ?? {};
-          const { date, startTime, endTime, partySize, specialRequests } = body;
-    
-          const hasChanges =
-            date !== undefined ||
-            startTime !== undefined ||
-            endTime !== undefined ||
-            partySize !== undefined ||
-            specialRequests !== undefined;
-    
-          if (!hasChanges) {
-            return reply
-              .status(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "No Changes",
-                  "At least one field must be provided to modify",
-                  "about:blank",
-                  undefined,
-                  { code: "NO_CHANGES_PROVIDED" }
-                )
-              );
+            return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
           }
     
-          const updateData = {
-            ...(date !== undefined && { date }),
-            ...(startTime !== undefined && { startTime }),
-            ...(endTime !== undefined && { endTime }),
-            ...(partySize !== undefined && { partySize }),
-            ...(specialRequests !== undefined && { notes: specialRequests }),
-          };
-    
-          const updateResult = await reservationService.updateWithConflictCheck(
-            reservation.id,
-            updateData
+          const result = await modifyReservationWithNotifications(
+            preamble.reservation,
+            request.body ?? {},
+            request.query.token!,
+            {
+              bookingNotifier: fastify.bookingNotifier,
+              notificationPort: fastify.notificationPort,
+              logger: request.log,
+            }
           );
     
-          if (!updateResult.success) {
-            if (updateResult.conflict) {
-              return reply
-                .status(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Slot Unavailable",
-                    updateResult.error!,
-                    "about:blank",
-                    undefined,
-                    { code: "SLOT_UNAVAILABLE" }
-                  )
-                );
-            }
-            return reply
-              .status(500)
-              .send(
-                createProblemDetails(
-                  500,
-                  "Update Failed",
-                  updateResult.error ?? "Failed to modify reservation",
-                  "about:blank",
-                  undefined,
-                  { code: "RESERVATION_UPDATE_FAILED" }
-                )
-              );
-          }
-    
-          const updated = updateResult.reservation!;
-          const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-    
-          // Reschedule reminder jobs if time changed
-          const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
-          if (timeChanged) {
-            fastify.bookingNotifier
-              .rescheduleBookingReminders(updated, request.query.token!)
-              .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
-          }
-    
-          if (updated.guestEmail && venue) {
-            const preference =
-              (updated.guest?.communicationPreference as
-                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
-            try {
-              await fastify.notificationPort.sendBookingModified(
+          if (!result.success) {
+            return reply.status(result.status).send(
+              createProblemDetails(
+                result.status,
+                result.title,
+                result.detail,
+                "about:blank",
+                undefined,
                 {
-                  reservationId: updated.id,
-                  date: updated.date,
-                  startTime: updated.startTime,
-                  endTime: updated.endTime,
-                  partySize: updated.partySize,
-                  guestName: updated.guestName,
-                  guestEmail: updated.guestEmail,
-                  guestPhone: updated.guestPhone ?? null,
-                  specialRequests: updated.notes ?? null,
-                  venueName: venue.name,
-                  venueTimezone: venue.ianaTimezone,
-                  venueAddress: null,
-                  manageToken: request.query.token!,
-                  sequence: 2,
-                },
-                preference
-              );
-            } catch {
-              request.log.error("Failed to send booking modified notification");
-            }
+                  code: result.code,
+                }
+              )
+            );
           }
     
           return reply.status(200).send({
             data: {
-              reservation: {
-                id: updated.id,
-                date: updated.date,
-                startTime: updated.startTime,
-                endTime: updated.endTime,
-                partySize: updated.partySize,
-                guestName: updated.guestName,
-                guestEmail: updated.guestEmail,
-                status: updated.status,
-                notes: updated.notes,
-              },
+              reservation: serializeManagedReservation(result.reservation),
             },
           });
         }
@@ -3161,7 +3058,21 @@
               },
               409: {
                 description: "Conflict with existing reservation or hold",
-                $ref: "Error#",
+                // allOf the shared Error# schema (RFC 7807 fields: type, title,
+                // status, detail, instance) plus the machine-readable `code`
+                // extension (e.g. PARTY_SIZE_DEPOSIT_HELD, #2998) that isn't
+                // present on Error#. A bare inline schema here would make
+                // fast-json-stringify strip the RFC 7807 fields from every 409
+                // this route sends, not just the deposit-guard one (#3017 review).
+                allOf: [
+                  { $ref: "Error#" },
+                  {
+                    type: "object",
+                    properties: {
+                      code: { type: "string" },
+                    },
+                  },
+                ],
               },
               500: {
                 description: "Internal server error",
@@ -3204,6 +3115,32 @@
               }
               throw err;
             }
+          }
+    
+          // #2998: staff PATCH accepts partySize but previously bypassed the
+          // per_person-deposit guard added for the public manage route in
+          // #2997/#2931 (decision: Block) — route through the same check here
+          // so a staff caller can't silently diverge a held/pending deposit
+          // either. Staff who need to override should capture/refund the
+          // deposit first, or cancel and rebook.
+          if (
+            request.body.partySize !== undefined &&
+            (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+          ) {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Conflict",
+                  "This venue charges a per-person deposit and a payment is already pending or " +
+                    "held for this reservation. Capture or refund the deposit before changing party " +
+                    "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                  "about:blank",
+                  undefined,
+                  { code: "PARTY_SIZE_DEPOSIT_HELD" }
+                )
+              );
           }
     
           try {
@@ -5462,6 +5399,20 @@
       logger: FastifyBaseLogger;
     }
     export type CancelInitiator = "guest" | "staff";
+  </file>
+  <file path="src/services/reservation-modification.ts">
+    export interface ModifyReservationDeps {
+      bookingNotifier: BookingNotifier;
+      notificationPort: NotificationDispatcher;
+      logger: FastifyBaseLogger;
+    }
+    export interface ReservationChanges {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
+    }
   </file>
   <file path="src/services/reservation-state-machine.ts">
     export const reservationMachine = createStateMachine<ReservationStatus>(

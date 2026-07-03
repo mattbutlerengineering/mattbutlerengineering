@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FAMILIES, llmsPackages } from "../regen-manifest.mjs";
+import { FAMILIES, llmsPackages, familiesForChangedFile } from "../regen-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -181,5 +181,143 @@ describe("regen-manifest", () => {
       regenLlmsIdx,
       "regenLlms() must come AFTER regenFamily(family) so llms embeds the freshly-generated schema"
     ).toBeGreaterThan(regenFamilyIdx);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// familiesForChangedFile — issue #2968: hooks query the manifest instead of
+// re-encoding it.
+// ---------------------------------------------------------------------------
+describe("familiesForChangedFile", () => {
+  it("maps a package.json edit to both dep-graph families", () => {
+    const matches = familiesForChangedFile("packages/foo/package.json");
+    const ids = matches.map((f) => f.id);
+    expect(ids).toContain("dep-graph-md");
+    expect(ids).toContain("dep-graph-json");
+  });
+
+  it("maps the root package.json to both dep-graph families", () => {
+    const matches = familiesForChangedFile("package.json");
+    const ids = matches.map((f) => f.id);
+    expect(ids).toContain("dep-graph-md");
+    expect(ids).toContain("dep-graph-json");
+  });
+
+  it("maps a pnpm-workspace.yaml edit to both dep-graph families", () => {
+    const matches = familiesForChangedFile("pnpm-workspace.yaml");
+    const ids = matches.map((f) => f.id);
+    expect(ids).toContain("dep-graph-md");
+    expect(ids).toContain("dep-graph-json");
+  });
+
+  it("dep-graph matches carry the manifest's own command and outputs (no re-encoding)", () => {
+    const matches = familiesForChangedFile("package.json");
+    const md = matches.find((f) => f.id === "dep-graph-md");
+    const json = matches.find((f) => f.id === "dep-graph-json");
+    const manifestMd = FAMILIES.find((f) => f.id === "dep-graph-md");
+    const manifestJson = FAMILIES.find((f) => f.id === "dep-graph-json");
+    expect(md.command).toBe(manifestMd.command);
+    expect(md.outputs).toEqual(manifestMd.outputs);
+    expect(json.command).toBe(manifestJson.command);
+    expect(json.outputs).toEqual(manifestJson.outputs);
+  });
+
+  it("ignores a package.json under node_modules", () => {
+    const matches = familiesForChangedFile("packages/foo/node_modules/bar/package.json");
+    expect(matches).toEqual([]);
+  });
+
+  it("maps a source file inside a covered package to a package-scoped llms-txt family", () => {
+    const matches = familiesForChangedFile("packages/rialto/src/Foo.tsx");
+    expect(matches.length).toBe(1);
+    expect(matches[0].id).toBe("llms-txt");
+    expect(matches[0].command).toBe("pnpm --filter @mbe/cli start pack packages/rialto");
+    expect(matches[0].outputs).toEqual([
+      "packages/rialto/llms.txt",
+      "packages/rialto/llms-full.txt",
+    ]);
+  });
+
+  // Regression test for #2983: CLAUDE_PROJECT_DIR (or the git rev-parse
+  // fallback) and CLAUDE_FILE_PATH can disagree on the real path when a
+  // symlink is involved (e.g. macOS /tmp -> /private/tmp). When that happens,
+  // the PostToolUse hook's prefix-strip silently fails and passes an absolute
+  // path straight through to `--families-for`. packageDirFor() must still
+  // resolve the owning package instead of returning null and no-op'ing on a
+  // genuine package-source edit.
+  it("maps an absolute path (root/file-path mismatch, e.g. symlinked /tmp) to a package-scoped llms-txt family", () => {
+    const matches = familiesForChangedFile(
+      "/private/tmp/some-worktree/packages/rialto/src/Foo.tsx"
+    );
+    expect(matches.length).toBe(1);
+    expect(matches[0].id).toBe("llms-txt");
+    expect(matches[0].command).toBe("pnpm --filter @mbe/cli start pack packages/rialto");
+    expect(matches[0].outputs).toEqual([
+      "packages/rialto/llms.txt",
+      "packages/rialto/llms-full.txt",
+    ]);
+  });
+
+  it("maps a CLAUDE.md edit inside a covered package to a package-scoped llms-txt family", () => {
+    const matches = familiesForChangedFile("services/agent/CLAUDE.md");
+    expect(matches.length).toBe(1);
+    expect(matches[0].id).toBe("llms-txt");
+    expect(matches[0].outputs).toEqual(["services/agent/llms.txt", "services/agent/llms-full.txt"]);
+  });
+
+  it("returns [] for a source file in a package with no committed llms.txt yet", () => {
+    const matches = familiesForChangedFile("packages/does-not-exist-yet/src/foo.ts");
+    expect(matches).toEqual([]);
+  });
+
+  it("returns [] for a test file (mirrors REGEN_SOURCE_EXCLUDES, no wasted regen)", () => {
+    const matches = familiesForChangedFile("packages/rialto/src/Foo.test.tsx");
+    expect(matches).toEqual([]);
+  });
+
+  it("returns [] for a generated file", () => {
+    const matches = familiesForChangedFile("services/agent/src/generated/prisma/index.d.ts");
+    expect(matches).toEqual([]);
+  });
+
+  it("returns [] for a file that touches no generator", () => {
+    expect(familiesForChangedFile("docs/README.md")).toEqual([]);
+    expect(familiesForChangedFile("apps/hospitality/src/App.test.tsx")).toEqual([]);
+  });
+
+  // Extensibility invariant: a family that declares its own `changedBy(path)`
+  // rule is picked up by familiesForChangedFile with ZERO edits to this
+  // function (or to any hook script that calls it) — the loop below is
+  // generic over whatever families it's given. This is what lets a 6th
+  // manifest family "just work" without touching regen-dep-graph.sh /
+  // regen-llms.sh.
+  it("picks up a hypothetical new family via dependency injection, with no changes to familiesForChangedFile itself", () => {
+    const hypotheticalFamilies = [
+      ...FAMILIES,
+      {
+        id: "hypothetical-family",
+        label: "some new generated artifact",
+        command: "pnpm run generate:hypothetical",
+        outputs: ["some/generated/artifact.json"],
+        changedBy(path) {
+          return path.startsWith("some/source/")
+            ? { command: this.command, outputs: this.outputs }
+            : null;
+        },
+      },
+    ];
+
+    const matches = familiesForChangedFile("some/source/input.yaml", hypotheticalFamilies);
+    expect(matches).toEqual([
+      {
+        id: "hypothetical-family",
+        label: "some new generated artifact",
+        command: "pnpm run generate:hypothetical",
+        outputs: ["some/generated/artifact.json"],
+      },
+    ]);
+
+    // And a non-matching path still yields nothing extra.
+    expect(familiesForChangedFile("unrelated/path.ts", hypotheticalFamilies)).toEqual([]);
   });
 });

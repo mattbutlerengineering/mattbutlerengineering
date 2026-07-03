@@ -776,7 +776,7 @@
         const startTime = Date.now();
     
         try {
-          const sessionResult = await runSession({
+          const sessionResult = await runSessionPipeline({
             taskDescription: config.taskDescription,
             repoPath: config.repoPath,
             baseBranch: config.baseBranch,
@@ -813,6 +813,20 @@
           };
         }
       }
+    
+      /**
+       * Runs a full agent session (worktree → gates → publish → spend) via the
+       * existing runSession() pipeline, forwarding the SessionConfig unchanged.
+       * This is the seam `runAgentSession()` calls for the "claude" backend (#2964).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runSessionPipeline(config, onEvent, deps, signal);
+      }
     }
   </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
@@ -836,6 +850,27 @@
        * The task description passed here is already truncated.
        */
       protected abstract buildArgs(config: AdapterConfig): string[];
+    
+      /**
+       * Parse cost/token usage from the CLI's stdout, when the CLI backend
+       * exposes machine-readable usage data. Base implementation reports none;
+       * concrete adapters override this once they know their CLI's usage format
+       * (see cli-usage-parser.ts).
+       */
+      protected parseUsage(_stdout: string): CliUsage {
+        return {};
+      }
+    
+      /**
+       * Recover a human-readable error message from the CLI's stdout when the
+       * run failed, for backends that emit structured JSON there instead of (or
+       * in addition to) stderr. Base implementation reports none — `run()`
+       * falls through to the raw stderr text (see ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected parseErrorFromStdout(_stdout: string): string | undefined {
+        return undefined;
+      }
     
       // ── Public AgentAdapter implementation ──────────────────────────
     
@@ -884,16 +919,37 @@
         }
     
         const durationMs = Date.now() - startTime;
+        const usage = this.parseUsage(stdout);
     
         return {
           success: exitedSuccessfully,
           hasChanges,
           durationMs,
           rateLimited,
+          ...usage,
           ...(exitedSuccessfully
             ? {}
-            : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+            : {
+                error:
+                  this.parseErrorFromStdout(stdout) ??
+                  (stderr || `${this.displayName} CLI exited with non-zero status`),
+              }),
         };
+      }
+    
+      /**
+       * Run a full agent session (worktree → CLI dispatch → gates → publish)
+       * through the shared `runCliAdapterSession()` pipeline — the seam
+       * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+       * mirroring `ClaudeAdapter.runSession()` (#2973).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runCliAdapterSession(this, config, onEvent, deps, signal);
       }
     
       // ── Protected shared utilities ───────────────────────────────────
@@ -981,6 +1037,188 @@
       }
     }
   </file>
+  <file path="packages/agent-core/src/adapters/cli-adapter-session-runner.ts">
+    export async function runCliAdapterSession(
+      cliAdapter: AgentAdapter,
+      config: SessionConfig,
+      onEvent?: SessionEventCallback,
+      deps: PhaseDeps = createDefaultPhaseDeps(),
+      _signal?: AbortSignal
+    ): Promise<SessionResult> {
+      const { worktreeManager, successEvaluator, gateway, prCreator } = deps;
+    
+      emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
+      const { value: worktree } = await withRetry(
+        () =>
+          worktreeManager.createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+        { maxRetries: 2 }
+      );
+      emitEvent(onEvent, "session:start", {
+        message: `Starting ${cliAdapter.name} on branch ${worktree.branchName}`,
+      });
+    
+      const adapterResult = await cliAdapter.run({
+        taskDescription: config.taskDescription,
+        worktreePath: worktree.path,
+        repoPath: config.repoPath,
+        baseBranch: config.baseBranch,
+        model: config.model,
+        maxTurns: config.maxTurns,
+        timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+      });
+    
+      const errors: string[] = adapterResult.error ? [adapterResult.error] : [];
+      let prUrl: string | null = null;
+    
+      if (!adapterResult.hasChanges) {
+        emitEvent(onEvent, "session:result", { message: "No changes were made by the agent" });
+      } else {
+        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+          maxRetries: 3,
+        });
+    
+        let gatewayVerdict: GatewayVerdict | undefined;
+        if (adapterResult.success) {
+          const diff = await successEvaluator.getGitDiff(worktree.path);
+          gatewayVerdict = await gateway.runPostCommitGateway(
+            {
+              worktreePath: worktree.path,
+              diff,
+              commitMsg: `feat: ${config.taskDescription}`,
+              taskDescription: config.taskDescription,
+              config: {
+                evaluateSuccess: config.evaluateSuccess,
+                runSecurityReview: true,
+                runStaticAnalysis: true,
+              },
+            },
+            onEvent
+          );
+          errors.push(...gatewayVerdict.errors);
+        }
+    
+        if (config.createPr) {
+          prUrl = await publishCliAdapterResult({
+            config,
+            worktree,
+            adapterSucceeded: adapterResult.success,
+            gatewayVerdict,
+            cliAdapterName: cliAdapter.name,
+            costUsd: adapterResult.costUsd,
+            errors,
+            prCreator,
+            onEvent,
+          });
+        }
+      }
+    
+      if (config.createPr) {
+        await worktreeManager.removeWorktree(config.repoPath, worktree.path);
+      }
+    
+      const failureCategory: FailureCategory | undefined = !adapterResult.success
+        ? adapterResult.rateLimited
+          ? "rate_limited"
+          : categorizeFailure(errors)
+        : undefined;
+    
+      const status = adapterResult.success ? "succeeded" : "failed";
+      emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
+    
+      return {
+        sessionId: "",
+        status,
+        branchName: worktree.branchName,
+        prUrl,
+        costUsd: adapterResult.costUsd ?? 0,
+        tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
+        durationMs: adapterResult.durationMs,
+        numTurns: 0,
+        resultText: "",
+        errors,
+        ...(failureCategory ? { failureCategory } : {}),
+      };
+    }
+    interface PublishCliAdapterInput {
+      readonly config: SessionConfig;
+      readonly worktree: WorktreeInfo;
+      readonly adapterSucceeded: boolean;
+      readonly gatewayVerdict: GatewayVerdict | undefined;
+      readonly cliAdapterName: string;
+      readonly costUsd: number | undefined;
+      readonly errors: readonly string[];
+      readonly prCreator: PrCreatorDeps;
+      readonly onEvent: SessionEventCallback | undefined;
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
+    export interface CliUsage {
+      readonly costUsd?: number;
+      readonly tokenUsage?: TokenUsage;
+    }
+    function safeJsonParse(text: string): unknown {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return undefined;
+      }
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
+    export type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    export class FailoverSessionAdapter implements AgentSessionAdapter {
+      private readonly adapters: readonly FailoverCapableAdapter[];
+      private readonly detector: RateLimitDetector;
+    
+      constructor(adapters: readonly FailoverCapableAdapter[], detector?: RateLimitDetector) {
+        if (adapters.length === 0) {
+          throw new Error("FailoverSessionAdapter requires at least one adapter");
+        }
+        this.adapters = adapters;
+        this.detector = detector ?? new RateLimitDetector(adapters.map((a) => a.name));
+      }
+    
+      /**
+       * Run the task on the highest-priority available adapter. Priority order
+       * matches the constructor's `adapters` array. An adapter is skipped when
+       * it's cooling down, its CLI/SDK isn't available, or its result reports
+       * `failureCategory: "rate_limited"` — the router then marks it and tries
+       * the next adapter. Any other failure is returned as-is (not cascaded).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        for (const adapter of this.adapters) {
+          if (!this.detector.isAvailable(adapter.name)) continue;
+    
+          const cliAvailable = await adapter.isAvailable();
+          if (!cliAvailable) continue;
+    
+          const result = await adapter.runSession(config, onEvent, deps, signal);
+    
+          if (result.failureCategory === "rate_limited") {
+            this.detector.markRateLimited(adapter.name);
+            continue;
+          }
+    
+          this.detector.markSuccess(adapter.name);
+          return result;
+        }
+    
+        const cooldowns = new Map<string, number>();
+        for (const adapter of this.adapters) {
+          const state = this.detector.getState(adapter.name);
+          if (state?.cooldownUntil !== null && state?.cooldownUntil !== undefined) {
+            cooldowns.set(adapter.name, state.cooldownUntil);
+          }
+        }
+        throw new AllAdaptersUnavailableError(cooldowns);
+      }
+    }
+  </file>
   <file path="packages/agent-core/src/adapters/gemini-adapter.ts">
     export class GeminiCliAdapter extends CliAdapterBase {
       readonly name = "gemini";
@@ -990,7 +1228,24 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["-p", config.taskDescription, "--yolo"];
+        return ["-p", config.taskDescription, "--yolo", "--output-format", "json"];
+      }
+    
+      /**
+       * Parses real cost/tokenUsage from the `--output-format json` blob
+       * requested by buildArgs (#3019).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseGeminiUsage(stdout);
+      }
+    
+      /**
+       * Recovers Gemini's structured error message from the same JSON stdout
+       * blob on failure, falling back to raw stderr in CliAdapterBase.run()
+       * when stdout isn't JSON (ADR-017 failure-PR-body contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractGeminiError(stdout);
       }
     }
   </file>
@@ -1003,7 +1258,25 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["run", config.taskDescription];
+        return ["run", config.taskDescription, "--format", "json"];
+      }
+    
+      /**
+       * Parses real cost/tokenUsage from the `--format json` NDJSON event
+       * stream requested by buildArgs (#3019).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseOpenCodeUsage(stdout);
+      }
+    
+      /**
+       * Recovers OpenCode's structured `type: "error"` event message from the
+       * same NDJSON stdout stream on failure, falling back to raw stderr in
+       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractOpenCodeError(stdout);
       }
     }
   </file>
@@ -1027,171 +1300,317 @@
       }
     }
   </file>
-  </section>
-  <section priority="medium" role="analytics">
-  <file path="web/src/components/analytics/Dashboard.ts">
-    export function renderStyles(): string {
-      return `<style>
-      .qd-root {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
-        color: #1a1a2e;
+  <file path="tools/cli/src/commands/agent/check-model.ts">
+    function loadTelemetryHistory(): TelemetryRow[] {
+      let content: string;
+      try {
+        content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
+      } catch {
+        return [];
       }
-      .qd-header {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-      }
-      .qd-header h1 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 700;
-      }
-      .qd-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.35rem 0.75rem;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        font-weight: 600;
-      }
-      .qd-badge--ok   { background: #d4edda; color: #155724; }
-      .qd-badge--warn { background: #fff3cd; color: #856404; }
-      .qd-badge--err  { background: #f8d7da; color: #721c24; }
-      .qd-badge--info { background: #e2e3f1; color: #383d6e; }
-    
-      .qd-section { margin-bottom: 2rem; }
-      .qd-section h2 {
-        font-size: 1.15rem;
-        font-weight: 600;
-        margin: 0 0 0.75rem;
-        padding-bottom: 0.35rem;
-        border-bottom: 2px solid #e2e3f1;
-      }
-    
-      .qd-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
-      }
-      .qd-card {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 1rem;
-      }
-      .qd-card__label {
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6c757d;
-        margin-bottom: 0.25rem;
-      }
-      .qd-card__value {
-        font-size: 1.5rem;
-        font-weight: 700;
-      }
-    
-      .qd-bar-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-      .qd-bar-label {
-        width: 90px;
-        font-size: 0.85rem;
-        text-align: right;
-        flex-shrink: 0;
-      }
-      .qd-bar-track {
-        flex: 1;
-        height: 20px;
-        background: #e9ecef;
-        border-radius: 4px;
-        overflow: hidden;
-      }
-      .qd-bar-fill {
-        height: 100%;
-        border-radius: 4px;
-        transition: width 0.4s ease;
-      }
-      .qd-bar-fill--green  { background: #28a745; }
-      .qd-bar-fill--yellow { background: #ffc107; }
-      .qd-bar-fill--red    { background: #dc3545; }
-      .qd-bar-pct {
-        width: 48px;
-        font-size: 0.85rem;
-        font-weight: 600;
-      }
-    
-      .qd-services {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 0.75rem;
-      }
-      .qd-svc {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.65rem 1rem;
-        border-radius: 6px;
-        background: #f8f9fa;
-        font-size: 0.9rem;
-      }
-      .qd-svc__dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-      .qd-svc__dot--ok      { background: #28a745; }
-      .qd-svc__dot--degraded { background: #ffc107; }
-      .qd-svc__dot--down    { background: #dc3545; }
-      .qd-svc__name { font-weight: 600; }
-      .qd-svc__latency { color: #6c757d; font-size: 0.8rem; margin-left: auto; }
-    
-      .qd-empty {
-        color: #6c757d;
-        font-style: italic;
-        padding: 1rem;
-      }
-      .qd-footer {
-        margin-top: 2rem;
-        font-size: 0.75rem;
-        color: #adb5bd;
-        text-align: center;
-      }
-    </style>`;
+      return content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line) as TelemetryRow];
+          } catch {
+            return [];
+          }
+        });
     }
-    function badgeVariant(rate: number): string {
-      if (rate >= 0.9) return "ok";
-      if (rate >= 0.7) return "warn";
-      return "err";
+    interface FetchedIssue {
+      title: string;
+      body: string;
+      labels: string[];
     }
   </file>
-  <file path="web/src/components/analytics/QualityMetrics.ts">
-    export interface PrAcceptanceEntry {
-      readonly date: string;
-      readonly windowDays: number;
-      readonly total: number;
-      readonly merged: number;
-      readonly closed: number;
-      readonly acceptanceRate: number;
-      readonly agentMerged: number;
-      readonly agentClosed: number;
-      readonly agentMergeShare: number;
-      readonly meanCloseHours: number;
+  <file path="tools/cli/src/commands/agent/cost.ts">
+    interface TurnMetrics {
+      turnIndex: number;
+      startedAt: string;
+      inputTokens: number;
+      outputTokens: number;
+      thinkingTokens: number;
+      costUsd: number;
+      modelId: string;
     }
-    export interface ServiceHealthEntry {
-      readonly service: string;
-      readonly status: "ok" | "degraded" | "down";
-      readonly error_rates: number | null;
-      readonly latency_ms: number | null;
+    interface ToolCallMetrics {
+      toolName: string;
+      toolUseId: string;
+      latencyMs: number;
+      isError: boolean;
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent/orchestrate.ts">
+    export const orchestrateCommand = new Command("orchestrate")
+      .argument("<task>")
+      .description("Decompose a complex task into parallel agent sessions")
+      .option("-m, --model <model>", "Model for the orchestrator agent", DEFAULT_SESSION_CONFIG.model)
+      .option(
+        "--session-model <model>",
+        "Model for child coding sessions",
+        DEFAULT_SESSION_CONFIG.model
+      )
+      .option(
+        "--max-budget <usd>",
+        "Budget cap per child session in USD",
+        String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
+      )
+      .option("--max-turns <n>", "Max turns per child session", String(DEFAULT_SESSION_CONFIG.maxTurns))
+      .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
+      .option("--max-concurrent <n>", "Max parallel child sessions", "3")
+      .action(
+        async (
+          task: string,
+          options: {
+            model: string;
+            sessionModel: string;
+            maxBudget: string;
+            maxTurns: string;
+            baseBranch: string;
+            maxConcurrent: string;
+          }
+        ) => {
+          console.log("Orchestration");
+          console.log("─────────────");
+          console.log(`Task:            ${task}`);
+          console.log(`Orchestrator:    ${options.model}`);
+          console.log(`Session model:   ${options.sessionModel}`);
+          console.log(`Budget/session:  ${formatCost(parseFloat(options.maxBudget))}`);
+          console.log(`Max concurrent:  ${options.maxConcurrent}`);
+          console.log("");
+          console.log("Sending to agent service...");
+          console.log("");
+    
+          try {
+            interface OrchestrateApiResponse {
+              data: {
+                parentSessionId: string;
+                status: string;
+                childSessionIds: string[];
+                summary: string;
+                totalCostUsd: number;
+                durationMs: number;
+              };
+            }
+    
+            const response = await createAgentApiClient().request<OrchestrateApiResponse>(
+              "/v1/orchestrate",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  taskDescription: task,
+                  model: options.model,
+                  sessionModel: options.sessionModel,
+                  maxBudgetPerSession: parseFloat(options.maxBudget),
+                  maxTurnsPerSession: parseInt(options.maxTurns, 10),
+                  baseBranch: options.baseBranch,
+                  maxConcurrentSessions: parseInt(options.maxConcurrent, 10),
+                }),
+              }
+            );
+    
+            const { data } = response;
+    
+            console.log("Orchestration Result");
+            console.log("────────────────────");
+            console.log(`Status:          ${formatStatus(data.status)}`);
+            console.log(`Parent session:  ${data.parentSessionId}`);
+            console.log(`Child sessions:  ${data.childSessionIds.length}`);
+            console.log(`Total cost:      ${formatCost(data.totalCostUsd)}`);
+            console.log(`Duration:        ${formatDuration(data.durationMs)}`);
+            console.log("");
+    
+            if (data.childSessionIds.length > 0) {
+              console.log("Child Sessions:");
+              for (const childId of data.childSessionIds) {
+                try {
+                  const child = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+                    `/v1/sessions/${childId}`
+                  );
+                  const s = child.data;
+                  console.log(
+                    `  ${formatStatus(s.status).padEnd(14)} ${s.id}  ${s.prUrl ?? "(no PR)"}`
+                  );
+                } catch {
+                  console.log(`  ?              ${childId}`);
+                }
+              }
+              console.log("");
+            }
+    
+            if (data.summary) {
+              console.log("Summary:");
+              console.log(data.summary);
+            }
+    
+            const exitCode = data.status === "succeeded" ? 0 : 1;
+            process.exit(exitCode);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Error: ${message}`);
+            process.exit(1);
+          }
+        }
+      );
+  </file>
+  <file path="tools/cli/src/commands/agent/run.ts">
+    interface SpendRecord {
+      date: string;
+      timestamp: string;
+      costUsd: number;
+      issueNumber: number | null;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      numTurns: number;
+    }
+    function logSpend(record: SpendRecord): void {
+      try {
+        const logDir = dirname(SPEND_LOG_PATH);
+        if (!existsSync(logDir)) {
+          mkdirSync(logDir, { recursive: true });
+        }
+        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
+      } catch {
+        // Silently swallow — spend logging is best-effort
+      }
+    }
+  </file>
+  <file path="tools/cli/src/commands/agent/session-api.ts">
+    async function streamEvents(sessionId: string): Promise<void> {
+      const response = await fetch(`${AGENT_API_URL}/v1/sessions/${sessionId}/events`);
+    
+      if (!response.ok) {
+        throw new Error(`Failed to connect to event stream (${response.status})`);
+      }
+    
+      if (!response.body) {
+        throw new Error("No response body for event stream");
+      }
+    
+      const decoder = new TextDecoder();
+      const reader = response.body.getReader();
+    
+      let buffer = "";
+    
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+    
+          buffer += decoder.decode(value, { stream: true });
+    
+          // Parse SSE lines
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+    
+          let currentEvent = "";
+    
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7);
+            } else if (line.startsWith("data: ")) {
+              const rawData = line.slice(6);
+    
+              if (currentEvent === "stream:end") {
+                const data = JSON.parse(rawData) as { reason: string; status?: string };
+                console.log(`\nStream ended: ${data.reason}${data.status ? ` (${data.status})` : ""}`);
+                return;
+              }
+    
+              if (currentEvent === "stream:error") {
+                const data = JSON.parse(rawData) as { message: string };
+                console.error(`\nStream error: ${data.message}`);
+                return;
+              }
+    
+              const event = JSON.parse(rawData) as AgentSessionEvent;
+              const timestamp = new Date(event.createdAt).toLocaleTimeString();
+              const message = (event.data as { message?: string }).message;
+    
+              if (message) {
+                console.log(`[${timestamp}] ${event.type}: ${message}`);
+              } else {
+                console.log(`[${timestamp}] ${event.type}: ${JSON.stringify(event.data)}`);
+              }
+    
+              currentEvent = "";
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    export const startCommand = new Command("start")
+      .argument("<task>")
+      .description("Create and start a session via the agent API")
+      .option("-m, --model <model>", "Claude model to use", DEFAULT_SESSION_CONFIG.model)
+      .option(
+        "--max-budget <usd>",
+        "Maximum budget in USD",
+        String(DEFAULT_SESSION_CONFIG.maxBudgetUsd)
+      )
+      .option("--max-turns <n>", "Maximum conversation turns", String(DEFAULT_SESSION_CONFIG.maxTurns))
+      .option("--base-branch <branch>", "Base branch", DEFAULT_SESSION_CONFIG.baseBranch)
+      .option("-f, --follow", "Follow session logs after creation", false)
+      .action(
+        async (
+          task: string,
+          options: {
+            model: string;
+            maxBudget: string;
+            maxTurns: string;
+            baseBranch: string;
+            follow: boolean;
+          }
+        ) => {
+          try {
+            const response = await createAgentApiClient().request<ApiResponse<AgentSession>>(
+              "/v1/sessions",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  taskDescription: task,
+                  model: options.model,
+                  maxTurns: parseInt(options.maxTurns, 10),
+                  maxBudgetUsd: parseFloat(options.maxBudget),
+                  baseBranch: options.baseBranch,
+                }),
+              }
+            );
+    
+            console.log("Session created");
+            console.log("───────────────");
+            printSession(response.data);
+    
+            if (options.follow) {
+              console.log("");
+              console.log("Streaming events...");
+              console.log("");
+              await streamEvents(response.data.id);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`Error: ${message}`);
+            process.exit(1);
+          }
+        }
+      );
+  </file>
+  <file path="tools/cli/src/commands/agent/shared.ts">
+    export function formatDuration(ms: number): string {
+      const seconds = Math.floor(ms / 1000);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      const remaining = seconds % 60;
+      return `${minutes}m ${remaining}s`;
+    }
+    export function formatCost(usd: number): string {
+      return `$${usd.toFixed(4)}`;
     }
   </file>
   </section>
@@ -1413,35 +1832,7 @@
       });
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    function loadTelemetryHistory(): TelemetryRow[] {
-      let content: string;
-      try {
-        content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
-      } catch {
-        return [];
-      }
-      return content
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .flatMap((line) => {
-          try {
-            return [JSON.parse(line) as TelemetryRow];
-          } catch {
-            return [];
-          }
-        });
-    }
-    interface SpendRecord {
-      date: string;
-      timestamp: string;
-      costUsd: number;
-      issueNumber: number | null;
-      model: string;
-      inputTokens: number;
-      outputTokens: number;
-      numTurns: number;
-    }
+    export const agentCommand = new Command("agent").description("Run autonomous coding agents");
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
     export const checkDepsCommand = new Command("check-deps")
@@ -4028,6 +4419,57 @@
       );
     }
   </file>
+  <file path="apps/gen/src/pages/usePlaygroundSession.ts">
+    export interface PlaygroundSession {
+      // Render mode + transient overlays (passed through from usePlaygroundState)
+      mode: PlaygroundMode;
+      isFullscreen: boolean;
+      galleryOpen: boolean;
+      shortcutsOpen: boolean;
+      toggleFullscreen: () => void;
+      openGallery: () => void;
+      closeGallery: () => void;
+      toggleGallery: () => void;
+      openShortcuts: () => void;
+      closeShortcuts: () => void;
+      toggleShortcuts: () => void;
+      exitRefinement: () => void;
+    
+      // History (from useSpecsApi)
+      specs: StoredSpec[];
+      isLoading: boolean;
+      filter: "all" | "favorites";
+      setFilter: (filter: "all" | "favorites") => void;
+    
+      // Streaming + derived display state (from useGenStream)
+      isStreaming: boolean;
+      error: Error | null;
+      displaySpec: Spec | null;
+      displayRawLines: string[];
+      displayError: Error | null;
+      /** Set only when viewing a non-streaming saved entry (for Share/Refine). */
+      activeSpecId: string | null;
+    
+      // Session verbs — own transition choreography lives here, not in the caller.
+      submit: (prompt: string) => void;
+      refine: () => void;
+      replay: (id: string) => void;
+      retry: () => void;
+      selectHistory: (id: string) => void;
+      toggleFavorite: (id: string) => void;
+      deleteSpec: (id: string) => void;
+      reset: () => void;
+      stop: () => void;
+    }
+    export interface UsePlaygroundSessionOptions {
+      /**
+       * Invoked when a generation (or refinement) stream completes, before the
+       * result is auto-saved. Callers own how completion is surfaced (e.g. a
+       * toast) — the hook itself stays UI-agnostic.
+       */
+      onGenerationComplete?: () => void;
+    }
+  </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">
     export type PlaygroundMode = "generate" | "refine";
     export interface PlaygroundState {
@@ -6245,12 +6687,7 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
-            return reply
-              .status(preamble.status)
-              .send(
-                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
-              );
+            return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
           const result = await cancelReservationWithDeposit(
@@ -6300,6 +6737,27 @@
         }
       );
     };
+  </file>
+  <file path="services/reservations/src/routes/deposit-transition-handler.ts">
+    type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
+    export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
+      return async (request: DepositTransitionRequest, reply: FastifyReply) => {
+        const existing = await depositService.getById(request.params.id);
+        if (!existing) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+        }
+    
+        try {
+          const deposit = await transition(request.params.id);
+          return { data: deposit };
+        } catch (err) {
+          if (err instanceof DepositTransitionError) {
+            return reply.code(422).send(createProblemDetails(422, "Unprocessable Entity", err.message));
+          }
+          throw err;
+        }
+      };
+    }
   </file>
   <file path="services/reservations/src/routes/deposits.ts">
     interface ApiResponse<T> {
@@ -7606,36 +8064,14 @@
         async (request, reply) => {
           const reservation = await reservationService.getById(request.managedReservationId);
           if (!reservation) {
-            return reply.status(404).send(
-              createProblemDetails(
-                404,
-                "Reservation Not Found",
-                "Reservation not found",
-                "about:blank",
-                undefined,
-                {
-                  code: "RESERVATION_NOT_FOUND",
-                }
-              )
-            );
+            return reply.status(404).send(reservationNotFoundProblem());
           }
     
           const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
     
           return reply.status(200).send({
             data: {
-              reservation: {
-                id: reservation.id,
-                date: reservation.date,
-                startTime: reservation.startTime,
-                endTime: reservation.endTime,
-                partySize: reservation.partySize,
-                guestName: reservation.guestName,
-                guestEmail: reservation.guestEmail,
-                guestPhone: reservation.guestPhone,
-                status: reservation.status,
-                notes: reservation.notes,
-              },
+              reservation: serializeManagedReservation(reservation),
               venue: venue
                 ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
                 : null,
@@ -7665,135 +8101,38 @@
         async (request, reply) => {
           const preamble = await loadReservationForManage(request.managedReservationId);
           if (!preamble.ok) {
-            const { title, detail, code } = NOT_OK_MESSAGES[preamble.reason];
-            return reply
-              .status(preamble.status)
-              .send(
-                createProblemDetails(preamble.status, title, detail, "about:blank", undefined, { code })
-              );
-          }
-          const reservation = preamble.reservation;
-    
-          const body = request.body ?? {};
-          const { date, startTime, endTime, partySize, specialRequests } = body;
-    
-          const hasChanges =
-            date !== undefined ||
-            startTime !== undefined ||
-            endTime !== undefined ||
-            partySize !== undefined ||
-            specialRequests !== undefined;
-    
-          if (!hasChanges) {
-            return reply
-              .status(400)
-              .send(
-                createProblemDetails(
-                  400,
-                  "No Changes",
-                  "At least one field must be provided to modify",
-                  "about:blank",
-                  undefined,
-                  { code: "NO_CHANGES_PROVIDED" }
-                )
-              );
+            return reply.status(preamble.status).send(manageProblemDetails(preamble, "modify"));
           }
     
-          const updateData = {
-            ...(date !== undefined && { date }),
-            ...(startTime !== undefined && { startTime }),
-            ...(endTime !== undefined && { endTime }),
-            ...(partySize !== undefined && { partySize }),
-            ...(specialRequests !== undefined && { notes: specialRequests }),
-          };
-    
-          const updateResult = await reservationService.updateWithConflictCheck(
-            reservation.id,
-            updateData
+          const result = await modifyReservationWithNotifications(
+            preamble.reservation,
+            request.body ?? {},
+            request.query.token!,
+            {
+              bookingNotifier: fastify.bookingNotifier,
+              notificationPort: fastify.notificationPort,
+              logger: request.log,
+            }
           );
     
-          if (!updateResult.success) {
-            if (updateResult.conflict) {
-              return reply
-                .status(409)
-                .send(
-                  createProblemDetails(
-                    409,
-                    "Slot Unavailable",
-                    updateResult.error!,
-                    "about:blank",
-                    undefined,
-                    { code: "SLOT_UNAVAILABLE" }
-                  )
-                );
-            }
-            return reply
-              .status(500)
-              .send(
-                createProblemDetails(
-                  500,
-                  "Update Failed",
-                  updateResult.error ?? "Failed to modify reservation",
-                  "about:blank",
-                  undefined,
-                  { code: "RESERVATION_UPDATE_FAILED" }
-                )
-              );
-          }
-    
-          const updated = updateResult.reservation!;
-          const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
-    
-          // Reschedule reminder jobs if time changed
-          const timeChanged = date !== undefined || startTime !== undefined || endTime !== undefined;
-          if (timeChanged) {
-            fastify.bookingNotifier
-              .rescheduleBookingReminders(updated, request.query.token!)
-              .catch((err) => fastify.log.error({ err }, "Failed to reschedule booking reminders"));
-          }
-    
-          if (updated.guestEmail && venue) {
-            const preference =
-              (updated.guest?.communicationPreference as
-                "email_only" | "sms_only" | "both" | "transactional_only" | null) ?? "email_only";
-            try {
-              await fastify.notificationPort.sendBookingModified(
+          if (!result.success) {
+            return reply.status(result.status).send(
+              createProblemDetails(
+                result.status,
+                result.title,
+                result.detail,
+                "about:blank",
+                undefined,
                 {
-                  reservationId: updated.id,
-                  date: updated.date,
-                  startTime: updated.startTime,
-                  endTime: updated.endTime,
-                  partySize: updated.partySize,
-                  guestName: updated.guestName,
-                  guestEmail: updated.guestEmail,
-                  guestPhone: updated.guestPhone ?? null,
-                  specialRequests: updated.notes ?? null,
-                  venueName: venue.name,
-                  venueTimezone: venue.ianaTimezone,
-                  venueAddress: null,
-                  manageToken: request.query.token!,
-                  sequence: 2,
-                },
-                preference
-              );
-            } catch {
-              request.log.error("Failed to send booking modified notification");
-            }
+                  code: result.code,
+                }
+              )
+            );
           }
     
           return reply.status(200).send({
             data: {
-              reservation: {
-                id: updated.id,
-                date: updated.date,
-                startTime: updated.startTime,
-                endTime: updated.endTime,
-                partySize: updated.partySize,
-                guestName: updated.guestName,
-                guestEmail: updated.guestEmail,
-                status: updated.status,
-                notes: updated.notes,
-              },
+              reservation: serializeManagedReservation(result.reservation),
             },
           });
         }
@@ -9002,7 +9341,21 @@
               },
               409: {
                 description: "Conflict with existing reservation or hold",
-                $ref: "Error#",
+                // allOf the shared Error# schema (RFC 7807 fields: type, title,
+                // status, detail, instance) plus the machine-readable `code`
+                // extension (e.g. PARTY_SIZE_DEPOSIT_HELD, #2998) that isn't
+                // present on Error#. A bare inline schema here would make
+                // fast-json-stringify strip the RFC 7807 fields from every 409
+                // this route sends, not just the deposit-guard one (#3017 review).
+                allOf: [
+                  { $ref: "Error#" },
+                  {
+                    type: "object",
+                    properties: {
+                      code: { type: "string" },
+                    },
+                  },
+                ],
               },
               500: {
                 description: "Internal server error",
@@ -9045,6 +9398,32 @@
               }
               throw err;
             }
+          }
+    
+          // #2998: staff PATCH accepts partySize but previously bypassed the
+          // per_person-deposit guard added for the public manage route in
+          // #2997/#2931 (decision: Block) — route through the same check here
+          // so a staff caller can't silently diverge a held/pending deposit
+          // either. Staff who need to override should capture/refund the
+          // deposit first, or cancel and rebook.
+          if (
+            request.body.partySize !== undefined &&
+            (await isPartySizeDepositBlocked(reservation, request.body.partySize))
+          ) {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Conflict",
+                  "This venue charges a per-person deposit and a payment is already pending or " +
+                    "held for this reservation. Capture or refund the deposit before changing party " +
+                    "size, or cancel this reservation and rebook to get a correctly re-priced hold.",
+                  "about:blank",
+                  undefined,
+                  { code: "PARTY_SIZE_DEPOSIT_HELD" }
+                )
+              );
           }
     
           try {
@@ -12244,6 +12623,20 @@
     }
     export type CancelInitiator = "guest" | "staff";
   </file>
+  <file path="services/reservations/src/services/reservation-modification.ts">
+    export interface ModifyReservationDeps {
+      bookingNotifier: BookingNotifier;
+      notificationPort: NotificationDispatcher;
+      logger: FastifyBaseLogger;
+    }
+    export interface ReservationChanges {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      specialRequests?: string;
+    }
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     export const reservationMachine = createStateMachine<ReservationStatus>(
       RESERVATION_TRANSITIONS,
@@ -13201,6 +13594,25 @@
       readonly env: ImportMetaEnv;
     }
   </file>
+  <file path="packages/agent-core/src/adapter-resolution.ts">
+    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
+      switch (adapterType) {
+        case "claude":
+          return new ClaudeAdapter();
+        case "gemini":
+          return new GeminiCliAdapter();
+        case "opencode":
+          return new OpenCodeAdapter();
+        case "auto":
+          return new FailoverSessionAdapter([
+            new ClaudeAdapter(),
+            new GeminiCliAdapter(),
+            new OpenCodeAdapter(),
+          ]);
+      }
+    }
+  </file>
   <file path="packages/agent-core/src/audit-inventory-store.ts">
     export async function loadInventory(repoPath: string): Promise<AuditInventory> {
       const filePath = join(repoPath, INVENTORY_PATH);
@@ -13448,6 +13860,10 @@
       readonly error?: string;
       /** Wall-clock duration of the run in milliseconds. */
       readonly durationMs: number;
+      /** USD cost of the run, when the backend reports it. Undefined when the CLI exposes no cost data. */
+      readonly costUsd?: number;
+      /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
+      readonly tokenUsage?: TokenUsage;
     }
   </file>
   <file path="packages/agent-core/src/context-budget.ts">
@@ -14267,6 +14683,23 @@
       timeoutMs: 30_000,
     };
   </file>
+  <file path="packages/agent-core/src/run-agent-session.ts">
+    export interface AgentSessionAdapter {
+      runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult>;
+    }
+    export interface RunAgentSessionOptions {
+      /** Adapter that executes the session. Defaults to a new ClaudeAdapter(). Inject a fake in tests. */
+      adapter?: AgentSessionAdapter;
+      onEvent?: SessionEventCallback;
+      deps?: PhaseDeps;
+      signal?: AbortSignal;
+    }
+  </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({
       failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
@@ -15047,7 +15480,7 @@
         tables: new TablesClient(client),
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
-        waitlist: new WaitlistClient(client),
+        publicVenue: new PublicVenueClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         briefing: new BriefingClient(client),
@@ -15082,6 +15515,62 @@
         }
       }
       return titleForStatus(httpStatus);
+    }
+  </file>
+  <file path="packages/api-client/src/public-venue.ts">
+    export interface GetGuestRiskParams {
+      email?: string;
+      phone?: string;
+    }
+    export class PublicVenueClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Get a guest's risk score for a venue by email or phone.
+       */
+      async guestRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
+        return this.client.getOne<GuestRiskResult>(
+          `/public/v1/venues/${slug}/guest-risk`,
+          params as unknown as QueryParams,
+          GuestRiskResultSchema
+        );
+      }
+    
+      /**
+       * Recognize a returning guest by email for a venue.
+       */
+      async recognizeGuest(slug: string, email: string): Promise<GuestRecognition> {
+        return this.client.getOne<GuestRecognition>(
+          `/public/v1/venues/${slug}/guests/recognize`,
+          { email },
+          GuestRecognitionSchema
+        );
+      }
+    
+      /**
+       * Join a venue's walk-in waitlist.
+       */
+      async joinWaitlist(slug: string, data: WaitlistJoinRequest): Promise<WaitlistJoinResult> {
+        return this.client.postOne<WaitlistJoinResult>(
+          `/public/v1/venues/${slug}/waitlist`,
+          data,
+          WaitlistJoinResultSchema
+        );
+      }
+    
+      /**
+       * Create a Stripe PaymentIntent for a reservation's deposit.
+       */
+      async depositIntent(
+        slug: string,
+        data: CreateDepositPaymentIntentRequest
+      ): Promise<DepositPaymentIntent> {
+        return this.client.postOne<DepositPaymentIntent>(
+          `/public/v1/venues/${slug}/deposits/payment-intent`,
+          data,
+          DepositPaymentIntentSchema
+        );
+      }
     }
   </file>
   <file path="packages/api-client/src/reservations.ts">
@@ -15548,22 +16037,6 @@
        */
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/groups/${id}`);
-      }
-    }
-  </file>
-  <file path="packages/api-client/src/waitlist.ts">
-    export class WaitlistClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * Join a venue's walk-in waitlist (unauthenticated booking widget).
-       */
-      async join(slug: string, data: WaitlistJoinRequest): Promise<WaitlistJoinResult> {
-        return this.client.postOne<WaitlistJoinResult>(
-          `/public/v1/venues/${slug}/waitlist`,
-          data,
-          WaitlistJoinResultSchema
-        );
       }
     }
   </file>
@@ -17780,6 +18253,20 @@
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "");
     }
+  </file>
+  </section>
+  <section priority="medium" role="visual-test">
+  <file path="apps/rialto-web/src/pages/visual-test/fixtures.ts">
+    export const selectOptions = [
+      { value: "apple", label: "Apple" },
+      { value: "banana", label: "Banana" },
+      { value: "cherry", label: "Cherry" },
+    ];
+    export const tableColumns = [
+      { key: "name" as const, header: "Name", sortable: true },
+      { key: "role" as const, header: "Role" },
+      { key: "status" as const, header: "Status" },
+    ];
   </file>
   </section>
 </codebase>

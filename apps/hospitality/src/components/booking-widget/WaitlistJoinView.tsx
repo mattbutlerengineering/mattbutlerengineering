@@ -59,7 +59,7 @@ export function WaitlistJoinView({
 
       setIsLoading(true);
       try {
-        const result = await api.waitlist.join(venueSlug, {
+        const result = await api.publicVenue.joinWaitlist(venueSlug, {
           venueId,
           partySize,
           guestName: name.trim(),

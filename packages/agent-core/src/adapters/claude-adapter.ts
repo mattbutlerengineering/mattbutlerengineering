@@ -8,10 +8,11 @@
  */
 
 import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.js";
-import { runSession } from "../session-runner.js";
+import { runSession as runSessionPipeline } from "../session-runner.js";
 import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
 import { DEFAULT_SESSION_CONFIG } from "../types.js";
-import type { SessionResult } from "../types.js";
+import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
+import type { PhaseDeps } from "../phases/index.js";
 
 /**
  * Determine whether a SessionResult indicates the agent made git-visible changes.
@@ -50,7 +51,7 @@ export class ClaudeAdapter implements AgentAdapter {
     const startTime = Date.now();
 
     try {
-      const sessionResult = await runSession({
+      const sessionResult = await runSessionPipeline({
         taskDescription: config.taskDescription,
         repoPath: config.repoPath,
         baseBranch: config.baseBranch,
@@ -86,5 +87,19 @@ export class ClaudeAdapter implements AgentAdapter {
         error: message,
       };
     }
+  }
+
+  /**
+   * Runs a full agent session (worktree → gates → publish → spend) via the
+   * existing runSession() pipeline, forwarding the SessionConfig unchanged.
+   * This is the seam `runAgentSession()` calls for the "claude" backend (#2964).
+   */
+  async runSession(
+    config: SessionConfig,
+    onEvent?: SessionEventCallback,
+    deps?: PhaseDeps,
+    signal?: AbortSignal
+  ): Promise<SessionResult> {
+    return runSessionPipeline(config, onEvent, deps, signal);
   }
 }

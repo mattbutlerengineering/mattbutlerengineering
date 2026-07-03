@@ -96,7 +96,7 @@
         const startTime = Date.now();
     
         try {
-          const sessionResult = await runSession({
+          const sessionResult = await runSessionPipeline({
             taskDescription: config.taskDescription,
             repoPath: config.repoPath,
             baseBranch: config.baseBranch,
@@ -133,6 +133,20 @@
           };
         }
       }
+    
+      /**
+       * Runs a full agent session (worktree → gates → publish → spend) via the
+       * existing runSession() pipeline, forwarding the SessionConfig unchanged.
+       * This is the seam `runAgentSession()` calls for the "claude" backend (#2964).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runSessionPipeline(config, onEvent, deps, signal);
+      }
     }
   </file>
   <file path="src/adapters/cli-adapter-base.ts">
@@ -156,6 +170,27 @@
        * The task description passed here is already truncated.
        */
       protected abstract buildArgs(config: AdapterConfig): string[];
+    
+      /**
+       * Parse cost/token usage from the CLI's stdout, when the CLI backend
+       * exposes machine-readable usage data. Base implementation reports none;
+       * concrete adapters override this once they know their CLI's usage format
+       * (see cli-usage-parser.ts).
+       */
+      protected parseUsage(_stdout: string): CliUsage {
+        return {};
+      }
+    
+      /**
+       * Recover a human-readable error message from the CLI's stdout when the
+       * run failed, for backends that emit structured JSON there instead of (or
+       * in addition to) stderr. Base implementation reports none — `run()`
+       * falls through to the raw stderr text (see ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected parseErrorFromStdout(_stdout: string): string | undefined {
+        return undefined;
+      }
     
       // ── Public AgentAdapter implementation ──────────────────────────
     
@@ -204,16 +239,37 @@
         }
     
         const durationMs = Date.now() - startTime;
+        const usage = this.parseUsage(stdout);
     
         return {
           success: exitedSuccessfully,
           hasChanges,
           durationMs,
           rateLimited,
+          ...usage,
           ...(exitedSuccessfully
             ? {}
-            : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+            : {
+                error:
+                  this.parseErrorFromStdout(stdout) ??
+                  (stderr || `${this.displayName} CLI exited with non-zero status`),
+              }),
         };
+      }
+    
+      /**
+       * Run a full agent session (worktree → CLI dispatch → gates → publish)
+       * through the shared `runCliAdapterSession()` pipeline — the seam
+       * `runAgentSession()` calls for the "gemini"/"opencode" backends,
+       * mirroring `ClaudeAdapter.runSession()` (#2973).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        return runCliAdapterSession(this, config, onEvent, deps, signal);
       }
     
       // ── Protected shared utilities ───────────────────────────────────
@@ -301,6 +357,188 @@
       }
     }
   </file>
+  <file path="src/adapters/cli-adapter-session-runner.ts">
+    export async function runCliAdapterSession(
+      cliAdapter: AgentAdapter,
+      config: SessionConfig,
+      onEvent?: SessionEventCallback,
+      deps: PhaseDeps = createDefaultPhaseDeps(),
+      _signal?: AbortSignal
+    ): Promise<SessionResult> {
+      const { worktreeManager, successEvaluator, gateway, prCreator } = deps;
+    
+      emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
+      const { value: worktree } = await withRetry(
+        () =>
+          worktreeManager.createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
+        { maxRetries: 2 }
+      );
+      emitEvent(onEvent, "session:start", {
+        message: `Starting ${cliAdapter.name} on branch ${worktree.branchName}`,
+      });
+    
+      const adapterResult = await cliAdapter.run({
+        taskDescription: config.taskDescription,
+        worktreePath: worktree.path,
+        repoPath: config.repoPath,
+        baseBranch: config.baseBranch,
+        model: config.model,
+        maxTurns: config.maxTurns,
+        timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+      });
+    
+      const errors: string[] = adapterResult.error ? [adapterResult.error] : [];
+      let prUrl: string | null = null;
+    
+      if (!adapterResult.hasChanges) {
+        emitEvent(onEvent, "session:result", { message: "No changes were made by the agent" });
+      } else {
+        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
+          maxRetries: 3,
+        });
+    
+        let gatewayVerdict: GatewayVerdict | undefined;
+        if (adapterResult.success) {
+          const diff = await successEvaluator.getGitDiff(worktree.path);
+          gatewayVerdict = await gateway.runPostCommitGateway(
+            {
+              worktreePath: worktree.path,
+              diff,
+              commitMsg: `feat: ${config.taskDescription}`,
+              taskDescription: config.taskDescription,
+              config: {
+                evaluateSuccess: config.evaluateSuccess,
+                runSecurityReview: true,
+                runStaticAnalysis: true,
+              },
+            },
+            onEvent
+          );
+          errors.push(...gatewayVerdict.errors);
+        }
+    
+        if (config.createPr) {
+          prUrl = await publishCliAdapterResult({
+            config,
+            worktree,
+            adapterSucceeded: adapterResult.success,
+            gatewayVerdict,
+            cliAdapterName: cliAdapter.name,
+            costUsd: adapterResult.costUsd,
+            errors,
+            prCreator,
+            onEvent,
+          });
+        }
+      }
+    
+      if (config.createPr) {
+        await worktreeManager.removeWorktree(config.repoPath, worktree.path);
+      }
+    
+      const failureCategory: FailureCategory | undefined = !adapterResult.success
+        ? adapterResult.rateLimited
+          ? "rate_limited"
+          : categorizeFailure(errors)
+        : undefined;
+    
+      const status = adapterResult.success ? "succeeded" : "failed";
+      emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
+    
+      return {
+        sessionId: "",
+        status,
+        branchName: worktree.branchName,
+        prUrl,
+        costUsd: adapterResult.costUsd ?? 0,
+        tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
+        durationMs: adapterResult.durationMs,
+        numTurns: 0,
+        resultText: "",
+        errors,
+        ...(failureCategory ? { failureCategory } : {}),
+      };
+    }
+    interface PublishCliAdapterInput {
+      readonly config: SessionConfig;
+      readonly worktree: WorktreeInfo;
+      readonly adapterSucceeded: boolean;
+      readonly gatewayVerdict: GatewayVerdict | undefined;
+      readonly cliAdapterName: string;
+      readonly costUsd: number | undefined;
+      readonly errors: readonly string[];
+      readonly prCreator: PrCreatorDeps;
+      readonly onEvent: SessionEventCallback | undefined;
+    }
+  </file>
+  <file path="src/adapters/cli-usage-parser.ts">
+    export interface CliUsage {
+      readonly costUsd?: number;
+      readonly tokenUsage?: TokenUsage;
+    }
+    function safeJsonParse(text: string): unknown {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return undefined;
+      }
+    }
+  </file>
+  <file path="src/adapters/failover-session-adapter.ts">
+    export type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    export class FailoverSessionAdapter implements AgentSessionAdapter {
+      private readonly adapters: readonly FailoverCapableAdapter[];
+      private readonly detector: RateLimitDetector;
+    
+      constructor(adapters: readonly FailoverCapableAdapter[], detector?: RateLimitDetector) {
+        if (adapters.length === 0) {
+          throw new Error("FailoverSessionAdapter requires at least one adapter");
+        }
+        this.adapters = adapters;
+        this.detector = detector ?? new RateLimitDetector(adapters.map((a) => a.name));
+      }
+    
+      /**
+       * Run the task on the highest-priority available adapter. Priority order
+       * matches the constructor's `adapters` array. An adapter is skipped when
+       * it's cooling down, its CLI/SDK isn't available, or its result reports
+       * `failureCategory: "rate_limited"` — the router then marks it and tries
+       * the next adapter. Any other failure is returned as-is (not cascaded).
+       */
+      async runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult> {
+        for (const adapter of this.adapters) {
+          if (!this.detector.isAvailable(adapter.name)) continue;
+    
+          const cliAvailable = await adapter.isAvailable();
+          if (!cliAvailable) continue;
+    
+          const result = await adapter.runSession(config, onEvent, deps, signal);
+    
+          if (result.failureCategory === "rate_limited") {
+            this.detector.markRateLimited(adapter.name);
+            continue;
+          }
+    
+          this.detector.markSuccess(adapter.name);
+          return result;
+        }
+    
+        const cooldowns = new Map<string, number>();
+        for (const adapter of this.adapters) {
+          const state = this.detector.getState(adapter.name);
+          if (state?.cooldownUntil !== null && state?.cooldownUntil !== undefined) {
+            cooldowns.set(adapter.name, state.cooldownUntil);
+          }
+        }
+        throw new AllAdaptersUnavailableError(cooldowns);
+      }
+    }
+  </file>
   <file path="src/adapters/gemini-adapter.ts">
     export class GeminiCliAdapter extends CliAdapterBase {
       readonly name = "gemini";
@@ -310,7 +548,24 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["-p", config.taskDescription, "--yolo"];
+        return ["-p", config.taskDescription, "--yolo", "--output-format", "json"];
+      }
+    
+      /**
+       * Parses real cost/tokenUsage from the `--output-format json` blob
+       * requested by buildArgs (#3019).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseGeminiUsage(stdout);
+      }
+    
+      /**
+       * Recovers Gemini's structured error message from the same JSON stdout
+       * blob on failure, falling back to raw stderr in CliAdapterBase.run()
+       * when stdout isn't JSON (ADR-017 failure-PR-body contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractGeminiError(stdout);
       }
     }
   </file>
@@ -323,7 +578,25 @@
       }
     
       protected buildArgs(config: AdapterConfig): string[] {
-        return ["run", config.taskDescription];
+        return ["run", config.taskDescription, "--format", "json"];
+      }
+    
+      /**
+       * Parses real cost/tokenUsage from the `--format json` NDJSON event
+       * stream requested by buildArgs (#3019).
+       */
+      protected override parseUsage(stdout: string): CliUsage {
+        return parseOpenCodeUsage(stdout);
+      }
+    
+      /**
+       * Recovers OpenCode's structured `type: "error"` event message from the
+       * same NDJSON stdout stream on failure, falling back to raw stderr in
+       * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+       * contract, #3019).
+       */
+      protected override parseErrorFromStdout(stdout: string): string | undefined {
+        return extractOpenCodeError(stdout);
       }
     }
   </file>
@@ -1365,6 +1638,25 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/adapter-resolution.ts">
+    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter {
+      switch (adapterType) {
+        case "claude":
+          return new ClaudeAdapter();
+        case "gemini":
+          return new GeminiCliAdapter();
+        case "opencode":
+          return new OpenCodeAdapter();
+        case "auto":
+          return new FailoverSessionAdapter([
+            new ClaudeAdapter(),
+            new GeminiCliAdapter(),
+            new OpenCodeAdapter(),
+          ]);
+      }
+    }
+  </file>
   <file path="src/audit-inventory-store.ts">
     export async function loadInventory(repoPath: string): Promise<AuditInventory> {
       const filePath = join(repoPath, INVENTORY_PATH);
@@ -1612,6 +1904,10 @@
       readonly error?: string;
       /** Wall-clock duration of the run in milliseconds. */
       readonly durationMs: number;
+      /** USD cost of the run, when the backend reports it. Undefined when the CLI exposes no cost data. */
+      readonly costUsd?: number;
+      /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
+      readonly tokenUsage?: TokenUsage;
     }
   </file>
   <file path="src/context-budget.ts">
@@ -2430,6 +2726,23 @@
       maxBudgetUsd: 0.05,
       timeoutMs: 30_000,
     };
+  </file>
+  <file path="src/run-agent-session.ts">
+    export interface AgentSessionAdapter {
+      runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps?: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<SessionResult>;
+    }
+    export interface RunAgentSessionOptions {
+      /** Adapter that executes the session. Defaults to a new ClaudeAdapter(). Inject a fake in tests. */
+      adapter?: AgentSessionAdapter;
+      onEvent?: SessionEventCallback;
+      deps?: PhaseDeps;
+      signal?: AbortSignal;
+    }
   </file>
   <file path="src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({

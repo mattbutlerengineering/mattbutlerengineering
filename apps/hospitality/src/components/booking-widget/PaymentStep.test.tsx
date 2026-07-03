@@ -57,8 +57,8 @@ const mockDepositConfig: DepositConfig = {
 };
 
 const mockApi = {
-  client: {
-    postOne: vi.fn(),
+  publicVenue: {
+    depositIntent: vi.fn(),
   },
 };
 
@@ -138,7 +138,7 @@ describe("PaymentStep", () => {
     (useElements as any).mockReturnValue({
       getElement: vi.fn().mockReturnValue({}),
     });
-    mockApi.client.postOne.mockResolvedValue({
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
       clientSecret: "pi_secret_test",
       depositId: "dep-1",
       amountCents: 2500,
@@ -160,7 +160,7 @@ describe("PaymentStep", () => {
       getElement: vi.fn().mockReturnValue({}),
     } as any);
 
-    mockApi.client.postOne.mockResolvedValue({
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
       clientSecret: "pi_secret_test",
       depositId: "dep-1",
       amountCents: 2500,
@@ -187,7 +187,7 @@ describe("PaymentStep", () => {
       getElement: vi.fn().mockReturnValue({}),
     } as any);
 
-    mockApi.client.postOne.mockResolvedValue({
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
       clientSecret: "pi_secret_test",
       depositId: "dep-1",
       amountCents: 2500,

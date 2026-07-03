@@ -16,6 +16,7 @@
         name: unknown;
         async isAvailable(): Promise<unknown>;
         async run(): Promise<unknown>;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -25,7 +26,50 @@
         name: string;
         cliBinary: string;
         async buildArgs(): Promise<unknown>;
-        async isAvailable(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/adapters/cli-adapter-session-runner.ts">
+    <item priority="high">
+      export async function runCliAdapterSession(
+        cliAdapter: AgentAdapter,
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        _signal?: AbortSignal
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PublishCliAdapterInput {
+        config: SessionConfig;
+        worktree: WorktreeInfo;
+        adapterSucceeded: boolean;
+        gatewayVerdict: GatewayVerdict | undefined;
+        cliAdapterName: string;
+      }
+    </item>
+  </file>
+  <file path="src/adapters/cli-usage-parser.ts">
+    <item priority="low">
+      interface CliUsage {
+        costUsd?: number;
+        tokenUsage?: TokenUsage;
+      }
+    </item>
+    <item priority="medium">
+      function safeJsonParse(text: string): unknown { /* ... */ }
+    </item>
+  </file>
+  <file path="src/adapters/failover-session-adapter.ts">
+    <item priority="low">
+      type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    </item>
+    <item priority="high">
+      class FailoverSessionAdapter {
+        adapters: readonly FailoverCapableAdapter[];
+        detector: RateLimitDetector;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -35,6 +79,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -44,6 +89,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -256,6 +302,14 @@
   </file>
   </section>
   <section priority="medium" role="src">
+  <file path="src/adapter-resolution.ts">
+    <item priority="low">
+      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    </item>
+    <item priority="high">
+      export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }
+    </item>
+  </file>
   <file path="src/audit-inventory-store.ts">
     <item priority="high">
       export async function loadInventory(repoPath: string): Promise<AuditInventory> { /* ... */ }
@@ -833,6 +887,21 @@
     </item>
     <item priority="high">
       export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
+    </item>
+  </file>
+  <file path="src/run-agent-session.ts">
+    <item priority="low">
+      interface AgentSessionAdapter {
+        
+      }
+    </item>
+    <item priority="low">
+      interface RunAgentSessionOptions {
+        adapter?: AgentSessionAdapter;
+        onEvent?: SessionEventCallback;
+        deps?: PhaseDeps;
+        signal?: AbortSignal;
+      }
     </item>
   </file>
   <file path="src/run-hardened-query.ts">

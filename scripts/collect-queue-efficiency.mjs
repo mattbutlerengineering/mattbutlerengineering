@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Thresholds — imported by sensor-report.mjs for its THRESHOLDS block. */
+/** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
 export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 

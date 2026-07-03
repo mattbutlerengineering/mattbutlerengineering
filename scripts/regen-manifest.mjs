@@ -7,14 +7,24 @@
  *   - label:     human description used in output messages
  *   - command:   the shell command (run from repo root) that regenerates the artifact
  *   - outputs:   file paths (relative to repo root) checked by `git diff --quiet` to detect staleness
+ *   - changedBy: OPTIONAL. `(path: string) => {command, outputs} | null`. Declares
+ *                which single-file edits make this family stale, and how to
+ *                regenerate just the affected slice (see familiesForChangedFile
+ *                below). Families that don't participate in per-file
+ *                change-detection (e.g. rialto-registry today) simply omit it.
  *
  * Usage:
- *   node scripts/regen-manifest.mjs            # regenerate all families
- *   node scripts/regen-manifest.mjs --check    # exit non-zero if any artifact is stale
+ *   node scripts/regen-manifest.mjs                       # regenerate all families
+ *   node scripts/regen-manifest.mjs --check                # exit non-zero if any artifact is stale
+ *   node scripts/regen-manifest.mjs --families-for <path>  # print JSON: families a single edit affects
  *
  * Adding a 6th family:
  *   Append one more object to the FAMILIES array below following the same shape.
- *   No other code changes required.
+ *   No other code changes required. If the family should also react to a
+ *   single file edit (e.g. a PostToolUse hook), give it a `changedBy(path)`
+ *   function — familiesForChangedFile() is generic over whatever families it's
+ *   given, so hooks that already call it (regen-dep-graph.sh, regen-llms.sh)
+ *   pick up the new family with ZERO hook edits.
  *
  * @module regen-manifest
  */
@@ -124,6 +134,18 @@ export const FAMILIES = [
       "tools/cli/llms.txt",
       "tools/cli/llms-full.txt",
     ],
+    // A single source-file edit only makes ONE package's llms.txt stale, not
+    // all ~25 — regenerating (and diffing) every package for one file change
+    // would be wasteful. Scope command + outputs down to the owning package.
+    changedBy(path) {
+      if (!isLlmsSource(path) || isRegenExcluded(path)) return null;
+      const pkgDir = packageDirFor(path);
+      if (!pkgDir || !llmsPackages().includes(pkgDir)) return null; // no committed llms.txt yet
+      return {
+        command: `pnpm --filter @mbe/cli start pack ${pkgDir}`,
+        outputs: [`${pkgDir}/llms.txt`, `${pkgDir}/llms-full.txt`],
+      };
+    },
   },
   {
     id: "rialto-registry",
@@ -142,12 +164,22 @@ export const FAMILIES = [
     label: "docs/architecture/dependency-graph.md",
     command: "pnpm graph",
     outputs: ["docs/architecture/dependency-graph.md"],
+    changedBy(path) {
+      return isDependencyManifestChange(path)
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
   },
   {
     id: "dep-graph-json",
     label: "infrastructure/worker/dep-graph.json",
     command: "pnpm generate:dep-graph",
     outputs: ["infrastructure/worker/dep-graph.json"],
+    changedBy(path) {
+      return isDependencyManifestChange(path)
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
   },
 ];
 
@@ -200,13 +232,97 @@ export function llmsPackages() {
 }
 
 // ---------------------------------------------------------------------------
+// familiesForChangedFile — single-file change detection (issue #2968)
+//
+// PostToolUse hooks (regen-dep-graph.sh, regen-llms.sh) call this via
+// `--families-for <path>` instead of re-encoding output paths, commands, or
+// package-ownership rules in bash. All matching logic lives here, next to
+// the families it describes — the manifest is the single owner.
+// ---------------------------------------------------------------------------
+
+const DEP_MANIFEST_RE = /(^|\/)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml)$/;
+const LLMS_SOURCE_RE = /\.(ts|tsx|prisma)$|(^|\/)CLAUDE\.md$/;
+// Matches a package segment anywhere in the path (mirrors DEP_MANIFEST_RE's
+// `(^|/)` style), not just at the start. A plain repo-root-relative path
+// (e.g. "packages/rialto/src/Foo.tsx") still matches via `^`, but this also
+// tolerates an absolute path whose prefix doesn't line up with the repo root
+// (e.g. a hook computed `rel_path` from an unresolved CLAUDE_PROJECT_DIR
+// while CLAUDE_FILE_PATH is symlink-resolved, or vice versa — see #2983).
+const PACKAGE_DIR_RE = /(^|\/)((?:apps|packages|services|tools)\/[^/]+)\//;
+
+/** True when `path` matches a REGEN_SOURCE_EXCLUDES pattern (test/dist/generated/etc). */
+function isRegenExcluded(path) {
+  return REGEN_SOURCE_EXCLUDES.some((re) => re.test(path));
+}
+
+/** True when `path` is a dependency manifest that can change the dep graph. */
+function isDependencyManifestChange(path) {
+  return DEP_MANIFEST_RE.test(path) && !isRegenExcluded(path);
+}
+
+/** True when `path` is a source file `mbe pack` reads into llms.txt. */
+function isLlmsSource(path) {
+  return LLMS_SOURCE_RE.test(path);
+}
+
+/** Workspace package directory (e.g. "packages/foo") owning `path`, or null. */
+function packageDirFor(path) {
+  const match = PACKAGE_DIR_RE.exec(path);
+  return match ? match[2] : null;
+}
+
+/**
+ * Given a file path (relative to repo root) that just changed, returns the
+ * generated-artifact families it makes stale — each already resolved to the
+ * concrete command + outputs a hook should act on. Returns [] for files that
+ * don't feed any generator.
+ *
+ * Pure and generic: it only ever calls each family's own `changedBy(path)` —
+ * it has no per-family knowledge itself, so a family that declares
+ * `changedBy` is picked up automatically with zero edits to this function or
+ * to any hook that calls it. The `families` param defaults to the real
+ * manifest but lets tests prove that extensibility without mutating it.
+ *
+ * @param {string} path - repo-root-relative path of the changed file.
+ * @param {Array<{id: string, label: string, changedBy?: (path: string) => {command: string, outputs: string[]} | null}>} [families]
+ * @returns {Array<{id: string, label: string, command: string, outputs: string[]}>}
+ */
+export function familiesForChangedFile(path, families = FAMILIES) {
+  const matches = [];
+  for (const family of families) {
+    if (typeof family.changedBy !== "function") continue;
+    const scoped = family.changedBy(path);
+    if (scoped) {
+      matches.push({
+        id: family.id,
+        label: family.label,
+        command: scoped.command,
+        outputs: scoped.outputs,
+      });
+    }
+  }
+  return matches;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const checkMode = process.argv.includes("--check");
+  const familiesForFlagIdx = process.argv.indexOf("--families-for");
 
-  if (checkMode) {
+  if (familiesForFlagIdx !== -1) {
+    // Shell-consumable mode for hooks: print the JSON array of families a
+    // single changed file affects, so bash never has to know a family's
+    // output paths or regen command — see regen-dep-graph.sh / regen-llms.sh.
+    const changedPath = process.argv[familiesForFlagIdx + 1];
+    if (!changedPath) {
+      console.error("Usage: regen-manifest.mjs --families-for <path>");
+      process.exit(1);
+    }
+    console.log(JSON.stringify(familiesForChangedFile(changedPath)));
+  } else if (checkMode) {
     const stale = FAMILIES.filter((f) => !isClean(f.outputs));
     if (stale.length === 0) {
       console.log("All generated artifacts are up to date.");

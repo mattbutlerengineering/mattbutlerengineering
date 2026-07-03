@@ -88,6 +88,14 @@
       export const confirmAttendanceRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/deposit-transition-handler.ts">
+    <item priority="high">
+      type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
+    </item>
+    <item priority="high">
+      export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/deposits.ts">
     <item priority="high">
       interface ApiResponse {
@@ -562,6 +570,24 @@
     </item>
     <item priority="low">
       type CancelInitiator = "guest" | "staff";
+    </item>
+  </file>
+  <file path="src/services/reservation-modification.ts">
+    <item priority="low">
+      interface ModifyReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
     </item>
   </file>
   <file path="src/services/reservation-state-machine.ts">

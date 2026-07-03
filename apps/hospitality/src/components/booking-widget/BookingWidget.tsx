@@ -175,7 +175,7 @@ export function BookingWidget({
     async (email?: string, phone?: string): Promise<boolean> => {
       if (!venueSlug || (!email && !phone)) return false;
       try {
-        const result = await api.guests.getRisk(venueSlug, email ? { email } : { phone });
+        const result = await api.publicVenue.guestRisk(venueSlug, email ? { email } : { phone });
         return result.requiresDeposit;
       } catch {
         return false;

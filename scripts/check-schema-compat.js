@@ -16,29 +16,38 @@
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runCheck } from "./lib/fitness-check.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
-
+const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SERVICES = ["users", "reservations", "agent"];
-let missing = 0;
 
-console.log("Checking schema baselines...\n");
-
-for (const service of SERVICES) {
-  const baselinePath = join(root, "services", service, "src", "schemas", "schema-baseline.json");
-
-  if (existsSync(baselinePath)) {
-    console.log(`  ✓ ${service}`);
-  } else {
-    console.log(`  ✗ ${service} — missing schema-baseline.json`);
-    missing++;
-  }
+/** Pure check — returns per-service baseline presence, never logs or exits. */
+export function findSchemaBaselineFindings(root = DEFAULT_ROOT, services = SERVICES) {
+  return services.map((service) => {
+    const baselinePath = join(root, "services", service, "src", "schemas", "schema-baseline.json");
+    return { service, exists: existsSync(baselinePath) };
+  });
 }
 
-if (missing > 0) {
-  console.log(`\nFAIL: ${missing} service(s) missing baselines. Run: pnpm schema:baseline`);
-  process.exit(1);
-} else {
-  console.log("\nPASS: All baselines present. Full compat checks run via: pnpm test");
+const isMain = process.argv[1] && process.argv[1].endsWith("check-schema-compat.js");
+
+if (isMain) {
+  console.log("Checking schema baselines...\n");
+
+  const results = findSchemaBaselineFindings();
+
+  for (const { service, exists } of results) {
+    console.log(exists ? `  ✓ ${service}` : `  ✗ ${service} — missing schema-baseline.json`);
+  }
+
+  console.log("");
+
+  const missing = results.filter((r) => !r.exists);
+  const exitCode = runCheck({
+    name: "schema baselines",
+    findings: missing,
+    passMessage: "PASS: All baselines present. Full compat checks run via: pnpm test",
+    failMessage: `FAIL: ${missing.length} service(s) missing baselines. Run: pnpm schema:baseline`,
+  });
+  process.exit(exitCode);
 }

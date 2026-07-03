@@ -376,6 +376,7 @@
         name: unknown;
         async isAvailable(): Promise<unknown>;
         async run(): Promise<unknown>;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -385,7 +386,50 @@
         name: string;
         cliBinary: string;
         async buildArgs(): Promise<unknown>;
-        async isAvailable(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapters/cli-adapter-session-runner.ts">
+    <item priority="high">
+      export async function runCliAdapterSession(
+        cliAdapter: AgentAdapter,
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        _signal?: AbortSignal
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PublishCliAdapterInput {
+        config: SessionConfig;
+        worktree: WorktreeInfo;
+        adapterSucceeded: boolean;
+        gatewayVerdict: GatewayVerdict | undefined;
+        cliAdapterName: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
+    <item priority="low">
+      interface CliUsage {
+        costUsd?: number;
+        tokenUsage?: TokenUsage;
+      }
+    </item>
+    <item priority="medium">
+      function safeJsonParse(text: string): unknown { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapters/failover-session-adapter.ts">
+    <item priority="low">
+      type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    </item>
+    <item priority="high">
+      class FailoverSessionAdapter {
+        adapters: readonly FailoverCapableAdapter[];
+        detector: RateLimitDetector;
+        async runSession(): Promise<unknown>;
       }
     </item>
   </file>
@@ -395,6 +439,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -404,6 +449,7 @@
         name: unknown;
         cliBinary: unknown;
         async buildArgs(): Promise<unknown>;
+        async parseUsage(): Promise<unknown>;
       }
     </item>
   </file>
@@ -414,33 +460,70 @@
       function loadEnvFile(): void { /* ... */ }
     </item>
   </file>
-  </section>
-  <section priority="medium" role="analytics">
-  <file path="web/src/components/analytics/Dashboard.ts">
-    <item priority="high">
-      export function renderStyles(): string { /* ... */ }
-    </item>
+  <file path="tools/cli/src/commands/agent/check-model.ts">
     <item priority="medium">
-      function badgeVariant(rate: number): string { /* ... */ }
+      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface FetchedIssue {
+        title: string;
+        body: string;
+        labels: string[];
+      }
     </item>
   </file>
-  <file path="web/src/components/analytics/QualityMetrics.ts">
-    <item priority="low">
-      interface PrAcceptanceEntry {
-        date: string;
-        windowDays: number;
-        total: number;
-        merged: number;
-        closed: number;
+  <file path="tools/cli/src/commands/agent/cost.ts">
+    <item priority="high">
+      interface TurnMetrics {
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
       }
     </item>
-    <item priority="low">
-      interface ServiceHealthEntry {
-        service: string;
-        status: "ok" | "degraded" | "down";
-        error_rates: number | null;
-        latency_ms: number | null;
+    <item priority="high">
+      interface ToolCallMetrics {
+        toolName: string;
+        toolUseId: string;
+        latencyMs: number;
+        isError: boolean;
       }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/orchestrate.ts">
+    <item priority="high">
+      export const orchestrateCommand: unknown;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/run.ts">
+    <item priority="high">
+      interface SpendRecord {
+        date: string;
+        timestamp: string;
+        costUsd: number;
+        issueNumber: number | null;
+        model: string;
+      }
+    </item>
+    <item priority="medium">
+      function logSpend(record: SpendRecord): void { /* ... */ }
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/session-api.ts">
+    <item priority="low">
+      async function streamEvents(sessionId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const startCommand: unknown;
+    </item>
+  </file>
+  <file path="tools/cli/src/commands/agent/shared.ts">
+    <item priority="high">
+      export function formatDuration(ms: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCost(usd: number): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -532,17 +615,8 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent.ts">
-    <item priority="medium">
-      function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
-    </item>
     <item priority="high">
-      interface SpendRecord {
-        date: string;
-        timestamp: string;
-        costUsd: number;
-        issueNumber: number | null;
-        model: string;
-      }
+      export const agentCommand: unknown;
     </item>
   </file>
   <file path="tools/cli/src/commands/check-deps.ts">
@@ -1601,6 +1675,22 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/gen/src/pages/usePlaygroundSession.ts">
+    <item priority="low">
+      interface PlaygroundSession {
+        mode: PlaygroundMode;
+        isFullscreen: boolean;
+        galleryOpen: boolean;
+        shortcutsOpen: boolean;
+        toggleFullscreen: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface UsePlaygroundSessionOptions {
+        onGenerationComplete?: () => void;
+      }
+    </item>
+  </file>
   <file path="apps/gen/src/pages/usePlaygroundState.ts">
     <item priority="low">
       type PlaygroundMode = "generate" | "refine";
@@ -1927,6 +2017,14 @@
   <file path="services/reservations/src/routes/confirm-attendance.ts">
     <item priority="high">
       export const confirmAttendanceRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/deposit-transition-handler.ts">
+    <item priority="high">
+      type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
+    </item>
+    <item priority="high">
+      export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/deposits.ts">
@@ -2759,6 +2857,24 @@
       type CancelInitiator = "guest" | "staff";
     </item>
   </file>
+  <file path="services/reservations/src/services/reservation-modification.ts">
+    <item priority="low">
+      interface ModifyReservationDeps {
+        bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
+        logger: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationChanges {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        specialRequests?: string;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     <item priority="high">
       export const reservationMachine: unknown;
@@ -3117,6 +3233,14 @@
       interface ImportMeta {
         env: ImportMetaEnv;
       }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/adapter-resolution.ts">
+    <item priority="low">
+      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+    </item>
+    <item priority="high">
+      export function resolveSessionAdapter(adapterType: AdapterType): AgentSessionAdapter { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/audit-inventory-store.ts">
@@ -3698,6 +3822,21 @@
       export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
     </item>
   </file>
+  <file path="packages/agent-core/src/run-agent-session.ts">
+    <item priority="low">
+      interface AgentSessionAdapter {
+        
+      }
+    </item>
+    <item priority="low">
+      interface RunAgentSessionOptions {
+        adapter?: AgentSessionAdapter;
+        onEvent?: SessionEventCallback;
+        deps?: PhaseDeps;
+        signal?: AbortSignal;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">
     <item priority="high">
       export const apiCircuitBreaker: unknown;
@@ -4070,6 +4209,22 @@
       function extractDetail(raw: unknown, httpStatus: number): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/api-client/src/public-venue.ts">
+    <item priority="low">
+      interface GetGuestRiskParams {
+        email?: string;
+        phone?: string;
+      }
+    </item>
+    <item priority="high">
+      class PublicVenueClient {
+        async guestRisk(): Promise<unknown>;
+        async recognizeGuest(): Promise<unknown>;
+        async joinWaitlist(): Promise<unknown>;
+        async depositIntent(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/api-client/src/reservations.ts">
     <item priority="low">
       interface ListReservationsParams {
@@ -4158,13 +4313,6 @@
         async get(): Promise<unknown>;
         async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/api-client/src/waitlist.ts">
-    <item priority="high">
-      class WaitlistClient {
-        async join(): Promise<unknown>;
       }
     </item>
   </file>
@@ -5293,6 +5441,16 @@
   <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
     <item priority="high">
       export function generateSlug(name: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="visual-test">
+  <file path="apps/rialto-web/src/pages/visual-test/fixtures.ts">
+    <item priority="high">
+      export const selectOptions: unknown;
+    </item>
+    <item priority="high">
+      export const tableColumns: unknown;
     </item>
   </file>
   </section>

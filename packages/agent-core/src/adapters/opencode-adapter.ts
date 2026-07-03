@@ -10,6 +10,7 @@
 
 import { CliAdapterBase } from "./cli-adapter-base.js";
 import type { AdapterConfig } from "../cli-adapter.js";
+import { parseOpenCodeUsage, extractOpenCodeError, type CliUsage } from "./cli-usage-parser.js";
 
 export class OpenCodeAdapter extends CliAdapterBase {
   readonly name = "opencode";
@@ -19,6 +20,24 @@ export class OpenCodeAdapter extends CliAdapterBase {
   }
 
   protected buildArgs(config: AdapterConfig): string[] {
-    return ["run", config.taskDescription];
+    return ["run", config.taskDescription, "--format", "json"];
+  }
+
+  /**
+   * Parses real cost/tokenUsage from the `--format json` NDJSON event
+   * stream requested by buildArgs (#3019).
+   */
+  protected override parseUsage(stdout: string): CliUsage {
+    return parseOpenCodeUsage(stdout);
+  }
+
+  /**
+   * Recovers OpenCode's structured `type: "error"` event message from the
+   * same NDJSON stdout stream on failure, falling back to raw stderr in
+   * CliAdapterBase.run() when stdout isn't JSON (ADR-017 failure-PR-body
+   * contract, #3019).
+   */
+  protected override parseErrorFromStdout(stdout: string): string | undefined {
+    return extractOpenCodeError(stdout);
   }
 }

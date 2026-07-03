@@ -29,6 +29,12 @@ describe("pr-creator", () => {
       expect(body).toContain("$0.0500");
       expect(body).toContain("10");
     });
+
+    it("renders 'unknown' cost rather than a false $0.00 when costUsd is undefined", () => {
+      const body = buildPrBody("task", "gemini", undefined, 0);
+      expect(body).toContain("| Cost | unknown |");
+      expect(body).not.toContain("$0.00");
+    });
   });
 
   describe("buildFailurePrBody", () => {

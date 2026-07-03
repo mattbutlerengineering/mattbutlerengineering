@@ -8,6 +8,8 @@ vi.mock("node:child_process", () => ({
 import { execFile } from "node:child_process";
 import { CliAdapterBase } from "../cli-adapter-base.js";
 import type { AdapterConfig } from "../../cli-adapter.js";
+import type { SessionConfig } from "../../types.js";
+import { makeFakePhaseDeps } from "../../__tests__/fake-phase-deps.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -291,6 +293,39 @@ describe("CliAdapterBase", () => {
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
 
+    it("leaves costUsd/tokenUsage undefined when the adapter has no usage parser", async () => {
+      setupExecFileMock({
+        "test-cli": [{ stdout: "done" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+      expect(result.costUsd).toBeUndefined();
+      expect(result.tokenUsage).toBeUndefined();
+    });
+
+    it("threads costUsd/tokenUsage from a subclass's parseUsage override", async () => {
+      class UsageReportingAdapter extends CliAdapterBase {
+        readonly name = "usage-cli";
+        readonly cliBinary = "usage-cli";
+        protected buildArgs(config: AdapterConfig): string[] {
+          return ["run", config.taskDescription];
+        }
+        protected override parseUsage() {
+          return { costUsd: 0.042, tokenUsage: { inputTokens: 100, outputTokens: 25 } };
+        }
+      }
+
+      setupExecFileMock({
+        "usage-cli": [{ stdout: "done" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await new UsageReportingAdapter().run(makeConfig());
+      expect(result.costUsd).toBe(0.042);
+      expect(result.tokenUsage).toEqual({ inputTokens: 100, outputTokens: 25 });
+    });
+
     it("returns success when CLI exits with code 0", async () => {
       setupExecFileMock({
         "test-cli": [{ stdout: "done" }],
@@ -413,6 +448,49 @@ describe("CliAdapterBase", () => {
         expect(typeof options?.timeout).toBe("number");
         expect(options?.timeout).toBeGreaterThan(0);
       }
+    });
+  });
+
+  // ── runSession — the AgentSessionAdapter seam (#2973) ────────────
+
+  describe("runSession", () => {
+    function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
+      return {
+        taskDescription: "Fix the login bug",
+        repoPath: "/repo",
+        baseBranch: "main",
+        model: "test-model",
+        maxTurns: 50,
+        maxBudgetUsd: 1.0,
+        allowedTools: [],
+        createPr: true,
+        ...overrides,
+      };
+    }
+
+    it("delegates to runCliAdapterSession, driving this adapter's own run()", async () => {
+      const deps = makeFakePhaseDeps();
+      vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
+        path: "/repo/.agent-worktrees/agent-fix-abc123",
+        branchName: "agent/fix-abc123",
+        mode: "full",
+      });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+      const runSpy = vi.spyOn(adapter, "run").mockResolvedValue({
+        success: true,
+        hasChanges: false,
+        rateLimited: false,
+        durationMs: 500,
+      });
+
+      const result = await adapter.runSession(makeSessionConfig(), undefined, deps);
+
+      expect(runSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ worktreePath: "/repo/.agent-worktrees/agent-fix-abc123" })
+      );
+      expect(result.status).toBe("succeeded");
+      expect(result.branchName).toBe("agent/fix-abc123");
     });
   });
 });

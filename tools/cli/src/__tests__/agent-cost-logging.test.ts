@@ -33,7 +33,8 @@ vi.mock("node:fs", async (importOriginal) => {
 // ── @mbe/agent-core mock ──────────────────────────────────────────────────
 
 vi.mock("@mbe/agent-core", () => ({
-  runSession: vi.fn(),
+  runAgentSession: vi.fn(),
+  resolveSessionAdapter: vi.fn(() => ({ name: "claude" })),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -59,8 +60,6 @@ vi.mock("@mbe/agent-core", () => ({
       this.name = "AllAdaptersUnavailableError";
     }
   },
-  createWorktree: vi.fn(),
-  removeWorktree: vi.fn(),
 }));
 
 // Mock node:child_process (needed by fetchIssueForRouting inside agent.ts).
@@ -87,8 +86,8 @@ describe("agent run – cost logging seam", () => {
   });
 
   it("appends a well-formed record (cost+tokens+turns+model) after a successful run", async () => {
-    const { runSession } = await import("@mbe/agent-core");
-    vi.mocked(runSession).mockResolvedValue({
+    const { runAgentSession } = await import("@mbe/agent-core");
+    vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "log-test",
       status: "succeeded",
       branchName: "fix/log-test",
@@ -123,8 +122,8 @@ describe("agent run – cost logging seam", () => {
   });
 
   it("still appends a record when the session fails", async () => {
-    const { runSession } = await import("@mbe/agent-core");
-    vi.mocked(runSession).mockResolvedValue({
+    const { runAgentSession } = await import("@mbe/agent-core");
+    vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "log-fail",
       status: "failed",
       branchName: "fix/log-fail",
