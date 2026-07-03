@@ -12,18 +12,26 @@
 
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildGraph, root } from "./dep-graph-discovery.mjs";
 
 // Dirs included in the Mermaid view (infrastructure/* excluded — tool nodes
 // from pnpm-workspace.yaml but not part of the inter-package visual graph).
-const MERMAID_DIRS = ["apps", "services", "packages", "tools"];
+const MERMAID_DIRS = ["apps", "services", "packages", "tools", "scripts"];
 
 const CLASSIFICATION_LABELS = {
   apps: "Frontend Apps",
   services: "Backend Services",
   packages: "Shared Packages",
   tools: "Developer Tools",
+  scripts: "Automation Scripts",
 };
+
+// Mermaid ids must be unique across subgraphs AND nodes. The "scripts" dir
+// bucket collides with the @mbe/scripts package's own node id (toMermaidId
+// strips its "@mbe/" scope down to "scripts" too), so give that one bucket
+// a distinct subgraph id while keeping its directory-derived grouping key.
+const SUBGRAPH_IDS = { scripts: "scripts_dir" };
 
 const TYPE_TO_CLASS = {
   app: "frontend",
@@ -34,13 +42,15 @@ const TYPE_TO_CLASS = {
 
 /**
  * Derive the Mermaid node ID from a package name.
- * Mirrors the original logic: strip "@mbe/" prefix, replace "-" with "_".
+ * Strips the internal `@mbe/` scope or the external `@mattbutlerengineering/`
+ * publish scope (see AGENTS.md's naming-exception note for `packages/rialto`),
+ * then replaces "-" with "_" — Mermaid node IDs can't contain "@" or "/".
  *
  * @param {string} name - Package name (e.g. "@mbe/agent-core")
  * @returns {string}
  */
-function toMermaidId(name) {
-  return name.replace("@mbe/", "").replace(/-/g, "_");
+export function toMermaidId(name) {
+  return name.replace("@mbe/", "").replace("@mattbutlerengineering/", "").replace(/-/g, "_");
 }
 
 /**
@@ -66,11 +76,11 @@ function category(wsPath) {
 /**
  * Transform a canonical graph into a Mermaid flowchart string.
  *
- * @param {{ nodes: { name: string; type: string; path: string }[]; edges: { from: string; to: string; type: string }[] }} graph
+ * @param {{ nodes: { name: string; type: string; path: string; entrypoint?: true }[]; edges: { from: string; to: string; type: string }[] }} graph
  * @returns {string}
  */
-function generateMermaid(graph) {
-  // Filter to nodes in the 4 standard dirs only
+export function generateMermaid(graph) {
+  // Filter to nodes in MERMAID_DIRS only
   const visibleNodes = graph.nodes.filter((n) => MERMAID_DIRS.includes(category(n.path)));
   const visibleNames = new Set(visibleNodes.map((n) => n.name));
 
@@ -81,7 +91,8 @@ function generateMermaid(graph) {
     const members = visibleNodes.filter((n) => category(n.path) === dir);
     if (members.length === 0) continue;
 
-    lines.push(`  subgraph ${dir}["${CLASSIFICATION_LABELS[dir]}"]`);
+    const subgraphId = SUBGRAPH_IDS[dir] ?? dir;
+    lines.push(`  subgraph ${subgraphId}["${CLASSIFICATION_LABELS[dir]}"]`);
     for (const node of members) {
       lines.push(`    ${toMermaidId(node.name)}["${shortName(node.path)}"]`);
     }
@@ -107,9 +118,11 @@ function generateMermaid(graph) {
   lines.push("  classDef backend fill:#fef3c7,stroke:#d97706");
   lines.push("  classDef shared fill:#e0e7ff,stroke:#4f46e5");
   lines.push("  classDef tooling fill:#f0fdf4,stroke:#16a34a");
+  lines.push("  classDef entrypoint fill:#fdf4ff,stroke:#a21caf,stroke-dasharray: 5 5");
 
   for (const node of visibleNodes) {
-    lines.push(`  class ${toMermaidId(node.name)} ${TYPE_TO_CLASS[node.type]}`);
+    const className = node.entrypoint ? "entrypoint" : TYPE_TO_CLASS[node.type];
+    lines.push(`  class ${toMermaidId(node.name)} ${className}`);
   }
 
   return lines.join("\n");
@@ -141,14 +154,18 @@ ${mermaid}
 | Amber | Backend Services (\`services/*\`) |
 | Indigo | Shared Packages (\`packages/*\`) |
 | Green | Developer Tools (\`tools/*\`) |
+| Purple (dashed) | Entrypoint package — invoked externally (CLI bin, MCP config, build plugin), so it has no internal importers by design |
 `;
 }
 
-// Run
-const graph = buildGraph();
-const mermaid = generateMermaid(graph);
-const markdown = generateMarkdown(mermaid);
-const outputPath = join(root, "docs", "architecture", "dependency-graph.md");
+// Run only when executed directly (`node generate-dep-graph.js` / `pnpm graph`),
+// not when imported for unit testing.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const graph = buildGraph();
+  const mermaid = generateMermaid(graph);
+  const markdown = generateMarkdown(mermaid);
+  const outputPath = join(root, "docs", "architecture", "dependency-graph.md");
 
-writeFileSync(outputPath, markdown);
-console.log(`Generated dependency graph with ${graph.nodes.length} packages → ${outputPath}`);
+  writeFileSync(outputPath, markdown);
+  console.log(`Generated dependency graph with ${graph.nodes.length} packages → ${outputPath}`);
+}
