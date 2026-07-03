@@ -96,4 +96,18 @@
     }
   </file>
   </section>
+  <section priority="medium" role="visual-test">
+  <file path="src/pages/visual-test/fixtures.ts">
+    export const selectOptions = [
+      { value: "apple", label: "Apple" },
+      { value: "banana", label: "Banana" },
+      { value: "cherry", label: "Cherry" },
+    ];
+    export const tableColumns = [
+      { key: "name" as const, header: "Name", sortable: true },
+      { key: "role" as const, header: "Role" },
+      { key: "status" as const, header: "Status" },
+    ];
+  </file>
+  </section>
 </codebase>
