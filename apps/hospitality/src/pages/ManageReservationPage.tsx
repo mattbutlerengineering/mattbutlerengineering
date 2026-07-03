@@ -2,12 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import { ApiClient, ApiClientError } from "@mbe/api-client";
+import { ApiClientError } from "@mbe/api-client";
+import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-// Public endpoint client — no auth token required
-const publicApiClient = new ApiClient({ baseUrl: API_BASE, maxRetries: 3 });
 
 interface ReservationDetails {
   id: string;
@@ -53,9 +51,12 @@ const manageParamsSchema = z.object({
 
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
-async function fetchManageReservation(token: string): Promise<ManageReservationData> {
+async function fetchManageReservation(
+  api: ReturnType<typeof usePublicApiClient>,
+  token: string
+): Promise<ManageReservationData> {
   try {
-    const json = await publicApiClient.get<{ data: ManageReservationData }>(
+    const json = await api.client.get<{ data: ManageReservationData }>(
       `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`
     );
     return { reservation: json.data.reservation, venue: json.data.venue };
@@ -70,10 +71,11 @@ async function fetchManageReservation(token: string): Promise<ManageReservationD
 export function ManageReservationPage() {
   const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
   const token = params.token || null;
+  const publicApiClient = usePublicApiClient({ baseUrl: API_BASE, maxRetries: 3 });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["manageReservation", token],
-    queryFn: () => fetchManageReservation(token!),
+    queryFn: () => fetchManageReservation(publicApiClient, token!),
     enabled: !!token,
     retry: false,
   });

@@ -102,7 +102,7 @@ node scripts/acmm/review-burden-metrics.js --dry-run      # print only, no file 
 
 ### Where results live
 
-Each run appends one timestamped entry to **`docs/metrics/review-burden.json`**
+Each run appends one timestamped entry to **`metrics/review-burden.json`**
 (an array, so trend-over-time is preserved). The script also prints a
 human-readable per-reviewer breakdown to stdout.
 
@@ -110,11 +110,11 @@ human-readable per-reviewer breakdown to stdout.
 
 ```bash
 # Most recent run's per-reviewer load
-jq '.[-1].reviewers' docs/metrics/review-burden.json
+jq '.[-1].reviewers' metrics/review-burden.json
 
 # Trend: overall rubber-stamp ratio across every run
 jq '[.[] | { ts: .timestamp, ratio: .summary.overall_rubber_stamp_ratio }]' \
-  docs/metrics/review-burden.json
+  metrics/review-burden.json
 ```
 
 Each entry's shape:

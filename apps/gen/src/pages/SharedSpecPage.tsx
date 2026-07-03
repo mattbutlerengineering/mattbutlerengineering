@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
@@ -14,8 +14,9 @@ import {
   ThemeToggle,
   Divider,
 } from "@mattbutlerengineering/rialto";
-import { ApiClient, ApiClientError } from "@mbe/api-client";
+import { ApiClientError } from "@mbe/api-client";
 import { useTheme } from "../contexts/ThemeContext.js";
+import { useApi } from "../hooks/useApi.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import styles from "./SharedSpecPage.module.css";
 
@@ -104,8 +105,9 @@ export function SharedSpecPage() {
   const [copyFailed, setCopyFailed] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
-  // Public endpoint — no auth token needed
-  const client = useMemo(() => new ApiClient({ baseUrl: "" }), []);
+  // Route is public (no auth gate — see App.tsx), but the shared seam hook is
+  // reused regardless: the backend route is permissive about an optional token.
+  const client = useApi();
 
   useEffect(() => {
     if (!id) return;

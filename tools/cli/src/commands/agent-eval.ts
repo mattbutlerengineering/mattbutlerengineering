@@ -116,7 +116,7 @@ export const agentEvalCommand = new Command("eval")
 
 function findLogFile(): string {
   const root = findMonorepoRoot(process.cwd());
-  return join(root, "docs/logs", "eval-reports.jsonl");
+  return join(root, "metrics", "eval-reports.jsonl");
 }
 
 /**
@@ -141,12 +141,12 @@ function loadCostBaseline(logFile: string): number | null {
 }
 
 /**
- * Appends the report to a JSONL file in docs/logs — mirrors the `mbe stats` record pattern.
+ * Appends the report to a JSONL file in metrics/ — mirrors the `mbe stats` record pattern.
  * Each line is a complete {@link EvalReport} enriched with a timestamp.
  */
 function persistReport(report: EvalReport): void {
   const root = findMonorepoRoot(process.cwd());
-  const logDir = join(root, "docs/logs");
+  const logDir = join(root, "metrics");
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });

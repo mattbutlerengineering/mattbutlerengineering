@@ -5,7 +5,7 @@
  *
  * Pulls recent PRs via the GitHub CLI, identifies AI-generated PRs by
  * branch name patterns or labels, computes acceptance rate, and appends
- * one dated entry to docs/metrics/pr-acceptance.json.
+ * one dated entry to metrics/pr-acceptance.json.
  *
  * Usage:
  *   node scripts/pr-metrics.mjs                 # default: last 30 days
@@ -25,7 +25,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, "..", "docs", "metrics", "pr-acceptance.json");
+const METRICS_PATH = resolve(__dirname, "..", "metrics", "pr-acceptance.json");
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");

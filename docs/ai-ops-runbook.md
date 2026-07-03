@@ -73,7 +73,7 @@ The system favors human override at every layer:
 | LLM session traces | Langfuse Cloud                          | `LANGFUSE_PUBLIC_KEY`-gated; one trace per `runSession()` call         |
 | ACMM trend         | `.claude/acmm/state.json` history array | Each run appended; `node plugins/acmm/scripts/audit.js --trend` prints |
 | Agent metrics      | `metrics/*.jsonl`                       | Per-PR success rate, cost, turn count                                  |
-| ACMM PR metrics    | `docs/metrics/pr-acceptance.json`       | Backfilled from PR history                                             |
+| ACMM PR metrics    | `metrics/pr-acceptance.json`            | Backfilled from PR history                                             |
 
 ## Incident severity classification
 
@@ -122,7 +122,7 @@ Don't wait for users to report issues. These signals surface problems early:
 | `agent-failed` label count rising  | `gh issue list --label agent-failed`        | Agent capability gap or recurring bad input    |
 | ACMM level regression              | `.claude/acmm/state.json` → `history` array | A file was deleted or a workflow broke         |
 | CI flake rate > 1%                 | ACMM report `Signal quality` section        | Test isolation problem or infrastructure flake |
-| Agent PR rejection rate > 20%      | `docs/metrics/pr-acceptance.json`           | Agent instructions need tuning                 |
+| Agent PR rejection rate > 20%      | `metrics/pr-acceptance.json`                | Agent instructions need tuning                 |
 | Langfuse error rate spike          | Langfuse Cloud dashboard → Traces           | API quota, model error, or prompt regression   |
 | RemoteTrigger consecutive failures | https://claude.ai/code/routines             | Auth token expired or repo state invalid       |
 

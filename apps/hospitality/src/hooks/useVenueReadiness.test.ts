@@ -4,7 +4,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { computeReadiness, useVenueReadiness } from "./useVenueReadiness.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAuth } from "@mbe/auth/react";
-import { createApiClient } from "@mbe/api-client";
+import { useApiClient } from "./useApiClient.js";
 import type { Venue } from "@mbe/types";
 import type { FloorPlan } from "@mbe/types";
 import type { Table } from "@mbe/types";
@@ -17,8 +17,8 @@ vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(),
+vi.mock("./useApiClient.js", () => ({
+  useApiClient: vi.fn(),
 }));
 
 /* ── Fixtures ───────────────────────────────────────────────── */
@@ -185,7 +185,7 @@ describe("useVenueReadiness", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createApiClient).mockReturnValue({
+    vi.mocked(useApiClient).mockReturnValue({
       floorPlans: { list: mockList },
     } as any);
   });

@@ -14,7 +14,7 @@ mbe agent eval --calibrate           # also print self-grade vs ground-truth cal
 mbe agent eval --suite <dir>         # point at a different suite directory
 ```
 
-Reports are appended to `docs/logs/eval-reports.jsonl` (same append-only pattern
+Reports are appended to `metrics/eval-reports.jsonl` (same append-only pattern
 as `mbe stats`), so suite quality can be charted over time.
 
 ## Adding a golden task

@@ -67,14 +67,17 @@ vi.mock("../contexts/ThemeContext.js", () => ({
   useTheme: () => ({ theme: "light", toggleTheme: vi.fn() }),
 }));
 
-// Mock @mbe/api-client — ApiClient must be a class (constructable) in the mock
+// Mock the single seam hook — no component test should mock client construction directly.
 const mockRequest = vi.fn();
 
+vi.mock("../hooks/useApi.js", () => ({
+  useApi: () => ({
+    request: mockRequest,
+    get: mockRequest,
+  }),
+}));
+
 vi.mock("@mbe/api-client", () => {
-  class MockApiClient {
-    request = mockRequest;
-    get = mockRequest;
-  }
   class MockApiClientError extends Error {
     statusCode: number;
     category: string;
@@ -86,7 +89,6 @@ vi.mock("@mbe/api-client", () => {
     }
   }
   return {
-    ApiClient: MockApiClient,
     ApiClientError: MockApiClientError,
   };
 });

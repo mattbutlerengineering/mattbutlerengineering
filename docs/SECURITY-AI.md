@@ -96,7 +96,7 @@ Areas that require either user approval or specialist-agent review before modifi
 ## Audit and observability
 
 1. **Langfuse traces** every agent session — task, model, budget, turns, success/failure. The trace ID is the audit primary key.
-2. **`docs/metrics/pr-acceptance.json`** records PR acceptance over time, used to detect regressions in the agent loop.
+2. **`metrics/pr-acceptance.json`** records PR acceptance over time, used to detect regressions in the agent loop.
 3. **Co-Authored-By attribution** is currently disabled globally in `~/.claude/settings.json`. As a result, agent merges are _not_ distinguishable in `git log` from human merges. Until attribution is re-enabled, the audit trail relies on Langfuse session IDs and the `has-pr` label history on closed issues.
 4. **Every PR opened by an agent** must carry a `Closes #N` reference linking it to the originating issue. This is the only durable trail when attribution is off.
 

@@ -1,22 +1,16 @@
 import { useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { createApiClient } from "@mbe/api-client";
 import { Stack, Text, Button, Card } from "@mattbutlerengineering/rialto";
 import { BookingWidget } from "../components/booking-widget/index.js";
+import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import styles from "./PublicBookingPage.module.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
-// Public API client — no auth token required for public endpoints
-const publicApiClient = createApiClient({
-  baseUrl: BASE_URL,
-  getAccessToken: () => null,
-  maxRetries: 0,
-});
-
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
+  const publicApiClient = usePublicApiClient({ baseUrl: BASE_URL, maxRetries: 0 });
 
   const activeHoldIdRef = useRef<string | null>(null);
 

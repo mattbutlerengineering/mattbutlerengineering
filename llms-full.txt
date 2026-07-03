@@ -1803,7 +1803,7 @@
       );
     function findLogFile(): string {
       const root = findMonorepoRoot(process.cwd());
-      return join(root, "docs/logs", "eval-reports.jsonl");
+      return join(root, "metrics", "eval-reports.jsonl");
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2396,7 +2396,7 @@
       .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
       .action(async (options) => {
         const root = findMonorepoRoot(process.cwd());
-        const logDir = join(root, "docs/logs");
+        const logDir = join(root, "metrics");
         const logFile = join(logDir, "agent-perf.jsonl");
     
         if (!existsSync(logDir)) {
@@ -3643,6 +3643,16 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="apps/gen/src/hooks/useApi.ts">
+    export function useApi(): ApiClient {
+      const { accessToken } = useAuth();
+    
+      return useMemo(
+        () => new ApiClient({ baseUrl: "", getAccessToken: () => accessToken }),
+        [accessToken]
+      );
+    }
+  </file>
   <file path="apps/gen/src/hooks/useCopyToClipboard.ts">
     export function useCopyToClipboard() {
       const [copied, setCopied] = useState(false);
@@ -3926,6 +3936,21 @@
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+  </file>
+  <file path="apps/hospitality/src/hooks/usePublicApiClient.ts">
+    export interface UsePublicApiClientOptions {
+      baseUrl?: string;
+      maxRetries?: number;
+    }
+    export function usePublicApiClient(options: UsePublicApiClientOptions = {}) {
+      const baseUrl = options.baseUrl ?? import.meta.env.VITE_API_URL ?? "";
+      const { maxRetries } = options;
+    
+      return useMemo(
+        () => createApiClient({ baseUrl, getAccessToken: () => null, maxRetries }),
+        [baseUrl, maxRetries]
+      );
+    }
   </file>
   <file path="apps/hospitality/src/hooks/useReservationDisplay.ts">
     export type StatusFilter = "all" | ReservationStatus;
@@ -8372,7 +8397,7 @@
           if (!guest) {
             // New guest — always trusted
             return reply.send({
-              data: { riskScore: "trusted", noShowCount: 0, requiresDeposit: false },
+              data: { riskScore: "trusted", requiresDeposit: false },
             });
           }
     
@@ -8390,7 +8415,6 @@
           return reply.send({
             data: {
               riskScore,
-              noShowCount: guest.noShowCount,
               requiresDeposit: riskScore === "risky",
             },
           });

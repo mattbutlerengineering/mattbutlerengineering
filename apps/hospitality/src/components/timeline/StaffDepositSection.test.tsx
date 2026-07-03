@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import { StaffDepositSection } from "./StaffDepositSection.js";
-import { createApiClient } from "@mbe/api-client";
+import { useApiClient } from "../../hooks/useApiClient.js";
 import type { Deposit } from "@mbe/types";
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(),
+vi.mock("../../hooks/useApiClient.js", () => ({
+  useApiClient: vi.fn(),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -85,7 +85,6 @@ const mockDeposit: Deposit = {
 describe("StaffDepositSection", () => {
   const defaultProps = {
     reservationId: "res-1",
-    getAccessToken: vi.fn().mockReturnValue("token"),
   };
 
   const mockApi = {
@@ -96,7 +95,7 @@ describe("StaffDepositSection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
   });
 
   it("shows collect deposit button when no existing deposit", () => {

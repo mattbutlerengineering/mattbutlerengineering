@@ -3,32 +3,25 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { useSpecsApi } from "./useSpecsApi.js";
 import type { StoredSpec } from "../types.js";
 
-vi.mock("@mbe/auth/react", () => ({
-  useAuth: vi.fn(() => ({ accessToken: "test-token", user: null, signOut: vi.fn() })),
-}));
-
-// Shared mock for all ApiClient method calls
+// Shared mock for all api-client method calls
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 const mockPatch = vi.fn();
 const mockDelete = vi.fn();
 
-// Mock @mbe/api-client — ApiClient must be a class (constructable) in the mock
-vi.mock("@mbe/api-client", () => {
-  class MockApiClient {
-    get = mockGet;
-    post = mockPost;
-    patch = mockPatch;
-    delete = mockDelete;
-    request = mockGet;
-    getOne = mockGet;
-    postOne = mockPost;
-    patchOne = mockPatch;
-  }
-  return {
-    ApiClient: MockApiClient,
-  };
-});
+// Mock the single seam hook — no component test should mock client construction directly.
+vi.mock("./useApi.js", () => ({
+  useApi: () => ({
+    get: mockGet,
+    post: mockPost,
+    patch: mockPatch,
+    delete: mockDelete,
+    request: mockGet,
+    getOne: mockGet,
+    postOne: mockPost,
+    patchOne: mockPatch,
+  }),
+}));
 
 function makeSpec(overrides?: Partial<StoredSpec>): StoredSpec {
   return {
