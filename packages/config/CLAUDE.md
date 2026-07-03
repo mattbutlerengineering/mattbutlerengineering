@@ -18,9 +18,9 @@ Shared configuration presets for the workspace. Centralizes ESLint, TypeScript, 
 │   ├── node.json  # Node-specific TSConfig
 │   └── react.json # React-specific TSConfig
 └── vitest/
-    ├── base.js + base.d.ts    # Internal factory core (not exported directly)
-    ├── node.js + node.d.ts    # defineVitestConfig() — node environment preset
-    └── react.js + react.d.ts  # defineVitestConfig() — jsdom + @vitejs/plugin-react preset
+    ├── base.js         # (+ base.d.ts types) internal factory core (not exported directly)
+    ├── node.js         # (+ node.d.ts types) defineVitestConfig() — node environment preset
+    └── react.js        # (+ react.d.ts types) defineVitestConfig() — jsdom + @vitejs/plugin-react preset
 ```
 
 ## Governance
