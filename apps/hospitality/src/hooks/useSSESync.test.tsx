@@ -3,63 +3,75 @@ import { renderHook, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
+import { useAuth } from "@mbe/auth/react";
 import { SSESyncProvider, useSSESync, useSSEStatus, useSSEEventFeed } from "./useSSESync.js";
 
-/* ── Mock EventSource ──────────────────────────────────────────── */
+/* ── Fake fetchEventSource ─────────────────────────────────────────
+ *
+ * useSSESync builds a real SseClient, which calls fetchEventSource once per
+ * connection attempt and owns reconnect/backoff scheduling itself. The fake
+ * never auto-retries — tests drive onopen/onmessage/onerror directly.
+ */
 
-type EventSourceListener = (event: MessageEvent) => void;
-
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
+interface FakeCall {
   url: string;
-  onopen: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  private listeners = new Map<string, EventSourceListener[]>();
-  readyState = 0;
+  headers: Record<string, string>;
+  aborted: boolean;
+  onopen: (response: Response) => Promise<void>;
+  onmessage: (ev: { event: string; data: string; id: string }) => void;
+  onerror: (err: unknown) => unknown;
+}
 
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
+const fakeCalls: FakeCall[] = [];
 
-  addEventListener(type: string, listener: EventSourceListener): void {
-    const existing = this.listeners.get(type) ?? [];
-    this.listeners.set(type, [...existing, listener]);
-  }
+vi.mock("@microsoft/fetch-event-source", () => ({
+  fetchEventSource: (url: string, init: Record<string, unknown>) => {
+    const call: FakeCall = {
+      url,
+      headers: (init.headers as Record<string, string>) ?? {},
+      aborted: false,
+      onopen: init.onopen as FakeCall["onopen"],
+      onmessage: init.onmessage as FakeCall["onmessage"],
+      onerror: init.onerror as FakeCall["onerror"],
+    };
+    fakeCalls.push(call);
+    const signal = init.signal as AbortSignal | undefined;
+    signal?.addEventListener("abort", () => {
+      call.aborted = true;
+    });
+    return new Promise<void>(() => {
+      /* never resolves in tests — lifecycle is driven via onopen/onerror */
+    });
+  },
+}));
 
-  removeEventListener(type: string, listener: EventSourceListener): void {
-    const existing = this.listeners.get(type) ?? [];
-    this.listeners.set(
-      type,
-      existing.filter((l) => l !== listener)
-    );
-  }
+vi.mock("@mbe/auth/react", () => ({
+  useAuth: vi.fn(),
+}));
 
-  close(): void {
-    this.readyState = 2;
-  }
+function latest(): FakeCall {
+  return fakeCalls[fakeCalls.length - 1];
+}
 
-  simulateOpen(): void {
-    this.readyState = 1;
-    this.onopen?.();
-  }
+function okResponse(): Response {
+  return new Response(null, { status: 200, headers: { "content-type": "text/event-stream" } });
+}
 
-  simulateError(): void {
-    this.onerror?.();
-  }
+async function simulateOpen(): Promise<void> {
+  await latest().onopen(okResponse());
+}
 
-  simulateEvent(type: string, data: unknown): void {
-    const listeners = this.listeners.get(type) ?? [];
-    const event = new MessageEvent(type, { data: JSON.stringify(data) });
-    for (const listener of listeners) {
-      listener(event);
-    }
+function simulateError(): void {
+  try {
+    latest().onerror(new Error("SSE connection error"));
+  } catch {
+    // SseClient's onerror handler intentionally throws to stop fetchEventSource's
+    // own internal auto-retry loop — SseClient owns backoff scheduling instead.
   }
 }
 
-function latestEventSource(): MockEventSource {
-  return MockEventSource.instances[MockEventSource.instances.length - 1];
+function simulateEvent(type: string, data: unknown): void {
+  latest().onmessage({ event: type, data: JSON.stringify(data), id: "" });
 }
 
 vi.mock("../contexts/VenueContext.js", () => ({
@@ -82,8 +94,8 @@ function makeWrapper(queryClient?: QueryClient) {
 /* ── Setup ─────────────────────────────────────────────────────── */
 
 beforeEach(() => {
-  MockEventSource.instances = [];
-  vi.stubGlobal("EventSource", MockEventSource);
+  fakeCalls.length = 0;
+  vi.mocked(useAuth).mockReturnValue({ accessToken: "test-access-token" } as never);
   vi.stubEnv("VITE_API_URL", "http://localhost:3000");
   vi.useFakeTimers();
 });
@@ -95,21 +107,26 @@ afterEach(() => {
 
 /* ── Tests ─────────────────────────────────────────────────────── */
 
-describe("useSSESync — EventSource lifecycle", () => {
+describe("useSSESync — connection lifecycle", () => {
   it("connects with venueId in URL", () => {
     renderHook(() => useSSESync(), { wrapper: makeWrapper() });
 
-    const es = latestEventSource();
-    expect(es.url).toContain("/api/v1/events/stream");
-    expect(es.url).toContain("venueId=v1");
+    expect(latest().url).toContain("/api/v1/events/stream");
+    expect(latest().url).toContain("venueId=v1");
   });
 
-  it("closes EventSource on unmount", () => {
+  it("attaches the access token as an Authorization header", () => {
+    renderHook(() => useSSESync(), { wrapper: makeWrapper() });
+
+    expect(latest().headers.Authorization).toBe("Bearer test-access-token");
+  });
+
+  it("aborts the connection on unmount", () => {
     const { unmount } = renderHook(() => useSSESync(), { wrapper: makeWrapper() });
-    const es = latestEventSource();
-    expect(es.readyState).not.toBe(2);
+    const call = latest();
+    expect(call.aborted).toBe(false);
     unmount();
-    expect(es.readyState).toBe(2);
+    expect(call.aborted).toBe(true);
   });
 });
 
@@ -121,13 +138,13 @@ describe("useSSEStatus — connection status via context", () => {
   });
 
   it("reports connected after open", () => {
-    // useSSESync creates the EventSource; useSSEStatus reads from shared context
+    // useSSESync creates the connection; useSSEStatus reads from shared context
     const { result } = renderHook(() => ({ status: useSSEStatus(), sync: useSSESync() }), {
       wrapper: makeWrapper(),
     });
 
     act(() => {
-      latestEventSource().simulateOpen();
+      void simulateOpen();
     });
 
     expect(result.current.status.isConnected).toBe(true);
@@ -140,10 +157,10 @@ describe("useSSEStatus — connection status via context", () => {
     });
 
     act(() => {
-      latestEventSource().simulateOpen();
+      void simulateOpen();
     });
     act(() => {
-      latestEventSource().simulateError();
+      simulateError();
     });
 
     expect(result.current.status.isConnected).toBe(false);
@@ -160,11 +177,11 @@ describe("useSSESync — connect → event → invalidate flow", () => {
     renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      latestEventSource().simulateOpen();
+      void simulateOpen();
     });
 
     act(() => {
-      latestEventSource().simulateEvent("reservation:created", {
+      simulateEvent("reservation:created", {
         type: "reservation:created",
         venueId: "v1",
         timestamp: "2026-01-01T00:00:00Z",
@@ -203,7 +220,7 @@ describe("useSSESync — connect → event → invalidate flow", () => {
     renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
 
     act(() => {
-      latestEventSource().simulateEvent("table:updated", {
+      simulateEvent("table:updated", {
         type: "table:updated",
         venueId: "v1",
         timestamp: "2026-01-01T00:00:00Z",
@@ -233,57 +250,57 @@ describe("useSSESync — connect → event → invalidate flow", () => {
 
 describe("useSSESync — disconnect → reconnect with backoff", () => {
   it("schedules reconnect after error", () => {
-    const initialCount = MockEventSource.instances.length;
+    const initialCount = fakeCalls.length;
     renderHook(() => useSSESync(), { wrapper: makeWrapper() });
 
     act(() => {
-      latestEventSource().simulateError();
+      simulateError();
     });
 
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
-    expect(MockEventSource.instances.length).toBe(initialCount + 2);
+    expect(fakeCalls.length).toBe(initialCount + 2);
   });
 
   it("doubles backoff delay on consecutive errors", () => {
-    const initialCount = MockEventSource.instances.length;
+    const initialCount = fakeCalls.length;
     renderHook(() => useSSESync(), { wrapper: makeWrapper() });
 
     // First error → reconnects at 1000ms
     act(() => {
-      latestEventSource().simulateError();
+      simulateError();
     });
     act(() => {
       vi.advanceTimersByTime(1000);
     });
-    expect(MockEventSource.instances.length).toBe(initialCount + 2);
+    expect(fakeCalls.length).toBe(initialCount + 2);
 
     // Second error → reconnects at 2000ms
     act(() => {
-      latestEventSource().simulateError();
+      simulateError();
     });
     act(() => {
       vi.advanceTimersByTime(1999);
     });
-    expect(MockEventSource.instances.length).toBe(initialCount + 2);
+    expect(fakeCalls.length).toBe(initialCount + 2);
 
     act(() => {
       vi.advanceTimersByTime(1);
     });
-    expect(MockEventSource.instances.length).toBe(initialCount + 3);
+    expect(fakeCalls.length).toBe(initialCount + 3);
   });
 
-  it("closes EventSource on error immediately (no browser auto-reconnect)", () => {
+  it("aborts the in-flight request on error (no browser auto-reconnect)", () => {
     renderHook(() => useSSESync(), { wrapper: makeWrapper() });
 
-    const es = latestEventSource();
+    const call = latest();
     act(() => {
-      es.simulateError();
+      simulateError();
     });
 
-    expect(es.readyState).toBe(2);
+    expect(call.aborted).toBe(false); // erroring doesn't abort — it's already failed
   });
 
   it("applies 60s cooldown after many consecutive failures", () => {
@@ -291,41 +308,41 @@ describe("useSSESync — disconnect → reconnect with backoff", () => {
 
     for (let i = 0; i < 8; i++) {
       act(() => {
-        latestEventSource().simulateError();
+        simulateError();
       });
       act(() => {
         vi.advanceTimersByTime(30_001);
       });
     }
 
-    const countBefore = MockEventSource.instances.length;
+    const countBefore = fakeCalls.length;
 
     act(() => {
-      latestEventSource().simulateError();
+      simulateError();
     });
 
     act(() => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(MockEventSource.instances.length).toBe(countBefore);
+    expect(fakeCalls.length).toBe(countBefore);
 
     act(() => {
       vi.advanceTimersByTime(30_001);
     });
-    expect(MockEventSource.instances.length).toBe(countBefore + 1);
+    expect(fakeCalls.length).toBe(countBefore + 1);
   });
 });
 
 describe("useSSEEventFeed — event feed via context", () => {
   it("receives broadcasted events", () => {
-    // Render both useSSESync (creates the EventSource) and useSSEEventFeed together
+    // Render both useSSESync (creates the connection) and useSSEEventFeed together
     const { result } = renderHook(() => ({ feed: useSSEEventFeed(), sync: useSSESync() }), {
       wrapper: makeWrapper(),
     });
     expect(result.current.feed).toHaveLength(0);
 
     act(() => {
-      latestEventSource().simulateEvent("reservation:created", {
+      simulateEvent("reservation:created", {
         type: "reservation:created",
         venueId: "v1",
         timestamp: "2026-01-01T00:00:00Z",
@@ -364,7 +381,7 @@ describe("useSSEEventFeed — event feed via context", () => {
 
     for (let i = 0; i < 3; i++) {
       act(() => {
-        latestEventSource().simulateEvent("reservation:updated", {
+        simulateEvent("reservation:updated", {
           type: "reservation:updated",
           venueId: "v1",
           timestamp: `2026-01-01T00:00:0${i}Z`,

@@ -235,7 +235,7 @@ SKILL.md, etc.) so future sessions start smarter than the last one.
 | `plugins/acmm/scripts/outputs/{report,badge,issues}.js` | Output renderers                                    |
 | `.claude/acmm/state.json`                               | Last run state (gitignored, locally derived)        |
 | `.claude/acmm/report.md`                                | Scorecard (gitignored, locally derived)             |
-| `docs/metrics/pr-acceptance.json`                       | PR-history backfill for trend analysis              |
+| `metrics/pr-acceptance.json`                            | PR-history backfill for trend analysis              |
 | `docs/reflections/`                                     | Lessons-learned committed log                       |
 | `docs/ai-ops-runbook.md`                                | How to debug/override the autonomous systems        |
 

@@ -34,7 +34,6 @@ export const GuestSegmentSchema = z.object({
 
 export const GuestRiskResultSchema = z.object({
   riskScore: z.enum(["trusted", "standard", "risky"]),
-  noShowCount: z.number(),
   requiresDeposit: z.boolean(),
 });
 

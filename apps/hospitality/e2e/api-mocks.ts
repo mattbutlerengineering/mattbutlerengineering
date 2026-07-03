@@ -318,78 +318,34 @@ export async function mockApi(page: Page): Promise<void> {
     })
   );
 
-  // Stub window.EventSource so the app's SseClient fires onopen (→ "Live") and never onerror.
-  // route.fulfill closes the connection immediately, triggering onerror before onopen can set
-  // isConnected — so we replace the network mock with a browser-side EventSource stub instead.
+  // Intercept the SSE stream request so the app's SseClient (built on
+  // @microsoft/fetch-event-source, which requires an Authorization header
+  // EventSource cannot send) fires onopen (→ "Live") without ever erroring.
+  // fetchEventSource treats a normal end-of-body as a clean close (no retry,
+  // no onerror) — unlike the old EventSource-based stub, no timing hack is
+  // needed here.
   //
-  // Tests can pre-configure named events to dispatch after onopen by setting:
-  //   window.__fakeSSEConfig = { events: [{ type, data, lastEventId? }] }
+  // Tests can pre-configure named events to dispatch immediately after the
+  // "connected" event by setting:
+  //   window.__fakeSSEConfig = { events: [{ type, data }] }
   // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
-  await page.addInitScript(() => {
-    type SseEventEntry = { type: string; data: unknown; lastEventId?: string };
-    type FakeWindow = typeof window & {
-      __fakeEventSources: FakeEventSource[];
-      __fakeSSEConfig?: { events?: SseEventEntry[] };
-      EventSource: typeof FakeEventSource;
-    };
-
-    class FakeEventSource {
-      static readonly CONNECTING = 0;
-      static readonly OPEN = 1;
-      static readonly CLOSED = 2;
-
-      readyState = 0;
-      onopen: ((event: Event) => void) | null = null;
-      onmessage: ((event: MessageEvent) => void) | null = null;
-      onerror: ((event: Event) => void) | null = null;
-      withCredentials = false;
-      readonly url: string;
-
-      private _closed = false;
-      private _listeners = new Map<string, Array<(e: MessageEvent) => void>>();
-
-      constructor(url: string, _init?: EventSourceInit) {
-        this.url = url;
-        (window as unknown as FakeWindow).__fakeEventSources.push(this);
-
-        const cfg = (window as unknown as FakeWindow).__fakeSSEConfig;
-
-        queueMicrotask(() => {
-          if (this._closed) return;
-          this.readyState = FakeEventSource.OPEN;
-          this.onopen?.(new Event("open"));
-          if (cfg?.events) {
-            for (const evt of cfg.events) {
-              const msg = new MessageEvent(evt.type, {
-                data: JSON.stringify(evt.data),
-                lastEventId: evt.lastEventId ?? "",
-              });
-              for (const h of this._listeners.get(evt.type) ?? []) h(msg);
-            }
-          }
-        });
-      }
-
-      addEventListener(type: string, listener: (e: MessageEvent) => void): void {
-        this._listeners.set(type, [...(this._listeners.get(type) ?? []), listener]);
-      }
-
-      removeEventListener(type: string, listener: (e: MessageEvent) => void): void {
-        this._listeners.set(
-          type,
-          (this._listeners.get(type) ?? []).filter((l) => l !== listener)
-        );
-      }
-
-      close(): void {
-        this._closed = true;
-        this.readyState = FakeEventSource.CLOSED;
-      }
-    }
-
-    const win = window as unknown as FakeWindow;
-    win.__fakeEventSources = [];
-    win.EventSource = FakeEventSource;
+  type SseEventEntry = { type: string; data: unknown };
+  await page.route("**/api/v1/events/stream**", async (route) => {
+    const cfg = await page.evaluate(
+      () =>
+        (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
+    );
+    const frames = [
+      `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
+      ...(cfg?.events ?? []).map(
+        (evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`
+      ),
+    ];
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+      body: frames.join(""),
+    });
   });
 
   // Public endpoints

@@ -3,7 +3,7 @@
 /**
  * Auto-QA threshold tuner for the agent QA loop.
  *
- * Reads docs/metrics/pr-acceptance.json, computes per-category acceptance
+ * Reads metrics/pr-acceptance.json, computes per-category acceptance
  * rates, and adjusts maxBudgetUSD overrides in .github/auto-qa-tuning.json
  * when a category falls below acceptanceRateFloor.
  *
@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const cwd = process.cwd();
-const METRICS_PATH = join(cwd, "docs/metrics/pr-acceptance.json");
+const METRICS_PATH = join(cwd, "metrics/pr-acceptance.json");
 const TUNING_PATH = join(cwd, ".github/auto-qa-tuning.json");
 
 const args = process.argv.slice(2);

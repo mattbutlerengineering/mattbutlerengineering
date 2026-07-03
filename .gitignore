@@ -104,9 +104,22 @@ test-results/
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/mutation/
+# Single home for tracked runtime telemetry: metrics/. Everything under it
+# is ignored except the specific STABLE files below (baselines, evals, and
+# audit-trail logs written by the self-tuning scripts). High-churn runtime
+# output (e.g. queue-telemetry.jsonl, appended once per implement-queue
+# worker completion) is intentionally NOT negated here — do not add it.
 /metrics/*
-!/metrics/*.jsonl
 !/metrics/ai-antipattern-baselines.json
+!/metrics/acmm-evals.jsonl
+!/metrics/instruction-changes.jsonl
+!/metrics/process-metrics.jsonl
+!/metrics/threshold-changes.jsonl
+!/metrics/agent-perf.jsonl
+!/metrics/last-audit.json
+!/metrics/pr-acceptance.json
+!/metrics/review-burden.json
+!/metrics/eval-reports.jsonl
 
 # Playwright
 e2e/.auth/
