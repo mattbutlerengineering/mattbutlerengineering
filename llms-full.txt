@@ -4336,7 +4336,7 @@
   </section>
   <section priority="medium" role="lib">
   <file path="apps/hospitality/src/lib/sse-client.ts">
-    export type EventSourceFactory = (url: string) => EventSource;
+    export type FetchEventSourceFn = typeof fetchEventSource;
     export interface SseClientOptions {
       /** Base URL for the SSE stream (query params appended by SseClient). */
       url: string;
@@ -4346,12 +4346,14 @@
       onEvent: (type: string, payload: unknown) => void;
       /** Called when a parse error occurs or the connection errors. */
       onError: (error: Error) => void;
-      /** Called when the EventSource opens successfully. */
+      /** Called when the stream opens successfully. */
       onConnected?: () => void;
-      /** Called when the EventSource closes due to an error. */
+      /** Called when the connection closes due to an error. */
       onDisconnected?: () => void;
-      /** Injectable factory — defaults to `(url) => new EventSource(url)`. */
-      eventSourceFactory?: EventSourceFactory;
+      /** Returns the current bearer token for the Authorization header, or null/undefined for none. */
+      getAccessToken?: () => string | null | undefined;
+      /** Injectable fetchEventSource implementation — defaults to the real one. */
+      fetchEventSourceImpl?: FetchEventSourceFn;
     }
   </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
@@ -9605,7 +9607,11 @@
         return;
       }
     
-      // Only transition from pending to held if not already transitioned
+      // Only transition from pending to held if not already transitioned. hold()
+      // itself is a CAS (updateMany guarded on status = "pending"), so a
+      // concurrent retry of this same webhook that also passes this check safely
+      // no-ops (returns false) instead of double-transitioning — nothing further
+      // to do here either way, so the boolean is intentionally unused.
       if (deposit.status === "pending") {
         await depositService.hold(deposit.id, paymentIntentId);
       }
@@ -14452,6 +14458,24 @@
       readonly checkName: string;
       readonly conclusion: string;
       readonly logSnippet: string;
+    }
+  </file>
+  <file path="packages/agent-core/src/pr-feedback-port.ts">
+    export interface GraphQLThreadNode {
+      readonly id: string;
+      readonly isResolved: boolean;
+      readonly comments: {
+        readonly nodes: ReadonlyArray<{
+          readonly body: string;
+          readonly path: string | null;
+          readonly line: number | null;
+          readonly author: { readonly login: string };
+        }>;
+      };
+    }
+    export interface ReviewThreadsResult {
+      readonly reviewDecision: string | null;
+      readonly threads: readonly GraphQLThreadNode[];
     }
   </file>
   <file path="packages/agent-core/src/pr-risk-classifier.ts">

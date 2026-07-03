@@ -1,10 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
-
-/** Bound `gh` subprocess calls so a hang (GitHub API latency) fails fast. */
-const GH_TIMEOUT_MS = 30_000;
+import { ghPrFeedbackPort } from "./pr-feedback-port.js";
+import type { PrFeedbackPort } from "./pr-feedback-port.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -36,77 +31,20 @@ export interface PollResult {
 
 // ── Review comment extraction ───────────────────────────────────────
 
-const REVIEW_THREADS_QUERY = `
-query($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      reviewDecision
-      reviewThreads(first: 100) {
-        nodes {
-          id
-          isResolved
-          comments(first: 1) {
-            nodes { body, path, line, author { login } }
-          }
-        }
-      }
-    }
-  }
-}`;
-
-interface GraphQLThreadNode {
-  readonly id: string;
-  readonly isResolved: boolean;
-  readonly comments: {
-    readonly nodes: ReadonlyArray<{
-      readonly body: string;
-      readonly path: string | null;
-      readonly line: number | null;
-      readonly author: { readonly login: string };
-    }>;
-  };
-}
-
-interface GraphQLResponse {
-  readonly data: {
-    readonly repository: {
-      readonly pullRequest: {
-        readonly reviewDecision: string | null;
-        readonly reviewThreads: {
-          readonly nodes: readonly GraphQLThreadNode[];
-        };
-      };
-    };
-  };
-}
-
 export async function fetchUnresolvedComments(
   owner: string,
   repo: string,
   prNumber: number,
-  repoPath: string
+  repoPath: string,
+  port: PrFeedbackPort = ghPrFeedbackPort
 ): Promise<{ comments: readonly ReviewComment[]; reviewDecision: string }> {
   try {
-    const { stdout } = await execFileAsync(
-      "gh",
-      [
-        "api",
-        "graphql",
-        "-f",
-        `query=${REVIEW_THREADS_QUERY}`,
-        "-f",
-        `owner=${owner}`,
-        "-f",
-        `name=${repo}`,
-        "-F",
-        `number=${prNumber}`,
-      ],
-      { cwd: repoPath, timeout: GH_TIMEOUT_MS }
+    const { reviewDecision, threads } = await port.fetchReviewThreads(
+      owner,
+      repo,
+      prNumber,
+      repoPath
     );
-
-    const response = JSON.parse(stdout) as GraphQLResponse;
-    const pr = response.data.repository.pullRequest;
-    const threads = pr.reviewThreads.nodes;
 
     const comments: ReviewComment[] = threads
       .filter((t) => !t.isResolved && t.comments.nodes.length > 0)
@@ -123,7 +61,7 @@ export async function fetchUnresolvedComments(
 
     return {
       comments,
-      reviewDecision: pr.reviewDecision ?? "PENDING",
+      reviewDecision: reviewDecision ?? "PENDING",
     };
   } catch {
     return { comments: [], reviewDecision: "UNKNOWN" };
@@ -132,25 +70,14 @@ export async function fetchUnresolvedComments(
 
 // ── CI failure extraction ───────────────────────────────────────────
 
-interface CheckResult {
-  readonly name: string;
-  readonly state: string;
-  readonly conclusion: string;
-}
-
 export async function fetchCIFailures(
   prNumber: number,
   repoPath: string,
-  tailLines = 100
+  tailLines = 100,
+  port: PrFeedbackPort = ghPrFeedbackPort
 ): Promise<readonly CIFailure[]> {
   try {
-    const { stdout: checksJson } = await execFileAsync(
-      "gh",
-      ["pr", "checks", String(prNumber), "--json", "name,state,conclusion"],
-      { cwd: repoPath, timeout: GH_TIMEOUT_MS }
-    );
-
-    const checks = JSON.parse(checksJson) as readonly CheckResult[];
+    const checks = await port.fetchChecks(prNumber, repoPath);
     const failed = checks.filter((c) => c.conclusion === "failure");
 
     if (failed.length === 0) return [];
@@ -158,18 +85,9 @@ export async function fetchCIFailures(
     // Get log snippet from the most recent failed run
     let logSnippet = "";
     try {
-      const { stdout: runJson } = await execFileAsync(
-        "gh",
-        ["run", "list", "--status", "failure", "--limit", "1", "--json", "databaseId"],
-        { cwd: repoPath, timeout: GH_TIMEOUT_MS }
-      );
-      const runs = JSON.parse(runJson) as readonly { databaseId: number }[];
-      if (runs.length > 0) {
-        const { stdout: logs } = await execFileAsync(
-          "gh",
-          ["run", "view", String(runs[0].databaseId), "--log-failed"],
-          { cwd: repoPath, maxBuffer: 5 * 1024 * 1024, timeout: GH_TIMEOUT_MS }
-        );
+      const runId = await port.fetchFailedRunId(repoPath);
+      if (runId !== null) {
+        const logs = await port.fetchRunLogs(runId, repoPath);
         const lines = logs.split("\n");
         logSnippet = lines.slice(-tailLines).join("\n");
       }
@@ -201,16 +119,18 @@ export async function pollForFeedback(
   repo: string,
   prNumber: number,
   repoPath: string,
-  lastFingerprint: string
+  lastFingerprint: string,
+  port: PrFeedbackPort = ghPrFeedbackPort
 ): Promise<PollResult | null> {
   const { comments, reviewDecision } = await fetchUnresolvedComments(
     owner,
     repo,
     prNumber,
-    repoPath
+    repoPath,
+    port
   );
 
-  const ciFailures = await fetchCIFailures(prNumber, repoPath);
+  const ciFailures = await fetchCIFailures(prNumber, repoPath, 100, port);
 
   const fingerprint = computeFingerprint(comments);
 

@@ -396,7 +396,7 @@
   <section priority="medium" role="lib">
   <file path="src/lib/sse-client.ts">
     <item priority="low">
-      type EventSourceFactory = (url: string) => EventSource;
+      type FetchEventSourceFn = typeof fetchEventSource;
     </item>
     <item priority="low">
       interface SseClientOptions {

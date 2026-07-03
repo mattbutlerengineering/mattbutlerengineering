@@ -1613,7 +1613,7 @@
   <section priority="medium" role="lib">
   <file path="apps/hospitality/src/lib/sse-client.ts">
     <item priority="low">
-      type EventSourceFactory = (url: string) => EventSource;
+      type FetchEventSourceFn = typeof fetchEventSource;
     </item>
     <item priority="low">
       interface SseClientOptions {
@@ -3646,6 +3646,23 @@
         checkName: string;
         conclusion: string;
         logSnippet: string;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/pr-feedback-port.ts">
+    <item priority="low">
+      interface GraphQLThreadNode {
+        id: string;
+        isResolved: boolean;
+        comments: {
+          readonly nodes: ReadonlyArray<{
+            readonly body...;
+      }
+    </item>
+    <item priority="low">
+      interface ReviewThreadsResult {
+        reviewDecision: string | null;
+        threads: readonly GraphQLThreadNode[];
       }
     </item>
   </file>
