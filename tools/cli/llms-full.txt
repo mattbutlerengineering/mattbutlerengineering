@@ -433,7 +433,7 @@
       );
     function findLogFile(): string {
       const root = findMonorepoRoot(process.cwd());
-      return join(root, "docs/logs", "eval-reports.jsonl");
+      return join(root, "metrics", "eval-reports.jsonl");
     }
   </file>
   <file path="src/commands/agent-frontmatter.ts">
@@ -1026,7 +1026,7 @@
       .option("--cost <number>", "Estimated cost in USD", parseFloat, 0)
       .action(async (options) => {
         const root = findMonorepoRoot(process.cwd());
-        const logDir = join(root, "docs/logs");
+        const logDir = join(root, "metrics");
         const logFile = join(logDir, "agent-perf.jsonl");
     
         if (!existsSync(logDir)) {

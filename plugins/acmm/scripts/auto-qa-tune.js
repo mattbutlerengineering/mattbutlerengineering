@@ -3,7 +3,7 @@
 /**
  * Auto-QA threshold tuner — closes the L3-to-L4 adaptive loop.
  *
- * Reads PR acceptance snapshots from docs/metrics/pr-acceptance.json and
+ * Reads PR acceptance snapshots from metrics/pr-acceptance.json and
  * adjusts thresholds in .github/auto-qa-tuning.json. Each tuning event
  * appends a history entry explaining *why* the adjustment was made, not
  * just what changed.
@@ -167,7 +167,7 @@ function main() {
   const DRY_RUN = process.argv.includes("--dry-run");
   const cwd = process.cwd();
   const configPath = resolve(cwd, ".github/auto-qa-tuning.json");
-  const metricsPath = resolve(cwd, "docs/metrics/pr-acceptance.json");
+  const metricsPath = resolve(cwd, "metrics/pr-acceptance.json");
 
   // --- Read config ---
   if (!existsSync(configPath)) {

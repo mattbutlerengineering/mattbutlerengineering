@@ -26,7 +26,7 @@ describe("stats extended commands", () => {
     vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
     vi.spyOn(process, "cwd").mockReturnValue("/repo");
     mockExistsSync.mockImplementation(
-      (p: unknown) => String(p).endsWith("pnpm-workspace.yaml") || String(p).includes("docs/logs")
+      (p: unknown) => String(p).endsWith("pnpm-workspace.yaml") || String(p).includes("metrics")
     );
   });
 
@@ -74,12 +74,12 @@ describe("stats extended commands", () => {
       mockExistsSync.mockImplementation((p: unknown) => {
         const path = String(p);
         if (path.endsWith("pnpm-workspace.yaml")) return true;
-        return false; // docs/logs does not exist
+        return false; // metrics dir does not exist
       });
 
       await runLogSession(["--id", "s1", "--research", "1", "--execution", "2"]);
 
-      expect(mockMkdirSync).toHaveBeenCalledWith(expect.stringContaining("docs/logs"), {
+      expect(mockMkdirSync).toHaveBeenCalledWith(expect.stringContaining("metrics"), {
         recursive: true,
       });
     });
