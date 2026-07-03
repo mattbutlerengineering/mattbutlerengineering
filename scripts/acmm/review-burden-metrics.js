@@ -27,7 +27,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, "..", "..", "docs", "metrics", "review-burden.json");
+const METRICS_PATH = resolve(__dirname, "..", "..", "metrics", "review-burden.json");
 
 const RUBBER_STAMP_DEFAULT_MINUTES = 5;
 
