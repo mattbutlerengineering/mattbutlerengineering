@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calibrate } from "./calibrate.js";
-import type { EvalReport, TaskScore } from "./types.js";
+import { calibrate } from "../calibrate.js";
+import type { EvalReport, TaskScore } from "../types.js";
 
 function makeScore(
   taskId: string,

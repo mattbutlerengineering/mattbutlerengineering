@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
 import { AppError } from "@mbe/types";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -18,6 +18,17 @@ export function generateManageToken(reservationId: string, guestEmail: string): 
   const payload = `${reservationId}:${guestEmail}:${expiry}`;
   const signature = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
   return Buffer.from(`${payload}:${signature}`).toString("base64url");
+}
+
+// HMAC signatures are hex-encoded digests. Comparing them with `!==` is
+// timing-sensitive — it short-circuits on the first differing byte, which
+// leaks timing information an attacker could use to forge a valid
+// signature. `timingSafeEqual` throws on length mismatch, so the length
+// check must happen first.
+export function secureCompareHex(actual: string, expected: string): boolean {
+  const actualBuf = Buffer.from(actual, "hex");
+  const expectedBuf = Buffer.from(expected, "hex");
+  return actualBuf.length === expectedBuf.length && timingSafeEqual(actualBuf, expectedBuf);
 }
 
 export function verifyManageToken(token: string): {
@@ -42,7 +53,7 @@ export function verifyManageToken(token: string): {
     const payload = `${reservationId}:${guestEmail}:${expiryStr}`;
 
     const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-    if (signature !== expected) return { valid: false };
+    if (!secureCompareHex(signature, expected)) return { valid: false };
 
     const expiry = parseInt(expiryStr, 10);
     if (Date.now() > expiry) return { valid: false, expired: true };

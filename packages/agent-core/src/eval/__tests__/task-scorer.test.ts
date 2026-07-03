@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { scoreTask } from "./task-scorer.js";
-import type { DeterministicChecks, JudgeFunction, Task, TaskRunResult } from "./types.js";
-import type { SessionResult } from "../types.js";
+import { scoreTask } from "../task-scorer.js";
+import type { DeterministicChecks, JudgeFunction, Task, TaskRunResult } from "../types.js";
+import type { SessionResult } from "../../types.js";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {

@@ -208,12 +208,7 @@
       export function generateManageToken(reservationId: string, guestEmail: string): string { /* ... */ }
     </item>
     <item priority="high">
-      export function verifyManageToken(token: string): {
-        valid: boolean;
-        expired?: boolean;
-        reservationId?: string;
-        guestEmail?: string;
-      } { /* ... */ }
+      export function secureCompareHex(actual: string, expected: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/routes/public-unsubscribe.ts">

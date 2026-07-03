@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { createSessionLifecycleOrchestrator } from "./orchestrator.js";
-import { createInMemorySessionStore } from "./in-memory-store.js";
-import type { InMemorySessionStore } from "./in-memory-store.js";
-import type { ConcurrencyGate, RunSessionFn } from "./types.js";
-import type { SessionConfig, SessionEvent, SessionResult } from "../types.js";
+import { createSessionLifecycleOrchestrator } from "../orchestrator.js";
+import { createInMemorySessionStore } from "../in-memory-store.js";
+import type { InMemorySessionStore } from "../in-memory-store.js";
+import type { ConcurrencyGate, RunSessionFn } from "../types.js";
+import type { SessionConfig, SessionEvent, SessionResult } from "../../types.js";
 
 function buildResult(overrides: Partial<SessionResult> = {}): SessionResult {
   return {

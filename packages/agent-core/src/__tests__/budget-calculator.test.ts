@@ -5,7 +5,7 @@ import {
   resolveModel,
   formatPrExamples,
   fetchRecentPrExamples,
-} from "./budget-calculator.js";
+} from "../budget-calculator.js";
 import { execFile } from "node:child_process";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
