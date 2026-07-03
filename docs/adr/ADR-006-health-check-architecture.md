@@ -1,11 +1,14 @@
 ---
 id: ADR-006
 title: Health Check Architecture
-status: active
+status: superseded
+superseded_by: ADR-009
 date: 2026-04-06
 ---
 
 # ADR-006: Health Check Architecture
+
+> **Superseded by [ADR-009](ADR-009-health-check-patterns.md)**, which documents the same per-service `/health` + public health endpoints as this ADR's Tier 1, and adds the Tier 2 system-wide aggregation endpoint.
 
 ## Context
 
