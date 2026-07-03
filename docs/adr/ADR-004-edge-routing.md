@@ -1,11 +1,14 @@
 ---
 id: ADR-004
 title: Edge Routing
-status: active
+status: superseded
+superseded_by: ADR-011
 date: 2026-04-06
 ---
 
 # ADR-004: Edge Routing (Cloudflare Workers + Service Bindings)
+
+> **Superseded by [ADR-011](ADR-011-edge-routing-architecture.md)**, which documents the full edge routing architecture (topology registry, security headers, rate limiting, circuit breaker) built on the same Cloudflare Worker + Service Bindings decision made here.
 
 ## Context
 
