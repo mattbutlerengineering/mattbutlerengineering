@@ -10,14 +10,21 @@ vi.mock("./reservation.js", () => ({
 vi.mock("./venue.js", () => ({
   venueService: {
     getById: vi.fn(),
+    getRawById: vi.fn(),
+  },
+}));
+
+vi.mock("./deposit.js", () => ({
+  depositService: {
+    getByReservationId: vi.fn(),
   },
 }));
 
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import { depositService } from "./deposit.js";
 import {
   modifyReservationWithNotifications,
-  skipDepositRepricingOnPartySizeChange,
   type ModifyReservationDeps,
 } from "./reservation-modification.js";
 
@@ -268,9 +275,13 @@ describe("modifyReservationWithNotifications", () => {
     });
   });
 
-  it("updates partySize without re-evaluating the deposit (no-repricing pinned behavior, see #2931)", async () => {
+  it("updates partySize when there is no held/pending deposit at all", async () => {
     const reservation = makeReservation({ partySize: 4 });
     const updated = { ...reservation, partySize: 10 };
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "per_person",
+    } as never);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
       reservation: updated,
@@ -285,22 +296,151 @@ describe("modifyReservationWithNotifications", () => {
     );
 
     expect(result.success).toBe(true);
-    // Only the partySize field is sent to the update — no deposit fields are
-    // read, written, or re-derived from the new partySize. Repricing a
-    // per_person deposit on partySize change is a separate HITL product
-    // decision tracked in #2931.
     expect(reservationService.updateWithConflictCheck).toHaveBeenCalledWith("res_1", {
       partySize: 10,
     });
   });
 });
 
-describe("skipDepositRepricingOnPartySizeChange (#2931 seam)", () => {
-  it("is a documented no-op today — deposit amount is never re-evaluated on partySize change", () => {
-    const reservation = makeReservation({ partySize: 4 });
+describe("per-person deposit guard on partySize change (#2931 — decision: Block)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    expect(() =>
-      skipDepositRepricingOnPartySizeChange(reservation, { partySize: 8 })
-    ).not.toThrow();
+  it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {
+    const reservation = makeReservation({ partySize: 4 });
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "per_person",
+    } as never);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      status: "held",
+    } as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 6 },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+      expect(result.detail).toMatch(/cancel/i);
+    }
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("blocks a partySize DECREASE with 409 when a per_person deposit is held", async () => {
+    const reservation = makeReservation({ partySize: 6 });
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "per_person",
+    } as never);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      status: "held",
+    } as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 4 },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+    }
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("blocks when the per_person deposit is still pending (not yet held)", async () => {
+    const reservation = makeReservation({ partySize: 4 });
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "per_person",
+    } as never);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      status: "pending",
+    } as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 8 },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+    }
+  });
+
+  it("passes through on a flat-deposit venue even with a held deposit", async () => {
+    const reservation = makeReservation({ partySize: 4 });
+    const updated = { ...reservation, partySize: 6 };
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "flat",
+    } as never);
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: updated,
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 6 },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(true);
+    expect(depositService.getByReservationId).not.toHaveBeenCalled();
+  });
+
+  it("passes through a same-value partySize (no-op) without checking the deposit", async () => {
+    const reservation = makeReservation({ partySize: 4, notes: "old" });
+    const updated = { ...reservation, notes: "new" };
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: updated,
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { partySize: 4, specialRequests: "new" },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(true);
+    expect(venueService.getRawById).not.toHaveBeenCalled();
+    expect(depositService.getByReservationId).not.toHaveBeenCalled();
+  });
+
+  it("passes through a date/time-only change without checking the deposit", async () => {
+    const reservation = makeReservation({ partySize: 4 });
+    const updated = { ...reservation, startTime: "20:00" };
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: updated,
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const result = await modifyReservationWithNotifications(
+      reservation,
+      { startTime: "20:00" },
+      "token123",
+      makeDeps()
+    );
+
+    expect(result.success).toBe(true);
+    expect(venueService.getRawById).not.toHaveBeenCalled();
+    expect(depositService.getByReservationId).not.toHaveBeenCalled();
   });
 });

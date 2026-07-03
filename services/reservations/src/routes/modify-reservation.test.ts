@@ -21,6 +21,13 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
+    getRawById: vi.fn(),
+  },
+}));
+
+vi.mock("../services/deposit.js", () => ({
+  depositService: {
+    getByReservationId: vi.fn(),
   },
 }));
 
@@ -31,6 +38,7 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import { depositService } from "../services/deposit.js";
 
 const mockReservation = {
   id: "res_1",
@@ -240,6 +248,31 @@ describe("PATCH /public/v1/reservations/manage", () => {
     expect(response.statusCode).toBe(409);
     expect(response.json().detail).toContain("completed");
     expect(response.json().code).toBe("RESERVATION_ALREADY_COMPLETED");
+  });
+
+  it("returns 409 when changing partySize on a per_person-deposit venue with a held deposit (#2931)", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
+      depositType: "per_person",
+    } as never);
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+      status: "held",
+    } as never);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { partySize: 6 },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+    expect(response.json().detail).toMatch(/cancel/i);
+    expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
   });
 
   it("returns 400 when no fields provided", async () => {

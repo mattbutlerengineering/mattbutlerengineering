@@ -3,6 +3,7 @@ import type { NotificationDispatcher } from "@mbe/notifications";
 import type { CommunicationPreference, Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import { depositService } from "./deposit.js";
 import type { BookingNotifier } from "./booking-notifications.js";
 
 export interface ModifyReservationDeps {
@@ -48,18 +49,48 @@ function isTimeChange(changes: ReservationChanges): boolean {
   );
 }
 
+const DEPOSIT_HELD_STATUSES = new Set(["pending", "held"]);
+
+const PARTY_SIZE_DEPOSIT_BLOCKED_RESULT: ModifyReservationResult = {
+  success: false,
+  status: 409,
+  title: "Party Size Change Blocked",
+  detail:
+    "This venue charges a per-person deposit and a payment is already pending or held for " +
+    "this reservation. Cancel this reservation and create a new booking to change your party size.",
+  code: "PARTY_SIZE_DEPOSIT_HELD",
+};
+
 /**
- * Deposit repricing on a partySize change is explicitly OUT of scope here.
- * Whether/how a `per_person` deposit should be re-evaluated when partySize
- * changes is a separate, HITL product decision tracked in #2931 — this
- * function is the named seam where that logic will land. Today it is a
- * deliberate no-op: partySize changes never touch the deposit.
+ * Guards against silently diverging a `per_person` deposit from the
+ * reservation when partySize changes (#2931, decision: Block). Re-pricing an
+ * in-place deposit was deliberately deferred — the guest-facing path is
+ * cancel (deposit-safe, see reservation-cancellation.ts) and rebook, which
+ * creates a correctly re-priced hold.
+ *
+ * Returns a blocking 409 result, or `null` when the change may proceed: the
+ * partySize isn't actually changing, the venue isn't `per_person`, or there
+ * is no `pending`/`held` deposit to diverge.
  */
-export function skipDepositRepricingOnPartySizeChange(
-  _reservation: Reservation,
-  _changes: ReservationChanges
-): void {
-  // Intentional no-op — see #2931 for the pending repricing decision.
+async function checkPartySizeDepositGuard(
+  reservation: Reservation,
+  changes: ReservationChanges
+): Promise<ModifyReservationResult | null> {
+  if (changes.partySize === undefined || changes.partySize === reservation.partySize) {
+    return null;
+  }
+
+  const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
+  if (rawVenue?.depositType !== "per_person") {
+    return null;
+  }
+
+  const deposit = await depositService.getByReservationId(reservation.id);
+  if (!deposit || !DEPOSIT_HELD_STATUSES.has(deposit.status)) {
+    return null;
+  }
+
+  return PARTY_SIZE_DEPOSIT_BLOCKED_RESULT;
 }
 
 /**
@@ -128,8 +159,9 @@ export async function modifyReservationWithNotifications(
     return NO_CHANGES_RESULT;
   }
 
-  if (changes.partySize !== undefined) {
-    skipDepositRepricingOnPartySizeChange(reservation, changes);
+  const depositGuardResult = await checkPartySizeDepositGuard(reservation, changes);
+  if (depositGuardResult) {
+    return depositGuardResult;
   }
 
   const { date, startTime, endTime, partySize, specialRequests } = changes;
