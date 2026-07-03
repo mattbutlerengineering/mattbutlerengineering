@@ -7,6 +7,9 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     setupFiles: ["vitest.setup.ts"],
     testTimeout: 15000,
+    // buildApp() Fastify cold-start in beforeEach can exceed the 10s default
+    // hook timeout on a loaded CI runner (guests.test.ts flaked on Node 22).
+    hookTimeout: 15000,
     env: {
       AUTH_BYPASS_IN_TESTS: "true",
     },

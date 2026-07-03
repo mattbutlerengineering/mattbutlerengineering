@@ -3,6 +3,7 @@ import { createApiClient } from "@mbe/api-client";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import type { DepositConfig } from "@mbe/types";
+import { quoteDeposit } from "@mbe/cancellation-policy";
 import { DatePartySelector } from "./DatePartySelector";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 import { GuestDetailsForm, type GuestDetails } from "./GuestDetailsForm";
@@ -228,7 +229,17 @@ export function BookingWidget({
     actions.resetFlow();
   }, [actions]);
 
-  const hasDeposit = Boolean(data.depositConfig?.enabled && venueSlug && stripePublishableKey);
+  const hasDeposit = Boolean(
+    effectiveDepositPolicy({
+      depositConfig: data.depositConfig,
+      venueSlug,
+      stripePublishableKey,
+      // Guest risk isn't known yet at this point in the flow (it's resolved
+      // during guest-details submission) — this gate only reflects the
+      // venue's general policy, matching the prior `enabled`-only check.
+      guestIsRisky: false,
+    })
+  );
   const stepKeys = hasDeposit ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
   const bookingSteps = hasDeposit ? BOOKING_STEPS_WITH_DEPOSIT : BOOKING_STEPS_NO_DEPOSIT;
   const currentStepIndex = stepKeys.indexOf(state);
@@ -321,10 +332,15 @@ export function BookingWidget({
         <ConfirmationView
           reservation={data.reservation}
           depositAmountCents={
-            data.depositPaymentIntentId ? (data.depositConfig?.amountCents ?? null) : null
+            data.depositPaymentIntentId && data.depositConfig
+              ? quoteDeposit(data.depositConfig, data.partySize)
+              : null
           }
           depositCurrency={data.depositConfig?.currency ?? null}
-          cancellationPolicySummary={formatDepositCancellationTerms(data.depositConfig ?? null)}
+          cancellationPolicySummary={formatDepositCancellationTerms(
+            data.depositConfig ?? null,
+            data.partySize
+          )}
           onNewBooking={handleNewBooking}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}

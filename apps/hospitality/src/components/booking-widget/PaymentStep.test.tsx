@@ -100,6 +100,21 @@ describe("PaymentStep", () => {
     expect(screen.getByText(/24/)).toBeDefined();
   });
 
+  it("renders the consent screen's late-fee dollar amount from the charged TOTAL for per_person venues, and discloses the no-show term", () => {
+    const perPersonConfig: DepositConfig = {
+      ...mockDepositConfig,
+      depositType: "per_person",
+      amountCents: 1000, // $10/guest
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    };
+    render(<PaymentStep {...defaultProps} depositConfig={perPersonConfig} partySize={4} />);
+    // Total deposit = $10 x 4 guests = $40; 50% late fee = $20.00 (NOT $5.00, the per-person base)
+    expect(screen.getByText(/free cancellation/i).textContent).toContain("$20.00");
+    // No-show disclosure must be visible before the guest authorizes the hold
+    expect(screen.getByText(/no-show/i)).toBeDefined();
+  });
+
   it("renders Stripe card element", () => {
     render(<PaymentStep {...defaultProps} />);
     expect(screen.getByTestId("stripe-elements")).toBeDefined();

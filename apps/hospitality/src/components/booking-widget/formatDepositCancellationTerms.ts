@@ -1,24 +1,30 @@
 import type { DepositConfig } from "@mbe/types";
-import { formatCurrencyFromCents } from "../../utils/format.js";
+import { formatCancellationTerms, quoteDeposit } from "@mbe/cancellation-policy";
+import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
 /**
  * Returns a plain-language cancellation policy summary for display in the
- * booking widget confirmation step. Returns null when no policy is configured.
+ * booking widget (payment step + confirmation step). Returns null when no
+ * policy is configured — callers hide the policy card entirely in that case.
  *
- * NOTE: This duplicates the backend `formatCancellationTerms`
- * (services/reservations/src/services/cancellation-policy.ts). The backend
- * formatter is not importable from the frontend (it lives inside the service),
- * so the wording — including the fee dollar amount — is mirrored here. Keep the
- * two in sync; a future cleanup could move the formatter to @mbe/types or have
- * the public venue API return a pre-formatted summary.
+ * Delegates the wording to the shared `formatCancellationTerms` in
+ * `@mbe/cancellation-policy` — the same formatter the backend uses — so the
+ * two surfaces can never drift out of sync.
+ *
+ * `partySize` is required: late-cancellation and no-show fees are evaluated
+ * against the actual charged deposit total (`quoteDeposit`), not the
+ * per-person base — for `per_person` venues those two amounts differ.
  */
-export function formatDepositCancellationTerms(config: DepositConfig | null): string | null {
+export function formatDepositCancellationTerms(
+  config: DepositConfig | null,
+  partySize: number
+): string | null {
   if (!config || config.freeCancellationHours == null) return null;
-  const feePercent = config.lateCancellationFeePercent ?? 0;
-  const feeAmountCents = Math.floor(((config.amountCents ?? 0) * feePercent) / 100);
-  const formattedFee = formatCurrencyFromCents(feeAmountCents, config.currency);
-  return (
-    `Free cancellation up to ${config.freeCancellationHours} hours before your reservation. ` +
-    `After that, a ${feePercent}% fee (${formattedFee}) applies.`
-  );
+  const policy: CancellationPolicy = {
+    depositAmountCents: quoteDeposit(config, partySize),
+    freeCancellationHours: config.freeCancellationHours,
+    lateCancellationFeePercent: config.lateCancellationFeePercent,
+    noShowFeePercent: config.noShowFeePercent,
+  };
+  return formatCancellationTerms(policy, config.currency);
 }
