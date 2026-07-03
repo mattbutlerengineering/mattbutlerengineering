@@ -16,6 +16,7 @@ src/
 ├── health.ts           # HealthClient
 ├── index.ts            # createApiClient factory + re-exports
 ├── problem-details.ts  # Parses response bodies into typed RFC 7807 ProblemDetails
+├── public-venue.ts     # PublicVenueClient — unauthenticated public booking widget surface
 ├── reservations.ts     # ReservationsClient
 ├── retry.ts            # Exponential-backoff retry policy shared by ApiClient
 ├── streaming.ts        # StreamingClient (SSE event streams)
@@ -45,17 +46,18 @@ const slots = await api.availability.getTimeSlots({ venueId, date, partySize: 4 
 
 ## Service Clients
 
-| Client         | Key Methods                                                                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`        | `me()`, `list()`, `get(id)`, `create()`, `update()`, `delete()`, `updatePreferences()`                                                                   |
-| `reservations` | `list(params)`, `me()`, `get(id)`, `create()`, `update()`, `cancel()`, `cancelWithReason()`, `walkIn()`                                                  |
-| `venues`       | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                   |
-| `venueGroups`  | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                   |
-| `tables`       | `list(params)`, `get(id)`, `create()`, `update()`, `delete()`, `updateStatus()`                                                                          |
-| `guests`       | `list(params)`, `search(params)`, `getSegments(venueId)`, `get(id)`, `create()`, `findOrCreate()`, `update()`, `delete()`                                |
-| `floorPlans`   | `list()`, `get(id)`, `getActiveByVenueId()`, `create()`, `update()`, `activate()`, `delete()`, `bulkUpdatePositions()`, `assignTable()`, `removeTable()` |
-| `availability` | `getTimeSlots(params)`, `getDates(params)`                                                                                                               |
-| `holds`        | `create(data)`, `get(id)`, `release(id)`, `confirm(id, details)` — requires `setSessionId()`                                                             |
+| Client         | Key Methods                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`        | `me()`, `list()`, `get(id)`, `create()`, `update()`, `delete()`, `updatePreferences()`                                                                     |
+| `reservations` | `list(params)`, `me()`, `get(id)`, `create()`, `update()`, `cancel()`, `cancelWithReason()`, `walkIn()`                                                    |
+| `venues`       | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                     |
+| `venueGroups`  | `list()`, `get(id)`, `getBySlug()`, `create()`, `update()`, `delete()`                                                                                     |
+| `tables`       | `list(params)`, `get(id)`, `create()`, `update()`, `delete()`, `updateStatus()`                                                                            |
+| `guests`       | `list(params)`, `search(params)`, `getSegments(venueId)`, `get(id)`, `create()`, `findOrCreate()`, `update()`, `delete()`                                  |
+| `floorPlans`   | `list()`, `get(id)`, `getActiveByVenueId()`, `create()`, `update()`, `activate()`, `delete()`, `bulkUpdatePositions()`, `assignTable()`, `removeTable()`   |
+| `availability` | `getTimeSlots(params)`, `getDates(params)`                                                                                                                 |
+| `holds`        | `create(data)`, `get(id)`, `release(id)`, `confirm(id, details)` — requires `setSessionId()`                                                               |
+| `publicVenue`  | `guestRisk(slug, params)`, `recognizeGuest(slug, email)`, `joinWaitlist(slug, data)`, `depositIntent(slug, data)` — unauthenticated booking widget surface |
 
 ## Auth Token Injection
 

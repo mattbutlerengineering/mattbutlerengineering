@@ -46,7 +46,7 @@ export function useGuestRecognition({
         setError(null);
 
         try {
-          const recognition = await api.guests.recognize(venueSlug, email);
+          const recognition = await api.publicVenue.recognizeGuest(venueSlug, email);
 
           if (recognition.recognized) {
             setResult({

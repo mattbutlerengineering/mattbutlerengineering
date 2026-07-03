@@ -4125,6 +4125,22 @@
       function extractDetail(raw: unknown, httpStatus: number): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/api-client/src/public-venue.ts">
+    <item priority="low">
+      interface GetGuestRiskParams {
+        email?: string;
+        phone?: string;
+      }
+    </item>
+    <item priority="high">
+      class PublicVenueClient {
+        async guestRisk(): Promise<unknown>;
+        async recognizeGuest(): Promise<unknown>;
+        async joinWaitlist(): Promise<unknown>;
+        async depositIntent(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/api-client/src/reservations.ts">
     <item priority="low">
       interface ListReservationsParams {
@@ -4213,13 +4229,6 @@
         async get(): Promise<unknown>;
         async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
-      }
-    </item>
-  </file>
-  <file path="packages/api-client/src/waitlist.ts">
-    <item priority="high">
-      class WaitlistClient {
-        async join(): Promise<unknown>;
       }
     </item>
   </file>
