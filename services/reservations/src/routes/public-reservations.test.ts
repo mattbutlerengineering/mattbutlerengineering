@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { BookingNotifier } from "../services/booking-notifications.js";
-import { generateManageToken, verifyManageToken } from "./public-reservations.js";
+import { generateManageToken, verifyManageToken, secureCompareHex } from "./public-reservations.js";
 
 vi.mock("../services/venue.js", () => ({
   venueService: {
@@ -292,5 +292,17 @@ describe("manage token", () => {
     expect(result.valid).toBe(true);
     expect(result.reservationId).toBe("res_456");
     expect(result.guestEmail).toBe(email);
+  });
+});
+
+describe("secureCompareHex", () => {
+  it("uses a constant-time comparison for equal-length hex strings", () => {
+    expect(secureCompareHex("deadbeef", "deadbeef")).toBe(true);
+    expect(secureCompareHex("deadbeef", "deadbeee")).toBe(false);
+  });
+
+  it("returns false for mismatched-length signatures without throwing", () => {
+    expect(() => secureCompareHex("ab", "abcd")).not.toThrow();
+    expect(secureCompareHex("ab", "abcd")).toBe(false);
   });
 });
