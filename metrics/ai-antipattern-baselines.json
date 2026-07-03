@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T01:26:12.642Z",
+  "generatedAt": "2026-07-03T20:15:11.470Z",
   "patterns": {
     "magicTimeouts": {
       "count": 31,
@@ -18,11 +18,11 @@
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
-      "count": 397,
+      "count": 406,
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 715,
+      "count": 672,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {
