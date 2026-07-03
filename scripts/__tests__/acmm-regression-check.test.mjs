@@ -3,7 +3,6 @@ import {
   detectRegression,
   regressedCriteria,
   buildIssuePayload,
-  hasOpenRegressionIssue,
   withUpdatedTimestamp,
   REGRESSION_MARKER,
 } from "../acmm-regression-check.mjs";
@@ -20,6 +19,10 @@ const STATE = {
   },
 };
 
+// detectRegression is a thin adapter over the shared `lib/ratchet.mjs`
+// compare() core — comprehensive comparator edge cases (thresholds,
+// direction, missing-baseline handling) live in ratchet.test.mjs. These
+// assertions just confirm ACMM's (previousLevel, currentLevel) wiring.
 describe("detectRegression", () => {
   it("flags a regression when current level is below previous", () => {
     const result = detectRegression(6, 4);
@@ -83,27 +86,6 @@ describe("buildIssuePayload", () => {
       failingIds: [],
     });
     expect(payload.body).toContain("Senior Engineer");
-  });
-});
-
-describe("hasOpenRegressionIssue", () => {
-  it("returns true when an open issue carries the regression marker", () => {
-    const issues = [{ number: 10, body: `something ${REGRESSION_MARKER} else`, state: "open" }];
-    expect(hasOpenRegressionIssue(issues)).toBe(true);
-  });
-
-  it("returns false when no issue carries the marker", () => {
-    const issues = [{ number: 10, body: "unrelated", state: "open" }];
-    expect(hasOpenRegressionIssue(issues)).toBe(false);
-  });
-
-  it("ignores closed issues that carry the marker", () => {
-    const issues = [{ number: 10, body: REGRESSION_MARKER, state: "closed" }];
-    expect(hasOpenRegressionIssue(issues)).toBe(false);
-  });
-
-  it("returns false for an empty list", () => {
-    expect(hasOpenRegressionIssue([])).toBe(false);
   });
 });
 

@@ -119,70 +119,37 @@ describe("check-ai-antipatterns", () => {
   });
 
   // ── compareWithBaseline ──────────────────────────────────────────────────────
+  // Adapter-specific assertions only — compareWithBaseline delegates to the
+  // shared `lib/ratchet.mjs` compare() core, whose comparator edge cases
+  // (thresholds, direction, missing-baseline handling) are covered in
+  // ratchet.test.mjs. These confirm the pattern→baseline.count extraction
+  // and the { pattern, current, baseline } shape this file's CLI relies on.
 
   describe("compareWithBaseline", () => {
-    test("returns no regressions when counts match baseline", async () => {
+    test("returns no regressions when counts match or decreased vs baseline", async () => {
       const { compareWithBaseline } = await import("../check-ai-antipatterns.mjs");
-      const current = { magicTimeouts: 5, emptyCatch: 2, anyType: 10 };
-      const baseline = {
-        patterns: {
-          magicTimeouts: { count: 5 },
-          emptyCatch: { count: 2 },
-          anyType: { count: 10 },
-        },
-      };
-      const result = compareWithBaseline(current, baseline);
-      expect(result.regressions).toHaveLength(0);
-      expect(result.passed).toBe(true);
+      const baseline = { patterns: { magicTimeouts: { count: 5 }, emptyCatch: { count: 2 } } };
+
+      expect(compareWithBaseline({ magicTimeouts: 5, emptyCatch: 2 }, baseline).passed).toBe(true);
+      expect(compareWithBaseline({ magicTimeouts: 3, emptyCatch: 1 }, baseline).passed).toBe(true);
     });
 
-    test("returns no regressions when counts decreased", async () => {
-      const { compareWithBaseline } = await import("../check-ai-antipatterns.mjs");
-      const current = { magicTimeouts: 3, emptyCatch: 1 };
-      const baseline = {
-        patterns: {
-          magicTimeouts: { count: 5 },
-          emptyCatch: { count: 2 },
-        },
-      };
-      const result = compareWithBaseline(current, baseline);
-      expect(result.regressions).toHaveLength(0);
-      expect(result.passed).toBe(true);
-    });
-
-    test("detects regression when count increased", async () => {
+    test("detects a regression when count increased, mapped to pattern/current/baseline", async () => {
       const { compareWithBaseline } = await import("../check-ai-antipatterns.mjs");
       const current = { magicTimeouts: 8, emptyCatch: 2 };
-      const baseline = {
-        patterns: {
-          magicTimeouts: { count: 5 },
-          emptyCatch: { count: 2 },
-        },
-      };
+      const baseline = { patterns: { magicTimeouts: { count: 5 }, emptyCatch: { count: 2 } } };
+
       const result = compareWithBaseline(current, baseline);
-      expect(result.regressions).toHaveLength(1);
-      expect(result.regressions[0].pattern).toBe("magicTimeouts");
-      expect(result.regressions[0].current).toBe(8);
-      expect(result.regressions[0].baseline).toBe(5);
       expect(result.passed).toBe(false);
+      expect(result.regressions).toEqual([{ pattern: "magicTimeouts", current: 8, baseline: 5 }]);
     });
 
-    test("handles new patterns not in baseline as regression if count > 0", async () => {
+    test("treats a pattern absent from the baseline as a baseline count of 0", async () => {
       const { compareWithBaseline } = await import("../check-ai-antipatterns.mjs");
-      const current = { newPattern: 3 };
       const baseline = { patterns: {} };
-      const result = compareWithBaseline(current, baseline);
-      expect(result.regressions).toHaveLength(1);
-      expect(result.passed).toBe(false);
-    });
 
-    test("handles new patterns not in baseline as ok if count is 0", async () => {
-      const { compareWithBaseline } = await import("../check-ai-antipatterns.mjs");
-      const current = { newPattern: 0 };
-      const baseline = { patterns: {} };
-      const result = compareWithBaseline(current, baseline);
-      expect(result.regressions).toHaveLength(0);
-      expect(result.passed).toBe(true);
+      expect(compareWithBaseline({ newPattern: 3 }, baseline).passed).toBe(false);
+      expect(compareWithBaseline({ newPattern: 0 }, baseline).passed).toBe(true);
     });
   });
 
