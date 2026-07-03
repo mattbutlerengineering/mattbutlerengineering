@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { AiHealthPage } from "./AiHealthPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -40,6 +42,24 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
+function renderPage() {
+  const Wrapper = createWrapper();
+  return render(
+    <Wrapper>
+      <AiHealthPage />
+    </Wrapper>
+  );
+}
+
 const MOCK_REPORT = {
   timestamp: "2026-05-09T05:48:08.683Z",
   sensors: {
@@ -56,16 +76,22 @@ const MOCK_REPORT = {
 };
 
 describe("AiHealthPage", () => {
+  it("throws when rendered outside a QueryClientProvider", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<AiHealthPage />)).toThrow(/QueryClient/i);
+    consoleError.mockRestore();
+  });
+
   it("renders loading spinner initially", () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
-    render(<AiHealthPage />);
+    renderPage();
     expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
     expect(screen.getByTestId("spinner")).toBeInTheDocument();
   });
 
   it("renders error when fetch fails", async () => {
     mockFetch.mockRejectedValue(new Error("Network error"));
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText(/Error loading.*Network error/)).toBeInTheDocument();
     });
@@ -73,7 +99,7 @@ describe("AiHealthPage", () => {
 
   it("renders error when response is not ok", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 404 });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText(/Error loading.*404/)).toBeInTheDocument();
     });
@@ -81,7 +107,7 @@ describe("AiHealthPage", () => {
 
   it("fetches /sensor-report.json", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() =>
       expect(mockFetch).toHaveBeenCalledWith(
         "/sensor-report.json",
@@ -92,7 +118,7 @@ describe("AiHealthPage", () => {
 
   it("renders key metric cards on success", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("CI Pass Rate")).toBeInTheDocument();
       expect(screen.getByText("95%")).toBeInTheDocument();
@@ -103,7 +129,7 @@ describe("AiHealthPage", () => {
 
   it("renders issues ready count", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Issues Ready")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
@@ -112,7 +138,7 @@ describe("AiHealthPage", () => {
 
   it("renders sensor availability table", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Sensor Status")).toBeInTheDocument();
       expect(screen.getByText("acmm")).toBeInTheDocument();
@@ -123,7 +149,7 @@ describe("AiHealthPage", () => {
 
   it("shows green badge for available sensors and red for unavailable", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       const greenBadges = screen.getAllByText("Available");
       const redBadges = screen.getAllByText("Unavailable");
@@ -134,7 +160,7 @@ describe("AiHealthPage", () => {
 
   it("renders last updated timestamp", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText(/Last updated/)).toBeInTheDocument();
       expect(screen.getByText(/May/)).toBeInTheDocument();
@@ -143,7 +169,7 @@ describe("AiHealthPage", () => {
 
   it("renders link to raw JSON", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
-    render(<AiHealthPage />);
+    renderPage();
     await waitFor(() => {
       const link = screen.getByText("View raw JSON");
       expect(link).toHaveAttribute("href", "/sensor-report.json");

@@ -345,6 +345,9 @@ importers:
       '@mbe/sentry':
         specifier: workspace:*
         version: link:../../packages/sentry
+      '@tanstack/react-query':
+        specifier: ^5.101.2
+        version: 5.101.2(react@19.2.7)
       framer-motion:
         specifier: 'catalog:'
         version: 12.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

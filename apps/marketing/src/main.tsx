@@ -13,6 +13,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
+import { QueryProvider } from "./providers/QueryProvider.js";
 import { App } from "./App";
 
 initSentry({
@@ -32,9 +33,11 @@ function Root() {
     <RialtoProvider theme={theme}>
       <ToastProvider>
         <ErrorBoundary onError={handleErrorBoundary}>
-          <BrowserRouter>
-            <App theme={theme} onThemeToggle={toggleTheme} />
-          </BrowserRouter>
+          <QueryProvider>
+            <BrowserRouter>
+              <App theme={theme} onThemeToggle={toggleTheme} />
+            </BrowserRouter>
+          </QueryProvider>
         </ErrorBoundary>
       </ToastProvider>
     </RialtoProvider>

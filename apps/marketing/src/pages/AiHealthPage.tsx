@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
 import {
   formatSensorStatus,
@@ -6,15 +7,25 @@ import {
   formatTimestamp,
 } from "../utils/formatters.js";
 import type { SensorReport } from "../data/ai-health.js";
-import { useDataFetch } from "../hooks/useDataFetch.js";
 import styles from "./AiHealthPage.module.css";
+
+async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
+  const response = await fetch("/sensor-report.json", { signal });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return (await response.json()) as SensorReport;
+}
 
 export function AiHealthPage() {
   const {
     data: report,
     isLoading,
     error,
-  } = useDataFetch<SensorReport>({ url: "/sensor-report.json" });
+  } = useQuery<SensorReport>({
+    queryKey: ["sensorReport"],
+    queryFn: ({ signal }) => fetchSensorReport(signal),
+  });
 
   if (error) {
     return (
