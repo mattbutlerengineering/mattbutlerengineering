@@ -676,9 +676,9 @@ const CRITERIA = [
       "SECURITY-AI.md is a policy document that defines hard boundaries for AI agents: files they must never modify, secrets they must never access, destructive operations they must never run, and approval gates they must never skip. As AI autonomy increases, these guardrails prevent the system from optimizing its way into a security incident. An AI mission will create a SECURITY-AI.md tailored to your project's sensitive areas and compliance requirements.",
     detection: {
       type: "any-of",
-      pattern: ["SECURITY-AI.md", "docs/security/SECURITY-AI.md", "docs/SECURITY-AI.md"],
+      pattern: ["SECURITY-AI.md", "docs/security/threat-model.md", "docs/SECURITY-AI.md"],
     },
-    referencePath: "docs/security/SECURITY-AI.md",
+    referencePath: "docs/security/threat-model.md",
   },
   {
     id: "acmm:structured-workflows",
