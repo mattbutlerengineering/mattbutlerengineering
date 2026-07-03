@@ -95,6 +95,7 @@ export async function runCliAdapterSession(
         adapterSucceeded: adapterResult.success,
         gatewayVerdict,
         cliAdapterName: cliAdapter.name,
+        costUsd: adapterResult.costUsd,
         errors,
         prCreator,
         onEvent,
@@ -120,8 +121,8 @@ export async function runCliAdapterSession(
     status,
     branchName: worktree.branchName,
     prUrl,
-    costUsd: 0,
-    tokenUsage: { inputTokens: 0, outputTokens: 0 },
+    costUsd: adapterResult.costUsd ?? 0,
+    tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
     durationMs: adapterResult.durationMs,
     numTurns: 0,
     resultText: "",
@@ -143,6 +144,7 @@ interface PublishCliAdapterInput {
   readonly adapterSucceeded: boolean;
   readonly gatewayVerdict: GatewayVerdict | undefined;
   readonly cliAdapterName: string;
+  readonly costUsd: number | undefined;
   readonly errors: readonly string[];
   readonly prCreator: PrCreatorDeps;
   readonly onEvent: SessionEventCallback | undefined;
@@ -155,6 +157,7 @@ async function publishCliAdapterResult(input: PublishCliAdapterInput): Promise<s
     adapterSucceeded,
     gatewayVerdict,
     cliAdapterName,
+    costUsd,
     errors,
     prCreator,
     onEvent,
@@ -200,7 +203,7 @@ async function publishCliAdapterResult(input: PublishCliAdapterInput): Promise<s
           ? prCreator.buildPrTitle(config.taskDescription)
           : `wip: ${config.taskDescription.slice(0, 57)}`,
         body: gatesPassed
-          ? prCreator.buildPrBody(config.taskDescription, cliAdapterName, 0, 0)
+          ? prCreator.buildPrBody(config.taskDescription, cliAdapterName, costUsd, 0)
           : prCreator.buildFailurePrBody(config.taskDescription, errors),
         baseBranch: config.baseBranch,
         branchName: worktree.branchName,

@@ -45,4 +45,10 @@ describe("buildPrBody", () => {
     const body = buildPrBody("Fix", "id", 0, 0);
     expect(body).toContain("@mbe/agent-core");
   });
+
+  it("renders 'unknown' cost instead of a false zero when costUsd is undefined", () => {
+    const body = buildPrBody("Fix", "opencode", undefined, 0);
+    expect(body).toContain("| Cost | unknown |");
+    expect(body).not.toContain("$0.00");
+  });
 });

@@ -18,6 +18,7 @@ import { createDefaultPhaseDeps } from "../phases/default-deps.js";
 import type { PhaseDeps } from "../phases/index.js";
 import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
 import { runCliAdapterSession } from "./cli-adapter-session-runner.js";
+import type { CliUsage } from "./cli-usage-parser.js";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -50,6 +51,16 @@ export abstract class CliAdapterBase implements AgentAdapter {
    * The task description passed here is already truncated.
    */
   protected abstract buildArgs(config: AdapterConfig): string[];
+
+  /**
+   * Parse cost/token usage from the CLI's stdout, when the CLI backend
+   * exposes machine-readable usage data. Base implementation reports none;
+   * concrete adapters override this once they know their CLI's usage format
+   * (see cli-usage-parser.ts).
+   */
+  protected parseUsage(_stdout: string): CliUsage {
+    return {};
+  }
 
   // ── Public AgentAdapter implementation ──────────────────────────
 
@@ -98,12 +109,14 @@ export abstract class CliAdapterBase implements AgentAdapter {
     }
 
     const durationMs = Date.now() - startTime;
+    const usage = this.parseUsage(stdout);
 
     return {
       success: exitedSuccessfully,
       hasChanges,
       durationMs,
       rateLimited,
+      ...usage,
       ...(exitedSuccessfully
         ? {}
         : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
