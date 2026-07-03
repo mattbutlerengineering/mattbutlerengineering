@@ -17943,4 +17943,20 @@
     ];
   </file>
   </section>
+  <section priority="medium" role="vitest">
+  <file path="packages/config/vitest/base.ts">
+    type TestConfig = NonNullable<ViteUserConfig["test"]>;
+    type CoverageConfig = NonNullable<TestConfig["coverage"]>;
+  </file>
+  <file path="packages/config/vitest/node.ts">
+    export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig {
+      return buildVitestPreset(options);
+    }
+  </file>
+  <file path="packages/config/vitest/react.ts">
+    export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig {
+      return buildVitestPreset({ environment: "jsdom", ...options }, { plugins: [react()] });
+    }
+  </file>
+  </section>
 </codebase>

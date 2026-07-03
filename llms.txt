@@ -5383,4 +5383,24 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="vitest">
+  <file path="packages/config/vitest/base.ts">
+    <item priority="high">
+      type TestConfig = NonNullable<ViteUserConfig["test"]>;
+    </item>
+    <item priority="high">
+      type CoverageConfig = NonNullable<TestConfig["coverage"]>;
+    </item>
+  </file>
+  <file path="packages/config/vitest/node.ts">
+    <item priority="high">
+      export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/config/vitest/react.ts">
+    <item priority="high">
+      export function defineVitestConfig(options: VitestPresetOptions): ViteUserConfig { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>
