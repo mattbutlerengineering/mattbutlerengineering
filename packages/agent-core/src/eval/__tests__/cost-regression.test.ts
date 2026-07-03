@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkCostRegression } from "./cost-regression.js";
+import { checkCostRegression } from "../cost-regression.js";
 
 describe("checkCostRegression", () => {
   it("returns true (no regression) when baseline is null", () => {

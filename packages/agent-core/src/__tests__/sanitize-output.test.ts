@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "./sanitize-output.js";
+import { escapeHtml, sanitizeStreamChunk, createSanitizedStream } from "../sanitize-output.js";
 
 describe("escapeHtml", () => {
   it("escapes < and > characters", () => {

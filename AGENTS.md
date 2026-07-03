@@ -161,6 +161,8 @@ Synonyms listed there as "avoid" must not appear in code or API responses.
 
 - **Framework:** Vitest.
 - **Patterns:** `*.test.ts` for unit/integration.
+- **Location:** Colocate test files next to the source they test (`foo.ts` → `foo.test.ts` in the same directory). This is the repo-wide majority convention — new packages and new test files should follow it.
+  - **Grandfather clause:** Packages that are already fully `__tests__/`-based (e.g. `packages/agent-core`, `tools/cli`) keep that style — do not migrate them to colocated. Within a package, pick one style and stay internally consistent; don't mix both in the same package.
 - **Mandate:** All logic changes must be verified via automated tests.
 - **UI:** Playwright for E2E and visual regression.
 

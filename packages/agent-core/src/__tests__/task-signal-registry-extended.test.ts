@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { classifyTask } from "./task-signal-registry.js";
-import type { TaskDomain } from "./task-signal-registry.js";
+import { classifyTask } from "../task-signal-registry.js";
+import type { TaskDomain } from "../task-signal-registry.js";
 
 describe("classifyTask", () => {
   // ── Tier classification (preserves budget-calculator behavior) ──────

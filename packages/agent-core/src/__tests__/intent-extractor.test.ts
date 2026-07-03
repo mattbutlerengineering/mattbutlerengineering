@@ -3,7 +3,7 @@ import {
   IssueIntentSchema,
   extractIssueIntent,
   intentToRoutingContext,
-} from "./intent-extractor.js";
+} from "../intent-extractor.js";
 
 const mockMessagesCreate = vi.fn();
 

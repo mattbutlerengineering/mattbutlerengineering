@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "./pr-creator.js";
+import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "../pr-creator.js";
 import { execFile } from "node:child_process";
 
 vi.mock("node:child_process", () => ({

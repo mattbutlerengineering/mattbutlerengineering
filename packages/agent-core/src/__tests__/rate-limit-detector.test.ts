@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
+import { scanForRateLimitPatterns, RateLimitDetector } from "../rate-limit-detector.js";
 
 /**
  * Canonical pattern coverage test — this is the single surviving suite for
