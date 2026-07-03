@@ -654,6 +654,12 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
       expect(body.error).toBe(ERROR_CONFLICT);
+      // RFC 7807 fields must survive serialization (ADR-002/ADR-008) — the
+      // route's 409 schema must not strip them for pre-existing conflict
+      // responses either (#3017 review).
+      expect(body.status).toBe(409);
+      expect(body.title).toBe(ERROR_CONFLICT);
+      expect(body.detail).toBeTruthy();
     });
 
     describe("PATCH /v1/reservations/:id — partySize deposit guard (#2998)", () => {
@@ -678,6 +684,11 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(409);
         const body = JSON.parse(response.body);
         expect(body.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+        // RFC 7807 fields must survive serialization alongside the
+        // machine-readable `code` extension (ADR-002/ADR-008, #3017 review).
+        expect(body.status).toBe(409);
+        expect(body.title).toBeTruthy();
+        expect(body.detail).toBeTruthy();
         expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
       });
 
@@ -702,6 +713,11 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(409);
         const body = JSON.parse(response.body);
         expect(body.code).toBe("PARTY_SIZE_DEPOSIT_HELD");
+        // RFC 7807 fields must survive serialization alongside the
+        // machine-readable `code` extension (ADR-002/ADR-008, #3017 review).
+        expect(body.status).toBe(409);
+        expect(body.title).toBeTruthy();
+        expect(body.detail).toBeTruthy();
         expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
       });
 

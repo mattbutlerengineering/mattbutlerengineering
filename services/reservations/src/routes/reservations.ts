@@ -588,17 +588,21 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           },
           409: {
             description: "Conflict with existing reservation or hold",
-            type: "object",
-            properties: {
-              error: { type: "string" },
-              message: { type: "string" },
-              statusCode: { type: "number" },
-              // Machine-readable extension (e.g. PARTY_SIZE_DEPOSIT_HELD, #2998)
-              // not present on the shared Error# schema — inlined here so
-              // fast-json-stringify doesn't strip it from the response.
-              code: { type: "string" },
-            },
-            required: ["error", "message", "statusCode"],
+            // allOf the shared Error# schema (RFC 7807 fields: type, title,
+            // status, detail, instance) plus the machine-readable `code`
+            // extension (e.g. PARTY_SIZE_DEPOSIT_HELD, #2998) that isn't
+            // present on Error#. A bare inline schema here would make
+            // fast-json-stringify strip the RFC 7807 fields from every 409
+            // this route sends, not just the deposit-guard one (#3017 review).
+            allOf: [
+              { $ref: "Error#" },
+              {
+                type: "object",
+                properties: {
+                  code: { type: "string" },
+                },
+              },
+            ],
           },
           500: {
             description: "Internal server error",
