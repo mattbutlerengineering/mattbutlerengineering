@@ -21,7 +21,13 @@ vi.mock("../services/venue.js", () => ({
   },
 }));
 vi.mock("../services/hold.js", () => ({
-  holdService: { create: vi.fn(), release: vi.fn(), confirm: vi.fn(), getById: vi.fn() },
+  holdService: {
+    create: vi.fn(),
+    release: vi.fn(),
+    releaseById: vi.fn(),
+    confirm: vi.fn(),
+    getById: vi.fn(),
+  },
 }));
 vi.mock("../services/availability.js", () => ({
   availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
@@ -185,7 +191,7 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
   });
 
   it("releases a hold and returns 204", async () => {
-    vi.mocked(holdService.release).mockResolvedValueOnce(true);
+    vi.mocked(holdService.releaseById).mockResolvedValueOnce(true);
 
     const response = await app.inject({
       method: "DELETE",
@@ -193,5 +199,7 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
     });
 
     expect(response.statusCode).toBe(204);
+    expect(holdService.releaseById).toHaveBeenCalledWith("hold_1");
+    expect(holdService.release).not.toHaveBeenCalled();
   });
 });
