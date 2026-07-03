@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { createProblemDetails } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
 import {
   SseConnectionManager,
@@ -33,6 +34,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
   }>(
     "/stream",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Subscribe to real-time reservation events",
         operationId: "streamEvents",
