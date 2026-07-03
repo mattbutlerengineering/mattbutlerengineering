@@ -24,16 +24,11 @@ vi.mock("@mbe/auth/react", () => ({
 
 const mockCreate = vi.fn();
 const mockGetBySlug = vi.fn();
-vi.mock("@mbe/api-client", () => ({
-  ApiClient: vi.fn().mockImplementation(function () {
-    return {};
-  }),
-  VenuesClient: vi.fn().mockImplementation(function () {
-    return {
-      create: mockCreate,
-      getBySlug: mockGetBySlug,
-    };
-  }),
+// Stable reference across renders — mirrors the real useApiClient()'s useMemo,
+// which only recomputes when the access token changes.
+const mockApiClient = { venues: { create: mockCreate, getBySlug: mockGetBySlug } };
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => mockApiClient,
 }));
 
 const mockRefetchVenues = vi.fn().mockResolvedValue(undefined);

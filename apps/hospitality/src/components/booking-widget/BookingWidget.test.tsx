@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BookingWidget } from "./BookingWidget.js";
-import { createApiClient } from "@mbe/api-client";
+import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import React from "react";
 
 process.env.TZ = "UTC";
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(),
+vi.mock("../../hooks/usePublicApiClient.js", () => ({
+  usePublicApiClient: vi.fn(),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -75,7 +75,7 @@ describe("BookingWidget", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(createApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(usePublicApiClient).mockReturnValue(mockApi as any);
   });
 
   const renderWidget = () => render(<BookingWidget venueId="v1" />);
