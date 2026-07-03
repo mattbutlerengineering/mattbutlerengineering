@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { resolveModelId, MODEL_IDS, TIER_DOWNGRADE } from "./model-registry.js";
-import type { ModelTier } from "./model-router.js";
-import { DEFAULT_EVALUATION_CONFIG } from "./success-evaluator.js";
-import { DEFAULT_REVIEW_CONFIG } from "./diff-reviewer.js";
-import { DEFAULT_SESSION_CONFIG } from "./types.js";
-import { DEFAULT_ORCHESTRATOR_CONFIG } from "./task-decomposer.js";
+import { resolveModelId, MODEL_IDS, TIER_DOWNGRADE } from "../model-registry.js";
+import type { ModelTier } from "../model-router.js";
+import { DEFAULT_EVALUATION_CONFIG } from "../success-evaluator.js";
+import { DEFAULT_REVIEW_CONFIG } from "../diff-reviewer.js";
+import { DEFAULT_SESSION_CONFIG } from "../types.js";
+import { DEFAULT_ORCHESTRATOR_CONFIG } from "../task-decomposer.js";
 
 describe("model ID registry consistency", () => {
   describe("MODEL_IDS — all tiers defined", () => {

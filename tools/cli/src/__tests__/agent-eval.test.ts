@@ -11,7 +11,7 @@ const mockReadFileSync = vi.fn();
 // Static import keeps the heavy module load (real @mbe/agent-core via
 // importOriginal) in file setup, outside the per-test timeout window.
 // vi.mock factories below are hoisted above this import by vitest.
-import { agentEvalCommand } from "./agent-eval.js";
+import { agentEvalCommand } from "../commands/agent-eval.js";
 
 // Keep the real harness/scorer/types; stub only the suite loader + agent run.
 vi.mock("@mbe/agent-core", async (orig) => {

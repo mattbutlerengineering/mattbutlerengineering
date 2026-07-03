@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { GateContext } from "../gate-runner.js";
-import { StaticAnalysisGate } from "./static-analysis-gate.js";
+import type { GateContext } from "../../gate-runner.js";
+import { StaticAnalysisGate } from "../static-analysis-gate.js";
 
 /**
  * Proves a QualityGate is unit-testable against a raw diff fixture in

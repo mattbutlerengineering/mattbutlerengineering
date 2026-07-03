@@ -28,7 +28,7 @@ describe("sync-rules command (value-asserted via seam)", () => {
       return false;
     });
 
-    const { syncRulesRun } = await import("./sync-rules.js");
+    const { syncRulesRun } = await import("../commands/sync-rules.js");
     const result = await syncRulesRun({});
 
     expect(result.kind).toBe("error");
@@ -47,7 +47,7 @@ describe("sync-rules command (value-asserted via seam)", () => {
     });
     mockReadFileSync.mockReturnValue("# Agents content" as never);
 
-    const { syncRulesRun } = await import("./sync-rules.js");
+    const { syncRulesRun } = await import("../commands/sync-rules.js");
     const result = await syncRulesRun({});
 
     expect(result.kind).toBe("rows");
@@ -76,7 +76,7 @@ describe("sync-rules command (value-asserted via seam)", () => {
       return "# Agents content" as never;
     });
 
-    const { syncRulesRun } = await import("./sync-rules.js");
+    const { syncRulesRun } = await import("../commands/sync-rules.js");
     const result = await syncRulesRun({});
 
     expect(result.kind).toBe("rows");
@@ -107,7 +107,7 @@ describe("sync-rules command (value-asserted via seam)", () => {
       return "# Agents content" as never;
     });
 
-    const { syncRulesRun } = await import("./sync-rules.js");
+    const { syncRulesRun } = await import("../commands/sync-rules.js");
     const result = await syncRulesRun({});
 
     expect(result.kind).toBe("rows");
