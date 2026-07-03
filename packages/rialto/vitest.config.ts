@@ -1,40 +1,36 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import { defineVitestConfig } from "@mbe/config/vitest/react";
 
-export default defineConfig({
-  plugins: [react()],
-  css: {
-    modules: {
-      localsConvention: "camelCase",
+export default defineVitestConfig({
+  include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
+  coverage: {
+    include: ["src/**/*.{ts,tsx}"],
+    exclude: [
+      "src/**/*.test.{ts,tsx}",
+      "src/**/index.ts",
+      "src/test/**",
+      "src/**/*.stories.{ts,tsx}",
+      "src/showcase/**",
+    ],
+    thresholds: {
+      lines: 70,
+      branches: 55,
+      functions: 70,
+      statements: 70,
     },
   },
-  test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
-    environmentMatchGlobs: [["scripts/**/*.test.ts", "node"]],
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "json", "html"],
-      include: ["src/**/*.{ts,tsx}"],
-      exclude: [
-        "src/**/*.test.{ts,tsx}",
-        "src/**/index.ts",
-        "src/test/**",
-        "src/**/*.stories.{ts,tsx}",
-        "src/showcase/**",
-      ],
-      thresholds: {
-        lines: 70,
-        branches: 55,
-        functions: 70,
-        statements: 70,
-      },
-    },
+  extend: {
     css: {
       modules: {
-        classNameStrategy: "non-scoped",
+        localsConvention: "camelCase",
+      },
+    },
+    test: {
+      setupFiles: ["./src/test/setup.ts"],
+      environmentMatchGlobs: [["scripts/**/*.test.ts", "node"]],
+      css: {
+        modules: {
+          classNameStrategy: "non-scoped",
+        },
       },
     },
   },

@@ -1,0 +1,7 @@
+{
+  "extends": "./typescript/node.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["vitest/**/*.ts", "vitest.config.ts"]
+}
