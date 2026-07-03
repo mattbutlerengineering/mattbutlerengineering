@@ -5,8 +5,8 @@
  * Last-Event-ID resumption, typed event parsing with error surfacing.
  *
  * Built on `@microsoft/fetch-event-source` rather than the native browser
- * `EventSource` because `EventSource` cannot send custom headers — the
- * `/api/v1/events/stream` endpoint requires a Bearer Authorization header.
+ * `EventSource` because `EventSource` cannot send custom headers — the SSE
+ * stream endpoint requires a Bearer Authorization header.
  * `fetchEventSourceImpl` is called once per connection attempt; SseClient
  * owns all reconnect/backoff scheduling itself (the `onerror` handler always
  * throws to stop the library's own internal auto-retry loop).
