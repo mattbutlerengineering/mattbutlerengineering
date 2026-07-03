@@ -1,6 +1,5 @@
 import { Command } from "commander";
-import { resolve, dirname, join } from "node:path";
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import type { SessionConfig, SessionEvent, AdapterType } from "@mbe/agent-core";
 import {
   runAgentSession,
@@ -12,46 +11,6 @@ import {
   AllAdaptersUnavailableError,
 } from "@mbe/agent-core";
 import { formatDuration, formatCost, formatStatus } from "./shared.js";
-
-/** Absolute path to the canonical agent spend log. */
-const SPEND_LOG_PATH = join(
-  dirname(new URL(import.meta.url).pathname),
-  "..",
-  "..",
-  "..",
-  "..",
-  "..",
-  ".claude",
-  "agent-spend.jsonl"
-);
-
-interface SpendRecord {
-  date: string;
-  timestamp: string;
-  costUsd: number;
-  issueNumber: number | null;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  numTurns: number;
-}
-
-/**
- * Append one spend record to .claude/agent-spend.jsonl.
- * Scoped to `mbe agent run` (claude adapter) completions only.
- * Never throws — logging failure must not crash the CLI.
- */
-function logSpend(record: SpendRecord): void {
-  try {
-    const logDir = dirname(SPEND_LOG_PATH);
-    if (!existsSync(logDir)) {
-      mkdirSync(logDir, { recursive: true });
-    }
-    appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
-  } catch {
-    // Silently swallow — spend logging is best-effort
-  }
-}
 
 function handleEvent(event: SessionEvent, verbose: boolean): void {
   if (!verbose) return;
@@ -173,17 +132,10 @@ export const runCommand = new Command("run")
           onEvent: (event) => handleEvent(event, options.verbose),
         });
 
-        // Log spend telemetry to .claude/agent-spend.jsonl (best-effort).
-        logSpend({
-          date: new Date().toISOString().slice(0, 10),
-          timestamp: new Date().toISOString(),
-          costUsd: result.costUsd,
-          issueNumber: null,
-          model: config.model,
-          inputTokens: result.tokenUsage.inputTokens,
-          outputTokens: result.tokenUsage.outputTokens,
-          numTurns: result.numTurns,
-        });
+        // Spend is recorded inside agent-core through the single recordSpend
+        // seam (session-runner for claude, cli-adapter-session-runner for
+        // gemini/opencode), so the CLI no longer writes its own spend log —
+        // that legacy sibling write double-counted claude runs.
 
         console.log("");
         console.log("Result");

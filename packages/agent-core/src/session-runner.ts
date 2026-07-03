@@ -8,7 +8,7 @@ import { loadQaTuning, applyTuningDefaults } from "./qa-tuning-loader.js";
 import { DEFAULT_SESSION_CONFIG } from "./types.js";
 import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 
-import { recordSessionCost } from "./cost-logger.js";
+import { recordSpend } from "./spend-recorder.js";
 import type { PhaseDeps } from "./phases/index.js";
 import {
   createDefaultPhaseDeps,
@@ -135,13 +135,20 @@ export async function runSession(
           const finalResultWithCleanup =
             cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
 
-          // Record spend so progress-tracker / learning-loop sensors have data
+          // Record spend through the single seam so the token-cost sensors,
+          // progress-tracker, and learning-loop have accurate, single-sourced
+          // data. This is the ONLY spend write for a claude run — the CLI no
+          // longer double-records it.
           try {
-            recordSessionCost(effectiveConfig.repoPath, {
+            recordSpend(effectiveConfig.repoPath, {
               costUsd: finalResultWithCleanup.costUsd,
               sessionId: finalResultWithCleanup.sessionId || undefined,
               model: effectiveConfig.model,
+              adapter: "claude",
               status: finalResultWithCleanup.status,
+              inputTokens: finalResultWithCleanup.tokenUsage.inputTokens,
+              outputTokens: finalResultWithCleanup.tokenUsage.outputTokens,
+              numTurns: finalResultWithCleanup.numTurns,
             });
           } catch {
             // Best-effort — never fail a session over spend logging

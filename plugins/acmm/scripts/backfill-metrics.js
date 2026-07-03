@@ -2,7 +2,7 @@
 
 /**
  * Reconstruct weekly progress-tracker snapshots from real history sources
- * (git log, GitHub PRs/issues via `gh`, optional `.claude/agent-spend.jsonl`)
+ * (git log, GitHub PRs/issues via `gh`, optional `.claude/agent-spend/sessions.jsonl`)
  * and prepend them to `metrics/log.md`.
  *
  * Why: ACMM check M5.1 requires ≥6 dated entries spanning ≥35 days. When the
@@ -120,7 +120,7 @@ function issuesClosedInRange(start, end) {
 }
 
 function agentSpendInRange(start, end) {
-  const p = join(cwd, ".claude", "agent-spend.jsonl");
+  const p = join(cwd, ".claude", "agent-spend", "sessions.jsonl");
   if (!existsSync(p)) return null;
   let runs = 0;
   let cost = 0;
