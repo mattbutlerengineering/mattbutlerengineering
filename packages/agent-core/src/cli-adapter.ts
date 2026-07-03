@@ -7,6 +7,8 @@
  * @see {@link ../types.ts} for the full SessionConfig used by the Claude SDK adapter.
  */
 
+import type { TokenUsage } from "./types.js";
+
 // ── Adapter configuration ───────────────────────────────────────────
 
 export interface AdapterConfig {
@@ -39,6 +41,10 @@ export interface AdapterResult {
   readonly error?: string;
   /** Wall-clock duration of the run in milliseconds. */
   readonly durationMs: number;
+  /** USD cost of the run, when the backend reports it. Undefined when the CLI exposes no cost data. */
+  readonly costUsd?: number;
+  /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
+  readonly tokenUsage?: TokenUsage;
 }
 
 // ── Adapter state (for multi-adapter rotation / cooldown) ───────────

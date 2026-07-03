@@ -107,6 +107,78 @@ describe("runCliAdapterSession", () => {
     expect(result.prUrl).toBe("https://github.com/repo/pull/1");
   });
 
+  it("passes the adapter's real costUsd (not a literal 0) to buildPrBody when gates pass", async () => {
+    const adapter = makeCliAdapter("opencode", {
+      hasChanges: true,
+      success: true,
+      costUsd: 0.0234,
+      tokenUsage: { inputTokens: 900, outputTokens: 210 },
+    });
+    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(deps.prCreator.buildPrBody).toHaveBeenCalledWith(
+      expect.any(String),
+      "opencode",
+      0.0234,
+      0
+    );
+  });
+
+  it("passes undefined costUsd to buildPrBody when the adapter reports no usage data", async () => {
+    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
+    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(deps.prCreator.buildPrBody).toHaveBeenCalledWith(
+      expect.any(String),
+      "gemini",
+      undefined,
+      0
+    );
+  });
+
+  it("reflects the adapter's real cost/tokenUsage in the returned SessionResult", async () => {
+    const adapter = makeCliAdapter("opencode", {
+      hasChanges: true,
+      success: true,
+      costUsd: 0.0234,
+      tokenUsage: { inputTokens: 900, outputTokens: 210 },
+    });
+    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.costUsd).toBe(0.0234);
+    expect(result.tokenUsage).toEqual({ inputTokens: 900, outputTokens: 210 });
+  });
+
+  it("defaults SessionResult cost/tokenUsage to 0 when the adapter reports no usage data", async () => {
+    const adapter = makeCliAdapter("gemini", { hasChanges: false, success: true });
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.costUsd).toBe(0);
+    expect(result.tokenUsage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+
   it("still creates a draft PR when a gate fails, matching the claude path's draft-PR outcome", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
     vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({

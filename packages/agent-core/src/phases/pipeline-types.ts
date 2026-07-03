@@ -91,7 +91,7 @@ export interface PrCreatorDeps {
   buildPrBody(
     taskDescription: string,
     sessionId: string,
-    costUsd: number,
+    costUsd: number | undefined,
     numTurns: number
   ): string;
   buildFailurePrBody(

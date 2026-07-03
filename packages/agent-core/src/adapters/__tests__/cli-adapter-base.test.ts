@@ -293,6 +293,39 @@ describe("CliAdapterBase", () => {
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
 
+    it("leaves costUsd/tokenUsage undefined when the adapter has no usage parser", async () => {
+      setupExecFileMock({
+        "test-cli": [{ stdout: "done" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.run(makeConfig());
+      expect(result.costUsd).toBeUndefined();
+      expect(result.tokenUsage).toBeUndefined();
+    });
+
+    it("threads costUsd/tokenUsage from a subclass's parseUsage override", async () => {
+      class UsageReportingAdapter extends CliAdapterBase {
+        readonly name = "usage-cli";
+        readonly cliBinary = "usage-cli";
+        protected buildArgs(config: AdapterConfig): string[] {
+          return ["run", config.taskDescription];
+        }
+        protected override parseUsage() {
+          return { costUsd: 0.042, tokenUsage: { inputTokens: 100, outputTokens: 25 } };
+        }
+      }
+
+      setupExecFileMock({
+        "usage-cli": [{ stdout: "done" }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await new UsageReportingAdapter().run(makeConfig());
+      expect(result.costUsd).toBe(0.042);
+      expect(result.tokenUsage).toEqual({ inputTokens: 100, outputTokens: 25 });
+    });
+
     it("returns success when CLI exits with code 0", async () => {
       setupExecFileMock({
         "test-cli": [{ stdout: "done" }],
