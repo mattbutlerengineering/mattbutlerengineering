@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // would fail.  vi.mock intercepts the require before the module is resolved.
 vi.mock("@mbe/agent-core", () => ({
   runAgentSession: vi.fn(),
+  resolveSessionAdapter: vi.fn(() => ({ name: "claude" })),
   DEFAULT_SESSION_CONFIG: {
     model: "claude-sonnet-4-6",
     maxBudgetUsd: 1.0,
@@ -43,8 +44,6 @@ vi.mock("@mbe/agent-core", () => ({
       this.name = "AllAdaptersUnavailableError";
     }
   },
-  createWorktree: vi.fn(),
-  removeWorktree: vi.fn(),
 }));
 
 // Controllable stdout for the `gh issue view` call inside fetchIssueForRouting.
