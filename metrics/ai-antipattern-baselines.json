@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T20:21:59.269Z",
+  "generatedAt": "2026-07-03T01:26:12.642Z",
   "patterns": {
     "magicTimeouts": {
       "count": 31,
@@ -10,11 +10,11 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 319,
+      "count": 313,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 562,
+      "count": 566,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 754,
+      "count": 715,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {
