@@ -1125,13 +1125,34 @@
       const status = adapterResult.success ? "succeeded" : "failed";
       emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
     
+      const tokenUsage = adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+      const costUsd = adapterResult.costUsd ?? 0;
+    
+      // Record spend through the single seam — the ONLY spend write for a
+      // gemini/opencode run, mirroring session-runner's write for the claude
+      // path. Subprocess CLIs seldom report cost/tokens, so this may be a 0-cost
+      // entry; recording it anyway keeps every adapter run visible to the
+      // token-cost sensors. Best-effort: never fail a session over spend logging.
+      try {
+        recordSpend(config.repoPath, {
+          costUsd,
+          model: config.model,
+          adapter: cliAdapter.name,
+          status,
+          inputTokens: tokenUsage.inputTokens,
+          outputTokens: tokenUsage.outputTokens,
+        });
+      } catch {
+        // Best-effort — spend logging must never crash a session.
+      }
+    
       return {
         sessionId: "",
         status,
         branchName: worktree.branchName,
         prUrl,
-        costUsd: adapterResult.costUsd ?? 0,
-        tokenUsage: adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 },
+        costUsd,
+        tokenUsage,
         durationMs: adapterResult.durationMs,
         numTurns: 0,
         resultText: "",
@@ -1457,26 +1478,26 @@
       );
   </file>
   <file path="tools/cli/src/commands/agent/run.ts">
-    interface SpendRecord {
-      date: string;
-      timestamp: string;
-      costUsd: number;
-      issueNumber: number | null;
-      model: string;
-      inputTokens: number;
-      outputTokens: number;
-      numTurns: number;
-    }
-    function logSpend(record: SpendRecord): void {
-      try {
-        const logDir = dirname(SPEND_LOG_PATH);
-        if (!existsSync(logDir)) {
-          mkdirSync(logDir, { recursive: true });
+    function handleEvent(event: SessionEvent, verbose: boolean): void {
+      if (!verbose) return;
+    
+      const timestamp = new Date(event.timestamp).toLocaleTimeString();
+    
+      if (event.type === "session:start" || event.type === "session:result") {
+        const data = event.data as { message: string };
+        console.log(`[${timestamp}] ${data.message}`);
+      } else if (event.type === "session:error") {
+        const data = event.data as { message: string };
+        console.error(`[${timestamp}] ERROR: ${data.message}`);
+      } else if (event.type === "session:message" && verbose) {
+        const msg = event.data as { type: string };
+        if (msg.type === "assistant") {
+          console.log(`[${timestamp}] Agent is working...`);
         }
-        appendFileSync(SPEND_LOG_PATH, JSON.stringify(record) + "\n");
-      } catch {
-        // Silently swallow — spend logging is best-effort
       }
+    }
+    function isAdapterType(value: string): value is AdapterType {
+      return (VALID_ADAPTERS as readonly string[]).includes(value);
     }
   </file>
   <file path="tools/cli/src/commands/agent/session-api.ts">
@@ -13872,23 +13893,6 @@
       readonly percentUsed: number;
     }
   </file>
-  <file path="packages/agent-core/src/cost-logger.ts">
-    export interface CostEntry {
-      readonly timestamp: string;
-      readonly costUsd: number;
-      readonly issueNumber?: number | null;
-      readonly model?: string;
-      readonly sessionId?: string;
-      readonly status?: string;
-    }
-    export interface CostEntryInput {
-      readonly costUsd: number;
-      readonly issueNumber?: number | null;
-      readonly model?: string;
-      readonly sessionId?: string;
-      readonly status?: string;
-    }
-  </file>
   <file path="packages/agent-core/src/cost-tracker.ts">
     export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
       return {
@@ -14888,13 +14892,20 @@
               const finalResultWithCleanup =
                 cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
     
-              // Record spend so progress-tracker / learning-loop sensors have data
+              // Record spend through the single seam so the token-cost sensors,
+              // progress-tracker, and learning-loop have accurate, single-sourced
+              // data. This is the ONLY spend write for a claude run — the CLI no
+              // longer double-records it.
               try {
-                recordSessionCost(effectiveConfig.repoPath, {
+                recordSpend(effectiveConfig.repoPath, {
                   costUsd: finalResultWithCleanup.costUsd,
                   sessionId: finalResultWithCleanup.sessionId || undefined,
                   model: effectiveConfig.model,
+                  adapter: "claude",
                   status: finalResultWithCleanup.status,
+                  inputTokens: finalResultWithCleanup.tokenUsage.inputTokens,
+                  outputTokens: finalResultWithCleanup.tokenUsage.outputTokens,
+                  numTurns: finalResultWithCleanup.numTurns,
                 });
               } catch {
                 // Best-effort — never fail a session over spend logging
@@ -15017,6 +15028,10 @@
     function detectTaskContexts(taskDescription: string): string[] {
       return classifyTaskContexts(taskDescription).filter((file) => existsSync(file));
     }
+  </file>
+  <file path="packages/agent-core/src/spend-recorder.ts">
+    export const SPEND_SINK_DIR = ".claude/agent-spend";
+    export const SPEND_SINK_FILE = "sessions.jsonl";
   </file>
   <file path="packages/agent-core/src/stuck-detector.ts">
     export type StuckPatternType =

@@ -497,17 +497,11 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent/run.ts">
-    <item priority="high">
-      interface SpendRecord {
-        date: string;
-        timestamp: string;
-        costUsd: number;
-        issueNumber: number | null;
-        model: string;
-      }
+    <item priority="medium">
+      function handleEvent(event: SessionEvent, verbose: boolean): void { /* ... */ }
     </item>
     <item priority="medium">
-      function logSpend(record: SpendRecord): void { /* ... */ }
+      function isAdapterType(value: string): value is AdapterType { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent/session-api.ts">
@@ -3372,26 +3366,6 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/cost-logger.ts">
-    <item priority="low">
-      interface CostEntry {
-        timestamp: string;
-        costUsd: number;
-        issueNumber?: number | null;
-        model?: string;
-        sessionId?: string;
-      }
-    </item>
-    <item priority="low">
-      interface CostEntryInput {
-        costUsd: number;
-        issueNumber?: number | null;
-        model?: string;
-        sessionId?: string;
-        status?: string;
-      }
-    </item>
-  </file>
   <file path="packages/agent-core/src/cost-tracker.ts">
     <item priority="high">
       export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* ... */ }
@@ -3881,6 +3855,14 @@
     </item>
     <item priority="medium">
       function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/spend-recorder.ts">
+    <item priority="high">
+      export const SPEND_SINK_DIR: unknown;
+    </item>
+    <item priority="high">
+      export const SPEND_SINK_FILE: unknown;
     </item>
   </file>
   <file path="packages/agent-core/src/stuck-detector.ts">

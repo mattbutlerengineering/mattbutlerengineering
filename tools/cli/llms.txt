@@ -37,17 +37,11 @@
     </item>
   </file>
   <file path="src/commands/agent/run.ts">
-    <item priority="high">
-      interface SpendRecord {
-        date: string;
-        timestamp: string;
-        costUsd: number;
-        issueNumber: number | null;
-        model: string;
-      }
+    <item priority="medium">
+      function handleEvent(event: SessionEvent, verbose: boolean): void { /* ... */ }
     </item>
     <item priority="medium">
-      function logSpend(record: SpendRecord): void { /* ... */ }
+      function isAdapterType(value: string): value is AdapterType { /* ... */ }
     </item>
   </file>
   <file path="src/commands/agent/session-api.ts">
