@@ -2068,7 +2068,7 @@
           if (!guest) {
             // New guest — always trusted
             return reply.send({
-              data: { riskScore: "trusted", noShowCount: 0, requiresDeposit: false },
+              data: { riskScore: "trusted", requiresDeposit: false },
             });
           }
     
@@ -2086,7 +2086,6 @@
           return reply.send({
             data: {
               riskScore,
-              noShowCount: guest.noShowCount,
               requiresDeposit: riskScore === "risky",
             },
           });
