@@ -74,6 +74,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:slug/holds/:holdId",
     {
+      preHandler: publicRateLimitHook,
       schema: {
         summary: "Release a reservation hold (public)",
         tags: ["Public"],
@@ -83,7 +84,21 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const { holdId } = request.params;
       const ip = request.ip;
 
-      const released = await holdService.release(holdId, "public");
+      // The high-entropy sessionId returned at hold creation is the caller's
+      // capability token. Requiring it prevents one guest from releasing
+      // another guest's hold — the hold id itself is a low-entropy, guessable
+      // cuid and must not be treated as proof of ownership.
+      const sessionId = request.headers["x-session-id"];
+      if (typeof sessionId !== "string" || sessionId.length === 0) {
+        return reply.status(401).send({
+          type: "https://httpproblems.com/http-status/401",
+          title: "Unauthorized",
+          status: 401,
+          detail: "Pass the hold's session ID via the x-session-id header to release it.",
+        } as never);
+      }
+
+      const released = await holdService.release(holdId, sessionId);
       if (released) {
         decrementHoldCount(ip);
       }
