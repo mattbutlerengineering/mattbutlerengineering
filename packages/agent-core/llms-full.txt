@@ -2499,6 +2499,24 @@
       readonly logSnippet: string;
     }
   </file>
+  <file path="src/pr-feedback-port.ts">
+    export interface GraphQLThreadNode {
+      readonly id: string;
+      readonly isResolved: boolean;
+      readonly comments: {
+        readonly nodes: ReadonlyArray<{
+          readonly body: string;
+          readonly path: string | null;
+          readonly line: number | null;
+          readonly author: { readonly login: string };
+        }>;
+      };
+    }
+    export interface ReviewThreadsResult {
+      readonly reviewDecision: string | null;
+      readonly threads: readonly GraphQLThreadNode[];
+    }
+  </file>
   <file path="src/pr-risk-classifier.ts">
     export function isLowRiskPR(files: readonly string[]): boolean {
       if (files.length === 0) {
