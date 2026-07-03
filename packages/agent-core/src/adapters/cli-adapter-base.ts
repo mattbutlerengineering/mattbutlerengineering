@@ -62,6 +62,17 @@ export abstract class CliAdapterBase implements AgentAdapter {
     return {};
   }
 
+  /**
+   * Recover a human-readable error message from the CLI's stdout when the
+   * run failed, for backends that emit structured JSON there instead of (or
+   * in addition to) stderr. Base implementation reports none — `run()`
+   * falls through to the raw stderr text (see ADR-017 failure-PR-body
+   * contract, #3019).
+   */
+  protected parseErrorFromStdout(_stdout: string): string | undefined {
+    return undefined;
+  }
+
   // ── Public AgentAdapter implementation ──────────────────────────
 
   /**
@@ -119,7 +130,11 @@ export abstract class CliAdapterBase implements AgentAdapter {
       ...usage,
       ...(exitedSuccessfully
         ? {}
-        : { error: stderr || `${this.displayName} CLI exited with non-zero status` }),
+        : {
+            error:
+              this.parseErrorFromStdout(stdout) ??
+              (stderr || `${this.displayName} CLI exited with non-zero status`),
+          }),
     };
   }
 
