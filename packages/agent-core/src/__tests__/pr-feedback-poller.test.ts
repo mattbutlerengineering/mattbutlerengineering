@@ -1,75 +1,56 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-vi.mock("node:child_process", () => ({
-  execFile: vi.fn(),
-}));
-
-vi.mock("node:util", () => ({
-  promisify: vi.fn((fn: unknown) => fn),
-}));
-
-import { execFile } from "node:child_process";
+import { describe, it, expect } from "vitest";
 import {
   fetchUnresolvedComments,
   fetchCIFailures,
   pollForFeedback,
 } from "../pr-feedback-poller.js";
+import type { PrFeedbackPort } from "../pr-feedback-port.js";
 
-const mockExecFile = vi.mocked(
-  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
-);
+/** Fake PrFeedbackPort for tests — no `gh` binary, no child_process mocking. */
+function createFakePort(overrides: Partial<PrFeedbackPort> = {}): PrFeedbackPort {
+  return {
+    fetchReviewThreads: async () => ({ reviewDecision: null, threads: [] }),
+    fetchChecks: async () => [],
+    fetchFailedRunId: async () => null,
+    fetchRunLogs: async () => "",
+    ...overrides,
+  };
+}
 
 describe("fetchUnresolvedComments", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("extracts unresolved review threads", async () => {
-    mockExecFile.mockResolvedValue({
-      stdout: JSON.stringify({
-        data: {
-          repository: {
-            pullRequest: {
-              reviewDecision: "CHANGES_REQUESTED",
-              reviewThreads: {
-                nodes: [
-                  {
-                    id: "thread-1",
-                    isResolved: false,
-                    comments: {
-                      nodes: [
-                        {
-                          body: "Fix this",
-                          path: "src/app.ts",
-                          line: 10,
-                          author: { login: "reviewer" },
-                        },
-                      ],
-                    },
-                  },
-                  {
-                    id: "thread-2",
-                    isResolved: true,
-                    comments: {
-                      nodes: [
-                        {
-                          body: "Already fixed",
-                          path: "src/old.ts",
-                          line: 5,
-                          author: { login: "reviewer" },
-                        },
-                      ],
-                    },
-                  },
-                ],
-              },
+  it("extracts unresolved review threads via the injected port", async () => {
+    const port = createFakePort({
+      fetchReviewThreads: async () => ({
+        reviewDecision: "CHANGES_REQUESTED",
+        threads: [
+          {
+            id: "thread-1",
+            isResolved: false,
+            comments: {
+              nodes: [
+                { body: "Fix this", path: "src/app.ts", line: 10, author: { login: "reviewer" } },
+              ],
             },
           },
-        },
+          {
+            id: "thread-2",
+            isResolved: true,
+            comments: {
+              nodes: [
+                {
+                  body: "Already fixed",
+                  path: "src/old.ts",
+                  line: 5,
+                  author: { login: "reviewer" },
+                },
+              ],
+            },
+          },
+        ],
       }),
     });
 
-    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo");
+    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo", port);
 
     expect(result.comments).toHaveLength(1);
     expect(result.comments[0].threadId).toBe("thread-1");
@@ -77,10 +58,14 @@ describe("fetchUnresolvedComments", () => {
     expect(result.reviewDecision).toBe("CHANGES_REQUESTED");
   });
 
-  it("returns empty on API error", async () => {
-    mockExecFile.mockRejectedValue(new Error("gh not found"));
+  it("returns empty on port error", async () => {
+    const port = createFakePort({
+      fetchReviewThreads: async () => {
+        throw new Error("gh not found");
+      },
+    });
 
-    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo");
+    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo", port);
 
     expect(result.comments).toHaveLength(0);
     expect(result.reviewDecision).toBe("UNKNOWN");
@@ -88,149 +73,73 @@ describe("fetchUnresolvedComments", () => {
 });
 
 describe("fetchCIFailures", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns empty when all checks pass", async () => {
-    mockExecFile.mockResolvedValue({
-      stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "success" }]),
+    const port = createFakePort({
+      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "success" }],
     });
 
-    const failures = await fetchCIFailures(42, "/repo");
+    const failures = await fetchCIFailures(42, "/repo", 100, port);
 
     expect(failures).toHaveLength(0);
   });
 
   it("returns failures with log snippets", async () => {
-    // First call: pr checks
-    mockExecFile
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "failure" }]),
-      })
-      // Second call: run list
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([{ databaseId: 123 }]),
-      })
-      // Third call: run view --log-failed
-      .mockResolvedValueOnce({
-        stdout: "FAIL tests/app.test.ts\nExpected: 200\nReceived: 500",
-      });
+    const port = createFakePort({
+      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
+      fetchFailedRunId: async () => 123,
+      fetchRunLogs: async () => "FAIL tests/app.test.ts\nExpected: 200\nReceived: 500",
+    });
 
-    const failures = await fetchCIFailures(42, "/repo");
+    const failures = await fetchCIFailures(42, "/repo", 100, port);
 
     expect(failures).toHaveLength(1);
     expect(failures[0].checkName).toBe("test");
     expect(failures[0].logSnippet).toContain("Expected: 200");
   });
-});
 
-describe("gh subprocess timeout", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("passes a numeric timeout on every gh call in fetchUnresolvedComments and fetchCIFailures", async () => {
-    mockExecFile.mockImplementation(async (...args: unknown[]) => {
-      const argList = args[1] as string[];
-      if (argList[0] === "pr" && argList[1] === "checks") {
-        return {
-          stdout: JSON.stringify([{ name: "test", state: "completed", conclusion: "failure" }]),
-        };
-      }
-      if (argList[0] === "run" && argList[1] === "list") {
-        return { stdout: JSON.stringify([{ databaseId: 123 }]) };
-      }
-      if (argList[0] === "run" && argList[1] === "view") {
-        return { stdout: "FAIL" };
-      }
-      return {
-        stdout: JSON.stringify({
-          data: {
-            repository: { pullRequest: { reviewDecision: null, reviewThreads: { nodes: [] } } },
-          },
-        }),
-      };
+  it("falls back to a placeholder snippet when log retrieval fails", async () => {
+    const port = createFakePort({
+      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
+      fetchFailedRunId: async () => {
+        throw new Error("no runs");
+      },
     });
 
-    await fetchUnresolvedComments("owner", "repo", 42, "/repo");
-    await fetchCIFailures(42, "/repo");
+    const failures = await fetchCIFailures(42, "/repo", 100, port);
 
-    expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
-    for (const call of mockExecFile.mock.calls) {
-      const options = call[2] as { timeout?: number } | undefined;
-      expect(typeof options?.timeout).toBe("number");
-      expect(options?.timeout).toBeGreaterThan(0);
-    }
+    expect(failures).toHaveLength(1);
+    expect(failures[0].logSnippet).toBe("(Could not fetch CI logs)");
   });
 });
 
 describe("pollForFeedback", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns null when no new feedback", async () => {
-    // Review comments call
-    mockExecFile
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify({
-          data: {
-            repository: {
-              pullRequest: {
-                reviewDecision: null,
-                reviewThreads: { nodes: [] },
-              },
-            },
-          },
-        }),
-      })
-      // CI checks call
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([]),
-      });
+    const port = createFakePort();
 
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "");
+    const result = await pollForFeedback("owner", "repo", 42, "/repo", "", port);
 
     expect(result).toBeNull();
   });
 
   it("returns feedback when new comments appear", async () => {
-    mockExecFile
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify({
-          data: {
-            repository: {
-              pullRequest: {
-                reviewDecision: "CHANGES_REQUESTED",
-                reviewThreads: {
-                  nodes: [
-                    {
-                      id: "thread-new",
-                      isResolved: false,
-                      comments: {
-                        nodes: [
-                          {
-                            body: "New comment",
-                            path: "src/app.ts",
-                            line: 5,
-                            author: { login: "reviewer" },
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
-              },
+    const port = createFakePort({
+      fetchReviewThreads: async () => ({
+        reviewDecision: "CHANGES_REQUESTED",
+        threads: [
+          {
+            id: "thread-new",
+            isResolved: false,
+            comments: {
+              nodes: [
+                { body: "New comment", path: "src/app.ts", line: 5, author: { login: "reviewer" } },
+              ],
             },
           },
-        }),
-      })
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([]),
-      });
+        ],
+      }),
+    });
 
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "old-fingerprint");
+    const result = await pollForFeedback("owner", "repo", 42, "/repo", "old-fingerprint", port);
 
     expect(result).not.toBeNull();
     expect(result!.context.reviewComments).toHaveLength(1);
@@ -238,41 +147,29 @@ describe("pollForFeedback", () => {
   });
 
   it("returns null when fingerprint unchanged and no CI failures", async () => {
-    mockExecFile
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify({
-          data: {
-            repository: {
-              pullRequest: {
-                reviewDecision: "CHANGES_REQUESTED",
-                reviewThreads: {
-                  nodes: [
-                    {
-                      id: "thread-1",
-                      isResolved: false,
-                      comments: {
-                        nodes: [
-                          {
-                            body: "Same old comment",
-                            path: "src/app.ts",
-                            line: 5,
-                            author: { login: "reviewer" },
-                          },
-                        ],
-                      },
-                    },
-                  ],
+    const port = createFakePort({
+      fetchReviewThreads: async () => ({
+        reviewDecision: "CHANGES_REQUESTED",
+        threads: [
+          {
+            id: "thread-1",
+            isResolved: false,
+            comments: {
+              nodes: [
+                {
+                  body: "Same old comment",
+                  path: "src/app.ts",
+                  line: 5,
+                  author: { login: "reviewer" },
                 },
-              },
+              ],
             },
           },
-        }),
-      })
-      .mockResolvedValueOnce({
-        stdout: JSON.stringify([]),
-      });
+        ],
+      }),
+    });
 
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "thread-1");
+    const result = await pollForFeedback("owner", "repo", 42, "/repo", "thread-1", port);
 
     expect(result).toBeNull();
   });

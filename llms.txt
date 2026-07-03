@@ -3666,6 +3666,23 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/pr-feedback-port.ts">
+    <item priority="low">
+      interface GraphQLThreadNode {
+        id: string;
+        isResolved: boolean;
+        comments: {
+          readonly nodes: ReadonlyArray<{
+            readonly body...;
+      }
+    </item>
+    <item priority="low">
+      interface ReviewThreadsResult {
+        reviewDecision: string | null;
+        threads: readonly GraphQLThreadNode[];
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/pr-risk-classifier.ts">
     <item priority="high">
       export function isLowRiskPR(files: readonly string[]): boolean { /* ... */ }
