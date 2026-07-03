@@ -43,9 +43,13 @@ describe("runOrchestrator", () => {
   });
 
   it("returns succeeded when the orchestrator completes successfully", async () => {
-    // Mock the SDK query to return a successful result
+    // Mock the SDK query to create a child session and return a successful result
     vi.mocked(query).mockReturnValueOnce(
       createMockAsyncGenerator([
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-1" }),
+        },
         {
           type: "result",
           subtype: "success",
@@ -57,7 +61,7 @@ describe("runOrchestrator", () => {
       ])() as ReturnType<typeof query>
     );
 
-    // Mock fetch for child session status checks (none created in this simple case)
+    // Mock fetch for the child session status check
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -284,6 +288,29 @@ describe("runOrchestrator", () => {
     expect(result.childSessionIds).toContain("child-error");
   });
 
+  it("returns failed when no child sessions were created", async () => {
+    // Decomposition produced no sub-tasks — the orchestrator's SDK conversation
+    // completes successfully but never creates any child sessions.
+    vi.mocked(query).mockReturnValueOnce(
+      createMockAsyncGenerator([
+        {
+          type: "result",
+          subtype: "success",
+          result: "No sub-tasks were needed",
+          total_cost_usd: 0.01,
+          num_turns: 3,
+          session_id: "orch-1",
+        },
+      ])() as ReturnType<typeof query>
+    );
+
+    const result = await runOrchestrator(createConfig());
+
+    expect(result.childSessionIds).toHaveLength(0);
+    expect(result.status).not.toBe("succeeded");
+    expect(result.status).toBe("failed");
+  });
+
   it("returns failed when all child sessions fail", async () => {
     vi.mocked(query).mockReturnValueOnce(
       createMockAsyncGenerator([
@@ -323,6 +350,10 @@ describe("runOrchestrator", () => {
     vi.mocked(query).mockReturnValueOnce(
       createMockAsyncGenerator([
         {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-1" }),
+        },
+        {
           type: "result",
           subtype: "success",
           result: "Done",
@@ -332,6 +363,14 @@ describe("runOrchestrator", () => {
         },
       ])() as ReturnType<typeof query>
     );
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { id: "child-1", status: "succeeded", costUsd: 0, errors: [] },
+      }),
+    });
 
     const result = await runOrchestrator(createConfig());
 
@@ -343,6 +382,10 @@ describe("runOrchestrator", () => {
     vi.mocked(query).mockReturnValueOnce(
       createMockAsyncGenerator([
         {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-1" }),
+        },
+        {
           type: "result",
           subtype: "error_max_turns",
           result: "Ran out of turns",
@@ -352,6 +395,14 @@ describe("runOrchestrator", () => {
         },
       ])() as ReturnType<typeof query>
     );
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { id: "child-1", status: "succeeded", costUsd: 0.1, errors: [] },
+      }),
+    });
 
     const result = await runOrchestrator(createConfig());
 
@@ -536,8 +587,9 @@ describe("runOrchestrator", () => {
 
     const result = await runOrchestrator(createConfig());
 
-    // Should not crash on non-JSON content
-    expect(result.status).toBe("succeeded");
+    // Should not crash on non-JSON content. No sessions were created, so the
+    // orchestrator reports failed rather than a false-positive succeeded.
+    expect(result.status).toBe("failed");
     expect(result.childSessionIds).toHaveLength(0);
   });
 
@@ -561,7 +613,9 @@ describe("runOrchestrator", () => {
 
     const result = await runOrchestrator(createConfig());
 
-    expect(result.status).toBe("succeeded");
+    // No sessions were created, so the orchestrator reports failed rather
+    // than a false-positive succeeded.
+    expect(result.status).toBe("failed");
     expect(result.childSessionIds).toHaveLength(0);
   });
 });
