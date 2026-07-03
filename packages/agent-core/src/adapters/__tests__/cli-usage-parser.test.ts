@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseGeminiUsage, parseOpenCodeUsage } from "../cli-usage-parser.js";
+import {
+  parseGeminiUsage,
+  parseOpenCodeUsage,
+  extractGeminiError,
+  extractOpenCodeError,
+} from "../cli-usage-parser.js";
 
 describe("parseGeminiUsage", () => {
   it("sums input/output tokens across models from a `--output-format json` blob", () => {
@@ -79,5 +84,69 @@ describe("parseOpenCodeUsage", () => {
 
     expect(usage.tokenUsage).toBeUndefined();
     expect(usage.costUsd).toBeUndefined();
+  });
+});
+
+// ── Soft-error extraction from JSON stdout (#3019) ───────────────────
+
+describe("extractGeminiError", () => {
+  it("recovers the error message from a `--output-format json` error blob", () => {
+    const stdout = JSON.stringify({
+      session_id: "abc123",
+      error: { type: "FatalError", message: "Something went fatally wrong", code: 1 },
+    });
+
+    expect(extractGeminiError(stdout)).toBe("Something went fatally wrong");
+  });
+
+  it("returns undefined when stdout is not JSON", () => {
+    expect(extractGeminiError("plain text stderr-style output")).toBeUndefined();
+  });
+
+  it("returns undefined when the JSON blob has no error field", () => {
+    expect(
+      extractGeminiError(JSON.stringify({ session_id: "abc", response: "Done." }))
+    ).toBeUndefined();
+  });
+});
+
+describe("extractOpenCodeError", () => {
+  it("recovers the error message from a `type: error` NDJSON event", () => {
+    // Matches the real `opencode run --format json` failure event shape.
+    const stdout = JSON.stringify({
+      type: "error",
+      timestamp: 1783049957300,
+      sessionID: "ses_abc123",
+      error: { name: "UnknownError", data: { message: "Unexpected server error.", ref: "err_1" } },
+    });
+
+    expect(extractOpenCodeError(stdout)).toBe("Unexpected server error.");
+  });
+
+  it("falls back to the error name when no data.message is present", () => {
+    const stdout = JSON.stringify({
+      type: "error",
+      sessionID: "ses_abc123",
+      error: { name: "MessageOutputLengthError" },
+    });
+
+    expect(extractOpenCodeError(stdout)).toBe("MessageOutputLengthError");
+  });
+
+  it("returns undefined when stdout is not JSON", () => {
+    expect(extractOpenCodeError("plain text stderr-style output")).toBeUndefined();
+  });
+
+  it("returns undefined when no line is an error event", () => {
+    const stdout = [
+      JSON.stringify({ type: "step_start", sessionID: "s1", part: {} }),
+      JSON.stringify({
+        type: "step_finish",
+        sessionID: "s1",
+        part: { cost: 0, tokens: { input: 1, output: 1 } },
+      }),
+    ].join("\n");
+
+    expect(extractOpenCodeError(stdout)).toBeUndefined();
   });
 });
