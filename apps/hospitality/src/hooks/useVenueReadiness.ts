@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createApiClient } from "@mbe/api-client";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
+import { useApiClient } from "./useApiClient.js";
 import type { Venue } from "@mbe/types";
 import type { FloorPlan } from "@mbe/types";
 
@@ -75,6 +75,7 @@ interface FloorPlanState {
 export function useVenueReadiness(): VenueReadiness {
   const { selectedVenue, selectedVenueId, isLoading } = useVenue();
   const { accessToken } = useAuth();
+  const api = useApiClient();
   // Tracks the last resolved floor-plan fetch result
   const [floorPlanState, setFloorPlanState] = useState<FloorPlanState | null>(null);
   const fetchingRef = useRef<string | null>(null);
@@ -86,11 +87,6 @@ export function useVenueReadiness(): VenueReadiness {
     if (floorPlanState?.venueId === selectedVenueId) return;
 
     fetchingRef.current = selectedVenueId;
-
-    const api = createApiClient({
-      baseUrl: import.meta.env.VITE_API_URL ?? "",
-      getAccessToken: () => accessToken,
-    });
 
     let cancelled = false;
 
@@ -114,7 +110,7 @@ export function useVenueReadiness(): VenueReadiness {
     return () => {
       cancelled = true;
     };
-  }, [selectedVenueId, accessToken, floorPlanState]);
+  }, [selectedVenueId, accessToken, api, floorPlanState]);
 
   // The floor plans relevant to the currently selected venue
   const currentFloorPlans: readonly FloorPlan[] =

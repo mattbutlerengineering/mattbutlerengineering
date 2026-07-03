@@ -8,9 +8,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { createApiClient } from "@mbe/api-client";
-import { useAuth } from "@mbe/auth/react";
 import type { Venue } from "@mbe/types";
+import { useApiClient } from "../hooks/useApiClient.js";
 
 interface VenueContextValue {
   venues: readonly Venue[];
@@ -49,16 +48,7 @@ interface VenueProviderProps {
 }
 
 export function VenueProvider({ children }: VenueProviderProps) {
-  const { accessToken } = useAuth();
-
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: import.meta.env.VITE_API_URL ?? "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  const api = useApiClient();
 
   const [venues, setVenues] = useState<readonly Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(readStoredVenueId);

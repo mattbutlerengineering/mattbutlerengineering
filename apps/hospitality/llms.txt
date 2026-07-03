@@ -277,6 +277,17 @@
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/usePublicApiClient.ts">
+    <item priority="low">
+      interface UsePublicApiClientOptions {
+        baseUrl?: string;
+        maxRetries?: number;
+      }
+    </item>
+    <item priority="high">
+      export function usePublicApiClient(options: UsePublicApiClientOptions = {}) { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useReservationDisplay.ts">
     <item priority="low">
       type StatusFilter = "all" | ReservationStatus;
