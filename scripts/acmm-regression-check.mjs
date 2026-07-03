@@ -5,12 +5,15 @@
  *
  * Reads the repo-level ACMM state (`.claude/acmm/state.json`, refreshed by
  * `generate-acmm-report.mjs` / the audit) and compares the current maturity
- * level against the last recorded level. If the level dropped, it emits an
- * issue payload (labels `acmm` + `ready`) naming the regressed criteria;
- * otherwise it bumps the state timestamp.
+ * level against the last recorded level via the shared `lib/ratchet.mjs`
+ * `compare()` core. If the level dropped, it emits an issue payload (labels
+ * `acmm` + `ready`) naming the regressed criteria — filed through ratchet's
+ * deduped `fileRegressionIssueIfNew()` so no open regression issue is
+ * duplicated; otherwise it bumps the state timestamp.
  *
- * The pure decision functions are exported and unit-tested. The CLI section at
- * the bottom wires them to the filesystem + GitHub. The workflow at
+ * The pure decision functions (this file's own state/payload logic, plus the
+ * shared ratchet core) are exported and unit-tested. The CLI section at the
+ * bottom wires them to the filesystem + GitHub. The workflow at
  * `.github/workflows/acmm-regression.yml` invokes the CLI.
  *
  * Usage: node scripts/acmm-regression-check.mjs
@@ -20,6 +23,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compare, fileRegressionIssueIfNew } from "./lib/ratchet.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -32,14 +36,20 @@ const STATE_PATH = resolve(ROOT, ".claude", "acmm", "state.json");
 export const REGRESSION_MARKER = "<!-- acmm-regression -->";
 
 /**
- * Decide whether the level regressed. A missing previous level (first run)
- * is never a regression.
+ * Decide whether the level regressed, via the shared ratchet `compare()`
+ * (ADR-018 "Detect" stage). A missing previous level (first run) is never
+ * a regression.
  * @returns {{ regressed: boolean, previousLevel: number|null, currentLevel: number }}
  */
 export function detectRegression(previousLevel, currentLevel) {
   const hasPrevious = typeof previousLevel === "number";
+  const { regressions } = compare(
+    { level: currentLevel },
+    hasPrevious ? { level: previousLevel } : null,
+    { direction: "decrease" }
+  );
   return {
-    regressed: hasPrevious && currentLevel < previousLevel,
+    regressed: regressions.length > 0,
     previousLevel: hasPrevious ? previousLevel : null,
     currentLevel,
   };
@@ -83,19 +93,6 @@ opened automatically by \`.github/workflows/acmm-regression.yml\`.`;
   return { title, body, labels: ["acmm", "ready"] };
 }
 
-/**
- * True when any OPEN issue body carries the regression marker — used to avoid
- * opening duplicate regression issues.
- */
-export function hasOpenRegressionIssue(issues) {
-  return issues.some(
-    (issue) =>
-      issue.state === "open" &&
-      typeof issue.body === "string" &&
-      issue.body.includes(REGRESSION_MARKER)
-  );
-}
-
 /** Return a new state object with an updated lastRun timestamp. Immutable. */
 export function withUpdatedTimestamp(state, timestamp) {
   return { ...state, lastRun: timestamp };
@@ -119,46 +116,6 @@ function previousLevelFromHistory(state) {
   return typeof last?.level === "number" ? last.level : null;
 }
 
-async function fetchOpenRegressionIssues() {
-  const { execFileSync } = await import("node:child_process");
-  const raw = execFileSync(
-    "gh",
-    [
-      "issue",
-      "list",
-      "--label",
-      "acmm",
-      "--state",
-      "open",
-      "--limit",
-      "100",
-      "--json",
-      "number,body,state",
-    ],
-    { encoding: "utf8" }
-  );
-  const parsed = JSON.parse(raw);
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-async function createIssue(payload) {
-  const { execFileSync } = await import("node:child_process");
-  execFileSync(
-    "gh",
-    [
-      "issue",
-      "create",
-      "--title",
-      payload.title,
-      "--body",
-      payload.body,
-      "--label",
-      payload.labels.join(","),
-    ],
-    { stdio: "inherit" }
-  );
-}
-
 async function main() {
   const state = readState();
   const currentLevel = typeof state.currentLevel === "number" ? state.currentLevel : 1;
@@ -180,13 +137,12 @@ async function main() {
     failingIds,
   });
 
-  const openIssues = await fetchOpenRegressionIssues();
-  if (hasOpenRegressionIssue(openIssues)) {
+  const { filed } = fileRegressionIssueIfNew({ label: "acmm", marker: REGRESSION_MARKER, payload });
+  if (!filed) {
     console.log("ACMM regression detected, but an open regression issue already exists. Skipping.");
     return;
   }
 
-  await createIssue(payload);
   console.log(`Opened ACMM regression issue (level ${previousLevel} -> ${currentLevel}).`);
 }
 

@@ -15,6 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { walkFiles } from "./lib/repo-scan.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
+import { compare } from "./lib/ratchet.mjs";
 
 const BASELINE_PATH = path.resolve(process.cwd(), "metrics/ai-antipattern-baselines.json");
 
@@ -219,22 +220,25 @@ export function scanAll(root) {
 }
 
 /**
- * Compare current violation counts against a baseline object.
+ * Compare current violation counts against a baseline object, via the shared
+ * `lib/ratchet.mjs` compare() core (ADR-018 "Detect" stage). A pattern
+ * regresses when its count rises above the baseline.
  *
  * @param {Record<string, number>} current
  * @param {{ patterns: Record<string, { count: number }> }} baseline
  * @returns {{ passed: boolean; regressions: Array<{ pattern: string; current: number; baseline: number }> }}
  */
 export function compareWithBaseline(current, baseline) {
-  const regressions = [];
-  for (const [pattern, count] of Object.entries(current)) {
-    const baselineEntry = baseline.patterns[pattern];
-    const baselineCount = baselineEntry ? baselineEntry.count : 0;
-    if (count > baselineCount) {
-      regressions.push({ pattern, current: count, baseline: baselineCount });
-    }
-  }
-  return { passed: regressions.length === 0, regressions };
+  const baselineCounts = Object.fromEntries(
+    Object.entries(baseline.patterns ?? {}).map(([pattern, entry]) => [pattern, entry.count])
+  );
+  const { regressions } = compare(current, baselineCounts, { direction: "increase" });
+  const mapped = regressions.map(({ metric, current: count, baseline: baselineCount }) => ({
+    pattern: metric,
+    current: count,
+    baseline: baselineCount,
+  }));
+  return { passed: mapped.length === 0, regressions: mapped };
 }
 
 /**
