@@ -196,7 +196,10 @@ export const holdService = {
   },
 
   /**
-   * Releases a hold.
+   * Releases a hold, requiring the caller to prove ownership via the sessionId
+   * (the high-entropy token returned at creation). Used by both authenticated
+   * and public callers — the sessionId in the WHERE clause is what stops one
+   * caller from releasing another's hold.
    */
   async release(id: string, sessionId: string): Promise<boolean> {
     try {

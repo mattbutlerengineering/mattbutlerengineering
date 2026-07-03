@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { resolveSourceFiles, classifyTaskContexts } from "./source-resolver.js";
+import { resolveSourceFiles, classifyTaskContexts } from "../source-resolver.js";
 import { existsSync } from "node:fs";
 
 vi.mock("node:fs", () => ({

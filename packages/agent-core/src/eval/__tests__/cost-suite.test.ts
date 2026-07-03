@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { COST_SUITE_DIR, resolveSuitePath } from "./cost-suite.js";
+import { COST_SUITE_DIR, resolveSuitePath } from "../cost-suite.js";
 
 describe("cost suite resolver", () => {
   it("exports COST_SUITE_DIR pointing to the cost subdirectory", () => {
