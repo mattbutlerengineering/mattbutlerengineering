@@ -49,7 +49,7 @@
 - **No performance baseline** — Cannot measure p50/p95/p99 latency, throughput, or error rates
 - **No frontend visibility** — Cannot correlate user actions with API errors; no Web Vitals data
 - **Blind to downtime** — DigitalOcean's internal health check restarts containers but sends no alerts
-- **Architecture docs already planned for Sentry** — `docs/one-man-dev-team/architecture.md` recommends Sentry as primary tool; `docs/NEXT_STEPS.md` lists "Error tracking (Sentry)" as optional enhancement
+- **Architecture docs already planned for Sentry** — `docs/ARCHITECTURE.md` recommends Sentry as primary tool; `docs/NEXT_STEPS.md` lists "Error tracking (Sentry)" as optional enhancement
 
 ---
 
@@ -420,7 +420,7 @@ Sentry is the right first tool because error tracking is the highest-priority ga
 2. **Native Fastify integration** — `@sentry/node` with `fastifyIntegration` is first-party, OTel-based
 3. **Native React + Vite integration** — `@sentry/react` with Error Boundary auto-wrapping; `@sentry/vite-plugin` for source maps
 4. **Session replay linked to errors** — Watch the exact user session when a frontend error occurred
-5. **Already planned** — `docs/one-man-dev-team/architecture.md` and `docs/NEXT_STEPS.md` both recommend Sentry
+5. **Already planned** — `docs/ARCHITECTURE.md` and `docs/NEXT_STEPS.md` both recommend Sentry
 6. **OpenTelemetry-based** — SDK v8+ built on OTel; low vendor lock-in
 7. **Self-hosted escape hatch** — `getsentry/self-hosted` eliminates per-event costs at scale
 8. **Free tier covers early stage** — 5K errors + 50 replays + 10K spans is sufficient for a low-traffic app

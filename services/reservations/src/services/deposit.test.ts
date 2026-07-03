@@ -45,6 +45,7 @@ vi.mock("stripe", () => {
 });
 
 import { DepositService, calculateDepositAmount } from "./deposit.js";
+import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
 
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
@@ -827,4 +828,23 @@ describe("calculateDepositAmount", () => {
     const venue = { depositType: "per_person", depositAmountCents: 500 };
     expect(calculateDepositAmount(venue, 100)).toBe(50000);
   });
+
+  // MONEY PATH: the service charge and the widget display must never diverge.
+  // This asserts the backend's calculateDepositAmount(venue, partySize) and the
+  // widget's quoteDeposit(depositConfig, partySize) — the exact function the
+  // booking widget imports — agree on the same inputs, for both pricing tiers.
+  it.each([
+    ["per_person", 1000, 4],
+    ["per_person", 500, 1],
+    ["flat", 5000, 3],
+    ["flat", 0, 2],
+  ] as const)(
+    "service charge matches widget quote for depositType=%s amountCents=%s partySize=%s",
+    (depositType, amountCents, partySize) => {
+      const venue = { depositType, depositAmountCents: amountCents };
+      const serviceCharge = calculateDepositAmount(venue, partySize);
+      const widgetQuote = quoteDeposit({ depositType, amountCents }, partySize);
+      expect(serviceCharge).toBe(widgetQuote);
+    }
+  );
 });
