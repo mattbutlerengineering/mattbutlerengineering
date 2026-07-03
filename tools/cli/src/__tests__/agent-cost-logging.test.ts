@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * Cost logging integration seam for `mbe agent run`.
+ * Spend-recording seam for `mbe agent run` (#2974).
  *
- * Isolated in its own file so vi.mock("node:fs") does not bleed into the
- * main agent.test.ts suite (ESM module mocks are file-scoped in Vitest).
- *
- * Verifies that the claude-adapter completion path appends one well-formed
- * spend record to .claude/agent-spend.jsonl with cost+tokens+turns+model.
+ * Spend is now recorded by the single `recordSpend` seam inside @mbe/agent-core
+ * (session-runner for the claude path, cli-adapter-session-runner for the
+ * gemini/opencode path). The CLI must NOT write its own spend log — the legacy
+ * `.claude/agent-spend.jsonl` sibling write double-counted claude runs and is
+ * deleted. This suite verifies the CLI run command performs no spend write of
+ * its own.
  */
 
 // ── Captured fs writes ────────────────────────────────────────────────────
 
 const appendCalls = vi.hoisted(() => ({ data: [] as Array<[string, string]> }));
 
-// Mock node:fs so no real files are touched.
+// Mock node:fs so no real files are touched and any append is observable.
 vi.mock("node:fs", async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   type NodeFs = typeof import("node:fs");
@@ -73,7 +74,7 @@ vi.mock("node:child_process", () => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-describe("agent run – cost logging seam", () => {
+describe("agent run – spend-recording seam", () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -85,7 +86,7 @@ describe("agent run – cost logging seam", () => {
     exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
   });
 
-  it("appends a well-formed record (cost+tokens+turns+model) after a successful run", async () => {
+  it("does not write its own spend log after a successful run (agent-core owns recording)", async () => {
     const { runAgentSession } = await import("@mbe/agent-core");
     vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "log-test",
@@ -108,20 +109,13 @@ describe("agent run – cost logging seam", () => {
 
     expect(exitSpy).toHaveBeenCalledWith(0);
 
-    const spendCalls = appendCalls.data.filter(([p]) => String(p).endsWith("agent-spend.jsonl"));
-    expect(spendCalls.length).toBe(1);
-
-    const record = JSON.parse(String(spendCalls[0][1]).trim());
-    expect(record.costUsd).toBe(0.0456);
-    expect(record.inputTokens).toBe(1234);
-    expect(record.outputTokens).toBe(567);
-    expect(record.numTurns).toBe(7);
-    expect(record.model).toBe("claude-sonnet-4-6");
-    expect(typeof record.date).toBe("string");
-    expect(typeof record.timestamp).toBe("string");
+    // No sibling spend file, no directory spend file — the CLI delegates all
+    // spend recording to agent-core's single seam.
+    const spendCalls = appendCalls.data.filter(([p]) => String(p).includes("agent-spend"));
+    expect(spendCalls.length).toBe(0);
   });
 
-  it("still appends a record when the session fails", async () => {
+  it("does not write its own spend log when the session fails", async () => {
     const { runAgentSession } = await import("@mbe/agent-core");
     vi.mocked(runAgentSession).mockResolvedValue({
       sessionId: "log-fail",
@@ -141,10 +135,7 @@ describe("agent run – cost logging seam", () => {
 
     expect(exitSpy).toHaveBeenCalledWith(1);
 
-    const spendCalls = appendCalls.data.filter(([p]) => String(p).endsWith("agent-spend.jsonl"));
-    expect(spendCalls.length).toBe(1);
-    const record = JSON.parse(String(spendCalls[0][1]).trim());
-    expect(record.costUsd).toBe(0.012);
-    expect(record.numTurns).toBe(2);
+    const spendCalls = appendCalls.data.filter(([p]) => String(p).includes("agent-spend"));
+    expect(spendCalls.length).toBe(0);
   });
 });

@@ -267,7 +267,8 @@ export const SENSORS = [
     id: "agentCost",
     category: "cost",
     collect: ({ root, now }) => {
-      const spendPath = resolve(root, ".claude", "agent-spend.jsonl");
+      // Single spend sink owned by agent-core's recordSpend seam (#2974).
+      const spendPath = resolve(root, ".claude", "agent-spend", "sessions.jsonl");
       return collectAgentCost(spendPath, now);
     },
     format: (data, name) =>

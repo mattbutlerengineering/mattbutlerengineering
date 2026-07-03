@@ -113,9 +113,10 @@ export { extractTokenUsage, extractCost, buildSessionResult } from "./cost-track
 export { shouldHaltForBudget } from "./budget-gate.js";
 export type { BudgetBreachResult } from "./budget-gate.js";
 
-// Cost logging (automatic spend recording to .claude/agent-spend/sessions.jsonl)
-export { recordSessionCost } from "./cost-logger.js";
-export type { CostEntry, CostEntryInput } from "./cost-logger.js";
+// Spend recording — the single seam owning path + schema for all agent spend
+// (canonical sink: .claude/agent-spend/sessions.jsonl)
+export { recordSpend, SPEND_SINK_DIR, SPEND_SINK_FILE } from "./spend-recorder.js";
+export type { SpendEntry, SpendEntryInput } from "./spend-recorder.js";
 
 // Context budget (proactive context management)
 export { createContextBudget, MODEL_CONTEXT_LIMITS } from "./context-budget.js";

@@ -43,9 +43,9 @@ vi.mock("../worktree-reaper.js", () => ({
   scheduleWorktreeReap: vi.fn().mockResolvedValue({ succeeded: true, attempts: 1 }),
 }));
 
-const mockRecordSessionCost = vi.fn();
-vi.mock("../cost-logger.js", () => ({
-  recordSessionCost: (...args: unknown[]) => mockRecordSessionCost(...args),
+const mockRecordSpend = vi.fn();
+vi.mock("../spend-recorder.js", () => ({
+  recordSpend: (...args: unknown[]) => mockRecordSpend(...args),
 }));
 
 vi.mock("../retry.js", async () => {
@@ -209,9 +209,14 @@ describe("runAgentSession — claude entry point (full pipeline)", () => {
     // PublishPhase ran — a real PR was created.
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledOnce();
     // Spend was recorded, same as a direct runSession() call.
-    expect(mockRecordSessionCost).toHaveBeenCalledWith(
+    expect(mockRecordSpend).toHaveBeenCalledWith(
       BASE_CONFIG.repoPath,
-      expect.objectContaining({ costUsd: 0.25, model: BASE_CONFIG.model, status: "succeeded" })
+      expect.objectContaining({
+        costUsd: 0.25,
+        model: BASE_CONFIG.model,
+        adapter: "claude",
+        status: "succeeded",
+      })
     );
   });
 

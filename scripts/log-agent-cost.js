@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Log agent session cost for spend tracking.
+ * Log agent session cost for spend tracking (issue-worker escalation path).
  *
- * Appends a JSON-lines entry to .claude/agent-spend.jsonl with cost,
- * issue number, and timestamp. The progress tracker aggregates these
- * to compute daily spend and flag threshold breaches.
+ * Appends a JSON-lines entry to the single spend sink,
+ * .claude/agent-spend/sessions.jsonl (owned by agent-core's recordSpend seam,
+ * #2974), with cost, issue number, and timestamp. The progress tracker
+ * aggregates these to compute daily spend and flag threshold breaches.
  *
  * Usage: node scripts/log-agent-cost.js --cost 0.45 --issue 199 [--model claude-sonnet-4-6]
  */
@@ -16,7 +17,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
-const LOG_PATH = join(root, ".claude", "agent-spend.jsonl");
+const LOG_PATH = join(root, ".claude", "agent-spend", "sessions.jsonl");
 const DAILY_THRESHOLD_USD = parseFloat(process.env.AGENT_DAILY_SPEND_LIMIT ?? "10");
 
 function parseArgs(argv) {

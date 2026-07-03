@@ -442,26 +442,6 @@
       }
     </item>
   </file>
-  <file path="src/cost-logger.ts">
-    <item priority="low">
-      interface CostEntry {
-        timestamp: string;
-        costUsd: number;
-        issueNumber?: number | null;
-        model?: string;
-        sessionId?: string;
-      }
-    </item>
-    <item priority="low">
-      interface CostEntryInput {
-        costUsd: number;
-        issueNumber?: number | null;
-        model?: string;
-        sessionId?: string;
-        status?: string;
-      }
-    </item>
-  </file>
   <file path="src/cost-tracker.ts">
     <item priority="high">
       export function extractTokenUsage(result: SDKResultMessage): TokenUsage { /* ... */ }
@@ -951,6 +931,14 @@
     </item>
     <item priority="medium">
       function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/spend-recorder.ts">
+    <item priority="high">
+      export const SPEND_SINK_DIR: unknown;
+    </item>
+    <item priority="high">
+      export const SPEND_SINK_FILE: unknown;
     </item>
   </file>
   <file path="src/stuck-detector.ts">
