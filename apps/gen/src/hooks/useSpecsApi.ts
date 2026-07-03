@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useAuth } from "@mbe/auth/react";
-import { ApiClient } from "@mbe/api-client";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useApi } from "./useApi.js";
 import type { StoredSpec } from "../types.js";
 
 export interface SaveSpecData {
@@ -24,16 +23,7 @@ export interface UseSpecsApiReturn {
  * Auto-fetches specs on mount.
  */
 export function useSpecsApi(): UseSpecsApiReturn {
-  const { accessToken } = useAuth();
-
-  const client = useMemo(
-    () =>
-      new ApiClient({
-        baseUrl: "",
-        getAccessToken: () => accessToken,
-      }),
-    [accessToken]
-  );
+  const client = useApi();
 
   const [specs, setSpecs] = useState<StoredSpec[]>([]);
   const [isLoading, setIsLoading] = useState(true);

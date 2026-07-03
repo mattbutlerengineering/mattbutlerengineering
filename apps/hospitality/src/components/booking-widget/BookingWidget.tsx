@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useMemo } from "react";
-import { createApiClient } from "@mbe/api-client";
+import { useEffect, useCallback } from "react";
+import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import type { DepositConfig } from "@mbe/types";
@@ -72,14 +72,7 @@ export function BookingWidget({
   const { state, data, actions } = useBookingFlow();
 
   // API client - no auth token for public booking
-  const api = useMemo(
-    () =>
-      createApiClient({
-        baseUrl: apiBaseUrl,
-        getAccessToken: () => null,
-      }),
-    [apiBaseUrl]
-  );
+  const api = usePublicApiClient({ baseUrl: apiBaseUrl });
 
   // Fetch available time slots
   const fetchSlots = useCallback(async () => {

@@ -9,13 +9,13 @@ vi.mock("react-router-dom", () => ({
   useParams: vi.fn(),
 }));
 
-// Hoisted mocks for api-client
+// Hoisted mocks for the seam hook
 const { mockGetBySlug } = vi.hoisted(() => ({
   mockGetBySlug: vi.fn(),
 }));
 
-vi.mock("@mbe/api-client", () => ({
-  createApiClient: vi.fn(() => ({
+vi.mock("../hooks/usePublicApiClient.js", () => ({
+  usePublicApiClient: vi.fn(() => ({
     venues: {
       getBySlug: mockGetBySlug,
     },
