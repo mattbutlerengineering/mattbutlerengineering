@@ -153,4 +153,13 @@ describe("SSE Event Stream Integration", () => {
     // Must complete well within 500ms regardless of the testClose value
     expect(elapsed).toBeLessThan(500);
   });
+
+  it("rejects unauthenticated GET /api/v1/events/stream with 401", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?testClose=100",
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
 });

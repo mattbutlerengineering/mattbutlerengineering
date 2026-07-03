@@ -35,6 +35,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@mattbutlerengineering/rialto";
+import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
@@ -66,9 +67,7 @@ interface SSEConnectionState {
 }
 
 type SSEConnectionAction =
-  | { type: "connected" }
-  | { type: "disconnected" }
-  | { type: "error"; error: Error };
+  { type: "connected" } | { type: "disconnected" } | { type: "error"; error: Error };
 
 /* ── Toast rate limiter ──────────────────────────────────────────── */
 
@@ -149,18 +148,21 @@ export function useSSESync(): { reconnect: () => void } {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { selectedVenueId } = useVenue();
+  const { accessToken } = useAuth();
 
   // Keep refs to avoid recreating SseClient on closure changes
   const queryClientRef = useRef(queryClient);
   const toastRef = useRef(toast);
   const dispatchRef = useRef(dispatchConnection);
   const selectedVenueIdRef = useRef(selectedVenueId);
+  const accessTokenRef = useRef(accessToken);
 
   useEffect(() => {
     queryClientRef.current = queryClient;
     toastRef.current = toast;
     dispatchRef.current = dispatchConnection;
     selectedVenueIdRef.current = selectedVenueId;
+    accessTokenRef.current = accessToken;
   });
 
   const canShowToast = useCallback((): boolean => {
@@ -286,6 +288,7 @@ export function useSSESync(): { reconnect: () => void } {
     return new SseClient({
       url: url.toString(),
       eventTypes: SSE_EVENT_TYPES,
+      getAccessToken: () => accessTokenRef.current,
       onEvent: (type, payload) => handleEventRef.current(type, payload),
       onError: (error) => {
         dispatchRef.current({ type: "error", error });
