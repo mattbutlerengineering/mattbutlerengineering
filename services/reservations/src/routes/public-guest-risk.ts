@@ -73,7 +73,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
       if (!guest) {
         // New guest — always trusted
         return reply.send({
-          data: { riskScore: "trusted", noShowCount: 0, requiresDeposit: false },
+          data: { riskScore: "trusted", requiresDeposit: false },
         });
       }
 
@@ -91,7 +91,6 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({
         data: {
           riskScore,
-          noShowCount: guest.noShowCount,
           requiresDeposit: riskScore === "risky",
         },
       });

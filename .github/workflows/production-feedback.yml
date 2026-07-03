@@ -110,7 +110,7 @@ jobs:
           DATE_KEY: ${{ steps.health.outputs.date_key }}
           RESULTS: ${{ steps.health.outputs.results }}
         run: |
-          METRICS_DIR="docs/metrics/production-health"
+          METRICS_DIR="metrics/production-health"
           mkdir -p "$METRICS_DIR"
           METRICS_FILE="${METRICS_DIR}/${DATE_KEY}.jsonl"
 

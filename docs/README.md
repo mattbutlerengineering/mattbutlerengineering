@@ -13,8 +13,6 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 | [`design/`](design/)             | Product design documents and PRDs                            |
 | [`evaluations/`](evaluations/)   | Technology evaluation reports (21 completed)                 |
 | [`incidents/`](incidents/)       | Incident post-mortems (empty -- no incidents yet)            |
-| [`logs/`](logs/)                 | Agent performance logs and audit state (`agent-perf.jsonl`)  |
-| [`metrics/`](metrics/)           | PR acceptance and quality metrics (`pr-acceptance.json`)     |
 | [`plans/`](plans/)               | Historical platform design and roadmap documents             |
 | [`reflections/`](reflections/)   | Lessons learned from AI sessions (ACMM L5)                   |
 | [`research/`](research/)         | Weekly research intake notes                                 |

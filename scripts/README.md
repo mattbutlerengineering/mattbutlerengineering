@@ -52,16 +52,16 @@ Guard invariants across the monorepo. Run by CI on every PR.
 
 ## Metrics / Auditing
 
-| Script                       | Purpose                                                                                                                |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `cors-audit.mjs`             | Scan Fastify services for CORS configuration issues                                                                    |
-| `detect-instruction-rot.mjs` | Detect stale content in AI instruction files                                                                           |
-| `health-metrics.mjs`         | Poll prod `/health` endpoints, append to `metrics/service-health.jsonl` (ACMM L3 signal)                               |
-| `pr-metrics.mjs`             | `gh`-backed CLI: compute + persist overall AI PR acceptance rate to `docs/metrics/pr-acceptance.json` (ACMM L3 signal) |
-| `collect-pr-metrics.mjs`     | Pure per-category PR acceptance breakdown, consumed by `sensor-report.mjs` — no I/O of its own                         |
-| `process-metrics.mjs`        | Learning-loop process metrics: time-to-fix, cost, success/FP rate, improvements shipped                                |
-| `record-bundle-sizes.js`     | Snapshot bundle sizes for all frontend apps                                                                            |
-| `resource-audit.mjs`         | Find orphaned cloud resources                                                                                          |
+| Script                       | Purpose                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `cors-audit.mjs`             | Scan Fastify services for CORS configuration issues                                                               |
+| `detect-instruction-rot.mjs` | Detect stale content in AI instruction files                                                                      |
+| `health-metrics.mjs`         | Poll prod `/health` endpoints, append to `metrics/service-health.jsonl` (ACMM L3 signal)                          |
+| `pr-metrics.mjs`             | `gh`-backed CLI: compute + persist overall AI PR acceptance rate to `metrics/pr-acceptance.json` (ACMM L3 signal) |
+| `collect-pr-metrics.mjs`     | Pure per-category PR acceptance breakdown, consumed by `sensor-report.mjs` — no I/O of its own                    |
+| `process-metrics.mjs`        | Learning-loop process metrics: time-to-fix, cost, success/FP rate, improvements shipped                           |
+| `record-bundle-sizes.js`     | Snapshot bundle sizes for all frontend apps                                                                       |
+| `resource-audit.mjs`         | Find orphaned cloud resources                                                                                     |
 
 > `pr-metrics.mjs`, `collect-pr-metrics.mjs`, `health-metrics.mjs`, `generate-metrics-json.mjs`
 > (Code Generation, above), and `process-metrics.mjs` all touch "metrics" but are **not
