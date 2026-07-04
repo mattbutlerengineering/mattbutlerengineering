@@ -226,7 +226,7 @@ export const SENSORS = [
     id: "prMetrics",
     category: "quality",
     collect: ({ root }) => {
-      const metricsPath = resolve(root, "docs", "metrics", "pr-acceptance.json");
+      const metricsPath = resolve(root, "metrics", "pr-acceptance.json");
       const data = safe(() => readJson(metricsPath));
       if (!data) return { available: false };
 
