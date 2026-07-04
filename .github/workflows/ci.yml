@@ -152,7 +152,7 @@ jobs:
           output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
 
       - name: Upload Trivy SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@3ab4101902695724f1de1721639e730f514eccf5 # v3
+        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
         if: always()
         with:
           sarif_file: ${{ matrix.dockerfile.name }}-trivy-results.sarif
