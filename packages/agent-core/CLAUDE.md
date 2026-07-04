@@ -194,8 +194,7 @@ After PR creation, if `feedbackLoop.enabled`:
 
 - Decomposes tasks into independent sub-tasks (different files/modules/layers)
 - Respects `maxConcurrentSessions` (default 3)
-- Monitors child session status until all reach terminal state
-- Reports `succeeded | partially_succeeded | failed`
+- Reports `in_progress | partially_succeeded | succeeded | failed` after a single status pass over child sessions — `in_progress` (or `partially_succeeded` if any child already succeeded) when any child is still `running`/`pending`; `failed` only once all children are terminal and at least one is `failed`/`cancelled` with none succeeded
 - Prompt injection protection: user task wrapped in `<task>` XML tags with anti-injection instructions
 
 ## Testing Patterns
