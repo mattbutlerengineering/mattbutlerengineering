@@ -1924,15 +1924,14 @@
       });
   </file>
   <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    function getGitRoot(): string {
+    async function getGitRoot(): Promise<string> {
       try {
-        return execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+        return await runGit(["rev-parse", "--show-toplevel"]);
       } catch {
         return process.cwd();
       }
     }
-    function getWorktreeDirs(): string[] {
-      const gitRoot = getGitRoot();
+    function getWorktreeDirs(gitRoot: string): string[] {
       const worktreesDir = join(gitRoot, ".claude/worktrees");
       try {
         return readdirSync(worktreesDir);
@@ -14725,6 +14724,15 @@
       onEvent?: SessionEventCallback;
       deps?: PhaseDeps;
       signal?: AbortSignal;
+    }
+  </file>
+  <file path="packages/agent-core/src/run-git.ts">
+    export const DEFAULT_GIT_TIMEOUT_MS = 60_000;
+    export interface RunGitOptions {
+      /** Working directory for the git invocation. */
+      readonly cwd?: string;
+      /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
+      readonly timeoutMs?: number;
     }
   </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">

@@ -120,11 +120,11 @@
     </item>
   </file>
   <file path="src/commands/cleanup-worktrees.ts">
-    <item priority="medium">
-      function getGitRoot(): string { /* ... */ }
+    <item priority="low">
+      async function getGitRoot(): Promise<string> { /* ... */ }
     </item>
     <item priority="medium">
-      function getWorktreeDirs(): string[] { /* ... */ }
+      function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
     </item>
   </file>
   <file path="src/commands/compound.ts">
