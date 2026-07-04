@@ -76,11 +76,10 @@ function makeAuthResult(overrides: Partial<AuthReturnType> = {}): AuthReturnType
 
 type ApiClientReturnType = ReturnType<typeof useApiClient>;
 
-function makeApiClient(getOverride?: ReturnType<typeof vi.fn>): ApiClientReturnType {
+function makeApiClient(systemFn = vi.fn(), rawGet = vi.fn()): ApiClientReturnType {
   return {
-    client: {
-      get: getOverride ?? vi.fn(),
-    },
+    health: { system: systemFn },
+    client: { get: rawGet },
   } as unknown as ApiClientReturnType;
 }
 
@@ -117,26 +116,28 @@ describe("SystemHealthBadge", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("uses useApiClient hook instead of raw fetch", async () => {
+  it("uses the typed health.system() client method, not raw transport", async () => {
     vi.mocked(useAuth).mockReturnValue(
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGet = vi.fn().mockResolvedValue({
+    const systemFn = vi.fn().mockResolvedValue({
       status: "healthy",
       timestamp: "2026-01-15T12:00:00Z",
     });
-    vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
+    const rawGet = vi.fn();
+    vi.mocked(useApiClient).mockReturnValue(makeApiClient(systemFn, rawGet));
 
     await act(async () => {
       render(<SystemHealthBadge />);
     });
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith("/api/health/system");
+      expect(systemFn).toHaveBeenCalled();
     });
 
-    // Verify useApiClient hook was called (not raw fetch)
+    // Typed client method used; zero raw transport in the migrated site.
+    expect(rawGet).not.toHaveBeenCalled();
     expect(useApiClient).toHaveBeenCalled();
   });
 
