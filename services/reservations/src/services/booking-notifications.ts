@@ -57,13 +57,16 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     manageToken: string
   ): Promise<void> {
     const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
-    const communicationPreference =
-      (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null;
+    const channel = resolveChannel({
+      email: guestEmail,
+      phone: guestPhone,
+      communicationPreference:
+        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
+    });
 
     if (guestEmail && venueId) {
       const venue = await getVenue(venueId);
       if (venue) {
-        const preference: CommunicationPreference = communicationPreference ?? "both";
         await notificationAdapter.sendBookingConfirmation(
           {
             reservationId: id,
@@ -80,7 +83,7 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
             venueAddress: null,
             manageToken,
           },
-          preference
+          channel
         );
       }
     }
@@ -91,13 +94,6 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     const now = Date.now();
 
     if (startMs <= now) return;
-
-    const channel = resolveChannel({
-      email: guestEmail,
-      phone: guestPhone,
-      communicationPreference:
-        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
-    });
 
     const reminderPayload: ReminderPayload = {
       reservationId: id,

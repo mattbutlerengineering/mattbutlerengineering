@@ -37,11 +37,12 @@ export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 function defaultDirectives(nonce, auth0Origin) {
   return {
     "default-src": "'self'",
-    "script-src": `'nonce-${nonce}' 'self'`,
+    "script-src": `'nonce-${nonce}' 'self' https://js.stripe.com`,
     "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src": "'self' data: https:",
     "font-src": "'self' https://fonts.gstatic.com",
     "connect-src": `'self' ${auth0Origin} https://api.mattbutlerengineering.com`,
+    "frame-src": "https://js.stripe.com https://hooks.stripe.com",
     "frame-ancestors": "'none'",
     "base-uri": "'self'",
     "form-action": "'self'",

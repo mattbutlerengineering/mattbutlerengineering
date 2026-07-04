@@ -614,11 +614,11 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    <item priority="medium">
-      function getGitRoot(): string { /* ... */ }
+    <item priority="low">
+      async function getGitRoot(): Promise<string> { /* ... */ }
     </item>
     <item priority="medium">
-      function getWorktreeDirs(): string[] { /* ... */ }
+      function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/compound.ts">
@@ -2651,13 +2651,13 @@
     </item>
   </file>
   <file path="services/reservations/src/services/deposit.ts">
-    <item priority="high">
-      class DepositNotFoundError {
-        
-      }
+    <item priority="low">
+      type StripePort = Pick<
+        StripeService,
+        "cancelPaymentIntent" | "capture...;
     </item>
     <item priority="high">
-      class DepositConcurrentUpdateError {
+      class DepositNotFoundError {
         
       }
     </item>
@@ -3807,6 +3807,17 @@
         onEvent?: SessionEventCallback;
         deps?: PhaseDeps;
         signal?: AbortSignal;
+      }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/run-git.ts">
+    <item priority="high">
+      export const DEFAULT_GIT_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      interface RunGitOptions {
+        cwd?: string;
+        timeoutMs?: number;
       }
     </item>
   </file>

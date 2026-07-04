@@ -1,10 +1,12 @@
 import { useState, useReducer, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+import type { CreateReservationRequest } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import {
   Alert,
   Badge,
+  Button,
   Card,
   EmptyState,
   Input,
@@ -16,6 +18,9 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
+import { useTables } from "../hooks/useTables.js";
+import { useCreateReservation } from "../hooks/useReservations.js";
+import { NewReservationDialog } from "../components/reservations/NewReservationDialog.js";
 import {
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
@@ -81,6 +86,7 @@ export function ReservationsPage() {
   const statusFilter = params.status;
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
 
   const {
     data,
@@ -95,7 +101,19 @@ export function ReservationsPage() {
     searchQuery,
   });
 
+  const { data: tables } = useTables({
+    venueId: selectedVenueId ?? undefined,
+    limit: 100,
+    enabled: !!selectedVenueId,
+  });
+  const { mutateAsync: createReservation } = useCreateReservation();
+
   const error = queryError?.message ?? null;
+
+  const handleCreateReservation = async (reservationData: CreateReservationRequest) => {
+    await createReservation(reservationData);
+    setShowNewReservationDialog(false);
+  };
 
   /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
   const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
@@ -157,6 +175,14 @@ export function ReservationsPage() {
             setParam("date", e.target.value);
           }}
         />
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setShowNewReservationDialog(true)}
+          disabled={!selectedVenueId}
+        >
+          New reservation
+        </Button>
       </div>
 
       {error && (
@@ -251,6 +277,16 @@ export function ReservationsPage() {
             {/* eslint-enable mbe-local/prefer-rialto-components */}
           </div>
         </Card>
+      )}
+
+      {showNewReservationDialog && selectedVenueId && (
+        <NewReservationDialog
+          tables={tables ?? []}
+          venueId={selectedVenueId}
+          defaultDate={selectedDate}
+          onConfirm={handleCreateReservation}
+          onClose={() => setShowNewReservationDialog(false)}
+        />
       )}
     </div>
   );

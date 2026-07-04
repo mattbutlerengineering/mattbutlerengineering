@@ -5,6 +5,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import type { WorktreeInfo, WorktreeMode } from "./types.js";
+import { runGit, DEFAULT_GIT_TIMEOUT_MS } from "./run-git.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,7 +13,7 @@ const execFileAsync = promisify(execFile);
  * Bound every `git` subprocess call so a hang (stuck lock, network stall on
  * clone/push) fails fast instead of blocking the session indefinitely.
  */
-const GIT_TIMEOUT_MS = 60_000;
+const GIT_TIMEOUT_MS = DEFAULT_GIT_TIMEOUT_MS;
 
 const WORKTREE_DIR = ".agent-worktrees";
 
@@ -65,8 +66,7 @@ function generateBranchName(taskDescription: string): string {
 }
 
 async function git(args: readonly string[], cwd: string): Promise<string> {
-  const { stdout } = await execFileAsync("git", [...args], { cwd, timeout: GIT_TIMEOUT_MS });
-  return stdout.trim();
+  return runGit(args, { cwd, timeoutMs: GIT_TIMEOUT_MS });
 }
 
 /**
@@ -99,11 +99,9 @@ async function createLightweightWorktree(
   const clonePath = join(repoPath, WORKTREE_DIR, branchName.replace(/\//g, "-"));
   // Shallow clone from the local repo; --depth 1 keeps it fast and minimal.
   // `--` prevents baseBranch/repoPath from being parsed as flags.
-  await execFileAsync(
-    "git",
-    ["clone", "--depth", "1", "--branch", baseBranch, "--", repoPath, clonePath],
-    { timeout: GIT_TIMEOUT_MS }
-  );
+  await runGit(["clone", "--depth", "1", "--branch", baseBranch, "--", repoPath, clonePath], {
+    timeoutMs: GIT_TIMEOUT_MS,
+  });
   // Create and switch to the task branch inside the clone.
   await git(["checkout", "-b", branchName, "--"], clonePath);
   return clonePath;
@@ -188,6 +186,29 @@ export async function pushBranch(worktreePath: string, branchName: string): Prom
   validateGitRef(branchName, "branchName");
 
   await git(["push", "-u", "origin", "--", branchName], worktreePath);
+}
+
+/**
+ * Feedback-loop commit path: stage all changes, commit, and push the branch.
+ * Delegates to the validated `commitChanges` (applies `validatePath`, stages
+ * with `git add -A`, and short-circuits to no commit when nothing is staged)
+ * and `pushBranch` (applies `validatePath` + `validateGitRef` on the branch
+ * ref before the subprocess). When there is nothing to commit, the push is
+ * skipped — matching the prior feedback-loop behaviour of never pushing an
+ * empty commit. This centralises the argument-injection protection that the
+ * feedback loop's previous inline helper lacked.
+ */
+export async function commitAndPush(
+  worktreePath: string,
+  branchName: string,
+  message: string
+): Promise<void> {
+  const sha = await commitChanges(worktreePath, message);
+  if (!sha) {
+    // Nothing was staged — nothing to push.
+    return;
+  }
+  await pushBranch(worktreePath, branchName);
 }
 
 export async function hasChanges(worktreePath: string): Promise<boolean> {

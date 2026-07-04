@@ -692,6 +692,7 @@
           hasChanges: vi.fn().mockResolvedValue(false),
           commitChanges: vi.fn().mockResolvedValue("abc123"),
           pushBranch: vi.fn().mockResolvedValue(undefined),
+          commitAndPush: vi.fn().mockResolvedValue(undefined),
           removeWorktree: vi.fn().mockResolvedValue(undefined),
         },
         promptBuilder: {
@@ -1906,15 +1907,14 @@
       });
   </file>
   <file path="tools/cli/src/commands/cleanup-worktrees.ts">
-    function getGitRoot(): string {
+    async function getGitRoot(): Promise<string> {
       try {
-        return execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+        return await runGit(["rev-parse", "--show-toplevel"]);
       } catch {
         return process.cwd();
       }
     }
-    function getWorktreeDirs(): string[] {
-      const gitRoot = getGitRoot();
+    function getWorktreeDirs(gitRoot: string): string[] {
       const worktreesDir = join(gitRoot, ".claude/worktrees");
       try {
         return readdirSync(worktreesDir);
@@ -4521,6 +4521,7 @@
           hasChanges,
           commitChanges,
           pushBranch,
+          commitAndPush,
           removeWorktree,
         },
         promptBuilder: {
@@ -4588,6 +4589,7 @@
               maxBudgetUsd: remainingBudget,
               allowedTools: config.allowedTools,
             },
+            { worktreeManager: deps.worktreeManager },
             onEvent
           );
           fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
@@ -11989,18 +11991,14 @@
       DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
   </file>
   <file path="services/reservations/src/services/deposit.ts">
+    export type StripePort = Pick<
+      StripeService,
+      "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+    >;
     export class DepositNotFoundError extends Error {
       constructor(id: string) {
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
-      }
-    }
-    export class DepositConcurrentUpdateError extends Error {
-      constructor(id: string, action: string) {
-        super(
-          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
-        );
-        this.name = "DepositConcurrentUpdateError";
       }
     }
   </file>
@@ -14689,6 +14687,15 @@
       signal?: AbortSignal;
     }
   </file>
+  <file path="packages/agent-core/src/run-git.ts">
+    export const DEFAULT_GIT_TIMEOUT_MS = 60_000;
+    export interface RunGitOptions {
+      /** Working directory for the git invocation. */
+      readonly cwd?: string;
+      /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
+      readonly timeoutMs?: number;
+    }
+  </file>
   <file path="packages/agent-core/src/run-hardened-query.ts">
     export const apiCircuitBreaker = new CircuitBreaker({
       failureThreshold: CIRCUIT_BREAKER_FAILURE_THRESHOLD,
@@ -16424,15 +16431,18 @@
         return preference === "sms_only" && this.smsAdapter === null;
       }
     
-      /** Booking confirmation — transactional, always sent. */
+      /**
+       * Booking confirmation — transactional, always sent via email regardless of
+       * channel. It carries the iCal attachment, which cannot travel via SMS, so
+       * even a "sms" (or "both") resolved channel still delivers via email only.
+       * The channel is accepted (not a raw preference) so callers thread the same
+       * resolveChannel() result used for reminders — see booking-notifications.ts.
+       */
       async sendBookingConfirmation(
         emailInput: BookingNotificationInput,
-        preference: CommunicationPreference
+        _channel: "email" | "sms" | "both"
       ): Promise<void> {
-        // Confirmation is email-only (contains iCal attachment)
-        if (this.shouldSendEmail(preference) || preference === "sms_only") {
-          await this.emailAdapter.sendBookingConfirmation(emailInput);
-        }
+        await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
       /** Booking reminder — transactional, sent via channel(s) matching preference. */

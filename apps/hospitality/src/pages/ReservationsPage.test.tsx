@@ -6,22 +6,75 @@ import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
 import type { UseReservationDisplayResult } from "../hooks/useReservationDisplay.js";
-import type { Reservation } from "@mbe/types";
+import { useTables } from "../hooks/useTables.js";
+import { useCreateReservation } from "../hooks/useReservations.js";
+import type { Reservation, CreateReservationRequest } from "@mbe/types";
 import React from "react";
 
 const today = new Date().toLocaleDateString("en-CA");
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useReservationDisplay.js", () => ({ useReservationDisplay: vi.fn() }));
+vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
+vi.mock("../hooks/useReservations.js", () => ({ useCreateReservation: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+}));
+
+const NEW_RESERVATION_PAYLOAD: CreateReservationRequest = {
+  date: "2026-01-15",
+  startTime: "2026-01-15T18:00:00",
+  endTime: "2026-01-15T19:30:00",
+  partySize: 2,
+  tableId: "table-1",
+  venueId: "venue-1",
+  guestName: "New Guest",
+  guestEmail: "new-guest@example.com",
+};
+
+vi.mock("../components/reservations/NewReservationDialog.js", () => ({
+  NewReservationDialog: ({
+    onConfirm,
+    onClose,
+  }: {
+    onConfirm: (data: CreateReservationRequest) => Promise<void>;
+    onClose: () => void;
+  }) => (
+    <div data-testid="new-reservation-dialog">
+      {/* Mirrors the real dialog's onFormSubmit: catch so a rejected
+          onConfirm doesn't surface as an unhandled rejection in this stub —
+          the real error-banner display is covered by
+          NewReservationDialog.test.tsx. */}
+      <button
+        onClick={() => {
+          onConfirm(NEW_RESERVATION_PAYLOAD).catch(() => {});
+        }}
+      >
+        Confirm New Reservation
+      </button>
+      <button onClick={onClose}>Close New Reservation</button>
+    </div>
+  ),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span data-testid="badge">{children}</span>
+  ),
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+  }) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
   ),
   Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
   EmptyState: ({
@@ -175,11 +228,28 @@ function mockDisplayHook(overrides: Partial<UseReservationDisplayResult> = {}) {
   );
 }
 
+const createReservationMutateAsync = vi.fn().mockResolvedValue(undefined);
+
 describe("ReservationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useVenue).mockReturnValue(makeVenueContext());
     mockDisplayHook();
+    vi.mocked(useTables).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    createReservationMutateAsync.mockResolvedValue(undefined);
+    vi.mocked(useCreateReservation).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: createReservationMutateAsync,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+    });
   });
 
   const renderPage = () =>
@@ -482,6 +552,73 @@ describe("ReservationsPage", () => {
       renderPage();
 
       expect(screen.getByText("API failure")).toBeDefined();
+    });
+  });
+
+  describe("new reservation flow", () => {
+    it("shows a New reservation action", () => {
+      renderPage();
+      expect(screen.getByText("New reservation")).toBeDefined();
+    });
+
+    it("opens the new reservation dialog on click", () => {
+      renderPage();
+
+      expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      fireEvent.click(screen.getByText("New reservation"));
+
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+    });
+
+    it("creates a reservation end-to-end and closes the dialog on confirm", async () => {
+      renderPage();
+
+      fireEvent.click(screen.getByText("New reservation"));
+      fireEvent.click(screen.getByText("Confirm New Reservation"));
+
+      await waitFor(() => {
+        expect(createReservationMutateAsync).toHaveBeenCalledWith(NEW_RESERVATION_PAYLOAD);
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      });
+    });
+
+    it("closes the dialog without creating when closed", () => {
+      renderPage();
+
+      fireEvent.click(screen.getByText("New reservation"));
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+
+      fireEvent.click(screen.getByText("Close New Reservation"));
+
+      expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      expect(createReservationMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it("leaves the dialog open when the create mutation rejects", async () => {
+      createReservationMutateAsync.mockRejectedValueOnce(new Error("Table is not available"));
+      renderPage();
+
+      fireEvent.click(screen.getByText("New reservation"));
+      fireEvent.click(screen.getByText("Confirm New Reservation"));
+
+      await waitFor(() => {
+        expect(createReservationMutateAsync).toHaveBeenCalledOnce();
+      });
+
+      // Dialog stays open — its own internal error banner (tested in
+      // NewReservationDialog.test.tsx) surfaces the ADR-002/008 envelope
+      // message; the page only closes on success.
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+    });
+
+    it("disables the New reservation button when no venue is selected", () => {
+      vi.mocked(useVenue).mockReturnValue(makeVenueContext({ selectedVenueId: null }));
+      renderPage();
+
+      expect(screen.getByText("New reservation").closest("button")).toBeDisabled();
     });
   });
 });

@@ -92,16 +92,16 @@ describe("NotificationDispatcher", () => {
     expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
   });
 
-  it("sendBookingConfirmation always sends (transactional) regardless of SMS preference", async () => {
+  it("sendBookingConfirmation always sends (transactional) regardless of resolved channel", async () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
       smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
-    await dispatcher.sendBookingConfirmation(emailInput, "sms_only");
+    await dispatcher.sendBookingConfirmation(emailInput, "sms");
 
-    // Confirmation is transactional — always emails even when sms_only
+    // Confirmation is transactional — always emails even when channel is "sms"
     expect(mockEmailAdapter.sendBookingConfirmation).toHaveBeenCalledOnce();
   });
 
