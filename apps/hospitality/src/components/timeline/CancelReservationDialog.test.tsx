@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CancelReservationDialog } from "./CancelReservationDialog.js";
-import type { CancellationPolicy } from "../../utils/cancellation-fee.js";
+import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
