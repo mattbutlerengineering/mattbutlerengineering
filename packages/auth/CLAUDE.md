@@ -73,6 +73,10 @@ fastify.get("/public", { preHandler: optionalAuth }, handler);
 
 Reads `AUTH_AUTHORITY` and `AUTH_AUDIENCE` from env, throws if missing. Excludes `/health` and `/docs` by default.
 
+### Test Auth Bypass
+
+The auth bypass (`bypassTestMode`, sourced from `AUTH_BYPASS_IN_TESTS=true`) is **DEFAULT OFF**. Both check sites — the global `onRequest` hook and the `requireAuth` preHandler — use a positive opt-in gate: the bypass activates **only when `NODE_ENV === "test"`**. Production, staging, and an unset `NODE_ENV` all leave it OFF, so a deploy that forgets to set `NODE_ENV` can never mint the hardcoded admin identity (`auth0|user-123`) or skip JWT validation. Never set `AUTH_BYPASS_IN_TESTS` in production.
+
 ### Token Verification Flow
 
 1. Global `onRequest` hook extracts Bearer token from Authorization header
@@ -87,6 +91,7 @@ Reads `AUTH_AUTHORITY` and `AUTH_AUDIENCE` from env, throws if missing. Excludes
 | ---------------- | ------------- | ------------------------------------------------------- |
 | `AUTH_AUTHORITY` | Yes (backend) | OIDC issuer URL (e.g., `https://your-tenant.auth0.com`) |
 | `AUTH_AUDIENCE`  | Yes (backend) | Expected JWT audience                                   |
+| `AUTH_BYPASS_IN_TESTS` | No | When `true` **and** `NODE_ENV === "test"`, requests with `x-auth-bypass: true` skip JWT and receive a hardcoded admin identity. Default OFF; never set in production. |
 
 Frontend config is passed via `AuthProvider` props (typically from build-time env vars).
 
