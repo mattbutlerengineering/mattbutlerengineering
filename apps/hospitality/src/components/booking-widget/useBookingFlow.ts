@@ -30,6 +30,14 @@ export interface BookingFlowData {
   confirmLoading: boolean;
   confirmError: string | null;
   depositConfig: DepositConfig | null;
+  /**
+   * Whether a deposit is required for this flow. Before confirmation this is
+   * a provisional guess derived from the venue's general policy alone (risk
+   * is not yet known); `CONFIRM_SUCCESS_WITH_DEPOSIT` / `_NO_DEPOSIT`
+   * overwrite it with the final, risk-aware outcome — the single source of
+   * truth the step set and indicator derive from.
+   */
+  depositRequired: boolean;
   depositPaymentIntentId: string | null;
   waitlistResult: WaitlistResult | null;
 }
@@ -77,6 +85,7 @@ const INITIAL_DATA: BookingFlowData = {
   confirmLoading: false,
   confirmError: null,
   depositConfig: null,
+  depositRequired: false,
   depositPaymentIntentId: null,
   waitlistResult: null,
 };
@@ -85,6 +94,16 @@ const INITIAL_STATE: BookingFlowState = {
   step: "date-party",
   data: INITIAL_DATA,
 };
+
+/** Step keys when no deposit is required — single source of truth for step-set derivation. */
+export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
+/** Step keys when a deposit is required — appends the "payment" step. */
+export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
+  "date-party",
+  "time-slot",
+  "guest-details",
+  "payment",
+];
 
 function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
   switch (action.type) {
@@ -171,6 +190,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
           reservation: action.reservation,
           confirmLoading: false,
           confirmError: null,
+          depositRequired: false,
         },
       };
 
@@ -182,6 +202,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
           reservation: action.reservation,
           confirmLoading: false,
           confirmError: null,
+          depositRequired: true,
         },
       };
 
@@ -215,7 +236,17 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       return INITIAL_STATE;
 
     case "SET_DEPOSIT_CONFIG":
-      return { ...state, data: { ...state.data, depositConfig: action.config } };
+      // Provisional pre-confirm guess from the venue's general policy alone
+      // (risk isn't known yet); CONFIRM_SUCCESS_* overwrites this with the
+      // final, risk-aware outcome.
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          depositConfig: action.config,
+          depositRequired: Boolean(action.config?.enabled),
+        },
+      };
 
     case "GO_TO_WAITLIST_JOIN":
       return { ...state, step: "waitlist-join" };
@@ -260,6 +291,10 @@ export interface BookingFlowResult {
   state: BookingStep;
   data: BookingFlowData;
   actions: BookingFlowActions;
+  /** The step set for this flow, derived from `data.depositRequired` — the single source of truth. */
+  stepKeys: BookingStep[];
+  /** Index of the current step within `stepKeys`; always valid since both step sets share it. */
+  currentStepIndex: number;
 }
 
 export function useBookingFlow(): BookingFlowResult {
@@ -341,7 +376,12 @@ export function useBookingFlow(): BookingFlowResult {
       dispatch({ type: "CONFIRM_START" });
       try {
         const reservation = await reservationPromise;
-        if (depositConfig?.enabled) {
+        // `depositConfig` is the resolved output of effectiveDepositPolicy —
+        // per its contract, a non-null result (which may itself carry
+        // `enabled: false` on the risky-guest override path) means a deposit
+        // is required. Checking `.enabled` here would silently drop that
+        // override.
+        if (depositConfig) {
           dispatch({ type: "CONFIRM_SUCCESS_WITH_DEPOSIT", reservation });
         } else {
           dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
@@ -382,9 +422,17 @@ export function useBookingFlow(): BookingFlowResult {
     dispatch({ type: "WAITLIST_JOINED", result });
   }, []);
 
+  // Render-time derivation — single source of truth for the step set and
+  // indicator. Both step sets share the same indices for every step before
+  // "payment", so the index is always valid regardless of which set is active.
+  const stepKeys = flowState.data.depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
+  const currentStepIndex = stepKeys.indexOf(flowState.step);
+
   return {
     state: flowState.step,
     data: flowState.data,
+    stepKeys,
+    currentStepIndex,
     actions: {
       setSelectedDate,
       setSelectedEndDate,
