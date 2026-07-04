@@ -327,10 +327,14 @@ export async function runOrchestrator(
       };
     }
 
-    // Gather final status of all child sessions
+    // Gather final status of all child sessions, bucketed into:
+    // succeeded / running-or-pending (still in flight) / failed-or-cancelled (terminal failure).
+    // A status-check exception is treated as a terminal failure for that child — it's a
+    // hard error, not evidence the child is still progressing.
     let totalCost = 0;
-    let allSucceeded = true;
     let anySucceeded = false;
+    let anyRunningOrPending = false;
+    let anyFailedOrCancelled = false;
 
     for (const sessionId of childSessionIds) {
       try {
@@ -342,11 +346,13 @@ export async function runOrchestrator(
 
         if (session.status === "succeeded") {
           anySucceeded = true;
+        } else if (session.status === "running" || session.status === "pending") {
+          anyRunningOrPending = true;
         } else {
-          allSucceeded = false;
+          anyFailedOrCancelled = true;
         }
       } catch {
-        allSucceeded = false;
+        anyFailedOrCancelled = true;
       }
     }
 
@@ -356,7 +362,17 @@ export async function runOrchestrator(
     }
 
     const durationMs = Date.now() - startTime;
-    const status = allSucceeded ? "succeeded" : anySucceeded ? "partially_succeeded" : "failed";
+    // Children still in flight take priority over the terminal bucket — don't report
+    // failed/succeeded for an orchestration that simply hasn't settled yet.
+    const status = anyRunningOrPending
+      ? anySucceeded
+        ? "partially_succeeded"
+        : "in_progress"
+      : anyFailedOrCancelled
+        ? anySucceeded
+          ? "partially_succeeded"
+          : "failed"
+        : "succeeded";
 
     const summary =
       resultMessage?.subtype === "success" ? resultMessage.result : "Orchestration completed";
