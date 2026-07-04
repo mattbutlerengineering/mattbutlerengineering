@@ -14,6 +14,7 @@ export const DEFAULT_IGNORE_DIRS = new Set([
   "node_modules",
   "dist",
   "generated",
+  "storybook-static",
   ".git",
   ".claude",
   ".agent-worktrees",
