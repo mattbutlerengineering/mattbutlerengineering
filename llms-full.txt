@@ -6426,6 +6426,7 @@
       }>(
         "/:venueId",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "Get available time slots",
             operationId: "getAvailability",
@@ -6529,6 +6530,7 @@
       }>(
         "/:venueId/dates",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "Get dates with availability",
             operationId: "getAvailableDates",
@@ -9614,6 +9616,7 @@
       }>(
         "/",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "List all tables",
             operationId: "listTables",
@@ -9667,6 +9670,7 @@
       }>(
         "/:id",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -10030,6 +10034,7 @@
       }>(
         "/groups",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "List all venue groups",
             operationId: "listVenueGroups",
@@ -10075,6 +10080,7 @@
       }>(
         "/groups/:id",
         {
+          preHandler: requireAuth,
           schema: {
             summary: "Get venue group by ID",
             operationId: "getVenueGroupById",

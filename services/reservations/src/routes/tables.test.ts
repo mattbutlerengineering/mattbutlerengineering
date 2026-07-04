@@ -175,6 +175,7 @@ describe("Table Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/tables",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -200,6 +201,7 @@ describe("Table Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/tables?page=2&limit=5&activeOnly=true",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(tableService.list).toHaveBeenCalledWith(2, 5, true);
@@ -213,6 +215,7 @@ describe("Table Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/tables/table-123",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -227,6 +230,7 @@ describe("Table Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/tables/nonexistent",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -467,6 +471,54 @@ describe("Table Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("auth enforcement on reads (#3103)", () => {
+    it("returns 401 for anonymous GET /v1/tables", async () => {
+      const response = await app.inject({ method: "GET", url: "/api/v1/tables" });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("returns 401 for anonymous GET /v1/tables/:id", async () => {
+      const response = await app.inject({ method: "GET", url: "/api/v1/tables/table-123" });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("allows authenticated operator to GET /v1/tables", async () => {
+      vi.mocked(tableService.list).mockResolvedValueOnce({
+        data: [mockTable],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 1,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/tables",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it("allows authenticated operator to GET /v1/tables/:id", async () => {
+      vi.mocked(tableService.getById).mockResolvedValueOnce(mockTable);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/tables/table-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
     });
   });
 });
