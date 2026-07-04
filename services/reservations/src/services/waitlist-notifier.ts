@@ -65,8 +65,12 @@ export interface NotifyTableReadyInput {
 }
 
 export interface HandleExpiryInput {
+  /**
+   * The venue is derived from the expired entry itself (expireEntry returns
+   * it), so the WAITLIST_EXPIRY job payload only needs the entry id — which is
+   * all notifyTableReady enqueues.
+   */
   waitlistEntryId: string;
-  venueId: string;
 }
 
 export interface WaitlistNotifier {
@@ -153,7 +157,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     const expired = await expireEntry(input.waitlistEntryId);
     if (!expired) return;
 
-    const waiting = await listWaiting(input.venueId);
+    const waiting = await listWaiting(expired.venueId);
     const next = waiting[0];
     if (!next) return;
 

@@ -24,6 +24,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-016](ADR-016-green-main-merge-gating.md)      | Green-Main Merge-Gating Policy                       | active                  | 2026-06-30 |
 | [ADR-017](ADR-017-agent-execution-architecture.md) | Agent Execution Architecture                         | active                  | 2026-06-30 |
 | [ADR-018](ADR-018-learning-loop-architecture.md)   | Continuous-Improvement / Learning-Loop Architecture  | active                  | 2026-06-30 |
+| [ADR-019](ADR-019-in-process-jobworker-delivery.md) | In-Process JobWorker Delivery                       | active                  | 2026-07-04 |
 
 ## Format
 

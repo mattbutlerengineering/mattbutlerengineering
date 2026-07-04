@@ -43,6 +43,13 @@ import {
   type PostVisitNotifier,
 } from "./services/post-visit-notifier.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
+import {
+  createReservationJobHandlers,
+  createReservationJobWorker,
+} from "./services/job-worker.js";
+import { reservationService } from "./services/reservation.js";
+import { venueService } from "./services/venue.js";
+import { generateManageToken } from "./routes/public-reservations.js";
 import { prisma } from "./services/database.js";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
@@ -152,9 +159,29 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Wire lapsed-guest monitor with lifecycle hooks
   const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+
+  // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
+  // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via the
+  // JobScheduler and delivers them through the notification dispatcher +
+  // waitlist re-notify path. Handlers are built eagerly (pure closures);
+  // worker construction — which opens the Redis consumer — is deferred to
+  // onReady so buildApp() stays side-effect-free.
+  const jobWorker = createReservationJobWorker({
+    redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+    handlers: createReservationJobHandlers({
+      getReservation: (id) => reservationService.getById(id),
+      getVenue: (id) => venueService.getById(id),
+      dispatcher: notificationPort,
+      generateManageToken,
+      handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+    }),
+  });
+
   if (process.env.NODE_ENV !== "test") {
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
     fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
+    fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
+    fastify.addHook("onClose", async () => jobWorker.stop());
   }
 
   // AppError serialization is handled centrally by errorHandlerPlugin →
