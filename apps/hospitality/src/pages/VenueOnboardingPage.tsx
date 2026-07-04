@@ -84,6 +84,7 @@ export function VenueOnboardingPage() {
                   data={data.basicInfo}
                   errors={errors.basicInfo}
                   onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
+                  onValidate={actions.validateStep}
                   slugStatus={slugStatus}
                 />
               </>
@@ -96,6 +97,7 @@ export function VenueOnboardingPage() {
                   data={data.locationTime}
                   errors={errors.locationTime}
                   onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
+                  onValidate={actions.validateStep}
                 />
               </>
             )}
@@ -120,6 +122,7 @@ export function VenueOnboardingPage() {
                   data={data.settings}
                   errors={errors.settings}
                   onChange={(settings) => actions.setStepData("settings", settings)}
+                  onValidate={actions.validateStep}
                 />
               </>
             )}

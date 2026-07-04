@@ -241,4 +241,42 @@ describe("buildOnboardingPayload", () => {
   it("caps advancement at TOTAL_STEPS", () => {
     expect(TOTAL_STEPS).toBe(5);
   });
+
+  // Regression: #3082 refactor returned `actions` as a fresh object literal every
+  // render. Because VenueOnboardingPage lists `actions` in the debounced slug-check
+  // effect deps, that unstable identity re-ran the effect every render → a
+  // self-sustaining ~500ms poll of api.venues.getBySlug with no user input.
+  describe("actions identity stability", () => {
+    it("keeps the actions object referentially stable across a plain re-render", () => {
+      const { result, rerender } = renderHook(() => useOnboardingWizard());
+      const first = result.current.actions;
+      rerender();
+      expect(result.current.actions).toBe(first);
+    });
+
+    it("keeps the actions object stable after a state-changing re-render", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+      const first = result.current.actions;
+      act(() =>
+        result.current.actions.setStepData("basicInfo", {
+          name: "My Venue",
+          slug: "my-venue",
+          venueGroupId: "",
+        })
+      );
+      expect(result.current.actions).toBe(first);
+    });
+  });
+
+  // Regression: on-blur field validation. Step inputs wire onBlur -> onValidate;
+  // validateStep must recompute the current step's errors without advancing.
+  describe("validateStep", () => {
+    it("populates the current step's errors without changing step", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+      act(() => result.current.actions.validateStep());
+      expect(result.current.step).toBe(1);
+      expect(result.current.errors.basicInfo.name).toBeDefined();
+      expect(result.current.errors.basicInfo.slug).toBeDefined();
+    });
+  });
 });

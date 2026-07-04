@@ -1,4 +1,4 @@
-import { useReducer, useCallback } from "react";
+import { useReducer, useCallback, useMemo } from "react";
 import type { OperatingHours, CreateVenueRequest, VenueSettings, Venue } from "@mbe/types";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
@@ -42,6 +42,7 @@ type OnboardingWizardAction =
   | { type: "NEXT" }
   | { type: "BACK" }
   | { type: "GO_TO_STEP"; step: number }
+  | { type: "VALIDATE" }
   | { type: "SLUG_CHECK_START" }
   | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
   | { type: "SUBMIT_START" }
@@ -162,6 +163,11 @@ function reducer(
       };
     }
 
+    case "VALIDATE":
+      // Recompute the current step's errors without advancing — restores the
+      // on-blur field validation the step inputs wire to onValidate.
+      return runStepValidation(state).state;
+
     case "BACK":
       return { ...state, step: Math.max(state.step - 1, 1) };
 
@@ -214,6 +220,7 @@ export interface OnboardingWizardActions {
   next: () => void;
   back: () => void;
   goToStep: (step: number) => void;
+  validateStep: () => void;
   checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
   submit: (venuePromise: Promise<Venue>) => Promise<Venue>;
 }
@@ -263,6 +270,7 @@ export function useOnboardingWizard(): OnboardingWizardResult {
   const next = useCallback(() => dispatch({ type: "NEXT" }), []);
   const back = useCallback(() => dispatch({ type: "BACK" }), []);
   const goToStep = useCallback((step: number) => dispatch({ type: "GO_TO_STEP", step }), []);
+  const validateStep = useCallback(() => dispatch({ type: "VALIDATE" }), []);
 
   const checkSlugAvailability = useCallback(
     async (checkPromise: Promise<unknown>): Promise<void> => {
@@ -291,6 +299,14 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     }
   }, []);
 
+  // Stabilise the actions object identity across renders. Each callback is
+  // already memoized, so this object never changes — consumers can safely list
+  // `actions` in effect dependency arrays without re-running every render.
+  const actions = useMemo<OnboardingWizardActions>(
+    () => ({ setStepData, next, back, goToStep, validateStep, checkSlugAvailability, submit }),
+    [setStepData, next, back, goToStep, validateStep, checkSlugAvailability, submit]
+  );
+
   return {
     step: state.step,
     data: state.data,
@@ -299,7 +315,7 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     slugStatus: state.slugStatus,
     isSubmitting: state.isSubmitting,
     submitError: state.submitError,
-    actions: { setStepData, next, back, goToStep, checkSlugAvailability, submit },
+    actions,
   };
 }
 
