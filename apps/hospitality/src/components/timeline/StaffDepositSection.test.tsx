@@ -88,6 +88,9 @@ describe("StaffDepositSection", () => {
   };
 
   const mockApi = {
+    deposits: {
+      create: vi.fn(),
+    },
     client: {
       postOne: vi.fn(),
     },
@@ -127,7 +130,7 @@ describe("StaffDepositSection", () => {
   });
 
   it("creates deposit and shows it on success", async () => {
-    mockApi.client.postOne.mockResolvedValue({
+    mockApi.deposits.create.mockResolvedValue({
       ...mockDeposit,
       status: "pending",
       heldAt: null,
@@ -143,15 +146,17 @@ describe("StaffDepositSection", () => {
     await waitFor(() => {
       expect(screen.getAllByText(/\$25\.00/).length).toBeGreaterThan(0);
     });
-    expect(mockApi.client.postOne).toHaveBeenCalledWith("/api/v1/deposits", {
+    expect(mockApi.deposits.create).toHaveBeenCalledWith({
       reservationId: "res-1",
       amountCents: 2500,
       currency: "usd",
     });
+    // Zero raw transport in the migrated site.
+    expect(mockApi.client.postOne).not.toHaveBeenCalled();
   });
 
   it("shows error when API call fails", async () => {
-    mockApi.client.postOne.mockRejectedValue(new Error("Network error"));
+    mockApi.deposits.create.mockRejectedValue(new Error("Network error"));
 
     render(<StaffDepositSection {...defaultProps} />);
     fireEvent.click(screen.getByText("+ Collect Deposit"));

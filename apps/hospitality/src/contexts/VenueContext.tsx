@@ -3,13 +3,13 @@ import {
   useContext,
   useState,
   useEffect,
-  useRef,
   useMemo,
   useCallback,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Venue } from "@mbe/types";
-import { useApiClient } from "../hooks/useApiClient.js";
+import { useVenues, VENUES_QUERY_KEY } from "../hooks/useVenues.js";
 
 interface VenueContextValue {
   venues: readonly Venue[];
@@ -48,53 +48,35 @@ interface VenueProviderProps {
 }
 
 export function VenueProvider({ children }: VenueProviderProps) {
-  const api = useApiClient();
+  const queryClient = useQueryClient();
 
-  const [venues, setVenues] = useState<readonly Venue[]>([]);
+  // Venues are owned by the shared react-query hook — no bespoke effect,
+  // fetchVersionRef, or manual loading state. SSE venue mutations and the
+  // useUpdateVenue mutation both invalidate VENUES_QUERY_KEY, so this list
+  // stays fresh without any imperative refetch plumbing here.
+  const { data: fetchedVenues, isLoading } = useVenues({ limit: 100 });
+  const venues = useMemo<readonly Venue[]>(() => fetchedVenues ?? [], [fetchedVenues]);
+
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(readStoredVenueId);
-  const [isLoading, setIsLoading] = useState(true);
-  const fetchVersionRef = useRef(0);
 
-  const fetchVenuesInner = useCallback(async () => {
-    const version = ++fetchVersionRef.current;
-    setIsLoading(true);
-    try {
-      const response = await api.venues.list({ limit: 100 });
-      if (version !== fetchVersionRef.current) return;
-
-      const fetched: readonly Venue[] = response.data;
-      setVenues(fetched);
-
-      // Auto-select logic: use stored ID if it matches a fetched venue,
-      // otherwise fall back to the first venue
-      const storedId = readStoredVenueId();
-      const storedExists = fetched.some((v) => v.id === storedId);
-
-      if (storedExists) {
-        setSelectedVenueId(storedId);
-      } else if (fetched.length > 0) {
-        const firstId = fetched[0].id;
-        setSelectedVenueId(firstId);
-        storeVenueId(firstId);
-      } else {
-        setSelectedVenueId(null);
-      }
-    } catch {
-      if (version === fetchVersionRef.current) {
-        setVenues([]);
-        setSelectedVenueId(null);
-      }
-    } finally {
-      if (version === fetchVersionRef.current) {
-        setIsLoading(false);
-      }
-    }
-  }, [api]);
-
-  // Fetch venues on mount
+  // Once venues resolve, reconcile the selection: keep the stored id if it
+  // still exists, else fall back to the first venue (persisting that choice),
+  // else clear. Re-runs only when the venue set actually changes.
   useEffect(() => {
-    fetchVenuesInner();
-  }, [fetchVenuesInner]);
+    if (isLoading) return;
+    const list = fetchedVenues ?? [];
+    const storedId = readStoredVenueId();
+    const nextId = list.some((v) => v.id === storedId)
+      ? storedId
+      : list.length > 0
+        ? list[0].id
+        : null;
+    if (nextId && nextId !== storedId) {
+      storeVenueId(nextId);
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedVenueId(nextId);
+  }, [fetchedVenues, isLoading]);
 
   const setVenueId = useCallback(
     (id: string) => {
@@ -105,6 +87,10 @@ export function VenueProvider({ children }: VenueProviderProps) {
     },
     [venues]
   );
+
+  const refetchVenues = useCallback(async () => {
+    await queryClient.refetchQueries({ queryKey: [VENUES_QUERY_KEY] });
+  }, [queryClient]);
 
   const selectedVenue = useMemo(
     () => venues.find((v) => v.id === selectedVenueId) ?? null,
@@ -121,9 +107,9 @@ export function VenueProvider({ children }: VenueProviderProps) {
       setVenueId,
       isLoading,
       isMultiVenue,
-      refetchVenues: fetchVenuesInner,
+      refetchVenues,
     }),
-    [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue, fetchVenuesInner]
+    [venues, selectedVenueId, selectedVenue, setVenueId, isLoading, isMultiVenue, refetchVenues]
   );
 
   return <VenueContext.Provider value={value}>{children}</VenueContext.Provider>;
