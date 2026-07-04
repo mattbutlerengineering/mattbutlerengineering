@@ -196,6 +196,42 @@ describe("Orchestrate Routes", () => {
       expect(updateCalls[1]?.[1]).toBe("FAILED");
     });
 
+    it("keeps parent session RUNNING when orchestrator reports in_progress", async () => {
+      vi.mocked(sessionService.create).mockResolvedValueOnce(mockParentSession);
+      vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
+      vi.mocked(sessionService.addEvent).mockResolvedValue({
+        id: "event-1",
+        sessionId: "parent-session-1",
+        type: "orchestrator:start",
+        data: {},
+        createdAt: "2026-02-27T00:00:00.000Z",
+      });
+
+      vi.mocked(runOrchestrator).mockResolvedValueOnce({
+        status: "in_progress",
+        childSessionIds: ["child-1"],
+        summary: "Still working",
+        totalCostUsd: 0.2,
+        durationMs: 10000,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: { taskDescription: "Long-running task" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data.status).toBe("in_progress");
+
+      // Should have been called with RUNNING then RUNNING again — never a false FAILED
+      const updateCalls = vi.mocked(sessionService.updateStatus).mock.calls;
+      expect(updateCalls[0]?.[1]).toBe("RUNNING");
+      expect(updateCalls[1]?.[1]).toBe("RUNNING");
+    });
+
     it("passes custom configuration to the orchestrator", async () => {
       vi.mocked(sessionService.create).mockResolvedValueOnce(mockParentSession);
       vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
