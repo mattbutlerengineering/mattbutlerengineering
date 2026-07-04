@@ -202,6 +202,9 @@ export interface FeedbackPhaseInput {
   readonly resultMessage?: SDKResultMessage;
   readonly prUrl: string | null;
   readonly prNumber?: number;
+  /** Forwarded to `FeedbackLoopParams.signal` so a pipeline cancel() reaches
+   * the feedback loop's delay/poll/query calls. */
+  readonly signal?: AbortSignal;
 }
 
 /**
