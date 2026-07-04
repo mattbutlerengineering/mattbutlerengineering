@@ -4667,8 +4667,7 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      | { code: "CONFLICT"; message: string }
-      | { code: "PACING_EXCEEDED"; message: string };
+      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -4730,11 +4729,7 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      | "NOT_FOUND"
-      | "EXPIRED"
-      | "SESSION_MISMATCH"
-      | "CONFLICT"
-      | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
@@ -4749,18 +4744,14 @@
       DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
   </file>
   <file path="src/services/deposit.ts">
+    export type StripePort = Pick<
+      StripeService,
+      "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+    >;
     export class DepositNotFoundError extends Error {
       constructor(id: string) {
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
-      }
-    }
-    export class DepositConcurrentUpdateError extends Error {
-      constructor(id: string, action: string) {
-        super(
-          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
-        );
-        this.name = "DepositConcurrentUpdateError";
       }
     }
   </file>
