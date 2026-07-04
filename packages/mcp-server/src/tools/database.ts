@@ -1,15 +1,13 @@
-import { createShellRunner } from "../shell-runner.js";
+import { psqlQuery } from "../command-builder.js";
 
-const defaultListRun = createShellRunner({ errorLabel: "Failed to list tables" });
-const defaultMigrationRun = createShellRunner({ errorLabel: "Failed to get migration status" });
-
-export async function dbListTables(run = defaultListRun): Promise<string> {
+export async function dbListTables(run = psqlQuery): Promise<string> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return JSON.stringify({ error: "DATABASE_URL not set" });
   }
   const output = run(
-    `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`
+    dbUrl,
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
   );
   try {
     const asJson = JSON.parse(output) as { error?: string };
@@ -23,13 +21,14 @@ export async function dbListTables(run = defaultListRun): Promise<string> {
   return JSON.stringify({ tables }, null, 2);
 }
 
-export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> {
+export async function dbMigrationStatus(run = psqlQuery): Promise<string> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return JSON.stringify({ error: "DATABASE_URL not set" });
   }
   const output = run(
-    `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`
+    dbUrl,
+    "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"
   );
   try {
     const asJson = JSON.parse(output) as { error?: string };

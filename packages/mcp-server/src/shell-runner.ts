@@ -1,10 +1,14 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
-/** Signature-compatible with execSync for injection in tests. */
-export type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number }) => string;
+/** Signature-compatible with execFileSync for injection in tests. */
+export type ShellRunner = (
+  cmd: string,
+  args: string[],
+  opts: { encoding: "utf-8"; timeout: number }
+) => string;
 
 export interface ShellRunnerOptions {
-  /** Injected runner — defaults to node's execSync. */
+  /** Injected runner — defaults to node's execFileSync. */
   runner?: ShellRunner;
   /** Timeout in milliseconds. Defaults to 15 000. */
   timeoutMs?: number;
@@ -13,17 +17,19 @@ export interface ShellRunnerOptions {
 }
 
 /**
- * Creates a shell command runner with centralised timeout and error-envelope logic.
- * Returns the trimmed stdout on success; returns JSON error-envelope on failure.
+ * Creates a command runner with centralised timeout and error-envelope logic.
+ * Invokes `cmd` with `args` via `execFileSync` — no shell is spawned, so argv
+ * elements are never subject to shell parsing/interpolation. Returns the
+ * trimmed stdout on success; returns a JSON error-envelope on failure.
  */
 export function createShellRunner(opts: ShellRunnerOptions = {}) {
-  const runner = opts.runner ?? (execSync as unknown as ShellRunner);
+  const runner = opts.runner ?? (execFileSync as unknown as ShellRunner);
   const timeout = opts.timeoutMs ?? 15_000;
   const errorLabel = opts.errorLabel ?? "Command failed";
 
-  return function run(cmd: string): string {
+  return function run(cmd: string, args: string[] = []): string {
     try {
-      return (runner(cmd, { encoding: "utf-8", timeout }) as string).trim();
+      return (runner(cmd, args, { encoding: "utf-8", timeout }) as string).trim();
     } catch (error) {
       return JSON.stringify({
         error: errorLabel,
