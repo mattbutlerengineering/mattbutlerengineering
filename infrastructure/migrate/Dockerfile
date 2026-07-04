@@ -13,6 +13,11 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 
 # Copy schemas, migrations, and per-service prisma.config.ts.
 # COPY is cached; runtime SERVICE_NAME selects which set to run.
+# Each prisma.config.ts is a thin re-export of packages/database/src/prisma-config.ts via a
+# RELATIVE import (not the "@mbe/database" package specifier, which would need pnpm-installed
+# node_modules that this image never creates) — so that shared file must be copied too, at the
+# same relative depth the import expects.
+COPY packages/database/src/prisma-config.ts ./packages/database/src/prisma-config.ts
 COPY services/users/prisma ./services/users/prisma
 COPY services/users/prisma.config.ts ./services/users/prisma.config.ts
 COPY services/reservations/prisma ./services/reservations/prisma
