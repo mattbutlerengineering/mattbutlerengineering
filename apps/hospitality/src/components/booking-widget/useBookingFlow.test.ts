@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
 import { useBookingFlow } from "./useBookingFlow.js";
+import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
 
 const mockSlot: TimeSlot = { time: "2026-05-20T18:00:00", available: true };
 const mockSlot2: TimeSlot = { time: "2026-05-20T19:00:00", available: true };
@@ -297,6 +298,82 @@ describe("useBookingFlow", () => {
       });
       act(() => result.current.actions.goBackToGuestDetails());
       expect(result.current.state).toBe("guest-details");
+    });
+  });
+
+  describe("step-set derivation (single source of truth)", () => {
+    it("stepKeys excludes payment and currentStepIndex is valid before any deposit is resolved", () => {
+      const { result } = renderHook(() => useBookingFlow());
+      expect(result.current.stepKeys).not.toContain("payment");
+      expect(result.current.currentStepIndex).toBe(result.current.stepKeys.indexOf("date-party"));
+    });
+
+    it("confirmReservation with a deposit config resolves stepKeys to include payment with a valid index", async () => {
+      const { result } = renderHook(() => useBookingFlow());
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot, Promise.resolve(mockHold));
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(
+          Promise.resolve(mockReservation),
+          mockDepositConfig
+        );
+      });
+      expect(result.current.state).toBe("payment");
+      expect(result.current.stepKeys).toContain("payment");
+      expect(result.current.currentStepIndex).toBe(result.current.stepKeys.indexOf("payment"));
+      expect(result.current.currentStepIndex).toBeGreaterThanOrEqual(0);
+    });
+
+    it("risky guest + disabled venue policy: confirm resolves stepKeys to include payment with a valid index", async () => {
+      // The venue's general deposit policy is disabled (enabled: false), but
+      // the guest was flagged risky at guest-details submission —
+      // effectiveDepositPolicy overrides the disabled policy and returns the
+      // (still enabled: false) config non-null. The reducer must key off the
+      // non-null result, not the config's own `enabled` flag, so the step
+      // indicator and the confirm outcome can never diverge.
+      const disabledPolicyConfig: DepositConfig = { ...mockDepositConfig, enabled: false };
+      const resolvedDepositConfig = effectiveDepositPolicy({
+        depositConfig: disabledPolicyConfig,
+        venueSlug: "the-oak-table",
+        stripePublishableKey: "pk_test_abc",
+        guestIsRisky: true,
+      });
+
+      const { result } = renderHook(() => useBookingFlow());
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot, Promise.resolve(mockHold));
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(
+          Promise.resolve(mockReservation),
+          resolvedDepositConfig
+        );
+      });
+
+      expect(result.current.state).toBe("payment");
+      expect(result.current.stepKeys).toContain("payment");
+      const index = result.current.currentStepIndex;
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(result.current.stepKeys[index]).toBe("payment");
+    });
+
+    it("confirmReservation without a deposit keeps stepKeys deposit-free", async () => {
+      const { result } = renderHook(() => useBookingFlow());
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot, Promise.resolve(mockHold));
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(Promise.resolve(mockReservation), null);
+      });
+      expect(result.current.state).toBe("confirmation");
+      expect(result.current.stepKeys).not.toContain("payment");
+      // "confirmation" itself isn't a step-indicator entry (the widget hides
+      // the indicator on that screen) — -1 here is expected, not a bug.
+      expect(result.current.currentStepIndex).toBe(-1);
     });
   });
 

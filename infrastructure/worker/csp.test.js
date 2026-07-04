@@ -33,6 +33,17 @@ describe("buildCspDirectives", () => {
     expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
   });
 
+  it("allows js.stripe.com in script-src so Stripe.js can load", () => {
+    const csp = buildCspDirectives(nonce);
+    expect(csp).toMatch(/script-src[^;]*https:\/\/js\.stripe\.com/);
+  });
+
+  it("allows Stripe frame origins in frame-src", () => {
+    const csp = buildCspDirectives(nonce);
+    expect(csp).toMatch(/frame-src[^;]*https:\/\/js\.stripe\.com/);
+    expect(csp).toMatch(/frame-src[^;]*https:\/\/hooks\.stripe\.com/);
+  });
+
   it("allows unsafe-inline in style-src (CSS nonces less critical)", () => {
     expect(buildCspDirectives(nonce)).toContain("style-src 'self' 'unsafe-inline'");
   });
@@ -78,11 +89,12 @@ describe("buildCspDirectives", () => {
     // A nonce change is the ONLY delta allowed between requests.
     const expected = [
       "default-src 'self'",
-      `script-src 'nonce-${nonce}' 'self'`,
+      `script-src 'nonce-${nonce}' 'self' https://js.stripe.com`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https:",
       "font-src 'self' https://fonts.gstatic.com",
       `connect-src 'self' ${AUTH0_ORIGIN} https://api.mattbutlerengineering.com`,
+      "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
