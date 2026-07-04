@@ -5,6 +5,17 @@ import { transitionDeposit, DepositTransitionError } from "./deposit-state-machi
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { DepositType } from "@mbe/cancellation-policy";
 
+/**
+ * The subset of {@link StripeService} that DepositService depends on. Keeping
+ * this narrow (rather than depending on the whole class) makes the seam
+ * explicit and lets tests inject a plain object of `vi.fn()`s instead of
+ * mocking the `stripe` SDK module.
+ */
+export type StripePort = Pick<
+  StripeService,
+  "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+>;
+
 export class DepositNotFoundError extends Error {
   constructor(id: string) {
     super(`Deposit not found: ${id}`);
@@ -45,11 +56,7 @@ export interface CreateDepositOptions {
  * State transitions are enforced by the deposit state machine.
  */
 export class DepositService {
-  private readonly stripe: StripeService;
-
-  constructor(stripeApiKey: string) {
-    this.stripe = new StripeService(stripeApiKey);
-  }
+  constructor(private readonly stripe: StripePort) {}
 
   /**
    * Creates a new deposit in `pending` state with its Stripe PaymentIntent id
@@ -398,9 +405,10 @@ export class DepositService {
   }
 }
 
-// Singleton
+// Singleton. StripeService construction happens here, at the composition
+// root — DepositService itself only ever depends on the narrower StripePort.
 export const depositService = new DepositService(
-  process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder"
+  new StripeService(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder")
 );
 
 // Re-export error class from state machine for convenience

@@ -18,36 +18,25 @@ vi.mock("./database.js", async () => {
   return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
 });
 
-const { mockPaymentIntents, mockCustomers, mockRefunds } = vi.hoisted(() => ({
-  mockPaymentIntents: {
-    create: vi.fn(),
-    capture: vi.fn(),
-    cancel: vi.fn(),
-    retrieve: vi.fn(),
-  },
-  mockCustomers: {
-    create: vi.fn(),
-  },
-  mockRefunds: {
-    create: vi.fn(),
-  },
-}));
-
-vi.mock("stripe", () => {
-  class MockStripe {
-    paymentIntents = mockPaymentIntents;
-    customers = mockCustomers;
-    refunds = mockRefunds;
-    webhooks = { constructEvent: vi.fn() };
-    constructor(_key: string) {}
-  }
-  return { default: MockStripe };
-});
-
 import { DepositService, calculateDepositAmount } from "./deposit.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
 import type { DepositType } from "@mbe/cancellation-policy";
+
+/**
+ * Inline typed fake for the `StripePort` seam DepositService is injected
+ * with. No `vi.mock("stripe")` needed — DepositService never touches the
+ * Stripe SDK directly, so tests assert on this fake's calls instead of
+ * module-level SDK mocks.
+ */
+function createMockStripe() {
+  return {
+    cancelPaymentIntent: vi.fn(),
+    capturePaymentIntent: vi.fn(),
+    createPartialRefund: vi.fn(),
+    createCustomer: vi.fn(),
+  };
+}
 
 type VenueDepositConfig = { depositType: DepositType | null; depositAmountCents: number | null };
 
@@ -82,10 +71,12 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
 
 describe("DepositService", () => {
   let depositService: DepositService;
+  let mockStripe: ReturnType<typeof createMockStripe>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    depositService = new DepositService("sk_test_fake_key");
+    mockStripe = createMockStripe();
+    depositService = new DepositService(mockStripe);
   });
 
   describe("create", () => {
@@ -256,7 +247,10 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(appliedDeposit);
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
 
       const result = await depositService.apply("dep-123");
 
@@ -289,7 +283,7 @@ describe("DepositService", () => {
       await expect(depositService.apply("dep-123")).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
-      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
     });
 
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
@@ -297,13 +291,14 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
 
       await depositService.apply("dep-123");
 
-      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
-        idempotencyKey: "dep-123:apply",
-      });
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith("pi_test_123", "dep-123:apply");
     });
 
     it("updates DB to applied before calling Stripe (DB-first ordering)", async () => {
@@ -315,7 +310,7 @@ describe("DepositService", () => {
         return { count: 1 };
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "applied" }));
-      mockPaymentIntents.capture.mockImplementationOnce(async () => {
+      mockStripe.capturePaymentIntent.mockImplementationOnce(async () => {
         order.push("stripe");
         return { id: "pi_test_123", status: "succeeded" };
       });
@@ -333,7 +328,7 @@ describe("DepositService", () => {
         makeDeposit({ status: "applied", appliedAt: new Date() })
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
 
@@ -354,7 +349,7 @@ describe("DepositService", () => {
         makeDeposit({ status: "applied", appliedAt: new Date() })
       );
       mockDepositDb.update.mockRejectedValueOnce(new Error("db down")); // rollback write fails
-      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
 
       // The caller must see the original Stripe failure, not the rollback DB error.
       await expect(depositService.apply("dep-123")).rejects.toThrow(/stripe boom/);
@@ -368,7 +363,10 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(refundedDeposit);
-      mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
+      mockStripe.cancelPaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
 
       const result = await depositService.refund("dep-123");
 
@@ -401,7 +399,7 @@ describe("DepositService", () => {
       await expect(depositService.refund("dep-123")).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
-      expect(mockPaymentIntents.cancel).not.toHaveBeenCalled();
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
     });
 
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
@@ -409,13 +407,14 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "refunded" }));
-      mockPaymentIntents.cancel.mockResolvedValueOnce({ id: "pi_test_123", status: "canceled" });
+      mockStripe.cancelPaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "canceled",
+      });
 
       await depositService.refund("dep-123");
 
-      expect(mockPaymentIntents.cancel).toHaveBeenCalledWith("pi_test_123", undefined, {
-        idempotencyKey: "dep-123:refund",
-      });
+      expect(mockStripe.cancelPaymentIntent).toHaveBeenCalledWith("pi_test_123", "dep-123:refund");
     });
 
     it("rolls back DB to held when Stripe cancel fails after the DB update", async () => {
@@ -426,7 +425,7 @@ describe("DepositService", () => {
         makeDeposit({ status: "refunded", refundedAt: new Date() })
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockPaymentIntents.cancel.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.refund("dep-123")).rejects.toThrow(/stripe boom/);
 
@@ -447,7 +446,10 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(forfeitedDeposit);
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
 
       const result = await depositService.forfeit("dep-123");
 
@@ -480,7 +482,7 @@ describe("DepositService", () => {
       await expect(depositService.forfeit("dep-123")).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
-      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
     });
 
     it("passes an idempotency key keyed on depositId + action to Stripe", async () => {
@@ -488,13 +490,17 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "forfeited" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
 
       await depositService.forfeit("dep-123");
 
-      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
-        idempotencyKey: "dep-123:forfeit",
-      });
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
+        "pi_test_123",
+        "dep-123:forfeit"
+      );
     });
 
     it("rolls back DB to held when Stripe capture fails after the DB update", async () => {
@@ -505,7 +511,7 @@ describe("DepositService", () => {
         makeDeposit({ status: "forfeited", forfeitedAt: new Date() })
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe boom"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe boom"));
 
       await expect(depositService.forfeit("dep-123")).rejects.toThrow(/stripe boom/);
 
@@ -529,9 +535,15 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
 
       const result = await depositService.refundPartial("dep-123", 3000);
 
@@ -570,7 +582,7 @@ describe("DepositService", () => {
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /conflict|lost.*race|concurrent/i
       );
-      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
     });
 
     it("updates DB to partial_refunded before calling Stripe (DB-first ordering)", async () => {
@@ -582,12 +594,11 @@ describe("DepositService", () => {
         return { count: 1 };
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
-      mockPaymentIntents.capture.mockImplementationOnce(async () => {
+      mockStripe.capturePaymentIntent.mockImplementationOnce(async () => {
         order.push("capture");
         return { id: "pi_test_123", status: "succeeded" };
       });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockImplementationOnce(async () => {
+      mockStripe.createPartialRefund.mockImplementationOnce(async () => {
         order.push("refund");
         return { id: "re_1", status: "succeeded", amount: 3000 };
       });
@@ -602,15 +613,22 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
 
       await depositService.refundPartial("dep-123", 3000);
 
-      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
-        idempotencyKey: "dep-123:refundPartial",
-      });
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
+        "pi_test_123",
+        "dep-123:refundPartial"
+      );
     });
 
     it("passes a stable idempotency key on the refund", async () => {
@@ -618,15 +636,22 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
 
       await depositService.refundPartial("dep-123", 3000);
 
-      expect(mockRefunds.create).toHaveBeenCalledWith(
-        expect.objectContaining({ charge: "ch_1", amount: 3000 }),
-        { idempotencyKey: "dep-123:refundPartial:refund" }
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledWith(
+        "pi_test_123",
+        3000,
+        "dep-123:refundPartial:refund"
       );
     });
 
@@ -638,7 +663,7 @@ describe("DepositService", () => {
         makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
       );
       mockDepositDb.update.mockResolvedValueOnce(heldDeposit);
-      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("stripe capture boom"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("stripe capture boom"));
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /stripe capture boom/
@@ -654,7 +679,7 @@ describe("DepositService", () => {
         })
       );
       // The refund must never be attempted when the capture failed.
-      expect(mockRefunds.create).not.toHaveBeenCalled();
+      expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
     it("does NOT roll back to held when capture succeeds but the refund throws (card is captured)", async () => {
@@ -667,9 +692,11 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(
         makeDeposit({ status: "partial_refunded", refundedAt: new Date() })
       );
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockRejectedValueOnce(new Error("stripe refund boom"));
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockRejectedValueOnce(new Error("stripe refund boom"));
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /stripe refund boom/
@@ -687,9 +714,15 @@ describe("DepositService", () => {
         refundedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 3000 });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 3000,
+      });
 
       const result = await depositService.refundPartial("dep-123", 3000);
 
@@ -697,9 +730,10 @@ describe("DepositService", () => {
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
       expect(mockDepositDb.update).not.toHaveBeenCalled();
       // Stripe steps replay with their idempotency keys.
-      expect(mockPaymentIntents.capture).toHaveBeenCalledWith("pi_test_123", undefined, {
-        idempotencyKey: "dep-123:refundPartial",
-      });
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledWith(
+        "pi_test_123",
+        "dep-123:refundPartial"
+      );
       expect(result.status).toBe("partial_refunded");
     });
 
@@ -714,7 +748,7 @@ describe("DepositService", () => {
         refundedAt: new Date(),
       });
       mockDepositDb.findUnique.mockResolvedValueOnce(partialDeposit);
-      mockPaymentIntents.capture.mockRejectedValueOnce(new Error("transient network blip"));
+      mockStripe.capturePaymentIntent.mockRejectedValueOnce(new Error("transient network blip"));
 
       await expect(depositService.refundPartial("dep-123", 3000)).rejects.toThrow(
         /transient network blip/
@@ -737,7 +771,7 @@ describe("DepositService", () => {
         /invalid.*amount/i
       );
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
-      expect(mockPaymentIntents.capture).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).not.toHaveBeenCalled();
     });
 
     it("rejects a negative refund amount", async () => {
@@ -758,9 +792,15 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
-      mockPaymentIntents.retrieve.mockResolvedValueOnce({ latest_charge: "ch_1" });
-      mockRefunds.create.mockResolvedValueOnce({ id: "re_1", status: "succeeded", amount: 6000 });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 6000,
+      });
 
       await depositService.refundPartial("dep-123", 6000);
 
@@ -779,12 +819,15 @@ describe("DepositService", () => {
       mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
       mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
       mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
-      mockPaymentIntents.capture.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
 
       await depositService.refundPartial("dep-123", 0);
 
-      expect(mockPaymentIntents.capture).toHaveBeenCalled();
-      expect(mockRefunds.create).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalled();
+      expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
   });
 
@@ -806,7 +849,7 @@ describe("DepositService", () => {
         .mockResolvedValueOnce({ count: 1 }) // apply wins
         .mockResolvedValueOnce({ count: 0 }); // refund loses
 
-      mockPaymentIntents.capture.mockResolvedValueOnce({
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
         id: "pi_test_123",
         status: "succeeded",
       });
@@ -828,8 +871,8 @@ describe("DepositService", () => {
       );
 
       // Stripe called exactly once (the winner's capture); the loser never reached Stripe.
-      expect(mockPaymentIntents.capture).toHaveBeenCalledTimes(1);
-      expect(mockPaymentIntents.cancel).not.toHaveBeenCalled();
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledTimes(1);
+      expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
     });
   });
 });
