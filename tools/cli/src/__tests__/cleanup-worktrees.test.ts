@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 
-vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
+// Expose a mock fn to avoid importing the real @mbe/agent-core (no dist built
+// in a fresh worktree) — same pattern used by wave.test.ts.
+const mockRunGit = vi.fn();
+
+vi.mock("@mbe/agent-core", () => ({
+  runGit: mockRunGit,
 }));
 
 vi.mock("node:fs", () => ({
@@ -13,9 +16,17 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
 }));
 
-const mockExecSync = vi.mocked(execSync);
 const mockReaddirSync = vi.mocked(readdirSync);
 const mockStatSync = vi.mocked(statSync);
+
+/** Default runGit stub: resolves rev-parse/branch -r, no-ops everything else. */
+function defaultRunGitImpl(remoteBranchesOutput = "  origin/main\n  origin/other") {
+  return async (args: readonly string[]) => {
+    if (args[0] === "rev-parse" && args[1] === "--show-toplevel") return "/repo";
+    if (args[0] === "branch" && args[1] === "-r") return remoteBranchesOutput;
+    return "";
+  };
+}
 
 describe("cleanup-worktrees command", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
@@ -24,12 +35,9 @@ describe("cleanup-worktrees command", () => {
     vi.resetAllMocks();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse --show-toplevel")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main\n  origin/other";
-      return "";
-    });
+    mockRunGit.mockImplementation(defaultRunGitImpl());
   });
 
   async function runCleanup(args: string[]): Promise<void> {
@@ -55,7 +63,7 @@ describe("cleanup-worktrees command", () => {
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("agent-1"));
   });
 
-  it("removes worktrees when --force is used", async () => {
+  it("removes worktrees when --force is used, calling runGit with an arg array (never a shell string)", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockReaddirSync.mockReturnValue(["agent-2"] as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,35 +71,51 @@ describe("cleanup-worktrees command", () => {
 
     await runCleanup(["--force"]);
 
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining("git worktree remove"),
-      expect.anything()
+    expect(mockRunGit).toHaveBeenCalledWith(
+      ["worktree", "remove", "--force", "--", expect.stringContaining("agent-2")],
+      expect.objectContaining({ cwd: "/repo" })
     );
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('git branch -D "worktree-agent-2"'),
-      expect.anything()
+    expect(mockRunGit).toHaveBeenCalledWith(
+      ["branch", "-D", "--", "worktree-agent-2"],
+      expect.objectContaining({ cwd: "/repo" })
     );
+  });
+
+  it("passes a worktree name containing shell metacharacters through as a single argv element (regression: former interpolation-injection risk)", async () => {
+    // A directory name that would break out of a naive `"${wtPath}"` shell string.
+    const dangerousName = 'agent-2"; rm -rf / #';
+    mockReaddirSync.mockReturnValue([dangerousName] as unknown as Parameters<
+      typeof mockReaddirSync.mockReturnValue
+    >[0]);
+    mockStatSync.mockReturnValue({
+      mtimeMs: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    } as unknown as ReturnType<typeof statSync>);
+
+    await runCleanup(["--force"]);
+
+    const worktreeRemoveCall = mockRunGit.mock.calls.find((call) => call[0][0] === "worktree");
+    expect(worktreeRemoveCall).toBeDefined();
+    const argv = worktreeRemoveCall![0] as string[];
+    // The dangerous string must be a single argv element (arg-array form),
+    // never concatenated into a shell command string.
+    expect(argv[argv.length - 1]).toContain(dangerousName);
+    expect(Array.isArray(argv)).toBe(true);
   });
 });
 
 describe("cleanup-worktrees – additional branch coverage", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.resetModules();
     vi.resetAllMocks();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    // Default: workspace found, aged worktree "agent-1" exists, not on remote
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse --show-toplevel")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main";
-      if (cmd.includes("git branch -D")) return "";
-      // git worktree remove succeeds by default
-      return "";
-    });
+    mockRunGit.mockImplementation(defaultRunGitImpl("  origin/main"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockReaddirSync.mockReturnValue(["agent-1"] as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,16 +127,15 @@ describe("cleanup-worktrees – additional branch coverage", () => {
     await cleanupWorktreesCommand.parseAsync(["node", "mbe", ...args]);
   }
 
-  it("falls back to rmSync when git worktree remove fails", async () => {
+  it("falls back to rmSync when git worktree remove fails, and warns instead of swallowing", async () => {
     const { rmSync } = await import("node:fs");
     const mockRmSync = vi.mocked(rmSync);
     mockRmSync.mockReturnValue(undefined as never);
 
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse --show-toplevel")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main";
-      if (cmd.includes("git worktree remove")) throw new Error("worktree error");
-      if (cmd.includes("git branch -D")) return "";
+    mockRunGit.mockImplementation(async (args: readonly string[]) => {
+      if (args[0] === "rev-parse") return "/repo";
+      if (args[0] === "branch" && args[1] === "-r") return "  origin/main";
+      if (args[0] === "worktree") throw new Error("worktree error");
       return "";
     });
 
@@ -120,6 +143,8 @@ describe("cleanup-worktrees – additional branch coverage", () => {
 
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Removed directory: agent-1");
+    const warnOutput = warnSpy.mock.calls.flat().join("\n");
+    expect(warnOutput).toContain("worktree error");
   });
 
   it("logs error when both git worktree remove and rmSync fail", async () => {
@@ -129,11 +154,10 @@ describe("cleanup-worktrees – additional branch coverage", () => {
       throw new Error("permission denied");
     });
 
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse --show-toplevel")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main";
-      if (cmd.includes("git worktree remove")) throw new Error("worktree error");
-      if (cmd.includes("git branch -D")) return "";
+    mockRunGit.mockImplementation(async (args: readonly string[]) => {
+      if (args[0] === "rev-parse") return "/repo";
+      if (args[0] === "branch" && args[1] === "-r") return "  origin/main";
+      if (args[0] === "worktree") throw new Error("worktree error");
       return "";
     });
 
@@ -141,6 +165,21 @@ describe("cleanup-worktrees – additional branch coverage", () => {
 
     const errOutput = errorSpy.mock.calls.flat().join("\n");
     expect(errOutput).toContain("Failed to remove agent-1");
+  });
+
+  it("warns (does not silently swallow) when git branch -D fails", async () => {
+    mockRunGit.mockImplementation(async (args: readonly string[]) => {
+      if (args[0] === "rev-parse") return "/repo";
+      if (args[0] === "branch" && args[1] === "-r") return "  origin/main";
+      if (args[0] === "branch" && args[1] === "-D") throw new Error("branch not found");
+      return "";
+    });
+
+    await runCleanup2(["--force"]);
+
+    const warnOutput = warnSpy.mock.calls.flat().join("\n");
+    expect(warnOutput).toContain("Could not delete branch worktree-agent-1");
+    expect(warnOutput).toContain("branch not found");
   });
 
   it("shows dry-run message without removing", async () => {
@@ -166,7 +205,7 @@ describe("cleanup-worktrees – error catch fallbacks", () => {
     vi.resetAllMocks();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(process, "cwd").mockReturnValue("/fallback");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   async function runCleanup3(args: string[]): Promise<void> {
@@ -174,10 +213,10 @@ describe("cleanup-worktrees – error catch fallbacks", () => {
     await cleanupWorktreesCommand.parseAsync(["node", "mbe", ...args]);
   }
 
-  it("falls back to cwd when git rev-parse fails (line 10)", async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse")) throw new Error("not a git repo");
-      if (cmd.includes("git branch -r")) return "  origin/main";
+  it("falls back to cwd when git rev-parse fails", async () => {
+    mockRunGit.mockImplementation(async (args: readonly string[]) => {
+      if (args[0] === "rev-parse") throw new Error("not a git repo");
+      if (args[0] === "branch" && args[1] === "-r") return "  origin/main";
       return "";
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,12 +228,8 @@ describe("cleanup-worktrees – error catch fallbacks", () => {
     expect(output).toContain("No orphaned worktrees");
   });
 
-  it("returns empty array when readdirSync fails (line 20)", async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main";
-      return "";
-    });
+  it("returns empty array when readdirSync fails", async () => {
+    mockRunGit.mockImplementation(defaultRunGitImpl("  origin/main"));
     mockReaddirSync.mockImplementation(() => {
       throw new Error("ENOENT");
     });
@@ -205,10 +240,10 @@ describe("cleanup-worktrees – error catch fallbacks", () => {
     expect(output).toContain("No orphaned worktrees");
   });
 
-  it("returns empty remote branches when git branch -r fails (line 33)", async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse")) return "/repo";
-      if (cmd.includes("git branch -r")) throw new Error("no remote");
+  it("returns empty remote branches when git branch -r fails", async () => {
+    mockRunGit.mockImplementation(async (args: readonly string[]) => {
+      if (args[0] === "rev-parse") return "/repo";
+      if (args[0] === "branch" && args[1] === "-r") throw new Error("no remote");
       return "";
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,12 +258,8 @@ describe("cleanup-worktrees – error catch fallbacks", () => {
     expect(output).toContain("Found 1 orphaned worktrees");
   });
 
-  it("pushes worktree to toRemove when statSync throws during age check (line 72)", async () => {
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main";
-      return "";
-    });
+  it("pushes worktree to toRemove when statSync throws during age check", async () => {
+    mockRunGit.mockImplementation(defaultRunGitImpl("  origin/main"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockReaddirSync.mockReturnValue(["agent-err"] as any);
     mockStatSync.mockImplementation(() => {
@@ -251,6 +282,7 @@ describe("cleanup-worktrees – hasRemote branch coverage", () => {
     vi.resetAllMocks();
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   async function runCleanup4(args: string[]): Promise<void> {
@@ -261,11 +293,7 @@ describe("cleanup-worktrees – hasRemote branch coverage", () => {
   it("skips worktrees whose branch exists in remote (hasRemote=true branch)", async () => {
     // worktree "agent-1" → branchName "worktree-agent-1"
     // remote has "origin/worktree-agent-1" → hasRemote is true → NOT pushed to toRemove
-    mockExecSync.mockImplementation((cmd: string) => {
-      if (cmd.includes("rev-parse --show-toplevel")) return "/repo";
-      if (cmd.includes("git branch -r")) return "  origin/main\n  origin/worktree-agent-1";
-      return "";
-    });
+    mockRunGit.mockImplementation(defaultRunGitImpl("  origin/main\n  origin/worktree-agent-1"));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockReaddirSync.mockReturnValue(["agent-1"] as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
