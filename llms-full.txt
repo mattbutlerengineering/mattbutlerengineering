@@ -8401,6 +8401,21 @@
           schema: {
             summary: "Create a reservation hold (public)",
             tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug"],
+              properties: { slug: { type: "string" } },
+            },
+            body: {
+              type: "object",
+              required: ["date", "startTime", "endTime", "partySize"],
+              properties: {
+                date: { type: "string", minLength: 1 },
+                startTime: { type: "string", minLength: 1 },
+                endTime: { type: "string", minLength: 1 },
+                partySize: { type: "integer", minimum: 1, maximum: 20 },
+              },
+            },
           },
         },
         async (request, reply) => {

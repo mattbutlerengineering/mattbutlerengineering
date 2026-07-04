@@ -222,6 +222,34 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     await app.close();
   });
 
+  it("rejects an empty {} payload with 400", async () => {
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects an empty-string reservationId with 400", async () => {
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: TEST_URL,
+      payload: { reservationId: "" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
   it("returns 409 when a deposit already exists for the reservation (idempotency guard)", async () => {
     vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
