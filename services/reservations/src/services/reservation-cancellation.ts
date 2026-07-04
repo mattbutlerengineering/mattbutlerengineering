@@ -215,11 +215,16 @@ export async function cancelReservationWithDeposit(
     ...(cancellationNote !== undefined && { cancellationNote }),
   });
   if (!updated) {
+    // The status CAS inside reservationService.update matched no row: a
+    // concurrent cancel already transitioned this reservation off its observed
+    // status (or the row is gone). We lost the race — the reservation is
+    // already CANCELLED — so we short-circuit WITHOUT re-notifying. The winning
+    // request owns the single guest notification and reminder-job cancellation.
     return {
       success: false,
-      status: 500,
-      title: "Update Failed",
-      detail: "Failed to cancel reservation",
+      status: 409,
+      title: "Conflict",
+      detail: "Reservation was already cancelled by a concurrent request",
     };
   }
 

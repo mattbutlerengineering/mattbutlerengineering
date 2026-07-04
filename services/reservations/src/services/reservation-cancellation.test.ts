@@ -343,4 +343,38 @@ describe("cancelReservationWithDeposit", () => {
       expect(depositService.refund).not.toHaveBeenCalled();
     });
   });
+
+  it("fires exactly one notification when two cancels race (CAS dedup, #3109)", async () => {
+    // Two concurrent cancels of a no-deposit reservation. Before the CAS,
+    // both passed validation against the same status snapshot, both flipped
+    // the row, and both notified — two guest emails. Now the status-guarded
+    // updateMany matches for exactly one caller; the loser's update() returns
+    // null (count 0), so it short-circuits with a 409 and never notifies.
+    const reservation = makeReservation();
+    const deps = makeDeps();
+
+    vi.mocked(depositService.getByReservationId).mockResolvedValue(null as never);
+    vi.mocked(reservationService.update)
+      .mockResolvedValueOnce({ ...reservation, status: "CANCELLED" } as never)
+      .mockResolvedValueOnce(null as never);
+    vi.mocked(venueService.getById).mockResolvedValue({
+      id: "venue_1",
+      name: "The Oak Table",
+      ianaTimezone: "America/Los_Angeles",
+    } as never);
+
+    const outcomes = await Promise.all([
+      cancelReservationWithDeposit(reservation, "token123", deps),
+      cancelReservationWithDeposit(reservation, "token123", deps),
+    ]);
+
+    expect(outcomes.filter((r) => r.success)).toHaveLength(1);
+    const loser = outcomes.find((r) => !r.success);
+    expect(loser).toBeDefined();
+    if (loser && !loser.success) {
+      expect(loser.status).toBe(409);
+    }
+    expect(deps.notificationPort.sendBookingCancelled).toHaveBeenCalledTimes(1);
+    expect(deps.bookingNotifier.cancelBookingReminders).toHaveBeenCalledTimes(1);
+  });
 });

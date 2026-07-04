@@ -17,6 +17,7 @@ vi.mock("./database.js", async () => {
         findFirst: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
         count: vi.fn(),
       },
       $transaction: vi.fn(),
@@ -447,28 +448,31 @@ describe("reservationService", () => {
       await expect(reservationService.update("res-1", { notes: "X" })).rejects.toThrow("DB error");
     });
 
-    it("updates status to CONFIRMED", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "PENDING" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ status: "CONFIRMED" }) as never
-      );
+    it("updates status to CONFIRMED via a status-guarded CAS", async () => {
+      vi.mocked(prisma.reservation.findUnique)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "PENDING" }) as never)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "CONFIRMED" }) as never);
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count: 1 } as never);
 
       const result = await reservationService.update("res-1", {
         status: "CONFIRMED",
       });
 
       expect(result!.status).toBe("CONFIRMED");
+      expect(prisma.reservation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "res-1", status: "PENDING" },
+          data: expect.objectContaining({ status: "CONFIRMED" }),
+        })
+      );
+      expect(prisma.reservation.update).not.toHaveBeenCalled();
     });
 
     it("updates status to COMPLETED", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "CONFIRMED" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ status: "COMPLETED" }) as never
-      );
+      vi.mocked(prisma.reservation.findUnique)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "CONFIRMED" }) as never)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "COMPLETED" }) as never);
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count: 1 } as never);
 
       const result = await reservationService.update("res-1", {
         status: "COMPLETED",
@@ -478,12 +482,10 @@ describe("reservationService", () => {
     });
 
     it("updates status to NO_SHOW", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "CONFIRMED" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ status: "NO_SHOW" }) as never
-      );
+      vi.mocked(prisma.reservation.findUnique)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "CONFIRMED" }) as never)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "NO_SHOW" }) as never);
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count: 1 } as never);
 
       const result = await reservationService.update("res-1", {
         status: "NO_SHOW",
@@ -493,16 +495,16 @@ describe("reservationService", () => {
     });
 
     it("persists cancellationReason and cancellationNote when cancelling", async () => {
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
-        makePrismaReservation({ status: "PENDING" }) as never
-      );
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({
-          status: "CANCELLED",
-          cancellationReason: "guest_request",
-          cancellationNote: "Guest changed plans",
-        }) as never
-      );
+      vi.mocked(prisma.reservation.findUnique)
+        .mockResolvedValueOnce(makePrismaReservation({ status: "PENDING" }) as never)
+        .mockResolvedValueOnce(
+          makePrismaReservation({
+            status: "CANCELLED",
+            cancellationReason: "guest_request",
+            cancellationNote: "Guest changed plans",
+          }) as never
+        );
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count: 1 } as never);
 
       const result = await reservationService.update("res-1", {
         status: "CANCELLED",
@@ -512,14 +514,41 @@ describe("reservationService", () => {
 
       expect(result!.cancellationReason).toBe("guest_request");
       expect(result!.cancellationNote).toBe("Guest changed plans");
-      expect(prisma.reservation.update).toHaveBeenCalledWith(
+      expect(prisma.reservation.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: { id: "res-1", status: "PENDING" },
           data: expect.objectContaining({
+            status: "CANCELLED",
             cancellationReason: "guest_request",
             cancellationNote: "Guest changed plans",
           }),
         })
       );
+    });
+
+    it("returns null when the status CAS loses the race (updateMany count 0)", async () => {
+      // Another concurrent transition moved the row off the observed status
+      // between our read and our write, so the guarded updateMany matches no
+      // rows. Returning null lets the caller short-circuit without notifying.
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED" }) as never
+      );
+      vi.mocked(prisma.reservation.updateMany).mockResolvedValueOnce({ count: 0 } as never);
+
+      const result = await reservationService.update("res-1", { status: "CANCELLED" });
+
+      expect(result).toBeNull();
+      // The post-CAS refetch must never run when the race was lost.
+      expect(prisma.reservation.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns null when the reservation does not exist for a status change", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(null as never);
+
+      const result = await reservationService.update("missing", { status: "CANCELLED" });
+
+      expect(result).toBeNull();
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
     });
   });
 
