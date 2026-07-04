@@ -79,7 +79,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
                   parentSessionId: { type: "string" },
                   status: {
                     type: "string",
-                    enum: ["succeeded", "failed", "partially_succeeded"],
+                    enum: ["succeeded", "failed", "partially_succeeded", "in_progress"],
                   },
                   childSessionIds: {
                     type: "array",
@@ -142,8 +142,14 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
         }
       );
 
-      // Update parent session with final status
-      const finalStatus = result.status === "succeeded" ? "SUCCEEDED" : "FAILED";
+      // Update parent session with final status. "in_progress" means children are still
+      // running/pending — leave the parent RUNNING rather than falsely marking it FAILED.
+      const finalStatus =
+        result.status === "succeeded"
+          ? "SUCCEEDED"
+          : result.status === "in_progress"
+            ? "RUNNING"
+            : "FAILED";
       await sessionService.updateStatus(parentSession.id, finalStatus, {
         resultText: result.summary,
         costUsd: result.totalCostUsd,

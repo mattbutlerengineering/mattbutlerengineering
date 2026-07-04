@@ -33,7 +33,7 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescript
 };
 
 export interface OrchestratorResult {
-  readonly status: "succeeded" | "failed" | "partially_succeeded";
+  readonly status: "succeeded" | "failed" | "partially_succeeded" | "in_progress";
   readonly childSessionIds: readonly string[];
   readonly summary: string;
   readonly totalCostUsd: number;
