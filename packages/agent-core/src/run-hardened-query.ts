@@ -75,6 +75,13 @@ export interface HardenedQueryConfig {
     readonly type: "json_schema";
     readonly schema: Record<string, unknown>;
   };
+  /**
+   * External abort signal (e.g. the pipeline's cancel()). When already
+   * aborted, the SDK query is never started. When it fires mid-query, the
+   * in-flight SDK call is aborted the same way the stuck/inactivity guards
+   * abort it, so the caller sees a clean short-circuit instead of a hang.
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface RawTurnMetric {
@@ -120,6 +127,19 @@ export async function runHardenedQuery(
   config: HardenedQueryConfig,
   onEvent?: SessionEventCallback
 ): Promise<HardenedQueryResult> {
+  if (config.signal?.aborted) {
+    const abortMsg = "Query aborted before it started";
+    emitEvent(onEvent, "session:error", { message: abortMsg });
+    return {
+      resultMessage: null,
+      stuckReason: null,
+      rawTurnMetrics: [],
+      rawToolCallMetrics: [],
+      errorMessage: abortMsg,
+      contextMetrics: null,
+    };
+  }
+
   const heartbeatCfg: HeartbeatConfig = {
     ...DEFAULT_HEARTBEAT_CONFIG,
     ...config.heartbeatConfig,
@@ -146,6 +166,12 @@ export async function runHardenedQuery(
   }
 
   const abortController = new AbortController();
+  // Bridge the external (pipeline) signal into the SDK's own abortController
+  // so an external cancel() stops the in-flight query the same way the
+  // stuck/heartbeat guards do below.
+  const onExternalAbort = (): void => abortController.abort(config.signal?.reason);
+  config.signal?.addEventListener("abort", onExternalAbort, { once: true });
+
   const canUseTool = createToolPermissionHandler(config.cwd);
   const detector = createStuckDetector(config.stuckDetectorConfig);
   const contextBudget = createContextBudget(config.model);
@@ -182,6 +208,7 @@ export async function runHardenedQuery(
       },
     });
   } catch (err) {
+    config.signal?.removeEventListener("abort", onExternalAbort);
     const errMsg = err instanceof Error ? err.message : String(err);
     emitEvent(onEvent, "session:error", { message: errMsg });
     return {
@@ -433,6 +460,7 @@ export async function runHardenedQuery(
     }
   } finally {
     clearInterval(heartbeatInterval);
+    config.signal?.removeEventListener("abort", onExternalAbort);
     querySpan.end();
   }
 

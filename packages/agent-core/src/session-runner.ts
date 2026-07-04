@@ -272,6 +272,7 @@ async function runPipeline(
       resultMessage: state.resultMessage,
       prUrl: state.prUrl,
       prNumber: state.prNumber,
+      signal,
     },
     deps
   );

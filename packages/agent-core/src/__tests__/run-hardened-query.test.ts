@@ -190,6 +190,40 @@ describe("runHardenedQuery", () => {
     expect(stuckEvents.length).toBeGreaterThan(0);
   });
 
+  // ── AbortSignal cancellation (#3111) ───────────────────────────────
+
+  it("short-circuits without starting the query when signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await runHardenedQuery({ ...BASE_CONFIG, signal: controller.signal });
+
+    expect(query).not.toHaveBeenCalled();
+    expect(result.resultMessage).toBeNull();
+    expect(result.errorMessage).toMatch(/abort/i);
+  });
+
+  it("aborts the in-flight SDK query when the external signal fires mid-query", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    vi.mocked(query).mockImplementation((opts) => {
+      const signal = (opts.options as { abortController?: AbortController }).abortController
+        ?.signal;
+      capturedSignal = signal;
+      return makeStalledQueryGenerator(signal!) as unknown as ReturnType<typeof query>;
+    });
+
+    const controller = new AbortController();
+    const resultPromise = runHardenedQuery({ ...BASE_CONFIG, signal: controller.signal });
+
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+
+    const { resultMessage } = await resultPromise;
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(resultMessage).toBeNull();
+  });
+
   it("detects context window exhaustion from compaction events", async () => {
     const compactMessages = Array.from({ length: 5 }, () => ({
       type: "system",

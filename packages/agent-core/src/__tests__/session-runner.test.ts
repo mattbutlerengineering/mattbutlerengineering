@@ -721,6 +721,38 @@ describe("runSession", () => {
       expect(result.errors).toContain("Session aborted");
     });
 
+    it("forwards the pipeline signal into FeedbackPhase's runFeedbackLoop config (#3111)", async () => {
+      const controller = new AbortController();
+      withResult(deps, createMockResultMessage());
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(deps.prCreator.buildPrTitle).mockReturnValue("feat: test");
+      vi.mocked(deps.prCreator.buildPrBody).mockReturnValue("body");
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/1",
+        number: 1,
+      });
+      vi.mocked(deps.feedbackLoop.runFeedbackLoop).mockResolvedValue({
+        resolved: true,
+        retriesUsed: 0,
+        lastFingerprint: null,
+      });
+
+      const config = {
+        ...BASE_CONFIG,
+        feedbackLoop: {
+          enabled: true,
+          maxRetries: 2,
+          pollIntervalMs: 30_000,
+          pollTimeoutMs: 300_000,
+        },
+      };
+
+      await runSession(config, undefined, deps, controller.signal);
+
+      const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+      expect(fbCall.signal).toBe(controller.signal);
+    });
+
     it("does not change behavior on the normal (non-cancelled) path when no signal is passed", async () => {
       withResult(deps, createMockResultMessage());
       vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
