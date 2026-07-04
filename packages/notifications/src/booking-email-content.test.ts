@@ -83,6 +83,13 @@ describe("buildBookingEmailContent", () => {
       expect(result.ical).toBeUndefined();
       expect(result.icalMethod).toBeUndefined();
     });
+
+    it("escapes HTML special characters in venueName", () => {
+      const input = { ...defaultInput, venueName: `<b>Evil</b>` };
+      const result = buildBookingEmailContent(input, "reminder", manageBaseUrl);
+      expect(result.html).not.toContain("<b>Evil</b>");
+      expect(result.html).toContain("&lt;b&gt;Evil&lt;/b&gt;");
+    });
   });
 
   describe("modified", () => {
@@ -124,6 +131,36 @@ describe("buildBookingEmailContent", () => {
       );
       expect(result.ical).toContain("SEQUENCE:1");
     });
+
+    it("escapes HTML special characters in venueName", () => {
+      const input = { ...defaultInput, venueName: `<b>Evil</b>` };
+      const result = buildBookingEmailContent(input, "modified", manageBaseUrl);
+      expect(result.html).not.toContain("<b>Evil</b>");
+      expect(result.html).toContain("&lt;b&gt;Evil&lt;/b&gt;");
+    });
+  });
+
+  describe("HTML escaping and URL encoding", () => {
+    it("escapes HTML special characters in venueName", () => {
+      const input = { ...defaultInput, venueName: `<script>alert("xss")</script>` };
+      const result = buildBookingEmailContent(input, "confirmation", manageBaseUrl);
+      expect(result.html).not.toContain("<script>");
+      expect(result.html).toContain("&lt;script&gt;");
+    });
+
+    it("escapes HTML special characters in venueAddress", () => {
+      const input = { ...defaultInput, venueAddress: `123 Main St <img onerror="x">` };
+      const result = buildBookingEmailContent(input, "confirmation", manageBaseUrl);
+      expect(result.html).not.toContain("<img");
+      expect(result.html).toContain("&lt;img");
+    });
+
+    it("URL-encodes the manage token in the manage link", () => {
+      const input = { ...defaultInput, manageToken: `tok&"><script>x</script>` };
+      const result = buildBookingEmailContent(input, "confirmation", manageBaseUrl);
+      expect(result.html).not.toContain("<script>x</script>");
+      expect(result.html).toContain(encodeURIComponent(input.manageToken));
+    });
   });
 
   describe("cancelled", () => {
@@ -149,6 +186,13 @@ describe("buildBookingEmailContent", () => {
       const result = buildBookingEmailContent(defaultInput, "cancelled", manageBaseUrl);
       // Cancelled HTML doesn't include manage link per original implementation
       expect(result.html).not.toContain("Modify or Cancel");
+    });
+
+    it("escapes HTML special characters in venueName", () => {
+      const input = { ...defaultInput, venueName: `<b>Evil</b>` };
+      const result = buildBookingEmailContent(input, "cancelled", manageBaseUrl);
+      expect(result.html).not.toContain("<b>Evil</b>");
+      expect(result.html).toContain("&lt;b&gt;Evil&lt;/b&gt;");
     });
   });
 });

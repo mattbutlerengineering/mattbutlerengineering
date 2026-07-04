@@ -1,5 +1,6 @@
 import type { BookingNotificationInput } from "./port.js";
 import { generateBookingIcal } from "./ical.js";
+import { escapeHtml } from "./sanitize.js";
 
 export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
 
@@ -11,15 +12,15 @@ export interface BookingEmailContent {
 }
 
 function manageUrl(manageBaseUrl: string, token: string): string {
-  return `${manageBaseUrl}?token=${token}`;
+  return escapeHtml(`${manageBaseUrl}?token=${encodeURIComponent(token)}`);
 }
 
 function buildConfirmationHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
   return [
     `<h1>Your reservation is confirmed</h1>`,
-    `<p><strong>${input.venueName}</strong></p>`,
+    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
     `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
+    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
     `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
   ].join("\n");
 }
@@ -27,9 +28,9 @@ function buildConfirmationHtml(input: BookingNotificationInput, manageBaseUrl: s
 function buildReminderHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
   return [
     `<h1>Your reservation is tomorrow</h1>`,
-    `<p><strong>${input.venueName}</strong></p>`,
+    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
     `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
+    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
     `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
   ].join("\n");
 }
@@ -37,9 +38,9 @@ function buildReminderHtml(input: BookingNotificationInput, manageBaseUrl: strin
 function buildModifiedHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
   return [
     `<h1>Your reservation has been updated</h1>`,
-    `<p><strong>${input.venueName}</strong></p>`,
+    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
     `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${input.venueAddress}</p>` : "",
+    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
     `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
   ].join("\n");
 }
@@ -47,7 +48,7 @@ function buildModifiedHtml(input: BookingNotificationInput, manageBaseUrl: strin
 function buildCancelledHtml(input: BookingNotificationInput): string {
   return [
     `<h1>Your reservation has been cancelled</h1>`,
-    `<p><strong>${input.venueName}</strong></p>`,
+    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
     `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
   ].join("\n");
 }
