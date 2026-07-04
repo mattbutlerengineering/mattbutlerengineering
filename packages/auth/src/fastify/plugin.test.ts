@@ -497,6 +497,38 @@ describe("Auth Plugin", () => {
       await bypassApp.close();
     });
 
+    it("does NOT bypass when NODE_ENV is unset even if bypassTestMode + header are set", async () => {
+      delete process.env.NODE_ENV;
+
+      const unsetApp = Fastify({ logger: false });
+      const unsetRoutesPlugin: FastifyPluginAsync = async (fastify) => {
+        await fastify.register(authPlugin, {
+          authority: "https://test.auth0.com",
+          audience: "https://api.example.com",
+          bypassTestMode: true,
+        });
+        fastify.get("/guarded", { preHandler: requireAuth }, async (request) => {
+          return { user: request.user };
+        });
+      };
+
+      await unsetApp.register(unsetRoutesPlugin);
+      await unsetApp.ready();
+
+      const response = await unsetApp.inject({
+        method: "GET",
+        url: "/guarded",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.title).toBe("Unauthorized");
+      expect(mockJwtVerify).not.toHaveBeenCalled();
+
+      await unsetApp.close();
+    });
+
     it("does NOT bypass in production: requireAuth route 401s without a token", async () => {
       process.env.NODE_ENV = "production";
 
