@@ -5321,6 +5321,9 @@
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/logs.ts">
+    <item priority="medium">
+      function assertValidService(service: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export async function checkLogs(service?: string) { /* ... */ }
     </item>
