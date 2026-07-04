@@ -110,4 +110,30 @@ describe("checkLogs", () => {
     expect(mcpContent[0].type).toBe("text");
     expect(typeof mcpContent[0].text).toBe("string");
   });
+
+  it("rejects a path-traversal service name", async () => {
+    await expect(checkLogs("..")).rejects.toThrow(/invalid service/i);
+    expect(mockGlob).not.toHaveBeenCalled();
+  });
+
+  it("rejects a service name containing an embedded traversal segment", async () => {
+    await expect(checkLogs("users/../agent")).rejects.toThrow(/invalid service/i);
+    expect(mockGlob).not.toHaveBeenCalled();
+  });
+
+  it("rejects a service name containing shell metacharacters", async () => {
+    await expect(checkLogs("agent; rm -rf")).rejects.toThrow(/invalid service/i);
+    expect(mockGlob).not.toHaveBeenCalled();
+  });
+
+  it("rejects a service name not on the allowlist", async () => {
+    await expect(checkLogs("not-a-real-service")).rejects.toThrow(/invalid service/i);
+    expect(mockGlob).not.toHaveBeenCalled();
+  });
+
+  it("accepts allowlisted service names case-insensitively and trimmed", async () => {
+    mockGlob.mockResolvedValue([]);
+
+    await expect(checkLogs(" Users ")).resolves.toBe("No log files found.");
+  });
 });
