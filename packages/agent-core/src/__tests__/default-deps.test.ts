@@ -31,5 +31,6 @@ describe("createDefaultPhaseDeps", () => {
     expect(typeof deps.prCreator.mergeDirectly).toBe("function");
 
     expect(typeof deps.feedbackLoop.runFeedbackLoop).toBe("function");
+    expect(typeof deps.feedbackLoop.feedbackPoller.getRepoOwner).toBe("function");
   });
 });

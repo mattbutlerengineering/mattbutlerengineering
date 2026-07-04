@@ -9,6 +9,7 @@ import type { PrFeedbackPort } from "../pr-feedback-port.js";
 /** Fake PrFeedbackPort for tests — no `gh` binary, no child_process mocking. */
 function createFakePort(overrides: Partial<PrFeedbackPort> = {}): PrFeedbackPort {
   return {
+    getRepoOwner: async () => ({ owner: "owner", repo: "repo" }),
     fetchReviewThreads: async () => ({ reviewDecision: null, threads: [] }),
     fetchChecks: async () => [],
     fetchFailedRunId: async () => null,

@@ -86,6 +86,16 @@ describe("ghPrFeedbackPort", () => {
     expect(logs).toContain("Expected: 200");
   });
 
+  it("getRepoOwner parses the repo-view JSON into owner/repo", async () => {
+    mockExecFile.mockResolvedValue({
+      stdout: JSON.stringify({ owner: { login: "acme" }, name: "widgets" }),
+    });
+
+    const result = await ghPrFeedbackPort.getRepoOwner("/repo");
+
+    expect(result).toEqual({ owner: "acme", repo: "widgets" });
+  });
+
   it("passes a numeric timeout on every gh call", async () => {
     mockExecFile.mockImplementation(async (...args: unknown[]) => {
       const argList = args[1] as string[];
@@ -100,6 +110,9 @@ describe("ghPrFeedbackPort", () => {
       if (argList[0] === "run" && argList[1] === "view") {
         return { stdout: "FAIL" };
       }
+      if (argList[0] === "repo" && argList[1] === "view") {
+        return { stdout: JSON.stringify({ owner: { login: "acme" }, name: "widgets" }) };
+      }
       return {
         stdout: JSON.stringify({
           data: {
@@ -113,6 +126,7 @@ describe("ghPrFeedbackPort", () => {
     await ghPrFeedbackPort.fetchChecks(42, "/repo");
     await ghPrFeedbackPort.fetchFailedRunId("/repo");
     await ghPrFeedbackPort.fetchRunLogs(123, "/repo");
+    await ghPrFeedbackPort.getRepoOwner("/repo");
 
     expect(mockExecFile.mock.calls.length).toBeGreaterThan(0);
     for (const call of mockExecFile.mock.calls) {

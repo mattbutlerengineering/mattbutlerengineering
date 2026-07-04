@@ -68,6 +68,13 @@ export function makeFakePhaseDeps(): PhaseDeps {
         retriesUsed: 0,
         lastFingerprint: null,
       }),
+      feedbackPoller: {
+        getRepoOwner: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+        fetchReviewThreads: vi.fn().mockResolvedValue({ reviewDecision: null, threads: [] }),
+        fetchChecks: vi.fn().mockResolvedValue([]),
+        fetchFailedRunId: vi.fn().mockResolvedValue(null),
+        fetchRunLogs: vi.fn().mockResolvedValue(""),
+      },
     },
   };
 }

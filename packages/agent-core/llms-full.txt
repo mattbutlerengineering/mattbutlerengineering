@@ -62,6 +62,13 @@
             retriesUsed: 0,
             lastFingerprint: null,
           }),
+          feedbackPoller: {
+            getRepoOwner: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+            fetchReviewThreads: vi.fn().mockResolvedValue({ reviewDecision: null, threads: [] }),
+            fetchChecks: vi.fn().mockResolvedValue([]),
+            fetchFailedRunId: vi.fn().mockResolvedValue(null),
+            fetchRunLogs: vi.fn().mockResolvedValue(""),
+          },
         },
       };
     }
@@ -954,6 +961,7 @@
         },
         feedbackLoop: {
           runFeedbackLoop,
+          feedbackPoller: ghPrFeedbackPort,
         },
       };
     }
@@ -992,7 +1000,7 @@
               allowedTools: config.allowedTools,
               signal,
             },
-            { worktreeManager: deps.worktreeManager },
+            { worktreeManager: deps.worktreeManager, feedbackPoller: deps.feedbackLoop.feedbackPoller },
             onEvent
           );
           fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);

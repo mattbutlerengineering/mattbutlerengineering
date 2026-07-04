@@ -201,6 +201,16 @@ export type {
   PollResult,
 } from "./pr-feedback-poller.js";
 
+// PR feedback port (injectable gh seam — supply a custom port to runFeedbackLoop / PhaseDeps)
+export { ghPrFeedbackPort } from "./pr-feedback-port.js";
+export type {
+  PrFeedbackPort,
+  RepoOwnerResult,
+  ReviewThreadsResult,
+  CheckResult,
+  GraphQLThreadNode,
+} from "./pr-feedback-port.js";
+
 export { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 
 // Feedback loop (PR review + CI fix cycle)

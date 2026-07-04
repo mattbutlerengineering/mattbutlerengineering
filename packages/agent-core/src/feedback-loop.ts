@@ -1,16 +1,11 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { ghPrFeedbackPort } from "./pr-feedback-port.js";
+import type { PrFeedbackPort } from "./pr-feedback-port.js";
 import { pollForFeedback } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 import { runHardenedQuery } from "./run-hardened-query.js";
 import { commitAndPush } from "./worktree-manager.js";
 import type { WorktreeManagerDeps } from "./phases/pipeline-types.js";
 import type { SessionEventCallback, SessionEvent } from "./types.js";
-
-const execFileAsync = promisify(execFile);
-
-/** Bound `gh` subprocess calls (GitHub API latency). */
-const GH_TIMEOUT_MS = 30_000;
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -40,17 +35,15 @@ export interface FeedbackLoopResult {
   readonly lastFingerprint: string | null;
 }
 
-/** Resolves the GitHub owner/repo for a PR (defaults to `gh repo view`). */
-export type OwnerRepoResolver = (repoPath: string) => Promise<{ owner: string; repo: string }>;
-
 /**
  * Collaborators injected into `runFeedbackLoop`. Defaults wire the real
- * validated worktree-manager `commitAndPush` and the `gh repo view` owner/repo
- * lookup; tests pass fakes so the loop runs without spawning any subprocess.
+ * validated worktree-manager `commitAndPush` and the `gh`-backed
+ * `PrFeedbackPort`; tests pass fakes so the loop runs without spawning any
+ * subprocess.
  */
 export interface FeedbackLoopRunnerDeps {
   readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush">;
-  readonly resolveOwnerRepo?: OwnerRepoResolver;
+  readonly feedbackPoller: PrFeedbackPort;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -90,18 +83,9 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> {
-  const { stdout } = await execFileAsync("gh", ["repo", "view", "--json", "owner,name"], {
-    cwd: repoPath,
-    timeout: GH_TIMEOUT_MS,
-  });
-  const parsed = JSON.parse(stdout) as { owner: { login: string }; name: string };
-  return { owner: parsed.owner.login, repo: parsed.name };
-}
-
 const defaultRunnerDeps: FeedbackLoopRunnerDeps = {
   worktreeManager: { commitAndPush },
-  resolveOwnerRepo: parseOwnerRepo,
+  feedbackPoller: ghPrFeedbackPort,
 };
 
 // ── Main feedback loop ──────────────────────────────────────────────
@@ -112,8 +96,8 @@ export async function runFeedbackLoop(
   onEvent?: SessionEventCallback
 ): Promise<FeedbackLoopResult> {
   const { signal } = config;
-  const resolveOwnerRepo = deps.resolveOwnerRepo ?? parseOwnerRepo;
-  const { owner, repo } = await resolveOwnerRepo(config.repoPath);
+  const { feedbackPoller } = deps;
+  const { owner, repo } = await feedbackPoller.getRepoOwner(config.repoPath);
 
   let lastFingerprint = "";
   let retriesUsed = 0;
@@ -135,7 +119,8 @@ export async function runFeedbackLoop(
       repo,
       config.prNumber,
       config.repoPath,
-      lastFingerprint
+      lastFingerprint,
+      feedbackPoller
     );
 
     // If no feedback yet, keep polling until timeout
@@ -146,7 +131,8 @@ export async function runFeedbackLoop(
         repo,
         config.prNumber,
         config.repoPath,
-        lastFingerprint
+        lastFingerprint,
+        feedbackPoller
       );
     }
 
@@ -210,7 +196,8 @@ export async function runFeedbackLoop(
     repo,
     config.prNumber,
     config.repoPath,
-    lastFingerprint
+    lastFingerprint,
+    feedbackPoller
   );
 
   const resolved = finalFeedback === null;

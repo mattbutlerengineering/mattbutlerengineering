@@ -14,6 +14,7 @@ import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "../pr-creator.js";
 import { mergeDirectly } from "../dep-bump-merger.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
+import { ghPrFeedbackPort } from "../pr-feedback-port.js";
 import type { PhaseDeps } from "./pipeline-types.js";
 
 /**
@@ -59,6 +60,7 @@ export function createDefaultPhaseDeps(): PhaseDeps {
     },
     feedbackLoop: {
       runFeedbackLoop,
+      feedbackPoller: ghPrFeedbackPort,
     },
   };
 }
