@@ -18320,6 +18320,15 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">
+    export const TOTAL_STEPS = 5;
+    export interface OnboardingWizardData {
+      basicInfo: BasicInfoData;
+      locationTime: LocationTimeData;
+      operatingHours: OperatingHours;
+      settings: SettingsData;
+    }
+  </file>
   </section>
   <section priority="medium" role="visual-test">
   <file path="apps/rialto-web/src/pages/visual-test/fixtures.ts">

@@ -110,7 +110,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     showOptional: _showOptional,
     required: _required,
     type: _type,
-    onBlur: _onBlur,
+    onBlur,
   }: {
     label?: string;
     value?: string;
@@ -125,7 +125,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   }) => (
     <div>
       {label && <label>{label}</label>}
-      <input value={value} onChange={onChange} aria-label={label} />
+      <input value={value} onChange={onChange} onBlur={onBlur} aria-label={label} />
       {error && hint ? <span role="alert">{hint}</span> : hint ? <span>{hint}</span> : null}
     </div>
   ),
@@ -300,6 +300,16 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
     expect(screen.getByText("Name must be at least 2 characters")).toBeTruthy();
     expect(screen.getByText("Slug is required")).toBeTruthy();
+  });
+
+  // Regression: #3082 refactor dropped the onValidate prop on the step
+  // components, so on-blur field validation was dead (errors only surfaced on
+  // Next). Blurring an invalid field must show its error without clicking Next.
+  it("should validate a field on blur without clicking Next", () => {
+    renderPage();
+    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
+    fireEvent.blur(nameInput);
+    expect(screen.getByText("Name must be at least 2 characters")).toBeTruthy();
   });
 
   it("should navigate to step 2 after valid step 1", () => {
