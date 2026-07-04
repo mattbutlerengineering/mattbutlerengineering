@@ -24,6 +24,14 @@ export interface FeedbackLoopParams {
   readonly pollTimeoutMs: number;
   readonly maxBudgetUsd: number;
   readonly allowedTools: readonly string[];
+  /**
+   * External abort signal forwarded from the pipeline's cancel(). When it
+   * fires, the wait/poll delays reject and the fix-session query is
+   * short-circuited, mirroring `session-runner`'s `throwIfAborted` semantics
+   * — the rejection propagates out of `runFeedbackLoop` instead of being
+   * swallowed.
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface FeedbackLoopResult {
@@ -60,8 +68,26 @@ function emitEvent(
   });
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Waits `ms` milliseconds, or rejects with the signal's `AbortError` the
+ * moment it fires — whichever comes first. Clears the timer and removes its
+ * own listener on either outcome, so an aborted wait never leaves a dangling
+ * timer or listener behind.
+ */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new DOMException("Delay aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> {
@@ -85,6 +111,7 @@ export async function runFeedbackLoop(
   deps: FeedbackLoopRunnerDeps = defaultRunnerDeps,
   onEvent?: SessionEventCallback
 ): Promise<FeedbackLoopResult> {
+  const { signal } = config;
   const resolveOwnerRepo = deps.resolveOwnerRepo ?? parseOwnerRepo;
   const { owner, repo } = await resolveOwnerRepo(config.repoPath);
 
@@ -96,8 +123,10 @@ export async function runFeedbackLoop(
       message: `Feedback loop: waiting ${config.pollIntervalMs}ms before polling (attempt ${attempt + 1}/${config.maxRetries})`,
     });
 
-    // Wait before polling to give reviewers/CI time
-    await delay(config.pollIntervalMs);
+    // Wait before polling to give reviewers/CI time. Rejects immediately
+    // (an AbortError) if `signal` fires during the wait, short-circuiting
+    // the loop instead of running it out to maxRetries * pollTimeoutMs.
+    await delay(config.pollIntervalMs, signal);
 
     // Poll for feedback with timeout
     const pollStart = Date.now();
@@ -111,7 +140,7 @@ export async function runFeedbackLoop(
 
     // If no feedback yet, keep polling until timeout
     while (!feedback && Date.now() - pollStart < config.pollTimeoutMs) {
-      await delay(config.pollIntervalMs);
+      await delay(config.pollIntervalMs, signal);
       feedback = await pollForFeedback(
         owner,
         repo,
@@ -153,9 +182,15 @@ export async function runFeedbackLoop(
         allowedTools: config.allowedTools,
         systemPromptAppend:
           "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
+        signal,
       },
       onEvent
     );
+
+    // A cancel() arriving mid-query short-circuits the SDK call above, but
+    // that call resolves normally rather than throwing — check here so a
+    // cancelled fix-session never pushes a commit to an abandoned branch.
+    signal?.throwIfAborted();
 
     // Commit and push the fixes via the validated worktree-manager helper.
     await deps.worktreeManager.commitAndPush(

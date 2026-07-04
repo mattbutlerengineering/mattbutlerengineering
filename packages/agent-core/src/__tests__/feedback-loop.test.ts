@@ -183,6 +183,85 @@ describe("runFeedbackLoop", () => {
     expect(messages.some((m) => m.includes("fix session complete"))).toBe(true);
   });
 
+  // ── AbortSignal cancellation (#3111) ───────────────────────────────
+
+  describe("AbortSignal cancellation", () => {
+    it("rejects with AbortError instead of polling when signal is already aborted", async () => {
+      vi.mocked(pollForFeedback).mockResolvedValue(null);
+      const controller = new AbortController();
+      controller.abort();
+
+      const params = { ...BASE_PARAMS, signal: controller.signal };
+
+      await expect(runFeedbackLoop(params, makeDeps())).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      expect(pollForFeedback).not.toHaveBeenCalled();
+    });
+
+    it("halts polling within one pollIntervalMs when cancel fires mid-wait, instead of running to pollTimeoutMs", async () => {
+      vi.mocked(pollForFeedback).mockResolvedValue(null);
+      const controller = new AbortController();
+      // pollIntervalMs/pollTimeoutMs are large so a passing test proves the
+      // abort short-circuited the wait rather than the delay naturally elapsing.
+      const params = {
+        ...BASE_PARAMS,
+        pollIntervalMs: 60_000,
+        pollTimeoutMs: 600_000,
+        maxRetries: 5,
+        signal: controller.signal,
+      };
+
+      const resultPromise = runFeedbackLoop(params, makeDeps());
+      const assertion = expect(resultPromise).rejects.toMatchObject({ name: "AbortError" });
+
+      // Fire the abort almost immediately — well under one pollIntervalMs.
+      setTimeout(() => controller.abort(), 5);
+
+      await assertion;
+      expect(pollForFeedback).not.toHaveBeenCalled();
+    });
+
+    it("does not push a commit when abort fires during the fix-session query", async () => {
+      vi.mocked(pollForFeedback).mockResolvedValueOnce(createMockPollResult());
+      const controller = new AbortController();
+
+      // Simulate a concurrent cancel() arriving once the fix-session query
+      // starts: the mocked SDK stream stalls until the internal
+      // abortController (bridged from `controller.signal`) fires.
+      vi.mocked(query).mockImplementation((opts) => {
+        const internalSignal = (opts.options as { abortController?: AbortController })
+          .abortController?.signal;
+        queueMicrotask(() => controller.abort());
+        return {
+          [Symbol.asyncIterator](): AsyncIterator<never> {
+            return {
+              next(): Promise<IteratorResult<never>> {
+                return new Promise((resolve) => {
+                  if (internalSignal?.aborted) {
+                    resolve({ value: undefined as never, done: true });
+                    return;
+                  }
+                  internalSignal?.addEventListener(
+                    "abort",
+                    () => resolve({ value: undefined as never, done: true }),
+                    { once: true }
+                  );
+                });
+              },
+            };
+          },
+        } as unknown as ReturnType<typeof query>;
+      });
+
+      const params = { ...BASE_PARAMS, signal: controller.signal };
+      const deps = makeDeps();
+
+      await expect(runFeedbackLoop(params, deps)).rejects.toMatchObject({ name: "AbortError" });
+      expect(deps.worktreeManager.commitAndPush).not.toHaveBeenCalled();
+    });
+  });
+
   it("handles CI failures in feedback", async () => {
     const feedbackWithCI = createMockPollResult({
       context: {
