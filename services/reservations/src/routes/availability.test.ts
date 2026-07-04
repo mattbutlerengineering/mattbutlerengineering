@@ -162,8 +162,14 @@ const mockDateAvailability = [
 
 describe("Availability Routes", () => {
   let app: FastifyInstance;
+  const originalEnv = process.env;
   beforeEach(async () => {
-    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+      AUTH_BYPASS_IN_TESTS: "true",
+    };
     app = await buildApp({ logger: false });
     await app.ready();
     vi.clearAllMocks();
@@ -171,6 +177,7 @@ describe("Availability Routes", () => {
 
   afterEach(async () => {
     await app.close();
+    process.env = originalEnv;
   });
 
   describe("GET /v1/availability/:venueId", () => {
@@ -181,6 +188,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -201,6 +209,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=120",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -218,6 +227,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/non-existent?date=2024-02-15&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -231,6 +241,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=02-15-2024&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
@@ -245,6 +256,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=0",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
@@ -258,6 +270,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4&duration=10",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
@@ -274,6 +287,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -294,6 +308,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/non-existent/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
@@ -308,6 +323,7 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123/dates?startDate=2024-02-20&endDate=2024-02-15&partySize=4",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
@@ -322,11 +338,58 @@ describe("Availability Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=-1",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
       expect(body.message).toContain("Invalid party size");
+    });
+  });
+
+  describe("auth enforcement on reads (#3103)", () => {
+    it("returns 401 for anonymous GET /v1/availability/:venueId", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("returns 401 for anonymous GET /v1/availability/:venueId/dates", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it("allows authenticated operator to GET /v1/availability/:venueId", async () => {
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce(mockTimeSlots);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/availability/venue-123?date=2024-02-15&partySize=4",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it("allows authenticated operator to GET /v1/availability/:venueId/dates", async () => {
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce(mockDateAvailability);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/availability/venue-123/dates?startDate=2024-02-15&endDate=2024-02-17&partySize=4",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(200);
     });
   });
 });

@@ -25,6 +25,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "List all venue groups",
         operationId: "listVenueGroups",
@@ -70,6 +71,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get venue group by ID",
         operationId: "getVenueGroupById",
