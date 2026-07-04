@@ -147,8 +147,16 @@ jobs:
           scan-type: "fs"
           scan-ref: ${{ matrix.dockerfile.path }}
           severity: "CRITICAL,HIGH"
-          exit-code: "0"
-          format: "table"
+          exit-code: "1"
+          format: "sarif"
+          output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@3ab4101902695724f1de1721639e730f514eccf5 # v3
+        if: always()
+        with:
+          sarif_file: ${{ matrix.dockerfile.name }}-trivy-results.sarif
+          category: trivy-${{ matrix.dockerfile.name }}
 
   lint:
     name: Lint
@@ -622,6 +630,7 @@ jobs:
         build,
         test,
         hadolint,
+        trivy,
         migrations,
         migration-dry-run,
         dependency-audit,
@@ -638,14 +647,15 @@ jobs:
           BUILD: ${{ needs.build.result }}
           TEST: ${{ needs.test.result }}
           HADOLINT: ${{ needs.hadolint.result }}
+          TRIVY: ${{ needs.trivy.result }}
           MIGRATIONS: ${{ needs.migrations.result }}
           DRY_RUN: ${{ needs.migration-dry-run.result }}
           DEPS: ${{ needs.dependency-audit.result }}
           INTEGRITY: ${{ needs.integrity.result }}
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
         run: |
-          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS"
-          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS"; do
+          echo "lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS"
+          for job_result in "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
