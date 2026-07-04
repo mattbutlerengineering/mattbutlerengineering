@@ -58,9 +58,10 @@ beforeEach(() => {
 });
 
 describe("ManageReservationPage", () => {
-  it("shows error when no token in URL", () => {
+  it("shows no-access-link message when no token in URL", () => {
     renderPage();
-    expect(screen.getByText("Invalid Link")).toBeDefined();
+    expect(screen.getByText("No Access Link")).toBeDefined();
+    expect(screen.getByText("Please check the link in your confirmation email.")).toBeDefined();
   });
 
   it("routes reservation lookup through ApiClient — calls manage endpoint via structured URL", async () => {
@@ -148,7 +149,7 @@ describe("ManageReservationPage", () => {
     });
   });
 
-  it("shows invalid message for 401 response", async () => {
+  it("shows already-used message for 401 response (token provided but invalid/consumed)", async () => {
     mockSearchParams.set("token", "bad-token");
     mockFetch.mockResolvedValueOnce(
       makeErrorResponse(401, { status: 401, detail: "Invalid token" })
@@ -158,6 +159,7 @@ describe("ManageReservationPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Invalid Link")).toBeDefined();
+      expect(screen.getByText("This link has already been used or is invalid.")).toBeDefined();
     });
   });
 });
