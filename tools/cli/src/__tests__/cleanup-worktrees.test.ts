@@ -81,13 +81,15 @@ describe("cleanup-worktrees command", () => {
     );
   });
 
-  it("passes a worktree/branch name containing shell metacharacters through as a single argv element", async () => {
+  it("passes a worktree name containing shell metacharacters through as a single argv element (regression: former interpolation-injection risk)", async () => {
     // A directory name that would break out of a naive `"${wtPath}"` shell string.
     const dangerousName = 'agent-2"; rm -rf / #';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockReaddirSync.mockReturnValue([dangerousName] as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockStatSync.mockReturnValue({ mtimeMs: Date.now() - 2 * 24 * 60 * 60 * 1000 } as any);
+    mockReaddirSync.mockReturnValue([dangerousName] as unknown as Parameters<
+      typeof mockReaddirSync.mockReturnValue
+    >[0]);
+    mockStatSync.mockReturnValue({
+      mtimeMs: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    } as unknown as ReturnType<typeof statSync>);
 
     await runCleanup(["--force"]);
 
@@ -97,7 +99,7 @@ describe("cleanup-worktrees command", () => {
     // The dangerous string must be a single argv element (arg-array form),
     // never concatenated into a shell command string.
     expect(argv[argv.length - 1]).toContain(dangerousName);
-    expect(typeof argv).not.toBe("string");
+    expect(Array.isArray(argv)).toBe(true);
   });
 });
 
