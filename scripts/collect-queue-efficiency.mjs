@@ -18,6 +18,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
@@ -153,31 +154,27 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
 }
 
 /**
- * Default PR reader — calls `gh pr list` and normalises the commits array to a count.
+ * Default PR reader — calls `gh pr list` via the injected ghClient and
+ * normalises the commits array to a count.
  *
+ * @param {import("@mbe/gh-client").GhClient} [ghClient]
  * @returns {Array<object>|null}
  */
-function defaultReadPrs() {
+export function defaultReadPrs(ghClient = createGhClient()) {
   try {
     // Limit to 45 PRs: GitHub's GraphQL caps nodes at 500k; the commits sub-field
     // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
     // For repos with ≥5 AI PRs/day this covers ~9 days of history — enough for the
     // 7-day current window plus partial prior-week baseline.
-    const raw = execFileSync(
-      "gh",
-      [
-        "pr",
-        "list",
-        "--state",
-        "all",
-        "--limit",
-        "45",
-        "--json",
-        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-      ],
-      { encoding: "utf-8", timeout: 15000 }
-    );
-    return JSON.parse(raw).map((pr) => ({
+    const prs = ghClient.pr.list([
+      "--state",
+      "all",
+      "--limit",
+      "45",
+      "--json",
+      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+    ]);
+    return prs.map((pr) => ({
       ...pr,
       commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
     }));

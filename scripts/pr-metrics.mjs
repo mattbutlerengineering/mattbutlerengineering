@@ -19,10 +19,10 @@
  *   the earliest signal that something in the loop has regressed.
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const METRICS_PATH = resolve(__dirname, "..", "metrics", "pr-acceptance.json");
@@ -37,27 +37,6 @@ const DAYS = daysIdx >= 0 ? parseInt(args[daysIdx + 1] ?? "30", 10) : 30;
 const sinceMs = Date.now() - DAYS * 24 * 60 * 60 * 1000;
 const since = new Date(sinceMs).toISOString().slice(0, 10);
 
-let prsRaw;
-try {
-  prsRaw = execFileSync(
-    "gh",
-    [
-      "pr",
-      "list",
-      "--state",
-      "all",
-      "--limit",
-      "300",
-      "--json",
-      "number,title,state,headRefName,createdAt,closedAt,mergedAt,labels",
-    ],
-    { encoding: "utf-8" }
-  );
-} catch (err) {
-  console.error(`gh pr list failed: ${err.message}`);
-  process.exit(1);
-}
-
 /**
  * @typedef {{
  *   number: number,
@@ -71,8 +50,23 @@ try {
  * }} PR
  */
 
+const ghClient = createGhClient();
+
 /** @type {PR[]} */
-const allPrs = JSON.parse(prsRaw);
+let allPrs;
+try {
+  allPrs = ghClient.pr.list([
+    "--state",
+    "all",
+    "--limit",
+    "300",
+    "--json",
+    "number,title,state,headRefName,createdAt,closedAt,mergedAt,labels",
+  ]);
+} catch (err) {
+  console.error(`gh pr list failed: ${err.message}`);
+  process.exit(1);
+}
 
 // Filter to PRs whose terminal event (merge or close) is within the window.
 // Open PRs are excluded — they haven't been decided yet.

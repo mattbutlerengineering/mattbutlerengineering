@@ -18,9 +18,9 @@
  */
 
 import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -284,10 +284,7 @@ function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
 
 function createGitHubIssue(title, body) {
   try {
-    execFileSync("gh", ["issue", "create", "--title", title, "--label", "audit", "--body", body], {
-      cwd: ROOT,
-      stdio: "pipe",
-    });
+    createGhClient().issue.create(["--title", title, "--label", "audit", "--body", body]);
     console.log(`Created issue: ${title}`);
   } catch (err) {
     console.error("Failed to create GitHub issue:", err.message);
