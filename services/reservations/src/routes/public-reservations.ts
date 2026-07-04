@@ -87,6 +87,22 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Create reservation from hold (public)",
         tags: ["Public"],
+        params: {
+          type: "object",
+          required: ["slug"],
+          properties: { slug: { type: "string" } },
+        },
+        body: {
+          type: "object",
+          required: ["holdId", "guestName", "guestEmail"],
+          properties: {
+            holdId: { type: "string", minLength: 1 },
+            guestName: { type: "string", minLength: 1 },
+            guestEmail: { type: "string", minLength: 1 },
+            guestPhone: { type: "string" },
+            specialRequests: { type: "string" },
+          },
+        },
       },
     },
     async (request, reply) => {

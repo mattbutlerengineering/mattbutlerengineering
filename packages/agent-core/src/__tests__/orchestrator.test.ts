@@ -311,6 +311,150 @@ describe("runOrchestrator", () => {
     expect(result.status).toBe("failed");
   });
 
+  it("returns in_progress when all children are still running or pending", async () => {
+    vi.mocked(query).mockReturnValueOnce(
+      createMockAsyncGenerator([
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-running" }),
+        },
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-pending" }),
+        },
+        {
+          type: "result",
+          subtype: "success",
+          result: "Still working",
+          total_cost_usd: 0.01,
+          num_turns: 4,
+          session_id: "orch-1",
+        },
+      ])() as ReturnType<typeof query>
+    );
+
+    let callCount = 0;
+    mockFetch.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "child-running", status: "running", costUsd: 0.1, errors: [] },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: { id: "child-pending", status: "pending", costUsd: null, errors: [] },
+        }),
+      };
+    });
+
+    const result = await runOrchestrator(createConfig());
+
+    expect(result.status).toBe("in_progress");
+  });
+
+  it("returns partially_succeeded when children are mixed running and succeeded", async () => {
+    vi.mocked(query).mockReturnValueOnce(
+      createMockAsyncGenerator([
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-done" }),
+        },
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-still-running" }),
+        },
+        {
+          type: "result",
+          subtype: "success",
+          result: "Partially done",
+          total_cost_usd: 0.01,
+          num_turns: 4,
+          session_id: "orch-1",
+        },
+      ])() as ReturnType<typeof query>
+    );
+
+    let callCount = 0;
+    mockFetch.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "child-done", status: "succeeded", costUsd: 0.5, errors: [] },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: { id: "child-still-running", status: "running", costUsd: null, errors: [] },
+        }),
+      };
+    });
+
+    const result = await runOrchestrator(createConfig());
+
+    expect(result.status).toBe("partially_succeeded");
+  });
+
+  it("returns failed when all children are terminal and at least one failed or cancelled", async () => {
+    vi.mocked(query).mockReturnValueOnce(
+      createMockAsyncGenerator([
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-cancelled" }),
+        },
+        {
+          type: "assistant",
+          content: JSON.stringify({ sessionId: "child-failed" }),
+        },
+        {
+          type: "result",
+          subtype: "success",
+          result: "Nothing survived",
+          total_cost_usd: 0.01,
+          num_turns: 4,
+          session_id: "orch-1",
+        },
+      ])() as ReturnType<typeof query>
+    );
+
+    let callCount = 0;
+    mockFetch.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "child-cancelled", status: "cancelled", costUsd: 0.2, errors: [] },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: { id: "child-failed", status: "failed", costUsd: 0.3, errors: ["Build broke"] },
+        }),
+      };
+    });
+
+    const result = await runOrchestrator(createConfig());
+
+    expect(result.status).toBe("failed");
+  });
+
   it("returns failed when all child sessions fail", async () => {
     vi.mocked(query).mockReturnValueOnce(
       createMockAsyncGenerator([
