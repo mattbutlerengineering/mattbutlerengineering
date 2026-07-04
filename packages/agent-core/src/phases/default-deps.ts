@@ -3,6 +3,7 @@ import {
   hasChanges,
   commitChanges,
   pushBranch,
+  commitAndPush,
   removeWorktree,
 } from "../worktree-manager.js";
 import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "../prompt-builder.js";
@@ -27,6 +28,7 @@ export function createDefaultPhaseDeps(): PhaseDeps {
       hasChanges,
       commitChanges,
       pushBranch,
+      commitAndPush,
       removeWorktree,
     },
     promptBuilder: {
