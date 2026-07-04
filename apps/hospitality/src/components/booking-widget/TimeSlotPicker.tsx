@@ -25,9 +25,9 @@ export interface TimeSlotPickerProps {
   /** Estimated wait minutes to display in the no-availability state */
   estimatedWaitMinutes?: number;
   /**
-   * Whether the venue has any operating hours configured. Defaults to
-   * `true` (assume configured) so callers that haven't checked keep the
-   * existing "fully booked" messaging when slots are empty.
+   * Whether the venue has operating hours configured. Defaults to `true`
+   * (assume configured) so callers that haven't checked keep the existing
+   * "fully booked" messaging when slots are empty.
    */
   hasOperatingHours?: boolean;
   /** Who is viewing this picker — staff get a prompt to configure hours. */

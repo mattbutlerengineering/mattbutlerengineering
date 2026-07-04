@@ -32,8 +32,8 @@ export interface BookingWidgetProps {
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
   /**
-   * Whether the venue has any operating hours configured. Defaults to
-   * `true` (assume configured) — pass the result of checking the venue's
+   * Whether the venue has operating hours configured. Defaults to `true`
+   * (assume configured) — pass the result of checking the venue's
    * `operatingHours` to show a setup prompt instead of "No available times".
    */
   hasOperatingHours?: boolean;
