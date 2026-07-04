@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { compare, hasOpenRegressionIssue } from "../lib/ratchet.mjs";
+import { describe, it, expect, vi } from "vitest";
+import {
+  compare,
+  hasOpenRegressionIssue,
+  fetchOpenIssuesByLabel,
+  createIssue,
+  fileRegressionIssueIfNew,
+} from "../lib/ratchet.mjs";
 
 describe("compare (shared ratchet core)", () => {
   it("flags a regression when a metric drops below baseline (default direction)", () => {
@@ -136,5 +142,91 @@ describe("hasOpenRegressionIssue (shared dedupe check)", () => {
   it("is scoped to the marker passed in — a different marker does not match", () => {
     const issues = [{ number: 10, body: MARKER, state: "open" }];
     expect(hasOpenRegressionIssue(issues, "<!-- antipattern-regression -->")).toBe(false);
+  });
+});
+
+describe("fetchOpenIssuesByLabel (gh CLI wiring via the injected ghClient)", () => {
+  it("fetches open issues for a label via ghClient.issue.list", () => {
+    const issues = [{ number: 1, body: "x", state: "open" }];
+    const ghClient = { issue: { list: vi.fn().mockReturnValue(issues) } };
+
+    const result = fetchOpenIssuesByLabel("acmm", ghClient);
+
+    expect(ghClient.issue.list).toHaveBeenCalledWith([
+      "--label",
+      "acmm",
+      "--state",
+      "open",
+      "--limit",
+      "100",
+      "--json",
+      "number,body,state",
+    ]);
+    expect(result).toEqual(issues);
+  });
+
+  it("returns an empty array when ghClient.issue.list returns a non-array", () => {
+    const ghClient = { issue: { list: vi.fn().mockReturnValue(null) } };
+    expect(fetchOpenIssuesByLabel("acmm", ghClient)).toEqual([]);
+  });
+});
+
+describe("createIssue (gh CLI wiring via the injected ghClient)", () => {
+  it("creates an issue via ghClient.issue.create", () => {
+    const ghClient = { issue: { create: vi.fn() } };
+    const payload = { title: "t", body: "b", labels: ["acmm", "ready"] };
+
+    createIssue(payload, ghClient);
+
+    expect(ghClient.issue.create).toHaveBeenCalledWith([
+      "--title",
+      "t",
+      "--body",
+      "b",
+      "--label",
+      "acmm,ready",
+    ]);
+  });
+});
+
+describe("fileRegressionIssueIfNew (threads the injected ghClient through)", () => {
+  const MARKER = "<!-- acmm-regression -->";
+
+  it("does not create an issue when a matching open regression issue already exists", async () => {
+    const ghClient = {
+      issue: {
+        list: vi.fn().mockReturnValue([{ number: 1, body: MARKER, state: "open" }]),
+        create: vi.fn(),
+      },
+    };
+
+    const result = await fileRegressionIssueIfNew({
+      label: "acmm",
+      marker: MARKER,
+      payload: { title: "t", body: "b", labels: ["acmm"] },
+      ghClient,
+    });
+
+    expect(result).toEqual({ filed: false, reason: "duplicate" });
+    expect(ghClient.issue.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a new issue via the injected ghClient when no duplicate exists", async () => {
+    const ghClient = {
+      issue: {
+        list: vi.fn().mockReturnValue([]),
+        create: vi.fn(),
+      },
+    };
+
+    const result = await fileRegressionIssueIfNew({
+      label: "acmm",
+      marker: MARKER,
+      payload: { title: "t", body: "b", labels: ["acmm"] },
+      ghClient,
+    });
+
+    expect(result).toEqual({ filed: true });
+    expect(ghClient.issue.create).toHaveBeenCalledTimes(1);
   });
 });
