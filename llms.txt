@@ -4510,14 +4510,28 @@
   </file>
   <file path="packages/notifications/src/booking-email-content.ts">
     <item priority="low">
-      type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
-    </item>
-    <item priority="low">
       interface BookingEmailContent {
         subject: string;
         html: string;
         ical?: string;
         icalMethod?: "REQUEST" | "CANCEL";
+      }
+    </item>
+    <item priority="high">
+      export function buildBookingEmailContent(
+        input: BookingNotificationInput,
+        event: NotificationEventType,
+        manageBaseUrl: string
+      ): BookingEmailContent { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/notifications/src/email-content.ts">
+    <item priority="low">
+      type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+    </item>
+    <item priority="low">
+      interface BookingEmailTemplateInput {
+        manageBaseUrl: string;
       }
     </item>
   </file>
