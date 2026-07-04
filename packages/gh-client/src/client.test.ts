@@ -70,6 +70,16 @@ describe("createGhClient", () => {
   });
 
   describe("pr facet", () => {
+    it("pr.list returns parsed JSON array", () => {
+      const prs = [{ number: 1, state: "MERGED" }];
+      const runner = makeMockRunner({
+        "pr list --state all --json number,state": JSON.stringify(prs),
+      });
+      const client = createGhClient({ runner });
+      const result = client.pr.list(["--state", "all", "--json", "number,state"]);
+      expect(result).toEqual(prs);
+    });
+
     it("pr.view returns parsed JSON object", () => {
       const prData = { number: 1, title: "fix: something" };
       const runner = makeMockRunner({

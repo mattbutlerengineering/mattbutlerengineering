@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { createGhClient } from "@mbe/gh-client";
 
 /**
  * Shared "did it get worse?" ratchet core (ADR-018 "Detect" stage).
@@ -112,53 +112,41 @@ export function hasOpenRegressionIssue(issues, marker) {
 }
 
 /**
- * Fetches open issues for a label via `gh issue list`. CLI wiring — not
- * unit-tested, same convention as the rest of this module's IO functions.
+ * Fetches open issues for a label via the injected `ghClient`.
  *
  * @param {string} label
+ * @param {import("@mbe/gh-client").GhClient} [ghClient]
  * @returns {Array<{ number: number, body: string, state: string }>}
  */
-export function fetchOpenIssuesByLabel(label) {
-  const raw = execFileSync(
-    "gh",
-    [
-      "issue",
-      "list",
-      "--label",
-      label,
-      "--state",
-      "open",
-      "--limit",
-      "100",
-      "--json",
-      "number,body,state",
-    ],
-    { encoding: "utf8" }
-  );
-  const parsed = JSON.parse(raw);
-  return Array.isArray(parsed) ? parsed : [];
+export function fetchOpenIssuesByLabel(label, ghClient = createGhClient()) {
+  const issues = ghClient.issue.list([
+    "--label",
+    label,
+    "--state",
+    "open",
+    "--limit",
+    "100",
+    "--json",
+    "number,body,state",
+  ]);
+  return Array.isArray(issues) ? issues : [];
 }
 
 /**
- * Creates a GitHub issue via `gh issue create`. CLI wiring — not unit-tested.
+ * Creates a GitHub issue via the injected `ghClient`.
  *
  * @param {{ title: string, body: string, labels: string[] }} payload
+ * @param {import("@mbe/gh-client").GhClient} [ghClient]
  */
-export function createIssue(payload) {
-  execFileSync(
-    "gh",
-    [
-      "issue",
-      "create",
-      "--title",
-      payload.title,
-      "--body",
-      payload.body,
-      "--label",
-      payload.labels.join(","),
-    ],
-    { stdio: "inherit" }
-  );
+export function createIssue(payload, ghClient = createGhClient()) {
+  ghClient.issue.create([
+    "--title",
+    payload.title,
+    "--body",
+    payload.body,
+    "--label",
+    payload.labels.join(","),
+  ]);
 }
 
 /**
@@ -169,13 +157,14 @@ export function createIssue(payload) {
  * @param {string} opts.label - issue label to scope the open-issue search to
  * @param {string} opts.marker - dedupe marker expected in the issue body
  * @param {{ title: string, body: string, labels: string[] }} opts.payload
+ * @param {import("@mbe/gh-client").GhClient} [opts.ghClient]
  * @returns {{ filed: boolean, reason?: string }}
  */
-export function fileRegressionIssueIfNew({ label, marker, payload }) {
-  const openIssues = fetchOpenIssuesByLabel(label);
+export function fileRegressionIssueIfNew({ label, marker, payload, ghClient = createGhClient() }) {
+  const openIssues = fetchOpenIssuesByLabel(label, ghClient);
   if (hasOpenRegressionIssue(openIssues, marker)) {
     return { filed: false, reason: "duplicate" };
   }
-  createIssue(payload);
+  createIssue(payload, ghClient);
   return { filed: true };
 }

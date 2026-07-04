@@ -57,6 +57,11 @@ export function createGhClient(opts: GhClientOptions = {}) {
   };
 
   const pr = {
+    list(args: string[]): unknown[] {
+      const raw = run("gh", ["pr", "list", ...args]);
+      return JSON.parse(raw) as unknown[];
+    },
+
     view(number: number, args: string[] = []): unknown {
       const raw = run("gh", ["pr", "view", String(number), ...args]);
       return JSON.parse(raw);
