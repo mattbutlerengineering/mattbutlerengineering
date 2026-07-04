@@ -13,7 +13,8 @@ src/
 ├── resend-adapter.ts           # Resend email implementation
 ├── twilio-sms-adapter.ts       # Twilio SMS implementation
 ├── booking-email-content.ts    # Email HTML content builder
-└── ical.ts                     # iCal attachment generator
+├── ical.ts                     # iCal attachment generator
+└── sanitize.ts                 # Shared escapeHtml + sanitizeUrl helpers
 ```
 
 ## Exports

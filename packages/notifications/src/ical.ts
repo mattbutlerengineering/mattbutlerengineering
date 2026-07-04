@@ -13,7 +13,32 @@ export interface IcalEventInput {
 
 export type IcalMethod = "REQUEST" | "CANCEL";
 
+/**
+ * Escapes characters with special meaning in RFC 5545 TEXT property values.
+ * Prevents a guest-controlled value (name, venue name) from breaking out of
+ * its property and injecting a new iCal line (e.g. a rogue METHOD:CANCEL).
+ */
+export function escapeIcalText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r");
+}
+
+const FORBIDDEN_ICAL_TOKEN_CHARS = /[\r\n;]/;
+
+function assertSafeIcalToken(value: string, fieldName: string): void {
+  if (FORBIDDEN_ICAL_TOKEN_CHARS.test(value)) {
+    throw new Error(`Invalid ${fieldName}: must not contain CR, LF, or ";"`);
+  }
+}
+
 export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string {
+  assertSafeIcalToken(input.venueTimezone, "venueTimezone");
+  if (input.guestEmail) assertSafeIcalToken(input.guestEmail, "guestEmail");
+
   const uid = `${input.reservationId}@mbe`;
   const sequence = input.sequence ?? 0;
   const now = formatIcalDate(new Date());
@@ -21,15 +46,15 @@ export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): 
   const dtstart = toIcalDateTime(input.date, input.startTime, input.venueTimezone);
   const dtend = toIcalDateTime(input.date, input.endTime, input.venueTimezone);
 
+  const venueName = escapeIcalText(input.venueName);
   const summary =
-    method === "CANCEL"
-      ? `CANCELLED: Reservation at ${input.venueName}`
-      : `Reservation at ${input.venueName}`;
+    method === "CANCEL" ? `CANCELLED: Reservation at ${venueName}` : `Reservation at ${venueName}`;
 
   const status = method === "CANCEL" ? "CANCELLED" : "CONFIRMED";
 
   const description =
-    `Party of ${input.partySize}` + (input.guestName ? `\\nGuest: ${input.guestName}` : "");
+    `Party of ${input.partySize}` +
+    (input.guestName ? `\\nGuest: ${escapeIcalText(input.guestName)}` : "");
 
   const lines = [
     "BEGIN:VCALENDAR",
@@ -43,7 +68,7 @@ export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): 
     `DTSTART;TZID=${input.venueTimezone}:${dtstart}`,
     `DTEND;TZID=${input.venueTimezone}:${dtend}`,
     `SUMMARY:${summary}`,
-    `LOCATION:${input.venueName}`,
+    `LOCATION:${venueName}`,
     `DESCRIPTION:${description}`,
     `STATUS:${status}`,
     ...(input.guestEmail
