@@ -3,12 +3,12 @@ import { promisify } from "node:util";
 import { pollForFeedback } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 import { runHardenedQuery } from "./run-hardened-query.js";
+import { commitAndPush } from "./worktree-manager.js";
+import type { WorktreeManagerDeps } from "./phases/pipeline-types.js";
 import type { SessionEventCallback, SessionEvent } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
-/** Bound `git` subprocess calls (covers network stalls on push). */
-const GIT_TIMEOUT_MS = 60_000;
 /** Bound `gh` subprocess calls (GitHub API latency). */
 const GH_TIMEOUT_MS = 30_000;
 
@@ -30,6 +30,19 @@ export interface FeedbackLoopResult {
   readonly retriesUsed: number;
   readonly resolved: boolean;
   readonly lastFingerprint: string | null;
+}
+
+/** Resolves the GitHub owner/repo for a PR (defaults to `gh repo view`). */
+export type OwnerRepoResolver = (repoPath: string) => Promise<{ owner: string; repo: string }>;
+
+/**
+ * Collaborators injected into `runFeedbackLoop`. Defaults wire the real
+ * validated worktree-manager `commitAndPush` and the `gh repo view` owner/repo
+ * lookup; tests pass fakes so the loop runs without spawning any subprocess.
+ */
+export interface FeedbackLoopRunnerDeps {
+  readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush">;
+  readonly resolveOwnerRepo?: OwnerRepoResolver;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -60,50 +73,20 @@ async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: 
   return { owner: parsed.owner.login, repo: parsed.name };
 }
 
-/**
- * True only for a genuine `git diff --cached --quiet` exit code 1 ("there are
- * changes"). A timeout kills the process (`killed: true`, `code: null`) and
- * must NOT be mistaken for that clean exit — it needs to propagate instead.
- */
-function isExitCodeOne(err: unknown): boolean {
-  const execError = err as { code?: number | string | null; killed?: boolean };
-  return execError.code === 1 && !execError.killed;
-}
-
-async function commitAndPush(repoPath: string, message: string): Promise<void> {
-  await execFileAsync("git", ["add", "-A"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
-
-  // Check if there are staged changes before committing
-  try {
-    await execFileAsync("git", ["diff", "--cached", "--quiet"], {
-      cwd: repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-    // Exit code 0 means no changes — nothing to commit
-    return;
-  } catch (err) {
-    if (!isExitCodeOne(err)) {
-      // A timeout (or any other non-exit-1 failure) must propagate rather
-      // than being silently treated as "no changes".
-      throw err;
-    }
-    // Exit code 1 means there are changes — proceed with commit
-  }
-
-  await execFileAsync("git", ["commit", "-m", message], {
-    cwd: repoPath,
-    timeout: GIT_TIMEOUT_MS,
-  });
-  await execFileAsync("git", ["push"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
-}
+const defaultRunnerDeps: FeedbackLoopRunnerDeps = {
+  worktreeManager: { commitAndPush },
+  resolveOwnerRepo: parseOwnerRepo,
+};
 
 // ── Main feedback loop ──────────────────────────────────────────────
 
 export async function runFeedbackLoop(
   config: FeedbackLoopParams,
+  deps: FeedbackLoopRunnerDeps = defaultRunnerDeps,
   onEvent?: SessionEventCallback
 ): Promise<FeedbackLoopResult> {
-  const { owner, repo } = await parseOwnerRepo(config.repoPath);
+  const resolveOwnerRepo = deps.resolveOwnerRepo ?? parseOwnerRepo;
+  const { owner, repo } = await resolveOwnerRepo(config.repoPath);
 
   let lastFingerprint = "";
   let retriesUsed = 0;
@@ -174,8 +157,12 @@ export async function runFeedbackLoop(
       onEvent
     );
 
-    // Commit and push the fixes
-    await commitAndPush(config.repoPath, `fix: address PR feedback (attempt ${attempt + 1})`);
+    // Commit and push the fixes via the validated worktree-manager helper.
+    await deps.worktreeManager.commitAndPush(
+      config.repoPath,
+      config.branchName,
+      `fix: address PR feedback (attempt ${attempt + 1})`
+    );
 
     emitEvent(onEvent, "session:message", {
       message: `Feedback loop: fix session complete, pushed changes (attempt ${attempt + 1})`,

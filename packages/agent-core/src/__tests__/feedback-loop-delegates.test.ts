@@ -6,18 +6,13 @@
  * Acceptance criteria verified here:
  *   - The feedback fix-session delegates to runHardenedQuery (closing the hang/loop gap)
  *   - stuck-detector is exercised through the shared module from the feedback call site
+ *
+ * The commit/push path and owner/repo lookup are injected via
+ * `FeedbackLoopRunnerDeps` — NO `vi.mock("node:child_process")` is needed.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks ────────────────────────────────────────────────────────────
-
-vi.mock("node:child_process", () => ({
-  execFile: vi.fn(),
-}));
-
-vi.mock("node:util", () => ({
-  promisify: vi.fn((fn: unknown) => fn),
-}));
 
 vi.mock("../run-hardened-query.js", () => ({
   runHardenedQuery: vi.fn(),
@@ -33,20 +28,15 @@ vi.mock("../feedback-prompt-builder.js", () => ({
 
 // ── Imports (after mocks) ────────────────────────────────────────────
 
-import { execFile } from "node:child_process";
 import { runHardenedQuery } from "../run-hardened-query.js";
 import { pollForFeedback } from "../pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
-import type { FeedbackLoopParams } from "../feedback-loop.js";
+import type { FeedbackLoopParams, FeedbackLoopRunnerDeps } from "../feedback-loop.js";
 import type { PollResult } from "../pr-feedback-poller.js";
 import type { StuckPattern } from "../stuck-detector.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
-
-const mockExecFile = vi.mocked(
-  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
-);
 
 const BASE_PARAMS: FeedbackLoopParams = {
   prNumber: 42,
@@ -59,6 +49,14 @@ const BASE_PARAMS: FeedbackLoopParams = {
   maxBudgetUsd: 0.5,
   allowedTools: ["Read", "Write", "Edit", "Bash"],
 };
+
+/** Fresh injected deps: a fake commitAndPush + a fake owner/repo resolver. */
+function makeDeps(): FeedbackLoopRunnerDeps {
+  return {
+    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
+    resolveOwnerRepo: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+  };
+}
 
 function createMockPollResult(overrides?: Partial<PollResult>): PollResult {
   return {
@@ -105,26 +103,6 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockExecFile.mockImplementation(async (cmd: unknown, args: unknown) => {
-      const command = cmd as string;
-      const argList = args as string[];
-      if (command === "gh" && argList[0] === "repo") {
-        return { stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }) };
-      }
-      if (command === "git" && argList[0] === "diff") {
-        // git diff --cached --quiet exits 1 when there are changes (real
-        // Node execFile error shape: code set, killed/signal unset).
-        const changesExistError = new Error("changes exist") as Error & {
-          code: number;
-          killed: boolean;
-        };
-        changesExistError.code = 1;
-        changesExistError.killed = false;
-        throw changesExistError;
-      }
-      return { stdout: "" };
-    });
-
     vi.mocked(buildReviewFixPrompt).mockReturnValue("Fix the review issues");
 
     // Default: fix session succeeds cleanly
@@ -143,7 +121,7 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
       .mockResolvedValueOnce(createMockPollResult())
       .mockResolvedValue(null);
 
-    await runFeedbackLoop(BASE_PARAMS);
+    await runFeedbackLoop(BASE_PARAMS, makeDeps());
 
     // runHardenedQuery must be called once for the fix session
     expect(runHardenedQuery).toHaveBeenCalledTimes(1);
@@ -170,7 +148,7 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
       .mockResolvedValue(null);
 
     // The feedback loop must NOT hang — it receives the stuck result and moves on
-    const result = await runFeedbackLoop(BASE_PARAMS);
+    const result = await runFeedbackLoop(BASE_PARAMS, makeDeps());
 
     expect(runHardenedQuery).toHaveBeenCalledTimes(1);
     // Loop completes (doesn't hang) even though the fix session was stuck

@@ -1,14 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionEvent } from "../types.js";
 
-// Mock dependencies — same pattern as pr-feedback-poller.test.ts
-vi.mock("node:child_process", () => ({
-  execFile: vi.fn(),
-}));
-
-vi.mock("node:util", () => ({
-  promisify: vi.fn((fn: unknown) => fn),
-}));
+// The commit/push subprocess path and owner/repo lookup are injected via
+// `FeedbackLoopRunnerDeps` — NO `vi.mock("node:child_process")` is needed.
+// Only the collaborators the fix session drives through are module-mocked.
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: vi.fn(),
@@ -26,19 +21,14 @@ vi.mock("../tool-permissions.js", () => ({
   createToolPermissionHandler: vi.fn(),
 }));
 
-import { execFile } from "node:child_process";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createMockQueryStream } from "@mbe/agent-test-utils";
 import { pollForFeedback } from "../pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
-import type { FeedbackLoopParams } from "../feedback-loop.js";
+import type { FeedbackLoopParams, FeedbackLoopRunnerDeps } from "../feedback-loop.js";
 import type { PollResult } from "../pr-feedback-poller.js";
-
-const mockExecFile = vi.mocked(
-  execFile as unknown as (...args: unknown[]) => Promise<{ stdout: string }>
-);
 
 const BASE_PARAMS: FeedbackLoopParams = {
   prNumber: 42,
@@ -51,6 +41,17 @@ const BASE_PARAMS: FeedbackLoopParams = {
   maxBudgetUsd: 0.5,
   allowedTools: ["Read", "Write", "Edit", "Bash"],
 };
+
+/** Fresh injected deps: a fake commitAndPush + a fake owner/repo resolver. */
+function makeDeps(): FeedbackLoopRunnerDeps & {
+  worktreeManager: { commitAndPush: ReturnType<typeof vi.fn> };
+  resolveOwnerRepo: ReturnType<typeof vi.fn>;
+} {
+  return {
+    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
+    resolveOwnerRepo: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+  };
+}
 
 function createMockPollResult(overrides?: Partial<PollResult>): PollResult {
   return {
@@ -77,32 +78,6 @@ describe("runFeedbackLoop", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock gh repo view for parseOwnerRepo
-    mockExecFile.mockImplementation(async (cmd: unknown, args: unknown, _opts?: unknown) => {
-      const command = cmd as string;
-      const argList = args as string[];
-      if (command === "gh" && argList[0] === "repo") {
-        return {
-          stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }),
-        };
-      }
-      if (command === "git" && argList[0] === "diff") {
-        // git diff --cached --quiet exits 1 when there are changes (real
-        // Node execFile error shape: code set, killed/signal unset).
-        const changesExistError = new Error("changes exist") as Error & {
-          code: number;
-          killed: boolean;
-        };
-        changesExistError.code = 1;
-        changesExistError.killed = false;
-        throw changesExistError;
-      }
-      if (command === "git") {
-        return { stdout: "" };
-      }
-      return { stdout: "" };
-    });
-
     vi.mocked(createToolPermissionHandler).mockReturnValue(
       vi.fn().mockResolvedValue({ behavior: "allow" })
     );
@@ -116,12 +91,14 @@ describe("runFeedbackLoop", () => {
 
   it("resolves immediately when no feedback is found", async () => {
     vi.mocked(pollForFeedback).mockResolvedValue(null);
+    const deps = makeDeps();
 
-    const result = await runFeedbackLoop(BASE_PARAMS);
+    const result = await runFeedbackLoop(BASE_PARAMS, deps);
 
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(0);
     expect(result.lastFingerprint).toBeNull();
+    expect(deps.worktreeManager.commitAndPush).not.toHaveBeenCalled();
   });
 
   it("runs a fix session when feedback is found and resolves after one retry", async () => {
@@ -129,8 +106,9 @@ describe("runFeedbackLoop", () => {
       .mockResolvedValueOnce(createMockPollResult())
       // After fix: no more feedback
       .mockResolvedValueOnce(null);
+    const deps = makeDeps();
 
-    const result = await runFeedbackLoop(BASE_PARAMS);
+    const result = await runFeedbackLoop(BASE_PARAMS, deps);
 
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(1);
@@ -139,13 +117,38 @@ describe("runFeedbackLoop", () => {
     expect(query).toHaveBeenCalledTimes(1);
   });
 
+  it("delegates the commit to the injected worktreeManager.commitAndPush", async () => {
+    vi.mocked(pollForFeedback)
+      .mockResolvedValueOnce(createMockPollResult())
+      .mockResolvedValueOnce(null);
+    const deps = makeDeps();
+
+    await runFeedbackLoop(BASE_PARAMS, deps);
+
+    expect(deps.worktreeManager.commitAndPush).toHaveBeenCalledTimes(1);
+    expect(deps.worktreeManager.commitAndPush).toHaveBeenCalledWith(
+      BASE_PARAMS.repoPath,
+      BASE_PARAMS.branchName,
+      expect.stringContaining("address PR feedback")
+    );
+  });
+
+  it("resolves owner/repo through the injected resolver", async () => {
+    vi.mocked(pollForFeedback).mockResolvedValue(null);
+    const deps = makeDeps();
+
+    await runFeedbackLoop(BASE_PARAMS, deps);
+
+    expect(deps.resolveOwnerRepo).toHaveBeenCalledWith(BASE_PARAMS.repoPath);
+  });
+
   it("escalates after exhausting maxRetries when feedback persists", async () => {
     vi.mocked(pollForFeedback).mockResolvedValue(
       createMockPollResult({ fingerprint: "persistent-thread" })
     );
 
     const params = { ...BASE_PARAMS, maxRetries: 2 };
-    const result = await runFeedbackLoop(params);
+    const result = await runFeedbackLoop(params, makeDeps());
 
     expect(result.resolved).toBe(false);
     expect(result.retriesUsed).toBe(2);
@@ -157,7 +160,7 @@ describe("runFeedbackLoop", () => {
     vi.mocked(pollForFeedback).mockResolvedValue(createMockPollResult());
 
     const params = { ...BASE_PARAMS, maxRetries: 1 };
-    const result = await runFeedbackLoop(params);
+    const result = await runFeedbackLoop(params, makeDeps());
 
     expect(result.retriesUsed).toBe(1);
     expect(query).toHaveBeenCalledTimes(1);
@@ -169,7 +172,7 @@ describe("runFeedbackLoop", () => {
       .mockResolvedValueOnce(null);
 
     const events: SessionEvent[] = [];
-    await runFeedbackLoop(BASE_PARAMS, (event) => events.push(event));
+    await runFeedbackLoop(BASE_PARAMS, makeDeps(), (event) => events.push(event));
 
     const messages = events.map((e) =>
       "message" in e.data ? (e.data as { message: string }).message : ""
@@ -199,66 +202,10 @@ describe("runFeedbackLoop", () => {
     // First poll: CI feedback found; remaining polls: no feedback
     vi.mocked(pollForFeedback).mockResolvedValueOnce(feedbackWithCI).mockResolvedValue(null);
 
-    const result = await runFeedbackLoop(BASE_PARAMS);
+    const result = await runFeedbackLoop(BASE_PARAMS, makeDeps());
 
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(1);
     expect(buildReviewFixPrompt).toHaveBeenCalledWith(feedbackWithCI.context);
-  });
-
-  // ── Subprocess timeouts ─────────────────────────────────────────────
-  // A hung `git`/`gh` call must fail fast instead of blocking the session
-  // indefinitely — every call needs a numeric timeout.
-
-  it("passes a numeric timeout on the gh repo view and git add/diff/commit/push calls", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValueOnce(null);
-
-    await runFeedbackLoop(BASE_PARAMS);
-
-    const relevantCalls = mockExecFile.mock.calls.filter(
-      (call) => call[0] === "gh" || call[0] === "git"
-    );
-    expect(relevantCalls.length).toBeGreaterThan(0);
-    for (const call of relevantCalls) {
-      const options = call[2] as { timeout?: number } | undefined;
-      expect(typeof options?.timeout).toBe("number");
-      expect(options?.timeout).toBeGreaterThan(0);
-    }
-  });
-
-  it("propagates a timeout on `git diff --cached --quiet` instead of treating it as no changes", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValueOnce(null);
-
-    // Simulate a real Node execFile timeout error shape: code is null,
-    // killed is true, signal is set — distinct from a genuine exit-code-1
-    // "there are changes" result.
-    mockExecFile.mockImplementation(async (cmd: unknown, args: unknown, _opts?: unknown) => {
-      const command = cmd as string;
-      const argList = args as string[];
-      if (command === "gh" && argList[0] === "repo") {
-        return { stdout: JSON.stringify({ owner: { login: "owner" }, name: "repo" }) };
-      }
-      if (command === "git" && argList[0] === "diff") {
-        const timeoutError = new Error("Command timed out") as Error & {
-          code: null;
-          killed: boolean;
-          signal: string;
-        };
-        timeoutError.code = null;
-        timeoutError.killed = true;
-        timeoutError.signal = "SIGTERM";
-        throw timeoutError;
-      }
-      if (command === "git") {
-        return { stdout: "" };
-      }
-      return { stdout: "" };
-    });
-
-    await expect(runFeedbackLoop(BASE_PARAMS)).rejects.toThrow("Command timed out");
   });
 });
