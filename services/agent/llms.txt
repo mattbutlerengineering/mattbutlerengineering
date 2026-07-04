@@ -20,13 +20,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="prisma.config.ts">
-  <file path="prisma.config.ts">
-    <item priority="medium">
-      function loadEnvFile(): void { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="routes">
   <file path="src/routes/gen-agent-tools.ts">
     <item priority="high">
