@@ -5255,6 +5255,26 @@
       error?: string;
     }
   </file>
+  <file path="src/services/job-worker.ts">
+    export interface ReminderDispatcher {
+      sendBookingReminder(
+        input: BookingNotificationInput,
+        preference: CommunicationPreference
+      ): Promise<void>;
+    }
+    export interface ReservationJobHandlerDeps {
+      /** Finder: load the reservation the reminder targets. */
+      getReservation(id: string): Promise<Reservation | null>;
+      /** Finder: load the venue for reminder content. */
+      getVenue(id: string): Promise<Venue | null>;
+      /** Dispatcher: sends the booking reminder over the guest's channel(s). */
+      dispatcher: ReminderDispatcher;
+      /** Signs a fresh manage-token so the reminder carries a working manage link. */
+      generateManageToken(reservationId: string, guestEmail: string): string;
+      /** Waitlist re-notify path — expires the entry and notifies the next guest. */
+      handleWaitlistExpiry(input: { waitlistEntryId: string }): Promise<void>;
+    }
+  </file>
   <file path="src/services/lapse-detector.ts">
     export interface LapseResult {
       /** Average days between visits (0 if fewer than 2 visits). */
@@ -5966,9 +5986,29 @@
     
       // Wire lapsed-guest monitor with lifecycle hooks
       const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
+    
+      // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
+      // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via the
+      // JobScheduler and delivers them through the notification dispatcher +
+      // waitlist re-notify path. Handlers are built eagerly (pure closures);
+      // worker construction — which opens the Redis consumer — is deferred to
+      // onReady so buildApp() stays side-effect-free.
+      const jobWorker = createReservationJobWorker({
+        redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+        handlers: createReservationJobHandlers({
+          getReservation: (id) => reservationService.getById(id),
+          getVenue: (id) => venueService.getById(id),
+          dispatcher: notificationPort,
+          generateManageToken,
+          handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+        }),
+      });
+    
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
+        fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
+        fastify.addHook("onClose", async () => jobWorker.stop());
       }
     
       // AppError serialization is handled centrally by errorHandlerPlugin →
