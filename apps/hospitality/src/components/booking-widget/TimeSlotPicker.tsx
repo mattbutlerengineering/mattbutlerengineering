@@ -24,6 +24,16 @@ export interface TimeSlotPickerProps {
   onJoinWaitlist?: () => void;
   /** Estimated wait minutes to display in the no-availability state */
   estimatedWaitMinutes?: number;
+  /**
+   * Whether the venue has operating hours configured. Defaults to `true`
+   * (assume configured) so callers that haven't checked keep the existing
+   * "fully booked" messaging when slots are empty.
+   */
+  hasOperatingHours?: boolean;
+  /** Who is viewing this picker — staff get a prompt to configure hours. */
+  audience?: "staff" | "guest";
+  /** Staff-only: navigates to the operating-hours setup page. */
+  onSetHours?: () => void;
 }
 
 const SKELETON_SLOT_COUNT = 8;
@@ -39,6 +49,9 @@ export function TimeSlotPicker({
   partySize,
   onJoinWaitlist,
   estimatedWaitMinutes,
+  hasOperatingHours = true,
+  audience = "guest",
+  onSetHours,
 }: TimeSlotPickerProps) {
   const formattedDate = formatLongDate(date);
 
@@ -117,7 +130,24 @@ export function TimeSlotPicker({
       </div>
 
       {slots.length === 0 ? (
-        onJoinWaitlist ? (
+        !hasOperatingHours ? (
+          audience === "staff" ? (
+            <EmptyState
+              heading="No operating hours set"
+              description="This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table."
+              action={
+                <Button variant="primary" onClick={onSetHours} type="button">
+                  Set Operating Hours
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              heading="Online booking isn't available yet"
+              description="This venue hasn't set up online reservations yet. Please contact them directly to book a table."
+            />
+          )
+        ) : onJoinWaitlist ? (
           <div className={styles.noAvailabilityContainer}>
             <EmptyState
               heading="No available times"

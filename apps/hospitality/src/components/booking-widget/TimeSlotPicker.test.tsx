@@ -23,10 +23,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <div data-testid="skeleton" data-variant={variant} style={{ width, height }} />
   ),
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  EmptyState: ({ heading, description }: any) => (
+  EmptyState: ({ heading, description, action }: any) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
 }));
@@ -206,6 +207,63 @@ describe("TimeSlotPicker", () => {
     it("does NOT show Join Waitlist button when slots are available", () => {
       const slots = [makeSlot("2026-05-20T18:00:00")];
       render(<TimeSlotPicker {...defaultProps} slots={slots} onJoinWaitlist={vi.fn()} />);
+      expect(screen.queryByText("Join Waitlist")).toBeNull();
+    });
+  });
+
+  describe("no operating hours configured", () => {
+    it("shows a set-hours prompt with a working link for the staff audience", () => {
+      const onSetHours = vi.fn();
+      render(
+        <TimeSlotPicker
+          {...defaultProps}
+          slots={[]}
+          hasOperatingHours={false}
+          audience="staff"
+          onSetHours={onSetHours}
+        />
+      );
+
+      expect(screen.queryByText("No available times")).toBeNull();
+      const setHoursBtn = screen.getByText("Set Operating Hours");
+      fireEvent.click(setHoursBtn);
+      expect(onSetHours).toHaveBeenCalled();
+    });
+
+    it("shows a clearer message than 'No available times' for the guest audience", () => {
+      render(
+        <TimeSlotPicker {...defaultProps} slots={[]} hasOperatingHours={false} audience="guest" />
+      );
+
+      expect(screen.queryByText("No available times")).toBeNull();
+      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+      expect(screen.getByTestId("empty-state")).toBeDefined();
+    });
+
+    it("defaults to the guest audience when not specified", () => {
+      render(<TimeSlotPicker {...defaultProps} slots={[]} hasOperatingHours={false} />);
+      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+      expect(screen.queryByText("No available times")).toBeNull();
+    });
+
+    it("does not show the no-hours prompt when hours are configured but the date is fully booked (no regression)", () => {
+      render(
+        <TimeSlotPicker {...defaultProps} slots={[]} hasOperatingHours={true} audience="staff" />
+      );
+      expect(screen.getByText("No available times")).toBeDefined();
+      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+    });
+
+    it("takes priority over the waitlist option when hours aren't configured", () => {
+      render(
+        <TimeSlotPicker
+          {...defaultProps}
+          slots={[]}
+          hasOperatingHours={false}
+          audience="guest"
+          onJoinWaitlist={vi.fn()}
+        />
+      );
       expect(screen.queryByText("Join Waitlist")).toBeNull();
     });
   });

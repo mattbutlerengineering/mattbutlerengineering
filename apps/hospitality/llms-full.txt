@@ -33,6 +33,15 @@
       return formatCancellationTerms(policy, config.currency);
     }
   </file>
+  <file path="src/components/booking-widget/hasOperatingHours.ts">
+    export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean {
+      if (!operatingHours) return false;
+      return DAYS.some((day) => {
+        const schedule = operatingHours[day];
+        return schedule != null && schedule.closed !== true;
+      });
+    }
+  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"

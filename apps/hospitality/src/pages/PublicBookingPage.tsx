@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, Text, Button, Card } from "@mattbutlerengineering/rialto";
-import { BookingWidget } from "../components/booking-widget/index.js";
+import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import styles from "./PublicBookingPage.module.css";
 
@@ -108,6 +108,7 @@ export function PublicBookingPage() {
           venueId={venue.id}
           venueSlug={venue.slug}
           apiBaseUrl={BASE_URL}
+          hasOperatingHours={hasOperatingHours(venue.operatingHours)}
           onCancellation={() => {
             activeHoldIdRef.current = null;
           }}

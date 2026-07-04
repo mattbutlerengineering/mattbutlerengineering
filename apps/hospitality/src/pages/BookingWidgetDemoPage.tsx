@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -14,7 +15,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
-import { BookingWidget } from "../components/booking-widget";
+import { BookingWidget, hasOperatingHours } from "../components/booking-widget";
 import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
 import styles from "./BookingWidgetDemoPage.module.css";
@@ -103,6 +104,7 @@ function BookingWidgetDemoSkeleton() {
 /* ── Main component ────────────────────────── */
 
 export function BookingWidgetDemoPage() {
+  const navigate = useNavigate();
   const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [deviceFrame, setDeviceFrame] = useState("desktop");
@@ -118,6 +120,8 @@ export function BookingWidgetDemoPage() {
     () => venues.find((v) => v.id === effectiveVenueId) ?? null,
     [venues, effectiveVenueId]
   );
+
+  const handleSetHours = useCallback(() => navigate("/setup/hours"), [navigate]);
 
   const embedCode = useMemo(() => {
     const venueIdValue = effectiveVenueId ?? "YOUR_VENUE_ID";
@@ -204,7 +208,12 @@ export function BookingWidgetDemoPage() {
                 style={{ maxInlineSize: DEVICE_WIDTHS[deviceFrame] }}
               >
                 {effectiveVenueId ? (
-                  <BookingWidget venueId={effectiveVenueId} />
+                  <BookingWidget
+                    venueId={effectiveVenueId}
+                    audience="staff"
+                    hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
+                    onSetHours={handleSetHours}
+                  />
                 ) : (
                   <Alert variant="info">Select a venue above to preview the widget.</Alert>
                 )}
