@@ -12,6 +12,12 @@ const mockApiClient = {
   },
 };
 
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock("../hooks/useApiClient.js", () => ({
   useApiClient: vi.fn(() => mockApiClient),
 }));
@@ -31,9 +37,32 @@ vi.mock("../components/ErrorRetryBanner", () => ({
   ),
 }));
 
-vi.mock("../components/booking-widget", () => ({
-  BookingWidget: ({ venueId }: any) => <div data-testid="booking-widget">{venueId}</div>,
-}));
+// Captures the last onSetHours callback the page passed down, so tests can
+// invoke it directly without rendering extra interactive markup that would
+// change the mocked widget's textContent assertions below.
+let lastOnSetHours: (() => void) | undefined;
+
+// Imports the real (pure, separately unit-tested) hasOperatingHours module
+// directly so its wiring here is genuinely exercised, without pulling in the
+// rest of the heavy booking-widget barrel (Stripe, GuestDetailsForm, etc.).
+vi.mock("../components/booking-widget", async () => {
+  const { hasOperatingHours } = await import("../components/booking-widget/hasOperatingHours.js");
+  return {
+    BookingWidget: ({ venueId, audience, hasOperatingHours: hasHours, onSetHours }: any) => {
+      lastOnSetHours = onSetHours;
+      return (
+        <div
+          data-testid="booking-widget"
+          data-audience={audience}
+          data-has-operating-hours={String(hasHours)}
+        >
+          {venueId}
+        </div>
+      );
+    },
+    hasOperatingHours,
+  };
+});
 vi.mock("./highlight-embed-code.js", () => ({
   highlightEmbedCode: (code: string) => code,
 }));
@@ -299,6 +328,54 @@ describe("BookingWidgetDemoPage", () => {
       expect(widget).toBeDefined();
       expect(widget.textContent).toBe("v-1");
     });
+  });
+
+  it("renders BookingWidget with the staff audience", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      const widget = screen.getByTestId("booking-widget");
+      expect(widget.getAttribute("data-audience")).toBe("staff");
+    });
+  });
+
+  it("passes hasOperatingHours=false when the selected venue has no hours configured", async () => {
+    // mockVenues entries carry no operatingHours field — matches an
+    // unconfigured venue.
+    renderPage();
+
+    await waitFor(() => {
+      const widget = screen.getByTestId("booking-widget");
+      expect(widget.getAttribute("data-has-operating-hours")).toBe("false");
+    });
+  });
+
+  it("passes hasOperatingHours=true once the selected venue has hours configured", async () => {
+    mockApiClient.venues.list.mockResolvedValue({
+      data: [
+        {
+          ...mockVenues[0],
+          operatingHours: { monday: { open: "09:00", close: "22:00" } },
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      const widget = screen.getByTestId("booking-widget");
+      expect(widget.getAttribute("data-has-operating-hours")).toBe("true");
+    });
+  });
+
+  it("navigates to /setup/hours when the widget's set-hours prompt is triggered", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("booking-widget")).toBeDefined();
+    });
+
+    lastOnSetHours?.();
+    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
   });
 
   it("embed code contains the selected venue ID", async () => {
