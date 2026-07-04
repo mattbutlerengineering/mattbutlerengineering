@@ -140,7 +140,7 @@ describe("SearchOrchestrator", () => {
       />
     );
     expect(screen.getByText("No guests yet")).toBeDefined();
-    expect(screen.getByText("Guests will appear here once they make a reservation.")).toBeDefined();
+    expect(screen.getByText("Get started by adding your first guest.")).toBeDefined();
   });
 
   it("does not show empty state when guests present", () => {
