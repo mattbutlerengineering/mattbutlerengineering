@@ -7,7 +7,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "./useApiClient.js";
-import type { CancellationPolicy } from "../utils/cancellation-fee.js";
+import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
 interface PublicVenueDepositResponse {
   data?: {

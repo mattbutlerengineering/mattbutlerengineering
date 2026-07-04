@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
-import type { CancellationPolicy } from "../../utils/cancellation-fee.js";
-import { evaluateCancellationFee } from "../../utils/cancellation-fee.js";
+import type { CancellationPolicy } from "@mbe/cancellation-policy";
+import { evaluateCancellationFee } from "@mbe/cancellation-policy";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./CancelReservationDialog.module.css";
 
