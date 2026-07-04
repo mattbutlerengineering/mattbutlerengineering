@@ -13,6 +13,7 @@ export {
   ZONES,
   BASE_URL,
   INVENTORY_VERSION,
+  SURFACE_REGISTRY,
 } from "./audit-inventory.js";
 export type {
   AuditInventory,

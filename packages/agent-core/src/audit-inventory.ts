@@ -9,6 +9,7 @@ export {
   ZONES,
   BASE_URL,
   INVENTORY_VERSION,
+  SURFACE_REGISTRY,
   buildInventory,
   mergeInventory,
 } from "./audit-surface-registry.js";
