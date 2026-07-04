@@ -12,9 +12,10 @@ src/
 ├── notification-dispatcher.ts  # CommunicationPreference-based router
 ├── resend-adapter.ts           # Resend email implementation
 ├── twilio-sms-adapter.ts       # Twilio SMS implementation
-├── booking-email-content.ts    # Email HTML content builder
+├── booking-email-content.ts    # Assembles BookingEmailContent (subject/html/ical) per event
+├── email-content.ts            # Shared escapeHtml/escapeIcalText/sanitizeUrl + buildBookingEmail template
 ├── ical.ts                     # iCal attachment generator
-└── sanitize.ts                 # Shared escapeHtml + sanitizeUrl helpers
+└── sanitize.ts                 # escapeHtml + sanitizeUrl (re-exported by email-content.ts)
 ```
 
 ## Exports

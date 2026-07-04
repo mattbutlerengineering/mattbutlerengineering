@@ -1,8 +1,9 @@
 import type { BookingNotificationInput } from "./port.js";
 import { generateBookingIcal } from "./ical.js";
-import { escapeHtml } from "./sanitize.js";
+import { buildBookingEmail } from "./email-content.js";
+import type { NotificationEventType } from "./email-content.js";
 
-export type NotificationEventType = "confirmation" | "reminder" | "modified" | "cancelled";
+export type { NotificationEventType };
 
 export interface BookingEmailContent {
   subject: string;
@@ -11,53 +12,13 @@ export interface BookingEmailContent {
   icalMethod?: "REQUEST" | "CANCEL";
 }
 
-function manageUrl(manageBaseUrl: string, token: string): string {
-  return escapeHtml(`${manageBaseUrl}?token=${encodeURIComponent(token)}`);
-}
-
-function buildConfirmationHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
-  return [
-    `<h1>Your reservation is confirmed</h1>`,
-    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-    `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
-    `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
-  ].join("\n");
-}
-
-function buildReminderHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
-  return [
-    `<h1>Your reservation is tomorrow</h1>`,
-    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-    `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
-    `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
-  ].join("\n");
-}
-
-function buildModifiedHtml(input: BookingNotificationInput, manageBaseUrl: string): string {
-  return [
-    `<h1>Your reservation has been updated</h1>`,
-    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-    `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-    input.venueAddress ? `<p>${escapeHtml(input.venueAddress)}</p>` : "",
-    `<p><a href="${manageUrl(manageBaseUrl, input.manageToken)}">Modify or Cancel</a></p>`,
-  ].join("\n");
-}
-
-function buildCancelledHtml(input: BookingNotificationInput): string {
-  return [
-    `<h1>Your reservation has been cancelled</h1>`,
-    `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
-    `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
-  ].join("\n");
-}
-
 export function buildBookingEmailContent(
   input: BookingNotificationInput,
   event: NotificationEventType,
   manageBaseUrl: string
 ): BookingEmailContent {
+  const { subject, html } = buildBookingEmail({ ...input, manageBaseUrl }, event);
+
   switch (event) {
     case "confirmation": {
       const ical = generateBookingIcal(
@@ -75,19 +36,11 @@ export function buildBookingEmailContent(
         },
         "REQUEST"
       );
-      return {
-        subject: `Reservation Confirmed — ${input.venueName}`,
-        html: buildConfirmationHtml(input, manageBaseUrl),
-        ical,
-        icalMethod: "REQUEST",
-      };
+      return { subject, html, ical, icalMethod: "REQUEST" };
     }
 
     case "reminder": {
-      return {
-        subject: `Reminder: Reservation at ${input.venueName}`,
-        html: buildReminderHtml(input, manageBaseUrl),
-      };
+      return { subject, html };
     }
 
     case "modified": {
@@ -106,12 +59,7 @@ export function buildBookingEmailContent(
         },
         "REQUEST"
       );
-      return {
-        subject: `Updated: Reservation at ${input.venueName}`,
-        html: buildModifiedHtml(input, manageBaseUrl),
-        ical,
-        icalMethod: "REQUEST",
-      };
+      return { subject, html, ical, icalMethod: "REQUEST" };
     }
 
     case "cancelled": {
@@ -130,12 +78,7 @@ export function buildBookingEmailContent(
         },
         "CANCEL"
       );
-      return {
-        subject: `Cancelled: Reservation at ${input.venueName}`,
-        html: buildCancelledHtml(input),
-        ical,
-        icalMethod: "CANCEL",
-      };
+      return { subject, html, ical, icalMethod: "CANCEL" };
     }
   }
 }
