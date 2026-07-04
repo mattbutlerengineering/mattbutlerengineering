@@ -85,10 +85,10 @@ export function ManageReservationPage() {
     return (
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Text as="h1" variant="display">
-          Invalid Link
+          No Access Link
         </Text>
         <Text variant="body" color="secondary">
-          This link is invalid or has already been used.
+          Please check the link in your confirmation email.
         </Text>
       </Stack>
     );
@@ -115,7 +115,7 @@ export function ManageReservationPage() {
         <Text variant="body" color="secondary">
           {errorType === "expired"
             ? "This manage link has expired. Please contact the venue for assistance."
-            : "This link is invalid or has already been used."}
+            : "This link has already been used or is invalid."}
         </Text>
       </Stack>
     );
