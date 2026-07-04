@@ -2651,13 +2651,13 @@
     </item>
   </file>
   <file path="services/reservations/src/services/deposit.ts">
-    <item priority="high">
-      class DepositNotFoundError {
-        
-      }
+    <item priority="low">
+      type StripePort = Pick<
+        StripeService,
+        "cancelPaymentIntent" | "capture...;
     </item>
     <item priority="high">
-      class DepositConcurrentUpdateError {
+      class DepositNotFoundError {
         
       }
     </item>
@@ -5321,6 +5321,9 @@
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/logs.ts">
+    <item priority="medium">
+      function assertValidService(service: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export async function checkLogs(service?: string) { /* ... */ }
     </item>
