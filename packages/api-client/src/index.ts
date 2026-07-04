@@ -15,6 +15,7 @@ export {
   type FindOrCreateGuestRequest,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
+export { DepositsClient, type CreateDepositRequest, type DepositTransition } from "./deposits.js";
 export { PublicVenueClient, type GetGuestRiskParams } from "./public-venue.js";
 export {
   BriefingClient,
@@ -37,6 +38,12 @@ export {
   type ListSessionsParams,
 } from "./agent-sessions.js";
 export type { SystemHealth, ServiceHealth } from "./health.js";
+export { HealthClient } from "./health.js";
+export type {
+  ManageReservationData,
+  ManagedReservation,
+  ManagedReservationVenue,
+} from "./reservations.js";
 
 import { ApiClient } from "./client.js";
 import type { ApiClientError } from "./client.js";
@@ -49,6 +56,8 @@ import { FloorPlansClient } from "./floor-plans.js";
 import { PublicVenueClient } from "./public-venue.js";
 import { AvailabilityClient, HoldsClient } from "./availability.js";
 import { BriefingClient } from "./briefing.js";
+import { DepositsClient } from "./deposits.js";
+import { HealthClient } from "./health.js";
 /**
  * Create a configured API client for the MBE platform
  */
@@ -80,5 +89,7 @@ export function createApiClient(config: {
     availability: new AvailabilityClient(client),
     holds: new HoldsClient(client),
     briefing: new BriefingClient(client),
+    deposits: new DepositsClient(client),
+    health: new HealthClient(client),
   };
 }

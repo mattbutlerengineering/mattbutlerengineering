@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement, type ReactNode } from "react";
 import { computeReadiness, useVenueReadiness } from "./useVenueReadiness.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAuth } from "@mbe/auth/react";
@@ -176,12 +178,27 @@ describe("computeReadiness", () => {
     const twoOfThree = computeReadiness(VENUE_WITH_HOURS, []);
     expect(twoOfThree.progress).toBeCloseTo((2 / 3) * 100);
   });
+
+  it("floor-plan fetch error → status 'loading' (indeterminate), not 'setup'", () => {
+    const result = computeReadiness(VENUE_WITH_HOURS, [], true);
+
+    expect(result.status).toBe("loading");
+    expect(result.completedSteps).toHaveLength(0);
+    expect(result.nextStep).toBeNull();
+  });
 });
 
 /* ── useVenueReadiness hook tests ──────────────────────────── */
 
 describe("useVenueReadiness", () => {
   const mockList = vi.fn();
+
+  function createWrapper() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    };
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -200,7 +217,7 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok" } as any);
 
-    const { result } = renderHook(() => useVenueReadiness());
+    const { result } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     expect(result.current.status).toBe("loading");
     expect(result.current.progress).toBe(0);
@@ -220,7 +237,7 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-123" } as any);
 
-    const { result } = renderHook(() => useVenueReadiness());
+    const { result } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.status).toBe("operational");
@@ -231,7 +248,7 @@ describe("useVenueReadiness", () => {
     );
   });
 
-  it("handles fetch error gracefully by treating floor plans as empty", async () => {
+  it("stays in 'loading' (not 'setup') when the floor-plan fetch errors — error is not empty", async () => {
     mockList.mockRejectedValue(new Error("Network error"));
 
     vi.mocked(useVenue).mockReturnValue({
@@ -243,17 +260,17 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-456" } as any);
 
-    const { result } = renderHook(() => useVenueReadiness());
+    const { result } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
+    await waitFor(() => expect(mockList).toHaveBeenCalled());
+
+    // Error is distinguished from empty: readiness stays indeterminate ("loading"),
+    // never silently collapsing to "setup" from a swallowed [].
     await waitFor(() => {
-      // Floor plan gate not met due to error, but onboarding + hours pass
-      expect(result.current.status).toBe("setup");
+      expect(result.current.status).toBe("loading");
     });
-
-    expect(result.current.completedSteps).toContain("onboarding");
-    expect(result.current.completedSteps).toContain("operating-hours");
-    expect(result.current.completedSteps).not.toContain("floor-plan");
-    expect(result.current.nextStep).toBe("floor-plan");
+    expect(result.current.status).not.toBe("setup");
+    expect(result.current.completedSteps).toHaveLength(0);
   });
 
   it("skips duplicate fetches for same venueId", async () => {
@@ -268,7 +285,7 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-789" } as any);
 
-    const { result, rerender } = renderHook(() => useVenueReadiness());
+    const { result, rerender } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.status).toBe("setup");
@@ -291,7 +308,7 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: null } as any);
 
-    renderHook(() => useVenueReadiness());
+    renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     expect(mockList).not.toHaveBeenCalled();
   });
@@ -314,7 +331,7 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-pending" } as any);
 
-    const { result } = renderHook(() => useVenueReadiness());
+    const { result } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     // Before the fetch resolves, must return "loading" — NOT "setup" — to prevent
     // the DashboardLayout redirect guard from bouncing to /setup prematurely.
@@ -327,7 +344,7 @@ describe("useVenueReadiness", () => {
     });
   });
 
-  it("transitions from 'loading' to 'setup' (not stuck on loading) after a failed floor-plan fetch", async () => {
+  it("does not flap to 'setup' after a failed floor-plan fetch (stays 'loading')", async () => {
     let rejectList!: (reason: Error) => void;
     const pending = new Promise<{ data: FloorPlan[] }>((_, rej) => {
       rejectList = rej;
@@ -343,18 +360,20 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-fail" } as any);
 
-    const { result } = renderHook(() => useVenueReadiness());
+    const { result } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
 
     // Initially loading while fetch is in flight.
     expect(result.current.status).toBe("loading");
 
-    // Reject the fetch — error handler sets floorPlans = []; must not stay on "loading".
+    // Reject the fetch — the error must NOT collapse into "setup" (the old
+    // silent-swallow behavior); readiness stays indeterminate.
     rejectList(new Error("Network error"));
-    await waitFor(() => {
-      expect(result.current.status).toBe("setup");
-    });
+    await pending.catch(() => {});
 
-    // Floor-plan gate fails (empty plans), so next step is floor-plan.
-    expect(result.current.nextStep).toBe("floor-plan");
+    await waitFor(() => {
+      expect(result.current.status).toBe("loading");
+    });
+    expect(result.current.status).not.toBe("setup");
+    expect(result.current.completedSteps).toHaveLength(0);
   });
 });
