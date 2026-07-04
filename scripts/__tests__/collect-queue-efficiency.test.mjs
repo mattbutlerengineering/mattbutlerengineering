@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { collectQueueEfficiency } from "../collect-queue-efficiency.mjs";
+import { describe, it, expect, vi } from "vitest";
+import { collectQueueEfficiency, defaultReadPrs } from "../collect-queue-efficiency.mjs";
 
 const TEST_NOW = new Date("2026-06-27T12:00:00Z");
 
@@ -441,5 +441,36 @@ describe("collectQueueEfficiency — telemetry precise-cost preference", () => {
     expect(result.available).toBe(true);
     // No cost_usd in telemetry → falls back: 2.0 / 1 = 2.0
     expect(result.sub_metrics.cost_per_issue_usd).toBeCloseTo(2.0, 3);
+  });
+});
+
+describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
+  it("calls ghClient.pr.list with the expected query and derives commitCount", () => {
+    const prs = [{ number: 1, state: "MERGED", commits: [{}, {}] }];
+    const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+
+    const result = defaultReadPrs(ghClient);
+
+    expect(ghClient.pr.list).toHaveBeenCalledWith([
+      "--state",
+      "all",
+      "--limit",
+      "45",
+      "--json",
+      "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+    ]);
+    expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
+  });
+
+  it("returns null when ghClient.pr.list throws", () => {
+    const ghClient = {
+      pr: {
+        list: vi.fn().mockImplementation(() => {
+          throw new Error("gh not authenticated");
+        }),
+      },
+    };
+
+    expect(defaultReadPrs(ghClient)).toBeNull();
   });
 });

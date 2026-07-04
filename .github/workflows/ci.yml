@@ -130,6 +130,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # upload-sarif calls the code-scanning API, which requires
+    # security-events: write. The workflow default is contents: read only,
+    # so without this override the upload step fails with
+    # "Resource not accessible by integration" and takes CI Gate red.
+    permissions:
+      contents: read
+      security-events: write
+
     strategy:
       matrix:
         dockerfile:
@@ -160,6 +168,10 @@ jobs:
       - name: Upload Trivy SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
         if: always()
+        # Best-effort: the Trivy scan above is the actual gate (exit-code 1 on
+        # CRITICAL/HIGH). The Security-tab upload is a convenience; if it fails
+        # (code-scanning disabled, API hiccup) it must never hold main red.
+        continue-on-error: true
         with:
           sarif_file: ${{ matrix.dockerfile.name }}-trivy-results.sarif
           category: trivy-${{ matrix.dockerfile.name }}
