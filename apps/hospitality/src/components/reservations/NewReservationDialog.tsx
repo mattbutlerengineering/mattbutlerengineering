@@ -33,13 +33,16 @@ function findBestTable(tables: Table[], partySize: number): string {
   return eligible[0]?.id ?? "";
 }
 
-function addMinutes(time: string, minutes: number): string {
-  const [hours, mins] = time.split(":").map(Number);
-  const total = hours * 60 + mins + minutes;
-  const wrapped = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
-  const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-  const mm = String(wrapped % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
+// Formats a Date using its local components (not toISOString, which is UTC)
+// so the result stays in the `YYYY-MM-DDTHH:mm:ss` shape the create payload expects.
+function formatLocalDateTime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
 export function NewReservationDialog({
@@ -98,8 +101,10 @@ export function NewReservationDialog({
       return;
     }
 
-    const startTime = `${data.date}T${data.startTime}:00`;
-    const endTime = `${data.date}T${addMinutes(data.startTime, DEFAULT_DURATION_MINUTES)}:00`;
+    const startDate = new Date(`${data.date}T${data.startTime}:00`);
+    const endDate = new Date(startDate.getTime() + DEFAULT_DURATION_MINUTES * 60_000);
+    const startTime = formatLocalDateTime(startDate);
+    const endTime = formatLocalDateTime(endDate);
 
     setIsLoading(true);
     setError(null);

@@ -159,6 +159,27 @@ describe("NewReservationDialog", () => {
     expect(data.guestPhone).toBeUndefined();
   });
 
+  it("should roll endTime to the next calendar day when start time is within the duration of midnight", async () => {
+    render(<NewReservationDialog {...defaultProps} />);
+    fireEvent.change(screen.getByLabelText(/guest name/i), { target: { value: "Smith" } });
+    fireEvent.change(screen.getByLabelText(/guest email/i), {
+      target: { value: "smith@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: "2026-04-10" } });
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "23:15" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+
+    await waitFor(() => {
+      expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+    });
+
+    const data = defaultProps.onConfirm.mock.calls[0][0];
+    expect(data.startTime).toBe("2026-04-10T23:15:00");
+    expect(data.endTime).toBe("2026-04-11T00:45:00");
+    expect(new Date(data.endTime).getTime()).toBeGreaterThan(new Date(data.startTime).getTime());
+  });
+
   it("should call onClose when Cancel is clicked", () => {
     render(<NewReservationDialog {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
