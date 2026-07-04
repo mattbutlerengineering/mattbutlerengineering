@@ -455,11 +455,6 @@
   </file>
   </section>
   <section priority="medium" role="agent">
-  <file path="services/agent/prisma.config.ts">
-    <item priority="medium">
-      function loadEnvFile(): void { /* ... */ }
-    </item>
-  </file>
   <file path="tools/cli/src/commands/agent/check-model.ts">
     <item priority="medium">
       function loadTelemetryHistory(): TelemetryRow[] { /* ... */ }
@@ -1846,13 +1841,6 @@
     </item>
     <item priority="high">
       export function useAccessToken(): string | null { /* ... */ }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="reservations">
-  <file path="services/reservations/prisma.config.ts">
-    <item priority="medium">
-      function loadEnvFile(): void { /* ... */ }
     </item>
   </file>
   </section>
@@ -4357,6 +4345,14 @@
       export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
+  <file path="packages/database/src/prisma-config.ts">
+    <item priority="medium">
+      function loadEnvFile(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createPrismaConfig() { /* ... */ }
+    </item>
+  </file>
   <file path="packages/database/src/testing.ts">
     <item priority="low">
       interface MockPrisma {
@@ -5343,13 +5339,6 @@
         exp: number;
         iat: number;
       }
-    </item>
-  </file>
-  </section>
-  <section priority="medium" role="users">
-  <file path="services/users/prisma.config.ts">
-    <item priority="medium">
-      function loadEnvFile(): void { /* ... */ }
     </item>
   </file>
   </section>

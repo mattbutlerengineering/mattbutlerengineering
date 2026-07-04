@@ -4,18 +4,29 @@
  * Threshold auto-tuner for the improvement flywheel.
  *
  * Reads per-sensor verification results from .claude/improvement-loop/verifications.jsonl
- * and adjusts sensor sensitivity thresholds in .github/auto-qa-tuning.json.
+ * and adjusts two independent concerns from them:
  *
- * Decision rules:
+ *   1. Sensor sensitivity in .github/auto-qa-tuning.json (original concern).
+ *   2. Per-sensor regression thresholds in .github/regression-tunables.json
+ *      (ADR-018 seam, #2986) — read via sensors-registry.mjs's
+ *      getTunableSensorDefaults()/readTunables(), written back to the
+ *      sidecar that buildThresholds() overlays at read time.
+ *
+ * Sensitivity decision rules:
  *   FP rate > 30%               → loosen sensitivity by 5%
  *   effectiveness < 50%         → tighten sensitivity by 5%
  *   FP rate < 10% AND eff > 80% → tighten sensitivity by 3%
  *
- * Guard rails:
+ * Sensitivity guard rails:
  *   - Max 10% change per threshold per week (from metrics/threshold-changes.jsonl history)
  *   - Sensitivity never drops below SENSOR_FLOORS (prevents disabling a sensor)
  *   - Sensitivity capped at 2.0 (prevents runaway tightening)
  *   - Minimum 3 data points required before tuning a sensor
+ *
+ * Regression-threshold decision rule (ADR-018): the same per-sensor
+ * fpRate/effectiveness metrics are classified into false_positive (widen,
+ * reduce noise) / miss (tighten, catch what slipped through) / ok
+ * (unchanged), hard-clamped to ±50% of the sensor's registry default.
  *
  * Usage:
  *   node scripts/threshold-tuner.mjs           # tune and persist
@@ -25,6 +36,13 @@
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  getSensorByLabel,
+  getTunableSensorDefaults,
+  readTunables,
+  clampToDefaultRange,
+  REGRESSION_TUNABLES_PATH,
+} from "./sensors-registry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -286,6 +304,105 @@ export function buildJsonlEntry(change) {
   };
 }
 
+// ── Regression-threshold tuning (ADR-018, #2986) ───────
+
+/**
+ * Classifies a sensor's per-sensor verification metrics (the same
+ * fpRate/effectiveness shape computePerSensorMetrics produces for
+ * sensitivity tuning above) into a regression-threshold tuning outcome.
+ *
+ * @param {{ fpRate: number, effectiveness: number }} metrics
+ * @returns {"false_positive" | "miss" | "ok"}
+ */
+export function classifyRegressionOutcome({ fpRate, effectiveness }) {
+  if (fpRate > 0.3) return "false_positive";
+  if (effectiveness < 0.5) return "miss";
+  return "ok";
+}
+
+/** Fractional step (of the registry default) applied per tuning cycle. */
+export const REGRESSION_TUNE_STEP_FRACTION = 0.1;
+
+/**
+ * Pure regression-threshold tuning policy (ADR-018): widens after a
+ * confirmed false positive (reduces noise), tightens after a confirmed
+ * miss (catches regressions that slipped through), leaves the threshold
+ * unchanged on "ok". Hard-clamped to ±50% of the registry default via
+ * sensors-registry.mjs's clampToDefaultRange, so a sensor can never be
+ * tuned into disabled (too wide) or hair-trigger (too tight) — including
+ * if `currentThreshold` itself arrives already out of bounds (e.g. a
+ * hand-edited sidecar).
+ *
+ * @param {number} currentThreshold
+ * @param {number} defaultThreshold
+ * @param {"false_positive" | "miss" | "ok"} outcome
+ * @returns {number}
+ */
+export function tuneRegressionThreshold(currentThreshold, defaultThreshold, outcome) {
+  const step = defaultThreshold * REGRESSION_TUNE_STEP_FRACTION;
+  const next =
+    outcome === "false_positive"
+      ? currentThreshold + step
+      : outcome === "miss"
+        ? currentThreshold - step
+        : currentThreshold;
+  const clamped = clampToDefaultRange(next, defaultThreshold);
+  return Math.round(clamped * 10000) / 10000;
+}
+
+/**
+ * Tunes each tunable sensor's regression threshold from verification
+ * metrics, reading current/default values via the registry seam
+ * (`tunableDefaults` — sensors-registry.mjs's getTunableSensorDefaults(),
+ * per-entry, not the flat buildThresholds() blob) and returning the
+ * updated sidecar contents plus a changes list for the audit log.
+ *
+ * @param {Record<string, { regressionThreshold: number }>} tunables — current sidecar contents
+ * @param {Record<string, { fpRate: number, effectiveness: number, total: number }>} perSensorMetrics — keyed by issue label (verifications.jsonl's sensor_label)
+ * @param {(label: string) => { id: string } | null} resolveSensor — getSensorByLabel
+ * @param {Record<string, { thresholdKey: string, defaultValue: number }>} tunableDefaults — getTunableSensorDefaults()
+ * @param {string} today
+ * @returns {{ tunables: object, changes: object[] }}
+ */
+export function applyRegressionThresholdAdjustments(
+  tunables,
+  perSensorMetrics,
+  resolveSensor,
+  tunableDefaults,
+  today
+) {
+  const updated = { ...tunables };
+  /** @type {object[]} */
+  const changes = [];
+
+  for (const [label, metrics] of Object.entries(perSensorMetrics)) {
+    if (metrics.total < 3) continue;
+
+    const sensor = resolveSensor(label);
+    const tunable = sensor && tunableDefaults[sensor.id];
+    if (!tunable) continue;
+
+    const outcome = classifyRegressionOutcome(metrics);
+    if (outcome === "ok") continue;
+
+    const currentThreshold = updated[sensor.id]?.regressionThreshold ?? tunable.defaultValue;
+    const newThreshold = tuneRegressionThreshold(currentThreshold, tunable.defaultValue, outcome);
+    if (newThreshold === currentThreshold) continue;
+
+    updated[sensor.id] = { regressionThreshold: newThreshold };
+    changes.push({
+      date: today,
+      threshold: `${sensor.id}.${tunable.thresholdKey}`,
+      oldValue: currentThreshold,
+      newValue: newThreshold,
+      trigger: outcome === "false_positive" ? "regression-false-positive" : "regression-miss",
+      evidence: `${sensor.id} regression threshold: ${outcome} (fpRate ${(metrics.fpRate * 100).toFixed(1)}%, effectiveness ${(metrics.effectiveness * 100).toFixed(1)}%)`,
+    });
+  }
+
+  return { tunables: updated, changes };
+}
+
 // ── I/O helpers ───────────────────────────────────────
 
 function readJsonl(filePath) {
@@ -349,35 +466,55 @@ export async function run({ dryRun = false } = {}) {
     today
   );
 
-  if (changes.length === 0) {
+  // Regression-threshold tuning (ADR-018, #2986) — independent of sensitivity
+  // tuning above; reads/writes the sidecar via the registry seam.
+  const tunables = readTunables();
+  const { tunables: updatedTunables, changes: regressionChanges } =
+    applyRegressionThresholdAdjustments(
+      tunables,
+      perSensorMetrics,
+      getSensorByLabel,
+      getTunableSensorDefaults(),
+      today
+    );
+
+  const allChanges = [...changes, ...regressionChanges];
+
+  if (allChanges.length === 0) {
     console.log("[threshold-tuner] No threshold adjustments needed");
     return { changes: [] };
   }
 
   if (dryRun) {
     console.log("[threshold-tuner] DRY RUN — would make these adjustments:");
-    for (const c of changes) {
+    for (const c of allChanges) {
       console.log(`  ${c.threshold}: ${c.oldValue} → ${c.newValue} (${c.trigger})`);
     }
-    return { changes };
+    return { changes: allChanges };
   }
 
-  // Persist tuning config
-  writeJson(TUNING_PATH, updatedTuning);
+  if (changes.length > 0) {
+    writeJson(TUNING_PATH, updatedTuning);
+  }
+  if (regressionChanges.length > 0) {
+    writeJson(REGRESSION_TUNABLES_PATH, updatedTunables);
+  }
 
   // Append each change to the audit log in ACMM-canonical format
-  mkdirSync(dirname(CHANGES_LOG_PATH), { recursive: true });
-  for (const change of changes) {
-    const entry = buildJsonlEntry(change);
-    appendFileSync(CHANGES_LOG_PATH, JSON.stringify(entry) + "\n");
+  if (allChanges.length > 0) {
+    mkdirSync(dirname(CHANGES_LOG_PATH), { recursive: true });
+    for (const change of allChanges) {
+      const entry = buildJsonlEntry(change);
+      appendFileSync(CHANGES_LOG_PATH, JSON.stringify(entry) + "\n");
+    }
   }
 
-  console.log(`[threshold-tuner] Applied ${changes.length} threshold adjustment(s):`);
-  for (const c of changes) {
+  console.log(`[threshold-tuner] Applied ${allChanges.length} threshold adjustment(s):`);
+  for (const c of allChanges) {
     console.log(`  ${c.threshold}: ${c.oldValue} → ${c.newValue} (${c.trigger})`);
   }
 
-  return { changes };
+  return { changes: allChanges };
 }
 
 // Run when invoked directly (not imported by tests)
