@@ -77,6 +77,14 @@
       }
     </item>
   </file>
+  <file path="src/sanitize.ts">
+    <item priority="high">
+      export function escapeHtml(value: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeUrl(raw: string): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/sms-port.ts">
     <item priority="low">
       interface SmsNotificationInput {
