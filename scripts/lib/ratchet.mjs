@@ -1,5 +1,3 @@
-import { createGhClient } from "@mbe/gh-client";
-
 /**
  * Shared "did it get worse?" ratchet core (ADR-018 "Detect" stage).
  *
@@ -97,6 +95,19 @@ export function compare(current, baseline, opts = {}) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Lazily loads @mbe/gh-client and returns a fresh client. Kept out of the
+ * module top-level so scripts that only import compare() (e.g. the
+ * check-ai-antipatterns.mjs count/ratchet mode) never resolve gh-client's
+ * dist — the CI antipattern-ratchet job runs that script with no build step.
+ *
+ * @returns {Promise<import("@mbe/gh-client").GhClient>}
+ */
+async function defaultGhClient() {
+  const { createGhClient } = await import("@mbe/gh-client");
+  return createGhClient();
+}
+
+/**
  * True when any OPEN issue's body already carries the given marker —
  * prevents filing duplicate regression issues.
  *
@@ -115,10 +126,10 @@ export function hasOpenRegressionIssue(issues, marker) {
  * Fetches open issues for a label via the injected `ghClient`.
  *
  * @param {string} label
- * @param {import("@mbe/gh-client").GhClient} [ghClient]
+ * @param {import("@mbe/gh-client").GhClient} ghClient
  * @returns {Array<{ number: number, body: string, state: string }>}
  */
-export function fetchOpenIssuesByLabel(label, ghClient = createGhClient()) {
+export function fetchOpenIssuesByLabel(label, ghClient) {
   const issues = ghClient.issue.list([
     "--label",
     label,
@@ -136,9 +147,9 @@ export function fetchOpenIssuesByLabel(label, ghClient = createGhClient()) {
  * Creates a GitHub issue via the injected `ghClient`.
  *
  * @param {{ title: string, body: string, labels: string[] }} payload
- * @param {import("@mbe/gh-client").GhClient} [ghClient]
+ * @param {import("@mbe/gh-client").GhClient} ghClient
  */
-export function createIssue(payload, ghClient = createGhClient()) {
+export function createIssue(payload, ghClient) {
   ghClient.issue.create([
     "--title",
     payload.title,
@@ -158,13 +169,14 @@ export function createIssue(payload, ghClient = createGhClient()) {
  * @param {string} opts.marker - dedupe marker expected in the issue body
  * @param {{ title: string, body: string, labels: string[] }} opts.payload
  * @param {import("@mbe/gh-client").GhClient} [opts.ghClient]
- * @returns {{ filed: boolean, reason?: string }}
+ * @returns {Promise<{ filed: boolean, reason?: string }>}
  */
-export function fileRegressionIssueIfNew({ label, marker, payload, ghClient = createGhClient() }) {
-  const openIssues = fetchOpenIssuesByLabel(label, ghClient);
+export async function fileRegressionIssueIfNew({ label, marker, payload, ghClient }) {
+  const client = ghClient ?? (await defaultGhClient());
+  const openIssues = fetchOpenIssuesByLabel(label, client);
   if (hasOpenRegressionIssue(openIssues, marker)) {
     return { filed: false, reason: "duplicate" };
   }
-  createIssue(payload, ghClient);
+  createIssue(payload, client);
   return { filed: true };
 }

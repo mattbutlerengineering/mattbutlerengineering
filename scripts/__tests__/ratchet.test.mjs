@@ -192,7 +192,7 @@ describe("createIssue (gh CLI wiring via the injected ghClient)", () => {
 describe("fileRegressionIssueIfNew (threads the injected ghClient through)", () => {
   const MARKER = "<!-- acmm-regression -->";
 
-  it("does not create an issue when a matching open regression issue already exists", () => {
+  it("does not create an issue when a matching open regression issue already exists", async () => {
     const ghClient = {
       issue: {
         list: vi.fn().mockReturnValue([{ number: 1, body: MARKER, state: "open" }]),
@@ -200,7 +200,7 @@ describe("fileRegressionIssueIfNew (threads the injected ghClient through)", () 
       },
     };
 
-    const result = fileRegressionIssueIfNew({
+    const result = await fileRegressionIssueIfNew({
       label: "acmm",
       marker: MARKER,
       payload: { title: "t", body: "b", labels: ["acmm"] },
@@ -211,7 +211,7 @@ describe("fileRegressionIssueIfNew (threads the injected ghClient through)", () 
     expect(ghClient.issue.create).not.toHaveBeenCalled();
   });
 
-  it("creates a new issue via the injected ghClient when no duplicate exists", () => {
+  it("creates a new issue via the injected ghClient when no duplicate exists", async () => {
     const ghClient = {
       issue: {
         list: vi.fn().mockReturnValue([]),
@@ -219,7 +219,7 @@ describe("fileRegressionIssueIfNew (threads the injected ghClient through)", () 
       },
     };
 
-    const result = fileRegressionIssueIfNew({
+    const result = await fileRegressionIssueIfNew({
       label: "acmm",
       marker: MARKER,
       payload: { title: "t", body: "b", labels: ["acmm"] },
