@@ -47,6 +47,17 @@ vi.mock("stripe", () => {
 import { DepositService, calculateDepositAmount } from "./deposit.js";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import type { Deposit } from "../generated/prisma/index.js";
+import type { DepositType } from "@mbe/cancellation-policy";
+
+type VenueDepositConfig = { depositType: DepositType | null; depositAmountCents: number | null };
+
+function makeVenueDepositConfig(overrides: Partial<VenueDepositConfig> = {}): VenueDepositConfig {
+  return {
+    depositType: "flat",
+    depositAmountCents: 5000,
+    ...overrides,
+  };
+}
 
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
   return {
@@ -825,32 +836,32 @@ describe("DepositService", () => {
 
 describe("calculateDepositAmount", () => {
   it("multiplies depositAmountCents by partySize for per_person type", () => {
-    const venue = { depositType: "per_person", depositAmountCents: 1000 };
+    const venue = makeVenueDepositConfig({ depositType: "per_person", depositAmountCents: 1000 });
     expect(calculateDepositAmount(venue, 4)).toBe(4000);
   });
 
-  it("returns depositAmountCents unchanged for fixed type", () => {
-    const venue = { depositType: "fixed", depositAmountCents: 5000 };
+  it("returns depositAmountCents unchanged for flat type", () => {
+    const venue = makeVenueDepositConfig({ depositType: "flat", depositAmountCents: 5000 });
     expect(calculateDepositAmount(venue, 4)).toBe(5000);
   });
 
   it("returns zero when depositAmountCents is null", () => {
-    const venue = { depositType: "fixed", depositAmountCents: null };
+    const venue = makeVenueDepositConfig({ depositType: "flat", depositAmountCents: null });
     expect(calculateDepositAmount(venue, 3)).toBe(0);
   });
 
   it("returns zero when depositAmountCents is null and type is per_person", () => {
-    const venue = { depositType: "per_person", depositAmountCents: null };
+    const venue = makeVenueDepositConfig({ depositType: "per_person", depositAmountCents: null });
     expect(calculateDepositAmount(venue, 3)).toBe(0);
   });
 
   it("returns zero for per_person with zero party size", () => {
-    const venue = { depositType: "per_person", depositAmountCents: 1000 };
+    const venue = makeVenueDepositConfig({ depositType: "per_person", depositAmountCents: 1000 });
     expect(calculateDepositAmount(venue, 0)).toBe(0);
   });
 
   it("handles large party sizes correctly for per_person", () => {
-    const venue = { depositType: "per_person", depositAmountCents: 500 };
+    const venue = makeVenueDepositConfig({ depositType: "per_person", depositAmountCents: 500 });
     expect(calculateDepositAmount(venue, 100)).toBe(50000);
   });
 

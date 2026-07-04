@@ -24,6 +24,14 @@
       export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
     </item>
   </file>
+  <file path="src/prisma-config.ts">
+    <item priority="medium">
+      function loadEnvFile(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createPrismaConfig() { /* ... */ }
+    </item>
+  </file>
   <file path="src/testing.ts">
     <item priority="low">
       interface MockPrisma {
