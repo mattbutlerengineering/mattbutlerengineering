@@ -53,3 +53,28 @@ export const ReservationSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+export const DepositStatusSchema = z.enum([
+  "pending",
+  "held",
+  "applied",
+  "refunded",
+  "partial_refunded",
+  "forfeited",
+]);
+
+export const DepositSchema = z.object({
+  id: z.string(),
+  reservationId: z.string(),
+  amountCents: z.number(),
+  currency: z.string(),
+  status: DepositStatusSchema,
+  stripePaymentIntentId: z.string().nullable(),
+  stripeCustomerId: z.string().nullable(),
+  heldAt: z.string().nullable(),
+  appliedAt: z.string().nullable(),
+  refundedAt: z.string().nullable(),
+  forfeitedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});

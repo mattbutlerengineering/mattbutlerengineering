@@ -63,6 +63,18 @@
       export function buildQueryString(params: QueryParams): string { /* ... */ }
     </item>
   </file>
+  <file path="src/deposits.ts">
+    <item priority="low">
+      interface CreateDepositRequest {
+        reservationId: string;
+        amountCents: number;
+        currency?: string;
+      }
+    </item>
+    <item priority="low">
+      type DepositTransition = "capture" | "refund" | "forfeit";
+    </item>
+  </file>
   <file path="src/floor-plans.ts">
     <item priority="high">
       class FloorPlansClient {
@@ -154,12 +166,13 @@
         tableId?: string;
       }
     </item>
-    <item priority="high">
-      class ReservationsClient {
-        async list(): Promise<unknown>;
-        async me(): Promise<unknown>;
-        async get(): Promise<unknown>;
-        async create(): Promise<unknown>;
+    <item priority="low">
+      interface ManagedReservation {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
       }
     </item>
   </file>

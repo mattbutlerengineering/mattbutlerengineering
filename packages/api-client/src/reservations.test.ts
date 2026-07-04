@@ -355,3 +355,59 @@ describe("ReservationsClient", () => {
     });
   });
 });
+
+describe("ReservationsClient.manageReservation", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const managedPayload = {
+    reservation: {
+      id: "res_1",
+      date: "2026-06-15",
+      startTime: "19:00",
+      endTime: "21:00",
+      partySize: 4,
+      guestName: "Jane Doe",
+      guestEmail: "jane@example.com",
+      status: "PENDING",
+      notes: null,
+    },
+    venue: {
+      id: "venue_1",
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/Los_Angeles",
+    },
+  };
+
+  it("GETs /public/v1/reservations/manage with the URL-encoded token and unwraps data", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: managedPayload }));
+
+    const result = await makeClient().manageReservation("tok/with+special");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    const parsed = new URL(url as string);
+    expect(parsed.pathname).toBe("/public/v1/reservations/manage");
+    expect(parsed.searchParams.get("token")).toBe("tok/with+special");
+    expect(options?.method ?? "GET").toBe("GET");
+    expect(result).toEqual(managedPayload);
+  });
+
+  it("accepts a null venue", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, venue: null } })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venue).toBeNull();
+  });
+
+  it("throws ApiValidationError on a malformed reservation status", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...managedPayload, reservation: { ...managedPayload.reservation, status: "BOGUS" } } })
+    );
+
+    await expect(makeClient().manageReservation("tok")).rejects.toBeInstanceOf(ApiValidationError);
+  });
+});

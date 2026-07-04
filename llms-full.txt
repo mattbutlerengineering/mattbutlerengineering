@@ -3991,18 +3991,39 @@
     export const USERS_QUERY_KEY = "users" as const;
   </file>
   <file path="apps/hospitality/src/hooks/useVenuePolicy.ts">
-    interface PublicVenueDepositResponse {
-      data?: {
-        deposit?: {
-          enabled: boolean;
-          amountCents: number | null;
-          freeCancellationHours: number | null;
-          lateCancellationFeePercent: number | null;
-          noShowFeePercent: number | null;
-        };
+    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
+    export function useVenuePolicy(slug: string | undefined): {
+      policy: CancellationPolicy | null;
+      isLoading: boolean;
+    } {
+      const api = useApiClient();
+    
+      const query = useQuery({
+        queryKey: [VENUE_POLICY_QUERY_KEY, slug],
+        queryFn: async (): Promise<CancellationPolicy | null> => {
+          if (!slug) return null;
+          try {
+            const deposit = await api.publicVenue.getDepositPolicy(slug);
+            if (!deposit.enabled || deposit.amountCents == null) return null;
+            return {
+              depositAmountCents: deposit.amountCents,
+              freeCancellationHours: deposit.freeCancellationHours,
+              lateCancellationFeePercent: deposit.lateCancellationFeePercent,
+              noShowFeePercent: deposit.noShowFeePercent,
+            };
+          } catch {
+            return null;
+          }
+        },
+        enabled: !!slug,
+        staleTime: 5 * 60 * 1000, // 5 minutes — policy rarely changes during a shift
+      });
+    
+      return {
+        policy: query.data ?? null,
+        isLoading: query.isLoading,
       };
     }
-    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
   </file>
   <file path="apps/hospitality/src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";
@@ -8401,6 +8422,21 @@
           schema: {
             summary: "Create a reservation hold (public)",
             tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug"],
+              properties: { slug: { type: "string" } },
+            },
+            body: {
+              type: "object",
+              required: ["date", "startTime", "endTime", "partySize"],
+              properties: {
+                date: { type: "string", minLength: 1 },
+                startTime: { type: "string", minLength: 1 },
+                endTime: { type: "string", minLength: 1 },
+                partySize: { type: "integer", minimum: 1, maximum: 20 },
+              },
+            },
           },
         },
         async (request, reply) => {
@@ -15408,6 +15444,14 @@
       return s ? `?${s}` : "";
     }
   </file>
+  <file path="packages/api-client/src/deposits.ts">
+    export interface CreateDepositRequest {
+      reservationId: string;
+      amountCents: number;
+      currency?: string;
+    }
+    export type DepositTransition = "capture" | "refund" | "forfeit";
+  </file>
   <file path="packages/api-client/src/floor-plans.ts">
     export class FloorPlansClient {
       constructor(private client: ApiClient) {}
@@ -15538,6 +15582,8 @@
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         briefing: new BriefingClient(client),
+        deposits: new DepositsClient(client),
+        health: new HealthClient(client),
       };
     }
   </file>
@@ -15625,6 +15671,19 @@
           DepositPaymentIntentSchema
         );
       }
+    
+      /**
+       * Get a venue's deposit/cancellation policy by slug. Validates the full
+       * public venue-config envelope and returns just its deposit block.
+       */
+      async getDepositPolicy(slug: string): Promise<PublicVenueDeposit> {
+        const config = await this.client.getOne<PublicVenueConfig>(
+          `/public/v1/venues/${slug}`,
+          undefined,
+          PublicVenueConfigSchema
+        );
+        return config.deposit;
+      }
     }
   </file>
   <file path="packages/api-client/src/reservations.ts">
@@ -15637,114 +15696,16 @@
       venueId?: string;
       guestId?: string;
     }
-    export class ReservationsClient {
-      constructor(private client: ApiClient) {}
-    
-      /**
-       * List reservations with optional filters
-       */
-      async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
-        return this.client.get<PaginatedResponse<Reservation>>(
-          RESERVATION_BASE_PATH,
-          params as QueryParams,
-          reservationListSchema
-        );
-      }
-    
-      /**
-       * Get current user's reservations
-       */
-      async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
-        return this.client.get<PaginatedResponse<Reservation>>(
-          `${RESERVATION_BASE_PATH}/me?page=${page}&limit=${limit}`,
-          undefined,
-          reservationListSchema
-        );
-      }
-    
-      /**
-       * Get a reservation by ID
-       */
-      async get(id: string): Promise<Reservation> {
-        const response = await this.client.get<{ data: Reservation }>(
-          `${RESERVATION_BASE_PATH}/${id}`,
-          undefined,
-          reservationEnvelope
-        );
-        return response.data;
-      }
-    
-      /**
-       * Create a new reservation
-       */
-      async create(data: CreateReservationRequest): Promise<Reservation> {
-        const response = await this.client.post<{ data: Reservation }>(
-          RESERVATION_BASE_PATH,
-          data,
-          reservationEnvelope
-        );
-        return response.data;
-      }
-    
-      /**
-       * Update a reservation
-       */
-      async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-        const response = await this.client.patch<{ data: Reservation }>(
-          `${RESERVATION_BASE_PATH}/${id}`,
-          data,
-          reservationEnvelope
-        );
-        return response.data;
-      }
-    
-      /**
-       * Cancel a reservation
-       */
-      async cancel(id: string): Promise<Reservation> {
-        const response = await this.client.request<{ data: Reservation }>(
-          `${RESERVATION_BASE_PATH}/${id}`,
-          { method: "DELETE" },
-          reservationEnvelope
-        );
-        return response.data;
-      }
-    
-      /**
-       * Cancel a reservation with an optional reason and note
-       */
-      async cancelWithReason(
-        id: string,
-        reason?: { cancellationReason?: string; cancellationNote?: string }
-      ): Promise<Reservation> {
-        const response = await this.client.patch<{ data: Reservation }>(
-          `${RESERVATION_BASE_PATH}/${id}`,
-          {
-            status: "CANCELLED",
-            ...reason,
-          },
-          reservationEnvelope
-        );
-        return response.data;
-      }
-    
-      /**
-       * Create a walk-in reservation
-       */
-      async walkIn(data: {
-        partySize: number;
-        tableId: string;
-        venueId: string;
-        guestName?: string;
-        durationMinutes?: number;
-      }): Promise<Reservation> {
-        const response = await this.client.post<{ data: Reservation }>(
-          `${RESERVATION_BASE_PATH}/walk-in`,
-          data,
-          reservationEnvelope
-        );
-        return response.data;
-      }
+    export interface ManagedReservation {
+      id: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string | null;
+      guestEmail: string | null;
+      status: ReservationStatus;
+      notes: string | null;
     }
   </file>
   <file path="packages/api-client/src/retry.ts">
