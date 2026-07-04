@@ -49,12 +49,11 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 | **Scheduled** (conservative)     | RemoteTriggers on claude.ai          | PRs for review        | Background maintenance     |
 | **Implement Queue** (aggressive) | `/loop 30m /implement-queue` locally | Auto-merges green PRs | Active development sprints |
 
-### Skill Directories
+### Skill Directory
 
-Claude Code loads skills from two directories:
+Claude Code loads project skills from **`.claude/skills/`** — the only directory Claude Code discovers (alongside `~/.claude/skills/` and enabled plugins). It holds both project-automation skills (CI, deploys, queue management) and general-engineering advisor skills (review, diagnose, scaffold, TDD).
 
-- **`.claude/skills/`** — Project-specific automation skills (CI, deploys, queue management)
-- **`.agents/skills/`** — General engineering advisor skills (review, diagnose, scaffold, TDD)
+> A former `.agents/skills/` mirror was removed (#3015): it was never a Claude Code discovery path (no `plugin.json`, no skill-path setting), so its copies were silently ignored and only caused drift. If you want general-engineering skills to live under a separate root, register it as a plugin — do not re-add a bare `.agents/skills/`.
 
 All skills are invocable via `/skill-name` and discoverable via the system's skill registry.
 
@@ -83,20 +82,19 @@ All skills are invocable via `/skill-name` and discoverable via the system's ski
 | `/new-e2e-test`      | Scaffold a Playwright E2E test in one of the apps that has a Playwright config, matching the existing test fixtures and auth patterns                                                        |
 | `/new-service-route` | Scaffold a new Fastify route in services/{reservations,users,agent} matching the house pattern — schema validation, auth, error envelope per ADR-002, SSE broadcast (if reservations), tests |
 
-**General Engineering** (`.agents/skills/`)
+**General Engineering** (`.claude/skills/`)
 
-| Skill                            | Purpose                                                                                                                                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/caveman`                       | Ultra-compressed communication mode, cuts token usage ~75% by dropping filler, articles, and pleasantries while keeping full technical accuracy                         |
-| `/diagnose`                      | Disciplined diagnosis loop for hard bugs and performance regressions: reproduce → minimise → hypothesise → instrument → fix → regression-test                           |
-| `/grill-me`                      | Interview user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree                                      |
-| `/grill-with-docs`               | Grilling session that challenges plan against existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise |
-| `/improve`                       | Survey codebase as senior advisor and produce prioritized, self-contained implementation plans for other agents to execute (read-only, never implements)                |
-| `/improve-codebase-architecture` | Find deepening opportunities in a codebase, informed by domain language and architectural decisions, to improve testability and AI-navigability                         |
-| `/tdd`                           | Test-driven development with red-green-refactor loop, emphasizing behavior verification through public interfaces                                                       |
-| `/to-issues`                     | Break a plan, spec, or PRD into independently-grabbable issues using tracer-bullet vertical slices                                                                      |
-| `/triage`                        | Triage issues through a state machine driven by triage roles for incoming bugs, feature requests, and issue workflow management                                         |
-| `/write-a-skill`                 | Create new agent skills with proper structure, progressive disclosure, and bundled resources                                                                            |
+| Skill                            | Purpose                                                                                                                                                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/caveman`                       | Ultra-compressed communication mode, cuts token usage ~75% by dropping filler, articles, and pleasantries while keeping full technical accuracy                                                                 |
+| `/diagnose`                      | Disciplined diagnosis loop for hard bugs and performance regressions: reproduce → minimise → hypothesise → instrument → fix → regression-test                                                                   |
+| `/grill-with-docs`               | Grilling session that challenges plan against existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise (supersedes the former `grill-me` stub) |
+| `/improve`                       | Survey codebase as senior advisor and produce prioritized, self-contained implementation plans for other agents to execute (read-only, never implements)                                                        |
+| `/improve-codebase-architecture` | Find deepening opportunities in a codebase, informed by domain language and architectural decisions, to improve testability and AI-navigability                                                                 |
+| `/tdd`                           | Test-driven development with red-green-refactor loop, emphasizing behavior verification through public interfaces                                                                                               |
+| `/to-issues`                     | Break a plan, spec, or PRD into independently-grabbable issues using tracer-bullet vertical slices                                                                                                              |
+| `/triage`                        | Triage issues through a state machine driven by triage roles for incoming bugs, feature requests, and issue workflow management                                                                                 |
+| `/write-a-skill`                 | Create new agent skills with proper structure, progressive disclosure, and bundled resources                                                                                                                    |
 
 ## mbe CLI Commands
 

@@ -77,7 +77,7 @@
 | `triage`                            | Discover                                           |
 | `decompose`                         | Decompose                                          |
 | `gotcha-harvest`                    | Reflect                                            |
-| `grill-me` / `grill-with-docs`      | Discover / Plan                                    |
+| `grill-with-docs`                   | Discover / Plan                                    |
 | `new-adr`                           | Architect                                          |
 | `perf-budget`                       | Verify                                             |
 | `new-service` / `new-service-route` | Architect                                          |
@@ -120,17 +120,17 @@
 
 ### Outer Loop
 
-| Stage          | STACK Tool                 | Status    | Notes                                       |
-| -------------- | -------------------------- | --------- | ------------------------------------------- |
-| **Discover**   | GSD new-project / grill-me | INSTALLED | grill-me project skill + superpowers GSD    |
-| **Architect**  | graphify                   | INSTALLED | project skill                               |
-|                | map-codebase               | INSTALLED | superpowers GSD includes this               |
-| **Decompose**  | to-issues / to-prd         | INSTALLED | project skills                              |
-|                | GSD milestone/phase        | INSTALLED | superpowers                                 |
-| **Integrate**  | claude-squad               | MISSING   | not installed; mbe worktrees fill this role |
-|                | worktrunk                  | MISSING   | not installed; mbe worktrees fill this role |
-| **Retrospect** | claude-mem timeline        | INSTALLED |                                             |
-|                | claude-reflect             | INSTALLED |                                             |
+| Stage          | STACK Tool                        | Status    | Notes                                           |
+| -------------- | --------------------------------- | --------- | ----------------------------------------------- |
+| **Discover**   | GSD new-project / grill-with-docs | INSTALLED | grill-with-docs project skill + superpowers GSD |
+| **Architect**  | graphify                          | INSTALLED | project skill                                   |
+|                | map-codebase                      | INSTALLED | superpowers GSD includes this                   |
+| **Decompose**  | to-issues / to-prd                | INSTALLED | project skills                                  |
+|                | GSD milestone/phase               | INSTALLED | superpowers                                     |
+| **Integrate**  | claude-squad                      | MISSING   | not installed; mbe worktrees fill this role     |
+|                | worktrunk                         | MISSING   | not installed; mbe worktrees fill this role     |
+| **Retrospect** | claude-mem timeline               | INSTALLED |                                                 |
+|                | claude-reflect                    | INSTALLED |                                                 |
 
 ### Cross-Cutting
 
