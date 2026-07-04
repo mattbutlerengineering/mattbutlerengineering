@@ -49,7 +49,7 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           type: "object",
           required: ["reservationId"],
           properties: {
-            reservationId: { type: "string" },
+            reservationId: { type: "string", minLength: 1 },
             guestEmail: { type: "string" },
             guestName: { type: "string" },
           },
