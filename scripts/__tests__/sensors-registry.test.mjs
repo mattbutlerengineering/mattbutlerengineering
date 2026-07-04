@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -157,6 +157,58 @@ describe("sensors-registry", () => {
         expect(typeof result.reason).toBe("string");
       }
     }
+  });
+
+  describe("prMetrics sensor reads the writer's real path", () => {
+    // Regression coverage for a dead sensor: prMetrics previously resolved
+    // `docs/metrics/pr-acceptance.json`, a path no collector ever writes to.
+    // The real writer (pr-metrics.mjs) and the other reader (auto-qa-tune.mjs)
+    // both use `metrics/pr-acceptance.json` at repo root — pin the sensor to
+    // that exact path so a future path drift fails loudly here instead of
+    // silently degrading to `available: false`.
+    let tmpDir;
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    const fixture = [
+      {
+        date: "2026-05-02",
+        window_days: 30,
+        total_ai_prs: 40,
+        merged: 40,
+        rejected: 0,
+        acceptance_rate: 1,
+      },
+    ];
+
+    it("reports real data when metrics/pr-acceptance.json exists at repo root", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+
+      const sensor = SENSORS.find((s) => s.id === "prMetrics");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({
+        available: true,
+        latest: fixture[0],
+        previous: null,
+        entry_count: 1,
+      });
+    });
+
+    it("does not fall back to docs/metrics/pr-acceptance.json — no collector writes there", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
+      mkdirSync(join(tmpDir, "docs", "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "docs", "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+
+      const sensor = SENSORS.find((s) => s.id === "prMetrics");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({ available: false });
+    });
   });
 
   describe("threshold co-location", () => {
