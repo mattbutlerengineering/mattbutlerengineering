@@ -1,11 +1,13 @@
-import { createShellRunner } from "../shell-runner.js";
+import { doctlJson } from "../command-builder.js";
 
-const defaultRun = createShellRunner({ errorLabel: "Failed to get deploy status" });
-
-export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> {
-  const output = run(
-    `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`
-  );
+export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> {
+  const output = run([
+    "apps",
+    "list",
+    "--format",
+    "ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase",
+    "--no-header",
+  ]);
   try {
     const asJson = JSON.parse(output) as { error?: string };
     if (asJson.error !== undefined) {

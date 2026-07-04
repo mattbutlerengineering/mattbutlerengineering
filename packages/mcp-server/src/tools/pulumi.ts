@@ -1,10 +1,5 @@
-import { createShellRunner } from "../shell-runner.js";
+import { pulumiJson } from "../command-builder.js";
 
-const defaultRun = createShellRunner({
-  timeoutMs: 30_000,
-  errorLabel: "Failed to get Pulumi outputs",
-});
-
-export async function pulumiStackOutputs(run = defaultRun): Promise<string> {
-  return run("pulumi stack output --json");
+export async function pulumiStackOutputs(run = pulumiJson): Promise<string> {
+  return run(["stack", "output", "--json"]);
 }
