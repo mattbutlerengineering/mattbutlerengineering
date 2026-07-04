@@ -22,10 +22,23 @@ vi.mock("../hooks/usePublicApiClient.js", () => ({
   })),
 }));
 
-// Mock BookingWidget — heavy component, not testing internals here
-vi.mock("../components/booking-widget/index.js", () => ({
-  BookingWidget: ({ venueId }: any) => <div data-testid="booking-widget" data-venue-id={venueId} />,
-}));
+// Mock BookingWidget — heavy component, not testing internals here. Imports
+// the real (pure, separately unit-tested) hasOperatingHours module directly
+// so its wiring here is genuinely exercised, without pulling in the rest of
+// the heavy booking-widget barrel (Stripe, GuestDetailsForm, etc.).
+vi.mock("../components/booking-widget/index.js", async () => {
+  const { hasOperatingHours } = await import("../components/booking-widget/hasOperatingHours.js");
+  return {
+    BookingWidget: ({ venueId, hasOperatingHours: hasHours }: any) => (
+      <div
+        data-testid="booking-widget"
+        data-venue-id={venueId}
+        data-has-operating-hours={String(hasHours)}
+      />
+    ),
+    hasOperatingHours,
+  };
+});
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
@@ -136,6 +149,29 @@ describe("PublicBookingPage", () => {
 
       await waitFor(() => {
         expect(mockGetBySlug).toHaveBeenCalledWith("the-grand-table");
+      });
+    });
+
+    it("passes hasOperatingHours=false to BookingWidget when the venue has no hours configured", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue); // operatingHours: null
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-has-operating-hours")).toBe("false");
+      });
+    });
+
+    it("passes hasOperatingHours=true to BookingWidget when the venue has hours configured", async () => {
+      mockGetBySlug.mockResolvedValue({
+        ...mockVenue,
+        operatingHours: { monday: { open: "09:00", close: "22:00" } },
+      });
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-has-operating-hours")).toBe("true");
       });
     });
 

@@ -26,6 +26,11 @@
       ): string | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/booking-widget/hasOperatingHours.ts">
+    <item priority="high">
+      export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
