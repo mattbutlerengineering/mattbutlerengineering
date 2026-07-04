@@ -4667,7 +4667,8 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
+      | { code: "CONFLICT"; message: string }
+      | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -4729,7 +4730,11 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
+      | "NOT_FOUND"
+      | "EXPIRED"
+      | "SESSION_MISMATCH"
+      | "CONFLICT"
+      | "PACING_EXCEEDED";
     export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
       return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
     }
