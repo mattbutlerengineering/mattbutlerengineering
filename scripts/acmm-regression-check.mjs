@@ -137,7 +137,11 @@ async function main() {
     failingIds,
   });
 
-  const { filed } = fileRegressionIssueIfNew({ label: "acmm", marker: REGRESSION_MARKER, payload });
+  const { filed } = await fileRegressionIssueIfNew({
+    label: "acmm",
+    marker: REGRESSION_MARKER,
+    payload,
+  });
   if (!filed) {
     console.log("ACMM regression detected, but an open regression issue already exists. Skipping.");
     return;
