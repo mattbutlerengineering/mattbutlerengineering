@@ -15,6 +15,7 @@ import {
   clampToDefaultRange,
   readTunables,
   getTunableSensorDefaults,
+  readQueueEfficiencyPrs,
 } from "../sensors-registry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -208,6 +209,140 @@ describe("sensors-registry", () => {
       const result = sensor.collect({ root: tmpDir });
 
       expect(result).toEqual({ available: false });
+    });
+  });
+
+  describe('collectors use the injected ghClient, not raw execFileSync("gh")', () => {
+    it("prCategoryMetrics collects PRs via ghClient.pr.list", () => {
+      const prs = [
+        {
+          number: 1,
+          state: "MERGED",
+          headRefName: "agent-feature-1",
+          mergedAt: "2026-06-01T10:00:00Z",
+          closedAt: "2026-06-01T10:00:00Z",
+          labels: [{ name: "feature" }],
+        },
+      ];
+      const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+      const sensor = SENSORS.find((s) => s.id === "prCategoryMetrics");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(ghClient.pr.list).toHaveBeenCalledWith([
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--json",
+        "number,state,headRefName,mergedAt,closedAt,labels",
+      ]);
+      expect(result.available).toBe(true);
+      expect(result.total_prs).toBe(1);
+    });
+
+    it("prCategoryMetrics reports unavailable when ghClient.pr.list throws", () => {
+      const ghClient = {
+        pr: {
+          list: vi.fn().mockImplementation(() => {
+            throw new Error("gh not authenticated");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "prCategoryMetrics");
+
+      expect(sensor.collect({ ghClient })).toEqual({ available: false });
+    });
+
+    // readQueueEfficiencyPrs is exercised directly (rather than through the
+    // full queueEfficiency sensor.collect()) so the test doesn't also invoke
+    // collectQueueEfficiency's real (network-calling) default ccusage reader.
+    it("readQueueEfficiencyPrs collects PRs via ghClient.pr.list and derives commitCount", () => {
+      const prs = [
+        {
+          number: 1,
+          state: "MERGED",
+          headRefName: "worktree-agent-1",
+          commits: [{}, {}],
+        },
+      ];
+      const ghClient = { pr: { list: vi.fn().mockReturnValue(prs) } };
+
+      const result = readQueueEfficiencyPrs(ghClient);
+
+      expect(ghClient.pr.list).toHaveBeenCalledWith([
+        "--state",
+        "all",
+        "--limit",
+        "45",
+        "--json",
+        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+      ]);
+      expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
+    });
+
+    it("readQueueEfficiencyPrs returns null when ghClient.pr.list throws", () => {
+      const ghClient = {
+        pr: {
+          list: vi.fn().mockImplementation(() => {
+            throw new Error("gh not authenticated");
+          }),
+        },
+      };
+
+      expect(readQueueEfficiencyPrs(ghClient)).toBeNull();
+    });
+
+    it("queueEfficiency sensor.collect reports unavailable when ghClient.pr.list throws", () => {
+      const ghClient = {
+        pr: {
+          list: vi.fn().mockImplementation(() => {
+            throw new Error("gh not authenticated");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "queueEfficiency");
+
+      expect(sensor.collect({ ghClient, now: new Date() })).toEqual({ available: false });
+    });
+
+    it("e2eStability collects runs via ghClient.workflow.runs", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockReturnValue([
+            {
+              conclusion: "success",
+              createdAt: "2026-06-01T00:00:00Z",
+              headBranch: "main",
+              headSha: "abc123",
+            },
+          ]),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "e2eStability");
+
+      const result = sensor.collect({ root: process.cwd(), ghClient });
+
+      expect(ghClient.workflow.runs).toHaveBeenCalledWith([
+        "--limit",
+        "30",
+        "--json",
+        "conclusion,createdAt,headBranch,headSha",
+      ]);
+      expect(result.available).toBe(true);
+    });
+
+    it("e2eStability reports unavailable when ghClient.workflow.runs throws", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockImplementation(() => {
+            throw new Error("gh not authenticated");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "e2eStability");
+
+      expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({ available: false });
     });
   });
 
