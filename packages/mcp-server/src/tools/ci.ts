@@ -1,9 +1,14 @@
-import { createShellRunner } from "../shell-runner.js";
+import { ghJson } from "../command-builder.js";
 
-const defaultRun = createShellRunner({ errorLabel: "Failed to get CI status" });
-
-export async function ciRunStatus(run = defaultRun): Promise<string> {
-  const output = run(`gh run list --limit 10 --json name,status,conclusion,workflowName`);
+export async function ciRunStatus(run = ghJson): Promise<string> {
+  const output = run([
+    "run",
+    "list",
+    "--limit",
+    "10",
+    "--json",
+    "name,status,conclusion,workflowName",
+  ]);
   try {
     const parsed = JSON.parse(output) as unknown;
     if (Array.isArray(parsed)) {

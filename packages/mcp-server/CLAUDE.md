@@ -8,7 +8,8 @@ Infrastructure MCP server that gives Claude Code access to live system state via
 src/
 ├── index.ts              # Server setup, TOOLS array, request handler
 ├── dispatcher.ts         # defineTool, listTools, callTool — generic tool registry/dispatch
-├── shell-runner.ts       # createShellRunner — centralized timeout + error-envelope for shell tools
+├── shell-runner.ts       # createShellRunner — centralized timeout + error-envelope, execFile (no shell)
+├── command-builder.ts    # psqlQuery, ghJson, doctlJson, pulumiJson — typed argv builders over shell-runner
 └── tools/
     ├── ci.ts             # ci_run_status — GitHub Actions workflow status
     ├── database.ts       # db_list_tables, db_migration_status — Postgres introspection
@@ -52,6 +53,17 @@ Uses `StdioServerTransport` from `@modelcontextprotocol/sdk`. Configured in `.mc
 1. Create tool implementation in `src/tools/<name>.ts` — export an async function returning a string
 2. Register it via `defineTool({ name, description, inputSchema, handler })` in the `TOOLS` array in `src/index.ts`
 3. No per-tool switch needed — `src/index.ts` routes every call generically through `callTool(TOOLS, request.params.name, ...)` (`src/dispatcher.ts`), which looks up the tool by name and invokes its `handler`
+
+## Shelling Out
+
+Tools never build raw shell-command strings. `command-builder.ts` exposes typed
+wrappers — `psqlQuery(dbUrl, sql)`, `ghJson(args[])`, `doctlJson(args[])`,
+`pulumiJson(args[])` — that call `createShellRunner()` (`shell-runner.ts`),
+which invokes the target binary via `execFileSync` (argv, not a shell). No
+argv element is ever concatenated into an interpolated string, eliminating
+shell-injection surface. `git.ts` calls its own `createShellRunner()` instance
+directly (via `run("git"|"gh", [...])`) since git isn't one of the four named
+domains above.
 
 ## Dependencies
 

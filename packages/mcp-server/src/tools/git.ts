@@ -12,23 +12,32 @@ function isErrorEnvelope(output: string): boolean {
 }
 
 export async function gitWorkflowStatus(run = defaultRun): Promise<string> {
-  const branch = run("git rev-parse --abbrev-ref HEAD");
+  const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
   if (isErrorEnvelope(branch)) {
     return branch;
   }
 
-  const status = run("git status --porcelain");
+  const status = run("git", ["status", "--porcelain"]);
   if (isErrorEnvelope(status)) {
     return status;
   }
 
-  const commits = run("git log --oneline -5");
+  const commits = run("git", ["log", "--oneline", "-5"]);
   if (isErrorEnvelope(commits)) {
     return commits;
   }
 
   let ciStatus = "unknown";
-  const ciOutput = run("gh run list --branch main --limit 1 --json conclusion");
+  const ciOutput = run("gh", [
+    "run",
+    "list",
+    "--branch",
+    "main",
+    "--limit",
+    "1",
+    "--json",
+    "conclusion",
+  ]);
   if (!isErrorEnvelope(ciOutput)) {
     try {
       const result = JSON.parse(ciOutput) as Array<{ conclusion?: string }>;
