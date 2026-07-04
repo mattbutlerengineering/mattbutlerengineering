@@ -8,12 +8,43 @@ export interface BasicInfoData {
   venueGroupId: string;
 }
 
+/** Status of the debounced slug-uniqueness check performed while the user types. */
+export type SlugStatus = "idle" | "checking" | "available" | "taken";
+
 interface BasicInfoStepProps {
   data: BasicInfoData;
   errors: Partial<Record<keyof BasicInfoData, string>>;
   onChange: (data: BasicInfoData) => void;
   onValidate?: () => void;
-  slugStatus?: "idle" | "checking" | "available" | "taken";
+  slugStatus?: SlugStatus;
+}
+
+/** Validate slug is URL-safe: lowercase alphanumeric and hyphens only. */
+export function isValidSlug(slug: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+}
+
+/** Validate basic info step data. Pure — takes the current slug-check result as input. */
+export function validateBasicInfo(
+  data: BasicInfoData,
+  slugStatus: SlugStatus
+): Partial<Record<keyof BasicInfoData, string>> {
+  const errors: Partial<Record<keyof BasicInfoData, string>> = {};
+
+  if (data.name.trim().length < 2) {
+    errors.name = "Name must be at least 2 characters";
+  }
+
+  const slug = data.slug.trim();
+  if (!slug) {
+    errors.slug = "Slug is required";
+  } else if (!isValidSlug(slug)) {
+    errors.slug = "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
+  } else if (slugStatus === "taken") {
+    errors.slug = "A venue with this slug already exists";
+  }
+
+  return errors;
 }
 
 export function BasicInfoStep({

@@ -1,51 +1,22 @@
-import { useState, useCallback, useEffect, useRef, useReducer } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
-import type { OperatingHours, CreateVenueRequest, VenueSettings } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
-import { BasicInfoStep } from "../components/venue-onboarding/BasicInfoStep";
-import { LocationTimeStep, detectTimezone } from "../components/venue-onboarding/LocationTimeStep";
-import {
-  OperatingHoursStep,
-  validateOperatingHours,
-} from "../components/venue-onboarding/OperatingHoursStep";
-import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep";
+import { BasicInfoStep, isValidSlug } from "../components/venue-onboarding/BasicInfoStep";
+import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
+import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
-import type { BasicInfoData } from "../components/venue-onboarding/BasicInfoStep";
-import type { LocationTimeData } from "../components/venue-onboarding/LocationTimeStep";
-import type { SettingsData } from "../components/venue-onboarding/SettingsStep";
+import {
+  useOnboardingWizard,
+  buildOnboardingPayload,
+  TOTAL_STEPS,
+} from "../components/venue-onboarding/useOnboardingWizard.js";
 import styles from "./VenueOnboardingPage.module.css";
-
-const TOTAL_STEPS = 5;
-
-const INITIAL_BASIC_INFO: BasicInfoData = {
-  name: "",
-  slug: "",
-  venueGroupId: "",
-};
-
-const INITIAL_LOCATION_TIME: LocationTimeData = {
-  ianaTimezone: detectTimezone(),
-  currencyCode: "USD",
-};
-
-const INITIAL_OPERATING_HOURS: OperatingHours = {};
-
-const INITIAL_SETTINGS: SettingsData = {
-  defaultReservationDuration: "",
-  maxPartySize: "",
-  advanceBookingDays: "",
-};
-
-/** Validate slug is URL-safe: lowercase alphanumeric and hyphens only. */
-function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
-}
 
 export function VenueOnboardingPage() {
   const navigate = useNavigate();
@@ -54,246 +25,41 @@ export function VenueOnboardingPage() {
   const { refetchVenues } = useVenue();
   const { toast } = useToast();
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { step, data, errors, highestStepReached, slugStatus, isSubmitting, submitError, actions } =
+    useOnboardingWizard();
 
-  // Step data — each piece of state is immutable (replaced, never mutated)
-  const [basicInfo, setBasicInfo] = useState<BasicInfoData>(INITIAL_BASIC_INFO);
-  const [locationTime, setLocationTime] = useState<LocationTimeData>(INITIAL_LOCATION_TIME);
-  const [operatingHours, setOperatingHours] = useState<OperatingHours>(INITIAL_OPERATING_HOURS);
-  const [settings, setSettings] = useState<SettingsData>(INITIAL_SETTINGS);
-
-  // Validation errors per step
-  const [basicInfoErrors, setBasicInfoErrors] = useState<
-    Partial<Record<keyof BasicInfoData, string>>
-  >({});
-  const [locationTimeErrors, setLocationTimeErrors] = useState<
-    Partial<Record<keyof LocationTimeData, string>>
-  >({});
-  const [settingsErrors, setSettingsErrors] = useState<Partial<Record<keyof SettingsData, string>>>(
-    {}
-  );
-  const [operatingHoursErrors, setOperatingHoursErrors] =
-    useState<OperatingHoursValidationErrors | null>(null);
-
-  // Track which steps have been completed (for step navigation)
-  const [highestStepReached, setHighestStepReached] = useState(1);
-
-  // Slug uniqueness check (debounced)
-  type SlugStatus = "idle" | "checking" | "available" | "taken";
-  const [slugStatus, dispatchSlugStatus] = useReducer(
-    (_: SlugStatus, action: SlugStatus) => action,
-    "idle" as SlugStatus
-  );
-  const slugCheckTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
+  // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
+  // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
   useEffect(() => {
-    const slug = basicInfo.slug.trim();
-
-    // Reset if empty or invalid format
-    if (!slug || !isValidSlug(slug)) {
-      dispatchSlugStatus("idle");
+    const slug = data.basicInfo.slug.trim();
+    if (!slug || !isValidSlug(slug) || !accessToken) {
       return;
     }
 
-    // Debounce: wait 500ms after last change
-    clearTimeout(slugCheckTimerRef.current);
-    dispatchSlugStatus("checking");
-
-    slugCheckTimerRef.current = setTimeout(async () => {
-      if (!accessToken) return;
-      try {
-        await api.venues.getBySlug(slug);
-        // If it returns successfully, the slug is taken
-        dispatchSlugStatus("taken");
-        setBasicInfoErrors((prev) => ({
-          ...prev,
-          slug: "A venue with this slug already exists",
-        }));
-      } catch {
-        // 404 means slug is available
-        dispatchSlugStatus("available");
-        setBasicInfoErrors((prev) => {
-          const { slug: _removed, ...rest } = prev;
-          return rest;
-        });
-      }
+    const timer = setTimeout(() => {
+      actions.checkSlugAvailability(api.venues.getBySlug(slug));
     }, 500);
 
-    return () => clearTimeout(slugCheckTimerRef.current);
-  }, [basicInfo.slug, accessToken, api]);
-
-  const validateBasicInfo = useCallback((): boolean => {
-    const errors: Partial<Record<keyof BasicInfoData, string>> = {};
-
-    if (basicInfo.name.trim().length < 2) {
-      errors.name = "Name must be at least 2 characters";
-    }
-
-    const slug = basicInfo.slug.trim();
-    if (!slug) {
-      errors.slug = "Slug is required";
-    } else if (!isValidSlug(slug)) {
-      errors.slug = "Slug must be URL-safe (lowercase letters, numbers, hyphens)";
-    } else if (slugStatus === "taken") {
-      errors.slug = "A venue with this slug already exists";
-    }
-
-    setBasicInfoErrors(errors);
-    return Object.keys(errors).length === 0;
-  }, [basicInfo, slugStatus]);
-
-  const validateLocationTime = useCallback((): boolean => {
-    const errors: Partial<Record<keyof LocationTimeData, string>> = {};
-
-    if (!locationTime.ianaTimezone) {
-      errors.ianaTimezone = "Timezone is required";
-    }
-
-    if (!locationTime.currencyCode) {
-      errors.currencyCode = "Currency is required";
-    }
-
-    setLocationTimeErrors(errors);
-    return Object.keys(errors).length === 0;
-  }, [locationTime]);
-
-  const validateSettings = useCallback((): boolean => {
-    const errors: Partial<Record<keyof SettingsData, string>> = {};
-
-    if (settings.defaultReservationDuration !== "") {
-      const val = Number(settings.defaultReservationDuration);
-      if (isNaN(val) || val <= 0) {
-        errors.defaultReservationDuration = "Duration must be a positive number";
-      }
-    }
-
-    if (settings.maxPartySize !== "") {
-      const val = Number(settings.maxPartySize);
-      if (isNaN(val) || val <= 0) {
-        errors.maxPartySize = "Party size must be a positive number";
-      }
-    }
-
-    if (settings.advanceBookingDays !== "") {
-      const val = Number(settings.advanceBookingDays);
-      if (isNaN(val) || val <= 0) {
-        errors.advanceBookingDays = "Advance days must be a positive number";
-      }
-    }
-
-    setSettingsErrors(errors);
-    return Object.keys(errors).length === 0;
-  }, [settings]);
-
-  const validateOperatingHoursStep = useCallback((): boolean => {
-    const errors = validateOperatingHours(operatingHours);
-    setOperatingHoursErrors(errors);
-    return errors === null;
-  }, [operatingHours]);
-
-  const validateCurrentStep = useCallback((): boolean => {
-    switch (currentStep) {
-      case 1:
-        return validateBasicInfo();
-      case 2:
-        return validateLocationTime();
-      case 3:
-        return validateOperatingHoursStep();
-      case 4:
-        return validateSettings();
-      case 5:
-        return true; // Review only
-      default:
-        return true;
-    }
-  }, [
-    currentStep,
-    validateBasicInfo,
-    validateLocationTime,
-    validateOperatingHoursStep,
-    validateSettings,
-  ]);
-
-  const handleNext = () => {
-    if (validateCurrentStep()) {
-      const nextStep = Math.min(currentStep + 1, TOTAL_STEPS);
-      setCurrentStep(nextStep);
-      setHighestStepReached((prev) => Math.max(prev, nextStep));
-    }
-  };
-
-  const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleStepClick = (step: number) => {
-    // Allow jumping to any completed step (up to highestStepReached)
-    if (step <= highestStepReached) {
-      setCurrentStep(step);
-    }
-  };
-
-  const buildPayload = (): CreateVenueRequest => {
-    const payload: CreateVenueRequest = {
-      name: basicInfo.name.trim(),
-      slug: basicInfo.slug.trim(),
-      ianaTimezone: locationTime.ianaTimezone,
-      currencyCode: locationTime.currencyCode,
-    };
-
-    if (basicInfo.venueGroupId) {
-      payload.venueGroupId = basicInfo.venueGroupId;
-    }
-
-    if (Object.keys(operatingHours).length > 0) {
-      payload.operatingHours = operatingHours;
-    }
-
-    const venueSettings: VenueSettings = {};
-    if (settings.defaultReservationDuration !== "") {
-      venueSettings.defaultReservationDuration = Number(settings.defaultReservationDuration);
-    }
-    if (settings.maxPartySize !== "") {
-      venueSettings.maxPartySize = Number(settings.maxPartySize);
-    }
-    if (settings.advanceBookingDays !== "") {
-      venueSettings.maxAdvanceBooking = Number(settings.advanceBookingDays);
-    }
-
-    if (Object.keys(venueSettings).length > 0) {
-      payload.settings = venueSettings;
-    }
-
-    return payload;
-  };
+    return () => clearTimeout(timer);
+  }, [data.basicInfo.slug, accessToken, api, actions]);
 
   const handleSubmit = async () => {
-    if (!accessToken) {
-      setSubmitError("You must be signed in to create a venue");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError(null);
+    const createPromise = accessToken
+      ? api.venues.create(buildOnboardingPayload(data))
+      : Promise.reject(new Error("You must be signed in to create a venue"));
 
     try {
-      await api.venues.create(buildPayload());
+      await actions.submit(createPromise);
       await refetchVenues();
       toast({
         title: "Venue created",
-        description: `"${basicInfo.name.trim()}" is ready for setup`,
+        description: `"${data.basicInfo.name.trim()}" is ready for setup`,
         variant: "success",
         duration: 5000,
       });
       navigate("/setup", { replace: true });
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to create venue. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // submitError is already populated on the wizard by actions.submit()
     }
   };
 
@@ -303,74 +69,69 @@ export function VenueOnboardingPage() {
 
       <div className={styles.wizardContainer}>
         <StepIndicator
-          currentStep={currentStep}
+          currentStep={step}
           totalSteps={TOTAL_STEPS}
           highestStepReached={highestStepReached}
-          onStepClick={handleStepClick}
+          onStepClick={actions.goToStep}
         />
 
         <Card>
           <Stack gap="lg">
-            {currentStep === 1 && (
+            {step === 1 && (
               <>
                 <Text variant="label">Basic Information</Text>
                 <BasicInfoStep
-                  data={basicInfo}
-                  errors={basicInfoErrors}
-                  onChange={setBasicInfo}
-                  onValidate={validateBasicInfo}
+                  data={data.basicInfo}
+                  errors={errors.basicInfo}
+                  onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
                   slugStatus={slugStatus}
                 />
               </>
             )}
 
-            {currentStep === 2 && (
+            {step === 2 && (
               <>
                 <Text variant="label">Location & Time</Text>
                 <LocationTimeStep
-                  data={locationTime}
-                  errors={locationTimeErrors}
-                  onChange={setLocationTime}
-                  onValidate={validateLocationTime}
+                  data={data.locationTime}
+                  errors={errors.locationTime}
+                  onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
                 />
               </>
             )}
 
-            {currentStep === 3 && (
+            {step === 3 && (
               <>
                 <Text variant="label">Operating Hours</Text>
                 <OperatingHoursStep
-                  data={operatingHours}
-                  errors={operatingHoursErrors ?? undefined}
-                  onChange={(newHours) => {
-                    setOperatingHours(newHours);
-                    // Clear errors when user makes changes
-                    setOperatingHoursErrors(null);
-                  }}
+                  data={data.operatingHours}
+                  errors={errors.operatingHours ?? undefined}
+                  onChange={(operatingHours) =>
+                    actions.setStepData("operatingHours", operatingHours)
+                  }
                 />
               </>
             )}
 
-            {currentStep === 4 && (
+            {step === 4 && (
               <>
                 <Text variant="label">Venue Settings</Text>
                 <SettingsStep
-                  data={settings}
-                  errors={settingsErrors}
-                  onChange={setSettings}
-                  onValidate={validateSettings}
+                  data={data.settings}
+                  errors={errors.settings}
+                  onChange={(settings) => actions.setStepData("settings", settings)}
                 />
               </>
             )}
 
-            {currentStep === 5 && (
+            {step === 5 && (
               <>
                 <Text variant="label">Review & Confirm</Text>
                 <ConfirmationStep
-                  basicInfo={basicInfo}
-                  locationTime={locationTime}
-                  operatingHours={operatingHours}
-                  settings={settings}
+                  basicInfo={data.basicInfo}
+                  locationTime={data.locationTime}
+                  operatingHours={data.operatingHours}
+                  settings={data.settings}
                 />
               </>
             )}
@@ -384,12 +145,12 @@ export function VenueOnboardingPage() {
             )}
 
             <Stack direction="row" gap="md" justify="between">
-              <Button variant="secondary" onClick={handleBack} disabled={currentStep === 1}>
+              <Button variant="secondary" onClick={actions.back} disabled={step === 1}>
                 Back
               </Button>
 
-              {currentStep < TOTAL_STEPS ? (
-                <Button variant="primary" onClick={handleNext}>
+              {step < TOTAL_STEPS ? (
+                <Button variant="primary" onClick={actions.next}>
                   Next
                 </Button>
               ) : (

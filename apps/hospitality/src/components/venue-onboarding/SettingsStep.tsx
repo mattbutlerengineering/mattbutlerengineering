@@ -21,6 +21,34 @@ interface SettingsStepProps {
   onValidate?: () => void;
 }
 
+/** Validate settings step data. All fields are optional; only rejects invalid non-blank values. */
+export function validateSettings(data: SettingsData): Partial<Record<keyof SettingsData, string>> {
+  const errors: Partial<Record<keyof SettingsData, string>> = {};
+
+  if (data.defaultReservationDuration !== "") {
+    const val = Number(data.defaultReservationDuration);
+    if (isNaN(val) || val <= 0) {
+      errors.defaultReservationDuration = "Duration must be a positive number";
+    }
+  }
+
+  if (data.maxPartySize !== "") {
+    const val = Number(data.maxPartySize);
+    if (isNaN(val) || val <= 0) {
+      errors.maxPartySize = "Party size must be a positive number";
+    }
+  }
+
+  if (data.advanceBookingDays !== "") {
+    const val = Number(data.advanceBookingDays);
+    if (isNaN(val) || val <= 0) {
+      errors.advanceBookingDays = "Advance days must be a positive number";
+    }
+  }
+
+  return errors;
+}
+
 export function SettingsStep({ data, errors, onChange, onValidate }: SettingsStepProps) {
   return (
     <div className={styles.stepContainer}>
