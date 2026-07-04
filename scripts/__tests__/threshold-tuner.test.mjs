@@ -5,6 +5,9 @@ import {
   determineAdjustment,
   applyAdjustments,
   buildJsonlEntry,
+  classifyRegressionOutcome,
+  tuneRegressionThreshold,
+  applyRegressionThresholdAdjustments,
 } from "../threshold-tuner.mjs";
 
 // ---------------------------------------------------------------------------
@@ -514,5 +517,170 @@ describe("JSONL append — applyAdjustments + buildJsonlEntry integration", () =
     const metrics = { "ci-fix": { fpRate: 0.2, effectiveness: 0.7, total: 5 } };
     const { changes } = applyAdjustments(SEED_TUNING, metrics, [], TODAY);
     expect(changes).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyRegressionOutcome — ADR-018 regression-threshold tuning (#2986)
+// ---------------------------------------------------------------------------
+
+describe("classifyRegressionOutcome", () => {
+  it("classifies fpRate > 30% as false_positive", () => {
+    expect(classifyRegressionOutcome({ fpRate: 0.4, effectiveness: 0.6 })).toBe("false_positive");
+  });
+
+  it("classifies effectiveness < 50% as miss", () => {
+    expect(classifyRegressionOutcome({ fpRate: 0.2, effectiveness: 0.4 })).toBe("miss");
+  });
+
+  it("classifies mid-range metrics as ok", () => {
+    expect(classifyRegressionOutcome({ fpRate: 0.2, effectiveness: 0.7 })).toBe("ok");
+  });
+
+  it("prioritizes false_positive over miss when both thresholds are crossed", () => {
+    expect(classifyRegressionOutcome({ fpRate: 0.55, effectiveness: 0.45 })).toBe("false_positive");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tuneRegressionThreshold — pure tuning policy, clamped to ±50% of default
+// ---------------------------------------------------------------------------
+
+describe("tuneRegressionThreshold", () => {
+  it("widens (increases) the threshold on a false_positive outcome", () => {
+    const next = tuneRegressionThreshold(5, 5, "false_positive");
+    expect(next).toBeGreaterThan(5);
+  });
+
+  it("tightens (decreases) the threshold on a miss outcome", () => {
+    const next = tuneRegressionThreshold(5, 5, "miss");
+    expect(next).toBeLessThan(5);
+  });
+
+  it("leaves the threshold unchanged on an ok outcome", () => {
+    expect(tuneRegressionThreshold(5, 5, "ok")).toBe(5);
+  });
+
+  it("never widens past +50% of default even after repeated false positives", () => {
+    let value = 5;
+    for (let i = 0; i < 20; i++) {
+      value = tuneRegressionThreshold(value, 5, "false_positive");
+    }
+    expect(value).toBeLessThanOrEqual(7.5);
+  });
+
+  it("never tightens past −50% of default even after repeated misses", () => {
+    let value = 5;
+    for (let i = 0; i < 20; i++) {
+      value = tuneRegressionThreshold(value, 5, "miss");
+    }
+    expect(value).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it("clamps a currentThreshold that is already out of bounds back into range", () => {
+    // Sidecar was hand-edited to an absurd value — policy must not compound it.
+    expect(tuneRegressionThreshold(100, 5, "ok")).toBe(7.5);
+    expect(tuneRegressionThreshold(0, 5, "ok")).toBe(2.5);
+  });
+
+  it("works for small fractional defaults (e.g. lighthouse_score_drop = 0.05)", () => {
+    const widened = tuneRegressionThreshold(0.05, 0.05, "false_positive");
+    expect(widened).toBeGreaterThan(0.05);
+    expect(widened).toBeLessThanOrEqual(0.075);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyRegressionThresholdAdjustments — registry-seam wiring
+// ---------------------------------------------------------------------------
+
+describe("applyRegressionThresholdAdjustments", () => {
+  const resolveSensor = (label) => (label === "ci-fix" ? { id: "ci" } : null);
+  const tunableDefaults = { ci: { thresholdKey: "ci_pass_rate_drop", defaultValue: 5 } };
+
+  it("returns no changes when no per-sensor metrics are provided", () => {
+    const { tunables, changes } = applyRegressionThresholdAdjustments(
+      {},
+      {},
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(0);
+    expect(tunables).toEqual({});
+  });
+
+  it("skips sensors with fewer than 3 data points", () => {
+    const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 2 } };
+    const { changes } = applyRegressionThresholdAdjustments(
+      {},
+      metrics,
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(0);
+  });
+
+  it("skips labels that don't resolve to a tunable registry sensor", () => {
+    const metrics = { audit: { fpRate: 0.5, effectiveness: 0.5, total: 10 } };
+    const { changes } = applyRegressionThresholdAdjustments(
+      {},
+      metrics,
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(0);
+  });
+
+  it("widens ci_pass_rate_drop on a false-positive outcome and records a change", () => {
+    const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 10 } };
+    const { tunables, changes } = applyRegressionThresholdAdjustments(
+      {},
+      metrics,
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0].trigger).toBe("regression-false-positive");
+    expect(tunables.ci.regressionThreshold).toBeGreaterThan(5);
+  });
+
+  it("tightens ci_pass_rate_drop on a miss outcome starting from an existing sidecar value", () => {
+    const metrics = { "ci-fix": { fpRate: 0.1, effectiveness: 0.3, total: 10 } };
+    const existing = { ci: { regressionThreshold: 6 } };
+    const { tunables, changes } = applyRegressionThresholdAdjustments(
+      existing,
+      metrics,
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0].oldValue).toBe(6);
+    expect(tunables.ci.regressionThreshold).toBeLessThan(6);
+  });
+
+  it("does not touch the sidecar when the outcome is ok", () => {
+    const metrics = { "ci-fix": { fpRate: 0.2, effectiveness: 0.7, total: 10 } };
+    const { tunables, changes } = applyRegressionThresholdAdjustments(
+      {},
+      metrics,
+      resolveSensor,
+      tunableDefaults,
+      TODAY
+    );
+    expect(changes).toHaveLength(0);
+    expect(tunables).toEqual({});
+  });
+
+  it("does not mutate the input tunables object", () => {
+    const original = { ci: { regressionThreshold: 5 } };
+    const snapshot = JSON.parse(JSON.stringify(original));
+    const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 10 } };
+    applyRegressionThresholdAdjustments(original, metrics, resolveSensor, tunableDefaults, TODAY);
+    expect(original).toEqual(snapshot);
   });
 });
