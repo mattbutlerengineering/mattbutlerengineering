@@ -54,7 +54,7 @@ export function SearchOrchestrator({
             description={
               isSearchActive
                 ? "Try adjusting your search query."
-                : "Guests will appear here once they make a reservation."
+                : "Get started by adding your first guest."
             }
           />
         </div>

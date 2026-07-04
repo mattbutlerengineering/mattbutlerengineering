@@ -188,6 +188,29 @@ export async function pushBranch(worktreePath: string, branchName: string): Prom
   await git(["push", "-u", "origin", "--", branchName], worktreePath);
 }
 
+/**
+ * Feedback-loop commit path: stage all changes, commit, and push the branch.
+ * Delegates to the validated `commitChanges` (applies `validatePath`, stages
+ * with `git add -A`, and short-circuits to no commit when nothing is staged)
+ * and `pushBranch` (applies `validatePath` + `validateGitRef` on the branch
+ * ref before the subprocess). When there is nothing to commit, the push is
+ * skipped — matching the prior feedback-loop behaviour of never pushing an
+ * empty commit. This centralises the argument-injection protection that the
+ * feedback loop's previous inline helper lacked.
+ */
+export async function commitAndPush(
+  worktreePath: string,
+  branchName: string,
+  message: string
+): Promise<void> {
+  const sha = await commitChanges(worktreePath, message);
+  if (!sha) {
+    // Nothing was staged — nothing to push.
+    return;
+  }
+  await pushBranch(worktreePath, branchName);
+}
+
 export async function hasChanges(worktreePath: string): Promise<boolean> {
   validatePath(worktreePath, "worktreePath");
 

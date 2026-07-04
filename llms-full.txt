@@ -692,6 +692,7 @@
           hasChanges: vi.fn().mockResolvedValue(false),
           commitChanges: vi.fn().mockResolvedValue("abc123"),
           pushBranch: vi.fn().mockResolvedValue(undefined),
+          commitAndPush: vi.fn().mockResolvedValue(undefined),
           removeWorktree: vi.fn().mockResolvedValue(undefined),
         },
         promptBuilder: {
@@ -1303,24 +1304,6 @@
   </file>
   </section>
   <section priority="medium" role="agent">
-  <file path="services/agent/prisma.config.ts">
-    function loadEnvFile(): void {
-      try {
-        const content = readFileSync(".env", "utf-8");
-        for (const line of content.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith("#")) continue;
-          const eqIdx = trimmed.indexOf("=");
-          if (eqIdx === -1) continue;
-          const key = trimmed.slice(0, eqIdx);
-          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
-          if (!process.env[key]) process.env[key] = val;
-        }
-      } catch {
-        // .env not present (CI, Docker) — rely on environment
-      }
-    }
-  </file>
   <file path="tools/cli/src/commands/agent/check-model.ts">
     function loadTelemetryHistory(): TelemetryRow[] {
       let content: string;
@@ -4538,6 +4521,7 @@
           hasChanges,
           commitChanges,
           pushBranch,
+          commitAndPush,
           removeWorktree,
         },
         promptBuilder: {
@@ -4605,6 +4589,7 @@
               maxBudgetUsd: remainingBudget,
               allowedTools: config.allowedTools,
             },
+            { worktreeManager: deps.worktreeManager },
             onEvent
           );
           fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
@@ -5338,26 +5323,6 @@
       }, [expiresAt, signinSilent]);
     
       return auth.user?.access_token ?? null;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="reservations">
-  <file path="services/reservations/prisma.config.ts">
-    function loadEnvFile(): void {
-      try {
-        const content = readFileSync(".env", "utf-8");
-        for (const line of content.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith("#")) continue;
-          const eqIdx = trimmed.indexOf("=");
-          if (eqIdx === -1) continue;
-          const key = trimmed.slice(0, eqIdx);
-          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
-          if (!process.env[key]) process.env[key] = val;
-        }
-      } catch {
-        // .env not present (CI, Docker) — rely on environment
-      }
     }
   </file>
   </section>
@@ -16133,6 +16098,35 @@
       return { skip: (query.page - 1) * query.limit, take: query.limit };
     }
   </file>
+  <file path="packages/database/src/prisma-config.ts">
+    function loadEnvFile(): void {
+      try {
+        const content = readFileSync(".env", "utf-8");
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx === -1) continue;
+          const key = trimmed.slice(0, eqIdx);
+          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
+          if (!process.env[key]) process.env[key] = val;
+        }
+      } catch {
+        // .env not present (CI, Docker) — rely on environment
+      }
+    }
+    export function createPrismaConfig() {
+      loadEnvFile();
+    
+      const url =
+        process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+    
+      return defineConfig({
+        schema: "prisma/schema.prisma",
+        datasource: { url },
+      });
+    }
+  </file>
   <file path="packages/database/src/testing.ts">
     export interface MockPrisma {
       $queryRaw: ReturnType<typeof vi.fn>;
@@ -16441,15 +16435,18 @@
         return preference === "sms_only" && this.smsAdapter === null;
       }
     
-      /** Booking confirmation — transactional, always sent. */
+      /**
+       * Booking confirmation — transactional, always sent via email regardless of
+       * channel. It carries the iCal attachment, which cannot travel via SMS, so
+       * even a "sms" (or "both") resolved channel still delivers via email only.
+       * The channel is accepted (not a raw preference) so callers thread the same
+       * resolveChannel() result used for reminders — see booking-notifications.ts.
+       */
       async sendBookingConfirmation(
         emailInput: BookingNotificationInput,
-        preference: CommunicationPreference
+        _channel: "email" | "sms" | "both"
       ): Promise<void> {
-        // Confirmation is email-only (contains iCal attachment)
-        if (this.shouldSendEmail(preference) || preference === "sms_only") {
-          await this.emailAdapter.sendBookingConfirmation(emailInput);
-        }
+        await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
       /** Booking reminder — transactional, sent via channel(s) matching preference. */
@@ -18097,26 +18094,6 @@
       picture?: string;
       /** Custom claims */
       [key: string]: unknown;
-    }
-  </file>
-  </section>
-  <section priority="medium" role="users">
-  <file path="services/users/prisma.config.ts">
-    function loadEnvFile(): void {
-      try {
-        const content = readFileSync(".env", "utf-8");
-        for (const line of content.split("\n")) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith("#")) continue;
-          const eqIdx = trimmed.indexOf("=");
-          if (eqIdx === -1) continue;
-          const key = trimmed.slice(0, eqIdx);
-          const val = trimmed.slice(eqIdx + 1).replace(/^["']|["']$/g, "");
-          if (!process.env[key]) process.env[key] = val;
-        }
-      } catch {
-        // .env not present (CI, Docker) — rely on environment
-      }
     }
   </file>
   </section>

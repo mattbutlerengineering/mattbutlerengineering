@@ -20,6 +20,7 @@ import {
   createWorktree,
   removeWorktree,
   commitChanges,
+  commitAndPush,
   hasChanges,
   validateGitRef,
   validatePath,
@@ -311,6 +312,56 @@ describe("commitChanges", () => {
 
     const sha = await commitChanges("/worktree", "feat: nothing");
     expect(sha).toBe("");
+  });
+});
+
+// ── commitAndPush ─────────────────────────────────────────────────────────────
+// Feedback-loop commit path: stage → commit → push the branch, reusing the
+// validated `commitChanges` + `pushBranch` helpers (defence-in-depth against
+// git argument injection). Must not push when there is nothing to commit.
+
+describe("commitAndPush", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("stages, commits, then pushes the branch when there are changes", async () => {
+    // commitChanges: add -A, status --porcelain (dirty), commit, rev-parse; then push.
+    setupExecFileMock(["", "M src/index.ts", "", "abc123", ""]);
+
+    await commitAndPush("/worktree", "agent/fix-bug-abc123", "fix: address feedback");
+
+    const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
+    const pushCall = gitCalls.find((call) => (call[1] as string[]).includes("push"));
+    expect(pushCall).toBeDefined();
+    expect(pushCall![1]).toContain("agent/fix-bug-abc123");
+  });
+
+  it("does not push when there is nothing to commit", async () => {
+    // commitChanges: add -A, status --porcelain (clean) → returns "" (no commit).
+    setupExecFileMock(["", ""]);
+
+    await commitAndPush("/worktree", "agent/fix-bug-abc123", "fix: nothing");
+
+    const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
+    const pushCall = gitCalls.find((call) => (call[1] as string[]).includes("push"));
+    expect(pushCall).toBeUndefined();
+  });
+
+  it("rejects a branch name with argument injection before pushing", async () => {
+    // commitChanges succeeds (changes exist), then pushBranch validates the ref.
+    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+
+    await expect(commitAndPush("/worktree", "--upload-pack=evil", "msg")).rejects.toThrow(
+      "Invalid branchName"
+    );
+  });
+
+  it("rejects a worktree path with shell metacharacters before any subprocess", async () => {
+    await expect(commitAndPush("/worktree$(whoami)", "main", "msg")).rejects.toThrow(
+      "Invalid worktreePath"
+    );
+    expect(execFile).not.toHaveBeenCalled();
   });
 });
 
