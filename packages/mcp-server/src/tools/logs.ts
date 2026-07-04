@@ -2,8 +2,23 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { glob } from "glob";
 
+/** Services with a `services/<name>/logs` directory. Keep in sync with health.ts. */
+const ALLOWED_SERVICES = ["users", "reservations", "agent"];
+
+function assertValidService(service: string): string {
+  const normalized = service.trim().toLowerCase();
+  if (!ALLOWED_SERVICES.includes(normalized)) {
+    throw new Error(
+      `Invalid service "${service}". Must be one of: ${ALLOWED_SERVICES.join(", ")}`
+    );
+  }
+  return normalized;
+}
+
 export async function checkLogs(service?: string) {
-  const logDir = service ? join("services", service, "logs") : "services/*/logs";
+  const logDir = service
+    ? join("services", assertValidService(service), "logs")
+    : "services/*/logs";
   const files = await glob(join(logDir, "*.log"));
 
   if (files.length === 0) {

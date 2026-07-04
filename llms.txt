@@ -4585,6 +4585,14 @@
       }
     </item>
   </file>
+  <file path="packages/notifications/src/sanitize.ts">
+    <item priority="high">
+      export function escapeHtml(value: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sanitizeUrl(raw: string): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="packages/notifications/src/sms-port.ts">
     <item priority="low">
       interface SmsNotificationInput {
@@ -5321,6 +5329,9 @@
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/logs.ts">
+    <item priority="medium">
+      function assertValidService(service: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export async function checkLogs(service?: string) { /* ... */ }
     </item>
