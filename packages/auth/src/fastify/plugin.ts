@@ -48,12 +48,12 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
 
   // Prominent startup warning when the test auth bypass is enabled. The bypass
   // grants a hardcoded admin identity with no JWT validation, so it must never
-  // be active in production (enforced by the NODE_ENV guard in the onRequest hook).
+  // be active outside tests (only active when NODE_ENV=test, via the guard in the onRequest hook).
   if (bypassTestMode) {
     fastify.log.warn(
       "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Requests with 'x-auth-bypass: true' " +
-        "skip JWT validation and receive a hardcoded admin identity. This is structurally " +
-        "disabled when NODE_ENV=production. NEVER set AUTH_BYPASS_IN_TESTS in production."
+        "skip JWT validation and receive a hardcoded admin identity. This bypass is default " +
+        "OFF and only activates when NODE_ENV=test. NEVER set AUTH_BYPASS_IN_TESTS in production."
     );
   }
 
@@ -73,10 +73,11 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 1. Explicit Test Bypass
     // Check if bypass mode is enabled AND the request opted in via header.
-    // Structurally unreachable in production: the NODE_ENV guard ensures one bad
-    // deploy config cannot grant a hardcoded admin identity on a live service.
+    // Positive opt-in gate: bypass activates ONLY when NODE_ENV=test. Production,
+    // staging, and an unset NODE_ENV all leave it OFF, so one bad deploy config
+    // cannot grant a hardcoded admin identity on a live service.
     if (
-      process.env.NODE_ENV !== "production" &&
+      process.env.NODE_ENV === "test" &&
       bypassTestMode &&
       request.headers["x-auth-bypass"] === "true"
     ) {
@@ -186,7 +187,7 @@ export function hasPermission(user: AuthUser | undefined, permission: string): b
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const bypassTestMode = (request.server as FastifyInstance).authBypassTestMode ?? false;
   const isBypassed =
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV === "test" &&
     bypassTestMode &&
     request.headers["x-auth-bypass"] === "true";
   if (!request.user && !isBypassed) {

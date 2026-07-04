@@ -389,4 +389,167 @@ describe("BookingWidget", () => {
     expect(depositNotice.textContent).toContain("$40.00");
     expect(depositNotice.textContent).not.toContain("$10.00");
   });
+
+  it("reaches the payment step and shows correct cancellation terms for a risky guest when the venue's general deposit policy is disabled but a deposit is configured", async () => {
+    // Regression test for #3094: fetchDepositConfig previously gated on
+    // venueConfig.deposit.enabled, so a "configured then disabled" venue
+    // (general policy off, but deposit fields still populated) never set
+    // data.depositConfig — making the risky-guest override in
+    // effectiveDepositPolicy unreachable in production. The gate must key
+    // off whether a deposit was ever configured, not the enabled flag.
+    const { useStripe, useElements } = await import("@stripe/react-stripe-js");
+    vi.mocked(useStripe).mockReturnValue({
+      confirmCardPayment: vi.fn().mockResolvedValue({
+        paymentIntent: { id: "pi_test_risky_override" },
+      }),
+    } as unknown as ReturnType<typeof useStripe>);
+    vi.mocked(useElements).mockReturnValue({
+      getElement: vi.fn().mockReturnValue({ mount: vi.fn() }),
+    } as unknown as ReturnType<typeof useElements>);
+
+    mockApi.publicVenue.guestRisk.mockResolvedValue({
+      riskScore: "risky",
+      noShowCount: 3,
+      requiresDeposit: true,
+    });
+
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: false,
+        depositType: "flat",
+        amountCents: 5000,
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      },
+    });
+    mockApi.publicVenue.depositIntent.mockResolvedValue({
+      clientSecret: "pi_secret_test",
+      depositId: "dep-2",
+      amountCents: 5000,
+      currency: "usd",
+    });
+
+    render(
+      <BookingWidget venueId="v1" venueSlug="the-oak-table" stripePublishableKey="pk_test_abc" />
+    );
+
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Risky Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "risky@example.com" },
+    });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-risky-override",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    // Venue's general policy is disabled — the risky-guest override must
+    // still route to the payment step.
+    await waitFor(() => expect(screen.getByText(/Authorize \$50\.00/)).toBeDefined());
+    fireEvent.click(screen.getByText(/Authorize \$50\.00/));
+
+    // Confirmation must show the correct cancellation terms for the deposit
+    // actually collected via the override — not the blank/no-deposit case.
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+    expect(
+      screen.getByText(/Free cancellation up to 24 hours before your reservation/)
+    ).toBeDefined();
+  });
+
+  it("hides cancellation-policy terms on confirmation when the venue's deposit policy is disabled and the guest isn't risky (configured-then-disabled)", async () => {
+    // Regression test for #3094: once fetchDepositConfig stops gating on
+    // `.enabled`, data.depositConfig becomes non-null for any venue that has
+    // ever configured a deposit — even one that later disabled it.
+    // ConfirmationView must not render cancellation terms for a booking
+    // where no deposit was actually required, even though depositConfig
+    // itself is non-null.
+    mockApi.publicVenue.guestRisk.mockResolvedValue({
+      riskScore: "trusted",
+      noShowCount: 0,
+      requiresDeposit: false,
+    });
+
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: false,
+        depositType: "flat",
+        amountCents: 5000,
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      },
+    });
+
+    render(
+      <BookingWidget venueId="v1" venueSlug="the-oak-table" stripePublishableKey="pk_test_abc" />
+    );
+
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Trusted Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "trusted@example.com" },
+    });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-no-override",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    // Not risky + policy disabled → straight to confirmation, no payment step.
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+    expect(screen.queryByText(/Free cancellation up to 24 hours/)).toBeNull();
+    expect(screen.queryByText("Cancellation Policy")).toBeNull();
+  });
 });

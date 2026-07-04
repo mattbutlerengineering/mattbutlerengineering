@@ -109,9 +109,16 @@ export function BookingWidget({
     const fetchDepositConfig = async () => {
       try {
         const venueConfig = await api.venues.getPublicConfig(venueSlug);
-        if (venueConfig.deposit.enabled) {
+        // Gate on whether a deposit was ever configured (amountCents
+        // present), not on the venue's general `.enabled` flag — a venue
+        // that configured then disabled its general policy must still
+        // surface its deposit terms so the risky-guest override in
+        // effectiveDepositPolicy can apply them. A venue that never
+        // configured a deposit at all (amountCents null) leaves
+        // depositConfig null, same as before.
+        if (venueConfig.deposit.amountCents != null) {
           const config: DepositConfig = {
-            enabled: true,
+            enabled: venueConfig.deposit.enabled,
             depositType: venueConfig.deposit.depositType ?? "flat",
             amountCents: venueConfig.deposit.amountCents,
             currency: venueConfig.currencyCode.toLowerCase(),
@@ -332,7 +339,13 @@ export function BookingWidget({
           }
           depositCurrency={data.depositConfig?.currency ?? null}
           cancellationPolicySummary={formatDepositCancellationTerms(
-            data.depositConfig ?? null,
+            // `data.depositRequired` is the final, risk-aware outcome
+            // resolved at confirm time — gating on it (rather than raw
+            // depositConfig presence) keeps a "configured then disabled"
+            // venue's terms hidden for bookings that never actually
+            // required a deposit, while still showing them when the
+            // risky-guest override applied.
+            data.depositRequired ? data.depositConfig : null,
             data.partySize
           )}
           onNewBooking={handleNewBooking}
