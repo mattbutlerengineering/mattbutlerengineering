@@ -19,7 +19,7 @@ describe("pulumiStackOutputs", () => {
 
     await pulumiStackOutputs(run);
 
-    expect(run).toHaveBeenCalledWith("pulumi stack output --json");
+    expect(run).toHaveBeenCalledWith(["stack", "output", "--json"]);
   });
 
   it("result can be used directly as MCP text content", async () => {

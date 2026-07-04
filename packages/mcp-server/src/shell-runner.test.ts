@@ -6,8 +6,8 @@ describe("createShellRunner", () => {
     const mockRunner: ShellRunner = vi.fn().mockReturnValue("  result output  ");
     const run = createShellRunner({ runner: mockRunner });
 
-    expect(run("gh run list")).toBe("result output");
-    expect(mockRunner).toHaveBeenCalledWith("gh run list", {
+    expect(run("gh", ["run", "list"])).toBe("result output");
+    expect(mockRunner).toHaveBeenCalledWith("gh", ["run", "list"], {
       encoding: "utf-8",
       timeout: 15_000,
     });
@@ -17,8 +17,8 @@ describe("createShellRunner", () => {
     const mockRunner: ShellRunner = vi.fn().mockReturnValue("ok");
     const run = createShellRunner({ runner: mockRunner });
 
-    run("gh pr list");
-    expect(mockRunner).toHaveBeenCalledWith("gh pr list", {
+    run("gh", ["pr", "list"]);
+    expect(mockRunner).toHaveBeenCalledWith("gh", ["pr", "list"], {
       encoding: "utf-8",
       timeout: 15_000,
     });
@@ -28,10 +28,21 @@ describe("createShellRunner", () => {
     const mockRunner: ShellRunner = vi.fn().mockReturnValue("ok");
     const run = createShellRunner({ runner: mockRunner, timeoutMs: 30_000 });
 
-    run("pulumi stack output --json");
-    expect(mockRunner).toHaveBeenCalledWith("pulumi stack output --json", {
+    run("pulumi", ["stack", "output", "--json"]);
+    expect(mockRunner).toHaveBeenCalledWith("pulumi", ["stack", "output", "--json"], {
       encoding: "utf-8",
       timeout: 30_000,
+    });
+  });
+
+  it("defaults args to an empty array when omitted", () => {
+    const mockRunner: ShellRunner = vi.fn().mockReturnValue("ok");
+    const run = createShellRunner({ runner: mockRunner });
+
+    run("pulumi");
+    expect(mockRunner).toHaveBeenCalledWith("pulumi", [], {
+      encoding: "utf-8",
+      timeout: 15_000,
     });
   });
 
@@ -41,7 +52,7 @@ describe("createShellRunner", () => {
     });
     const run = createShellRunner({ runner: mockRunner });
 
-    const result = run("gh run list");
+    const result = run("gh", ["run", "list"]);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBeDefined();
@@ -54,7 +65,7 @@ describe("createShellRunner", () => {
     });
     const run = createShellRunner({ runner: mockRunner });
 
-    const result = run("doctl apps list");
+    const result = run("doctl", ["apps", "list"]);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBeDefined();
@@ -67,7 +78,7 @@ describe("createShellRunner", () => {
     });
     const run = createShellRunner({ runner: mockRunner, errorLabel: "Failed to get CI status" });
 
-    const result = run("gh run list");
+    const result = run("gh", ["run", "list"]);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(parsed.error).toBe("Failed to get CI status");
@@ -79,10 +90,23 @@ describe("createShellRunner", () => {
     });
     const run = createShellRunner({ runner: mockRunner });
 
-    const result = run("gh run list");
+    const result = run("gh", ["run", "list"]);
     const parsed = JSON.parse(result) as { error: string; message: string };
 
     expect(typeof parsed.error).toBe("string");
     expect(parsed.error.length).toBeGreaterThan(0);
+  });
+
+  it("never invokes a shell — args are passed as argv, not interpolated into a string", () => {
+    const mockRunner = vi.fn().mockReturnValue("ok");
+    const run = createShellRunner({ runner: mockRunner });
+
+    run("psql", ['postgres://x; rm -rf /"', "-t", "-c", "SELECT 1"]);
+
+    expect(mockRunner).toHaveBeenCalledWith(
+      "psql",
+      ['postgres://x; rm -rf /"', "-t", "-c", "SELECT 1"],
+      { encoding: "utf-8", timeout: 15_000 }
+    );
   });
 });
