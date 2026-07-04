@@ -228,6 +228,26 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(body.code).toBe("VENUE_NOT_FOUND");
     expect(body.detail).toContain("does-not-exist");
   });
+
+  it("rejects an empty {} payload with 400", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("rejects a payload missing guestEmail with 400", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      payload: { holdId: "hold_1", guestName: "Jane" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
 });
 
 describe("bookingNotifier injection", () => {
