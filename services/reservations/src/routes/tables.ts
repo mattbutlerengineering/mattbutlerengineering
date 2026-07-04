@@ -20,6 +20,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "List all tables",
         operationId: "listTables",
@@ -73,6 +74,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get table by ID",
         operationId: "getTableById",

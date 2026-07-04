@@ -67,6 +67,7 @@ describe("Reservation Service API Contract", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/tables/table-123",
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(200);
@@ -81,6 +82,7 @@ describe("Reservation Service API Contract", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/tables/non-existent",
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(404);

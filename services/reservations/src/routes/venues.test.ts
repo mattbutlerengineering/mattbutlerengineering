@@ -164,6 +164,7 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues/groups",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(200);
@@ -181,6 +182,7 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues/groups/group-123",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(200);
@@ -195,11 +197,63 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues/groups/nonexistent",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(404);
         const body = JSON.parse(response.body);
         expect(body.error).toBe("Not Found");
+      });
+    });
+
+    describe("auth enforcement on reads (#3103)", () => {
+      it("returns 401 for anonymous GET /v1/venues/groups", async () => {
+        const response = await app.inject({ method: "GET", url: "/api/v1/venues/groups" });
+
+        expect(response.statusCode).toBe(401);
+      });
+
+      it("returns 401 for anonymous GET /v1/venues/groups/:id", async () => {
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/groups/group-123",
+        });
+
+        expect(response.statusCode).toBe(401);
+      });
+
+      it("allows authenticated operator to GET /v1/venues/groups", async () => {
+        vi.mocked(venueGroupService.list).mockResolvedValueOnce({
+          data: [mockVenueGroup],
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 1,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/groups",
+          headers: { "x-auth-bypass": "true" },
+        });
+
+        expect(response.statusCode).toBe(200);
+      });
+
+      it("allows authenticated operator to GET /v1/venues/groups/:id", async () => {
+        vi.mocked(venueGroupService.getById).mockResolvedValueOnce(mockVenueGroup);
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/groups/group-123",
+          headers: { "x-auth-bypass": "true" },
+        });
+
+        expect(response.statusCode).toBe(200);
       });
     });
 
