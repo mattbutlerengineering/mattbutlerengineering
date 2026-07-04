@@ -17,7 +17,8 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { collectAgentCost } from "./collect-agent-cost.mjs";
 import { collectCcusageSensor } from "./collect-ccusage.mjs";
@@ -77,6 +78,18 @@ export function safe(fn, fallback = null) {
 export function readJson(path) {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
+
+/**
+ * Sidecar file threshold-tuner.mjs writes tuned regression thresholds to
+ * (ADR-018). buildThresholds() overlays it onto per-sensor defaults at
+ * read time; threshold-tuner.mjs is its single writer.
+ */
+export const REGRESSION_TUNABLES_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  ".github",
+  "regression-tunables.json"
+);
 
 /**
  * Parse `git log --numstat` output into commit objects for the code-churn collector.
@@ -837,16 +850,83 @@ const UNASSIGNED_THRESHOLDS = {
 };
 
 /**
+ * Clamps a tuned threshold value to within ±50% of its registry default —
+ * the hard bound from ADR-018's regression-threshold tuning policy (a
+ * sensor can never be disabled by widening past +50%, nor made hair-trigger
+ * by tightening past −50%). Shared by buildThresholds()'s defensive overlay
+ * clamp and by threshold-tuner.mjs's pure tuning-policy function, so the
+ * bound is defined exactly once.
+ *
+ * @param {number} value
+ * @param {number} defaultValue
+ * @returns {number}
+ */
+export function clampToDefaultRange(value, defaultValue) {
+  return Math.min(defaultValue * 1.5, Math.max(defaultValue * 0.5, value));
+}
+
+/**
+ * Reads the regression-thresholds sidecar file that threshold-tuner.mjs
+ * writes. Missing file or malformed JSON → {} (no overrides) — this keeps
+ * buildThresholds() safe to call before the sidecar exists or if it was
+ * hand-edited into an invalid state.
+ *
+ * @param {string} [path]
+ * @returns {Record<string, { regressionThreshold: number }>}
+ */
+export function readTunables(path = REGRESSION_TUNABLES_PATH) {
+  if (!existsSync(path)) return {};
+  return safe(() => readJson(path), {}) ?? {};
+}
+
+/**
+ * Returns, for every registry sensor whose `thresholds` object has exactly
+ * one key, that key's name and registry default value. The sidecar's shape
+ * (`{ "<sensorId>": { "regressionThreshold": <number> } }`) can only express
+ * a single scalar per sensor, so sensors with zero or multiple threshold
+ * keys (e.g. "queueEfficiency", which has two) are not tunable via this seam.
+ *
+ * @returns {Record<string, { thresholdKey: string; defaultValue: number }>}
+ */
+export function getTunableSensorDefaults() {
+  /** @type {Record<string, { thresholdKey: string; defaultValue: number }>} */
+  const result = {};
+  for (const sensor of SENSORS) {
+    const keys = Object.keys(sensor.thresholds ?? {});
+    if (keys.length !== 1) continue;
+    result[sensor.id] = { thresholdKey: keys[0], defaultValue: sensor.thresholds[keys[0]] };
+  }
+  return result;
+}
+
+/**
  * Assembles the flat thresholds object consumed by buildReport/detectRegression,
  * merging each registry entry's co-located `thresholds` (in registry order) on
- * top of UNASSIGNED_THRESHOLDS. This is the sensor-report shim's one seam for
- * thresholds — adding or tuning a sensor's threshold means editing its entry
- * here, not a separate blob in sensor-report.mjs.
+ * top of UNASSIGNED_THRESHOLDS, then overlaying any tuned value from the
+ * regression-thresholds sidecar (ADR-018 — see REGRESSION_TUNABLES_PATH).
+ * A sensor absent from the sidecar keeps its registry default; any overlay
+ * value is defensively clamped to ±50% of that default in case the sidecar
+ * was hand-edited out of bounds. This is the sensor-report shim's one seam
+ * for thresholds — adding or tuning a sensor's threshold means editing its
+ * entry here (or its tuned value in the sidecar), not a separate blob in
+ * sensor-report.mjs.
  *
+ * @param {string} [tunablesPath]
  * @returns {Record<string, number>}
  */
-export function buildThresholds() {
-  return SENSORS.reduce((acc, sensor) => ({ ...acc, ...(sensor.thresholds ?? {}) }), {
+export function buildThresholds(tunablesPath = REGRESSION_TUNABLES_PATH) {
+  const defaults = SENSORS.reduce((acc, sensor) => ({ ...acc, ...(sensor.thresholds ?? {}) }), {
     ...UNASSIGNED_THRESHOLDS,
   });
+
+  const tunables = readTunables(tunablesPath);
+
+  return Object.entries(getTunableSensorDefaults()).reduce(
+    (acc, [sensorId, { thresholdKey, defaultValue }]) => {
+      const override = tunables[sensorId]?.regressionThreshold;
+      if (typeof override !== "number" || Number.isNaN(override)) return acc;
+      return { ...acc, [thresholdKey]: clampToDefaultRange(override, defaultValue) };
+    },
+    defaults
+  );
 }
