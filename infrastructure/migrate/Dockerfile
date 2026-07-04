@@ -11,6 +11,15 @@ RUN npm install -g prisma@7
 # fails with "Cannot find module 'prisma/config'" when run from a service dir.
 ENV NODE_PATH=/usr/local/lib/node_modules
 
+# Non-root user (mirrors services/users/Dockerfile). HOME must be writable —
+# Prisma's engine/query-cache writes there at runtime — otherwise `prisma
+# migrate deploy` fails under the unprivileged user.
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 app && \
+    mkdir -p /home/app && \
+    chown -R app:nodejs /home/app
+ENV HOME=/home/app
+
 # Copy schemas, migrations, and per-service prisma.config.ts.
 # COPY is cached; runtime SERVICE_NAME selects which set to run.
 # Each prisma.config.ts is a thin re-export of packages/database/src/prisma-config.ts via a
@@ -32,5 +41,9 @@ COPY services/agent/prisma.config.ts ./services/agent/prisma.config.ts
 # be written literally into /migrate.sh, not expanded at Docker build time.
 # hadolint ignore=SC2016
 RUN printf '#!/bin/sh\nset -e\nif [ -z "$SERVICE_NAME" ]; then\n  echo "ERROR: SERVICE_NAME env var is required" >&2\n  exit 1\nfi\necho "Running $SERVICE_NAME migrations..."\ncd "/app/services/$SERVICE_NAME"\nprisma migrate deploy\necho "$SERVICE_NAME migrations complete."\n' > /migrate.sh && chmod +x /migrate.sh
+
+RUN chown -R app:nodejs /app /migrate.sh
+
+USER app
 
 CMD ["/migrate.sh"]
