@@ -4485,6 +4485,18 @@
       }
     </item>
   </file>
+  <file path="packages/mcp-server/src/command-builder.ts">
+    <item priority="medium">
+      function assertNoTraversal(value: string, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function psqlQuery(
+        dbUrl: string,
+        sql: string,
+        run: (cmd: string, args: string[]) => string = defaultPsqlRun
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/mcp-server/src/dispatcher.ts">
     <item priority="high">
       type McpContent = { type: "text"; text: string };
@@ -4503,7 +4515,10 @@
   </file>
   <file path="packages/mcp-server/src/shell-runner.ts">
     <item priority="low">
-      type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number ...;
+      type ShellRunner = (
+        cmd: string,
+        args: string[],
+        opts: { encoding: "u...;
     </item>
     <item priority="low">
       interface ShellRunnerOptions {
@@ -5304,20 +5319,20 @@
   <section priority="medium" role="tools">
   <file path="packages/mcp-server/src/tools/ci.ts">
     <item priority="high">
-      export async function ciRunStatus(run = defaultRun): Promise<string> { /* ... */ }
+      export async function ciRunStatus(run = ghJson): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/database.ts">
     <item priority="high">
-      export async function dbListTables(run = defaultListRun): Promise<string> { /* ... */ }
+      export async function dbListTables(run = psqlQuery): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
-      export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> { /* ... */ }
+      export async function dbMigrationStatus(run = psqlQuery): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/deploy_status.ts">
     <item priority="high">
-      export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> { /* ... */ }
+      export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="packages/mcp-server/src/tools/git.ts">
@@ -5343,7 +5358,7 @@
   </file>
   <file path="packages/mcp-server/src/tools/pulumi.ts">
     <item priority="high">
-      export async function pulumiStackOutputs(run = defaultRun): Promise<string> { /* ... */ }
+      export async function pulumiStackOutputs(run = pulumiJson): Promise<string> { /* ... */ }
     </item>
   </file>
   </section>

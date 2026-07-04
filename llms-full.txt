@@ -16348,6 +16348,22 @@
       handlers: JobHandlerMap;
     }
   </file>
+  <file path="packages/mcp-server/src/command-builder.ts">
+    function assertNoTraversal(value: string, label: string): void {
+      if (TRAVERSAL_PATTERN.test(value)) {
+        throw new Error(`Invalid ${label}: must not contain a path-traversal sequence ("..")`);
+      }
+    }
+    export function psqlQuery(
+      dbUrl: string,
+      sql: string,
+      run: (cmd: string, args: string[]) => string = defaultPsqlRun
+    ): string {
+      assertNoTraversal(dbUrl, "database URL");
+      assertNoTraversal(sql, "SQL statement");
+      return run("psql", [dbUrl, "-t", "-c", sql]);
+    }
+  </file>
   <file path="packages/mcp-server/src/dispatcher.ts">
     type McpContent = { type: "text"; text: string };
     type McpResult = {
@@ -16363,9 +16379,13 @@
     }
   </file>
   <file path="packages/mcp-server/src/shell-runner.ts">
-    export type ShellRunner = (cmd: string, opts: { encoding: "utf-8"; timeout: number }) => string;
+    export type ShellRunner = (
+      cmd: string,
+      args: string[],
+      opts: { encoding: "utf-8"; timeout: number }
+    ) => string;
     export interface ShellRunnerOptions {
-      /** Injected runner — defaults to node's execSync. */
+      /** Injected runner — defaults to node's execFileSync. */
       runner?: ShellRunner;
       /** Timeout in milliseconds. Defaults to 15 000. */
       timeoutMs?: number;
@@ -17906,8 +17926,15 @@
   </section>
   <section priority="medium" role="tools">
   <file path="packages/mcp-server/src/tools/ci.ts">
-    export async function ciRunStatus(run = defaultRun): Promise<string> {
-      const output = run(`gh run list --limit 10 --json name,status,conclusion,workflowName`);
+    export async function ciRunStatus(run = ghJson): Promise<string> {
+      const output = run([
+        "run",
+        "list",
+        "--limit",
+        "10",
+        "--json",
+        "name,status,conclusion,workflowName",
+      ]);
       try {
         const parsed = JSON.parse(output) as unknown;
         if (Array.isArray(parsed)) {
@@ -17920,13 +17947,14 @@
     }
   </file>
   <file path="packages/mcp-server/src/tools/database.ts">
-    export async function dbListTables(run = defaultListRun): Promise<string> {
+    export async function dbListTables(run = psqlQuery): Promise<string> {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) {
         return JSON.stringify({ error: "DATABASE_URL not set" });
       }
       const output = run(
-        `psql "${dbUrl}" -t -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"`
+        dbUrl,
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
       );
       try {
         const asJson = JSON.parse(output) as { error?: string };
@@ -17939,13 +17967,14 @@
       const tables = output.trim().split("\n").filter(Boolean);
       return JSON.stringify({ tables }, null, 2);
     }
-    export async function dbMigrationStatus(run = defaultMigrationRun): Promise<string> {
+    export async function dbMigrationStatus(run = psqlQuery): Promise<string> {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) {
         return JSON.stringify({ error: "DATABASE_URL not set" });
       }
       const output = run(
-        `psql "${dbUrl}" -t -c "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"`
+        dbUrl,
+        "SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 20;"
       );
       try {
         const asJson = JSON.parse(output) as { error?: string };
@@ -17964,10 +17993,14 @@
     }
   </file>
   <file path="packages/mcp-server/src/tools/deploy_status.ts">
-    export async function deployStatus(run: (cmd: string) => string = defaultRun): Promise<string> {
-      const output = run(
-        `doctl apps list --format ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase --no-header`
-      );
+    export async function deployStatus(run: (args: string[]) => string = doctlJson): Promise<string> {
+      const output = run([
+        "apps",
+        "list",
+        "--format",
+        "ID,Spec.Name,ActiveDeployment.Phase,InProgressDeployment.Phase",
+        "--no-header",
+      ]);
       try {
         const asJson = JSON.parse(output) as { error?: string };
         if (asJson.error !== undefined) {
@@ -17999,23 +18032,32 @@
       }
     }
     export async function gitWorkflowStatus(run = defaultRun): Promise<string> {
-      const branch = run("git rev-parse --abbrev-ref HEAD");
+      const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
       if (isErrorEnvelope(branch)) {
         return branch;
       }
     
-      const status = run("git status --porcelain");
+      const status = run("git", ["status", "--porcelain"]);
       if (isErrorEnvelope(status)) {
         return status;
       }
     
-      const commits = run("git log --oneline -5");
+      const commits = run("git", ["log", "--oneline", "-5"]);
       if (isErrorEnvelope(commits)) {
         return commits;
       }
     
       let ciStatus = "unknown";
-      const ciOutput = run("gh run list --branch main --limit 1 --json conclusion");
+      const ciOutput = run("gh", [
+        "run",
+        "list",
+        "--branch",
+        "main",
+        "--limit",
+        "1",
+        "--json",
+        "conclusion",
+      ]);
       if (!isErrorEnvelope(ciOutput)) {
         try {
           const result = JSON.parse(ciOutput) as Array<{ conclusion?: string }>;
@@ -18098,8 +18140,8 @@
     }
   </file>
   <file path="packages/mcp-server/src/tools/pulumi.ts">
-    export async function pulumiStackOutputs(run = defaultRun): Promise<string> {
-      return run("pulumi stack output --json");
+    export async function pulumiStackOutputs(run = pulumiJson): Promise<string> {
+      return run(["stack", "output", "--json"]);
     }
   </file>
   </section>
