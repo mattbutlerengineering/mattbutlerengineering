@@ -31,6 +31,16 @@ export interface BookingWidgetProps {
   stripePublishableKey?: string;
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
+  /**
+   * Whether the venue has operating hours configured. Defaults to `true`
+   * (assume configured) — pass the result of checking the venue's
+   * `operatingHours` to show a setup prompt instead of "No available times".
+   */
+  hasOperatingHours?: boolean;
+  /** Who is viewing this widget — staff get a prompt to configure hours. Defaults to `"guest"`. */
+  audience?: "staff" | "guest";
+  /** Staff-only: called when the "Set Operating Hours" prompt is clicked. */
+  onSetHours?: () => void;
 }
 
 const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
@@ -60,6 +70,9 @@ export function BookingWidget({
   className = "",
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
   defaultWaitMinutes = 30,
+  hasOperatingHours = true,
+  audience = "guest",
+  onSetHours,
 }: BookingWidgetProps) {
   const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow();
 
@@ -275,6 +288,9 @@ export function BookingWidget({
           partySize={data.partySize}
           onJoinWaitlist={venueSlug ? actions.goToWaitlistJoin : undefined}
           estimatedWaitMinutes={defaultWaitMinutes}
+          hasOperatingHours={hasOperatingHours}
+          audience={audience}
+          onSetHours={onSetHours}
         />
       )}
 
