@@ -901,6 +901,17 @@
       }
     </item>
   </file>
+  <file path="src/run-git.ts">
+    <item priority="high">
+      export const DEFAULT_GIT_TIMEOUT_MS: unknown;
+    </item>
+    <item priority="low">
+      interface RunGitOptions {
+        cwd?: string;
+        timeoutMs?: number;
+      }
+    </item>
+  </file>
   <file path="src/run-hardened-query.ts">
     <item priority="high">
       export const apiCircuitBreaker: unknown;

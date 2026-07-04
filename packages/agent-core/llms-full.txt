@@ -12,6 +12,7 @@
           hasChanges: vi.fn().mockResolvedValue(false),
           commitChanges: vi.fn().mockResolvedValue("abc123"),
           pushBranch: vi.fn().mockResolvedValue(undefined),
+          commitAndPush: vi.fn().mockResolvedValue(undefined),
           removeWorktree: vi.fn().mockResolvedValue(undefined),
         },
         promptBuilder: {
@@ -922,6 +923,7 @@
           hasChanges,
           commitChanges,
           pushBranch,
+          commitAndPush,
           removeWorktree,
         },
         promptBuilder: {
@@ -989,6 +991,7 @@
               maxBudgetUsd: remainingBudget,
               allowedTools: config.allowedTools,
             },
+            { worktreeManager: deps.worktreeManager },
             onEvent
           );
           fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
@@ -2764,6 +2767,15 @@
       onEvent?: SessionEventCallback;
       deps?: PhaseDeps;
       signal?: AbortSignal;
+    }
+  </file>
+  <file path="src/run-git.ts">
+    export const DEFAULT_GIT_TIMEOUT_MS = 60_000;
+    export interface RunGitOptions {
+      /** Working directory for the git invocation. */
+      readonly cwd?: string;
+      /** Timeout in milliseconds. Defaults to `DEFAULT_GIT_TIMEOUT_MS`. */
+      readonly timeoutMs?: number;
     }
   </file>
   <file path="src/run-hardened-query.ts">

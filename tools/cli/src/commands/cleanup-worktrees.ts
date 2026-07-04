@@ -1,18 +1,17 @@
 import { Command } from "commander";
-import { execSync } from "child_process";
 import { readdirSync, rmSync, statSync } from "fs";
 import { join } from "path";
+import { runGit } from "@mbe/agent-core";
 
-function getGitRoot(): string {
+async function getGitRoot(): Promise<string> {
   try {
-    return execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+    return await runGit(["rev-parse", "--show-toplevel"]);
   } catch {
     return process.cwd();
   }
 }
 
-function getWorktreeDirs(): string[] {
-  const gitRoot = getGitRoot();
+function getWorktreeDirs(gitRoot: string): string[] {
   const worktreesDir = join(gitRoot, ".claude/worktrees");
   try {
     return readdirSync(worktreesDir);
@@ -21,10 +20,9 @@ function getWorktreeDirs(): string[] {
   }
 }
 
-function getRemoteBranches(): string[] {
-  const gitRoot = getGitRoot();
+async function getRemoteBranches(gitRoot: string): Promise<string[]> {
   try {
-    const output = execSync("git branch -r", { encoding: "utf8", cwd: gitRoot });
+    const output = await runGit(["branch", "-r"], { cwd: gitRoot });
     return output
       .split("\n")
       .map((b) => b.replace(/^[* ] /, "").trim())
@@ -39,15 +37,15 @@ export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
   .option("-d, --days <days>", "Remove worktrees older than N days", "1")
   .option("-n, --dry-run", "Show what would be removed without removing", false)
   .option("--force", "Force removal without confirmation", false)
-  .action((options) => {
-    const gitRoot = getGitRoot();
+  .action(async (options) => {
+    const gitRoot = await getGitRoot();
     const worktreesDir = join(gitRoot, ".claude/worktrees");
     const daysOld = parseInt(options.days, 10);
     const now = Date.now();
     const cutoffMs = daysOld * 24 * 60 * 60 * 1000;
 
-    const worktrees = getWorktreeDirs();
-    const remoteBranches = getRemoteBranches();
+    const worktrees = getWorktreeDirs(gitRoot);
+    const remoteBranches = await getRemoteBranches(gitRoot);
 
     const toRemove: string[] = [];
 
@@ -96,9 +94,10 @@ export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
       const branchName = `worktree-${wt}`;
 
       try {
-        execSync(`git worktree remove "${wtPath}" --force`, { stdio: "ignore", cwd: gitRoot });
+        await runGit(["worktree", "remove", "--force", "--", wtPath], { cwd: gitRoot });
         console.log(`Removed worktree: ${wt}`);
-      } catch {
+      } catch (err) {
+        console.warn(`git worktree remove failed for ${wt}: ${(err as Error).message}`);
         try {
           rmSync(wtPath, { recursive: true, force: true });
           console.log(`Removed directory: ${wt}`);
@@ -108,10 +107,10 @@ export const cleanupWorktreesCommand = new Command("cleanup-worktrees")
       }
 
       try {
-        execSync(`git branch -D "${branchName}"`, { stdio: "ignore", cwd: gitRoot });
+        await runGit(["branch", "-D", "--", branchName], { cwd: gitRoot });
         console.log(`Deleted branch: ${branchName}`);
-      } catch {
-        // Branch may not exist
+      } catch (err) {
+        console.warn(`Could not delete branch ${branchName}: ${(err as Error).message}`);
       }
     }
 

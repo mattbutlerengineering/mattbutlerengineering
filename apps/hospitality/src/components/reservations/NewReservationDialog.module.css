@@ -1,0 +1,56 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--rialto-space-md);
+}
+
+.dialog {
+  background: var(--rialto-surface);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-lg);
+  padding: var(--rialto-space-lg);
+  inline-size: 100%;
+  max-inline-size: 32rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.errorBanner {
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rialto-space-sm);
+}
+
+.partySizeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
+
+.actions {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  justify-content: flex-end;
+}

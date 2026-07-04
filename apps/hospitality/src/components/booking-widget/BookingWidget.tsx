@@ -11,7 +11,7 @@ import { PaymentStep } from "./PaymentStep";
 import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
 import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
-import { useBookingFlow, type BookingStep } from "./useBookingFlow.js";
+import { useBookingFlow } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
 import styles from "./BookingWidget.module.css";
@@ -32,14 +32,6 @@ export interface BookingWidgetProps {
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
 }
-
-const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
-const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
-  "date-party",
-  "time-slot",
-  "guest-details",
-  "payment",
-];
 
 const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
   { label: "Date & Party" },
@@ -69,7 +61,7 @@ export function BookingWidget({
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
   defaultWaitMinutes = 30,
 }: BookingWidgetProps) {
-  const { state, data, actions } = useBookingFlow();
+  const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow();
 
   // API client - no auth token for public booking
   const api = usePublicApiClient({ baseUrl: apiBaseUrl });
@@ -222,20 +214,13 @@ export function BookingWidget({
     actions.resetFlow();
   }, [actions]);
 
-  const hasDeposit = Boolean(
-    effectiveDepositPolicy({
-      depositConfig: data.depositConfig,
-      venueSlug,
-      stripePublishableKey,
-      // Guest risk isn't known yet at this point in the flow (it's resolved
-      // during guest-details submission) — this gate only reflects the
-      // venue's general policy, matching the prior `enabled`-only check.
-      guestIsRisky: false,
-    })
-  );
-  const stepKeys = hasDeposit ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
-  const bookingSteps = hasDeposit ? BOOKING_STEPS_WITH_DEPOSIT : BOOKING_STEPS_NO_DEPOSIT;
-  const currentStepIndex = stepKeys.indexOf(state);
+  // stepKeys/currentStepIndex come from useBookingFlow — the single source
+  // of truth for the deposit decision (resolved once, at confirm, via the
+  // effectiveDepositPolicy call in handleConfirmReservation above). The
+  // widget must never recompute this decision separately.
+  const bookingSteps = stepKeys.includes("payment")
+    ? BOOKING_STEPS_WITH_DEPOSIT
+    : BOOKING_STEPS_NO_DEPOSIT;
 
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 

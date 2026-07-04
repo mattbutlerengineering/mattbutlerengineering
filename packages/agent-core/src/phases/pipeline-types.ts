@@ -14,7 +14,11 @@ import type { EvaluationResult } from "../success-evaluator.js";
 import type { GatewayVerdict, PostCommitGatewayInput } from "../post-commit-gateway.js";
 import type { TaskSignals } from "../task-signal-registry.js";
 import type { HardenedQueryConfig, HardenedQueryResult } from "../run-hardened-query.js";
-import type { FeedbackLoopParams, FeedbackLoopResult } from "../feedback-loop.js";
+import type {
+  FeedbackLoopParams,
+  FeedbackLoopResult,
+  FeedbackLoopRunnerDeps,
+} from "../feedback-loop.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
 import type { FailureMemory, FailureRecord } from "../failure-memory.js";
 
@@ -52,6 +56,7 @@ export interface WorktreeManagerDeps {
   hasChanges(worktreePath: string): Promise<boolean>;
   commitChanges(worktreePath: string, message: string): Promise<string>;
   pushBranch(worktreePath: string, branchName: string): Promise<void>;
+  commitAndPush(worktreePath: string, branchName: string, message: string): Promise<void>;
   removeWorktree(repoPath: string, worktreePath: string): Promise<void>;
 }
 
@@ -105,6 +110,7 @@ export interface PrCreatorDeps {
 export interface FeedbackLoopDeps {
   runFeedbackLoop(
     config: FeedbackLoopParams,
+    deps: FeedbackLoopRunnerDeps,
     onEvent?: SessionEventCallback
   ): Promise<FeedbackLoopResult>;
 }
