@@ -146,9 +146,15 @@ jobs:
         with:
           scan-type: "fs"
           scan-ref: ${{ matrix.dockerfile.path }}
+          scanners: "vuln,secret,misconfig"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
           format: "sarif"
+          # Without this, trivy-action drops the `severity` filter for SARIF
+          # output (it wants complete data for the Security tab), so `exit-code`
+          # would trip on LOW/MEDIUM misconfig findings too (e.g. missing
+          # HEALTHCHECK) instead of only CRITICAL/HIGH.
+          limit-severities-for-sarif: "true"
           output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
 
       - name: Upload Trivy SARIF to GitHub Security tab
