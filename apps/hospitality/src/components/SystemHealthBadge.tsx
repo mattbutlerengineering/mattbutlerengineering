@@ -52,7 +52,7 @@ export function SystemHealthBadge() {
 
   const fetchHealth = useCallback(async () => {
     try {
-      const data = await api.client.get<SystemHealth>("/api/health/system");
+      const data = await api.health.system();
       setHealth(data);
     } catch {
       // Silent failure — badge just shows stale data

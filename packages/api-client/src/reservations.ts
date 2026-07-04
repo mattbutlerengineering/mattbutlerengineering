@@ -6,7 +6,7 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
 } from "@mbe/types";
-import { ReservationSchema, paginatedResponseSchema } from "@mbe/types";
+import { ReservationSchema, ReservationStatusSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
@@ -22,6 +22,57 @@ export interface ListReservationsParams {
 const reservationEnvelope = z.object({ data: ReservationSchema });
 const reservationListSchema: z.ZodSchema<PaginatedResponse<Reservation>> =
   paginatedResponseSchema(ReservationSchema);
+
+/**
+ * Guest-facing reservation view returned by the public manage-token lookup.
+ * Deliberately narrower than the full domain Reservation — the unauthenticated
+ * endpoint withholds cancellation fields and guestPhone.
+ */
+export interface ManagedReservation {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  partySize: number;
+  guestName: string | null;
+  guestEmail: string | null;
+  status: ReservationStatus;
+  notes: string | null;
+}
+
+export interface ManagedReservationVenue {
+  id: string;
+  name: string;
+  slug: string;
+  ianaTimezone: string;
+}
+
+export interface ManageReservationData {
+  reservation: ManagedReservation;
+  venue: ManagedReservationVenue | null;
+}
+
+const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object({
+  reservation: z.object({
+    id: z.string(),
+    date: z.string(),
+    startTime: z.string(),
+    endTime: z.string(),
+    partySize: z.number(),
+    guestName: z.string().nullable(),
+    guestEmail: z.string().nullable(),
+    status: ReservationStatusSchema,
+    notes: z.string().nullable(),
+  }),
+  venue: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      ianaTimezone: z.string(),
+    })
+    .nullable(),
+});
 
 const RESERVATION_BASE_PATH = "/api/v1/reservations";
 
@@ -132,5 +183,17 @@ export class ReservationsClient {
       reservationEnvelope
     );
     return response.data;
+  }
+
+  /**
+   * Look up a reservation via a guest-facing manage token (public, unauthenticated).
+   * Encodes the token internally and unwraps the `{ data }` envelope.
+   */
+  async manageReservation(token: string): Promise<ManageReservationData> {
+    return this.client.getOne<ManageReservationData>(
+      `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`,
+      undefined,
+      manageReservationDataSchema
+    );
   }
 }

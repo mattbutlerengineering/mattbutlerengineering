@@ -214,3 +214,54 @@ describe("PublicVenueClient.depositIntent", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("PublicVenueClient.getDepositPolicy", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const fakeConfig = {
+    name: "The Oak Table",
+    slug: "the-oak-table",
+    ianaTimezone: "America/Los_Angeles",
+    currencyCode: "USD",
+    operatingHours: null,
+    settings: {},
+    deposit: {
+      enabled: true,
+      depositType: "flat",
+      amountCents: 5000,
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    },
+  };
+
+  it("GETs /public/v1/venues/:slug and returns only the deposit block", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeConfig }));
+
+    const result = await makeClient().getDepositPolicy("the-oak-table");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    const parsed = new URL(url as string);
+    expect(parsed.pathname).toBe("/public/v1/venues/the-oak-table");
+    expect(options?.method ?? "GET").toBe("GET");
+    expect(result).toEqual(fakeConfig.deposit);
+  });
+
+  it("throws ApiValidationError when the venue config envelope is malformed", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { slug: "the-oak-table" } }));
+
+    await expect(makeClient().getDepositPolicy("the-oak-table")).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
+  });
+
+  it("propagates 404 errors", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Not Found", message: "Venue not found", statusCode: 404 }, 404)
+    );
+
+    await expect(makeClient().getDepositPolicy("missing")).rejects.toThrow();
+  });
+});
