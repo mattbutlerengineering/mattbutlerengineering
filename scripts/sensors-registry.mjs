@@ -143,31 +143,24 @@ function parseGitNumstat(root) {
  * `commits` field (needed for first-pass-success classification) and
  * normalises it to a `commitCount`.
  *
+ * @param {import("@mbe/gh-client").GhClient} ghClient
  * @returns {Array<object> | null}
  */
-function readQueueEfficiencyPrs() {
-  const raw = safe(
+export function readQueueEfficiencyPrs(ghClient) {
+  const prs = safe(
     () =>
       // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
       // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-      execFileSync(
-        "gh",
-        [
-          "pr",
-          "list",
-          "--state",
-          "all",
-          "--limit",
-          "45",
-          "--json",
-          "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-        ],
-        { encoding: "utf-8", timeout: 15000 }
-      ),
+      ghClient.pr.list([
+        "--state",
+        "all",
+        "--limit",
+        "45",
+        "--json",
+        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+      ]),
     null
   );
-  if (!raw) return null;
-  const prs = safe(() => JSON.parse(raw), null);
   if (!prs) return null;
   return prs.map((pr) => ({
     ...pr,
@@ -246,27 +239,19 @@ export const SENSORS = [
   {
     id: "prCategoryMetrics",
     category: "quality",
-    collect: () => {
-      const raw = safe(
+    collect: ({ ghClient }) => {
+      const prs = safe(
         () =>
-          execFileSync(
-            "gh",
-            [
-              "pr",
-              "list",
-              "--state",
-              "all",
-              "--limit",
-              "100",
-              "--json",
-              "number,state,headRefName,mergedAt,closedAt,labels",
-            ],
-            { encoding: "utf-8", timeout: 15000 }
-          ),
+          ghClient.pr.list([
+            "--state",
+            "all",
+            "--limit",
+            "100",
+            "--json",
+            "number,state,headRefName,mergedAt,closedAt,labels",
+          ]),
         null
       );
-      if (!raw) return { available: false };
-      const prs = safe(() => JSON.parse(raw), null);
       if (!prs) return { available: false };
       return computePrCategoryMetrics(prs);
     },
@@ -595,19 +580,17 @@ export const SENSORS = [
   {
     id: "e2eStability",
     category: "availability",
-    collect: ({ root }) => {
-      const rawRuns = safe(
+    collect: ({ root, ghClient }) => {
+      const ghRuns = safe(
         () =>
-          execFileSync(
-            "gh",
-            ["run", "list", "--limit", "30", "--json", "conclusion,createdAt,headBranch,headSha"],
-            { encoding: "utf-8", timeout: 15000 }
-          ),
+          ghClient.workflow.runs([
+            "--limit",
+            "30",
+            "--json",
+            "conclusion,createdAt,headBranch,headSha",
+          ]),
         null
       );
-      if (!rawRuns) return { available: false };
-
-      const ghRuns = safe(() => JSON.parse(rawRuns), null);
       if (!ghRuns) return { available: false };
 
       const injected = ghRuns.map((run) => {
@@ -691,7 +674,8 @@ export const SENSORS = [
         "Queue efficiency verification: re-run sensor-report with --json and inspect queueEfficiency.composite vs baseline",
       confidence: "low",
     }),
-    collect: ({ now }) => collectQueueEfficiency(readQueueEfficiencyPrs, undefined, now),
+    collect: ({ ghClient, now }) =>
+      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient), undefined, now),
     format: (data, name) => {
       const baselineStr =
         data.baseline != null

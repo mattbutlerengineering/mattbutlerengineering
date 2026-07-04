@@ -9,9 +9,9 @@
  * Optional: DRY_RUN=1 — print report to stdout instead of creating an issue
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 import { getLabelsForSensor } from "./sensors-registry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -295,10 +295,7 @@ function createGitHubIssue(title, body) {
   const labels = getLabelsForSensor("cors");
   const labelArgs = labels.flatMap((l) => ["--label", l]);
   try {
-    execFileSync("gh", ["issue", "create", "--title", title, ...labelArgs, "--body", body], {
-      cwd: ROOT,
-      stdio: "pipe",
-    });
+    createGhClient().issue.create(["--title", title, ...labelArgs, "--body", body]);
     console.log(`Created issue: ${title}`);
   } catch (err) {
     console.error("Failed to create GitHub issue:", err.message);
