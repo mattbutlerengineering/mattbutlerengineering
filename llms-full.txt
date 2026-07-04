@@ -692,6 +692,7 @@
           hasChanges: vi.fn().mockResolvedValue(false),
           commitChanges: vi.fn().mockResolvedValue("abc123"),
           pushBranch: vi.fn().mockResolvedValue(undefined),
+          commitAndPush: vi.fn().mockResolvedValue(undefined),
           removeWorktree: vi.fn().mockResolvedValue(undefined),
         },
         promptBuilder: {
@@ -4521,6 +4522,7 @@
           hasChanges,
           commitChanges,
           pushBranch,
+          commitAndPush,
           removeWorktree,
         },
         promptBuilder: {
@@ -4588,6 +4590,7 @@
               maxBudgetUsd: remainingBudget,
               allowedTools: config.allowedTools,
             },
+            { worktreeManager: deps.worktreeManager },
             onEvent
           );
           fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);
