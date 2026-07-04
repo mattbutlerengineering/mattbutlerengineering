@@ -2,35 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import { ApiClientError } from "@mbe/api-client";
+import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-interface ReservationDetails {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  partySize: number;
-  guestName: string | null;
-  guestEmail: string | null;
-  guestPhone: string | null;
-  status: string;
-  notes: string | null;
-}
-
-interface VenueDetails {
-  id: string;
-  name: string;
-  slug: string;
-  ianaTimezone: string;
-}
-
-interface ManageReservationData {
-  reservation: ReservationDetails;
-  venue: VenueDetails | null;
-}
 
 // Custom error type to distinguish expired vs invalid
 class ManageTokenError extends Error {
@@ -51,23 +26,6 @@ const manageParamsSchema = z.object({
 
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
-async function fetchManageReservation(
-  api: ReturnType<typeof usePublicApiClient>,
-  token: string
-): Promise<ManageReservationData> {
-  try {
-    const json = await api.client.get<{ data: ManageReservationData }>(
-      `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`
-    );
-    return { reservation: json.data.reservation, venue: json.data.venue };
-  } catch (err) {
-    if (err instanceof ApiClientError && err.statusCode === 410) {
-      throw new ManageTokenError("Link expired", "expired");
-    }
-    throw new ManageTokenError("Invalid link", "invalid");
-  }
-}
-
 export function ManageReservationPage() {
   const { params } = useUrlParams(manageParamsSchema, MANAGE_DEFAULTS);
   const token = params.token || null;
@@ -75,7 +33,16 @@ export function ManageReservationPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["manageReservation", token],
-    queryFn: () => fetchManageReservation(publicApiClient, token!),
+    queryFn: async (): Promise<ManageReservationData> => {
+      try {
+        return await publicApiClient.reservations.manageReservation(token!);
+      } catch (err) {
+        if (err instanceof ApiClientError && err.statusCode === 410) {
+          throw new ManageTokenError("Link expired", "expired");
+        }
+        throw new ManageTokenError("Invalid link", "invalid");
+      }
+    },
     enabled: !!token,
     retry: false,
   });
