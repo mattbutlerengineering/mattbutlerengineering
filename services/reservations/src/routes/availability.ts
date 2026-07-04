@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, DateAvailability, ApiResponse, ApiError } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
+import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
 import { availabilityService } from "../services/availability.js";
 import { venueService } from "../services/venue.js";
@@ -74,6 +75,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:venueId",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get available time slots",
         operationId: "getAvailability",
@@ -177,6 +179,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:venueId/dates",
     {
+      preHandler: requireAuth,
       schema: {
         summary: "Get dates with availability",
         operationId: "getAvailableDates",
