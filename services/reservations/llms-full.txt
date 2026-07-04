@@ -4749,18 +4749,14 @@
       DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
   </file>
   <file path="src/services/deposit.ts">
+    export type StripePort = Pick<
+      StripeService,
+      "cancelPaymentIntent" | "capturePaymentIntent" | "createPartialRefund" | "createCustomer"
+    >;
     export class DepositNotFoundError extends Error {
       constructor(id: string) {
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
-      }
-    }
-    export class DepositConcurrentUpdateError extends Error {
-      constructor(id: string, action: string) {
-        super(
-          `Deposit ${id} concurrent update conflict: lost race on ${action}. Another transition completed first.`
-        );
-        this.name = "DepositConcurrentUpdateError";
       }
     }
   </file>
