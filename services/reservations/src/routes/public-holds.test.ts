@@ -173,6 +173,36 @@ describe("POST /public/v1/venues/:slug/holds", () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  it("rejects an empty {} payload with 400", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("rejects a payload missing partySize with 400", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("rejects a non-positive partySize with 400", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 0 },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
 });
 
 describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
