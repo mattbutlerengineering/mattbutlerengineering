@@ -82,6 +82,11 @@ export type {
   VerificationResult as PrePushVerification,
 } from "./worktree-manager.js";
 
+// Shared git runner — arg-array + timeout + typed error. The single seam for
+// shelling out to git; never build a `git ...` shell string directly.
+export { runGit, GitCommandError, DEFAULT_GIT_TIMEOUT_MS } from "./run-git.js";
+export type { RunGitOptions } from "./run-git.js";
+
 // Worktree cleanup-failure reaper
 export { scheduleWorktreeReap } from "./worktree-reaper.js";
 export type { ScheduleWorktreeReapOptions, ReapOutcome, ReaperLogger } from "./worktree-reaper.js";

@@ -601,5 +601,14 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="src/components/venue-onboarding/useOnboardingWizard.ts">
+    export const TOTAL_STEPS = 5;
+    export interface OnboardingWizardData {
+      basicInfo: BasicInfoData;
+      locationTime: LocationTimeData;
+      operatingHours: OperatingHours;
+      settings: SettingsData;
+    }
+  </file>
   </section>
 </codebase>

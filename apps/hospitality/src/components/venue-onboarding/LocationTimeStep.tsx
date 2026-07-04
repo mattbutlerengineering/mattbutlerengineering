@@ -154,6 +154,23 @@ export function detectTimezone(): string {
   }
 }
 
+/** Validate location & time step data. Pure. */
+export function validateLocationTime(
+  data: LocationTimeData
+): Partial<Record<keyof LocationTimeData, string>> {
+  const errors: Partial<Record<keyof LocationTimeData, string>> = {};
+
+  if (!data.ianaTimezone) {
+    errors.ianaTimezone = "Timezone is required";
+  }
+
+  if (!data.currencyCode) {
+    errors.currencyCode = "Currency is required";
+  }
+
+  return errors;
+}
+
 export function LocationTimeStep({ data, errors, onChange, onValidate }: LocationTimeStepProps) {
   // Track the text shown in the Autocomplete input
   const selectedTzLabel = TIMEZONE_OPTIONS.find((o) => o.value === data.ianaTimezone)?.label ?? "";

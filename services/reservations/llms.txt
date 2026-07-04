@@ -60,13 +60,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="prisma.config.ts">
-  <file path="prisma.config.ts">
-    <item priority="medium">
-      function loadEnvFile(): void { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="routes">
   <file path="src/routes/availability.ts">
     <item priority="high">
@@ -385,13 +378,13 @@
     </item>
   </file>
   <file path="src/services/deposit.ts">
-    <item priority="high">
-      class DepositNotFoundError {
-        
-      }
+    <item priority="low">
+      type StripePort = Pick<
+        StripeService,
+        "cancelPaymentIntent" | "capture...;
     </item>
     <item priority="high">
-      class DepositConcurrentUpdateError {
+      class DepositNotFoundError {
         
       }
     </item>

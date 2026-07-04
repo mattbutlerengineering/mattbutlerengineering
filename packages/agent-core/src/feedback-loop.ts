@@ -3,12 +3,12 @@ import { promisify } from "node:util";
 import { pollForFeedback } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 import { runHardenedQuery } from "./run-hardened-query.js";
+import { commitAndPush } from "./worktree-manager.js";
+import type { WorktreeManagerDeps } from "./phases/pipeline-types.js";
 import type { SessionEventCallback, SessionEvent } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
-/** Bound `git` subprocess calls (covers network stalls on push). */
-const GIT_TIMEOUT_MS = 60_000;
 /** Bound `gh` subprocess calls (GitHub API latency). */
 const GH_TIMEOUT_MS = 30_000;
 
@@ -24,12 +24,33 @@ export interface FeedbackLoopParams {
   readonly pollTimeoutMs: number;
   readonly maxBudgetUsd: number;
   readonly allowedTools: readonly string[];
+  /**
+   * External abort signal forwarded from the pipeline's cancel(). When it
+   * fires, the wait/poll delays reject and the fix-session query is
+   * short-circuited, mirroring `session-runner`'s `throwIfAborted` semantics
+   * — the rejection propagates out of `runFeedbackLoop` instead of being
+   * swallowed.
+   */
+  readonly signal?: AbortSignal;
 }
 
 export interface FeedbackLoopResult {
   readonly retriesUsed: number;
   readonly resolved: boolean;
   readonly lastFingerprint: string | null;
+}
+
+/** Resolves the GitHub owner/repo for a PR (defaults to `gh repo view`). */
+export type OwnerRepoResolver = (repoPath: string) => Promise<{ owner: string; repo: string }>;
+
+/**
+ * Collaborators injected into `runFeedbackLoop`. Defaults wire the real
+ * validated worktree-manager `commitAndPush` and the `gh repo view` owner/repo
+ * lookup; tests pass fakes so the loop runs without spawning any subprocess.
+ */
+export interface FeedbackLoopRunnerDeps {
+  readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush">;
+  readonly resolveOwnerRepo?: OwnerRepoResolver;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -47,8 +68,26 @@ function emitEvent(
   });
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Waits `ms` milliseconds, or rejects with the signal's `AbortError` the
+ * moment it fires — whichever comes first. Clears the timer and removes its
+ * own listener on either outcome, so an aborted wait never leaves a dangling
+ * timer or listener behind.
+ */
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new DOMException("Delay aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: string }> {
@@ -60,50 +99,21 @@ async function parseOwnerRepo(repoPath: string): Promise<{ owner: string; repo: 
   return { owner: parsed.owner.login, repo: parsed.name };
 }
 
-/**
- * True only for a genuine `git diff --cached --quiet` exit code 1 ("there are
- * changes"). A timeout kills the process (`killed: true`, `code: null`) and
- * must NOT be mistaken for that clean exit — it needs to propagate instead.
- */
-function isExitCodeOne(err: unknown): boolean {
-  const execError = err as { code?: number | string | null; killed?: boolean };
-  return execError.code === 1 && !execError.killed;
-}
-
-async function commitAndPush(repoPath: string, message: string): Promise<void> {
-  await execFileAsync("git", ["add", "-A"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
-
-  // Check if there are staged changes before committing
-  try {
-    await execFileAsync("git", ["diff", "--cached", "--quiet"], {
-      cwd: repoPath,
-      timeout: GIT_TIMEOUT_MS,
-    });
-    // Exit code 0 means no changes — nothing to commit
-    return;
-  } catch (err) {
-    if (!isExitCodeOne(err)) {
-      // A timeout (or any other non-exit-1 failure) must propagate rather
-      // than being silently treated as "no changes".
-      throw err;
-    }
-    // Exit code 1 means there are changes — proceed with commit
-  }
-
-  await execFileAsync("git", ["commit", "-m", message], {
-    cwd: repoPath,
-    timeout: GIT_TIMEOUT_MS,
-  });
-  await execFileAsync("git", ["push"], { cwd: repoPath, timeout: GIT_TIMEOUT_MS });
-}
+const defaultRunnerDeps: FeedbackLoopRunnerDeps = {
+  worktreeManager: { commitAndPush },
+  resolveOwnerRepo: parseOwnerRepo,
+};
 
 // ── Main feedback loop ──────────────────────────────────────────────
 
 export async function runFeedbackLoop(
   config: FeedbackLoopParams,
+  deps: FeedbackLoopRunnerDeps = defaultRunnerDeps,
   onEvent?: SessionEventCallback
 ): Promise<FeedbackLoopResult> {
-  const { owner, repo } = await parseOwnerRepo(config.repoPath);
+  const { signal } = config;
+  const resolveOwnerRepo = deps.resolveOwnerRepo ?? parseOwnerRepo;
+  const { owner, repo } = await resolveOwnerRepo(config.repoPath);
 
   let lastFingerprint = "";
   let retriesUsed = 0;
@@ -113,8 +123,10 @@ export async function runFeedbackLoop(
       message: `Feedback loop: waiting ${config.pollIntervalMs}ms before polling (attempt ${attempt + 1}/${config.maxRetries})`,
     });
 
-    // Wait before polling to give reviewers/CI time
-    await delay(config.pollIntervalMs);
+    // Wait before polling to give reviewers/CI time. Rejects immediately
+    // (an AbortError) if `signal` fires during the wait, short-circuiting
+    // the loop instead of running it out to maxRetries * pollTimeoutMs.
+    await delay(config.pollIntervalMs, signal);
 
     // Poll for feedback with timeout
     const pollStart = Date.now();
@@ -128,7 +140,7 @@ export async function runFeedbackLoop(
 
     // If no feedback yet, keep polling until timeout
     while (!feedback && Date.now() - pollStart < config.pollTimeoutMs) {
-      await delay(config.pollIntervalMs);
+      await delay(config.pollIntervalMs, signal);
       feedback = await pollForFeedback(
         owner,
         repo,
@@ -170,12 +182,22 @@ export async function runFeedbackLoop(
         allowedTools: config.allowedTools,
         systemPromptAppend:
           "You are fixing feedback on an existing PR. Work in the current branch. Do NOT create a new branch or PR.",
+        signal,
       },
       onEvent
     );
 
-    // Commit and push the fixes
-    await commitAndPush(config.repoPath, `fix: address PR feedback (attempt ${attempt + 1})`);
+    // A cancel() arriving mid-query short-circuits the SDK call above, but
+    // that call resolves normally rather than throwing — check here so a
+    // cancelled fix-session never pushes a commit to an abandoned branch.
+    signal?.throwIfAborted();
+
+    // Commit and push the fixes via the validated worktree-manager helper.
+    await deps.worktreeManager.commitAndPush(
+      config.repoPath,
+      config.branchName,
+      `fix: address PR feedback (attempt ${attempt + 1})`
+    );
 
     emitEvent(onEvent, "session:message", {
       message: `Feedback loop: fix session complete, pushed changes (attempt ${attempt + 1})`,

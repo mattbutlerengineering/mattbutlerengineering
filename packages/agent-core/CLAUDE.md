@@ -28,6 +28,7 @@ Entry point: `runSession(config, onEvent?)` in `session-runner.ts`.
 | `session-runner.ts`       | Main pipeline — orchestrates all stages, emits `SessionEvent`s              |
 | `prompt-builder.ts`       | Assembles system prompt with quality checklist, source files, PR examples   |
 | `worktree-manager.ts`     | Git worktree/clone lifecycle, commit, push, lockfile sync, verification     |
+| `run-git.ts`              | Shared `runGit` primitive — arg-array + timeout + typed `GitCommandError`   |
 | `stuck-detector.ts`       | Detects agent loops via fingerprinting (actions, observations, text)        |
 | `success-evaluator.ts`    | LLM-as-judge evaluation with acceptance criteria extraction                 |
 | `model-router.ts`         | Routes issues to haiku/sonnet/opus based on labels + complexity keywords    |

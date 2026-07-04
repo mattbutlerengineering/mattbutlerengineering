@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   SENSORS,
@@ -11,6 +12,9 @@ import {
   getReportSensors,
   collectReportSensors,
   buildThresholds,
+  clampToDefaultRange,
+  readTunables,
+  getTunableSensorDefaults,
 } from "../sensors-registry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -155,6 +159,58 @@ describe("sensors-registry", () => {
     }
   });
 
+  describe("prMetrics sensor reads the writer's real path", () => {
+    // Regression coverage for a dead sensor: prMetrics previously resolved
+    // `docs/metrics/pr-acceptance.json`, a path no collector ever writes to.
+    // The real writer (pr-metrics.mjs) and the other reader (auto-qa-tune.mjs)
+    // both use `metrics/pr-acceptance.json` at repo root — pin the sensor to
+    // that exact path so a future path drift fails loudly here instead of
+    // silently degrading to `available: false`.
+    let tmpDir;
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    const fixture = [
+      {
+        date: "2026-05-02",
+        window_days: 30,
+        total_ai_prs: 40,
+        merged: 40,
+        rejected: 0,
+        acceptance_rate: 1,
+      },
+    ];
+
+    it("reports real data when metrics/pr-acceptance.json exists at repo root", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+
+      const sensor = SENSORS.find((s) => s.id === "prMetrics");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({
+        available: true,
+        latest: fixture[0],
+        previous: null,
+        entry_count: 1,
+      });
+    });
+
+    it("does not fall back to docs/metrics/pr-acceptance.json — no collector writes there", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
+      mkdirSync(join(tmpDir, "docs", "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "docs", "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+
+      const sensor = SENSORS.find((s) => s.id === "prMetrics");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({ available: false });
+    });
+  });
+
   describe("threshold co-location", () => {
     // Sensors known to read a value out of detectRegression's `thresholds` param.
     const THRESHOLD_CONSUMERS = {
@@ -247,6 +303,108 @@ describe("sensors-registry", () => {
       expect(shimSource).not.toMatch(/CODE_CHURN_THRESHOLD/);
       expect(shimSource).not.toMatch(/QUEUE_EFFICIENCY_(COMPOSITE|FPS)_DROP/);
       expect(shimSource).toMatch(/buildThresholds/);
+    });
+  });
+
+  describe("regression-threshold tuning seam (ADR-018, #2986)", () => {
+    describe("clampToDefaultRange", () => {
+      it("passes through a value already within ±50% of default", () => {
+        expect(clampToDefaultRange(5.5, 5)).toBe(5.5);
+      });
+
+      it("clamps a value above +50% of default down to the max", () => {
+        expect(clampToDefaultRange(100, 5)).toBe(7.5);
+      });
+
+      it("clamps a value below −50% of default up to the min", () => {
+        expect(clampToDefaultRange(0, 5)).toBe(2.5);
+      });
+    });
+
+    describe("readTunables", () => {
+      it("returns {} when the sidecar file does not exist", () => {
+        const missingPath = resolve(mkdtempSync(join(tmpdir(), "tunables-")), "missing.json");
+        expect(readTunables(missingPath)).toEqual({});
+      });
+
+      it("returns {} when the sidecar file is malformed JSON", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, "{not valid json", "utf-8");
+        expect(readTunables(filePath)).toEqual({});
+      });
+
+      it("returns the parsed sidecar contents when the file is valid", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, JSON.stringify({ ci: { regressionThreshold: 6 } }), "utf-8");
+        expect(readTunables(filePath)).toEqual({ ci: { regressionThreshold: 6 } });
+      });
+    });
+
+    describe("getTunableSensorDefaults", () => {
+      it("includes single-threshold-key sensors (ci, lighthouse, codeChurn)", () => {
+        const defaults = getTunableSensorDefaults();
+        expect(defaults.ci).toEqual({ thresholdKey: "ci_pass_rate_drop", defaultValue: 5 });
+        expect(defaults.lighthouse).toEqual({
+          thresholdKey: "lighthouse_score_drop",
+          defaultValue: 0.05,
+        });
+        expect(defaults.codeChurn).toBeDefined();
+      });
+
+      it("excludes multi-threshold-key sensors (queueEfficiency)", () => {
+        const defaults = getTunableSensorDefaults();
+        expect(defaults.queueEfficiency).toBeUndefined();
+      });
+
+      it("excludes sensors with no thresholds field", () => {
+        const defaults = getTunableSensorDefaults();
+        expect(defaults.acmm).toBeUndefined();
+      });
+    });
+
+    describe("buildThresholds overlay", () => {
+      it("applies no overlay (falls back to defaults) when the sidecar is empty", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, "{}", "utf-8");
+        const thresholds = buildThresholds(filePath);
+        expect(thresholds.ci_pass_rate_drop).toBe(5);
+      });
+
+      it("overlays an in-bounds sidecar value onto the matching sensor's default", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, JSON.stringify({ ci: { regressionThreshold: 6 } }), "utf-8");
+        const thresholds = buildThresholds(filePath);
+        expect(thresholds.ci_pass_rate_drop).toBe(6);
+      });
+
+      it("falls back to default for a sensor absent from the sidecar", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, JSON.stringify({ ci: { regressionThreshold: 6 } }), "utf-8");
+        const thresholds = buildThresholds(filePath);
+        expect(thresholds.lighthouse_score_drop).toBe(0.05);
+      });
+
+      it("defensively clamps an out-of-bounds hand-edited sidecar value to ±50% of default", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, JSON.stringify({ ci: { regressionThreshold: 999 } }), "utf-8");
+        const thresholds = buildThresholds(filePath);
+        expect(thresholds.ci_pass_rate_drop).toBe(7.5); // +50% of default 5
+      });
+
+      it("leaves other sensors' thresholds untouched by an overlay", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tunables-"));
+        const filePath = resolve(dir, "regression-tunables.json");
+        writeFileSync(filePath, JSON.stringify({ ci: { regressionThreshold: 6 } }), "utf-8");
+        const thresholds = buildThresholds(filePath);
+        expect(thresholds.code_churn_rate_max).toBe(0.3);
+        expect(thresholds.queue_efficiency_composite_drop).toBe(0.05);
+      });
     });
   });
 });

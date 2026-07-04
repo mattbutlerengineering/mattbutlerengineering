@@ -18,6 +18,7 @@ export function makeFakePhaseDeps(): PhaseDeps {
       hasChanges: vi.fn().mockResolvedValue(false),
       commitChanges: vi.fn().mockResolvedValue("abc123"),
       pushBranch: vi.fn().mockResolvedValue(undefined),
+      commitAndPush: vi.fn().mockResolvedValue(undefined),
       removeWorktree: vi.fn().mockResolvedValue(undefined),
     },
     promptBuilder: {

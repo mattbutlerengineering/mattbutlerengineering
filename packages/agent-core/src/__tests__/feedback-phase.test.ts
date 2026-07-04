@@ -147,6 +147,15 @@ describe("FeedbackPhase", () => {
     expect(fbCall.maxBudgetUsd).toBeCloseTo(0.75);
   });
 
+  it("forwards the pipeline signal into the feedback loop config", async () => {
+    const controller = new AbortController();
+
+    await phase.run(makeInput({ signal: controller.signal }), deps);
+
+    const fbCall = vi.mocked(deps.feedbackLoop.runFeedbackLoop).mock.calls[0][0];
+    expect(fbCall.signal).toBe(controller.signal);
+  });
+
   it("emits session:result event with feedback outcome", async () => {
     const events: SessionEvent[] = [];
     const onEvent = (event: SessionEvent) => events.push(event);

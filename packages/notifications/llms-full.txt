@@ -78,15 +78,18 @@
         return preference === "sms_only" && this.smsAdapter === null;
       }
     
-      /** Booking confirmation — transactional, always sent. */
+      /**
+       * Booking confirmation — transactional, always sent via email regardless of
+       * channel. It carries the iCal attachment, which cannot travel via SMS, so
+       * even a "sms" (or "both") resolved channel still delivers via email only.
+       * The channel is accepted (not a raw preference) so callers thread the same
+       * resolveChannel() result used for reminders — see booking-notifications.ts.
+       */
       async sendBookingConfirmation(
         emailInput: BookingNotificationInput,
-        preference: CommunicationPreference
+        _channel: "email" | "sms" | "both"
       ): Promise<void> {
-        // Confirmation is email-only (contains iCal attachment)
-        if (this.shouldSendEmail(preference) || preference === "sms_only") {
-          await this.emailAdapter.sendBookingConfirmation(emailInput);
-        }
+        await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
       /** Booking reminder — transactional, sent via channel(s) matching preference. */
@@ -177,6 +180,25 @@
       resend: ResendClient | null;
       fromAddress: string;
       manageBaseUrl: string;
+    }
+  </file>
+  <file path="src/sanitize.ts">
+    export function escapeHtml(value: string): string {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    export function sanitizeUrl(raw: string): string | null {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+        return raw;
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="src/sms-port.ts">

@@ -139,4 +139,54 @@ describe("generateBookingIcal", () => {
     expect(errors).toEqual([]);
     expect(valid).toBe(true);
   });
+
+  describe("property escaping and injection resistance", () => {
+    it("escapes semicolons and commas in guestName within DESCRIPTION", () => {
+      const input = { ...defaultInput, guestName: "Doe, Jane; VIP" };
+      const result = generateBookingIcal(input, "REQUEST");
+
+      expect(result).toContain("Doe\\, Jane\\; VIP");
+    });
+
+    it("escapes backslashes in venueName within SUMMARY and LOCATION", () => {
+      const input = { ...defaultInput, venueName: `Oak\\Table` };
+      const result = generateBookingIcal(input, "REQUEST");
+
+      expect(result).toContain("SUMMARY:Reservation at Oak\\\\Table");
+      expect(result).toContain("LOCATION:Oak\\\\Table");
+    });
+
+    it("neutralizes embedded CR/LF in venueName so no extra iCal property is injected", () => {
+      const malicious = "Oak Table\r\nMETHOD:CANCEL\r\nX-EVIL:1";
+      const input = { ...defaultInput, venueName: malicious };
+      const result = generateBookingIcal(input, "REQUEST");
+
+      // The only METHOD: line must be the legitimate one at the top of the calendar.
+      const methodLines = result.split("\r\n").filter((line) => line.startsWith("METHOD:"));
+      expect(methodLines).toEqual(["METHOD:REQUEST"]);
+      // No X-EVIL property line was injected — the raw CRLF became an escaped "\r\n" substring.
+      expect(result).not.toContain("\r\nX-EVIL:1");
+      expect(result).toContain("\\r\\nMETHOD:CANCEL\\r\\nX-EVIL:1");
+    });
+
+    it("rejects a guestEmail containing CRLF", () => {
+      const input = { ...defaultInput, guestEmail: "jane@example.com\r\nBCC:evil@example.com" };
+      expect(() => generateBookingIcal(input, "REQUEST")).toThrow();
+    });
+
+    it("rejects a guestEmail containing a semicolon", () => {
+      const input = { ...defaultInput, guestEmail: "jane@example.com;evil@example.com" };
+      expect(() => generateBookingIcal(input, "REQUEST")).toThrow();
+    });
+
+    it("rejects a venueTimezone containing CRLF", () => {
+      const input = { ...defaultInput, venueTimezone: "America/Los_Angeles\r\nMETHOD:CANCEL" };
+      expect(() => generateBookingIcal(input, "REQUEST")).toThrow();
+    });
+
+    it("rejects a venueTimezone containing a semicolon", () => {
+      const input = { ...defaultInput, venueTimezone: "America/Los_Angeles;evil" };
+      expect(() => generateBookingIcal(input, "REQUEST")).toThrow();
+    });
+  });
 });

@@ -9,7 +9,7 @@ export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
   readonly name = "feedback" as const;
 
   async run(input: FeedbackPhaseInput, deps: PhaseDeps): Promise<PhaseExecution<void>> {
-    const { config, onEvent, worktree, resultMessage, prNumber, prUrl } = input;
+    const { config, onEvent, worktree, resultMessage, prNumber, prUrl, signal } = input;
 
     if (!config.feedbackLoop?.enabled || !prNumber || !prUrl) {
       return {
@@ -36,7 +36,9 @@ export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
           pollTimeoutMs: config.feedbackLoop.pollTimeoutMs ?? 300_000,
           maxBudgetUsd: remainingBudget,
           allowedTools: config.allowedTools,
+          signal,
         },
+        { worktreeManager: deps.worktreeManager },
         onEvent
       );
       fbSpan.setAttribute("feedback.retries_used", feedbackResult.retriesUsed);

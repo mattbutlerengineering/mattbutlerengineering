@@ -124,6 +124,25 @@ describe("ResendNotificationAdapter", () => {
     expect(call.html).toContain("The Oak Table");
   });
 
+  it("sendWinBack escapes HTML special characters in guest name and venue name", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: mockResend as never,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+    });
+
+    await adapter.sendWinBack({
+      guestName: `<script>alert('xss')</script>`,
+      guestEmail: "jane@example.com",
+      venueName: `O'Brien's & Co <Bistro>`,
+    });
+
+    const call = mockSend.mock.calls[0][0];
+    expect(call.html).not.toContain("<script>");
+    expect(call.html).toContain("&lt;script&gt;");
+    expect(call.html).toContain("O&#39;Brien&#39;s &amp; Co &lt;Bistro&gt;");
+  });
+
   it("sendWinBack no-ops gracefully when resend is null (missing API key)", async () => {
     const adapter = new ResendNotificationAdapter({
       resend: null,
