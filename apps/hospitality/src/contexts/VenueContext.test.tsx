@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { VenueProvider, useVenue } from "./VenueContext.js";
 import type { Venue } from "@mbe/types";
@@ -45,7 +46,10 @@ vi.mock("../hooks/useApiClient.js", () => ({
 // localStorage mock
 const storageMap = new Map<string, string>();
 
+let queryClient: QueryClient;
+
 beforeEach(() => {
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   storageMap.clear();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => storageMap.get(key) ?? null,
@@ -61,7 +65,11 @@ beforeEach(() => {
 });
 
 function wrapper({ children }: { readonly children: ReactNode }) {
-  return <VenueProvider>{children}</VenueProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <VenueProvider>{children}</VenueProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe("VenueContext", () => {

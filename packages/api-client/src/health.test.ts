@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiClient } from "./client.js";
+import { HealthClient } from "./health.js";
 import type { SystemHealth } from "./health.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -82,5 +83,41 @@ describe("system health via ApiClient.get", () => {
     mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
     await expect(makeClient().get<SystemHealth>("/api/health/system")).rejects.toThrow(TypeError);
+  });
+});
+
+describe("HealthClient.system", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("GETs /api/health/system (bare, unenveloped) and returns the validated snapshot", async () => {
+    const healthData = {
+      status: "healthy",
+      timestamp: "2026-01-15T12:00:00Z",
+      services: { "users-api": { status: "healthy", latency: 42 } },
+      ci: { status: "healthy" },
+      deploy: { status: "healthy" },
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse(healthData));
+
+    const client = new HealthClient(new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 }));
+    const result = await client.system();
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/health/system");
+    expect(options?.method ?? "GET").toBe("GET");
+    expect(result).toEqual(healthData);
+  });
+
+  it("accepts a minimal snapshot without optional fields", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ status: "healthy", timestamp: "2026-01-15T12:00:00Z" })
+    );
+
+    const client = new HealthClient(new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 }));
+    const result = await client.system();
+    expect(result.status).toBe("healthy");
+    expect(result.services).toBeUndefined();
   });
 });

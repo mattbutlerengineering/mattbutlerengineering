@@ -41,7 +41,7 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
     setError(null);
 
     try {
-      const created = await api.client.postOne<Deposit>("/api/v1/deposits", {
+      const created = await api.deposits.create({
         reservationId,
         amountCents,
         currency: "usd",
