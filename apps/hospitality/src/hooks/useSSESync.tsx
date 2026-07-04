@@ -39,6 +39,7 @@ import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
+import { VENUES_QUERY_KEY } from "./useVenues.js";
 import { SseClient } from "../lib/sse-client.js";
 import type { Reservation, Table, ReservationHold, LapsingGuest } from "@mbe/types";
 
@@ -52,7 +53,8 @@ export type ReservationEventType =
   | "hold:released"
   | "hold:confirmed"
   | "table:updated"
-  | "guest:lapsing";
+  | "guest:lapsing"
+  | "venue:updated";
 
 export interface ReservationEvent {
   type: ReservationEventType;
@@ -83,6 +85,7 @@ const SSE_EVENT_TYPES: readonly ReservationEventType[] = [
   "hold:confirmed",
   "table:updated",
   "guest:lapsing",
+  "venue:updated",
 ];
 
 /* ── Context ────────────────────────────────────────────────────── */
@@ -265,6 +268,12 @@ export function useSSESync(): { reconnect: () => void } {
           for (const listener of feedListeners) {
             listener(makeEvent("guest:lapsing", event.data as LapsingGuest[]));
           }
+          break;
+        }
+        case "venue:updated": {
+          // A venue mutation invalidates the cached venue list (used by
+          // VenueContext via useVenues) so the switcher and readiness refresh.
+          queryClientRef.current.invalidateQueries({ queryKey: [VENUES_QUERY_KEY] });
           break;
         }
       }

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
@@ -85,21 +86,24 @@ describe("DashboardLayout", () => {
   });
 
   const renderLayout = (initialPath = "/") => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
-      <MemoryRouter initialEntries={[initialPath]}>
-        <Routes>
-          <Route path="/" element={<DashboardLayout />}>
-            <Route path="timeline" element={<div>Timeline Content</div>} />
-            <Route path="guests" element={<div>Guests Content</div>} />
-            <Route path="floor-plans" element={<div>Floor Plans Content</div>} />
-            <Route path="floor-plans/:id" element={<div>Floor Plan Editor</div>} />
-            <Route path="reservations" element={<div>Reservations Content</div>} />
-            <Route path="settings" element={<div>Settings Content</div>} />
-            <Route path="onboarding" element={<div>Onboarding Content</div>} />
-            <Route path="setup" element={<div>Setup Content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route path="timeline" element={<div>Timeline Content</div>} />
+              <Route path="guests" element={<div>Guests Content</div>} />
+              <Route path="floor-plans" element={<div>Floor Plans Content</div>} />
+              <Route path="floor-plans/:id" element={<div>Floor Plan Editor</div>} />
+              <Route path="reservations" element={<div>Reservations Content</div>} />
+              <Route path="settings" element={<div>Settings Content</div>} />
+              <Route path="onboarding" element={<div>Onboarding Content</div>} />
+              <Route path="setup" element={<div>Setup Content</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
     );
   };
 

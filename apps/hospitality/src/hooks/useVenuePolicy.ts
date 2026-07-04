@@ -9,18 +9,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "./useApiClient.js";
 import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
-interface PublicVenueDepositResponse {
-  data?: {
-    deposit?: {
-      enabled: boolean;
-      amountCents: number | null;
-      freeCancellationHours: number | null;
-      lateCancellationFeePercent: number | null;
-      noShowFeePercent: number | null;
-    };
-  };
-}
-
 export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
 
 /**
@@ -38,11 +26,8 @@ export function useVenuePolicy(slug: string | undefined): {
     queryFn: async (): Promise<CancellationPolicy | null> => {
       if (!slug) return null;
       try {
-        const body = await api.client.get<PublicVenueDepositResponse>(
-          `/public/v1/venues/${encodeURIComponent(slug)}`
-        );
-        const deposit = body.data?.deposit;
-        if (!deposit?.enabled || deposit.amountCents == null) return null;
+        const deposit = await api.publicVenue.getDepositPolicy(slug);
+        if (!deposit.enabled || deposit.amountCents == null) return null;
         return {
           depositAmountCents: deposit.amountCents,
           freeCancellationHours: deposit.freeCancellationHours,

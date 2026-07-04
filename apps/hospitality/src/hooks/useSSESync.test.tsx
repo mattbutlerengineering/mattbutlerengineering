@@ -246,6 +246,24 @@ describe("useSSESync — connect → event → invalidate flow", () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ["tables"] }));
   });
+
+  it("invalidates venues query on venue:updated", () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    renderHook(() => useSSESync(), { wrapper: makeWrapper(qc) });
+
+    act(() => {
+      simulateEvent("venue:updated", {
+        type: "venue:updated",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: { id: "v1", name: "Renamed Venue" },
+      });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ["venues"] }));
+  });
 });
 
 describe("useSSESync — disconnect → reconnect with backoff", () => {
