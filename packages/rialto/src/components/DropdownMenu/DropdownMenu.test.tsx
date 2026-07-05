@@ -233,4 +233,29 @@ describe("DropdownMenu", () => {
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     expect(screen.getByRole("menuitem", { name: /alpha/i })).toHaveAttribute("data-active", "true");
   });
+
+  it("hover does not hijack keyboard active-index unless the pointer moved", () => {
+    render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
+    const btn = screen.getByRole("button", { name: /actions/i });
+    const presentationDiv = btn.parentElement!;
+    act(() => btn.focus());
+    fireEvent.keyDown(presentationDiv, { key: "Enter" });
+
+    const edit = screen.getByRole("menuitem", { name: /edit/i });
+    const copy = screen.getByRole("menuitem", { name: /copy/i });
+    expect(edit).toHaveAttribute("data-active", "true");
+
+    // A resting cursor (no pointer movement) must not steal the active index
+    // from keyboard navigation — React derives onMouseEnter from mouseover.
+    fireEvent.mouseOver(copy);
+    expect(edit).toHaveAttribute("data-active", "true");
+    expect(copy).toHaveAttribute("data-active", "false");
+
+    // Genuine pointer travel past the threshold re-enables hover activation.
+    fireEvent.mouseMove(document, { clientX: 0, clientY: 0 });
+    fireEvent.mouseMove(document, { clientX: 40, clientY: 40 });
+    fireEvent.mouseOver(copy);
+    expect(copy).toHaveAttribute("data-active", "true");
+    expect(edit).toHaveAttribute("data-active", "false");
+  });
 });

@@ -387,6 +387,20 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useDismiss.ts">
+    <item priority="low">
+      interface UseDismissOptions {
+        enabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useDismiss<T extends HTMLElement>(
+        ref: RefObject<T | null>,
+        onClose: () => void,
+        { enabled }: UseDismissOptions
+      ): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useEscapeKey.ts">
     <item priority="high">
       export function useEscapeKey(onClose: () => void, enabled: boolean): void { /* ... */ }
@@ -414,6 +428,20 @@
     </item>
     <item priority="high">
       export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/usePointerActivation.ts">
+    <item priority="low">
+      interface UsePointerActivationResult {
+        hasPointerMoved: () => boolean;
+        resetPointerMovement: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function usePointerActivation(
+        enabled: boolean,
+        threshold: number = DEFAULT_THRESHOLD
+      ): UsePointerActivationResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useReturnFocus.ts">

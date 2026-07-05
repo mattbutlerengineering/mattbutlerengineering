@@ -1,6 +1,10 @@
 export { useBoop } from "./useBoop";
 export { useEscapeKey } from "./useEscapeKey";
 export { useReturnFocus } from "./useReturnFocus";
+export { useDismiss } from "./useDismiss";
+export type { UseDismissOptions } from "./useDismiss";
+export { usePointerActivation } from "./usePointerActivation";
+export type { UsePointerActivationResult } from "./usePointerActivation";
 export { useDirection } from "./useDirection";
 export { useFocusTrap, FOCUSABLE_SELECTOR } from "./useFocusTrap";
 export { useScrollReveal } from "./useScrollReveal";
