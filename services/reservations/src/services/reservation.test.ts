@@ -318,16 +318,8 @@ describe("reservationService", () => {
   });
 
   describe("createWithConflictCheck", () => {
-    it("returns success when no conflicts and pacing ok", async () => {
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: null,
-      } as never);
-      vi.mocked(checkPacingForSlot).mockReturnValueOnce(true);
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
-        makePrismaReservation({ status: "PENDING" }) as never
-      );
+    it("returns success when the slot is bookable", async () => {
+      // assertBookable returns undefined (bookable) by default in beforeEach.
       useSlotTxOnce(makePrismaReservation({ status: "PENDING" }));
 
       const result = await reservationService.createWithConflictCheck(
@@ -344,10 +336,14 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(true);
       expect(result.reservation).toBeDefined();
+      expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
-    it("returns failure when conflict detected", async () => {
-      vi.mocked(checkTableConflict).mockReturnValueOnce(true);
+    it("returns failure when assertBookable reports CONFLICT", async () => {
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -364,13 +360,11 @@ describe("reservationService", () => {
       expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
     });
 
-    it("returns failure when pacing limit exceeded", async () => {
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: { pacingRules: [{ maxCoversPerSlot: 10 }] },
-      } as never);
-      vi.mocked(checkPacingForSlot).mockReturnValueOnce(false);
+    it("returns failure via assertBookable when pacing limit is reached", async () => {
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PACING_EXCEEDED",
+        message: "Pacing limit reached. Maximum 10 covers per time window.",
+      });
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -382,18 +376,10 @@ describe("reservationService", () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Pacing limit");
-      expect(result.pacing).toBeDefined();
+      expect(result.error).toBe("Pacing limit reached. Maximum 10 covers per time window.");
     });
 
-    it("calls fetchConflictData exactly once for conflict + pacing checks (no extra DB queries)", async () => {
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
-        id: "venue-1",
-        settings: null,
-      } as never);
-      vi.mocked(checkPacingForSlot).mockReturnValueOnce(true);
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+    it("calls fetchConflictData exactly once — slices reused across the assertBookable check", async () => {
       useSlotTxOnce();
 
       await reservationService.createWithConflictCheck({
@@ -405,18 +391,17 @@ describe("reservationService", () => {
         venueId: "venue-1",
       });
 
-      // Regression guard: fetchConflictData must be called exactly once even when
-      // both conflict and pacing rules are evaluated — the slices are reused.
+      // Regression guard: fetchConflictData must be called exactly once — the
+      // conflict + pacing rules both evaluate over the same pre-fetched slices.
       expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
+      expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
-    it("uses fetch-then-rule pattern when venueId not provided (table has venueId)", async () => {
+    it("resolves venueId from the table when the request omits it", async () => {
       vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
         id: "table-1",
         venueId: "venue-1",
       } as never);
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
       useSlotTxOnce();
 
       const result = await reservationService.createWithConflictCheck({
@@ -429,16 +414,20 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).toHaveBeenCalledWith("venue-1", "2026-05-05");
-      expect(checkTableConflict).toHaveBeenCalledTimes(1);
-      expect(prisma.venue.findUnique).not.toHaveBeenCalled();
+      // Pacing is now enforced on this path too: the invariant crosses the single
+      // assertBookable seam regardless of where venueId was resolved from.
+      expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
-    it("returns conflict when no-venueId path detects conflict via fetch-then-rule", async () => {
+    it("returns conflict when the no-venueId path reports CONFLICT via assertBookable", async () => {
       vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({
         id: "table-1",
         venueId: "venue-1",
       } as never);
-      vi.mocked(checkTableConflict).mockReturnValueOnce(true);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -682,15 +671,12 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).not.toHaveBeenCalled();
+      expect(assertBookable).not.toHaveBeenCalled();
     });
 
-    it("performs conflict check via fetch-then-rule when time changes", async () => {
+    it("checks the booking invariant via assertBookable when time changes", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
-      );
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ startTime: new Date("2026-05-05T19:00:00Z") }) as never
       );
       useSlotTxOnce(makePrismaReservation({ startTime: new Date("2026-05-05T19:00:00Z") }));
 
@@ -700,16 +686,12 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).toHaveBeenCalledWith("venue-1", "2026-05-05");
-      expect(checkTableConflict).toHaveBeenCalled();
+      expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
-    it("performs conflict check via fetch-then-rule when tableId changes", async () => {
+    it("checks the booking invariant via assertBookable when tableId changes", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
-      );
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
-        makePrismaReservation({ tableId: "table-2" }) as never
       );
       useSlotTxOnce(makePrismaReservation({ tableId: "table-2" }));
 
@@ -719,13 +701,17 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(true);
       expect(availabilityService.fetchConflictData).toHaveBeenCalledTimes(1);
+      expect(assertBookable).toHaveBeenCalledTimes(1);
     });
 
-    it("returns failure when time change creates conflict (fetch-then-rule)", async () => {
+    it("returns failure when the move creates a CONFLICT (assertBookable)", async () => {
       vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
         makePrismaReservation() as never
       );
-      vi.mocked(checkTableConflict).mockReturnValueOnce(true);
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "CONFLICT",
+        message: "Table is not available for this time slot",
+      });
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         startTime: "2026-05-05T19:00:00Z",
@@ -733,6 +719,26 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("conflict");
+      expect(result.conflict?.hasConflict).toBe(true);
+    });
+
+    it("returns failure when the move would exceed pacing (assertBookable)", async () => {
+      // Pacing is now enforced on slot moves too — previously moves checked
+      // conflict only, so a move could push a window over its cover limit.
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      vi.mocked(assertBookable).mockReturnValueOnce({
+        code: "PACING_EXCEEDED",
+        message: "Pacing limit reached. Maximum 4 covers per time window.",
+      });
+
+      const result = await reservationService.updateWithConflictCheck("res-1", {
+        startTime: "2026-05-05T19:00:00Z",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Pacing limit reached. Maximum 4 covers per time window.");
     });
 
     it("returns failure when reservation not found", async () => {
@@ -746,10 +752,12 @@ describe("reservationService", () => {
       expect(result.error).toBe("Reservation not found");
     });
 
-    it("excludes current reservation from conflict check via slice filtering", async () => {
-      const existingRes = makePrismaReservation();
-      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(existingRes as never);
-      // Return the current reservation in the fetched slices so we can verify it's excluded
+    it("excludes the current reservation from the slices passed to assertBookable", async () => {
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation() as never
+      );
+      // Return the reservation being moved in the fetched slices so we can verify
+      // it is filtered out before the invariant check (no self-conflict/pacing).
       vi.mocked(availabilityService.fetchConflictData).mockResolvedValueOnce({
         reservations: [
           {
@@ -762,18 +770,14 @@ describe("reservationService", () => {
         ],
         holds: [],
       });
-      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
-      vi.mocked(prisma.reservation.update).mockResolvedValueOnce(makePrismaReservation() as never);
       useSlotTxOnce();
 
       await reservationService.updateWithConflictCheck("res-1", {
         date: "2026-05-06",
       });
 
-      // checkTableConflict must be called with slices that exclude res-1
-      const callArgs = vi.mocked(checkTableConflict).mock.calls[0];
-      const reservationSlices = callArgs[3] as Array<{ id: string }>;
-      expect(reservationSlices.some((r) => r.id === "res-1")).toBe(false);
+      const opts = vi.mocked(assertBookable).mock.calls[0][0];
+      expect(opts.reservations.some((r) => r.id === "res-1")).toBe(false);
     });
   });
 

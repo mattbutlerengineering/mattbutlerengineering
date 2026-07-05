@@ -14,7 +14,6 @@ import {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
-import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
 import { bookSlot } from "./book-slot.js";
@@ -167,75 +166,47 @@ export const reservationService = {
 
     // Resolve the venue used for the pacing pre-check and the pacing/conflict
     // re-check under the lock. Prefer the request's venueId, else the table's.
-    let venueId = data.venueId ?? null;
+    const venueId =
+      data.venueId ??
+      (await prisma.table.findUnique({ where: { id: data.tableId }, select: { venueId: true } }))
+        ?.venueId ??
+      null;
 
-    if (data.venueId) {
-      // Fetch reservations + holds once, then evaluate conflict + pacing rules.
+    if (venueId) {
+      // Fetch venue settings + conflict slices once, then evaluate the single
+      // canonical booking invariant (conflict + pacing) through assertBookable —
+      // the same seam confirmHold and createWalkIn cross, so staff direct
+      // bookings can never apply a different rule than guest bookings.
+      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
+      const settings = (venue?.settings ?? null) as VenueSettings | null;
       const { reservations, holds } = await availabilityService.fetchConflictData(
-        data.venueId,
+        venueId,
         data.date
       );
 
-      const hasConflict = checkTableConflict(data.tableId, startTime, endTime, reservations, holds);
+      const bookingError = assertBookable({
+        tableId: data.tableId,
+        window: { startTime, endTime },
+        partySize: data.partySize,
+        settings,
+        reservations,
+        holds,
+      });
 
-      if (hasConflict) {
+      if (bookingError?.code === "CONFLICT") {
         return {
           success: false,
           error: "Time slot has a conflict with an existing reservation or hold",
           conflict: { hasConflict: true },
         };
       }
-
-      const venue = await prisma.venue.findUnique({
-        where: { id: data.venueId },
-      });
-
-      if (venue) {
-        const settings = venue.settings as VenueSettings | null;
-        const pacingOk = checkPacingForSlot(
-          startTime,
-          data.partySize,
-          settings,
-          reservations,
-          holds
-        );
-
-        if (!pacingOk) {
-          const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
-          return {
-            success: false,
-            error: `Pacing limit exceeded. Maximum ${maxCovers} covers allowed per time window.`,
-            pacing: { withinLimit: false, currentCovers: 0, maxCovers },
-          };
-        }
-      }
-    } else {
-      // No venue in request — look up the table's venueId so we can use the
-      // same fetch-once + pure-rule path as the venueId branch above.
-      const table = await prisma.table.findUnique({
-        where: { id: data.tableId },
-        select: { venueId: true },
-      });
-      venueId = table?.venueId ?? null;
-      if (venueId) {
-        const { reservations, holds } = await availabilityService.fetchConflictData(
-          venueId,
-          data.date
-        );
-        const hasConflict = checkTableConflict(
-          data.tableId,
-          startTime,
-          endTime,
-          reservations,
-          holds
-        );
-        if (hasConflict) {
-          return {
-            success: false,
-            error: "Time slot has a conflict with an existing reservation or hold",
-            conflict: { hasConflict: true },
-          };
-        }
+      if (bookingError?.code === "PACING_EXCEEDED") {
+        const maxCovers = settings?.pacingRules?.[0]?.maxCoversPerSlot ?? Infinity;
+        return {
+          success: false,
+          error: bookingError.message,
+          pacing: { withinLimit: false, currentCovers: 0, maxCovers },
+        };
       }
     }
 
@@ -393,24 +364,37 @@ export const reservationService = {
       null;
 
     if (venueId) {
-      // Fetch conflict data once, then apply the pure rule. Exclude the current
-      // reservation from the slices so it doesn't conflict with itself.
+      // Fetch venue settings + conflict slices once, then evaluate the single
+      // canonical booking invariant (conflict + pacing) through assertBookable —
+      // the same seam every other write path crosses. Exclude the current
+      // reservation from the slices so a move doesn't conflict or pace against
+      // itself. This closes the pacing gap: moves previously checked conflict
+      // only, so a slot move could push a window over its cover limit.
+      const venue = await prisma.venue.findUnique({ where: { id: venueId } });
+      const settings = (venue?.settings ?? null) as VenueSettings | null;
       const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
       const filteredReservations = reservations.filter((r) => r.id !== id);
 
-      const hasConflict = checkTableConflict(
+      const bookingError = assertBookable({
         tableId,
-        startTime,
-        endTime,
-        filteredReservations,
-        holds
-      );
+        window: { startTime, endTime },
+        partySize: data.partySize ?? existing.partySize,
+        settings,
+        reservations: filteredReservations,
+        holds,
+      });
 
-      if (hasConflict) {
+      if (bookingError?.code === "CONFLICT") {
         return {
           success: false,
           error: "Time slot has a conflict with an existing reservation or hold",
           conflict: { hasConflict: true },
+        };
+      }
+      if (bookingError?.code === "PACING_EXCEEDED") {
+        return {
+          success: false,
+          error: bookingError.message,
         };
       }
     }
