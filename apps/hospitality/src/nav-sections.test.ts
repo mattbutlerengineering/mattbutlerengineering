@@ -30,7 +30,7 @@ const OPERATIONAL_READINESS: VenueReadiness = {
 describe("buildNavSections", () => {
   describe("setup readiness", () => {
     it("returns a 'Get Started' section with correct step statuses", () => {
-      const sections = buildNavSections(SETUP_READINESS);
+      const sections = buildNavSections(SETUP_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started");
 
       expect(getStarted).toBeDefined();
@@ -56,7 +56,7 @@ describe("buildNavSections", () => {
     });
 
     it("includes Account section", () => {
-      const sections = buildNavSections(SETUP_READINESS);
+      const sections = buildNavSections(SETUP_READINESS, false);
       const account = sections.find((s) => s.label === "Account");
       expect(account).toBeDefined();
     });
@@ -64,7 +64,7 @@ describe("buildNavSections", () => {
 
   describe("operational readiness", () => {
     it("returns primary items including briefing first", () => {
-      const sections = buildNavSections(OPERATIONAL_READINESS);
+      const sections = buildNavSections(OPERATIONAL_READINESS, false);
       // First section has no label (primary nav)
       const primary = sections[0];
       expect(primary.label).toBeUndefined();
@@ -73,20 +73,20 @@ describe("buildNavSections", () => {
     });
 
     it("includes a Manage section", () => {
-      const sections = buildNavSections(OPERATIONAL_READINESS);
+      const sections = buildNavSections(OPERATIONAL_READINESS, false);
       const manage = sections.find((s) => s.label === "Manage");
       expect(manage).toBeDefined();
       expect(manage!.items.length).toBeGreaterThan(0);
     });
 
     it("includes an Account section", () => {
-      const sections = buildNavSections(OPERATIONAL_READINESS);
+      const sections = buildNavSections(OPERATIONAL_READINESS, false);
       const account = sections.find((s) => s.label === "Account");
       expect(account).toBeDefined();
     });
 
     it("does not include a 'Get Started' section", () => {
-      const sections = buildNavSections(OPERATIONAL_READINESS);
+      const sections = buildNavSections(OPERATIONAL_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started");
       expect(getStarted).toBeUndefined();
     });
@@ -94,13 +94,13 @@ describe("buildNavSections", () => {
 
   describe("no-venue readiness", () => {
     it("returns a 'Get Started' section", () => {
-      const sections = buildNavSections(NO_VENUE_READINESS);
+      const sections = buildNavSections(NO_VENUE_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started");
       expect(getStarted).toBeDefined();
     });
 
     it("all steps are either current or locked (none completed)", () => {
-      const sections = buildNavSections(NO_VENUE_READINESS);
+      const sections = buildNavSections(NO_VENUE_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started")!;
 
       for (const item of getStarted.items) {
@@ -110,9 +110,27 @@ describe("buildNavSections", () => {
     });
 
     it("does not include a Manage section", () => {
-      const sections = buildNavSections(NO_VENUE_READINESS);
+      const sections = buildNavSections(NO_VENUE_READINESS, false);
       const manage = sections.find((s) => s.label === "Manage");
       expect(manage).toBeUndefined();
+    });
+  });
+
+  describe("admin gating (#3069)", () => {
+    it("includes the Admin section only for admins in operational mode", () => {
+      const asAdmin = buildNavSections(OPERATIONAL_READINESS, true);
+      expect(asAdmin.find((s) => s.label === "Admin")).toBeDefined();
+
+      const asNonAdmin = buildNavSections(OPERATIONAL_READINESS, false);
+      expect(asNonAdmin.find((s) => s.label === "Admin")).toBeUndefined();
+    });
+
+    it("includes the Admin section only for admins in setup mode", () => {
+      const asAdmin = buildNavSections(SETUP_READINESS, true);
+      expect(asAdmin.find((s) => s.label === "Admin")).toBeDefined();
+
+      const asNonAdmin = buildNavSections(SETUP_READINESS, false);
+      expect(asNonAdmin.find((s) => s.label === "Admin")).toBeUndefined();
     });
   });
 });

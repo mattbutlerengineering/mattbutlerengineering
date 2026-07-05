@@ -22,6 +22,7 @@ import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
+import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -56,6 +57,7 @@ function DashboardLayoutInner() {
   const { signOut, accessToken } = useAuth();
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
+  const isAdmin = useIsAdmin();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
@@ -139,7 +141,7 @@ function DashboardLayoutInner() {
 
   const sections = useMemo(
     () => [
-      ...buildNavSections(readiness),
+      ...buildNavSections(readiness, isAdmin),
       {
         label: "Tools" as const,
         items: [
@@ -151,7 +153,7 @@ function DashboardLayoutInner() {
         ],
       },
     ],
-    [readiness]
+    [readiness, isAdmin]
   );
 
   // Command palette state — receives dynamic sections so items stay in sync

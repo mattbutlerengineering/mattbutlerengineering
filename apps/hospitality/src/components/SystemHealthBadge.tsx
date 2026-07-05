@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Badge, Button, Popover, Text } from "@mattbutlerengineering/rialto";
-import { useAuth } from "@mbe/auth/react";
+import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import type { SystemHealth } from "@mbe/api-client";
 import { useApiClient } from "../hooks/useApiClient.js";
 import styles from "./SystemHealthBadge.module.css";
@@ -42,13 +42,11 @@ function StatusDot({ status }: { readonly status: string }) {
 }
 
 export function SystemHealthBadge() {
-  const { user } = useAuth();
   const api = useApiClient();
   const [health, setHealth] = useState<SystemHealth | null>(null);
 
-  // Only show to admin users — permissions live in the raw JWT claims
-  const rawPermissions = user?.raw?.permissions;
-  const isAdmin = Array.isArray(rawPermissions) && rawPermissions.includes("admin");
+  // Only show to admin users — permissions live in the raw JWT claims (#3069).
+  const isAdmin = useIsAdmin();
 
   const fetchHealth = useCallback(async () => {
     try {

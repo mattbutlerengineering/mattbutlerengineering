@@ -41,7 +41,10 @@ const ADMIN: NavSection = {
 
 /* ── Setup nav sections ─────────────────────── */
 
-function buildSetupSections(readiness: VenueReadiness): readonly NavSection[] {
+function buildSetupSections(
+  readiness: VenueReadiness,
+  isAdmin: boolean
+): readonly NavSection[] {
   const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
   const STEP_LABELS: Record<SetupStep, string> = {
@@ -75,12 +78,12 @@ function buildSetupSections(readiness: VenueReadiness): readonly NavSection[] {
     items,
   };
 
-  return [setupSection, ACCOUNT, ADMIN];
+  return isAdmin ? [setupSection, ACCOUNT, ADMIN] : [setupSection, ACCOUNT];
 }
 
 /* ── Operational nav sections ───────────────── */
 
-function buildOperationalSections(): readonly NavSection[] {
+function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
   const PRIMARY: NavSection = {
     items: [
       { id: "briefing", label: "Tonight's Service", path: "/briefing" },
@@ -99,14 +102,17 @@ function buildOperationalSections(): readonly NavSection[] {
     ],
   };
 
-  return [PRIMARY, MANAGE, ACCOUNT, ADMIN];
+  return isAdmin ? [PRIMARY, MANAGE, ACCOUNT, ADMIN] : [PRIMARY, MANAGE, ACCOUNT];
 }
 
 /* ── Public API ─────────────────────────────── */
 
-export function buildNavSections(readiness: VenueReadiness): readonly NavSection[] {
+export function buildNavSections(
+  readiness: VenueReadiness,
+  isAdmin: boolean
+): readonly NavSection[] {
   if (readiness.status !== "operational") {
-    return buildSetupSections(readiness);
+    return buildSetupSections(readiness, isAdmin);
   }
-  return buildOperationalSections();
+  return buildOperationalSections(isAdmin);
 }

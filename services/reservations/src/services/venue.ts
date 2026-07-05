@@ -151,6 +151,39 @@ export const venueService = {
     };
   },
 
+  /**
+   * Lists only the venues the given operator is a member of (owns or was
+   * invited to), scoped via VenueMembership (ADR-020). Platform admins bypass
+   * this and use `list` instead. The `count` shares the same filter so
+   * pagination totals reflect the scoped set.
+   */
+  async listForMember(
+    userSub: string,
+    page: number,
+    limit: number,
+    venueGroupId?: string
+  ): Promise<PaginatedResponse<Venue>> {
+    const where: Prisma.VenueWhereInput = {
+      memberships: { some: { userSub } },
+      ...(venueGroupId ? { venueGroupId } : {}),
+    };
+
+    const [venues, total] = await Promise.all([
+      prisma.venue.findMany({
+        where,
+        ...paginate({ page, limit }),
+        orderBy: { name: "asc" },
+        include: { venueGroup: true },
+      }),
+      prisma.venue.count({ where }),
+    ]);
+
+    return {
+      data: venues.map(mapPrismaVenue),
+      pagination: toPaginationMeta(page, limit, total),
+    };
+  },
+
   async getById(id: string): Promise<Venue | null> {
     const venue = await prisma.venue.findUnique({
       where: { id },
@@ -183,18 +216,41 @@ export const venueService = {
     return prisma.venue.findUnique({ where: { id } });
   },
 
-  async create(data: CreateVenueRequest): Promise<Venue> {
-    const venue = await prisma.venue.create({
-      data: {
-        venueGroupId: data.venueGroupId,
-        name: data.name,
-        slug: data.slug,
-        ianaTimezone: data.ianaTimezone,
-        currencyCode: data.currencyCode ?? "USD",
-        operatingHours: data.operatingHours as Prisma.InputJsonValue | undefined,
-        settings: data.settings as Prisma.InputJsonValue | undefined,
-      },
-      include: { venueGroup: true },
+  /**
+   * Creates a venue. When `ownerSub` is supplied, the creator is atomically
+   * seeded as the venue `owner` via a VenueMembership row (ADR-020) so their
+   * scoped venue list (`listForMember`) surfaces the new venue immediately —
+   * both writes share one transaction so a venue never persists without its
+   * owner grant.
+   */
+  async create(data: CreateVenueRequest, ownerSub?: string): Promise<Venue> {
+    const venueData = {
+      venueGroupId: data.venueGroupId,
+      name: data.name,
+      slug: data.slug,
+      ianaTimezone: data.ianaTimezone,
+      currencyCode: data.currencyCode ?? "USD",
+      operatingHours: data.operatingHours as Prisma.InputJsonValue | undefined,
+      settings: data.settings as Prisma.InputJsonValue | undefined,
+    };
+
+    if (!ownerSub) {
+      const venue = await prisma.venue.create({
+        data: venueData,
+        include: { venueGroup: true },
+      });
+      return mapPrismaVenue(venue);
+    }
+
+    const venue = await prisma.$transaction(async (tx) => {
+      const created = await tx.venue.create({
+        data: venueData,
+        include: { venueGroup: true },
+      });
+      await tx.venueMembership.create({
+        data: { userSub: ownerSub, venueId: created.id, role: "owner" },
+      });
+      return created;
     });
     return mapPrismaVenue(venue);
   },

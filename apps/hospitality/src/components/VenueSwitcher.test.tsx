@@ -197,4 +197,26 @@ describe("VenueSwitcher", () => {
       expect(container.firstChild).toBeNull();
     });
   });
+
+  describe("scoped visibility (#3069)", () => {
+    beforeEach(() => {
+      // Context is already scoped by the backend to the operator's memberships;
+      // the switcher must render exactly that set and never a venue outside it.
+      mockContextValue = {
+        venues: [VENUE_A],
+        selectedVenueId: VENUE_A.id,
+        selectedVenue: VENUE_A,
+        setVenueId: mockSetVenueId,
+        isLoading: false,
+        isMultiVenue: false,
+      };
+    });
+
+    it("renders only venues present in the scoped context", () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      expect(screen.getByText("Venue Alpha")).toBeDefined();
+      // A venue the operator is not a member of must never surface.
+      expect(screen.queryByText("Venue Beta")).toBeNull();
+    });
+  });
 });

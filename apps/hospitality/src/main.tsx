@@ -11,6 +11,7 @@ import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
+import { RequireAdmin } from "./components/RequireAdmin";
 import { validateAuthConfig } from "./constants/auth";
 
 initSentry({
@@ -239,9 +240,11 @@ const router = createBrowserRouter(
             {
               path: "admin",
               element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <AdminPage />
-                </Suspense>
+                <RequireAdmin>
+                  <Suspense fallback={<LoadingPage />}>
+                    <AdminPage />
+                  </Suspense>
+                </RequireAdmin>
               ),
             },
             {
