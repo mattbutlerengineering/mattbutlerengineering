@@ -242,7 +242,30 @@ export const reservationService = {
 
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
     try {
-      // Guard status transitions through the state machine before writing.
+      const updateData = {
+        ...(data.date !== undefined && { date: new Date(data.date) }),
+        ...(data.startTime !== undefined && {
+          startTime: new Date(data.startTime),
+        }),
+        ...(data.endTime !== undefined && { endTime: new Date(data.endTime) }),
+        ...(data.partySize !== undefined && { partySize: data.partySize }),
+        ...(data.tableId !== undefined && { tableId: data.tableId }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.cancellationReason !== undefined && {
+          cancellationReason: data.cancellationReason,
+        }),
+        ...(data.cancellationNote !== undefined && { cancellationNote: data.cancellationNote }),
+      };
+
+      // Status transitions go through an atomic compare-and-swap guarded on the
+      // status we validated against, mirroring the deposit-service CAS
+      // (`prisma.deposit.updateMany({ where: { id, status } })`). A bare
+      // `update({ where: { id } })` lets two concurrent transitions — e.g.
+      // duplicate cancel requests — both pass the state-machine check against
+      // the same status snapshot and both write, firing duplicate
+      // notifications. `count === 0` means another transition won the race;
+      // returning null lets the caller short-circuit without re-notifying.
       if (data.status !== undefined) {
         const existing = await prisma.reservation.findUnique({
           where: { id },
@@ -251,25 +274,23 @@ export const reservationService = {
         if (!existing) return null;
         // Throws ReservationTransitionError on invalid transition.
         transitionReservation(existing.status as ReservationStatus, data.status);
+
+        const { count } = await prisma.reservation.updateMany({
+          where: { id, status: existing.status },
+          data: updateData,
+        });
+        if (count === 0) return null;
+
+        const updated = await prisma.reservation.findUnique({
+          where: { id },
+          include: { table: true },
+        });
+        return updated ? toReservation(updated) : null;
       }
 
       const reservation = await prisma.reservation.update({
         where: { id },
-        data: {
-          ...(data.date !== undefined && { date: new Date(data.date) }),
-          ...(data.startTime !== undefined && {
-            startTime: new Date(data.startTime),
-          }),
-          ...(data.endTime !== undefined && { endTime: new Date(data.endTime) }),
-          ...(data.partySize !== undefined && { partySize: data.partySize }),
-          ...(data.tableId !== undefined && { tableId: data.tableId }),
-          ...(data.status !== undefined && { status: data.status }),
-          ...(data.notes !== undefined && { notes: data.notes }),
-          ...(data.cancellationReason !== undefined && {
-            cancellationReason: data.cancellationReason,
-          }),
-          ...(data.cancellationNote !== undefined && { cancellationNote: data.cancellationNote }),
-        },
+        data: updateData,
         include: { table: true },
       });
       return toReservation(reservation);
