@@ -1,22 +1,21 @@
 import type { FastifyBaseLogger } from "fastify";
-import type { Reservation } from "@mbe/types";
+import type { NotificationDispatcher } from "@mbe/notifications";
+import type { CommunicationPreference, Reservation } from "@mbe/types";
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
 import { evaluateCancellationFee } from "./cancellation-policy.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
-import type { BookingNotifier, CancelInitiator } from "./booking-notifications.js";
+import type { BookingNotifier } from "./booking-notifications.js";
 
 export interface CancelReservationDeps {
   bookingNotifier: BookingNotifier;
+  notificationPort: NotificationDispatcher;
   logger: FastifyBaseLogger;
 }
 
-/**
- * Who initiated the cancellation — drives deposit fee policy. Re-exported from
- * the notifier, which now owns the cancellation-notification seam.
- */
-export type { CancelInitiator } from "./booking-notifications.js";
+/** Who initiated the cancellation — drives deposit fee policy. */
+export type CancelInitiator = "guest" | "staff";
 
 export interface CancelReservationOptions {
   /**
@@ -137,13 +136,58 @@ async function resolveDeposit(
 }
 
 /**
+ * Cancels the reminder jobs and dispatches the guest-facing cancellation
+ * notification for an already-cancelled reservation. Both are best-effort:
+ * neither failure should undo the cancellation, which has already committed.
+ */
+async function notifyCancellation(
+  reservation: Reservation,
+  manageToken: string,
+  deps: CancelReservationDeps
+): Promise<void> {
+  const { bookingNotifier, notificationPort, logger } = deps;
+
+  bookingNotifier
+    .cancelBookingReminders(reservation.id)
+    .catch((err) => logger.error({ err }, "Failed to cancel booking reminders"));
+
+  const venue = reservation.venueId ? await venueService.getById(reservation.venueId) : null;
+  if (!reservation.guestEmail || !venue) return;
+
+  const preference =
+    (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? "email_only";
+  try {
+    await notificationPort.sendBookingCancelled(
+      {
+        reservationId: reservation.id,
+        date: reservation.date,
+        startTime: reservation.startTime,
+        endTime: reservation.endTime,
+        partySize: reservation.partySize,
+        guestName: reservation.guestName,
+        guestEmail: reservation.guestEmail,
+        guestPhone: reservation.guestPhone ?? null,
+        specialRequests: reservation.notes ?? null,
+        venueName: venue.name,
+        venueTimezone: venue.ianaTimezone,
+        venueAddress: null,
+        manageToken,
+      },
+      preference
+    );
+  } catch {
+    logger.error("Failed to send booking cancelled notification");
+  }
+}
+
+/**
  * Domain-level cancel: validates the status transition BEFORE any money
  * moves (a stale-status cancel — e.g. staff re-cancelling an already
  * CANCELLED reservation — must never touch the deposit), then owns deposit
  * resolution ordering, the `partial_refunded` retry guard,
- * abort-on-money-failure, and the winning cancel's notification teardown
- * (reminder jobs + guest dispatch), delegated to BookingNotifier via one seam.
- * Callers (routes) are thin adapters that translate the result into HTTP.
+ * abort-on-money-failure, reminder-job cancellation, and guest notification
+ * dispatch. Callers (routes) are thin adapters that translate the result
+ * into an HTTP response.
  */
 export async function cancelReservationWithDeposit(
   reservation: Reservation,
@@ -184,7 +228,7 @@ export async function cancelReservationWithDeposit(
     };
   }
 
-  await deps.bookingNotifier.cancelBookingNotifications(reservation, manageToken, initiator);
+  await notifyCancellation(reservation, manageToken, deps);
 
   return { success: true, reservation: updated };
 }

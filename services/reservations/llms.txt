@@ -585,15 +585,12 @@
     <item priority="low">
       interface CancelReservationDeps {
         bookingNotifier: BookingNotifier;
+        notificationPort: NotificationDispatcher;
         logger: FastifyBaseLogger;
       }
     </item>
     <item priority="low">
-      interface CancelReservationOptions {
-        initiator?: CancelInitiator;
-        cancellationReason?: string;
-        cancellationNote?: string;
-      }
+      type CancelInitiator = "guest" | "staff";
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">

@@ -24,6 +24,7 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         request.query.token!,
         {
           bookingNotifier: fastify.bookingNotifier,
+          notificationPort: fastify.notificationPort,
           logger: request.log,
         }
       );

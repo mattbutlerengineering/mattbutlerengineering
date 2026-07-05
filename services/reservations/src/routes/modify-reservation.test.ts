@@ -108,7 +108,6 @@ describe("PATCH /public/v1/reservations/manage", () => {
       scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
       cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
       rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
     };
     app = await buildApp({
       logger: false,
@@ -340,7 +339,6 @@ describe("PATCH /public/v1/reservations/manage", () => {
       scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
       cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
       rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
     };
     const stubApp = await buildApp({
       logger: false,

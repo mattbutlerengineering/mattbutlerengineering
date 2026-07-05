@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Reservation } from "@mbe/types";
-import type { Mock } from "vitest";
 
 vi.mock("./reservation.js", () => ({
   reservationService: {
@@ -65,11 +64,18 @@ function makeDeps() {
       scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
       cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
       rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
-      cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+    },
+    notificationPort: {
+      sendBookingConfirmation: vi.fn().mockResolvedValue(undefined),
+      sendBookingReminder: vi.fn().mockResolvedValue(undefined),
+      sendBookingModified: vi.fn().mockResolvedValue(undefined),
+      sendBookingCancelled: vi.fn().mockResolvedValue(undefined),
+      sendWinBack: vi.fn().mockResolvedValue(undefined),
     },
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
   } as unknown as CancelReservationDeps & {
-    bookingNotifier: { cancelBookingReminders: Mock; cancelBookingNotifications: Mock };
+    bookingNotifier: { cancelBookingReminders: ReturnType<typeof vi.fn> };
+    notificationPort: { sendBookingCancelled: ReturnType<typeof vi.fn> };
   };
 }
 
@@ -115,6 +121,7 @@ describe("cancelReservationWithDeposit", () => {
       ...reservation,
       status: "CANCELLED",
     } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(null);
 
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
@@ -148,6 +155,7 @@ describe("cancelReservationWithDeposit", () => {
       ...reservation,
       status: "CANCELLED",
     } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(null);
 
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
 
@@ -212,11 +220,7 @@ describe("cancelReservationWithDeposit", () => {
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("crosses exactly one notifier seam on success: bookingNotifier.cancelBookingNotifications (was two)", async () => {
-    // The caller used to reach two seams — cancelBookingReminders on the
-    // notifier AND sendBookingCancelled on a separate dispatcher. It now hands
-    // the whole "cancel this booking's notifications" intent to BookingNotifier
-    // in a single call; the dispatcher is a collaborator nested behind it.
+  it("cancels reminder jobs and dispatches the guest notification on success", async () => {
     const reservation = makeReservation();
     const deps = makeDeps();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
@@ -224,20 +228,20 @@ describe("cancelReservationWithDeposit", () => {
       ...reservation,
       status: "CANCELLED",
     } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce({
+      id: "venue_1",
+      name: "The Oak Table",
+      ianaTimezone: "America/Los_Angeles",
+    } as never);
 
-    const result = await cancelReservationWithDeposit(reservation, "token123", deps, {
-      initiator: "guest",
-    });
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
 
     expect(result.success).toBe(true);
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledTimes(1);
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
-      reservation,
-      "token123",
-      "guest"
+    expect(deps.bookingNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+    expect(deps.notificationPort.sendBookingCancelled).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "res_1", manageToken: "token123" }),
+      "email_only"
     );
-    // The caller no longer crosses the lower-level reminder seam directly.
-    expect(deps.bookingNotifier.cancelBookingReminders).not.toHaveBeenCalled();
   });
 
   describe("initiator: staff", () => {
@@ -257,6 +261,7 @@ describe("cancelReservationWithDeposit", () => {
         ...reservation,
         status: "CANCELLED",
       } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
 
       const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
         initiator: "staff",
@@ -291,6 +296,7 @@ describe("cancelReservationWithDeposit", () => {
         cancellationReason: "no_show_policy",
         cancellationNote: "Guest called ahead",
       } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
 
       const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
         initiator: "staff",
@@ -326,6 +332,7 @@ describe("cancelReservationWithDeposit", () => {
         ...reservation,
         status: "CANCELLED",
       } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
 
       const result = await cancelReservationWithDeposit(reservation, "", makeDeps(), {
         initiator: "staff",
@@ -350,6 +357,11 @@ describe("cancelReservationWithDeposit", () => {
     vi.mocked(reservationService.update)
       .mockResolvedValueOnce({ ...reservation, status: "CANCELLED" } as never)
       .mockResolvedValueOnce(null as never);
+    vi.mocked(venueService.getById).mockResolvedValue({
+      id: "venue_1",
+      name: "The Oak Table",
+      ianaTimezone: "America/Los_Angeles",
+    } as never);
 
     const outcomes = await Promise.all([
       cancelReservationWithDeposit(reservation, "token123", deps),
@@ -362,8 +374,7 @@ describe("cancelReservationWithDeposit", () => {
     if (loser && !loser.success) {
       expect(loser.status).toBe(409);
     }
-    // The single-seam notification path fires exactly once: only the winning
-    // cancel reaches it; the loser short-circuits on the CAS miss.
-    expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledTimes(1);
+    expect(deps.notificationPort.sendBookingCancelled).toHaveBeenCalledTimes(1);
+    expect(deps.bookingNotifier.cancelBookingReminders).toHaveBeenCalledTimes(1);
   });
 });

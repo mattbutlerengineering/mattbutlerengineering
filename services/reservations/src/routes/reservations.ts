@@ -56,6 +56,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       manageToken,
       {
         bookingNotifier: fastify.bookingNotifier,
+        notificationPort: fastify.notificationPort,
         logger,
       },
       { ...options, initiator: isAdmin ? "staff" : "guest" }
