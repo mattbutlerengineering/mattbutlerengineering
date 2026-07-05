@@ -38,7 +38,9 @@ export function OverviewPage() {
         minHeight="56vh"
         title={
           <>
-            Precision-crafted React <Text className="accent">components</Text>
+            Precision-crafted React{" "}
+            {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- Hero's documented accent API requires a <span className="accent"> styling hook, not a typography component */}
+            <span className="accent">components</span>
           </>
         }
         subtitle="A design system with warm material surfaces, gold accents, and full WCAG AA accessibility. Built for production."
@@ -97,7 +99,7 @@ export function OverviewPage() {
                     <Text variant="label" color="primary">
                       {section.label}
                     </Text>
-                    <Text className={styles.categoryCount} aria-hidden="true">
+                    <Text as="span" className={styles.categoryCount} aria-hidden="true">
                       {section.items.length}
                     </Text>
                   </div>
