@@ -99,6 +99,83 @@
       inspectorVisible: boolean;
     }
   </file>
+  <file path="src/hooks/usePlayground.ts">
+    export interface UsePlaygroundResult {
+      session: PlaygroundSession;
+      /** Flip the color theme (shell action + command palette). */
+      toggleTheme: () => void;
+      /** Reset the session, then sign the user out (shell + palette). */
+      onSignOut: () => void;
+      /** Reset the session back to the empty state (logo click). */
+      onLogoClick: () => void;
+      /** Open the template gallery (shell "Templates" button). */
+      onTemplatesOpen: () => void;
+    }
+    export function usePlayground(): UsePlaygroundResult {
+      const { signOut } = useAuth();
+      const { toast } = useToast();
+      const { toggleTheme } = useTheme();
+    
+      const session = usePlaygroundSession({
+        onGenerationComplete: () =>
+          toast({ title: "Generation complete", variant: "success", duration: 3000 }),
+      });
+      const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
+    
+      const onSignOut = useCallback(() => {
+        reset();
+        void signOut();
+      }, [reset, signOut]);
+    
+      const onLogoClick = useCallback(() => {
+        reset();
+      }, [reset]);
+    
+      const onTemplatesOpen = useCallback(() => {
+        openGallery();
+      }, [openGallery]);
+    
+      // Show error toast when generation fails
+      useEffect(() => {
+        if (error) {
+          toast({
+            title: "Generation failed",
+            description: error.message,
+            variant: "error",
+            duration: 5000,
+          });
+        }
+      }, [error, toast]);
+    
+      // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
+      useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "t") {
+            e.preventDefault();
+            toggleGallery();
+          }
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+      }, [toggleGallery]);
+    
+      // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
+      useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+          if (e.key !== "?") return;
+          const tag = (e.target as HTMLElement)?.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+          if ((e.target as HTMLElement)?.isContentEditable) return;
+          e.preventDefault();
+          toggleShortcuts();
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+      }, [toggleShortcuts]);
+    
+      return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
+    }
+  </file>
   <file path="src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
       prompt: string;

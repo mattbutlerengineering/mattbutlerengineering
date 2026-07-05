@@ -1,8 +1,4 @@
-import { useCallback, useEffect } from "react";
-import { useAuth } from "@mbe/auth/react";
 import { ErrorBoundary, useToast } from "@mattbutlerengineering/rialto";
-import type { CommandItem } from "@mattbutlerengineering/rialto";
-import { useTheme } from "../contexts/ThemeContext.js";
 import { AppShell, useAppShellPanels } from "../components/AppShell.js";
 import { HistoryPanel } from "../components/HistoryPanel.js";
 import { PreviewPane } from "../components/PreviewPane.js";
@@ -11,16 +7,16 @@ import { PromptBar } from "../components/PromptBar.js";
 import { TemplateGallery } from "../components/TemplateGallery.js";
 import { KeyboardShortcuts, HelpButton } from "../components/KeyboardShortcuts.js";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
-import { downloadJson } from "../utils/downloadJson.js";
-import { usePlaygroundSession } from "./usePlaygroundSession.js";
+import { usePlayground, buildPlaygroundCommandItems } from "../hooks/usePlayground.js";
 import type { PlaygroundSession } from "./usePlaygroundSession.js";
 import styles from "./PlaygroundPage.module.css";
 
 /**
- * Main playground page.
- * Session state (streaming, active entry, refinement mode, history) is owned
- * by usePlaygroundSession. History is database-backed via useSpecsApi —
- * survives page refresh.
+ * Workbench behaviour (the generation session, completion/error toasts, global
+ * keyboard shortcuts, and shell-level callbacks) is owned by usePlayground, so
+ * this component stays a thin view. Session state itself (streaming, active
+ * entry, refinement mode, history) lives in usePlaygroundSession underneath it;
+ * history is database-backed via useSpecsApi and survives page refresh.
  * Three-column layout: HistoryPanel | PreviewPane | JsonInspector
  * with AppShell wrapping the top bar and PromptBar at the bottom.
  *
@@ -39,74 +35,16 @@ import styles from "./PlaygroundPage.module.css";
  * Each refinement saves as a new entry in the database.
  */
 export function PlaygroundPage() {
-  const { signOut } = useAuth();
-  const { toast } = useToast();
-  const { toggleTheme } = useTheme();
-  const session = usePlaygroundSession({
-    onGenerationComplete: () =>
-      toast({ title: "Generation complete", variant: "success", duration: 3000 }),
-  });
-  const { reset, error, toggleGallery, toggleShortcuts, openGallery } = session;
-
-  function handleSignOut() {
-    reset();
-    void signOut();
-  }
-
-  const handleLogoClick = useCallback(() => {
-    reset();
-  }, [reset]);
-
-  function handleTemplatesOpen() {
-    openGallery();
-  }
-
-  // Show error toast when generation fails
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: "Generation failed",
-        description: error.message,
-        variant: "error",
-        duration: 5000,
-      });
-    }
-  }, [error, toast]);
-
-  // Keyboard shortcut: Cmd+T / Ctrl+T to open template gallery
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
-        e.preventDefault();
-        toggleGallery();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [toggleGallery]);
-
-  // Keyboard shortcut: "?" to open shortcuts help (only when no input is focused)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "?") return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.target as HTMLElement)?.isContentEditable) return;
-      e.preventDefault();
-      toggleShortcuts();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [toggleShortcuts]);
+  const { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen } = usePlayground();
 
   return (
     <AppShell
       isFullscreen={session.isFullscreen}
-      onSignOut={handleSignOut}
-      onLogoClick={handleLogoClick}
-      onTemplatesOpen={handleTemplatesOpen}
+      onSignOut={onSignOut}
+      onLogoClick={onLogoClick}
+      onTemplatesOpen={onTemplatesOpen}
     >
-      <PlaygroundBody session={session} onSignOut={handleSignOut} toggleTheme={toggleTheme} />
+      <PlaygroundBody session={session} onSignOut={onSignOut} toggleTheme={toggleTheme} />
     </AppShell>
   );
 }
@@ -196,125 +134,24 @@ export function PlaygroundBody({ session, onSignOut, toggleTheme }: PlaygroundBo
     submit(prompt);
   }
 
-  // ---------------------------------------------------------------------------
-  // Command palette items
-  // ---------------------------------------------------------------------------
-  const commandItems: CommandItem[] = [
-    {
-      id: "new-generation",
-      label: "New Generation",
-      group: "Actions",
-      shortcut: ["⌘", "N"],
-      onSelect: () => {
-        closePalette();
-        reset();
-      },
-    },
-    {
-      id: "toggle-fullscreen",
-      label: "Toggle Fullscreen",
-      group: "Actions",
-      shortcut: ["⌘", "F"],
-      onSelect: () => {
-        closePalette();
-        toggleFullscreen();
-      },
-    },
-    ...(isStreaming
-      ? [
-          {
-            id: "stop-generation",
-            label: "Stop Generation",
-            group: "Actions",
-            shortcut: ["Esc"],
-            onSelect: () => {
-              closePalette();
-              stop();
-            },
-          },
-        ]
-      : []),
-    {
-      id: "open-templates",
-      label: "Browse Templates",
-      group: "Actions",
-      shortcut: ["⌘", "T"],
-      onSelect: () => {
-        closePalette();
-        openGallery();
-      },
-    },
-    ...(displaySpec
-      ? [
-          {
-            id: "export-spec",
-            label: "Download Spec as JSON",
-            group: "Export",
-            onSelect: () => {
-              closePalette();
-              downloadJson(displaySpec);
-            },
-          },
-          {
-            id: "copy-spec-json",
-            label: "Copy Spec JSON",
-            group: "Export",
-            onSelect: () => {
-              closePalette();
-              void copy(JSON.stringify(displaySpec, null, 2));
-            },
-          },
-        ]
-      : []),
-    {
-      id: "toggle-history",
-      label: "Toggle History Panel",
-      group: "Panels",
-      shortcut: ["⌘", "1"],
-      onSelect: () => {
-        closePalette();
-        toggleHistory();
-      },
-    },
-    {
-      id: "toggle-inspector",
-      label: "Toggle JSON Inspector",
-      group: "Panels",
-      shortcut: ["⌘", "2"],
-      onSelect: () => {
-        closePalette();
-        toggleInspector();
-      },
-    },
-    {
-      id: "keyboard-shortcuts",
-      label: "Keyboard Shortcuts",
-      group: "Settings",
-      shortcut: ["?"],
-      onSelect: () => {
-        closePalette();
-        openShortcuts();
-      },
-    },
-    {
-      id: "toggle-theme",
-      label: "Toggle Theme",
-      group: "Settings",
-      onSelect: () => {
-        closePalette();
-        toggleTheme();
-      },
-    },
-    {
-      id: "sign-out",
-      label: "Sign Out",
-      group: "Settings",
-      onSelect: () => {
-        closePalette();
-        onSignOut();
-      },
-    },
-  ];
+  // Command palette items are built by the pure buildPlaygroundCommandItems
+  // helper (in usePlayground): it takes this body's session-derived state and
+  // shell panel controls and returns the item array.
+  const commandItems = buildPlaygroundCommandItems({
+    isStreaming,
+    displaySpec,
+    reset,
+    toggleFullscreen,
+    stop,
+    openGallery,
+    openShortcuts,
+    copy,
+    toggleTheme,
+    onSignOut,
+    closePalette,
+    toggleHistory,
+    toggleInspector,
+  });
 
   // Build layout data attributes for CSS-driven responsive grid
   const layoutClassName = isFullscreen ? styles.layoutFullscreen : styles.layout;

@@ -1201,6 +1201,20 @@
       }
     </item>
   </file>
+  <file path="apps/gen/src/hooks/usePlayground.ts">
+    <item priority="low">
+      interface UsePlaygroundResult {
+        session: PlaygroundSession;
+        toggleTheme: () => void;
+        onSignOut: () => void;
+        onLogoClick: () => void;
+        onTemplatesOpen: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function usePlayground(): UsePlaygroundResult { /* ... */ }
+    </item>
+  </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
     <item priority="low">
       interface SaveSpecData {
