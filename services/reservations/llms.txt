@@ -95,8 +95,8 @@
         data: T;
       }
     </item>
-    <item priority="low">
-      async function requireAdmin(request: FastifyRequest, reply: FastifyReply) { /* ... */ }
+    <item priority="high">
+      export const depositRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/events.ts">
@@ -261,6 +261,14 @@
   <file path="src/routes/tables.ts">
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/venue-access.ts">
+    <item priority="high">
+      export const venueIdFromQuery: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export const venueIdFromBody: VenueIdResolver;
     </item>
   </file>
   <file path="src/routes/venues.ts">
@@ -731,6 +739,13 @@
     </item>
     <item priority="high">
       export const tableService: unknown;
+    </item>
+  </file>
+  <file path="src/services/venue-membership.ts">
+    <item priority="high">
+      export function createVenueMembershipLookup(
+        client: PrismaClient = prisma
+      ): VenueMembershipLookup { /* ... */ }
     </item>
   </file>
   <file path="src/services/venue.ts">

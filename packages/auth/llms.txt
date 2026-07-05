@@ -1,5 +1,15 @@
 <codebase path="packages/auth">
   <section priority="medium" role="fastify">
+  <file path="src/fastify/authz.ts">
+    <item priority="high">
+      export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueIdResolver = (
+        request: FastifyRequest
+      ) => string | null | undefine...;
+    </item>
+  </file>
   <file path="src/fastify/ownership.ts">
     <item priority="low">
       interface AuthorizationContext {
