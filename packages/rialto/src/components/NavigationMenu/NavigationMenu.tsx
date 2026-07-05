@@ -2,6 +2,7 @@ import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttribut
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { cn } from "../../utils/class-composer";
+import { useDismiss } from "../../hooks/useDismiss";
 import styles from "./NavigationMenu.module.css";
 
 /**
@@ -195,18 +196,10 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
   ({ items, className, ...props }, ref) => {
     const [openId, setOpenId] = useState<string | null>(null);
 
-    // Close on outside click
     const navRef = useRef<HTMLElement>(null);
-    useEffect(() => {
-      if (!openId) return;
-      const handler = (e: MouseEvent) => {
-        if (navRef.current && !navRef.current.contains(e.target as Node)) {
-          setOpenId(null);
-        }
-      };
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
-    }, [openId]);
+    const closeAll = useCallback(() => setOpenId(null), []);
+
+    useDismiss(navRef, closeAll, { enabled: openId !== null });
 
     return (
       <nav
@@ -225,7 +218,7 @@ export const NavigationMenu = forwardRef<HTMLElement, NavigationMenuProps>(
             item={item}
             openId={openId}
             onOpen={(label) => setOpenId(label)}
-            onClose={() => setOpenId(null)}
+            onClose={closeAll}
           />
         ))}
       </nav>

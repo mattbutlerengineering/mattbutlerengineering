@@ -4283,6 +4283,31 @@
       return dir;
     }
   </file>
+  <file path="packages/rialto/src/hooks/useDismiss.ts">
+    export interface UseDismissOptions {
+      /** Whether the outside-press listener is active (typically the overlay's open state). */
+      enabled: boolean;
+    }
+    export function useDismiss<T extends HTMLElement>(
+      ref: RefObject<T | null>,
+      onClose: () => void,
+      { enabled }: UseDismissOptions
+    ): void {
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const handleMouseDown = (e: MouseEvent) => {
+          const el = ref.current;
+          if (el && !el.contains(e.target as Node)) {
+            onClose();
+          }
+        };
+    
+        document.addEventListener("mousedown", handleMouseDown);
+        return () => document.removeEventListener("mousedown", handleMouseDown);
+      }, [enabled, onClose, ref]);
+    }
+  </file>
   <file path="packages/rialto/src/hooks/useEscapeKey.ts">
     export function useEscapeKey(onClose: () => void, enabled: boolean): void {
       useEffect(() => {
@@ -4351,6 +4376,52 @@
         document.addEventListener("keydown", trap);
         return () => document.removeEventListener("keydown", trap);
       }, [enabled, panelRef]);
+    }
+  </file>
+  <file path="packages/rialto/src/hooks/usePointerActivation.ts">
+    export interface UsePointerActivationResult {
+      /** Whether the pointer has moved past the threshold since the last (re)baseline. */
+      hasPointerMoved: () => boolean;
+      /** Clears movement state and re-baselines — call when keyboard navigation takes over. */
+      resetPointerMovement: () => void;
+    }
+    export function usePointerActivation(
+      enabled: boolean,
+      threshold: number = DEFAULT_THRESHOLD
+    ): UsePointerActivationResult {
+      const movedRef = useRef(false);
+      const baselineRef = useRef<{ x: number; y: number } | null>(null);
+    
+      useEffect(() => {
+        movedRef.current = false;
+        baselineRef.current = null;
+        if (!enabled) return;
+    
+        const handleMouseMove = (e: MouseEvent) => {
+          const baseline = baselineRef.current;
+          if (baseline === null) {
+            baselineRef.current = { x: e.clientX, y: e.clientY };
+            return;
+          }
+          if (movedRef.current) return;
+          const dx = e.clientX - baseline.x;
+          const dy = e.clientY - baseline.y;
+          if (dx * dx + dy * dy >= threshold * threshold) {
+            movedRef.current = true;
+          }
+        };
+    
+        document.addEventListener("mousemove", handleMouseMove);
+        return () => document.removeEventListener("mousemove", handleMouseMove);
+      }, [enabled, threshold]);
+    
+      const hasPointerMoved = useCallback(() => movedRef.current, []);
+      const resetPointerMovement = useCallback(() => {
+        movedRef.current = false;
+        baselineRef.current = null;
+      }, []);
+    
+      return { hasPointerMoved, resetPointerMovement };
     }
   </file>
   <file path="packages/rialto/src/hooks/useReturnFocus.ts">
