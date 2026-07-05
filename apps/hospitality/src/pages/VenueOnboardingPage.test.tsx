@@ -466,7 +466,7 @@ describe("VenueOnboardingPage", () => {
     expect(payload.currencyCode).toBe("USD");
   });
 
-  it("should show toast and redirect to /setup after venue creation", async () => {
+  it("should show toast and redirect to the new venue's dashboard after venue creation", async () => {
     mockCreate.mockResolvedValueOnce({ id: "venue-456", name: "My Venue" });
 
     renderPage();
@@ -496,7 +496,7 @@ describe("VenueOnboardingPage", () => {
         variant: "success",
       })
     );
-    expect(mockNavigate).toHaveBeenCalledWith("/setup", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
   });
 
   it("should show error when API call fails", async () => {

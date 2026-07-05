@@ -53,11 +53,11 @@ export function VenueOnboardingPage() {
       await refetchVenues();
       toast({
         title: "Venue created",
-        description: `"${data.basicInfo.name.trim()}" is ready for setup`,
+        description: `"${data.basicInfo.name.trim()}" is ready — finish setup to start taking reservations`,
         variant: "success",
         duration: 5000,
       });
-      navigate("/setup", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch {
       // submitError is already populated on the wizard by actions.submit()
     }

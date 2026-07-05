@@ -99,6 +99,7 @@ describe("DashboardLayout", () => {
               <Route path="reservations" element={<div>Reservations Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="onboarding" element={<div>Onboarding Content</div>} />
+              <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
             </Route>
           </Routes>
@@ -140,6 +141,21 @@ describe("DashboardLayout", () => {
     } as any);
     renderLayout("/timeline");
     expect(screen.getByText("Setup Content")).toBeDefined();
+  });
+
+  it("allows the dashboard as the post-onboarding landing when status is setup", () => {
+    // A freshly-onboarded venue (basics + operating hours, no floor plan yet)
+    // is in "setup" status. The dashboard is NOT operational-only, so it must
+    // render as the landing page rather than bouncing to /setup or /onboarding.
+    const setupReadiness: VenueReadiness = {
+      status: "setup",
+      completedSteps: ["onboarding", "operating-hours"],
+      nextStep: "floor-plan",
+      progress: 66,
+    };
+    vi.mocked(useVenueReadiness).mockReturnValue(setupReadiness);
+    renderLayout("/dashboard");
+    expect(screen.getByText("Dashboard Content")).toBeDefined();
   });
 
   it("allows operational pages when status is operational", () => {
