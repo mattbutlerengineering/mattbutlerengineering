@@ -1,8 +1,20 @@
 import type { FastifyPluginAsync } from "fastify";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
+import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
+
+/**
+ * Resolves the venue owning a waitlist entry addressed by `:id`, scoping by-id
+ * actions to that venue. Null when the entry does not exist (→ 403).
+ */
+const resolveWaitlistVenueId: VenueIdResolver = async (request) => {
+  const params = request.params as { id?: unknown };
+  if (typeof params.id !== "string") return null;
+  const entry = await waitlistService.getById(params.id);
+  return entry?.venueId ?? null;
+};
 
 /** Shared schema for a WaitlistEntry response object */
 const WaitlistEntrySchema = {
@@ -39,7 +51,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Add to waitlist",
         operationId: "createWaitlistEntry",
@@ -98,7 +110,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "List waitlist entries",
         operationId: "listWaitlistEntries",
@@ -133,7 +145,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
       schema: {
         summary: "Get waitlist entry",
         operationId: "getWaitlistEntry",
@@ -169,7 +181,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/notify",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
       schema: {
         summary: "Notify guest table is ready",
         operationId: "notifyWaitlistEntry",
@@ -212,7 +224,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/seat",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
       schema: {
         summary: "Mark guest as seated",
         operationId: "seatWaitlistEntry",
@@ -248,7 +260,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/cancel",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
       schema: {
         summary: "Cancel waitlist entry",
         operationId: "cancelWaitlistEntry",
@@ -284,7 +296,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/expire",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
       schema: {
         summary: "Mark waitlist entry as expired",
         operationId: "expireWaitlistEntry",

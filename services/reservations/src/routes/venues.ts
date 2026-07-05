@@ -11,9 +11,18 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { venueService, venueGroupService } from "../services/venue.js";
+
+/**
+ * Reads a venue's own id from the `:id` route param, so requireVenueAccess can
+ * scope venue self-management (update) to that venue's members.
+ */
+const venueIdFromRouteId: VenueIdResolver = (request) => {
+  const params = request.params as { id?: unknown };
+  return typeof params.id === "string" ? params.id : null;
+};
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // ============ VENUE GROUP ROUTES ============
@@ -25,7 +34,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "List all venue groups",
         operationId: "listVenueGroups",
@@ -71,7 +80,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Get venue group by ID",
         operationId: "getVenueGroupById",
@@ -120,7 +129,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Create a new venue group",
         operationId: "createVenueGroup",
@@ -194,7 +203,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Update a venue group",
         operationId: "updateVenueGroup",
@@ -257,7 +266,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/groups/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Delete a venue group",
         operationId: "deleteVenueGroup",
@@ -457,7 +466,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Create a new venue",
         operationId: "createVenue",
@@ -544,7 +553,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
       schema: {
         summary: "Update a venue",
         operationId: "updateVenue",
@@ -609,7 +618,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "Delete a venue",
         operationId: "deleteVenue",

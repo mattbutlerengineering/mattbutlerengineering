@@ -25,6 +25,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-017](ADR-017-agent-execution-architecture.md) | Agent Execution Architecture                         | active                  | 2026-06-30 |
 | [ADR-018](ADR-018-learning-loop-architecture.md)   | Continuous-Improvement / Learning-Loop Architecture  | active                  | 2026-06-30 |
 | [ADR-019](ADR-019-in-process-jobworker-delivery.md) | In-Process JobWorker Delivery                       | active                  | 2026-07-04 |
+| [ADR-020](ADR-020-hybrid-role-venue-authorization.md) | Hybrid Role/Venue Authorization                     | active                  | 2026-07-05 |
 
 ## Format
 

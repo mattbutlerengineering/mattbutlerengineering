@@ -8,9 +8,22 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { tableService, TableTransitionError } from "../services/table.js";
+import { venueIdFromBody } from "./venue-access.js";
+
+/**
+ * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
+ * to that venue. Null when the table does not exist or is unassigned (→ 403 for
+ * non-admins; platform admins bypass the check).
+ */
+const resolveTableVenueId: VenueIdResolver = async (request) => {
+  const params = request.params as { id?: unknown };
+  if (typeof params.id !== "string") return null;
+  const table = await tableService.getById(params.id);
+  return table?.venueId ?? null;
+};
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // List tables
@@ -20,7 +33,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "List all tables",
         operationId: "listTables",
@@ -74,7 +87,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
       schema: {
         summary: "Get table by ID",
         operationId: "getTableById",
@@ -127,7 +140,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Create a new table",
         operationId: "createTable",
@@ -206,7 +219,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
       schema: {
         summary: "Update a table",
         operationId: "updateTable",
@@ -289,7 +302,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/status",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
       schema: {
         summary: "Update table status",
         operationId: "updateTableStatus",
@@ -373,7 +386,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
       schema: {
         summary: "Delete a table",
         operationId: "deleteTable",

@@ -75,6 +75,12 @@ enum EmailStatus {
   FAILED
 }
 
+enum VenueRole {
+  owner
+  manager
+  staff
+}
+
 model VenueGroup {
   id        String   @id @default(cuid())
   name      String
@@ -108,6 +114,7 @@ model Venue {
   guests                    Guest[]
   floorPlans                FloorPlan[]
   holds                     ReservationHold[]
+  memberships               VenueMembership[]
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
 
@@ -290,4 +297,22 @@ model ReservationHold {
   @@index([expiresAt])
   @@index([sessionId])
   @@map("reservation_holds")
+}
+
+/// Fine-grained operator ↔ venue authorization (ADR-020). Keyed to the Auth0
+/// `sub`; queried per request by requireVenueAccess so a revoked membership
+/// denies access immediately, without waiting for a JWT refresh.
+model VenueMembership {
+  id        String    @id @default(cuid())
+  userSub   String    @map("user_sub")
+  venueId   String    @map("venue_id")
+  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  role      VenueRole @default(staff)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([userSub, venueId])
+  @@index([userSub])
+  @@index([venueId])
+  @@map("venue_memberships")
 }
