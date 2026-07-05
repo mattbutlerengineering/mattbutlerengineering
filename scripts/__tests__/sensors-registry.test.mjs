@@ -16,7 +16,10 @@ import {
   readTunables,
   getTunableSensorDefaults,
   readQueueEfficiencyPrs,
+  buildE2eRuns,
+  resolveRunChangedPaths,
 } from "../sensors-registry.mjs";
+import { computeE2eStability } from "../collect-e2e-stability.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -314,7 +317,13 @@ describe("sensors-registry", () => {
               conclusion: "success",
               createdAt: "2026-06-01T00:00:00Z",
               headBranch: "main",
-              headSha: "abc123",
+              // HEAD is a real, locally-resolvable commit, so this run flows
+              // through git path-resolution rather than being skipped as an
+              // unresolvable SHA (#3172). Availability then depends on whether
+              // HEAD touched the frontend, so the assertions below check that
+              // the injected client was used and the result is well-formed —
+              // the skip/classification behaviour is covered in the #3172 block.
+              headSha: "HEAD",
             },
           ]),
         },
@@ -329,7 +338,7 @@ describe("sensors-registry", () => {
         "--json",
         "conclusion,createdAt,headBranch,headSha",
       ]);
-      expect(result.available).toBe(true);
+      expect(typeof result.available).toBe("boolean");
     });
 
     it("e2eStability reports unavailable when ghClient.workflow.runs throws", () => {
@@ -540,6 +549,106 @@ describe("sensors-registry", () => {
         expect(thresholds.code_churn_rate_max).toBe(0.3);
         expect(thresholds.queue_efficiency_composite_drop).toBe(0.05);
       });
+    });
+  });
+
+  describe("e2eStability tolerates unresolvable git commit SHAs (#3172)", () => {
+    // CI-run head SHAs come from the GitHub API; a stale local `main` or a
+    // squash-merged-and-deleted branch leaves them absent from the local git
+    // object store. Previously `git show <sha>` spewed `fatal: bad object` per
+    // miss (inherited stderr) and the unresolvable run was silently kept with
+    // empty changed-paths — misclassifying it as non-frontend. The collector
+    // must instead skip unresolvable runs, tally them, and never throw.
+
+    const ghRuns = [
+      {
+        headSha: "1111111111111111111111111111111111111111",
+        conclusion: "success",
+        headBranch: "main",
+        createdAt: "2026-07-02T00:00:00Z",
+      },
+      {
+        headSha: "2222222222222222222222222222222222222222",
+        conclusion: "failure",
+        headBranch: "feat/agent-x",
+        createdAt: "2026-07-01T00:00:00Z",
+      },
+    ];
+
+    it("buildE2eRuns skips a run whose SHA does not resolve and tallies it", () => {
+      // Second SHA is unresolvable (resolver returns null) — squash-deleted branch.
+      const resolveSecondAsMissing = (sha) =>
+        sha === ghRuns[1].headSha ? null : ["services/agent/src/index.ts"];
+
+      const { runs, unresolved } = buildE2eRuns(ghRuns, resolveSecondAsMissing);
+
+      expect(unresolved).toBe(1);
+      expect(runs).toEqual([
+        {
+          sha: ghRuns[0].headSha,
+          conclusion: "success",
+          changedPaths: ["services/agent/src/index.ts"],
+          headRefName: "main",
+          createdAt: "2026-07-02T00:00:00Z",
+        },
+      ]);
+    });
+
+    it("buildE2eRuns never throws when every SHA is unresolvable", () => {
+      let result;
+      expect(() => {
+        result = buildE2eRuns(ghRuns, () => null);
+      }).not.toThrow();
+      expect(result).toEqual({ runs: [], unresolved: 2 });
+    });
+
+    it("buildE2eRuns leaves metrics unchanged when every SHA resolves", () => {
+      const { runs, unresolved } = buildE2eRuns(ghRuns, () => ["apps/marketing/src/App.tsx"]);
+      expect(unresolved).toBe(0);
+      expect(runs).toHaveLength(2);
+    });
+
+    it("skips a run with no head SHA rather than resolving undefined", () => {
+      const { runs, unresolved } = buildE2eRuns(
+        [{ conclusion: "failure", headBranch: "x", createdAt: "2026-07-01T00:00:00Z" }],
+        () => ["a.ts"]
+      );
+      expect(unresolved).toBe(1);
+      expect(runs).toHaveLength(0);
+    });
+
+    it("computeE2eStability consumes the resolvable subset without throwing", () => {
+      // End-to-end: one unresolvable SHA is dropped, the report is computed from
+      // the resolvable commit only — no throw, valid available result.
+      const { runs } = buildE2eRuns(ghRuns, (sha) =>
+        sha === ghRuns[1].headSha ? null : ["services/agent/src/index.ts"]
+      );
+      const result = computeE2eStability(runs);
+      expect(result.available).toBe(true);
+      expect(result.total_runs).toBe(1);
+    });
+
+    it("resolveRunChangedPaths returns null (no throw, no stderr spew) for a bad object", () => {
+      const repoRoot = resolve(__dirname, "..", "..");
+      const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+      try {
+        const result = resolveRunChangedPaths(
+          "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+          repoRoot
+        );
+        expect(result).toBeNull();
+        const spewed = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+        expect(spewed).not.toContain("bad object");
+      } finally {
+        stderrSpy.mockRestore();
+      }
+    });
+
+    it("resolveRunChangedPaths returns an array for a resolvable commit (HEAD)", () => {
+      const repoRoot = resolve(__dirname, "..", "..");
+      const result = resolveRunChangedPaths("HEAD", repoRoot);
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result)).toBe(true);
     });
   });
 });
