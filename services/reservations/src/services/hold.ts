@@ -9,6 +9,7 @@ import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { estimateDuration } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
+import { bookSlot } from "./book-slot.js";
 
 // Default hold duration in minutes
 const DEFAULT_HOLD_DURATION = 10;
@@ -97,67 +98,41 @@ export const holdService = {
       }
     }
 
-    // Wrap conflict re-check + hold creation in a transaction to prevent
-    // concurrent requests from both passing the check
-    const txResult = await prisma.$transaction(async (tx) => {
-      // Re-check for conflicting reservations inside the transaction
-      const conflictingReservation = await tx.reservation.findFirst({
-        where: {
-          tableId: selectedTableId,
-          date: new Date(date),
-          status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-        },
-        select: { id: true },
-      });
-
-      if (conflictingReservation) {
-        return { conflict: true as const };
-      }
-
-      // Re-check for conflicting holds inside the transaction
-      const conflictingHold = await tx.reservationHold.findFirst({
-        where: {
-          tableId: selectedTableId,
-          date: new Date(date),
-          expiresAt: { gt: new Date() },
-          sessionId: { not: sessionId }, // Don't conflict with own session
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-        },
-        select: { id: true },
-      });
-
-      if (conflictingHold) {
-        return { conflict: true as const };
-      }
-
-      // Release any existing holds for this session at this venue
-      await tx.reservationHold.deleteMany({
-        where: { sessionId, venueId },
-      });
-
-      // Create the hold
-      const hold = await tx.reservationHold.create({
-        data: {
-          venueId,
-          tableId: selectedTableId,
-          date: new Date(date),
-          startTime,
-          endTime,
-          partySize,
-          sessionId,
-          expiresAt,
-        },
-      });
-
-      return { conflict: false as const, hold };
+    // Route the hold write through the shared bookSlot seam so it acquires the
+    // per-table advisory lock and re-checks conflicting reservations + holds
+    // before inserting — the same double-booking invariant as every other slot
+    // write. Excludes the caller's own session so a re-hold isn't a conflict.
+    const result = await bookSlot({
+      tableId: selectedTableId,
+      venueId,
+      date: new Date(date),
+      window: { startTime, endTime },
+      partySize,
+      excludeSessionId: sessionId,
+      checkHoldConflict: true,
+      write: async (tx) => {
+        // Release any existing holds for this session at this venue, then create.
+        await tx.reservationHold.deleteMany({ where: { sessionId, venueId } });
+        return tx.reservationHold.create({
+          data: {
+            venueId,
+            tableId: selectedTableId,
+            date: new Date(date),
+            startTime,
+            endTime,
+            partySize,
+            sessionId,
+            expiresAt,
+          },
+        });
+      },
     });
 
-    if (txResult.conflict) {
+    if (!result.ok) {
       return { success: false, error: "Table is not available for this time slot" };
     }
 
-    return { success: true, hold: mapPrismaHold(txResult.hold) };
+    return { success: true, hold: mapPrismaHold(result.value) };
   },
 
   /**

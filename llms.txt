@@ -2637,6 +2637,14 @@
       function parseTimeToMinutes(time: string): number { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/book-slot.ts">
+    <item priority="high">
+      export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
+    </item>
+    <item priority="low">
+      type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+    </item>
+  </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
     <item priority="medium">
       function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
@@ -2669,8 +2677,13 @@
     <item priority="high">
       type ConfirmHoldErrorCode = "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     </item>
-    <item priority="high">
-      export function tableAdvisoryLockSql(tableId: string): Prisma.Sql { /* ... */ }
+    <item priority="low">
+      interface ConfirmHoldInput {
+        holdId: string;
+        sessionId?: string;
+        guestDetails: ConfirmHoldRequest;
+        userId?: string;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/database.ts">
