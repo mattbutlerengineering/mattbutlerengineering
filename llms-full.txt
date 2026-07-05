@@ -700,11 +700,6 @@
           loadSourceFiles: vi.fn().mockResolvedValue([]),
           loadProjectContext: vi.fn().mockResolvedValue(null),
         },
-        failureMemory: {
-          loadMemory: vi.fn().mockResolvedValue({ records: [] }),
-          queryPastFailures: vi.fn().mockReturnValue([]),
-          buildFailureContext: vi.fn().mockReturnValue(""),
-        },
         queryRunner: {
           runHardenedQuery: vi.fn().mockResolvedValue({
             resultMessage: null,
@@ -713,17 +708,6 @@
             rawToolCallMetrics: [],
             errorMessage: null,
             contextMetrics: null,
-          }),
-        },
-        successEvaluator: {
-          getGitDiff: vi.fn().mockResolvedValue("diff --git a/file.ts\n+change"),
-        },
-        gateway: {
-          runPostCommitGateway: vi.fn().mockResolvedValue({
-            outcome: "create-pr",
-            passed: true,
-            gateFailures: [],
-            errors: [],
           }),
         },
         prCreator: {
@@ -1053,7 +1037,7 @@
       deps: PhaseDeps = createDefaultPhaseDeps(),
       _signal?: AbortSignal
     ): Promise<SessionResult> {
-      const { worktreeManager, successEvaluator, gateway, prCreator } = deps;
+      const { worktreeManager, prCreator } = deps;
     
       emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
       const { value: worktree } = await withRetry(
@@ -1087,8 +1071,8 @@
     
         let gatewayVerdict: GatewayVerdict | undefined;
         if (adapterResult.success) {
-          const diff = await successEvaluator.getGitDiff(worktree.path);
-          gatewayVerdict = await gateway.runPostCommitGateway(
+          const diff = await getGitDiff(worktree.path);
+          gatewayVerdict = await runPostCommitGateway(
             {
               worktreePath: worktree.path,
               diff,
@@ -4573,19 +4557,8 @@
           loadSourceFiles,
           loadProjectContext,
         },
-        failureMemory: {
-          loadMemory,
-          queryPastFailures,
-          buildFailureContext,
-        },
         queryRunner: {
           runHardenedQuery,
-        },
-        successEvaluator: {
-          getGitDiff,
-        },
-        gateway: {
-          runPostCommitGateway,
         },
         prCreator: {
           createPullRequest,
@@ -4852,7 +4825,7 @@
         deps: PhaseDeps
       ): Promise<PhaseExecution<VerificationPhaseOutput>> {
         const { config, onEvent, worktree, resultMessage, stuckReason } = input;
-        const { worktreeManager, successEvaluator, gateway } = deps;
+        const { worktreeManager } = deps;
     
         const changed = await worktreeManager.hasChanges(worktree.path);
     
@@ -4886,8 +4859,8 @@
         let gatewayEvaluation: EvaluationResult | undefined;
     
         if (isSuccess) {
-          const diff = await successEvaluator.getGitDiff(worktree.path);
-          gatewayVerdict = await gateway.runPostCommitGateway(
+          const diff = await getGitDiff(worktree.path);
+          gatewayVerdict = await runPostCommitGateway(
             {
               worktreePath: worktree.path,
               diff,
@@ -4926,7 +4899,7 @@
         deps: PhaseDeps
       ): Promise<PhaseExecution<WorktreePhaseOutput>> {
         const { config, onEvent } = input;
-        const { worktreeManager, promptBuilder, failureMemory } = deps;
+        const { worktreeManager, promptBuilder } = deps;
     
         // Classify the task once so downstream consumers reuse the result instead
         // of re-scanning the description.
@@ -4951,9 +4924,9 @@
           wtSpan.end();
     
           // 2. Build system prompt with failure context, source files, and PR examples
-          const memory = await failureMemory.loadMemory(config.repoPath);
-          const pastFailures = failureMemory.queryPastFailures(memory, config.taskDescription);
-          const failureContext = failureMemory.buildFailureContext(pastFailures);
+          const memory = await loadMemory(config.repoPath);
+          const pastFailures = queryPastFailures(memory, config.taskDescription);
+          const failureContext = buildFailureContext(pastFailures);
     
           // Auto-resolve source files from task description if none provided
           const resolvedSourcePaths =

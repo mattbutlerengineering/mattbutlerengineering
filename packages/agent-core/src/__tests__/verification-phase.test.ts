@@ -5,8 +5,10 @@ import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
 //
-// Only retry (skip delays) is module-mocked; all collaborators are
-// injected via `PhaseDeps`.
+// retry (skip delays) plus VerificationPhase's private collaborators —
+// git-diff (success-evaluator) and the post-commit gateway — are module-
+// mocked with `vi.mock` (#3120); worktree-manager stays injected via
+// `PhaseDeps`.
 
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
@@ -19,9 +21,21 @@ vi.mock("../retry.js", async () => {
   };
 });
 
+vi.mock("../success-evaluator.js", async () => {
+  const actual = (await vi.importActual("../success-evaluator.js")) as Record<string, unknown>;
+  return { ...actual, getGitDiff: vi.fn() };
+});
+
+vi.mock("../post-commit-gateway.js", async () => {
+  const actual = (await vi.importActual("../post-commit-gateway.js")) as Record<string, unknown>;
+  return { ...actual, runPostCommitGateway: vi.fn() };
+});
+
 // ── Imports (after mocks) ───────────────────────────────────────────
 
 import { VerificationPhase } from "../phases/verification-phase.js";
+import { getGitDiff } from "../success-evaluator.js";
+import { runPostCommitGateway } from "../post-commit-gateway.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -83,6 +97,13 @@ describe("VerificationPhase", () => {
     vi.clearAllMocks();
     deps = makeFakePhaseDeps();
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
   });
 
   it("has name 'verification'", () => {
@@ -127,12 +148,12 @@ describe("VerificationPhase", () => {
 
     // Should still commit/push, but not run gateway
     expect(deps.worktreeManager.commitChanges).toHaveBeenCalled();
-    expect(deps.gateway.runPostCommitGateway).not.toHaveBeenCalled();
+    expect(runPostCommitGateway).not.toHaveBeenCalled();
     expect(output?.gatewayVerdict).toBeUndefined();
   });
 
   it("collects gateway errors into the phase result", async () => {
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
@@ -148,7 +169,7 @@ describe("VerificationPhase", () => {
   it("caches git diff (only calls getGitDiff once)", async () => {
     await phase.run(makeInput(), deps);
 
-    expect(deps.successEvaluator.getGitDiff).toHaveBeenCalledTimes(1);
+    expect(getGitDiff).toHaveBeenCalledTimes(1);
   });
 
   it("emits 'no changes' event when nothing changed", async () => {

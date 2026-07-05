@@ -2,6 +2,7 @@ import { trace } from "@opentelemetry/api";
 import { withRetry } from "../retry.js";
 import { emitEvent } from "../utils.js";
 import { classifyTask } from "../task-signal-registry.js";
+import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import type {
   Phase,
   PhaseDeps,
@@ -20,7 +21,7 @@ export class WorktreePhase implements Phase<WorktreePhaseInput, WorktreePhaseOut
     deps: PhaseDeps
   ): Promise<PhaseExecution<WorktreePhaseOutput>> {
     const { config, onEvent } = input;
-    const { worktreeManager, promptBuilder, failureMemory } = deps;
+    const { worktreeManager, promptBuilder } = deps;
 
     // Classify the task once so downstream consumers reuse the result instead
     // of re-scanning the description.
@@ -45,9 +46,9 @@ export class WorktreePhase implements Phase<WorktreePhaseInput, WorktreePhaseOut
       wtSpan.end();
 
       // 2. Build system prompt with failure context, source files, and PR examples
-      const memory = await failureMemory.loadMemory(config.repoPath);
-      const pastFailures = failureMemory.queryPastFailures(memory, config.taskDescription);
-      const failureContext = failureMemory.buildFailureContext(pastFailures);
+      const memory = await loadMemory(config.repoPath);
+      const pastFailures = queryPastFailures(memory, config.taskDescription);
+      const failureContext = buildFailureContext(pastFailures);
 
       // Auto-resolve source files from task description if none provided
       const resolvedSourcePaths =

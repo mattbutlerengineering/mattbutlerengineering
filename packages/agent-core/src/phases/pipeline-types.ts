@@ -11,7 +11,7 @@ import type {
 import type { StuckPattern } from "../stuck-detector.js";
 import type { ContextMetrics } from "../context-budget.js";
 import type { EvaluationResult } from "../success-evaluator.js";
-import type { GatewayVerdict, PostCommitGatewayInput } from "../post-commit-gateway.js";
+import type { GatewayVerdict } from "../post-commit-gateway.js";
 import type { TaskSignals } from "../task-signal-registry.js";
 import type { HardenedQueryConfig, HardenedQueryResult } from "../run-hardened-query.js";
 import type {
@@ -21,7 +21,6 @@ import type {
 } from "../feedback-loop.js";
 import type { PrFeedbackPort } from "../pr-feedback-port.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
-import type { FailureMemory, FailureRecord } from "../failure-memory.js";
 
 /** Options accepted by `mergeDirectly` (dep-bump fast path). */
 export interface MergeDirectlyOptions {
@@ -43,10 +42,12 @@ export interface PhaseResult {
 
 // ── Injected phase dependencies ─────────────────────────────────────
 //
-// Phases collaborate with the rest of agent-core through these injected
-// interfaces instead of importing module functions directly. This lets
-// tests substitute lightweight fakes for one `PhaseDeps` object rather
-// than `vi.mock`-ing a dozen modules.
+// These are the cross-process / spawn-session collaborators whose real
+// implementation genuinely differs between production and test, so phases
+// receive them injected and tests substitute lightweight fakes for one
+// `PhaseDeps` object. In-implementation phase collaborators (failure
+// memory, git-diff, post-commit gateway) are imported directly inside
+// their owning phase and mocked with `vi.mock` — see ADR-017 (#3120).
 
 export interface WorktreeManagerDeps {
   createWorktree(
@@ -67,28 +68,11 @@ export interface PromptBuilderDeps {
   loadProjectContext(repoPath: string): Promise<string | null>;
 }
 
-export interface FailureMemoryDeps {
-  loadMemory(repoPath: string): Promise<FailureMemory>;
-  queryPastFailures(memory: FailureMemory, taskDescription: string): readonly FailureRecord[];
-  buildFailureContext(failures: readonly FailureRecord[]): string;
-}
-
 export interface QueryRunnerDeps {
   runHardenedQuery(
     config: HardenedQueryConfig,
     onEvent?: SessionEventCallback
   ): Promise<HardenedQueryResult>;
-}
-
-export interface SuccessEvaluatorDeps {
-  getGitDiff(worktreePath: string): Promise<string>;
-}
-
-export interface GatewayDeps {
-  runPostCommitGateway(
-    input: PostCommitGatewayInput,
-    onEvent?: SessionEventCallback
-  ): Promise<GatewayVerdict>;
 }
 
 export interface PrCreatorDeps {
@@ -125,10 +109,7 @@ export interface FeedbackLoopDeps {
 export interface PhaseDeps {
   readonly worktreeManager: WorktreeManagerDeps;
   readonly promptBuilder: PromptBuilderDeps;
-  readonly failureMemory: FailureMemoryDeps;
   readonly queryRunner: QueryRunnerDeps;
-  readonly successEvaluator: SuccessEvaluatorDeps;
-  readonly gateway: GatewayDeps;
   readonly prCreator: PrCreatorDeps;
   readonly feedbackLoop: FeedbackLoopDeps;
 }

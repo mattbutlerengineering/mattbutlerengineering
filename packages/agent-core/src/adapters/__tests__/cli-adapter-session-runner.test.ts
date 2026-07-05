@@ -5,10 +5,22 @@ import type { PhaseDeps } from "../../phases/index.js";
 import { makeFakePhaseDeps } from "../../__tests__/fake-phase-deps.js";
 import { recordSpend } from "../../spend-recorder.js";
 import { runCliAdapterSession } from "../cli-adapter-session-runner.js";
+import { getGitDiff } from "../../success-evaluator.js";
+import { runPostCommitGateway } from "../../post-commit-gateway.js";
 
 vi.mock("../../spend-recorder.js", () => ({
   recordSpend: vi.fn(),
 }));
+
+vi.mock("../../success-evaluator.js", async () => {
+  const actual = (await vi.importActual("../../success-evaluator.js")) as Record<string, unknown>;
+  return { ...actual, getGitDiff: vi.fn() };
+});
+
+vi.mock("../../post-commit-gateway.js", async () => {
+  const actual = (await vi.importActual("../../post-commit-gateway.js")) as Record<string, unknown>;
+  return { ...actual, runPostCommitGateway: vi.fn() };
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -55,6 +67,13 @@ describe("runCliAdapterSession", () => {
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     });
+    vi.mocked(getGitDiff).mockReset().mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(runPostCommitGateway).mockReset().mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
   });
 
   it("creates a worktree and dispatches the CLI subprocess run inside it", async () => {
@@ -82,7 +101,7 @@ describe("runCliAdapterSession", () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: false, success: true });
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
-    expect(deps.gateway.runPostCommitGateway).not.toHaveBeenCalled();
+    expect(runPostCommitGateway).not.toHaveBeenCalled();
     expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBeNull();
@@ -91,7 +110,7 @@ describe("runCliAdapterSession", () => {
 
   it("runs the full GateRunner suite and creates a non-draft PR when the adapter succeeds and gates pass", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
       gateFailures: [],
@@ -105,7 +124,7 @@ describe("runCliAdapterSession", () => {
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
     expect(deps.worktreeManager.pushBranch).toHaveBeenCalledOnce();
-    expect(deps.gateway.runPostCommitGateway).toHaveBeenCalledOnce();
+    expect(runPostCommitGateway).toHaveBeenCalledOnce();
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ draft: false })
     );
@@ -120,7 +139,7 @@ describe("runCliAdapterSession", () => {
       costUsd: 0.0234,
       tokenUsage: { inputTokens: 900, outputTokens: 210 },
     });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
       gateFailures: [],
@@ -139,7 +158,7 @@ describe("runCliAdapterSession", () => {
 
   it("passes undefined costUsd to buildPrBody when the adapter reports no usage data", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
       gateFailures: [],
@@ -163,7 +182,7 @@ describe("runCliAdapterSession", () => {
       costUsd: 0.0234,
       tokenUsage: { inputTokens: 900, outputTokens: 210 },
     });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
       gateFailures: [],
@@ -187,7 +206,7 @@ describe("runCliAdapterSession", () => {
 
   it("still creates a draft PR when a gate fails, matching the claude path's draft-PR outcome", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
@@ -209,7 +228,7 @@ describe("runCliAdapterSession", () => {
 
   it("merges directly (no PR) when the gateway verdict is a trivial dep bump", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "merge-direct",
       passed: true,
       gateFailures: [],
@@ -239,7 +258,7 @@ describe("runCliAdapterSession", () => {
 
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
-    expect(deps.gateway.runPostCommitGateway).not.toHaveBeenCalled();
+    expect(runPostCommitGateway).not.toHaveBeenCalled();
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ draft: true })
     );

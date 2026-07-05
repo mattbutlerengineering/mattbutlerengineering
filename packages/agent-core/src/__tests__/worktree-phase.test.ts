@@ -7,7 +7,9 @@ import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 //
 // WorktreePhase reaches into a couple of small auxiliary modules via
 // dynamic import (source resolution, PR-example fetching, retry, tracing).
-// Everything else is injected through `PhaseDeps`.
+// Its failure-memory collaborator is a private module import (#3120), so it
+// is `vi.mock`-ed here rather than injected. Everything else is injected
+// through `PhaseDeps`.
 
 vi.mock("../retry.js", async () => {
   const actual = (await vi.importActual("../retry.js")) as Record<string, unknown>;
@@ -34,9 +36,20 @@ vi.mock("@opentelemetry/api", () => ({
   SpanStatusCode: { ERROR: 2 },
 }));
 
+vi.mock("../failure-memory.js", async () => {
+  const actual = (await vi.importActual("../failure-memory.js")) as Record<string, unknown>;
+  return {
+    ...actual,
+    loadMemory: vi.fn(),
+    queryPastFailures: vi.fn(),
+    buildFailureContext: vi.fn(),
+  };
+});
+
 // ── Imports (after mocks) ───────────────────────────────────────────
 
 import { WorktreePhase } from "../phases/worktree-phase.js";
+import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -72,6 +85,9 @@ describe("WorktreePhase", () => {
       mode: "full",
     });
     vi.mocked(deps.promptBuilder.buildSystemPrompt).mockResolvedValue("system prompt");
+    vi.mocked(loadMemory).mockResolvedValue({ records: [] });
+    vi.mocked(queryPastFailures).mockReturnValue([]);
+    vi.mocked(buildFailureContext).mockReturnValue("");
   });
 
   it("has name 'worktree'", () => {
@@ -111,9 +127,9 @@ describe("WorktreePhase", () => {
   it("loads failure memory for context", async () => {
     await phase.run(makeInput(), deps);
 
-    expect(deps.failureMemory.loadMemory).toHaveBeenCalledWith("/repo");
-    expect(deps.failureMemory.queryPastFailures).toHaveBeenCalled();
-    expect(deps.failureMemory.buildFailureContext).toHaveBeenCalled();
+    expect(loadMemory).toHaveBeenCalledWith("/repo");
+    expect(queryPastFailures).toHaveBeenCalled();
+    expect(buildFailureContext).toHaveBeenCalled();
   });
 
   it("emits session:start events", async () => {

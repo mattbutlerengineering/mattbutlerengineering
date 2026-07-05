@@ -6,10 +6,11 @@ import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
 // ── Mocks ───────────────────────────────────────────────────────────
 //
-// Phase collaborators are injected through `PhaseDeps` (no `vi.mock`).
-// Only the three pieces of session-runner *infrastructure* are mocked:
-// Langfuse tracing, the worktree reaper, and retry (to skip backoff
-// delays and assert retry wrapping).
+// Most phase collaborators are injected through `PhaseDeps`. The two
+// in-implementation collaborators demoted to private phase imports (#3120)
+// — git-diff (success-evaluator) and the post-commit gateway — are
+// module-mocked with `vi.mock`. Session-runner *infrastructure* (Langfuse
+// tracing, the worktree reaper, spend recorder, and retry) is also mocked.
 
 vi.mock("@langfuse/tracing", () => ({
   startActiveObservation: vi
@@ -58,6 +59,16 @@ vi.mock("../retry.js", async () => {
   };
 });
 
+vi.mock("../success-evaluator.js", async () => {
+  const actual = (await vi.importActual("../success-evaluator.js")) as Record<string, unknown>;
+  return { ...actual, getGitDiff: vi.fn() };
+});
+
+vi.mock("../post-commit-gateway.js", async () => {
+  const actual = (await vi.importActual("../post-commit-gateway.js")) as Record<string, unknown>;
+  return { ...actual, runPostCommitGateway: vi.fn() };
+});
+
 import { withRetry } from "../retry.js";
 import { scheduleWorktreeReap } from "../worktree-reaper.js";
 import {
@@ -66,6 +77,8 @@ import {
   updateActiveObservation,
 } from "@langfuse/tracing";
 import { runSession } from "../session-runner.js";
+import { getGitDiff } from "../success-evaluator.js";
+import { runPostCommitGateway } from "../post-commit-gateway.js";
 
 const BASE_CONFIG: SessionConfig = {
   taskDescription: "Fix the login bug",
@@ -140,6 +153,13 @@ describe("runSession", () => {
       path: "/repo/.agent-worktrees/agent-fix-bug-abc123",
       branchName: "agent/fix-bug-abc123",
       mode: "full",
+    });
+    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
     });
   });
 
@@ -373,7 +393,7 @@ describe("runSession", () => {
   it("creates draft PR when verification fails", async () => {
     withResult(deps, createMockResultMessage());
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
@@ -682,7 +702,7 @@ describe("runSession", () => {
     await runSession(BASE_CONFIG, undefined, deps);
 
     // getGitDiff should only be called once despite multiple stages using it
-    expect(deps.successEvaluator.getGitDiff).toHaveBeenCalledTimes(1);
+    expect(getGitDiff).toHaveBeenCalledTimes(1);
   });
 
   // ── AbortSignal cancellation (#2853) ────────────────────────────────
@@ -706,7 +726,7 @@ describe("runSession", () => {
       // Simulate cancel() firing while VerificationPhase's gateway call is
       // in flight — the abort should be observed at the next boundary
       // (before PublishPhase), not force-kill this in-flight call.
-      vi.mocked(deps.gateway.runPostCommitGateway).mockImplementation(async () => {
+      vi.mocked(runPostCommitGateway).mockImplementation(async () => {
         controller.abort();
         return { outcome: "create-pr", passed: true, gateFailures: [], errors: [] };
       });
@@ -714,7 +734,7 @@ describe("runSession", () => {
       const result = await runSession(BASE_CONFIG, undefined, deps, controller.signal);
 
       // VerificationPhase's own gateway call still completed naturally.
-      expect(deps.gateway.runPostCommitGateway).toHaveBeenCalled();
+      expect(runPostCommitGateway).toHaveBeenCalled();
       // But PublishPhase (a later phase) never ran.
       expect(deps.prCreator.buildPrTitle).not.toHaveBeenCalled();
       expect(result.status).toBe("failed");
@@ -787,6 +807,13 @@ describe("Langfuse tracing", () => {
       mode: "full",
     });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
   });
 
   it("wraps session with startActiveObservation", async () => {

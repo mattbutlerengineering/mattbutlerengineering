@@ -1,7 +1,7 @@
 import { withRetry } from "../retry.js";
 import { emitEvent, sanitizeForCommitMessage } from "../utils.js";
-import type { GatewayVerdict } from "../post-commit-gateway.js";
-import type { EvaluationResult } from "../success-evaluator.js";
+import { getGitDiff, type EvaluationResult } from "../success-evaluator.js";
+import { runPostCommitGateway, type GatewayVerdict } from "../post-commit-gateway.js";
 import type {
   Phase,
   PhaseDeps,
@@ -18,7 +18,7 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
     deps: PhaseDeps
   ): Promise<PhaseExecution<VerificationPhaseOutput>> {
     const { config, onEvent, worktree, resultMessage, stuckReason } = input;
-    const { worktreeManager, successEvaluator, gateway } = deps;
+    const { worktreeManager } = deps;
 
     const changed = await worktreeManager.hasChanges(worktree.path);
 
@@ -52,8 +52,8 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
     let gatewayEvaluation: EvaluationResult | undefined;
 
     if (isSuccess) {
-      const diff = await successEvaluator.getGitDiff(worktree.path);
-      gatewayVerdict = await gateway.runPostCommitGateway(
+      const diff = await getGitDiff(worktree.path);
+      gatewayVerdict = await runPostCommitGateway(
         {
           worktreePath: worktree.path,
           diff,

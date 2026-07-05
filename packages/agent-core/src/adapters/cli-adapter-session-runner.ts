@@ -16,9 +16,10 @@ import { emitEvent } from "../utils.js";
 import { categorizeFailure } from "../observability.js";
 import { recordSpend } from "../spend-recorder.js";
 import { createDefaultPhaseDeps } from "../phases/default-deps.js";
+import { getGitDiff } from "../success-evaluator.js";
 import type { PhaseDeps, PrCreatorDeps } from "../phases/index.js";
 import type { AgentAdapter } from "../cli-adapter.js";
-import type { GatewayVerdict } from "../post-commit-gateway.js";
+import { runPostCommitGateway, type GatewayVerdict } from "../post-commit-gateway.js";
 import type {
   FailureCategory,
   SessionConfig,
@@ -37,7 +38,7 @@ export async function runCliAdapterSession(
   deps: PhaseDeps = createDefaultPhaseDeps(),
   _signal?: AbortSignal
 ): Promise<SessionResult> {
-  const { worktreeManager, successEvaluator, gateway, prCreator } = deps;
+  const { worktreeManager, prCreator } = deps;
 
   emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
   const { value: worktree } = await withRetry(
@@ -71,8 +72,8 @@ export async function runCliAdapterSession(
 
     let gatewayVerdict: GatewayVerdict | undefined;
     if (adapterResult.success) {
-      const diff = await successEvaluator.getGitDiff(worktree.path);
-      gatewayVerdict = await gateway.runPostCommitGateway(
+      const diff = await getGitDiff(worktree.path);
+      gatewayVerdict = await runPostCommitGateway(
         {
           worktreePath: worktree.path,
           diff,

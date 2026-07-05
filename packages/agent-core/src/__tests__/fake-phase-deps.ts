@@ -26,11 +26,6 @@ export function makeFakePhaseDeps(): PhaseDeps {
       loadSourceFiles: vi.fn().mockResolvedValue([]),
       loadProjectContext: vi.fn().mockResolvedValue(null),
     },
-    failureMemory: {
-      loadMemory: vi.fn().mockResolvedValue({ records: [] }),
-      queryPastFailures: vi.fn().mockReturnValue([]),
-      buildFailureContext: vi.fn().mockReturnValue(""),
-    },
     queryRunner: {
       runHardenedQuery: vi.fn().mockResolvedValue({
         resultMessage: null,
@@ -39,17 +34,6 @@ export function makeFakePhaseDeps(): PhaseDeps {
         rawToolCallMetrics: [],
         errorMessage: null,
         contextMetrics: null,
-      }),
-    },
-    successEvaluator: {
-      getGitDiff: vi.fn().mockResolvedValue("diff --git a/file.ts\n+change"),
-    },
-    gateway: {
-      runPostCommitGateway: vi.fn().mockResolvedValue({
-        outcome: "create-pr",
-        passed: true,
-        gateFailures: [],
-        errors: [],
       }),
     },
     prCreator: {

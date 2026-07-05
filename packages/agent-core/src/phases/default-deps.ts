@@ -7,10 +7,7 @@ import {
   removeWorktree,
 } from "../worktree-manager.js";
 import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "../prompt-builder.js";
-import { loadMemory, queryPastFailures, buildFailureContext } from "../failure-memory.js";
 import { runHardenedQuery } from "../run-hardened-query.js";
-import { getGitDiff } from "../success-evaluator.js";
-import { runPostCommitGateway } from "../post-commit-gateway.js";
 import { createPullRequest, buildPrTitle, buildPrBody, buildFailurePrBody } from "../pr-creator.js";
 import { mergeDirectly } from "../dep-bump-merger.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
@@ -37,19 +34,8 @@ export function createDefaultPhaseDeps(): PhaseDeps {
       loadSourceFiles,
       loadProjectContext,
     },
-    failureMemory: {
-      loadMemory,
-      queryPastFailures,
-      buildFailureContext,
-    },
     queryRunner: {
       runHardenedQuery,
-    },
-    successEvaluator: {
-      getGitDiff,
-    },
-    gateway: {
-      runPostCommitGateway,
     },
     prCreator: {
       createPullRequest,
