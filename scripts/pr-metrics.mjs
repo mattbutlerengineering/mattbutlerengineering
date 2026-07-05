@@ -5,7 +5,7 @@
  *
  * Pulls recent PRs via the GitHub CLI, identifies AI-generated PRs by
  * branch name patterns or labels, computes acceptance rate, and appends
- * one dated entry to metrics/pr-acceptance.json.
+ * one dated entry to the pr-acceptance metric.
  *
  * Usage:
  *   node scripts/pr-metrics.mjs                 # default: last 30 days
@@ -19,13 +19,10 @@
  *   the earliest signal that something in the loop has regressed.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { read, write, resolvePath } from "./metrics-store.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, "..", "metrics", "pr-acceptance.json");
+const METRICS_PATH = resolvePath("pr-acceptance");
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -139,27 +136,22 @@ if (DRY_RUN) {
   process.exit(0);
 }
 
-// Read existing entries (or start with empty array)
+// Read existing entries (missing / corrupt / non-array → start fresh),
+// then append and persist through the metrics store.
 let entries = [];
-if (existsSync(METRICS_PATH)) {
-  try {
-    const raw = readFileSync(METRICS_PATH, "utf-8");
-    entries = JSON.parse(raw);
-    if (!Array.isArray(entries)) {
-      console.error(`Expected array in ${METRICS_PATH}, got ${typeof entries}. Resetting.`);
-      entries = [];
-    }
-  } catch {
-    console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
-    entries = [];
+try {
+  const existing = read("pr-acceptance");
+  if (Array.isArray(existing)) {
+    entries = existing;
+  } else if (existing !== null) {
+    console.error(`Expected array in ${METRICS_PATH}, got ${typeof existing}. Resetting.`);
   }
+} catch {
+  console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
 }
 
 entries.push(entry);
-
-// Ensure directory exists, then write
-mkdirSync(dirname(METRICS_PATH), { recursive: true });
-writeFileSync(METRICS_PATH, JSON.stringify(entries, null, 2) + "\n", "utf-8");
+write("pr-acceptance", entries);
 
 console.log(`Appended entry to: ${METRICS_PATH}`);
 console.log(`Total entries: ${entries.length}`);

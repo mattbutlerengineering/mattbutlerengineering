@@ -36,6 +36,7 @@ import {
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
+import { read } from "./metrics-store.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -219,8 +220,7 @@ export const SENSORS = [
     id: "prMetrics",
     category: "quality",
     collect: ({ root }) => {
-      const metricsPath = resolve(root, "metrics", "pr-acceptance.json");
-      const data = safe(() => readJson(metricsPath));
+      const data = safe(() => read("pr-acceptance", { root }));
       if (!data) return { available: false };
 
       const entries = Array.isArray(data) ? data : (data.entries ?? []);
@@ -472,8 +472,7 @@ export const SENSORS = [
     id: "issueFeedback",
     category: "quality",
     collect: ({ root }) => {
-      const feedbackPath = resolve(root, "metrics", "ai-issue-feedback.json");
-      const data = safe(() => readJson(feedbackPath));
+      const data = safe(() => read("ai-issue-feedback", { root }));
       if (!data || !data.categories) return { available: false };
 
       const categories = data.categories;

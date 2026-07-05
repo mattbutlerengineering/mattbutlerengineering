@@ -19,14 +19,13 @@
  *   node scripts/sensor-report.mjs --json       # output raw JSON to stdout
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { read, write, resolvePath } from "./metrics-store.mjs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
 import {
   getReportSensors,
   safe,
-  readJson,
   collectReportSensors,
   buildThresholds,
 } from "./sensors-registry.mjs";
@@ -34,7 +33,7 @@ import { buildReport, formatSensorDisplay } from "./build-sensor-report.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const REPORT_PATH = resolve(ROOT, "metrics", "sensor-report.json");
+const REPORT_PATH = resolvePath("sensor-report", { root: ROOT });
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -48,7 +47,7 @@ const ctx = { root: ROOT, now, ghClient };
 
 const collectedSensors = collectReportSensors(getReportSensors(), ctx);
 
-const previousReport = safe(() => readJson(REPORT_PATH));
+const previousReport = safe(() => read("sensor-report", { root: ROOT }));
 const report = buildReport(collectedSensors, previousReport?.sensors, buildThresholds(), now);
 
 /* ── Output (IO) ──────────────────────────────────────────────────────── */
@@ -82,8 +81,7 @@ if (JSON_ONLY) {
 }
 
 if (!DRY_RUN) {
-  mkdirSync(dirname(REPORT_PATH), { recursive: true });
-  writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2) + "\n");
+  write("sensor-report", report, { root: ROOT });
   if (!JSON_ONLY) console.log(`   Written to: ${REPORT_PATH}\n`);
 }
 

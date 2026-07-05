@@ -12,20 +12,18 @@
  *   node scripts/process-metrics.mjs --json       # output raw JSON to stdout
  *
  * Output:
- *   metrics/process-metrics.jsonl          — one JSON line per collection run
- *   metrics/process-metrics-weekly.json    — weekly aggregation with rolling 4-week trend
+ *   process-metrics (jsonl)        — one JSON line per collection run
+ *   process-metrics weekly (json)  — weekly aggregation with rolling 4-week trend
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { read, append, writeWeekly, resolvePath, resolveWeeklyPath } from "./metrics-store.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const METRICS_DIR = resolve(ROOT, "metrics");
-const JSONL_PATH = resolve(METRICS_DIR, "process-metrics.jsonl");
-const WEEKLY_PATH = resolve(METRICS_DIR, "process-metrics-weekly.json");
 const VERIFICATIONS_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
 
 const args = process.argv.slice(2);
@@ -150,18 +148,6 @@ export function collectProcessMetrics({ closedIssues, issueComments, allIssues, 
     fp_rate: computeFpRate(verifications),
     improvements_shipped: computeImprovementsShipped(closedIssues),
   };
-}
-
-/* ── File I/O ────────────────────────────────────────── */
-
-export function appendMetricLine(filePath, entry) {
-  mkdirSync(dirname(filePath), { recursive: true });
-  appendFileSync(filePath, JSON.stringify(entry) + "\n");
-}
-
-export function writeWeeklySummary(filePath, summary) {
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(summary, null, 2) + "\n");
 }
 
 /**
@@ -320,16 +306,16 @@ function main() {
   }
 
   if (!DRY_RUN) {
-    appendMetricLine(JSONL_PATH, metrics);
+    append("process-metrics", metrics);
 
     // Regenerate weekly summary
-    const allEntries = readJsonl(JSONL_PATH);
+    const allEntries = read("process-metrics") ?? [];
     const summary = generateWeeklySummary(allEntries);
-    writeWeeklySummary(WEEKLY_PATH, summary);
+    writeWeekly("process-metrics", summary);
 
     if (!JSON_ONLY) {
-      console.log(`   Appended to: ${JSONL_PATH}`);
-      console.log(`   Weekly:      ${WEEKLY_PATH}\n`);
+      console.log(`   Appended to: ${resolvePath("process-metrics")}`);
+      console.log(`   Weekly:      ${resolveWeeklyPath("process-metrics")}\n`);
     }
   }
 }

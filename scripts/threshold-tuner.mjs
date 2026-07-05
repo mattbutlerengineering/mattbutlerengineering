@@ -18,7 +18,7 @@
  *   FP rate < 10% AND eff > 80% → tighten sensitivity by 3%
  *
  * Sensitivity guard rails:
- *   - Max 10% change per threshold per week (from metrics/threshold-changes.jsonl history)
+ *   - Max 10% change per threshold per week (from the threshold-changes metric history)
  *   - Sensitivity never drops below SENSOR_FLOORS (prevents disabling a sensor)
  *   - Sensitivity capped at 2.0 (prevents runaway tightening)
  *   - Minimum 3 data points required before tuning a sensor
@@ -33,7 +33,7 @@
  *   node scripts/threshold-tuner.mjs --dry-run # print only
  */
 
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -43,13 +43,12 @@ import {
   clampToDefaultRange,
   REGRESSION_TUNABLES_PATH,
 } from "./sensors-registry.mjs";
+import { read, append } from "./metrics-store.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const TUNING_PATH = resolve(ROOT, ".github", "auto-qa-tuning.json");
-const CHANGES_LOG_PATH = resolve(ROOT, "metrics", "threshold-changes.jsonl");
 const VERIFICATIONS_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
-const METRICS_PATH = resolve(ROOT, "metrics", "process-metrics.jsonl");
 
 /** Sensor labels the tuner knows about */
 const SENSOR_LABELS = ["ci-fix", "audit", "acmm", "sentry", "bug"];
@@ -129,7 +128,7 @@ export function computePerSensorMetrics(verifications, lookbackDays = 30, now = 
  * Compute the total fractional change applied to a sensor in the last 7 days.
  * Used to enforce the 10%/week guard rail.
  *
- * @param {object[]} changesLog  — entries from metrics/threshold-changes.jsonl
+ * @param {object[]} changesLog  — entries from the threshold-changes metric
  * @param {string}   sensorLabel
  * @returns {number}  sum of |Δ / oldValue| for recent entries
  */
@@ -210,7 +209,7 @@ export function determineAdjustment(metrics) {
  *
  * @param {object}   tuning           — current auto-qa-tuning.json contents
  * @param {Record<string, { fpRate: number, effectiveness: number, total: number }>} perSensorMetrics
- * @param {object[]} changesLog       — entries from threshold-changes.jsonl
+ * @param {object[]} changesLog       — entries from the threshold-changes metric
  * @param {string}   today            — ISO date (YYYY-MM-DD)
  * @returns {{ tuning: object, changes: object[] }}
  */
@@ -442,8 +441,8 @@ export async function run({ dryRun = false } = {}) {
     return { changes: [] };
   }
 
-  // process-metrics.jsonl is optional — log if absent, but don't fail
-  const processMetrics = readJsonl(METRICS_PATH);
+  // process-metrics is optional — log if absent, but don't fail
+  const processMetrics = read("process-metrics") ?? [];
   if (processMetrics.length === 0) {
     console.log("[threshold-tuner] No process-metrics.jsonl found — using verification log only");
   }
@@ -456,7 +455,7 @@ export async function run({ dryRun = false } = {}) {
   }
 
   const tuning = readJson(TUNING_PATH);
-  const changesLog = readJsonl(CHANGES_LOG_PATH);
+  const changesLog = read("threshold-changes") ?? [];
   const today = isoDate();
 
   const { tuning: updatedTuning, changes } = applyAdjustments(
@@ -502,10 +501,8 @@ export async function run({ dryRun = false } = {}) {
 
   // Append each change to the audit log in ACMM-canonical format
   if (allChanges.length > 0) {
-    mkdirSync(dirname(CHANGES_LOG_PATH), { recursive: true });
     for (const change of allChanges) {
-      const entry = buildJsonlEntry(change);
-      appendFileSync(CHANGES_LOG_PATH, JSON.stringify(entry) + "\n");
+      append("threshold-changes", buildJsonlEntry(change));
     }
   }
 

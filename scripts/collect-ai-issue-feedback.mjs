@@ -5,7 +5,7 @@
  *
  * Queries GitHub for closed issues with AI-associated labels,
  * classifies each as accepted (merged PR), rejected (closed without merge),
- * or wontfix, and stores per-category rates in metrics/ai-issue-feedback.json.
+ * or wontfix, and stores per-category rates in the ai-issue-feedback metric.
  *
  * Usage:
  *   node scripts/collect-ai-issue-feedback.mjs              # collect and persist
@@ -13,14 +13,10 @@
  *   node scripts/collect-ai-issue-feedback.mjs --json       # output raw JSON to stdout
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { read, write, resolvePath } from "./metrics-store.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
-const FEEDBACK_PATH = resolve(ROOT, "metrics", "ai-issue-feedback.json");
+const FEEDBACK_PATH = resolvePath("ai-issue-feedback");
 
 /**
  * Categories tracked for AI issue feedback.
@@ -145,7 +141,7 @@ export function computeIssueBudget(category, rates) {
  */
 export function readFeedbackFile() {
   try {
-    return JSON.parse(readFileSync(FEEDBACK_PATH, "utf-8"));
+    return read("ai-issue-feedback");
   } catch {
     return null;
   }
@@ -218,8 +214,7 @@ export async function run() {
   }
 
   if (!DRY_RUN) {
-    mkdirSync(dirname(FEEDBACK_PATH), { recursive: true });
-    writeFileSync(FEEDBACK_PATH, JSON.stringify(feedback, null, 2) + "\n");
+    write("ai-issue-feedback", feedback);
     console.log(`[collect-ai-issue-feedback] Written to: ${FEEDBACK_PATH}`);
   }
 

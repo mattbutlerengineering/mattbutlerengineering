@@ -43,7 +43,7 @@ function xlFraction(distribution) {
 
 /**
  * Build a process-metrics JSONL entry from a queueEfficiency sensor result.
- * This entry is appended to metrics/process-metrics.jsonl.
+ * This entry is appended to the process-metrics store.
  *
  * @param {string} date - ISO date (YYYY-MM-DD)
  * @param {{ available: boolean, composite?: number, sub_metrics?: object, regressions?: Array }} sensorResult
