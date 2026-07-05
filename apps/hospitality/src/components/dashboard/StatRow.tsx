@@ -1,4 +1,4 @@
-import { Odometer, RadialGauge } from "@mattbutlerengineering/rialto";
+import { Odometer, RadialGauge, Text } from "@mattbutlerengineering/rialto";
 import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import styles from "./StatRow.module.css";
 

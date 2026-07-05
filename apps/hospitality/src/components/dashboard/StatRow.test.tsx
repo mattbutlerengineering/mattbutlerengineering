@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { StatRow } from "./StatRow.js";
 import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
+import type { ReactNode } from "react";
 
 /* Lightweight stand-ins that mirror the accessible contract of the real
    instruments: Odometer exposes its value as text; RadialGauge is a `meter`
@@ -19,6 +20,11 @@ interface RadialGaugeMockProps {
   readonly max?: number;
   readonly unit?: string;
   readonly label?: string;
+}
+
+interface TextMockProps {
+  readonly children?: ReactNode;
+  readonly className?: string;
 }
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -39,6 +45,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       <span>{`${Math.round(value)}${unit ?? ""}`}</span>
       {label ? <span>{label}</span> : null}
     </div>
+  ),
+  Text: ({ children, className }: TextMockProps) => (
+    <span className={className}>{children}</span>
   ),
 }));
 
