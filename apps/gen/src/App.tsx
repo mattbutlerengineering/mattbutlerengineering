@@ -1,6 +1,7 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, AuthMascot } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
+import { LoginLanding } from "./components/LoginLanding.js";
 import styles from "./App.module.css";
 
 /**
@@ -59,31 +60,10 @@ export function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPrompt />;
+    return <LoginLanding />;
   }
 
   return <Outlet />;
-}
-
-function LoginPrompt() {
-  const { signIn } = useAuth();
-
-  return (
-    <div className={styles.loginContainer}>
-      <Stack gap="md" align="center">
-        <AuthMascot state="neutral" />
-        <Text as="h1" variant="display" color="primary">
-          Gen Playground
-        </Text>
-        <Text variant="body" color="secondary">
-          Please sign in to continue
-        </Text>
-        <Button variant="primary" onClick={() => signIn()}>
-          Sign In
-        </Button>
-      </Stack>
-    </div>
-  );
 }
 
 /**

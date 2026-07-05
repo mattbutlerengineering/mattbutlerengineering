@@ -1,0 +1,130 @@
+.landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-2xl);
+  min-height: 100vh;
+  padding: var(--rialto-space-2xl) var(--rialto-space-lg);
+}
+
+/* ── Product preview ─────────────────────────── */
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-lg);
+  width: 100%;
+  max-width: 56rem;
+}
+
+.preview {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  width: 100%;
+  padding: var(--rialto-space-xl);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-recessed);
+}
+
+.flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--rialto-space-md);
+  width: 100%;
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  padding: var(--rialto-space-md);
+  text-align: center;
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  animation: stagePulse 5s var(--rialto-ease-smooth, ease-in-out) infinite;
+}
+
+.stage:nth-child(1) {
+  animation-delay: 0s;
+}
+.stage:nth-child(2) {
+  animation-delay: 1s;
+}
+.stage:nth-child(3) {
+  animation-delay: 2s;
+}
+.stage:nth-child(4) {
+  animation-delay: 3s;
+}
+
+/* Decorative connector between stages (removed from the a11y tree via pseudo). */
+.stage:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  top: 50%;
+  right: calc(var(--rialto-space-md) * -1);
+  transform: translate(50%, -50%);
+  color: var(--rialto-text-tertiary);
+  line-height: 1;
+}
+
+.stageLabel {
+  font-family: var(--rialto-font-display, inherit);
+  font-weight: var(--rialto-weight-semibold);
+  color: var(--rialto-text-primary);
+}
+
+.previewCaption {
+  margin: 0;
+}
+
+/* ── Mascot ──────────────────────────────────── */
+
+.mascot {
+  display: flex;
+  justify-content: center;
+}
+
+@keyframes stagePulse {
+  0%,
+  35%,
+  100% {
+    border-color: var(--rialto-border);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+  12% {
+    border-color: var(--rialto-accent);
+    box-shadow: var(--rialto-shadow-md);
+    transform: translateY(-4px);
+  }
+}
+
+/* Respect reduced-motion: hold a calm, static state. */
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    animation: none;
+  }
+}
+
+/* Stack the flow vertically on narrow viewports; drop the horizontal arrows. */
+@media (max-width: 40rem) {
+  .stage:not(:last-child)::after {
+    content: none;
+  }
+}
