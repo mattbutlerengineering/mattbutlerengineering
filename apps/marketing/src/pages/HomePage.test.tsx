@@ -2,6 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { HomePage } from "./HomePage.js";
+import type { ReactNode } from "react";
+
+type MockProps = { children?: ReactNode };
 
 // Mock internal components to test page layout structure
 vi.mock("../components/HeroSection.js", () => ({
@@ -23,10 +26,12 @@ vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
 }));
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Footer: ({ children }: any) => <footer>{children}</footer>,
-  Heading: ({ children }: any) => <h2>{children}</h2>,
-  Text: ({ children }: any) => <p>{children}</p>,
-  Button: ({ children }: any) => <button>{children}</button>,
+  Footer: ({ children }: MockProps) => <footer>{children}</footer>,
+  Heading: ({ children }: MockProps) => <h2>{children}</h2>,
+  Text: ({ children }: MockProps) => <p>{children}</p>,
+  Button: ({ children }: MockProps) => <button>{children}</button>,
+  Card: ({ children }: MockProps) => <div>{children}</div>,
+  Stack: ({ children }: MockProps) => <div>{children}</div>,
 }));
 
 describe("HomePage", () => {

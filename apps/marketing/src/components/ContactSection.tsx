@@ -34,7 +34,9 @@ export function ContactSection() {
     <section id="contact" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="md">
-          <Heading className={styles.sectionHeading}>Contact</Heading>
+          <Heading level={2} className={styles.sectionHeading}>
+            Contact
+          </Heading>
           <motion.div
             ref={ref}
             variants={staggerReveal.container}

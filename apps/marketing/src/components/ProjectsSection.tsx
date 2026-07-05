@@ -18,7 +18,9 @@ export function ProjectsSection() {
       <div className={styles.sectionInner}>
         <Stack gap="xl">
           <div>
-            <Heading className={styles.sectionHeading}>Projects</Heading>
+            <Heading level={2} className={styles.sectionHeading}>
+              Projects
+            </Heading>
             <Text variant="body" color="secondary">
               Work that ships — from design systems to deployed applications.
             </Text>
