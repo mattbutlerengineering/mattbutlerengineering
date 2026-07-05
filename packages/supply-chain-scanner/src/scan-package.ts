@@ -12,6 +12,52 @@ export function computeVerdict(findings: readonly Finding[]): Verdict {
 }
 
 /**
+ * Cross-file data-exfiltration correlation.
+ *
+ * `detectDataExfiltration` only escalates to `high` when a secret read and an
+ * outbound call live in the SAME file. A package can split the two — read
+ * credentials in `config.js`, POST them out from `transport.js` — leaving only
+ * a `low` secret read and a `med` outbound call that never escalate. This phase
+ * runs over the AGGREGATED findings, after per-file collection, and rebuilds
+ * that split "read credentials, send them out" pattern across file boundaries.
+ *
+ * Classification follows the data-exfiltration heuristic's severity contract:
+ * within the `data-exfiltration` category, outbound-call rules emit `med` and
+ * secret-read rules emit `low`. The intra-file combined finding is `high` and
+ * is intentionally excluded (its file already pairs with itself).
+ */
+function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] {
+  const firstByFile = (predicate: (f: Finding) => boolean): Map<string, Finding> => {
+    const map = new Map<string, Finding>();
+    for (const f of findings) {
+      if (predicate(f) && !map.has(f.file)) map.set(f.file, f);
+    }
+    return map;
+  };
+
+  const outbound = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "med");
+  const secrets = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "low");
+
+  const correlated: Finding[] = [];
+  for (const [outFile, outFinding] of outbound) {
+    for (const [secretFile, secretFinding] of secrets) {
+      if (outFile === secretFile) continue; // intra-file: already escalated by the heuristic
+      correlated.push({
+        category: "data-exfiltration",
+        severity: "high",
+        file: outFile,
+        correlatedWith: secretFile,
+        line: outFinding.line,
+        evidence:
+          `cross-file exfiltration: secret read in ${secretFile} (line ${secretFinding.line}) ` +
+          `sent via outbound call in ${outFile} (line ${outFinding.line})`,
+      });
+    }
+  }
+  return correlated;
+}
+
+/**
  * Statically scan a third-party skill / MCP package directory.
  *
  * SAFETY: this only reads files as text and runs regexes over them. It never
@@ -20,10 +66,16 @@ export function computeVerdict(findings: readonly Finding[]): Verdict {
  */
 export function scanPackage(dir: string): ScanResult {
   const files = collectFiles(dir);
-  const findings: Finding[] = files.flatMap((file) => [
+  const perFile: Finding[] = files.flatMap((file) => [
     ...detectPromptInjection(file),
     ...detectDataExfiltration(file),
     ...detectMaliciousCommands(file),
   ]);
-  return { verdict: computeVerdict(findings), findings };
+  const correlatedFindings = correlateCrossFileExfiltration(perFile);
+  const findings: Finding[] = [...perFile, ...correlatedFindings];
+  return {
+    verdict: computeVerdict(findings),
+    findings,
+    ...(correlatedFindings.length > 0 ? { correlatedFindings } : {}),
+  };
 }
