@@ -75,6 +75,10 @@ export default defineConfig({
         target: "http://localhost:3004",
         changeOrigin: true,
       },
+      "/public": {
+        target: "http://localhost:3004",
+        changeOrigin: true,
+      },
     },
   },
 });
