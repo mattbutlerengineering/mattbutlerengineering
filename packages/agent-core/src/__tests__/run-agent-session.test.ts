@@ -9,8 +9,10 @@ import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 // real session-runner.ts runSession() — the exact pipeline `mbe agent run
 // --adapter claude` already relies on. Only cross-cutting infrastructure
 // (Langfuse tracing, the worktree reaper, cost logging, and retry backoff)
-// is stubbed, matching session-runner.test.ts's mocking strategy. Every
-// pipeline collaborator (worktree, gateway/gates, PR creator) is injected
+// is stubbed, matching session-runner.test.ts's mocking strategy. Its two
+// private in-implementation collaborators — git-diff (success-evaluator)
+// and the post-commit gateway — are module-mocked with `vi.mock` (#3120);
+// the remaining pipeline collaborators (worktree, PR creator) are injected
 // via PhaseDeps so the full pipeline — including GateRunner and
 // PublishPhase — genuinely executes through the seam.
 
@@ -59,8 +61,20 @@ vi.mock("../retry.js", async () => {
   };
 });
 
+vi.mock("../success-evaluator.js", async () => {
+  const actual = (await vi.importActual("../success-evaluator.js")) as Record<string, unknown>;
+  return { ...actual, getGitDiff: vi.fn() };
+});
+
+vi.mock("../post-commit-gateway.js", async () => {
+  const actual = (await vi.importActual("../post-commit-gateway.js")) as Record<string, unknown>;
+  return { ...actual, runPostCommitGateway: vi.fn() };
+});
+
 import { runAgentSession } from "../run-agent-session.js";
 import type { AgentSessionAdapter } from "../run-agent-session.js";
+import { getGitDiff } from "../success-evaluator.js";
+import { runPostCommitGateway } from "../post-commit-gateway.js";
 
 const BASE_CONFIG: SessionConfig = {
   taskDescription: "Fix the login bug",
@@ -184,12 +198,19 @@ describe("runAgentSession — claude entry point (full pipeline)", () => {
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     });
+    vi.mocked(getGitDiff).mockResolvedValue("diff --git a/file.ts\n+change");
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
+      outcome: "create-pr",
+      passed: true,
+      gateFailures: [],
+      errors: [],
+    });
   });
 
   it("runs the full pipeline via the default ClaudeAdapter: gates run, a PR is published, and spend is recorded", async () => {
     withResult(deps, createMockResultMessage());
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
       gateFailures: [],
@@ -205,7 +226,7 @@ describe("runAgentSession — claude entry point (full pipeline)", () => {
     expect(result.status).toBe("succeeded");
     expect(result.prUrl).toBe("https://github.com/repo/pull/1");
     // GateRunner suite ran — VerificationPhase invoked the post-commit gateway.
-    expect(deps.gateway.runPostCommitGateway).toHaveBeenCalledOnce();
+    expect(runPostCommitGateway).toHaveBeenCalledOnce();
     // PublishPhase ran — a real PR was created.
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledOnce();
     // Spend was recorded, same as a direct runSession() call.
@@ -223,7 +244,7 @@ describe("runAgentSession — claude entry point (full pipeline)", () => {
   it("still creates a draft PR when a gate fails, proving the gate verdict reaches PublishPhase", async () => {
     withResult(deps, createMockResultMessage());
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
-    vi.mocked(deps.gateway.runPostCommitGateway).mockResolvedValue({
+    vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
       gateFailures: ["verification"],
