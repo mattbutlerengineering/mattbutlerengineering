@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@mbe/auth/react";
-import { Stat, Button, Skeleton } from "@mattbutlerengineering/rialto";
+import { Button, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
-import { ReservationList, ActivityFeed } from "../components/dashboard";
+import { ReservationList, ActivityFeed, StatRow } from "../components/dashboard";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import styles from "./HomePage.module.css";
@@ -42,23 +42,7 @@ export function HomePage() {
       {isLoading ? (
         <StatsLoading />
       ) : (
-        <div className={styles.statsRow}>
-          <Stat label="Today's Reservations" value={stats.totalReservations} />
-          <Stat label="Expected Covers" value={stats.expectedCovers} />
-          <Stat label="Upcoming (2 hrs)" value={stats.upcomingCount} />
-          <Stat
-            label="Cancellation Rate"
-            value={`${stats.cancellationRate}%`}
-            delta={
-              stats.cancellationTrend === "neutral"
-                ? undefined
-                : stats.cancellationTrend === "up"
-                  ? "High"
-                  : "Low"
-            }
-            trend={stats.cancellationTrend}
-          />
-        </div>
+        <StatRow stats={stats} />
       )}
 
       <div className={styles.actionsRow}>
