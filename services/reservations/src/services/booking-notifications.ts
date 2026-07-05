@@ -67,34 +67,25 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     manageToken: string
   ): Promise<void> {
     const { id, venueId, guestEmail, guestPhone, startTime } = reservation;
-    const channel = resolveChannel({
-      email: guestEmail,
-      phone: guestPhone,
-      communicationPreference:
-        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
-    });
 
     if (guestEmail && venueId) {
       const venue = await getVenue(venueId);
       if (venue) {
-        await notificationAdapter.sendBookingConfirmation(
-          {
-            reservationId: id,
-            date: reservation.date,
-            startTime,
-            endTime: reservation.endTime,
-            partySize: reservation.partySize,
-            guestName: reservation.guestName,
-            guestEmail,
-            guestPhone: guestPhone ?? null,
-            specialRequests: reservation.notes ?? null,
-            venueName: venue.name,
-            venueTimezone: venue.ianaTimezone,
-            venueAddress: null,
-            manageToken,
-          },
-          channel
-        );
+        await notificationAdapter.sendBookingConfirmation({
+          reservationId: id,
+          date: reservation.date,
+          startTime,
+          endTime: reservation.endTime,
+          partySize: reservation.partySize,
+          guestName: reservation.guestName,
+          guestEmail,
+          guestPhone: guestPhone ?? null,
+          specialRequests: reservation.notes ?? null,
+          venueName: venue.name,
+          venueTimezone: venue.ianaTimezone,
+          venueAddress: null,
+          manageToken,
+        });
       }
     }
 
@@ -104,6 +95,13 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     const now = Date.now();
 
     if (startMs <= now) return;
+
+    const channel = resolveChannel({
+      email: guestEmail,
+      phone: guestPhone,
+      communicationPreference:
+        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
+    });
 
     const reminderPayload: ReminderPayload = {
       reservationId: id,

@@ -16607,16 +16607,15 @@
       }
     
       /**
-       * Booking confirmation — transactional, always sent via email regardless of
-       * channel. It carries the iCal attachment, which cannot travel via SMS, so
-       * even a "sms" (or "both") resolved channel still delivers via email only.
-       * The channel is accepted (not a raw preference) so callers thread the same
-       * resolveChannel() result used for reminders — see booking-notifications.ts.
+       * Booking confirmation — transactional, ALWAYS sent via email.
+       *
+       * The confirmation carries the iCal attachment — the primary value of a
+       * booking confirmation — which cannot be embedded in an SMS. There is no
+       * channel routing: no `channel`/`preference` parameter exists precisely
+       * because the delivery channel is invariant (email-only). Callers that
+       * resolve a channel for reminders MUST NOT thread it here.
        */
-      async sendBookingConfirmation(
-        emailInput: BookingNotificationInput,
-        _channel: "email" | "sms" | "both"
-      ): Promise<void> {
+      async sendBookingConfirmation(emailInput: BookingNotificationInput): Promise<void> {
         await this.emailAdapter.sendBookingConfirmation(emailInput);
       }
     
