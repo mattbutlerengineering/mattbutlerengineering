@@ -3297,6 +3297,18 @@
   </file>
   </section>
   <section priority="medium" role="fastify">
+  <file path="packages/auth/src/fastify/authz.ts">
+    export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+      if (!hasPermission(request.user, "admin")) {
+        reply
+          .code(403)
+          .send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
+      }
+    }
+    export type VenueIdResolver = (
+      request: FastifyRequest
+    ) => string | null | undefined | Promise<string | null | undefined>;
+  </file>
   <file path="packages/auth/src/fastify/ownership.ts">
     export interface AuthorizationContext {
       isAdmin: boolean;
@@ -6656,7 +6668,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -6694,10 +6706,9 @@
           },
         },
         async (request, reply) => {
-          // Venue authorization: this endpoint follows the same trust model as the existing
-          // /api/v1/reservations and /api/v1/guests endpoints — any authenticated operator
-          // may query any venueId. Per-venue access scoping is a separate app-wide initiative
-          // and does not exist yet in the codebase (no VenueUser relation or venue-access helper).
+          // Venue authorization is enforced by requireVenueAccess (ADR-020): the
+          // caller must be a platform admin or a member of `venueId`, so by the
+          // time this handler runs the operator is already scoped to this venue.
           const { date, venueId } = request.query;
     
           if (!date) {
@@ -6807,13 +6818,195 @@
     interface ApiResponse<T> {
       data: T;
     }
-    async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-      if (!hasPermission(request.user, "admin")) {
-        return reply
-          .code(403)
-          .send(createProblemDetails(403, "Forbidden", "Admin permission required"));
-      }
-    }
+    export const depositRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /api/v1/deposits — create a deposit
+      fastify.post<{
+        Body: { reservationId: string; amountCents: number; currency?: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Create a deposit",
+            operationId: "createDeposit",
+            description: "Create a new deposit in pending state for a reservation.",
+            tags: ["Deposits"],
+            body: {
+              type: "object",
+              required: ["reservationId", "amountCents"],
+              properties: {
+                reservationId: { type: "string", description: "ID of the reservation" },
+                amountCents: { type: "integer", minimum: 1, description: "Deposit amount in cents" },
+                currency: { type: "string", default: "usd", description: "ISO currency code" },
+              },
+            },
+            response: {
+              201: {
+                description: "Deposit created",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              400: { description: "Bad request", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.create({
+            reservationId: request.body.reservationId,
+            amountCents: request.body.amountCents,
+            currency: request.body.currency,
+          });
+          return reply.code(201).send({ data: deposit });
+        }
+      );
+    
+      // GET /api/v1/deposits/:id — get deposit by ID
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Get deposit by ID",
+            operationId: "getDepositById",
+            description: "Retrieve a deposit by its unique identifier.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit found",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const deposit = await depositService.getById(request.params.id);
+          if (!deposit) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+          return { data: deposit };
+        }
+      );
+    
+      // POST /api/v1/deposits/:id/capture — apply (capture) a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/capture",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Capture (apply) a deposit",
+            operationId: "captureDeposit",
+            description:
+              "Capture a held deposit — transitions state from held → applied and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit applied",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        depositTransitionHandler((id) => depositService.apply(id))
+      );
+    
+      // POST /api/v1/deposits/:id/refund — refund a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/refund",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Refund a deposit",
+            operationId: "refundDeposit",
+            description:
+              "Refund a held deposit — transitions state from held → refunded and releases the authorization.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit refunded",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        depositTransitionHandler((id) => depositService.refund(id))
+      );
+    
+      // POST /api/v1/deposits/:id/forfeit — forfeit a held deposit
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<Deposit> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:id/forfeit",
+        {
+          preHandler: [requireAuth, requireAdmin],
+          schema: {
+            summary: "Forfeit a deposit",
+            operationId: "forfeitDeposit",
+            description:
+              "Forfeit a held deposit (no-show) — transitions state from held → forfeited and charges the card.",
+            tags: ["Deposits"],
+            params: {
+              type: "object",
+              required: ["id"],
+              properties: { id: { type: "string" } },
+            },
+            response: {
+              200: {
+                description: "Deposit forfeited",
+                type: "object",
+                properties: {
+                  data: { type: "object", properties: depositProperties },
+                },
+              },
+              404: { description: "Not found", type: "object" },
+              422: { description: "Invalid state transition", type: "object" },
+            },
+          },
+        },
+        depositTransitionHandler((id) => depositService.forfeit(id))
+      );
+    };
   </file>
   <file path="services/reservations/src/routes/events.ts">
     export function getConnectionManager(): SseConnectionManager {
@@ -6901,7 +7094,7 @@
       fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Create floor plan",
             body: {
@@ -6925,7 +7118,7 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/clone",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
           schema: {
             summary: "Clone floor plan",
             description: "Creates a copy of the floor plan and all its tables.",
@@ -6953,7 +7146,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
           schema: {
             summary: "Update floor plan",
             params: {
@@ -6984,7 +7177,7 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/activate",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
           schema: {
             summary: "Set floor plan as active",
             description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -7013,7 +7206,7 @@
       }>(
         "/tables/positions",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
@@ -7054,7 +7247,7 @@
       }>(
         "/tables/:tableId/assign",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
           schema: {
             summary: "Assign table to floor plan",
             params: {
@@ -7089,7 +7282,7 @@
       fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
         "/tables/:tableId/remove",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
           schema: {
             summary: "Remove table from floor plan",
             params: {
@@ -7112,7 +7305,7 @@
       fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
           schema: {
             summary: "Delete floor plan",
             params: {
@@ -7142,7 +7335,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
@@ -7191,7 +7384,7 @@
       }>(
         "/search",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "Search guests",
             operationId: "searchGuests",
@@ -7243,7 +7436,7 @@
       }>(
         "/segments",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "Get guest segments",
             operationId: "getGuestSegments",
@@ -7288,7 +7481,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
           schema: {
             summary: "Get guest by ID",
             operationId: "getGuestById",
@@ -7326,7 +7519,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Create a new guest",
             operationId: "createGuest",
@@ -7399,7 +7592,7 @@
       }>(
         "/find-or-create",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Find or create guest",
             operationId: "findOrCreateGuest",
@@ -7465,7 +7658,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
           schema: {
             summary: "Update a guest",
             operationId: "updateGuest",
@@ -7520,7 +7713,7 @@
       }>(
         "/:id/notes",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
           schema: {
             summary: "Add a staff note to a guest",
             operationId: "addGuestNote",
@@ -7593,7 +7786,7 @@
       }>(
         "/lapsing",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "Get lapsing guests",
             operationId: "getLapsingGuests",
@@ -7655,7 +7848,7 @@
       }>(
         "/:id/win-back",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
           schema: {
             summary: "Send win-back message",
             operationId: "sendGuestWinBack",
@@ -7706,7 +7899,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
           schema: {
             summary: "Delete a guest",
             operationId: "deleteGuest",
@@ -8875,7 +9068,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -9005,7 +9198,7 @@
       }>(
         "/walk-in",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Create a walk-in reservation",
             operationId: "createWalkIn",
@@ -9664,7 +9857,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "List all tables",
             operationId: "listTables",
@@ -9718,7 +9911,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -9771,7 +9964,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Create a new table",
             operationId: "createTable",
@@ -9850,7 +10043,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
           schema: {
             summary: "Update a table",
             operationId: "updateTable",
@@ -9933,7 +10126,7 @@
       }>(
         "/:id/status",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
           schema: {
             summary: "Update table status",
             operationId: "updateTableStatus",
@@ -10017,7 +10210,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
           schema: {
             summary: "Delete a table",
             operationId: "deleteTable",
@@ -10071,6 +10264,16 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/venue-access.ts">
+    export const venueIdFromQuery: VenueIdResolver = (request) => {
+      const query = request.query as { venueId?: unknown } | null | undefined;
+      return typeof query?.venueId === "string" ? query.venueId : null;
+    };
+    export const venueIdFromBody: VenueIdResolver = (request) => {
+      const body = request.body as { venueId?: unknown } | null | undefined;
+      return typeof body?.venueId === "string" ? body.venueId : null;
+    };
+  </file>
   <file path="services/reservations/src/routes/venues.ts">
     export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       // ============ VENUE GROUP ROUTES ============
@@ -10082,7 +10285,7 @@
       }>(
         "/groups",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "List all venue groups",
             operationId: "listVenueGroups",
@@ -10128,7 +10331,7 @@
       }>(
         "/groups/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Get venue group by ID",
             operationId: "getVenueGroupById",
@@ -10177,7 +10380,7 @@
       }>(
         "/groups",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Create a new venue group",
             operationId: "createVenueGroup",
@@ -10251,7 +10454,7 @@
       }>(
         "/groups/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Update a venue group",
             operationId: "updateVenueGroup",
@@ -10314,7 +10517,7 @@
       }>(
         "/groups/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Delete a venue group",
             operationId: "deleteVenueGroup",
@@ -10514,7 +10717,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Create a new venue",
             operationId: "createVenue",
@@ -10601,7 +10804,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
           schema: {
             summary: "Update a venue",
             operationId: "updateVenue",
@@ -10666,7 +10869,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireAdmin],
           schema: {
             summary: "Delete a venue",
             operationId: "deleteVenue",
@@ -10728,7 +10931,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Add to waitlist",
             operationId: "createWaitlistEntry",
@@ -10787,7 +10990,7 @@
       }>(
         "/",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -10822,7 +11025,7 @@
       }>(
         "/:id",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -10858,7 +11061,7 @@
       }>(
         "/:id/notify",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -10901,7 +11104,7 @@
       }>(
         "/:id/seat",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -10937,7 +11140,7 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -10973,7 +11176,7 @@
       }>(
         "/:id/expire",
         {
-          preHandler: requireAuth,
+          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -13051,6 +13254,16 @@
         }
       },
     };
+  </file>
+  <file path="services/reservations/src/services/venue-membership.ts">
+    export function createVenueMembershipLookup(
+      client: PrismaClient = prisma
+    ): VenueMembershipLookup {
+      return async (userSub: string, venueId: string): Promise<boolean> => {
+        const count = await client.venueMembership.count({ where: { userSub, venueId } });
+        return count > 0;
+      };
+    }
   </file>
   <file path="services/reservations/src/services/venue.ts">
     function mapPrismaVenueGroup(group: {
@@ -17626,6 +17839,7 @@
       postVisitNotifier?: PostVisitNotifier;
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
+      venueMembershipLookup?: VenueMembershipLookup;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
@@ -17676,6 +17890,14 @@
       // Wire reservation events emitter — injectable for testing, default singleton for production
       const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
       fastify.decorate("reservationEvents", reservationEvents);
+    
+      // Wire venue-membership lookup (ADR-020) — injectable for testing, default
+      // Prisma-backed for production. requireVenueAccess consults it per request so
+      // a revoked membership denies access immediately. Decorated before route
+      // registration so child route plugins inherit it.
+      const venueMembershipLookup =
+        options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
+      fastify.decorate("venueMembershipLookup", venueMembershipLookup);
     
       // Register routes
       await fastify.register(healthRoutes);

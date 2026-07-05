@@ -1073,6 +1073,16 @@
   </file>
   </section>
   <section priority="medium" role="fastify">
+  <file path="packages/auth/src/fastify/authz.ts">
+    <item priority="high">
+      export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type VenueIdResolver = (
+        request: FastifyRequest
+      ) => string | null | undefine...;
+    </item>
+  </file>
   <file path="packages/auth/src/fastify/ownership.ts">
     <item priority="low">
       interface AuthorizationContext {
@@ -2017,8 +2027,8 @@
         data: T;
       }
     </item>
-    <item priority="low">
-      async function requireAdmin(request: FastifyRequest, reply: FastifyReply) { /* ... */ }
+    <item priority="high">
+      export const depositRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/events.ts">
@@ -2183,6 +2193,14 @@
   <file path="services/reservations/src/routes/tables.ts">
     <item priority="high">
       export const tableRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/venue-access.ts">
+    <item priority="high">
+      export const venueIdFromQuery: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export const venueIdFromBody: VenueIdResolver;
     </item>
   </file>
   <file path="services/reservations/src/routes/venues.ts">
@@ -3007,6 +3025,13 @@
     </item>
     <item priority="high">
       export const tableService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/venue-membership.ts">
+    <item priority="high">
+      export function createVenueMembershipLookup(
+        client: PrismaClient = prisma
+      ): VenueMembershipLookup { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
