@@ -429,6 +429,13 @@
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
   </file>
+  <file path="src/hooks/useIsAdmin.ts">
+    export function useIsAdmin(): boolean {
+      const { user } = useAuth();
+      const permissions = user?.raw?.permissions;
+      return Array.isArray(permissions) && permissions.includes("admin");
+    }
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     export interface UsePublicApiClientOptions {
       baseUrl?: string;

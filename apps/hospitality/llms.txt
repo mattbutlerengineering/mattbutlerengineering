@@ -299,6 +299,11 @@
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/useIsAdmin.ts">
+    <item priority="high">
+      export function useIsAdmin(): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
