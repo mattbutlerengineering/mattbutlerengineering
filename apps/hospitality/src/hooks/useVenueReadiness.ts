@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useApiClient } from "./useApiClient.js";
+import { useFloorPlans } from "./useFloorPlans.js";
 import type { Venue } from "@mbe/types";
 import type { FloorPlan } from "@mbe/types";
 
@@ -26,13 +26,24 @@ const LOADING: VenueReadiness = {
 /**
  * Pure function that computes readiness from venue data and floor plans.
  * Can be unit tested independently from React.
+ *
+ * `isError` distinguishes a *failed* floor-plan fetch from a genuinely *empty*
+ * one: on error we cannot tell "setup" from "operational", so we return the
+ * indeterminate loading state rather than falsely reporting "setup" (which
+ * would bounce the user to /setup). An empty list, by contrast, legitimately
+ * means the floor-plan gate is unmet.
  */
 export function computeReadiness(
   venue: Venue | null,
-  floorPlans: readonly FloorPlan[]
+  floorPlans: readonly FloorPlan[],
+  isError = false
 ): VenueReadiness {
   if (!venue) {
     return { status: "no-venue", completedSteps: [], nextStep: null, progress: 0 };
+  }
+
+  if (isError) {
+    return LOADING;
   }
 
   const completed: SetupStep[] = [];
@@ -67,70 +78,35 @@ export function computeReadiness(
   return { status: "setup", completedSteps: completed, nextStep, progress };
 }
 
-interface FloorPlanState {
-  venueId: string;
-  floorPlans: readonly FloorPlan[];
-}
-
 export function useVenueReadiness(): VenueReadiness {
   const { selectedVenue, selectedVenueId, isLoading } = useVenue();
   const { accessToken } = useAuth();
-  const api = useApiClient();
-  // Tracks the last resolved floor-plan fetch result
-  const [floorPlanState, setFloorPlanState] = useState<FloorPlanState | null>(null);
-  const fetchingRef = useRef<string | null>(null);
+  const enabled = !!selectedVenueId && !!accessToken;
 
-  useEffect(() => {
-    if (!selectedVenueId || !accessToken) return;
-    // Skip if we've already fetched or are currently fetching for this venue
-    if (fetchingRef.current === selectedVenueId) return;
-    if (floorPlanState?.venueId === selectedVenueId) return;
+  // Compose the shared react-query floor-plans hook instead of a bespoke effect.
+  // The query is keyed by venueId, so switching venues fetches fresh data and
+  // in-flight requests for stale venues are ignored by react-query.
+  const {
+    data: floorPlans,
+    error,
+  } = useFloorPlans({ venueId: selectedVenueId, limit: 10, enabled });
 
-    fetchingRef.current = selectedVenueId;
-
-    let cancelled = false;
-
-    api.floorPlans
-      .list({ venueId: selectedVenueId, limit: 10 })
-      .then((response) => {
-        if (cancelled) return;
-        setFloorPlanState({ venueId: selectedVenueId, floorPlans: response.data });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setFloorPlanState({ venueId: selectedVenueId, floorPlans: [] });
-        }
-      })
-      .finally(() => {
-        if (fetchingRef.current === selectedVenueId) {
-          fetchingRef.current = null;
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedVenueId, accessToken, api, floorPlanState]);
-
-  // The floor plans relevant to the currently selected venue
-  const currentFloorPlans: readonly FloorPlan[] =
-    floorPlanState?.venueId === selectedVenueId ? floorPlanState.floorPlans : [];
+  const isError = error !== null;
 
   const readiness = useMemo(
-    () => computeReadiness(selectedVenue, currentFloorPlans),
-    [selectedVenue, currentFloorPlans]
+    () => computeReadiness(selectedVenue, floorPlans ?? [], isError),
+    [selectedVenue, floorPlans, isError]
   );
 
   if (isLoading) {
     return LOADING;
   }
 
-  // Venue is resolved, but its floor plans are still being fetched — we cannot
-  // yet distinguish "setup" from "operational", so stay in the indeterminate
-  // loading state instead of flapping to "setup" and triggering a spurious
-  // /setup -> /timeline redirect. (See #1968 cluster A.)
-  const awaitingFloorPlans =
-    !!selectedVenueId && !!accessToken && floorPlanState?.venueId !== selectedVenueId;
+  // Venue is resolved, but its floor plans are still loading (and haven't
+  // errored) — we cannot yet distinguish "setup" from "operational", so stay in
+  // the indeterminate loading state instead of flapping to "setup" and
+  // triggering a spurious /setup -> /timeline redirect. (See #1968 cluster A.)
+  const awaitingFloorPlans = enabled && floorPlans === undefined && !isError;
   if (awaitingFloorPlans) {
     return LOADING;
   }

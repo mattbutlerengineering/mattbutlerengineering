@@ -365,15 +365,13 @@
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
     <item priority="high">
-      interface PublicVenueDepositResponse {
-        data?: {
-          deposit?: {
-            enabled: boolean;
-            amountCen...;
-      }
+      export const VENUE_POLICY_QUERY_KEY: unknown;
     </item>
     <item priority="high">
-      export const VENUE_POLICY_QUERY_KEY: unknown;
+      export function useVenuePolicy(slug: string | undefined): {
+        policy: CancellationPolicy | null;
+        isLoading: boolean;
+      } { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useVenueReadiness.ts">

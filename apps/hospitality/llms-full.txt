@@ -463,18 +463,39 @@
     export const USERS_QUERY_KEY = "users" as const;
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
-    interface PublicVenueDepositResponse {
-      data?: {
-        deposit?: {
-          enabled: boolean;
-          amountCents: number | null;
-          freeCancellationHours: number | null;
-          lateCancellationFeePercent: number | null;
-          noShowFeePercent: number | null;
-        };
+    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
+    export function useVenuePolicy(slug: string | undefined): {
+      policy: CancellationPolicy | null;
+      isLoading: boolean;
+    } {
+      const api = useApiClient();
+    
+      const query = useQuery({
+        queryKey: [VENUE_POLICY_QUERY_KEY, slug],
+        queryFn: async (): Promise<CancellationPolicy | null> => {
+          if (!slug) return null;
+          try {
+            const deposit = await api.publicVenue.getDepositPolicy(slug);
+            if (!deposit.enabled || deposit.amountCents == null) return null;
+            return {
+              depositAmountCents: deposit.amountCents,
+              freeCancellationHours: deposit.freeCancellationHours,
+              lateCancellationFeePercent: deposit.lateCancellationFeePercent,
+              noShowFeePercent: deposit.noShowFeePercent,
+            };
+          } catch {
+            return null;
+          }
+        },
+        enabled: !!slug,
+        staleTime: 5 * 60 * 1000, // 5 minutes — policy rarely changes during a shift
+      });
+    
+      return {
+        policy: query.data ?? null,
+        isLoading: query.isLoading,
       };
     }
-    export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
   </file>
   <file path="src/hooks/useVenueReadiness.ts">
     export type SetupStep = "onboarding" | "operating-hours" | "floor-plan";

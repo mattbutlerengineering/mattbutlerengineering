@@ -5,12 +5,15 @@ import type {
   WaitlistJoinResult,
   CreateDepositPaymentIntentRequest,
   DepositPaymentIntent,
+  PublicVenueConfig,
+  PublicVenueDeposit,
 } from "@mbe/types";
 import {
   GuestRiskResultSchema,
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
   DepositPaymentIntentSchema,
+  PublicVenueConfigSchema,
 } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
@@ -72,5 +75,18 @@ export class PublicVenueClient {
       data,
       DepositPaymentIntentSchema
     );
+  }
+
+  /**
+   * Get a venue's deposit/cancellation policy by slug. Validates the full
+   * public venue-config envelope and returns just its deposit block.
+   */
+  async getDepositPolicy(slug: string): Promise<PublicVenueDeposit> {
+    const config = await this.client.getOne<PublicVenueConfig>(
+      `/public/v1/venues/${slug}`,
+      undefined,
+      PublicVenueConfigSchema
+    );
+    return config.deposit;
   }
 }
