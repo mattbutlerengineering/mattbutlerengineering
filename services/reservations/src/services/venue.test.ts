@@ -371,7 +371,14 @@ describe("venueService", () => {
     it("seeds an owner VenueMembership atomically when ownerSub is provided", async () => {
       const created = makePrismaVenue();
       const venueCreate = vi.fn().mockResolvedValue(created);
-      const membershipCreate = vi.fn().mockResolvedValue({});
+      const membershipCreate = vi.fn().mockResolvedValue({
+        id: "vm-1",
+        userSub: "auth0|owner-1",
+        venueId: "venue-1",
+        role: "owner",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
       vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (tx: TxLike) => Promise<unknown>) =>
         fn({ venue: { create: venueCreate }, venueMembership: { create: membershipCreate } })
       ) as never);
