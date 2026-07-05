@@ -352,6 +352,12 @@
       refetch: () => void;
     }
   </file>
+  <file path="src/hooks/useDeposits.ts">
+    export const useCreateDeposit = createMutationHook<CreateDepositRequest, Deposit>({
+      invalidateKeys: RESERVATIONS_QUERY_KEY,
+      mutationFn: (api, data) => api.deposits.create(data),
+    });
+  </file>
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
@@ -475,7 +481,7 @@
         queryFn: async (): Promise<CancellationPolicy | null> => {
           if (!slug) return null;
           try {
-            const deposit = await api.publicVenue.getDepositPolicy(slug);
+            const { deposit } = await api.venues.getPublicConfig(slug);
             if (!deposit.enabled || deposit.amountCents == null) return null;
             return {
               depositAmountCents: deposit.amountCents,

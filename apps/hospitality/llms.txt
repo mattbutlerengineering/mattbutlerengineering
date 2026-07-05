@@ -235,6 +235,11 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useDeposits.ts">
+    <item priority="high">
+      export const useCreateDeposit: unknown;
+    </item>
+  </file>
   <file path="src/hooks/useFloorPlans.ts">
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
