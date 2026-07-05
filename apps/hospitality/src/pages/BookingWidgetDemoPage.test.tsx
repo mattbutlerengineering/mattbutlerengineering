@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { BookingWidgetDemoPage } from "./BookingWidgetDemoPage.js";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -101,6 +101,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
+  Banner: ({
+    children,
+    variant,
+    action,
+  }: {
+    children: React.ReactNode;
+    variant?: string;
+    action?: React.ReactNode;
+  }) => (
+    <div data-testid="banner" data-variant={variant}>
+      {children}
+      {action}
+    </div>
+  ),
   Button: ({ children, onClick, variant, size }: any) => (
     <button onClick={onClick} data-variant={variant} data-size={size}>
       {children}
@@ -144,11 +158,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
   Text: ({ children }: any) => <span>{children}</span>,
 }));
-
-/* ── Clipboard mock ─────────────────────────── */
-
-const writeText = vi.fn().mockResolvedValue(undefined);
-Object.assign(navigator, { clipboard: { writeText } });
 
 /* ── Test data ──────────────────────────────── */
 
@@ -269,46 +278,6 @@ describe("BookingWidgetDemoPage", () => {
     });
   });
 
-  it("copies embed code to clipboard on Copy click", async () => {
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("Copy")).toBeDefined();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Copy"));
-    });
-
-    expect(writeText).toHaveBeenCalledTimes(1);
-    const calledWith = writeText.mock.calls[0][0] as string;
-    expect(calledWith).toContain("venueId:");
-    expect(calledWith).toContain("BookingWidget.init");
-  });
-
-  it("shows Copied! feedback for 2 seconds then reverts", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText("Copy")).toBeDefined();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByText("Copy"));
-    });
-
-    expect(screen.getByText("Copied!")).toBeDefined();
-    expect(screen.queryByText("Copy")).toBeNull();
-
-    await act(async () => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(screen.getByText("Copy")).toBeDefined();
-    expect(screen.queryByText("Copied!")).toBeNull();
-  });
-
   it("renders 3 feature cards", async () => {
     renderPage();
 
@@ -378,26 +347,21 @@ describe("BookingWidgetDemoPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
   });
 
-  it("embed code contains the selected venue ID", async () => {
+  it("embed code example contains the selected venue ID", async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Copy")).toBeDefined();
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Copy"));
-    });
-
-    const calledWith = writeText.mock.calls[0][0] as string;
-    expect(calledWith).toContain("v-1");
+    expect(document.body.textContent).toContain("v-1");
   });
 
   it("embed code section shows a coming soon indicator", async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Copy")).toBeDefined();
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
     });
 
     expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
@@ -407,7 +371,7 @@ describe("BookingWidgetDemoPage", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Copy")).toBeDefined();
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
     });
 
     expect(document.body.innerHTML).not.toContain("widget.js");
@@ -423,5 +387,38 @@ describe("BookingWidgetDemoPage", () => {
     expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
     const comingSoonTexts = screen.getAllByText(/embeddable widget/i);
     expect(comingSoonTexts.length).toBeGreaterThan(0);
+  });
+
+  it("shows a prominent preview banner labeling the page as coming soon", async () => {
+    renderPage();
+
+    const banner = await screen.findByTestId("banner");
+    expect(banner).toBeDefined();
+    expect(banner.getAttribute("data-variant")).toBe("accent");
+    expect(banner.textContent).toMatch(/preview only/i);
+    expect(banner.textContent).toMatch(/not live yet/i);
+  });
+
+  it("labels the preview and embed sections with a coming soon badge", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
+    });
+
+    const comingSoonBadges = screen.getAllByText("Coming soon");
+    expect(comingSoonBadges.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("embed section no longer presents as ready-to-use", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("embed-coming-soon")).toBeDefined();
+    });
+
+    expect(screen.queryByText("Copy")).toBeNull();
+    expect(screen.queryByText("Copied!")).toBeNull();
+    expect(screen.getAllByText(/not functional yet/i).length).toBeGreaterThan(0);
   });
 });
