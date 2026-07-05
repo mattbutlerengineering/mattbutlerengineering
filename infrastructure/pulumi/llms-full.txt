@@ -42,8 +42,18 @@
   </section>
   <section priority="medium" role="index.ts">
   <file path="index.ts">
-    export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
-    export const auth0ClientId = auth0Outputs.hospitalityClientId;
+    export function secretEnv(
+      key: string,
+      value: pulumi.Input<string>
+    ): digitalocean.types.input.AppSpecServiceEnv {
+      return { key, value, type: "SECRET" };
+    }
+    export function extraEnv(
+      key: string,
+      value: pulumi.Input<string>
+    ): digitalocean.types.input.AppSpecServiceEnv {
+      return { key, value };
+    }
   </file>
   </section>
 </codebase>

@@ -911,3 +911,32 @@ describe("Resource Inventory", () => {
     expect(auth0Resources.length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENV VAR BUILDERS
+// ═══════════════════════════════════════════════════════════════════════════
+describe("env var builders", () => {
+  it("secretEnv produces a SECRET-typed env-var object", () => {
+    expect(infra.secretEnv("DATABASE_URL", "postgres://user:pass@host/db")).toEqual({
+      key: "DATABASE_URL",
+      value: "postgres://user:pass@host/db",
+      type: "SECRET",
+    });
+  });
+
+  it("extraEnv produces a plain (GENERAL, untyped) env-var object", () => {
+    const env = infra.extraEnv("NODE_ENV", "production");
+    expect(env).toEqual({ key: "NODE_ENV", value: "production" });
+    // No explicit `type` field — DO App Platform defaults these to GENERAL.
+    expect("type" in env).toBe(false);
+  });
+
+  it("distinguishes SECRET from GENERAL for the same key/value", () => {
+    const secret = infra.secretEnv("API_KEY", "sk-123");
+    const plain = infra.extraEnv("API_KEY", "sk-123");
+    expect(secret.type).toBe("SECRET");
+    expect(plain.type).toBeUndefined();
+    expect(secret.key).toBe(plain.key);
+    expect(secret.value).toBe(plain.value);
+  });
+});

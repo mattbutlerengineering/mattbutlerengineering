@@ -4,6 +4,25 @@ import * as cloudflare from "@pulumi/cloudflare";
 import { readFileSync } from "node:fs";
 import { auth0Outputs } from "./auth0";
 
+// ── Env var builders ─────────────────────────────────────────────────
+// Collapse the repeated DO App Platform env-var object shape into two
+// builders: `secretEnv` for encrypted (SECRET) values and `extraEnv` for
+// plain (GENERAL, no `type` field) values. Output is byte-identical to the
+// inline literals these replace.
+export function secretEnv(
+  key: string,
+  value: pulumi.Input<string>
+): digitalocean.types.input.AppSpecServiceEnv {
+  return { key, value, type: "SECRET" };
+}
+
+export function extraEnv(
+  key: string,
+  value: pulumi.Input<string>
+): digitalocean.types.input.AppSpecServiceEnv {
+  return { key, value };
+}
+
 // ── Configuration ───────────────────────────────────────────────────
 const config = new pulumi.Config();
 const domain = config.require("domain");
@@ -22,10 +41,8 @@ const otelHeaders = config.getSecret("otelHeaders");
 const remediationWebhookSecret = config.getSecret("remediationWebhookSecret");
 
 const otelEnvs: digitalocean.types.input.AppSpecServiceEnv[] = [
-  ...(otelEndpoint ? [{ key: "OTEL_EXPORTER_OTLP_ENDPOINT", value: otelEndpoint }] : []),
-  ...(otelHeaders
-    ? [{ key: "OTEL_EXPORTER_OTLP_HEADERS", value: otelHeaders, type: "SECRET" as const }]
-    : []),
+  ...(otelEndpoint ? [extraEnv("OTEL_EXPORTER_OTLP_ENDPOINT", otelEndpoint)] : []),
+  ...(otelHeaders ? [secretEnv("OTEL_EXPORTER_OTLP_HEADERS", otelHeaders)] : []),
 ];
 
 // ── Auth0 Exports ───────────────────────────────────────────────────
@@ -66,13 +83,13 @@ export interface ApiServiceArgs {
 
 function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] {
   return [
-    { key: "NODE_ENV", value: "production" },
-    { key: "PORT", value: String(port) },
-    { key: "CORS_ORIGIN", value: `https://${domain}` },
-    { key: "API_BASE_URL", value: `https://api.${domain}/api` },
-    { key: "AUTH_AUTHORITY", value: AUTH_AUTHORITY },
-    { key: "AUTH_AUDIENCE", value: `https://api.${domain}` },
-    { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" },
+    extraEnv("NODE_ENV", "production"),
+    extraEnv("PORT", String(port)),
+    extraEnv("CORS_ORIGIN", `https://${domain}`),
+    extraEnv("API_BASE_URL", `https://api.${domain}/api`),
+    extraEnv("AUTH_AUTHORITY", AUTH_AUTHORITY),
+    extraEnv("AUTH_AUDIENCE", `https://api.${domain}`),
+    secretEnv("DATABASE_URL", databaseUrl),
   ];
 }
 
@@ -116,10 +133,7 @@ const migrationJobs: digitalocean.types.input.AppSpecJob[] = MIGRATED_SERVICES.m
   },
   sourceDir: "/",
   dockerfilePath: "infrastructure/migrate/Dockerfile",
-  envs: [
-    { key: "DATABASE_URL", value: databaseUrl, type: "SECRET" as const },
-    { key: "SERVICE_NAME", value: service },
-  ],
+  envs: [secretEnv("DATABASE_URL", databaseUrl), extraEnv("SERVICE_NAME", service)],
   runCommand: "/migrate.sh",
 }));
 
@@ -190,9 +204,7 @@ const apiApp = new digitalocean.App(
           port: 3004,
           dockerfile: "services/reservations/Dockerfile",
           extraEnvs: [
-            ...(manageTokenSecret
-              ? [{ key: "MANAGE_TOKEN_SECRET", value: manageTokenSecret, type: "SECRET" as const }]
-              : []),
+            ...(manageTokenSecret ? [secretEnv("MANAGE_TOKEN_SECRET", manageTokenSecret)] : []),
           ],
         }),
         apiService({
@@ -200,18 +212,10 @@ const apiApp = new digitalocean.App(
           port: 3003,
           dockerfile: "services/agent/Dockerfile",
           extraEnvs: [
-            ...(aiGatewayApiKey
-              ? [{ key: "AI_GATEWAY_API_KEY", value: aiGatewayApiKey, type: "SECRET" as const }]
-              : []),
-            { key: "DEFAULT_MODEL", value: "anthropic/claude-haiku-4.5" },
+            ...(aiGatewayApiKey ? [secretEnv("AI_GATEWAY_API_KEY", aiGatewayApiKey)] : []),
+            extraEnv("DEFAULT_MODEL", "anthropic/claude-haiku-4.5"),
             ...(remediationWebhookSecret
-              ? [
-                  {
-                    key: "REMEDIATION_WEBHOOK_SECRET",
-                    value: remediationWebhookSecret,
-                    type: "SECRET" as const,
-                  },
-                ]
+              ? [secretEnv("REMEDIATION_WEBHOOK_SECRET", remediationWebhookSecret)]
               : []),
           ],
         }),
