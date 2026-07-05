@@ -568,6 +568,18 @@
       }
     </item>
   </file>
+  <file path="src/services/notifier-runtime.ts">
+    <item priority="low">
+      type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+    </item>
+    <item priority="low">
+      interface NotifierRuntime {
+        redisUrl: string;
+        scheduler: NotifierScheduler;
+        smsAdapter: SmsPort | null;
+      }
+    </item>
+  </file>
   <file path="src/services/post-visit-notifier.ts">
     <item priority="high">
       export function generateUnsubscribeToken(guestId: string): string { /* ... */ }
@@ -803,8 +815,12 @@
       }
     </item>
     <item priority="low">
-      interface WaitlistNotifierScheduler {
-        
+      interface WaitlistEntryRef {
+        id: string;
+        venueId?: string;
+        guestPhone: string;
+        guestName: string | null;
+        position?: number;
       }
     </item>
   </file>
