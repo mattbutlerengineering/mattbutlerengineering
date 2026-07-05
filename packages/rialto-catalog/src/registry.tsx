@@ -38,6 +38,7 @@ import {
   Footer,
   Input,
   NavigationMenu,
+  Odometer,
   Select,
   Sidebar,
   Stack,
@@ -221,6 +222,25 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     DataList: ({ props }: any) => (
       <DataList items={props.items ?? []} orientation={props.orientation} striped={props.striped} />
     ),
+
+    Odometer: ({ props }: { props: unknown }) => {
+      // The catalog's generated Zod schema validates Odometer props before this
+      // renderer runs (see file header), so the shape is guaranteed here.
+      const p = props as {
+        value: number;
+        size?: "sm" | "md" | "lg";
+        flipInterval?: number;
+        cascadeDelay?: number;
+      };
+      return (
+        <Odometer
+          value={p.value}
+          size={p.size}
+          flipInterval={p.flipInterval}
+          cascadeDelay={p.cascadeDelay}
+        />
+      );
+    },
 
     // EmptyState uses `heading` prop; catalog description mentions `title` as alias.
     EmptyState: ({ props, children }: any) => (
