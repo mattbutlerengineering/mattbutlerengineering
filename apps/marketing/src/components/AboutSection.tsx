@@ -16,7 +16,9 @@ export function AboutSection() {
     <section id="about" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="lg">
-          <Heading className={styles.sectionHeading}>About</Heading>
+          <Heading level={2} className={styles.sectionHeading}>
+            About
+          </Heading>
           <Divider accent />
           <motion.div
             ref={ref}

@@ -18,7 +18,9 @@ export function TechStackSection() {
       <div className={styles.sectionInner}>
         <Stack gap="xl">
           <div>
-            <Heading className={styles.sectionHeading}>Tech Stack</Heading>
+            <Heading level={2} className={styles.sectionHeading}>
+              Tech Stack
+            </Heading>
             <Text variant="body" color="secondary">
               The tools and frameworks powering this site and its services.
             </Text>
