@@ -1,0 +1,27 @@
+.gaugeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--rialto-space-xl);
+}
+
+.playground {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-lg);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-md);
+  inline-size: 100%;
+}
+
+.sliderWrap {
+  inline-size: 100%;
+  max-inline-size: 320px;
+}

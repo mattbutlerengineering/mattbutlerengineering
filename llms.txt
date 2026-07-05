@@ -226,6 +226,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="RadialGauge">
+  <file path="packages/rialto/src/components/RadialGauge/RadialGauge.catalog.ts">
+    <item priority="high">
+      export const radialGaugeCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Select">
   <file path="packages/rialto/src/components/Select/Select.catalog.ts">
     <item priority="high">
