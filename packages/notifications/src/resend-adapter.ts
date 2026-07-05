@@ -5,7 +5,7 @@ import type {
   ThankYouEmailInput,
 } from "./port.js";
 import { buildBookingEmailContent } from "./booking-email-content.js";
-import { escapeHtml, sanitizeUrl } from "./sanitize.js";
+import { escapeHtml, sanitizeUrl } from "./email-content.js";
 
 interface ResendClient {
   emails: {
