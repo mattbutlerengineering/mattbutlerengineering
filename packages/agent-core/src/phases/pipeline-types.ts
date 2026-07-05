@@ -21,6 +21,7 @@ import type {
 } from "../feedback-loop.js";
 import type { PrFeedbackPort } from "../pr-feedback-port.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
+import type { RepoIdentity } from "../worktree-manager.js";
 
 /** Options accepted by `mergeDirectly` (dep-bump fast path). */
 export interface MergeDirectlyOptions {
@@ -58,7 +59,8 @@ export interface WorktreeManagerDeps {
   hasChanges(worktreePath: string): Promise<boolean>;
   commitChanges(worktreePath: string, message: string): Promise<string>;
   pushBranch(worktreePath: string, branchName: string): Promise<void>;
-  commitAndPush(worktreePath: string, branchName: string, message: string): Promise<void>;
+  commitAndPush(worktreePath: string, message: string): Promise<void>;
+  resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity>;
   removeWorktree(repoPath: string, worktreePath: string): Promise<void>;
 }
 

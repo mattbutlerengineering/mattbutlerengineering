@@ -3,7 +3,7 @@ import type { PrFeedbackPort } from "./pr-feedback-port.js";
 import { pollForFeedback } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 import { runHardenedQuery } from "./run-hardened-query.js";
-import { commitAndPush } from "./worktree-manager.js";
+import { commitAndPush, resolveRepoIdentity } from "./worktree-manager.js";
 import type { WorktreeManagerDeps } from "./phases/pipeline-types.js";
 import type { SessionEventCallback, SessionEvent } from "./types.js";
 
@@ -42,7 +42,7 @@ export interface FeedbackLoopResult {
  * subprocess.
  */
 export interface FeedbackLoopRunnerDeps {
-  readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush">;
+  readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush" | "resolveRepoIdentity">;
   readonly feedbackPoller: PrFeedbackPort;
 }
 
@@ -84,7 +84,7 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 const defaultRunnerDeps: FeedbackLoopRunnerDeps = {
-  worktreeManager: { commitAndPush },
+  worktreeManager: { commitAndPush, resolveRepoIdentity },
   feedbackPoller: ghPrFeedbackPort,
 };
 
@@ -97,7 +97,7 @@ export async function runFeedbackLoop(
 ): Promise<FeedbackLoopResult> {
   const { signal } = config;
   const { feedbackPoller } = deps;
-  const { owner, repo } = await feedbackPoller.getRepoOwner(config.repoPath);
+  const { owner, repo } = await deps.worktreeManager.resolveRepoIdentity(config.repoPath);
 
   let lastFingerprint = "";
   let retriesUsed = 0;
@@ -178,10 +178,9 @@ export async function runFeedbackLoop(
     // cancelled fix-session never pushes a commit to an abandoned branch.
     signal?.throwIfAborted();
 
-    // Commit and push the fixes via the validated worktree-manager helper.
+    // Commit and push the fixes via the validated worktree-manager seam.
     await deps.worktreeManager.commitAndPush(
       config.repoPath,
-      config.branchName,
       `fix: address PR feedback (attempt ${attempt + 1})`
     );
 

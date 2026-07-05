@@ -21,6 +21,7 @@ import {
   removeWorktree,
   commitChanges,
   commitAndPush,
+  resolveRepoIdentity,
   hasChanges,
   validateGitRef,
   validatePath,
@@ -325,11 +326,12 @@ describe("commitAndPush", () => {
     vi.clearAllMocks();
   });
 
-  it("stages, commits, then pushes the branch when there are changes", async () => {
-    // commitChanges: add -A, status --porcelain (dirty), commit, rev-parse; then push.
-    setupExecFileMock(["", "M src/index.ts", "", "abc123", ""]);
+  it("stages, commits, then pushes the resolved HEAD branch when there are changes", async () => {
+    // commitChanges: add -A, status --porcelain (dirty), commit, rev-parse HEAD;
+    // then commitAndPush resolves the current branch (rev-parse --abbrev-ref) and pushes.
+    setupExecFileMock(["", "M src/index.ts", "", "abc123", "agent/fix-bug-abc123", ""]);
 
-    await commitAndPush("/worktree", "agent/fix-bug-abc123", "fix: address feedback");
+    await commitAndPush("/worktree", "fix: address feedback");
 
     const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
     const pushCall = gitCalls.find((call) => (call[1] as string[]).includes("push"));
@@ -341,24 +343,51 @@ describe("commitAndPush", () => {
     // commitChanges: add -A, status --porcelain (clean) → returns "" (no commit).
     setupExecFileMock(["", ""]);
 
-    await commitAndPush("/worktree", "agent/fix-bug-abc123", "fix: nothing");
+    await commitAndPush("/worktree", "fix: nothing");
 
     const gitCalls = vi.mocked(execFile).mock.calls.filter((call) => call[0] === "git");
     const pushCall = gitCalls.find((call) => (call[1] as string[]).includes("push"));
     expect(pushCall).toBeUndefined();
   });
 
-  it("rejects a branch name with argument injection before pushing", async () => {
-    // commitChanges succeeds (changes exist), then pushBranch validates the ref.
-    setupExecFileMock(["", "M src/index.ts", "", "abc123"]);
+  it("validates the resolved HEAD branch before pushing (defence-in-depth)", async () => {
+    // commitChanges succeeds (changes exist); the branch resolved from HEAD is
+    // passed through pushBranch's validateGitRef, which rejects a malformed ref.
+    setupExecFileMock(["", "M src/index.ts", "", "abc123", "--upload-pack=evil"]);
 
-    await expect(commitAndPush("/worktree", "--upload-pack=evil", "msg")).rejects.toThrow(
-      "Invalid branchName"
-    );
+    await expect(commitAndPush("/worktree", "msg")).rejects.toThrow("Invalid branchName");
   });
 
   it("rejects a worktree path with shell metacharacters before any subprocess", async () => {
-    await expect(commitAndPush("/worktree$(whoami)", "main", "msg")).rejects.toThrow(
+    await expect(commitAndPush("/worktree$(whoami)", "msg")).rejects.toThrow(
+      "Invalid worktreePath"
+    );
+    expect(execFile).not.toHaveBeenCalled();
+  });
+});
+
+// ── resolveRepoIdentity ───────────────────────────────────────────────────────
+// Repo-identity seam for the feedback loop: `gh repo view --json owner,name`,
+// parsed into { owner, repo }. No caching — each call re-resolves.
+
+describe("resolveRepoIdentity", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("parses the gh repo-view JSON into owner/repo", async () => {
+    setupExecFileMock([JSON.stringify({ owner: { login: "acme" }, name: "widgets" })]);
+
+    const identity = await resolveRepoIdentity("/worktree");
+
+    expect(identity).toEqual({ owner: "acme", repo: "widgets" });
+    const ghCall = vi.mocked(execFile).mock.calls.find((call) => call[0] === "gh");
+    expect(ghCall).toBeDefined();
+    expect(ghCall![1]).toEqual(["repo", "view", "--json", "owner,name"]);
+  });
+
+  it("rejects a worktree path with shell metacharacters before any subprocess", async () => {
+    await expect(resolveRepoIdentity("/worktree$(whoami)")).rejects.toThrow(
       "Invalid worktreePath"
     );
     expect(execFile).not.toHaveBeenCalled();
