@@ -17,7 +17,7 @@ import { availabilityService } from "./availability.js";
 import { checkTableConflict, checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
 import { mapPrismaTable } from "./table.js";
-import { tableAdvisoryLockSql } from "./confirm-hold.js";
+import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
 
@@ -165,6 +165,10 @@ export const reservationService = {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
 
+    // Resolve the venue used for the pacing pre-check and the pacing/conflict
+    // re-check under the lock. Prefer the request's venueId, else the table's.
+    let venueId = data.venueId ?? null;
+
     if (data.venueId) {
       // Fetch reservations + holds once, then evaluate conflict + pacing rules.
       const { reservations, holds } = await availabilityService.fetchConflictData(
@@ -212,10 +216,10 @@ export const reservationService = {
         where: { id: data.tableId },
         select: { venueId: true },
       });
-      const tableVenueId = table?.venueId;
-      if (tableVenueId) {
+      venueId = table?.venueId ?? null;
+      if (venueId) {
         const { reservations, holds } = await availabilityService.fetchConflictData(
-          tableVenueId,
+          venueId,
           data.date
         );
         const hasConflict = checkTableConflict(
@@ -235,9 +239,50 @@ export const reservationService = {
       }
     }
 
-    // Create the reservation
-    const reservation = await this.create(data, userId);
-    return { success: true, reservation };
+    // Restore the advisory-lock + transaction this staff-booking path silently
+    // dropped: re-check conflicts under the per-table lock before committing so
+    // two concurrent bookings of the same slot cannot both insert (#3113).
+    const result = await bookSlot({
+      tableId: data.tableId,
+      venueId,
+      date: new Date(data.date),
+      window: { startTime, endTime },
+      partySize: data.partySize,
+      checkHoldConflict: true,
+      write: (tx) =>
+        tx.reservation.create({
+          data: {
+            date: new Date(data.date),
+            startTime,
+            endTime,
+            partySize: data.partySize,
+            tableId: data.tableId,
+            notes: data.notes ?? null,
+            guestName: data.guestName ?? null,
+            guestEmail: data.guestEmail ?? null,
+            guestPhone: data.guestPhone ?? null,
+            guestId: data.guestId ?? null,
+            userId: userId ?? null,
+            venueId: data.venueId ?? null,
+          },
+          include: {
+            table: true,
+            guest: {
+              select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+            },
+          },
+        }),
+    });
+
+    if (!result.ok) {
+      return {
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict: { hasConflict: true },
+      };
+    }
+
+    return { success: true, reservation: toReservation(result.value) };
   },
 
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation | null> {
@@ -324,53 +369,102 @@ export const reservationService = {
       data.endTime !== undefined ||
       data.tableId !== undefined;
 
-    if (timeOrTableChanged) {
-      // Build the final values for conflict check
-      const date = data.date ?? toDateString(existing.date);
-      const startTime = data.startTime ? new Date(data.startTime) : existing.startTime;
-      const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
-      const tableId = data.tableId ?? existing.tableId;
+    // Notes / party-size / preference edits are not slot moves — no lock needed.
+    if (!timeOrTableChanged) {
+      const reservation = await this.update(id, data);
+      if (!reservation) {
+        return { success: false, error: "Failed to update reservation" };
+      }
+      return { success: true, reservation };
+    }
 
-      // Resolve venueId — prefer the reservation's own venueId, fall back to
-      // the table's venueId if the reservation was created without one.
-      const venueId =
-        existing.venueId ??
-        (await prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }))
-          ?.venueId;
+    // Build the final slot values for the conflict check + the move write.
+    const date = data.date ?? toDateString(existing.date);
+    const startTime = data.startTime ? new Date(data.startTime) : existing.startTime;
+    const endTime = data.endTime ? new Date(data.endTime) : existing.endTime;
+    const tableId = data.tableId ?? existing.tableId;
 
-      if (venueId) {
-        // Fetch conflict data once, then apply the pure rule.
-        // Exclude the current reservation from the slices so it doesn't
-        // conflict with itself (TOCTOU-safe: reservation row is still present
-        // in DB at this point, so we filter it client-side).
-        const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
-        const filteredReservations = reservations.filter((r) => r.id !== id);
+    // Resolve venueId — prefer the reservation's own venueId, fall back to
+    // the table's venueId if the reservation was created without one.
+    const venueId =
+      existing.venueId ??
+      (await prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }))
+        ?.venueId ??
+      null;
 
-        const hasConflict = checkTableConflict(
-          tableId,
-          startTime,
-          endTime,
-          filteredReservations,
-          holds
-        );
+    if (venueId) {
+      // Fetch conflict data once, then apply the pure rule. Exclude the current
+      // reservation from the slices so it doesn't conflict with itself.
+      const { reservations, holds } = await availabilityService.fetchConflictData(venueId, date);
+      const filteredReservations = reservations.filter((r) => r.id !== id);
 
-        if (hasConflict) {
-          return {
-            success: false,
-            error: "Time slot has a conflict with an existing reservation or hold",
-            conflict: { hasConflict: true },
-          };
-        }
+      const hasConflict = checkTableConflict(
+        tableId,
+        startTime,
+        endTime,
+        filteredReservations,
+        holds
+      );
+
+      if (hasConflict) {
+        return {
+          success: false,
+          error: "Time slot has a conflict with an existing reservation or hold",
+          conflict: { hasConflict: true },
+        };
       }
     }
 
-    // Perform the update
-    const reservation = await this.update(id, data);
-    if (!reservation) {
+    // Restore the advisory-lock + transaction this move path silently dropped:
+    // re-check conflicts under the per-table lock (excluding this reservation)
+    // before committing the move so two concurrent moves into the same slot
+    // cannot both succeed (#3113). Status transitions never reach this path —
+    // the modify route routes cancellations through cancel() — so a plain
+    // update (no status CAS) is correct here.
+    const updateData = {
+      ...(data.date !== undefined && { date: new Date(data.date) }),
+      ...(data.startTime !== undefined && { startTime: new Date(data.startTime) }),
+      ...(data.endTime !== undefined && { endTime: new Date(data.endTime) }),
+      ...(data.partySize !== undefined && { partySize: data.partySize }),
+      ...(data.tableId !== undefined && { tableId: data.tableId }),
+      ...(data.notes !== undefined && { notes: data.notes }),
+    };
+
+    const result = await bookSlot({
+      tableId,
+      venueId,
+      date: new Date(date),
+      window: { startTime, endTime },
+      partySize: data.partySize ?? existing.partySize,
+      excludeReservationId: id,
+      checkHoldConflict: true,
+      write: async (tx) => {
+        try {
+          return await tx.reservation.update({
+            where: { id },
+            data: updateData,
+            include: { table: true },
+          });
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    });
+
+    if (!result.ok) {
+      return {
+        success: false,
+        error: "Time slot has a conflict with an existing reservation or hold",
+        conflict: { hasConflict: true },
+      };
+    }
+
+    if (!result.value) {
       return { success: false, error: "Failed to update reservation" };
     }
 
-    return { success: true, reservation };
+    return { success: true, reservation: toReservation(result.value) };
   },
 
   async createWalkIn(data: WalkInRequest, userId?: string): Promise<CreateReservationResult> {
@@ -416,60 +510,49 @@ export const reservationService = {
       };
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Serialize conflict-checked writes per table BEFORE the conflict check so
-      // a walk-in create and a concurrent hold confirmation on the same table
-      // cannot both pass and double-book. Shares the same lock key as
-      // confirmHold. Released automatically when the transaction ends.
-      await tx.$executeRaw(tableAdvisoryLockSql(data.tableId));
+    // Shares the same advisory lock key as confirmHold so a walk-in create and
+    // a concurrent hold confirmation on the same table cannot both pass and
+    // double-book. bookSlot re-checks the reservation conflict under the lock.
+    const result = await bookSlot({
+      tableId: data.tableId,
+      venueId: data.venueId,
+      date: dateOnly,
+      window: { startTime: now, endTime },
+      partySize: data.partySize,
+      write: async (tx) => {
+        // Create the reservation AND flip the table to OCCUPIED in the SAME
+        // transaction so the two writes commit or roll back together. If the
+        // table update throws, the reservation insert is aborted with it — no
+        // orphaned reservation row, no table left showing AVAILABLE.
+        const createdReservation = await tx.reservation.create({
+          data: {
+            date: dateOnly,
+            startTime: now,
+            endTime,
+            partySize: data.partySize,
+            tableId: data.tableId,
+            status: "CONFIRMED",
+            guestName: data.guestName ?? "Walk-in",
+            guestEmail: null,
+            guestPhone: null,
+            guestId: null,
+            userId: userId ?? null,
+            venueId: data.venueId ?? null,
+            notes: null,
+          },
+          include: { table: true },
+        });
 
-      // Re-check for conflicting reservations inside the transaction
-      const conflicting = await tx.reservation.findFirst({
-        where: {
-          tableId: data.tableId,
-          date: dateOnly,
-          status: { notIn: ["CANCELLED", "NO_SHOW"] },
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: now } }],
-        },
-        select: { id: true },
-      });
+        const occupiedTable = await tx.table.update({
+          where: { id: data.tableId },
+          data: { status: "OCCUPIED" },
+        });
 
-      if (conflicting) {
-        return null;
-      }
-
-      // Create the reservation AND flip the table to OCCUPIED in the SAME
-      // transaction so the two writes commit or roll back together. If the
-      // table update throws, the reservation insert is aborted with it — no
-      // orphaned reservation row, no table left showing AVAILABLE.
-      const createdReservation = await tx.reservation.create({
-        data: {
-          date: dateOnly,
-          startTime: now,
-          endTime,
-          partySize: data.partySize,
-          tableId: data.tableId,
-          status: "CONFIRMED",
-          guestName: data.guestName ?? "Walk-in",
-          guestEmail: null,
-          guestPhone: null,
-          guestId: null,
-          userId: userId ?? null,
-          venueId: data.venueId ?? null,
-          notes: null,
-        },
-        include: { table: true },
-      });
-
-      const occupiedTable = await tx.table.update({
-        where: { id: data.tableId },
-        data: { status: "OCCUPIED" },
-      });
-
-      return { reservation: createdReservation, table: occupiedTable };
+        return { reservation: createdReservation, table: occupiedTable };
+      },
     });
 
-    if (!result) {
+    if (!result.ok) {
       return {
         success: false,
         error: "Table is not available",
@@ -478,8 +561,8 @@ export const reservationService = {
 
     return {
       success: true,
-      reservation: toReservation(result.reservation),
-      table: mapPrismaTable(result.table),
+      reservation: toReservation(result.value.reservation),
+      table: mapPrismaTable(result.value.table),
     };
   },
 };

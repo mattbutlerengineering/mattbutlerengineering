@@ -1,10 +1,9 @@
 import { type ConfirmHoldRequest, type Reservation, type VenueSettings } from "@mbe/types";
-import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitHoldConfirmed } from "./events.js";
 import { availabilityService } from "./availability.js";
-import { checkPacingForSlot } from "./slot-rules.js";
 import { assertBookable } from "./assert-bookable.js";
+import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 
 type ConfirmHoldErrorCode =
@@ -13,23 +12,6 @@ type ConfirmHoldErrorCode =
   | "SESSION_MISMATCH"
   | "CONFLICT"
   | "PACING_EXCEEDED";
-
-/**
- * Builds a transaction-scoped advisory lock statement keyed on the table id.
- *
- * Serializes every conflict-checked write for a given table so that concurrent
- * confirmations (or a confirm racing a walk-in create) cannot both pass their
- * conflict checks under read-committed isolation and both commit a reservation
- * (write-skew double-booking). `hashtext` maps the table id to an int4 which is
- * cast to bigint for the single-key `pg_advisory_xact_lock` overload.
- *
- * The table id is bound as a parameter (never string-interpolated) to prevent
- * SQL injection. The lock auto-releases when the transaction commits or rolls
- * back.
- */
-export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
-  return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
-}
 
 export interface ConfirmHoldInput {
   holdId: string;
@@ -48,15 +30,16 @@ export type ConfirmHoldResult =
  * Steps:
  * 1. Look up hold by ID
  * 2. If sessionId provided, validate it matches
- * 3. Transaction: advisory lock -> expiry check -> conflict check -> create
- *    reservation -> delete hold
+ * 2.5. Pacing pre-check (fast fail outside the lock)
+ * 3. bookSlot: advisory lock -> expiry guard -> conflict + pacing re-check ->
+ *    create reservation -> delete hold
  * 4. Emit hold:confirmed event
  * 5. Return reservation
  *
- * The advisory lock and expiry check live inside the transaction so two
- * concurrent confirmations (or a confirm racing a walk-in create) on the same
- * table serialize on the lock key and cannot both pass their conflict checks
- * and commit (write-skew double-booking).
+ * The advisory lock, expiry guard, and conflict/pacing re-checks all run inside
+ * the shared {@link bookSlot} seam so two concurrent confirmations (or a confirm
+ * racing a walk-in create) on the same table serialize on the lock key and
+ * cannot both pass their conflict checks and commit (write-skew double-booking).
  */
 export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
   const { holdId, sessionId, guestDetails, userId } = input;
@@ -104,177 +87,78 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     if (bookingError?.code === "PACING_EXCEEDED") {
       return { success: false, error: bookingError.message, errorCode: "PACING_EXCEEDED" };
     }
-    // CONFLICT from assertBookable is a pre-check only; the transaction re-checks
-    // under the advisory lock, which is the authoritative gate.
+    // CONFLICT from assertBookable is a pre-check only; bookSlot re-checks under
+    // the advisory lock, which is the authoritative gate.
   }
 
-  // Step 3: Transaction — advisory lock + expiry check + conflict check +
-  // create reservation + delete hold
-  const txResult = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
-    // Serialize conflict-checked writes per table BEFORE any conflict check so
-    // concurrent confirmations cannot both pass and double-book. The lock is
-    // released automatically when the transaction ends.
-    await tx.$executeRaw(tableAdvisoryLockSql(hold.tableId));
-
-    // Re-check expiry inside the transaction so an expired hold never produces a
+  // Step 3: Atomic slot write under the advisory lock + transaction.
+  const result = await bookSlot({
+    tableId: hold.tableId,
+    venueId: hold.venueId,
+    date: hold.date,
+    window: { startTime: hold.startTime, endTime: hold.endTime },
+    partySize: hold.partySize,
+    excludeHoldId: holdId,
+    checkHoldConflict: true,
+    checkPacing: hold.venueId != null,
+    // Re-check expiry under the lock so an expired hold never produces a
     // reservation, even if it expired between the lookup and acquiring the lock.
-    if (hold.expiresAt < new Date()) {
+    guard: async () =>
+      hold.expiresAt < new Date() ? { code: "EXPIRED", message: "Hold has expired" } : undefined,
+    // Every unbookable outcome (expired, conflict, pacing) consumes the hold.
+    onUnbookable: async (tx) => {
       await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "expired" as const };
-    }
-
-    // Check for conflicting reservations
-    const conflictingReservation = await tx.reservation.findFirst({
-      where: {
-        tableId: hold.tableId,
-        date: hold.date,
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-        AND: [{ startTime: { lt: hold.endTime } }, { endTime: { gt: hold.startTime } }],
-      },
-      select: { id: true },
-    });
-
-    if (conflictingReservation) {
-      await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "conflict" as const };
-    }
-
-    // Check for conflicting holds
-    const conflictingHold = await tx.reservationHold.findFirst({
-      where: {
-        tableId: hold.tableId,
-        date: hold.date,
-        expiresAt: { gt: new Date() },
-        id: { not: holdId },
-        AND: [{ startTime: { lt: hold.endTime } }, { endTime: { gt: hold.startTime } }],
-      },
-      select: { id: true },
-    });
-
-    if (conflictingHold) {
-      await tx.reservationHold.delete({ where: { id: holdId } });
-      return { outcome: "conflict" as const };
-    }
-
-    // Re-check pacing under the advisory lock so two concurrent confirmations
-    // at the same slot (on different tables) cannot both pass the pre-lock
-    // pacing check and jointly exceed the cover limit (TOCTOU close).
-    if (hold.venueId) {
-      const txReservations = await tx.reservation.findMany({
-        where: {
-          venueId: hold.venueId,
+    },
+    write: async (tx) => {
+      const reservation = await tx.reservation.create({
+        data: {
           date: hold.date,
-          status: { notIn: ["CANCELLED", "NO_SHOW"] },
-        },
-        select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
-      });
-      const txHolds = await tx.reservationHold.findMany({
-        where: {
+          startTime: hold.startTime,
+          endTime: hold.endTime,
+          partySize: hold.partySize,
+          tableId: hold.tableId,
           venueId: hold.venueId,
-          date: hold.date,
-          expiresAt: { gt: new Date() },
-          id: { not: holdId },
+          guestName: guestDetails.guestName ?? null,
+          guestEmail: guestDetails.guestEmail ?? null,
+          guestPhone: guestDetails.guestPhone ?? null,
+          guestId: guestDetails.guestId ?? null,
+          notes: guestDetails.notes ?? null,
+          userId: userId ?? null,
+          status: "CONFIRMED",
         },
-        select: {
-          id: true,
-          tableId: true,
-          startTime: true,
-          endTime: true,
-          partySize: true,
-          expiresAt: true,
+        include: {
+          table: true,
+          guest: { select: { visitCount: true, communicationPreference: true } },
         },
       });
 
-      const settings = (
-        await tx.venue.findUnique({ where: { id: hold.venueId }, select: { settings: true } })
-      )?.settings as VenueSettings | null | undefined;
+      // Delete the hold in the same transaction as the reservation insert.
+      await tx.reservationHold.delete({ where: { id: holdId } });
 
-      const pacingOk = checkPacingForSlot(
-        hold.startTime,
-        hold.partySize,
-        settings,
-        txReservations,
-        txHolds
-      );
-
-      if (!pacingOk) {
-        await tx.reservationHold.delete({ where: { id: holdId } });
-        return { outcome: "pacing_exceeded" as const };
-      }
-    }
-
-    // Create the reservation
-    const reservation = await tx.reservation.create({
-      data: {
-        date: hold.date,
-        startTime: hold.startTime,
-        endTime: hold.endTime,
-        partySize: hold.partySize,
-        tableId: hold.tableId,
-        venueId: hold.venueId,
-        guestName: guestDetails.guestName ?? null,
-        guestEmail: guestDetails.guestEmail ?? null,
-        guestPhone: guestDetails.guestPhone ?? null,
-        guestId: guestDetails.guestId ?? null,
-        notes: guestDetails.notes ?? null,
-        userId: userId ?? null,
-        status: "CONFIRMED",
-      },
-      include: {
-        table: true,
-        guest: { select: { visitCount: true, communicationPreference: true } },
-      },
-    });
-
-    // Delete the hold
-    await tx.reservationHold.delete({ where: { id: holdId } });
-
-    return { outcome: "created" as const, reservation };
+      return reservation;
+    },
   });
 
-  if (txResult.outcome === "expired") {
-    return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
-  }
-
-  if (txResult.outcome === "conflict") {
-    return {
-      success: false,
-      error: "Time slot is no longer available",
-      errorCode: "CONFLICT",
-    };
-  }
-
-  if (txResult.outcome === "pacing_exceeded") {
-    return {
-      success: false,
-      error: "Pacing limit reached for this time slot",
-      errorCode: "PACING_EXCEEDED",
-    };
+  if (!result.ok) {
+    const { code } = result.conflict;
+    if (code === "EXPIRED") {
+      return { success: false, error: "Hold has expired", errorCode: "EXPIRED" };
+    }
+    if (code === "PACING_EXCEEDED") {
+      return {
+        success: false,
+        error: "Pacing limit reached for this time slot",
+        errorCode: "PACING_EXCEEDED",
+      };
+    }
+    return { success: false, error: "Time slot is no longer available", errorCode: "CONFLICT" };
   }
 
   // Step 4: Map to domain type
-  const reservation = toReservation(txResult.reservation);
+  const reservation = toReservation(result.value);
 
   // Step 5: Emit event
   emitHoldConfirmed(reservation);
 
   return { success: true, reservation };
 }
-
-// Transaction client type — matches the subset used in the transaction callback
-type PrismaTransactionClient = {
-  $executeRaw: typeof prisma.$executeRaw;
-  venue: {
-    findUnique: typeof prisma.venue.findUnique;
-  };
-  reservation: {
-    findFirst: typeof prisma.reservation.findFirst;
-    findMany: typeof prisma.reservation.findMany;
-    create: typeof prisma.reservation.create;
-  };
-  reservationHold: {
-    findFirst: typeof prisma.reservationHold.findFirst;
-    findMany: typeof prisma.reservationHold.findMany;
-    delete: typeof prisma.reservationHold.delete;
-  };
-};

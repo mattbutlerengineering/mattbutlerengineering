@@ -95,6 +95,33 @@ function makePrismaReservation(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Queues one passthrough transaction on prisma.$transaction for the bookSlot
+ * seam: the advisory-lock $executeRaw is a no-op, conflict re-checks default to
+ * "free", and create/update return the given row.
+ */
+function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()): void {
+  vi.mocked(prisma.$transaction).mockImplementationOnce(
+    ((fn: (client: unknown) => Promise<unknown>) => {
+      const tx = {
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+        reservation: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+          create: vi.fn().mockResolvedValue(reservationRow),
+          update: vi.fn().mockResolvedValue(reservationRow),
+        },
+        reservationHold: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+      return fn(tx);
+    }) as never
+  );
+}
+
 describe("reservationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -301,6 +328,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.reservation.create).mockResolvedValueOnce(
         makePrismaReservation({ status: "PENDING" }) as never
       );
+      useSlotTxOnce(makePrismaReservation({ status: "PENDING" }));
 
       const result = await reservationService.createWithConflictCheck(
         {
@@ -366,6 +394,7 @@ describe("reservationService", () => {
       } as never);
       vi.mocked(checkPacingForSlot).mockReturnValueOnce(true);
       vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      useSlotTxOnce();
 
       await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -388,6 +417,7 @@ describe("reservationService", () => {
       } as never);
       vi.mocked(checkTableConflict).mockReturnValueOnce(false);
       vi.mocked(prisma.reservation.create).mockResolvedValueOnce(makePrismaReservation() as never);
+      useSlotTxOnce();
 
       const result = await reservationService.createWithConflictCheck({
         date: "2026-05-05",
@@ -420,6 +450,91 @@ describe("reservationService", () => {
 
       expect(result.success).toBe(false);
       expect(result.conflict?.hasConflict).toBe(true);
+    });
+
+    it("two concurrent same-slot bookings: exactly one wins (restored advisory-lock + in-tx re-check)", async () => {
+      // #3113 regression: createWithConflictCheck dropped the advisory lock +
+      // transaction, so two staff bookings of the same slot could both pass the
+      // pre-check and both insert. The write now routes through bookSlot, which
+      // re-checks under a per-table advisory lock — exactly one must win.
+      const store: Array<{ tableId: string; startTime: Date; endTime: Date }> = [];
+      const start = new Date("2026-05-05T18:00:00Z");
+      const end = new Date("2026-05-05T19:30:00Z");
+      const overlaps = (): boolean =>
+        store.some((r) => r.tableId === "table-1" && r.startTime < end && r.endTime > start);
+      const pushRow = () => {
+        store.push({ tableId: "table-1", startTime: start, endTime: end });
+        return makePrismaReservation({ id: `res-${store.length}`, status: "CONFIRMED" });
+      };
+
+      // Pre-check passes for both callers (they read the same empty snapshot).
+      vi.mocked(checkTableConflict).mockReturnValue(false);
+      vi.mocked(checkPacingForSlot).mockReturnValue(true);
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: null,
+      } as never);
+      vi.mocked(availabilityService.fetchConflictData).mockResolvedValue({
+        reservations: [],
+        holds: [],
+      });
+
+      // Old, bug path: a bare global create lets both callers insert.
+      vi.mocked(prisma.reservation.create).mockImplementation(
+        () => Promise.resolve(pushRow()) as never
+      );
+
+      // New path: bookSlot's $transaction serializes on the advisory lock and
+      // re-checks the shared store in-transaction.
+      let chain: Promise<unknown> = Promise.resolve();
+      vi.mocked(prisma.$transaction).mockImplementation(
+        ((fn: (client: unknown) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+            reservation: {
+              findFirst: vi
+                .fn()
+                .mockImplementation(() =>
+                  Promise.resolve(overlaps() ? { id: "existing" } : null)
+                ),
+              findMany: vi.fn().mockResolvedValue([]),
+              create: vi.fn().mockImplementation(() => Promise.resolve(pushRow())),
+            },
+            reservationHold: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              findMany: vi.fn().mockResolvedValue([]),
+            },
+          };
+          const run = chain.then(() => fn(tx));
+          chain = run.then(
+            () => undefined,
+            () => undefined
+          );
+          return run;
+        }) as never
+      );
+
+      const request = {
+        date: "2026-05-05",
+        startTime: "2026-05-05T18:00:00Z",
+        endTime: "2026-05-05T19:30:00Z",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      };
+
+      const [a, b] = await Promise.all([
+        reservationService.createWithConflictCheck(request, "user-1"),
+        reservationService.createWithConflictCheck(request, "user-2"),
+      ]);
+
+      const successes = [a, b].filter((r) => r.success).length;
+      expect(successes).toBe(1);
+      expect(store.length).toBe(1);
+      // The persistent $transaction implementation above must not leak into
+      // later tests (beforeEach only clears call history, not implementations).
+      vi.mocked(prisma.$transaction).mockReset();
     });
   });
 
@@ -577,6 +692,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ startTime: new Date("2026-05-05T19:00:00Z") }) as never
       );
+      useSlotTxOnce(makePrismaReservation({ startTime: new Date("2026-05-05T19:00:00Z") }));
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         startTime: "2026-05-05T19:00:00Z",
@@ -595,6 +711,7 @@ describe("reservationService", () => {
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(
         makePrismaReservation({ tableId: "table-2" }) as never
       );
+      useSlotTxOnce(makePrismaReservation({ tableId: "table-2" }));
 
       const result = await reservationService.updateWithConflictCheck("res-1", {
         tableId: "table-2",
@@ -647,6 +764,7 @@ describe("reservationService", () => {
       });
       vi.mocked(checkTableConflict).mockReturnValueOnce(false);
       vi.mocked(prisma.reservation.update).mockResolvedValueOnce(makePrismaReservation() as never);
+      useSlotTxOnce();
 
       await reservationService.updateWithConflictCheck("res-1", {
         date: "2026-05-06",
