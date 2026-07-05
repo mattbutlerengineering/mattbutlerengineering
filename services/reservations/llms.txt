@@ -489,6 +489,18 @@
       }
     </item>
   </file>
+  <file path="src/services/job-worker.ts">
+    <item priority="low">
+      interface ReminderDispatcher {
+        
+      }
+    </item>
+    <item priority="low">
+      interface ReservationJobHandlerDeps {
+        dispatcher: ReminderDispatcher;
+      }
+    </item>
+  </file>
   <file path="src/services/lapse-detector.ts">
     <item priority="low">
       interface LapseResult {

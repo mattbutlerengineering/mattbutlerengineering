@@ -282,12 +282,11 @@ describe("WaitlistNotifier.handleExpiry", () => {
 
     const notifier = createWaitlistNotifier(buildDeps());
 
-    await notifier.handleExpiry({
-      waitlistEntryId: "entry-1",
-      venueId: "venue-1",
-    });
+    await notifier.handleExpiry({ waitlistEntryId: "entry-1" });
 
     expect(mockExpire).toHaveBeenCalledWith("entry-1");
+    // venue for the next-guest lookup is derived from the expired entry
+    expect(mockListWaiting).toHaveBeenCalledWith("venue-1");
     expect(mockNotifyTableReady).toHaveBeenCalledWith({
       id: "entry-2",
       guestPhone: "+15559998888",
@@ -305,10 +304,7 @@ describe("WaitlistNotifier.handleExpiry", () => {
 
     const notifier = createWaitlistNotifier(buildDeps());
 
-    await notifier.handleExpiry({
-      waitlistEntryId: "entry-1",
-      venueId: "venue-1",
-    });
+    await notifier.handleExpiry({ waitlistEntryId: "entry-1" });
 
     expect(mockExpire).toHaveBeenCalledWith("entry-1");
     expect(mockNotifyTableReady).not.toHaveBeenCalled();
@@ -319,10 +315,7 @@ describe("WaitlistNotifier.handleExpiry", () => {
 
     const notifier = createWaitlistNotifier(buildDeps());
 
-    await notifier.handleExpiry({
-      waitlistEntryId: "entry-1",
-      venueId: "venue-1",
-    });
+    await notifier.handleExpiry({ waitlistEntryId: "entry-1" });
 
     expect(mockNotifyTableReady).not.toHaveBeenCalled();
   });
