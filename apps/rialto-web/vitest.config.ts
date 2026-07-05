@@ -1,6 +1,7 @@
 import { defaultExclude } from "vitest/config";
 import { resolve } from "path";
 import { defineVitestConfig } from "@mbe/config/vitest/react";
+import { resolveRialtoTokenCount } from "./token-count.config";
 
 export default defineVitestConfig({
   include: ["src/**/*.test.{ts,tsx}"],
@@ -21,6 +22,9 @@ export default defineVitestConfig({
     },
   },
   extend: {
+    define: {
+      __RIALTO_TOKEN_COUNT__: JSON.stringify(resolveRialtoTokenCount()),
+    },
     resolve: {
       alias: {
         "@": resolve(__dirname, "./src"),
