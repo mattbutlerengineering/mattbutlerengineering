@@ -386,7 +386,7 @@ describe("FloorPlanEditorPage", () => {
       // Click table in the sidebar list
       fireEvent.click(screen.getByText("A1"));
 
-      expect(screen.getByText("Window")).toBeDefined();
+      expect(await screen.findByText("Window")).toBeDefined();
       expect(screen.queryByText("Select a table to view details")).toBeNull();
     });
 
@@ -397,7 +397,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("A1"));
       fireEvent.click(screen.getByText("A1"));
 
-      expect(screen.getByText(/1 - 4 guests/)).toBeDefined();
+      expect(await screen.findByText(/1 - 4 guests/)).toBeDefined();
     });
 
     it("shows position in table details", async () => {
@@ -407,7 +407,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("A1"));
       fireEvent.click(screen.getByText("A1"));
 
-      expect(screen.getByText(/x: 100, y: 200/)).toBeDefined();
+      expect(await screen.findByText(/x: 100, y: 200/)).toBeDefined();
     });
 
     it("shows Not set when location is null", async () => {
@@ -417,7 +417,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("B2"));
       fireEvent.click(screen.getByText("B2"));
 
-      expect(screen.getByText("Not set")).toBeDefined();
+      expect(await screen.findByText("Not set")).toBeDefined();
     });
   });
 
@@ -438,7 +438,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("+ Add Table"));
       fireEvent.click(screen.getByText("+ Add Table"));
 
-      expect(screen.getByTestId("add-table-dialog")).toBeDefined();
+      expect(await screen.findByTestId("add-table-dialog")).toBeDefined();
     });
 
     it("closes add table dialog when Close Dialog is clicked", async () => {
@@ -447,10 +447,10 @@ describe("FloorPlanEditorPage", () => {
 
       await waitFor(() => screen.getByText("+ Add Table"));
       fireEvent.click(screen.getByText("+ Add Table"));
-      expect(screen.getByTestId("add-table-dialog")).toBeDefined();
+      expect(await screen.findByTestId("add-table-dialog")).toBeDefined();
 
       fireEvent.click(screen.getByText("Close Dialog"));
-      expect(screen.queryByTestId("add-table-dialog")).toBeNull();
+      await waitFor(() => expect(screen.queryByTestId("add-table-dialog")).toBeNull());
     });
 
     it("adds new table when dialog submits", async () => {
@@ -463,7 +463,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("+ Add Table"));
       fireEvent.click(screen.getByText("+ Add Table"));
 
-      fireEvent.click(screen.getByText("Submit Table"));
+      fireEvent.click(await screen.findByText("Submit Table"));
 
       await waitFor(() => {
         expect(mockTablesCreate).toHaveBeenCalledOnce();
@@ -575,11 +575,15 @@ describe("FloorPlanEditorPage", () => {
 
       renderPage();
 
-      // Wait for floor plan to load and canvas to appear
-      await waitFor(() => screen.getByTestId("floor-plan-canvas"));
+      // Wait for the floor plan to load AND the canvas table button to mount. The canvas
+      // container renders as soon as the plan loads, but its per-table buttons come from a
+      // post-load effect that syncs `tables` into local state — a second commit. Gate on the
+      // button itself (findBy retries until mounted), not just the canvas container, or the
+      // click can race ahead of that second render and throw non-deterministically.
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
 
       // Trigger a table move to create a pending update
-      fireEvent.click(screen.getByTestId("canvas-table-table-a"));
+      fireEvent.click(tableButton);
 
       // Wait for Save Changes button (hasChanges becomes true)
       await waitFor(() => screen.getByText("Save Changes"));
