@@ -4723,6 +4723,12 @@
       return hours * 60 + minutes;
     }
   </file>
+  <file path="src/services/book-slot.ts">
+    export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
+      return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
+    }
+    export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+  </file>
   <file path="src/services/booking-notifications.ts">
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
@@ -4756,8 +4762,11 @@
       | "SESSION_MISMATCH"
       | "CONFLICT"
       | "PACING_EXCEEDED";
-    export function tableAdvisoryLockSql(tableId: string): Prisma.Sql {
-      return Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${tableId})::bigint)`;
+    export interface ConfirmHoldInput {
+      holdId: string;
+      sessionId?: string;
+      guestDetails: ConfirmHoldRequest;
+      userId?: string;
     }
   </file>
   <file path="src/services/database.ts">
