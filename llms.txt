@@ -1863,10 +1863,16 @@
   </file>
   <file path="infrastructure/pulumi/index.ts">
     <item priority="high">
-      export const auth0ApiIdentifier: unknown;
+      export function secretEnv(
+        key: string,
+        value: pulumi.Input<string>
+      ): digitalocean.types.input.AppSpecServiceEnv { /* ... */ }
     </item>
     <item priority="high">
-      export const auth0ClientId: unknown;
+      export function extraEnv(
+        key: string,
+        value: pulumi.Input<string>
+      ): digitalocean.types.input.AppSpecServiceEnv { /* ... */ }
     </item>
   </file>
   </section>
