@@ -58,7 +58,7 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
 });
 
 import { JobScheduler, JobWorker, JOB_TYPES } from "@mbe/jobs";
-import type { ReminderPayload, WaitlistExpiryPayload } from "@mbe/jobs";
+import type { ReminderPayload } from "@mbe/jobs";
 import { createReservationJobHandlers, createReservationJobWorker } from "./job-worker.js";
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
@@ -189,7 +189,7 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     // handleExpiry with just that so the re-notify-next-guest path fires.
     await scheduler.schedule(
       JOB_TYPES.WAITLIST_EXPIRY,
-      { waitlistEntryId: "entry_1" } as WaitlistExpiryPayload,
+      { waitlistEntryId: "entry_1" },
       1000,
       `${JOB_TYPES.WAITLIST_EXPIRY}:entry_1`
     );
