@@ -336,6 +336,28 @@
     export const BRIEFING_QUERY_KEY = "briefing" as const;
     export type BriefingGuest = ApiBriefingGuest;
   </file>
+  <file path="src/hooks/useCancellationQuote.ts">
+    export interface CancellationQuote {
+      /** Fee evaluation — "what we did": amounts, refund, and deposit action. */
+      fee: CancellationFeeResult;
+      /** Plain-language label — "what we told the guest". */
+      label: string;
+      /** ISO currency code used to format the label (e.g. "usd"). */
+      currency: string;
+    }
+    function buildFeeLabel(fee: CancellationFeeResult, currency: string): string {
+      const feeAmount = formatCurrencyFromCents(fee.feeAmountCents, currency);
+      const refundAmount = formatCurrencyFromCents(fee.refundAmountCents, currency);
+      switch (fee.feeType) {
+        case "none":
+          return `No cancellation fee — full refund of ${refundAmount}`;
+        case "late":
+          return `Late cancellation fee: ${feeAmount} — refund ${refundAmount}`;
+        case "noshow":
+          return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
+      }
+    }
+  </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
       totalReservations: number;
@@ -452,6 +474,9 @@
     export interface CancelArgs {
       reason: string;
       note: string;
+      /** The quote shown to staff. Threaded so the executed cancellation and the
+       *  displayed fee derive from the same evaluation. `null` when no policy. */
+      quote: CancellationQuote | null;
     }
   </file>
   <file path="src/hooks/useTimelineKeyboard.ts">

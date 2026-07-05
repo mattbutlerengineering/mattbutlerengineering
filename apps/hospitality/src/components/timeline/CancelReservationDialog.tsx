@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
-import type { CancellationPolicy } from "@mbe/cancellation-policy";
-import { evaluateCancellationFee } from "@mbe/cancellation-policy";
-import { formatCurrencyFromCents } from "../../utils/format.js";
+import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
 import styles from "./CancelReservationDialog.module.css";
 
 interface CancelReservationDialogProps {
@@ -10,12 +8,8 @@ interface CancelReservationDialogProps {
   guestName: string | null;
   onConfirm: (reason: string, note: string) => Promise<void>;
   onClose: () => void;
-  /** Venue cancellation policy. When provided, shows the computed fee before confirm. */
-  policy?: CancellationPolicy | null;
-  /** The reservation start time. Required when `policy` is provided. */
-  reservationTime?: Date;
-  /** ISO currency code (e.g. "usd"). Defaults to "usd". */
-  currency?: string;
+  /** Fee quote (evaluated fee + display label). When provided, shows the fee before confirm. */
+  quote?: CancellationQuote | null;
 }
 
 const CANCELLATION_REASONS = [
@@ -25,30 +19,12 @@ const CANCELLATION_REASONS = [
   { value: "other", label: "Other" },
 ];
 
-function buildFeeLabel(
-  feeType: "none" | "late" | "noshow",
-  feeAmountCents: number,
-  refundAmountCents: number,
-  currency: string
-): string {
-  switch (feeType) {
-    case "none":
-      return `No cancellation fee — full refund of ${formatCurrencyFromCents(refundAmountCents, currency)}`;
-    case "late":
-      return `Late cancellation fee: ${formatCurrencyFromCents(feeAmountCents, currency)} — refund ${formatCurrencyFromCents(refundAmountCents, currency)}`;
-    case "noshow":
-      return `No-show fee: ${formatCurrencyFromCents(feeAmountCents, currency)} forfeited — refund ${formatCurrencyFromCents(refundAmountCents, currency)}`;
-  }
-}
-
 export function CancelReservationDialog({
   reservationId: _reservationId,
   guestName,
   onConfirm,
   onClose,
-  policy,
-  reservationTime,
-  currency = "usd",
+  quote,
 }: CancelReservationDialogProps) {
   const [reason, setReason] = useState<string>("guest_cancelled");
   const [note, setNote] = useState<string>("");
@@ -56,10 +32,6 @@ export function CancelReservationDialog({
   const [error, setError] = useState<string | null>(null);
 
   const displayName = guestName ?? "Guest";
-
-  // Compute fee at render time — no setState in effects
-  const feeResult =
-    policy && reservationTime ? evaluateCancellationFee(policy, reservationTime, new Date()) : null;
 
   const handleConfirm = async () => {
     setIsLoading(true);
@@ -92,19 +64,12 @@ export function CancelReservationDialog({
 
           {error && <div className={styles.errorBanner}>{error}</div>}
 
-          {feeResult && (
+          {quote && (
             <div
-              className={`${styles.feeBanner} ${feeResult.feeType !== "none" ? styles.feeBannerWarning : ""}`}
+              className={`${styles.feeBanner} ${quote.fee.feeType !== "none" ? styles.feeBannerWarning : ""}`}
               data-testid="cancellation-fee-banner"
             >
-              <Text variant="caption">
-                {buildFeeLabel(
-                  feeResult.feeType,
-                  feeResult.feeAmountCents,
-                  feeResult.refundAmountCents,
-                  currency
-                )}
-              </Text>
+              <Text variant="caption">{quote.label}</Text>
             </div>
           )}
 
