@@ -11,7 +11,13 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import {
+  requireAuth,
+  requireAdmin,
+  requireVenueAccess,
+  hasPermission,
+  type VenueIdResolver,
+} from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { venueService, venueGroupService } from "../services/venue.js";
 
@@ -320,15 +326,20 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // List venues
   fastify.get<{
     Querystring: { page?: string; limit?: string; venueGroupId?: string };
-    Reply: PaginatedResponse<Venue>;
+    Reply: PaginatedResponse<Venue> | ApiError;
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
-        summary: "List all venues",
+        summary: "List venues visible to the caller",
         operationId: "listVenues",
-        description: "Retrieve a paginated list of all venues. Optionally filter by venue group.",
+        description:
+          "Returns the venues the authenticated caller may see: platform admins get every venue, " +
+          "other operators get only the venues they are a member of (own or were invited to). " +
+          "Optionally filter by venue group.",
         tags: ["Venues"],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: "object",
           properties: {
@@ -353,6 +364,10 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Successful response with paginated venue list",
             ...createListResponseSchema("Venue#"),
           },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
           500: {
             description: "Internal server error",
             $ref: "Error#",
@@ -360,9 +375,25 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { page, limit } = parsePaginationQuery(request.query);
-      return venueService.list(page, limit, request.query.venueGroupId);
+      const { venueGroupId } = request.query;
+      const user = request.user;
+
+      // requireAuth guarantees an identity; this satisfies the type narrower
+      // and fails closed if the guard is ever removed.
+      if (!user) {
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+      }
+
+      // Platform admins are scoped to every venue (matches requireVenueAccess,
+      // ADR-020); everyone else sees only venues they belong to.
+      if (hasPermission(user, "admin")) {
+        return venueService.list(page, limit, venueGroupId);
+      }
+      return venueService.listForMember(user.raw.sub, page, limit, venueGroupId);
     }
   );
 
@@ -530,7 +561,9 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       try {
-        const venue = await venueService.create(request.body);
+        // requireAdmin ran, so request.user is set; seed the creator as the
+        // venue owner (VenueMembership) so it appears in their scoped list (#3069).
+        const venue = await venueService.create(request.body, request.user?.raw.sub);
         return reply.code(201).send({ data: venue });
       } catch (error) {
         if (error instanceof Error && error.message.includes("Unique constraint")) {

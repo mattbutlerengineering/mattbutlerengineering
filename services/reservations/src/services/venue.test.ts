@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -21,6 +21,11 @@ vi.mock("./database.js", async () => {
         delete: vi.fn(),
         count: vi.fn(),
       },
+      venueMembership: {
+        create: vi.fn(),
+        count: vi.fn(),
+      },
+      $transaction: vi.fn(),
     },
   });
 });
@@ -64,6 +69,12 @@ function makePrismaVenue(overrides: Record<string, unknown> = {}) {
     updatedAt: NOW,
     ...overrides,
   };
+}
+
+/** Minimal interactive-transaction client shape used by create() seeding tests. */
+interface TxLike {
+  venue: { create: Mock };
+  venueMembership: { create: Mock };
 }
 
 describe("venueGroupService", () => {
@@ -238,6 +249,46 @@ describe("venueService", () => {
     });
   });
 
+  describe("listForMember", () => {
+    it("filters venues to those the given user is a member of", async () => {
+      const dbVenue = makePrismaVenue();
+      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([dbVenue] as never);
+      vi.mocked(prisma.venue.count).mockResolvedValueOnce(1 as never);
+
+      const result = await venueService.listForMember("auth0|user-1", 1, 10);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe("venue-1");
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { memberships: { some: { userSub: "auth0|user-1" } } },
+        })
+      );
+      // count must apply the same membership filter so pagination totals match
+      expect(prisma.venue.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { memberships: { some: { userSub: "auth0|user-1" } } },
+        })
+      );
+    });
+
+    it("combines the membership filter with venueGroupId", async () => {
+      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.venue.count).mockResolvedValueOnce(0 as never);
+
+      await venueService.listForMember("auth0|user-1", 1, 10, "group-1");
+
+      expect(prisma.venue.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            memberships: { some: { userSub: "auth0|user-1" } },
+            venueGroupId: "group-1",
+          },
+        })
+      );
+    });
+  });
+
   describe("getById", () => {
     it("returns mapped venue with venueGroup", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
@@ -313,6 +364,48 @@ describe("venueService", () => {
           data: expect.objectContaining({ currencyCode: "USD" }),
         })
       );
+    });
+  });
+
+  describe("create ownership seeding", () => {
+    it("seeds an owner VenueMembership atomically when ownerSub is provided", async () => {
+      const created = makePrismaVenue();
+      const venueCreate = vi.fn().mockResolvedValue(created);
+      const membershipCreate = vi.fn().mockResolvedValue({
+        id: "vm-1",
+        userSub: "auth0|owner-1",
+        venueId: "venue-1",
+        role: "owner",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (tx: TxLike) => Promise<unknown>) =>
+        fn({ venue: { create: venueCreate }, venueMembership: { create: membershipCreate } })
+      ) as never);
+
+      const result = await venueService.create(
+        { name: "Test Venue", slug: "test-venue", ianaTimezone: "America/Los_Angeles" },
+        "auth0|owner-1"
+      );
+
+      expect(result.id).toBe("venue-1");
+      expect(venueCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ name: "Test Venue" }) })
+      );
+      expect(membershipCreate).toHaveBeenCalledWith({
+        data: { userSub: "auth0|owner-1", venueId: "venue-1", role: "owner" },
+      });
+      // Seeding path runs inside the transaction, not the direct create.
+      expect(prisma.venue.create).not.toHaveBeenCalled();
+    });
+
+    it("does not open a transaction or seed membership when ownerSub is omitted", async () => {
+      vi.mocked(prisma.venue.create).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      await venueService.create({ name: "Venue", slug: "venue", ianaTimezone: "UTC" });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.venueMembership.create).not.toHaveBeenCalled();
     });
   });
 

@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 vi.mock("../services/venue.js", () => ({
   venueService: {
     list: vi.fn(),
+    listForMember: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
     create: vi.fn(),
@@ -429,7 +430,7 @@ describe("Venue Routes", () => {
 
   describe("Venue Endpoints", () => {
     describe("GET /v1/venues", () => {
-      it("returns paginated list of venues", async () => {
+      it("returns all venues for a platform admin (bypass identity is admin)", async () => {
         vi.mocked(venueService.list).mockResolvedValueOnce({
           data: [mockVenue],
           pagination: {
@@ -445,6 +446,7 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(200);
@@ -452,9 +454,11 @@ describe("Venue Routes", () => {
         expect(body.data).toHaveLength(1);
         expect(body.data[0].name).toBe("Chez Panisse");
         expect(body.pagination.total).toBe(1);
+        expect(venueService.list).toHaveBeenCalled();
+        expect(venueService.listForMember).not.toHaveBeenCalled();
       });
 
-      it("filters by venueGroupId", async () => {
+      it("filters by venueGroupId for admins", async () => {
         vi.mocked(venueService.list).mockResolvedValueOnce({
           data: [],
           pagination: {
@@ -470,9 +474,80 @@ describe("Venue Routes", () => {
         await app.inject({
           method: "GET",
           url: "/api/v1/venues?venueGroupId=group-123",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(venueService.list).toHaveBeenCalledWith(1, 10, "group-123");
+      });
+
+      it("returns 401 for an anonymous caller", async () => {
+        const response = await app.inject({ method: "GET", url: "/api/v1/venues" });
+
+        expect(response.statusCode).toBe(401);
+        expect(venueService.list).not.toHaveBeenCalled();
+        expect(venueService.listForMember).not.toHaveBeenCalled();
+      });
+
+      it("scopes the list to a non-admin operator's own memberships (#3069)", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.listForMember).mockResolvedValueOnce({
+          data: [mockVenue],
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 1,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.data).toHaveLength(1);
+        // A non-admin must never receive the unscoped venue list.
+        expect(venueService.list).not.toHaveBeenCalled();
+        expect(venueService.listForMember).toHaveBeenCalledWith("auth0|user-123", 1, 10, undefined);
+      });
+
+      it("passes venueGroupId through the membership-scoped query", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.listForMember).mockResolvedValueOnce({
+          data: [],
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+
+        await app.inject({
+          method: "GET",
+          url: "/api/v1/venues?venueGroupId=group-123",
+          headers: { authorization: "Bearer valid-token" },
+        });
+
+        expect(venueService.listForMember).toHaveBeenCalledWith(
+          "auth0|user-123",
+          1,
+          10,
+          "group-123"
+        );
       });
     });
 
@@ -556,6 +631,29 @@ describe("Venue Routes", () => {
         const body = JSON.parse(response.body);
         expect(body.data.name).toBe("Chez Panisse");
         expect(body.data.ianaTimezone).toBe("America/Los_Angeles");
+      });
+
+      it("seeds the creating operator as the venue owner (#3069)", async () => {
+        vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { "x-auth-bypass": "true" },
+          payload: {
+            name: "Chez Panisse",
+            slug: "chez-panisse",
+            ianaTimezone: "America/Los_Angeles",
+          },
+        });
+
+        expect(response.statusCode).toBe(201);
+        // The creator's Auth0 sub is threaded into create() so an owner
+        // VenueMembership is seeded and the new venue appears in their scoped list.
+        expect(venueService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ name: "Chez Panisse", slug: "chez-panisse" }),
+          "auth0|user-123"
+        );
       });
 
       it("returns 400 when venue slug is already taken (Unique constraint)", async () => {
