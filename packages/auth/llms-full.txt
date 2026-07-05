@@ -207,24 +207,14 @@
         error: auth.error,
       };
     }
-    export function useAccessToken(): string | null {
-      const auth = useOIDCAuth();
-      const expiresAt = auth.user?.expires_at;
-      const signinSilent = auth.signinSilent;
-    
-      useEffect(() => {
-        if (!expiresAt) return;
-    
-        const msUntilExpiry = expiresAt * 1000 - Date.now();
-        // Proactively refresh when within 5 minutes of expiry
-        if (msUntilExpiry > 0 && msUntilExpiry < 5 * 60 * 1000) {
-          signinSilent().catch(() => {
-            // Silent refresh failed — token may have fully expired
-          });
-        }
-      }, [expiresAt, signinSilent]);
-    
-      return auth.user?.access_token ?? null;
+    export interface AccessTokenState {
+      /** Current access token for API calls, or null when unauthenticated. */
+      accessToken: string | null;
+      /**
+       * Error from the most recent proactive silent refresh, or null when the last
+       * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
+       */
+      refreshError: Error | null;
     }
   </file>
   </section>

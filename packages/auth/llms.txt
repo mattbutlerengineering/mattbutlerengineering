@@ -40,8 +40,11 @@
     <item priority="high">
       export function useAuth() { /* ... */ }
     </item>
-    <item priority="high">
-      export function useAccessToken(): string | null { /* ... */ }
+    <item priority="low">
+      interface AccessTokenState {
+        accessToken: string | null;
+        refreshError: Error | null;
+      }
     </item>
   </file>
   </section>
