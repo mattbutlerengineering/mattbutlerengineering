@@ -53,7 +53,10 @@ const BASE_PARAMS: FeedbackLoopParams = {
 /** Fresh injected deps: a fake commitAndPush + a fake PrFeedbackPort. */
 function makeDeps(): FeedbackLoopRunnerDeps {
   return {
-    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
+    worktreeManager: {
+      commitAndPush: vi.fn().mockResolvedValue(undefined),
+      resolveRepoIdentity: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+    },
     feedbackPoller: {
       getRepoOwner: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
       fetchReviewThreads: vi.fn().mockResolvedValue({ reviewDecision: null, threads: [] }),

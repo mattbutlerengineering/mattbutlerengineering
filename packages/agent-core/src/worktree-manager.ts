@@ -15,6 +15,12 @@ const execFileAsync = promisify(execFile);
  */
 const GIT_TIMEOUT_MS = DEFAULT_GIT_TIMEOUT_MS;
 
+/**
+ * Bound the `gh` subprocess used to resolve repo identity so a GitHub API
+ * stall fails fast instead of blocking the feedback loop indefinitely.
+ */
+const GH_TIMEOUT_MS = 30_000;
+
 const WORKTREE_DIR = ".agent-worktrees";
 
 /** Written by the worker after a successful `pnpm install --frozen-lockfile`. */
@@ -189,25 +195,25 @@ export async function pushBranch(worktreePath: string, branchName: string): Prom
 }
 
 /**
- * Feedback-loop commit path: stage all changes, commit, and push the branch.
- * Delegates to the validated `commitChanges` (applies `validatePath`, stages
- * with `git add -A`, and short-circuits to no commit when nothing is staged)
- * and `pushBranch` (applies `validatePath` + `validateGitRef` on the branch
- * ref before the subprocess). When there is nothing to commit, the push is
- * skipped — matching the prior feedback-loop behaviour of never pushing an
- * empty commit. This centralises the argument-injection protection that the
- * feedback loop's previous inline helper lacked.
+ * Feedback-loop commit path: stage all changes, commit, and push the branch
+ * the worktree is currently on — a single atomic step (the loop always
+ * commits then pushes together). Delegates to the validated `commitChanges`
+ * (applies `validatePath`, stages with `git add -A`, and short-circuits to no
+ * commit when nothing is staged) and `pushBranch` (applies `validatePath` +
+ * `validateGitRef` on the branch ref before the subprocess). The branch is
+ * resolved from `HEAD` rather than passed in, matching the loop's original
+ * `git push` (no explicit ref) semantics. When there is nothing to commit the
+ * push is skipped — never pushing an empty commit. This centralises the
+ * argument-injection protection that the feedback loop's previous inline
+ * helper lacked.
  */
-export async function commitAndPush(
-  worktreePath: string,
-  branchName: string,
-  message: string
-): Promise<void> {
+export async function commitAndPush(worktreePath: string, message: string): Promise<void> {
   const sha = await commitChanges(worktreePath, message);
   if (!sha) {
     // Nothing was staged — nothing to push.
     return;
   }
+  const branchName = await git(["rev-parse", "--abbrev-ref", "HEAD"], worktreePath);
   await pushBranch(worktreePath, branchName);
 }
 
@@ -216,6 +222,30 @@ export async function hasChanges(worktreePath: string): Promise<boolean> {
 
   const gitStatus = await git(["status", "--porcelain"], worktreePath);
   return gitStatus.length > 0;
+}
+
+/** The GitHub `owner`/`repo` a worktree's `origin` remote points at. */
+export interface RepoIdentity {
+  readonly owner: string;
+  readonly repo: string;
+}
+
+/**
+ * Resolve the GitHub `owner`/`repo` for a worktree via `gh repo view`. The
+ * feedback loop needs this to poll a PR's review threads and checks. Not
+ * cached: each call re-resolves, trading one bounded subprocess for
+ * correctness (a worktree's remote can be re-pointed between runs). A cache
+ * can be layered on later if a hot path ever needs it.
+ */
+export async function resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity> {
+  validatePath(worktreePath, "worktreePath");
+
+  const { stdout } = await execFileAsync("gh", ["repo", "view", "--json", "owner,name"], {
+    cwd: worktreePath,
+    timeout: GH_TIMEOUT_MS,
+  });
+  const parsed = JSON.parse(stdout) as { owner: { login: string }; name: string };
+  return { owner: parsed.owner.login, repo: parsed.name };
 }
 
 export interface VerificationResult {

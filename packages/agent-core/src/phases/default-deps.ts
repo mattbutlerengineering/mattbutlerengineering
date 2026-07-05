@@ -4,6 +4,7 @@ import {
   commitChanges,
   pushBranch,
   commitAndPush,
+  resolveRepoIdentity,
   removeWorktree,
 } from "../worktree-manager.js";
 import { buildSystemPrompt, loadSourceFiles, loadProjectContext } from "../prompt-builder.js";
@@ -27,6 +28,7 @@ export function createDefaultPhaseDeps(): PhaseDeps {
       commitChanges,
       pushBranch,
       commitAndPush,
+      resolveRepoIdentity,
       removeWorktree,
     },
     promptBuilder: {

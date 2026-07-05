@@ -68,7 +68,10 @@ function createFakePort(overrides: Partial<PrFeedbackPort> = {}): PrFeedbackPort
 /** Fresh injected deps: a fake `commitAndPush` + the given (or default) fake port. */
 function makeDeps(feedbackPoller: PrFeedbackPort = createFakePort()): FeedbackLoopRunnerDeps {
   return {
-    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
+    worktreeManager: {
+      commitAndPush: vi.fn().mockResolvedValue(undefined),
+      resolveRepoIdentity: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+    },
     feedbackPoller,
   };
 }
@@ -131,17 +134,43 @@ describe("runFeedbackLoop", () => {
     expect(vi.mocked(deps.worktreeManager.commitAndPush)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(deps.worktreeManager.commitAndPush)).toHaveBeenCalledWith(
       BASE_PARAMS.repoPath,
-      BASE_PARAMS.branchName,
       expect.stringContaining("address PR feedback")
     );
   });
 
-  it("resolves owner/repo through the injected port's getRepoOwner", async () => {
-    const port = createFakePort();
+  it("resolves owner/repo through the injected worktreeManager.resolveRepoIdentity", async () => {
+    const deps = makeDeps();
 
-    await runFeedbackLoop(BASE_PARAMS, makeDeps(port));
+    await runFeedbackLoop(BASE_PARAMS, deps);
 
-    expect(vi.mocked(port.getRepoOwner)).toHaveBeenCalledWith(BASE_PARAMS.repoPath);
+    expect(vi.mocked(deps.worktreeManager.resolveRepoIdentity)).toHaveBeenCalledWith(
+      BASE_PARAMS.repoPath
+    );
+  });
+
+  it("routes all git/gh operations through the WorktreeManagerDeps seam (#3115)", async () => {
+    // A review comment on the first poll, clean thereafter: the loop resolves
+    // repo identity once, then commits+pushes the fix once — all via the
+    // injected seam. child_process is never mocked here.
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValue({ reviewDecision: null, threads: [] }),
+    });
+    const deps = makeDeps(port);
+
+    await runFeedbackLoop(BASE_PARAMS, deps);
+
+    expect(vi.mocked(deps.worktreeManager.resolveRepoIdentity)).toHaveBeenCalledWith(
+      BASE_PARAMS.repoPath
+    );
+    expect(vi.mocked(deps.worktreeManager.commitAndPush)).toHaveBeenCalledWith(
+      BASE_PARAMS.repoPath,
+      expect.stringContaining("address PR feedback")
+    );
+    // The port's getRepoOwner is no longer the loop's identity source.
+    expect(vi.mocked(port.getRepoOwner)).not.toHaveBeenCalled();
   });
 
   it("escalates after exhausting maxRetries when feedback persists", async () => {
