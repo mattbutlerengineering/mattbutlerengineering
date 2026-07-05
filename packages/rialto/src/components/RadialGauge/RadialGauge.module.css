@@ -1,0 +1,133 @@
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+
+  /* Overridable per size — drives the dial box and readout type scale. */
+  --gauge-size: 128px;
+  --gauge-value-font: var(--rialto-text-xl);
+  --gauge-stroke: 8;
+}
+
+/* ── Sizes ──────────────────────────────────── */
+
+.sizeSm {
+  --gauge-size: 88px;
+  --gauge-value-font: var(--rialto-text-sm);
+  --gauge-stroke: 7;
+}
+
+.sizeMd {
+  --gauge-size: 128px;
+  --gauge-value-font: var(--rialto-text-xl);
+  --gauge-stroke: 8;
+}
+
+.sizeLg {
+  --gauge-size: 176px;
+  --gauge-value-font: var(--rialto-text-3xl);
+  --gauge-stroke: 9;
+}
+
+/* ── Dial ───────────────────────────────────── */
+
+.dial {
+  position: relative;
+  inline-size: var(--gauge-size);
+  block-size: var(--gauge-size);
+}
+
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+/* ── Arcs ───────────────────────────────────── */
+
+.track {
+  stroke: var(--rialto-border-strong);
+  stroke-width: var(--gauge-stroke);
+  stroke-linecap: round;
+}
+
+.valueArc {
+  stroke: var(--rialto-accent);
+  stroke-width: var(--gauge-stroke);
+  stroke-linecap: round;
+}
+
+/* ── Threshold markers ──────────────────────── */
+
+.threshold {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.toneAccent {
+  stroke: var(--rialto-accent);
+}
+
+.toneSuccess {
+  stroke: var(--rialto-success);
+}
+
+.toneWarning {
+  stroke: var(--rialto-warning);
+}
+
+.toneError {
+  stroke: var(--rialto-error);
+}
+
+/* ── Needle ─────────────────────────────────── */
+
+.needle {
+  stroke: var(--rialto-text-primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.needleHub {
+  fill: var(--rialto-surface-elevated);
+  stroke: var(--rialto-border-strong);
+  stroke-width: 1.5;
+}
+
+/* ── Centre readout ─────────────────────────── */
+
+.readout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.value {
+  font-family: var(--rialto-font-mono);
+  font-size: var(--gauge-value-font);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  letter-spacing: var(--rialto-tracking-tight);
+}
+
+/* ── Label ──────────────────────────────────── */
+
+.label {
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  color: var(--rialto-text-secondary);
+  text-align: center;
+}
+
+/* Reduced motion — never run the fill transition. */
+@media (prefers-reduced-motion: reduce) {
+  .valueArc {
+    transition: none;
+  }
+}

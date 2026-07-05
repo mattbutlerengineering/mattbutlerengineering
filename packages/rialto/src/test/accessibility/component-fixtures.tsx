@@ -69,6 +69,7 @@ import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
 import { Popover } from "../../components/Popover/Popover";
 import { Progress, Spinner } from "../../components/Progress/Progress";
+import { RadialGauge } from "../../components/RadialGauge/RadialGauge";
 import { ScrollArea } from "../../components/ScrollArea/ScrollArea";
 import { SegmentedControl } from "../../components/SegmentedControl/SegmentedControl";
 import { Select } from "../../components/Select/Select";
@@ -156,6 +157,7 @@ export type BarrelExportName =
   | "PinInput"
   | "Popover"
   | "Progress"
+  | "RadialGauge"
   | "ScrollArea"
   | "SegmentedControl"
   | "Select"
@@ -502,6 +504,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Progress: {
     element: <Progress value={45} aria-label="Loading" />,
+  },
+
+  RadialGauge: {
+    element: <RadialGauge label="Utilization" value={72} unit="%" />,
   },
 
   ScrollArea: {

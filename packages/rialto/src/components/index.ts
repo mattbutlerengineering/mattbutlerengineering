@@ -57,6 +57,7 @@ export * from "./ConfirmDialog";
 export * from "./ContextMenu";
 export * from "./DataList";
 export * from "./Meter";
+export * from "./RadialGauge";
 export * from "./Navbar";
 export * from "./NavigationMenu";
 export * from "./ScrollArea";
