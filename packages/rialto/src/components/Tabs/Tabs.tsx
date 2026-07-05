@@ -147,7 +147,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
           <motion.div
             layout={shouldReduceMotion ? false : true}
             className={styles.indicator}
-            style={{ insetInlineStart: indicator.left, width: indicator.width }}
+            style={{ left: indicator.left, width: indicator.width }}
             transition={shouldReduceMotion ? { duration: 0 } : spring}
           />
         </div>

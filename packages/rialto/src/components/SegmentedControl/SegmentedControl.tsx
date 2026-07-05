@@ -104,19 +104,10 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
             <motion.div
               layout={shouldReduceMotion ? false : true}
               className={styles.indicator}
-              style={
-                dir === "rtl"
-                  ? {
-                      insetInlineStart: "auto",
-                      insetInlineEnd: indicator.offset,
-                      width: indicator.width,
-                    }
-                  : {
-                      insetInlineStart: indicator.offset,
-                      insetInlineEnd: "auto",
-                      width: indicator.width,
-                    }
-              }
+              style={{
+                insetInlineStart: indicator.offset,
+                width: indicator.width,
+              }}
               transition={shouldReduceMotion ? { duration: 0 } : spring}
             />
           )}

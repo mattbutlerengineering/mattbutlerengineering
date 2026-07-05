@@ -3,6 +3,7 @@ import { motion, useMotionValue, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring } from "../../tokens/motion";
 import { cn } from "../../utils/class-composer";
+import { useDirection } from "../../hooks/useDirection";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Slider.module.css";
 
@@ -66,19 +67,23 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
     const [dragging, setDragging] = useState(false);
     const [internalValue, setInternalValue] = useState(defaultValue ?? min);
     const shouldReduceMotion = useReducedMotion();
+    const dir = useDirection(trackRef);
 
     const isControlled = controlledValue !== undefined;
     const currentValue = isControlled ? controlledValue : internalValue;
     const percent = ((currentValue - min) / (max - min)) * 100;
 
-    // The knob rides a full-width track overlay translated by `percent`. Using a
-    // percentage translateX keeps the motion on the compositor (no `left` reflow)
-    // and needs no measurement, so the knob is correctly placed on first paint.
-    const knobX = useMotionValue(`${percent}%`);
+    // The knob rides a full-width overlay translated by a percentage translateX,
+    // keeping the motion on the compositor (no `left` reflow) and needing no
+    // measurement, so it is placed correctly on first paint. In RTL the knob is
+    // anchored to the inline-start (right) edge via CSS, so the physical
+    // translateX is negated to travel toward the inline-end.
+    const signedPercent = dir === "rtl" ? -percent : percent;
+    const knobX = useMotionValue(`${signedPercent}%`);
 
     useEffect(() => {
-      knobX.set(`${percent}%`);
-    }, [percent, knobX]);
+      knobX.set(`${signedPercent}%`);
+    }, [signedPercent, knobX]);
 
     const setValue = useCallback(
       (raw: number) => {
@@ -203,7 +208,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
             <motion.div
               className={styles.knobTrack}
               style={{ x: knobX }}
-              animate={dragging ? undefined : { x: `${percent}%` }}
+              animate={dragging ? undefined : { x: `${signedPercent}%` }}
               transition={shouldReduceMotion || dragging ? { duration: 0 } : spring}
             >
               <div className={styles.knob} data-dragging={dragging || undefined} />
