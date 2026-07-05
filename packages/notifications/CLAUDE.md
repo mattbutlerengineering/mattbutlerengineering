@@ -54,7 +54,7 @@ const dispatcher = new NotificationDispatcher({
   smsAdapter: null, // or TwilioSmsAdapter
 });
 
-await dispatcher.sendBookingConfirmation(input, "email_only");
+await dispatcher.sendBookingConfirmation(input); // always emails (iCal invariant)
 ```
 
 ## Commands

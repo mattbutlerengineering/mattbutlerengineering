@@ -145,7 +145,7 @@ describe("createBookingNotifier", () => {
     expect(typeof notifier.cancelBookingNotifications).toBe("function");
   });
 
-  it("scheduleBookingNotifications calls sendBookingConfirmation with payload and the resolved channel", async () => {
+  it("scheduleBookingNotifications calls sendBookingConfirmation with the payload and no channel (iCal always email)", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
     const reservation = makeReservation({
@@ -154,29 +154,14 @@ describe("createBookingNotifier", () => {
 
     await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
 
-    // email_only resolves to the "email" channel via resolveChannel
+    // Confirmation always emails (iCal invariant) — it receives no channel arg.
     expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
       expect.objectContaining({
         reservationId: "res-1",
         guestEmail: "jane@example.com",
         venueName: "The Oak Table",
         manageToken: "token-xyz",
-      }),
-      "email"
-    );
-  });
-
-  it("scheduleBookingNotifications passes the data-availability fallback channel when guest has no preference", async () => {
-    const deps = makeDeps();
-    const notifier = createBookingNotifier(deps);
-    const reservation = makeReservation({ guest: null });
-
-    await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
-
-    // No preference, email + phone both present -> resolveChannel falls back to "both"
-    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
-      expect.objectContaining({ reservationId: "res-1" }),
-      "both"
+      })
     );
   });
 
@@ -437,7 +422,7 @@ describe("createBookingNotifier", () => {
     );
   });
 
-  it("resolves the channel once — confirmation and both reminders share it (transactional_only)", async () => {
+  it("resolves the channel once — both reminders share the resolved channel (transactional_only)", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
     const startMs = Date.now() + 30 * 60 * 60 * 1000;
@@ -448,11 +433,9 @@ describe("createBookingNotifier", () => {
 
     await notifier.scheduleBookingNotifications(reservation as never, "token-xyz");
 
-    // transactional_only resolves to the "email" channel (see resolveChannel)
-    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
-      expect.objectContaining({ reservationId: "res-1" }),
-      "email"
-    );
+    // transactional_only resolves to the "email" channel (see resolveChannel);
+    // the confirmation is unconditionally email (no channel), so only the
+    // reminders carry the resolved channel.
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "booking-reminder",
       expect.objectContaining({ channel: "email" }),
@@ -467,7 +450,7 @@ describe("createBookingNotifier", () => {
     );
   });
 
-  it("resolves the channel once — confirmation and both reminders share it (null preference, no phone on file)", async () => {
+  it("resolves the channel once — both reminders share the resolved channel (null preference, no phone on file)", async () => {
     const deps = makeDeps();
     const notifier = createBookingNotifier(deps);
     const startMs = Date.now() + 30 * 60 * 60 * 1000;
@@ -481,10 +464,6 @@ describe("createBookingNotifier", () => {
 
     // No phone on file -> data-availability fallback resolves to "email", not the
     // hardcoded "both" the old raw-preference (?? "both") fallback used to produce.
-    expect(deps.notificationAdapter.sendBookingConfirmation).toHaveBeenCalledWith(
-      expect.objectContaining({ reservationId: "res-1" }),
-      "email"
-    );
     expect(deps.scheduler.schedule).toHaveBeenCalledWith(
       "booking-reminder",
       expect.objectContaining({ channel: "email" }),

@@ -92,17 +92,19 @@ describe("NotificationDispatcher", () => {
     expect(mockSmsAdapter.sendBookingReminder).not.toHaveBeenCalled();
   });
 
-  it("sendBookingConfirmation always sends (transactional) regardless of resolved channel", async () => {
+  it("sendBookingConfirmation always emails — iCal invariant, no channel routing", async () => {
     const dispatcher = new NotificationDispatcher({
       emailAdapter: mockEmailAdapter,
       smsAdapter: mockSmsAdapter,
       smsManageBaseUrl: SMS_MANAGE_BASE_URL,
     });
 
-    await dispatcher.sendBookingConfirmation(emailInput, "sms");
+    // Confirmations carry the iCal attachment, which cannot travel via SMS, so
+    // the dispatcher takes no channel — it always delivers via email.
+    await dispatcher.sendBookingConfirmation(emailInput);
 
-    // Confirmation is transactional — always emails even when channel is "sms"
     expect(mockEmailAdapter.sendBookingConfirmation).toHaveBeenCalledOnce();
+    expect(mockEmailAdapter.sendBookingConfirmation).toHaveBeenCalledWith(emailInput);
   });
 
   it("works without SMS adapter (email-only setup)", async () => {
