@@ -11,9 +11,10 @@ src/
 │   ├── provider.tsx      # AuthProvider (wraps react-oidc-context)
 │   └── hooks.ts          # useAuth, useAccessToken, useRequireAuth
 └── fastify/
-    ├── plugin.ts         # authPlugin, requireAuth, optionalAuth
-    ├── plugin.test.ts    # Test patterns with mocked jose
-    └── ownership.ts      # requireOwnershipOrAdmin — route-level owner-or-admin authorization guard
+    ├── plugin.ts          # authPlugin, requireAuth, optionalAuth, hasPermission
+    ├── plugin.test.ts     # Test patterns with mocked jose
+    ├── ownership.ts       # requireOwnershipOrAdmin — owner-or-admin guard (with { denial } knob)
+    └── authz.ts           # requireAdmin, requireVenueAccess — role / venue-membership guards
 ```
 
 ## React API
@@ -72,6 +73,45 @@ fastify.get("/public", { preHandler: optionalAuth }, handler);
 ### getAuthPluginOptionsFromEnv()
 
 Reads `AUTH_AUTHORITY` and `AUTH_AUDIENCE` from env, throws if missing. Excludes `/health` and `/docs` by default.
+
+### Authorization Guards
+
+Route-level preHandlers that run **after** `requireAuth` (they assume `request.user` is set). All emit RFC 9457 Problem Details on denial.
+
+#### requireOwnershipOrAdmin(resolveOwnerId, resolveCurrentId?, options?)
+
+PreHandler factory admitting the resource **owner** OR any **admin**. Attaches `request.authorization = { isAdmin, isOwner }` so the handler can branch without re-deriving the decision.
+
+- `resolveOwnerId(request)` → the owner's id, or `null` when the resource is absent.
+- `resolveCurrentId(request)` → the caller's id in the same identity space. Defaults to `request.user.id` (JWT sub); override when the service keys ownership differently (e.g. a DB cuid or guest email).
+- `options.denial` — how a denial is reported:
+  - `"forbid"` (default) — `403` for a non-owner or null owner, `401` when the current identity is unresolvable. The resource is known to exist; the caller merely lacks access. **Every existing call site keeps this behavior.**
+  - `"hide"` — `404` for **every** denial (non-owner, null owner, unresolvable identity). Existence-hiding: a deny is byte-for-byte indistinguishable from a genuine not-found, so unauthorized callers learn nothing about the resource. Used by the agent service's session routes, where confirming a session id exists is itself a leak.
+
+```typescript
+// Existence-hiding: non-owner / non-admin / webhook-origin (userId=null) all get 404.
+const requireSessionAccess = [
+  loadSession, // stashes request.agentSession for a single DB read
+  requireOwnershipOrAdmin(
+    (req) => Promise.resolve(req.agentSession?.userId ?? null),
+    undefined, // default resolveCurrentId = request.user.id
+    { denial: "hide" }
+  ),
+];
+fastify.get("/:id", { preHandler: [requireAuth, ...requireSessionAccess] }, handler);
+```
+
+#### requireAdmin
+
+PreHandler admitting only platform admins (`hasPermission(user, "admin")`, read statelessly from the JWT); `403` otherwise. Use for admin-only collections instead of an inline `hasPermission` check inside the handler.
+
+```typescript
+fastify.get("/", { preHandler: [requireAuth, requireAdmin] }, listAllHandler);
+```
+
+#### requireVenueAccess(membershipLookup, resolveVenueId)
+
+PreHandler admitting platform admins OR members of the addressed venue (fine-grained membership queried server-side per request, so revocation is instant). See `authz.ts`.
 
 ### Test Auth Bypass
 

@@ -19,18 +19,20 @@ import type { AgentSession } from "@mbe/types";
 // Control which user is active in each test
 let currentUser: AuthUser | undefined;
 
-vi.mock("@mbe/auth/fastify", () => ({
-  authPlugin: vi.fn(async () => {}),
-  getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
-  requireAuth: vi.fn(async (req: { user?: AuthUser }) => {
-    req.user = currentUser;
-  }),
-  hasPermission: vi.fn((user: AuthUser | undefined, permission: string) => {
-    if (!user) return false;
-    const permissions = user.raw?.permissions;
-    return Array.isArray(permissions) && (permissions as string[]).includes(permission);
-  }),
-}));
+vi.mock("@mbe/auth/fastify", async (importOriginal) => {
+  // Exercise the REAL requireOwnershipOrAdmin + hasPermission (the actual
+  // ownership seam); only stub plugin wiring and inject the active user.
+  // importOriginal() is typed unknown at this vitest boundary.
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    authPlugin: vi.fn(async () => {}),
+    getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
+    requireAuth: vi.fn(async (req: { user?: AuthUser }) => {
+      req.user = currentUser;
+    }),
+  };
+});
 
 vi.mock("../services/session.js", () => ({
   sessionService: {

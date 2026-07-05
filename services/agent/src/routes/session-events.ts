@@ -3,7 +3,7 @@ import { type ApiError, type AgentSessionEvent, createProblemDetails } from "@mb
 import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 import { getSessionEventEmitter } from "../services/session-event-emitter.js";
-import { isOwnerOrAdmin } from "./sessions.js";
+import { requireSessionAccess } from "./sessions.js";
 
 /**
  * Event types that signal the session has reached a terminal state. When one of
@@ -22,7 +22,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/events",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, ...requireSessionAccess],
       schema: {
         summary: "Stream session events (SSE)",
         operationId: "streamSessionEvents",
@@ -46,11 +46,13 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const session = await sessionService.getById(request.params.id);
-      // Enforce the same owner-or-admin guard as the sibling session routes
-      // before opening the stream. 404 (not 403) hides session existence, and
-      // webhook-origin sessions (userId === null) are streamable only by admins.
-      if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
+      const session = request.agentSession;
+      // The requireSessionAccess guard (chained above) already enforced
+      // owner-or-admin with 404-on-deny, hiding session existence from
+      // non-owners; webhook-origin (userId === null) sessions are admin-only.
+      // A surviving null here means the session does not exist (admins are
+      // admitted before this null-check), so return the same 404.
+      if (!session) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
 

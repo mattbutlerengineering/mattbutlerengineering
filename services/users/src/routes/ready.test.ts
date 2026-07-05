@@ -21,6 +21,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   getAuthPluginOptionsFromEnv: () => ({}),
   requireAuth: vi.fn().mockImplementation(async () => {}),
   requireOwnershipOrAdmin: vi.fn().mockReturnValue(async () => {}),
+  requireAdmin: vi.fn().mockImplementation(async () => {}),
 }));
 
 vi.mock("@mbe/sentry/node", () => ({

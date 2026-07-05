@@ -1981,11 +1981,11 @@
     </item>
   </file>
   <file path="services/agent/src/routes/sessions.ts">
-    <item priority="high">
-      export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean { /* ... */ }
+    <item priority="low">
+      async function loadSession(request: FastifyRequest): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
-      export const sessionRoutes: FastifyPluginAsync;
+      export const requireSessionAccess: unknown;
     </item>
   </file>
   <file path="services/agent/src/routes/webhooks.ts">

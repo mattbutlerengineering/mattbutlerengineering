@@ -32,6 +32,7 @@ vi.mock("@mbe/auth/fastify", () => ({
   requireAuth: vi.fn(async (req: { user?: { id: string } }) => {
     req.user = { id: "test-user" };
   }),
+  requireOwnershipOrAdmin: vi.fn(() => vi.fn(async () => {})),
 }));
 
 vi.mock("../services/session.js", () => ({

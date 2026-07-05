@@ -18,6 +18,7 @@ export type {
   AuthPluginOptions,
   OwnerResolver,
   AuthorizationContext,
+  OwnershipOptions,
   VenueIdResolver,
   VenueMembershipLookup,
 } from "./fastify/index.js";
