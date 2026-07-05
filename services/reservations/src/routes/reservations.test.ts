@@ -141,8 +141,8 @@ describe("Reservation Routes", () => {
     vi.spyOn(stubEvents, "emitReservationCreated");
     vi.spyOn(stubEvents, "emitReservationCancelled");
     vi.spyOn(stubEvents, "emitTableUpdated");
-    // Stub bookingNotifier — cancellation routes fire cancelBookingReminders()
-    // as fire-and-forget (see reservation-cancellation.ts). The default
+    // Stub bookingNotifier — cancellation routes fire cancelBookingNotifications()
+    // (see reservation-cancellation.ts). The default
     // notifier lazily builds a real JobScheduler backed by Redis; without
     // this stub, every cancel test here opens an unbounded ioredis reconnect
     // loop (no Redis in CI) whose console output can race vitest's worker
@@ -154,6 +154,7 @@ describe("Reservation Routes", () => {
         scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
         cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
         rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+        cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
       },
     });
     await app.ready();

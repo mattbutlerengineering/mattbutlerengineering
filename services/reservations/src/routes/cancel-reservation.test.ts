@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { generateManageToken } from "./public-reservations.js";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { BookingNotifier } from "../services/booking-notifications.js";
+import { createBookingNotifier } from "../services/booking-notifications.js";
 
 vi.mock("../services/reservation.js", () => ({
   reservationService: {
@@ -105,6 +106,7 @@ function createStubBookingNotifier(): BookingNotifier {
     scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
     cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
     rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+    cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -118,7 +120,14 @@ describe("DELETE /public/v1/reservations/manage", () => {
     app = await buildApp({
       logger: false,
       notificationPort: stubNotifications as never,
-      bookingNotifier: createStubBookingNotifier(),
+      bookingNotifier: createBookingNotifier({
+        notificationAdapter: stubNotifications as never,
+        scheduler: {
+          schedule: vi.fn().mockResolvedValue(undefined),
+          cancel: vi.fn().mockResolvedValue(undefined),
+        },
+        getVenue: (id) => venueService.getById(id),
+      }),
     });
     await app.ready();
   });
@@ -266,6 +275,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
         scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
         cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
         rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+        cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
       };
       notifierApp = await buildApp({
         logger: false,
@@ -279,7 +289,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       await notifierApp.close();
     });
 
-    it("cancels reminder jobs via injected bookingNotifier", async () => {
+    it("delegates to the injected bookingNotifier.cancelBookingNotifications (one seam)", async () => {
       const token = generateManageToken("res_1", "jane@example.com");
       // middleware ownership check + route handler each call getById once
       vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
@@ -288,7 +298,6 @@ describe("DELETE /public/v1/reservations/manage", () => {
         ...mockReservation,
         status: "CANCELLED",
       } as never);
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
 
       const response = await notifierApp.inject({
         method: "DELETE",
@@ -296,7 +305,11 @@ describe("DELETE /public/v1/reservations/manage", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(stubNotifier.cancelBookingReminders).toHaveBeenCalledWith("res_1");
+      expect(stubNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "res_1" }),
+        token,
+        "guest"
+      );
     });
   });
 

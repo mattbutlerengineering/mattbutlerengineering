@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createBookingNotifier, resolveChannel } from "./booking-notifications.js";
 import type { BookingNotifierDeps, ResolveChannelInput } from "./booking-notifications.js";
 import type { NotificationDispatcher } from "@mbe/notifications";
+import type { FastifyBaseLogger } from "fastify";
 
 const mockVenue = {
   id: "venue-1",
@@ -141,6 +142,7 @@ describe("createBookingNotifier", () => {
     expect(typeof notifier.scheduleBookingNotifications).toBe("function");
     expect(typeof notifier.cancelBookingReminders).toBe("function");
     expect(typeof notifier.rescheduleBookingReminders).toBe("function");
+    expect(typeof notifier.cancelBookingNotifications).toBe("function");
   });
 
   it("scheduleBookingNotifications calls sendBookingConfirmation with payload and the resolved channel", async () => {
@@ -317,6 +319,82 @@ describe("createBookingNotifier", () => {
     expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-1");
     expect(deps.scheduler.cancel).toHaveBeenCalledWith("day-of-reminder:res-1");
     expect(deps.scheduler.schedule).toHaveBeenCalled();
+  });
+
+  it("cancelBookingNotifications tears down reminders AND dispatches the cancellation", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.cancelBookingNotifications(reservation as never, "tok-1", "guest");
+
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-1");
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("day-of-reminder:res-1");
+    expect(deps.notificationAdapter.sendBookingCancelled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reservationId: "res-1",
+        guestEmail: "jane@example.com",
+        venueName: "The Oak Table",
+        manageToken: "tok-1",
+      }),
+      "email_only"
+    );
+  });
+
+  it("cancelBookingNotifications dispatches with the guest communication preference", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation({
+      guest: { visitCount: 2, communicationPreference: "both" },
+    });
+
+    await notifier.cancelBookingNotifications(reservation as never, "tok", "staff");
+
+    expect(deps.notificationAdapter.sendBookingCancelled).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "res-1" }),
+      "both"
+    );
+  });
+
+  it("cancelBookingNotifications cancels reminders but skips dispatch when getVenue returns null", async () => {
+    const deps = makeDeps({ getVenue: vi.fn().mockResolvedValue(null) });
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await notifier.cancelBookingNotifications(reservation as never, "tok", "guest");
+
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-1");
+    expect(deps.notificationAdapter.sendBookingCancelled).not.toHaveBeenCalled();
+  });
+
+  it("cancelBookingNotifications skips dispatch when guestEmail is null", async () => {
+    const deps = makeDeps();
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation({ guestEmail: null });
+
+    await notifier.cancelBookingNotifications(reservation as never, "tok", "guest");
+
+    expect(deps.scheduler.cancel).toHaveBeenCalledWith("booking-reminder:res-1");
+    expect(deps.notificationAdapter.sendBookingCancelled).not.toHaveBeenCalled();
+  });
+
+  it("cancelBookingNotifications is best-effort: swallows a dispatch failure and logs it with the initiator", async () => {
+    const errorSpy = vi.fn();
+    const deps = makeDeps({ logger: { error: errorSpy } as unknown as FastifyBaseLogger });
+    vi.mocked(deps.notificationAdapter.sendBookingCancelled).mockRejectedValueOnce(
+      new Error("Resend down")
+    );
+    const notifier = createBookingNotifier(deps);
+    const reservation = makeReservation();
+
+    await expect(
+      notifier.cancelBookingNotifications(reservation as never, "tok", "staff")
+    ).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "res-1", initiator: "staff" }),
+      expect.any(String)
+    );
   });
 
   it("resolveChannel prefers communicationPreference=email_only over data availability", async () => {
