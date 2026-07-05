@@ -102,6 +102,10 @@
       "types": "./dist/lib/components/DataList/index.d.ts",
       "import": "./dist/lib/components/DataList/index.js"
     },
+    "./DepartureBoard": {
+      "types": "./dist/lib/components/DepartureBoard/index.d.ts",
+      "import": "./dist/lib/components/DepartureBoard/index.js"
+    },
     "./Dialog": {
       "types": "./dist/lib/components/Dialog/index.d.ts",
       "import": "./dist/lib/components/Dialog/index.js"

@@ -41,6 +41,7 @@ vi.mock("../pages/data/RadialGaugePage.js", () => ({ RadialGaugePage: () => null
 vi.mock("../pages/data/KbdPage.js", () => ({ KbdPage: () => null }));
 vi.mock("../pages/data/FlipDotPage.js", () => ({ FlipDotPage: () => null }));
 vi.mock("../pages/data/SplitFlapPage.js", () => ({ SplitFlapPage: () => null }));
+vi.mock("../pages/data/DepartureBoardPage.js", () => ({ DepartureBoardPage: () => null }));
 vi.mock("../pages/data/OdometerPage.js", () => ({ OdometerPage: () => null }));
 vi.mock("../pages/data/ChalkboardPage.js", () => ({ ChalkboardPage: () => null }));
 vi.mock("../pages/data/FerrofluidPage.js", () => ({ FerrofluidPage: () => null }));

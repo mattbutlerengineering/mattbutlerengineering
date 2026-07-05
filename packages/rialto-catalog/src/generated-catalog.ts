@@ -76,6 +76,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
   },
+  DepartureBoard: {
+    name: "DepartureBoard",
+    description:
+      "Split-flap departure board hero that cycles through a sequence of short headlines or value-props with a mechanical flap animation. Use as a marketing or landing-page hero. Provide phrases as the ordered list of lines; tune holdMs for how long each line stays before flipping. Respects reduced motion by showing static text.",
+  },
   Dialog: {
     name: "Dialog",
     description:

@@ -78,6 +78,7 @@ export * from "./ImageUpload";
 // ── Specialty interaction ──────────────────────
 export * from "./MasterOverride";
 export * from "./SplitFlap";
+export * from "./DepartureBoard";
 export * from "./Odometer";
 export * from "./Chalkboard";
 export * from "./SplitScreenExit";

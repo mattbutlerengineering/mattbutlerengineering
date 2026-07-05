@@ -32,6 +32,7 @@ import {
   Card,
   Checkbox,
   DataList,
+  DepartureBoard,
   Dialog,
   Divider,
   EmptyState,
@@ -48,6 +49,7 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
+import type { DepartureBoardProps } from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
 
 // Toast is intentionally omitted from this registry.
@@ -280,6 +282,27 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     Accordion: ({ props }: any) => (
       <Accordion items={props.items ?? []} multiple={props.multiple} />
     ),
+
+    // DepartureBoard cycles a string[] of phrases. `phrases` is an array, which
+    // the schema generator omits from the Zod schema, so it is read defensively
+    // from the untyped props bag alongside the typed timing/appearance fields.
+    DepartureBoard: ({ props }: { props: unknown }) => {
+      const p = (props ?? {}) as Partial<DepartureBoardProps>;
+      const phrases = Array.isArray(p.phrases)
+        ? p.phrases.filter((x): x is string => typeof x === "string")
+        : [];
+      return (
+        <DepartureBoard
+          phrases={phrases}
+          holdMs={p.holdMs}
+          flipInterval={p.flipInterval}
+          cascadeDelay={p.cascadeDelay}
+          charset={p.charset}
+          size={p.size}
+          length={p.length}
+        />
+      );
+    },
 
     // ── App Shell ─────────────────────────────────────────────────
     Sidebar: ({ props }: any) => <Sidebar items={props.items ?? []} collapsed={props.collapsed} />,

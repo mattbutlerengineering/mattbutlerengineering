@@ -68,6 +68,14 @@ export const generatedSchemas = {
     orientation: z.enum(["horizontal", "vertical"]).optional(),
     striped: z.boolean().optional(),
   }),
+  DepartureBoard: z.object({
+    holdMs: z.number().optional(),
+    flipInterval: z.number().optional(),
+    cascadeDelay: z.number().optional(),
+    charset: z.enum(["alpha", "alphanumeric", "full", "numeric"]).optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    length: z.number().optional(),
+  }),
   Dialog: z.object({
     open: z.boolean(),
     title: z.string().max(60).optional(),
