@@ -100,12 +100,26 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
     item.disabled && styles.itemDisabled
   );
 
+  // Keep position/scale correction on the collapsing rail so text and icons
+  // are never distorted by the parent nav's transform-based width animation.
+  const layoutMode = shouldReduceMotion ? false : "position";
+  const layoutTransition = shouldReduceMotion ? { duration: 0 } : spring;
+
   const content = (
     <>
-      {item.icon && <span className={styles.itemIcon}>{item.icon}</span>}
+      {item.icon && (
+        <motion.span
+          className={styles.itemIcon}
+          layout={layoutMode}
+          transition={layoutTransition}
+        >
+          {item.icon}
+        </motion.span>
+      )}
       <motion.span
         className={styles.itemLabel}
-        animate={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto" }}
+        layout={layoutMode}
+        animate={{ opacity: collapsed ? 0 : 1 }}
         transition={shouldReduceMotion ? { duration: 0 } : precision}
       >
         {item.label}
@@ -115,28 +129,32 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
 
   if (item.href) {
     return (
-      <a
+      <motion.a
         className={classes}
         href={item.href}
         aria-current={item.active ? "page" : undefined}
         aria-disabled={item.disabled || undefined}
         tabIndex={item.disabled ? -1 : undefined}
+        layout={layoutMode}
+        transition={layoutTransition}
       >
         {content}
-      </a>
+      </motion.a>
     );
   }
 
   return (
-    <button
+    <motion.button
       type="button"
       className={classes}
       onClick={item.onClick}
       disabled={item.disabled}
       aria-current={item.active ? "page" : undefined}
+      layout={layoutMode}
+      transition={layoutTransition}
     >
       {content}
-    </button>
+    </motion.button>
   );
 }
 
@@ -150,11 +168,12 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     return (
       <motion.nav
         ref={ref}
-        className={cn(styles.sidebar, className)}
         aria-label="Sidebar navigation"
-        animate={{ width: collapsed ? 56 : 240 }}
+        layout={shouldReduceMotion ? false : true}
         transition={shouldReduceMotion ? { duration: 0 } : spring}
         {...(props as React.ComponentProps<typeof motion.nav>)}
+        className={cn(styles.sidebar, className)}
+        style={{ width: collapsed ? 56 : 240, ...props.style }}
       >
         <div className={styles.content}>
           {items.map((entry, i) => {
@@ -173,14 +192,16 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
         </div>
 
         {onCollapse && (
-          <button
+          <motion.button
             type="button"
             className={styles.collapseToggle}
             onClick={() => onCollapse(!collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            layout={shouldReduceMotion ? false : "position"}
+            transition={shouldReduceMotion ? { duration: 0 } : spring}
           >
             <CollapseIcon collapsed={collapsed} />
-          </button>
+          </motion.button>
         )}
       </motion.nav>
     );

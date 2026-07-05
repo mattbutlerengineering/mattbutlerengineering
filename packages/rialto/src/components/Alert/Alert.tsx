@@ -119,17 +119,7 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
             role={role}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={
-              shouldReduceMotion
-                ? { opacity: 0 }
-                : {
-                    opacity: 0,
-                    height: 0,
-                    marginBottom: 0,
-                    padding: 0,
-                    overflow: "hidden",
-                  }
-            }
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
             transition={shouldReduceMotion ? { duration: 0.1 } : precision}
           >
             <div className={styles.icon}>{icons[variant]}</div>

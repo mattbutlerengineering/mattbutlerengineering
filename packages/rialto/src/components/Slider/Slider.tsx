@@ -71,9 +71,11 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
     const currentValue = isControlled ? controlledValue : internalValue;
     const percent = ((currentValue - min) / (max - min)) * 100;
 
+    // The knob rides a full-width track overlay translated by `percent`. Using a
+    // percentage translateX keeps the motion on the compositor (no `left` reflow)
+    // and needs no measurement, so the knob is correctly placed on first paint.
     const knobX = useMotionValue(`${percent}%`);
 
-    // Keep motion value in sync
     useEffect(() => {
       knobX.set(`${percent}%`);
     }, [percent, knobX]);
@@ -196,14 +198,16 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
               aria-valuetext={formatValue(currentValue)}
             />
 
-            {/* Visual knob */}
+            {/* Visual knob — the overlay spans the track so a percentage translateX
+                positions the knob without animating layout. */}
             <motion.div
-              className={styles.knob}
-              style={{ left: knobX }}
-              data-dragging={dragging || undefined}
-              animate={dragging ? undefined : { left: `${percent}%` }}
+              className={styles.knobTrack}
+              style={{ x: knobX }}
+              animate={dragging ? undefined : { x: `${percent}%` }}
               transition={shouldReduceMotion || dragging ? { duration: 0 } : spring}
-            />
+            >
+              <div className={styles.knob} data-dragging={dragging || undefined} />
+            </motion.div>
           </div>
         </div>
       </DisabledTooltip>

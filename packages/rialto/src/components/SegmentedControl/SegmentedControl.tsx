@@ -102,12 +102,20 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
           {/* Sliding indicator */}
           {indicator.width > 0 && (
             <motion.div
+              layout={shouldReduceMotion ? false : true}
               className={styles.indicator}
-              style={dir === "rtl" ? { left: "auto" } : { right: "auto" }}
-              animate={
+              style={
                 dir === "rtl"
-                  ? { right: indicator.offset, width: indicator.width }
-                  : { left: indicator.offset, width: indicator.width }
+                  ? {
+                      insetInlineStart: "auto",
+                      insetInlineEnd: indicator.offset,
+                      width: indicator.width,
+                    }
+                  : {
+                      insetInlineStart: indicator.offset,
+                      insetInlineEnd: "auto",
+                      width: indicator.width,
+                    }
               }
               transition={shouldReduceMotion ? { duration: 0 } : spring}
             />
