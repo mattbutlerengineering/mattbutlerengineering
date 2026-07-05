@@ -22,11 +22,11 @@ describe("round-trip safety of escaping", () => {
     const original = `Tom & Jerry's "Diner" <3>`;
     const escaped = escapeHtml(original);
     const decoded = escaped
-      .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
     expect(decoded).toBe(original);
   });
 
