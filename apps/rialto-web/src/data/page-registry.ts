@@ -230,6 +230,14 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/data/SplitFlapPage").then((m) => ({ default: m.SplitFlapPage })),
   },
   {
+    id: "departure-board",
+    label: "Departure Board",
+    category: "Data Display",
+    path: "/components/departure-board",
+    load: () =>
+      import("../pages/data/DepartureBoardPage").then((m) => ({ default: m.DepartureBoardPage })),
+  },
+  {
     id: "chalkboard",
     label: "Chalkboard",
     category: "Data Display",

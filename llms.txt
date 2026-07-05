@@ -139,6 +139,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="DepartureBoard">
+  <file path="packages/rialto/src/components/DepartureBoard/DepartureBoard.catalog.ts">
+    <item priority="high">
+      export const departureBoardCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Dialog">
   <file path="packages/rialto/src/components/Dialog/Dialog.catalog.ts">
     <item priority="high">

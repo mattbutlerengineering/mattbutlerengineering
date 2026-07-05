@@ -1,0 +1,67 @@
+/* ── Board wrapper ──────────────────────────── */
+.board {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-inline-size: 100%;
+}
+
+.sm {
+  padding: var(--rialto-space-xs);
+}
+
+.md {
+  padding: var(--rialto-space-sm);
+}
+
+.lg {
+  padding: var(--rialto-space-md);
+}
+
+/* ── Flap display ───────────────────────────── */
+.display {
+  display: inline-flex;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+/* ── Reduced-motion static fallback ─────────── */
+.static {
+  text-align: center;
+}
+
+.staticText {
+  display: block;
+  font-family: var(--rialto-font-display);
+  font-weight: 500;
+  line-height: var(--rialto-leading-tight);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.sm .staticText {
+  font-size: var(--rialto-text-2xl);
+}
+
+.md .staticText {
+  font-size: var(--rialto-text-3xl);
+}
+
+.lg .staticText {
+  font-size: var(--rialto-text-4xl);
+}
+
+/* ── Visually hidden live region ────────────── */
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

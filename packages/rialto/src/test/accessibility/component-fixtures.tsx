@@ -40,6 +40,7 @@ import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { DataList } from "../../components/DataList/DataList";
+import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
 import { Divider } from "../../components/Divider/Divider";
@@ -126,6 +127,7 @@ export type BarrelExportName =
   | "ConfirmDialog"
   | "ContextMenu"
   | "DataList"
+  | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
   | "Divider"
@@ -323,6 +325,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  DepartureBoard: {
+    element: <DepartureBoard phrases={["MAKE IT REAL", "SHIP THE FUTURE"]} />,
   },
 
   Dialog: {
