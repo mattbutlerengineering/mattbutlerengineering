@@ -55,6 +55,7 @@ import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
+import { IconButton } from "../../components/IconButton/IconButton";
 import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
@@ -144,6 +145,7 @@ export type BarrelExportName =
   | "Heading"
   | "Hero"
   | "HoverCard"
+  | "IconButton"
   | "ImageUpload"
   | "Input"
   | "InputGroup"
@@ -420,6 +422,19 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
       <HoverCard content={<p>Card content</p>}>
         <button>Hover me</button>
       </HoverCard>
+    ),
+  },
+
+  IconButton: {
+    element: (
+      <IconButton
+        aria-label="Delete item"
+        icon={
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 5h8v8H4z" />
+          </svg>
+        }
+      />
     ),
   },
 

@@ -37,6 +37,7 @@ import {
   Divider,
   EmptyState,
   Footer,
+  IconButton,
   Input,
   NavigationMenu,
   Odometer,
@@ -118,6 +119,28 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         {children ?? props.label}
       </Button>
     ),
+
+    // IconButton is a labelled, icon-only Button. Its props are validated by
+    // the generated Zod schema before this renderer runs (see file header),
+    // so the shape is guaranteed; the cast narrows the untyped props bag
+    // (mirrors the Odometer/RadialGauge renderers, avoiding an `any` here).
+    IconButton: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
+      const p = props as {
+        icon?: string;
+        "aria-label": string;
+        variant?: "primary" | "secondary" | "ghost";
+        size?: "sm" | "md" | "lg";
+      };
+      return (
+        <IconButton
+          icon={p.icon ?? "×"}
+          aria-label={p["aria-label"]}
+          variant={p.variant}
+          size={p.size}
+          onClick={() => emit("press")}
+        />
+      );
+    },
 
     Input: ({ props }: any) => (
       <Input

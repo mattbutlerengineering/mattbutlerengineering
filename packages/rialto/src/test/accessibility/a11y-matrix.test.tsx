@@ -61,6 +61,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Heading",
   "Hero",
   "HoverCard",
+  "IconButton",
   "ImageUpload",
   "Input",
   "InputGroup",

@@ -194,6 +194,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="IconButton">
+  <file path="src/components/IconButton/IconButton.catalog.ts">
+    <item priority="high">
+      export const iconButtonCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Input">
   <file path="src/components/Input/Input.catalog.ts">
     <item priority="high">

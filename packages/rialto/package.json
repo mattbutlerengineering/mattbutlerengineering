@@ -162,6 +162,10 @@
       "types": "./dist/lib/components/HoverCard/index.d.ts",
       "import": "./dist/lib/components/HoverCard/index.js"
     },
+    "./IconButton": {
+      "types": "./dist/lib/components/IconButton/index.d.ts",
+      "import": "./dist/lib/components/IconButton/index.js"
+    },
     "./ImageUpload": {
       "types": "./dist/lib/components/ImageUpload/index.d.ts",
       "import": "./dist/lib/components/ImageUpload/index.js"
