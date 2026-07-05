@@ -103,6 +103,12 @@ export const generatedSchemas = {
     showOptional: z.boolean().optional(),
   }),
   NavigationMenu: z.object({}),
+  Odometer: z.object({
+    value: z.number(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    flipInterval: z.number().optional(),
+    cascadeDelay: z.number().optional(),
+  }),
   Select: z.object({
     value: z.string().optional(),
     placeholder: z.string().optional(),

@@ -219,6 +219,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Odometer">
+  <file path="packages/rialto/src/components/Odometer/Odometer.catalog.ts">
+    <item priority="high">
+      export const odometerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Select">
   <file path="packages/rialto/src/components/Select/Select.catalog.ts">
     <item priority="high">

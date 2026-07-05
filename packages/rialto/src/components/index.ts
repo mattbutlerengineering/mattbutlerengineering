@@ -77,6 +77,7 @@ export * from "./ImageUpload";
 // ── Specialty interaction ──────────────────────
 export * from "./MasterOverride";
 export * from "./SplitFlap";
+export * from "./Odometer";
 export * from "./Chalkboard";
 export * from "./SplitScreenExit";
 export * from "./Ferrofluid";

@@ -116,6 +116,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
     slots: ["default"],
   },
+  Odometer: {
+    name: "Odometer",
+    description:
+      "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
+  },
   Select: {
     name: "Select",
     description:
