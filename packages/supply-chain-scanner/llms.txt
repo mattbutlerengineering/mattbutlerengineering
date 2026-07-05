@@ -52,8 +52,8 @@
     <item priority="high">
       export function computeVerdict(findings: readonly Finding[]): Verdict { /* ... */ }
     </item>
-    <item priority="high">
-      export function scanPackage(dir: string): ScanResult { /* ... */ }
+    <item priority="medium">
+      function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] { /* ... */ }
     </item>
   </file>
   <file path="src/types.ts">

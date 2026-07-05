@@ -17446,14 +17446,35 @@
       if (findings.some((f) => f.severity === "med")) return "flag";
       return "pass";
     }
-    export function scanPackage(dir: string): ScanResult {
-      const files = collectFiles(dir);
-      const findings: Finding[] = files.flatMap((file) => [
-        ...detectPromptInjection(file),
-        ...detectDataExfiltration(file),
-        ...detectMaliciousCommands(file),
-      ]);
-      return { verdict: computeVerdict(findings), findings };
+    function correlateCrossFileExfiltration(findings: readonly Finding[]): Finding[] {
+      const firstByFile = (predicate: (f: Finding) => boolean): Map<string, Finding> => {
+        const map = new Map<string, Finding>();
+        for (const f of findings) {
+          if (predicate(f) && !map.has(f.file)) map.set(f.file, f);
+        }
+        return map;
+      };
+    
+      const outbound = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "med");
+      const secrets = firstByFile((f) => f.category === "data-exfiltration" && f.severity === "low");
+    
+      const correlated: Finding[] = [];
+      for (const [outFile, outFinding] of outbound) {
+        for (const [secretFile, secretFinding] of secrets) {
+          if (outFile === secretFile) continue; // intra-file: already escalated by the heuristic
+          correlated.push({
+            category: "data-exfiltration",
+            severity: "high",
+            file: outFile,
+            correlatedWith: secretFile,
+            line: outFinding.line,
+            evidence:
+              `cross-file exfiltration: secret read in ${secretFile} (line ${secretFinding.line}) ` +
+              `sent via outbound call in ${outFile} (line ${outFinding.line})`,
+          });
+        }
+      }
+      return correlated;
     }
   </file>
   <file path="packages/supply-chain-scanner/src/types.ts">
