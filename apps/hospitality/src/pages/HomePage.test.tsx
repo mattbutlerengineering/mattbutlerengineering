@@ -7,6 +7,7 @@ import { useAuth } from "@mbe/auth/react";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import React from "react";
+import type { DashboardStats } from "../hooks/useDashboardStatsQuery.js";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
@@ -50,15 +51,19 @@ vi.mock("../components/dashboard", () => ({
       {events.length} events
     </div>
   ),
+  StatRow: ({ stats }: { readonly stats: DashboardStats }) => (
+    <div
+      data-testid="stat-row"
+      data-total={stats.totalReservations}
+      data-covers={stats.expectedCovers}
+      data-cancellation={stats.cancellationRate}
+    >
+      stat row
+    </div>
+  ),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Stat: ({ label, value }: { label: string; value: string | number }) => (
-    <div data-testid="stat">
-      <span>{label}</span>
-      <span>{value}</span>
-    </div>
-  ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -119,14 +124,12 @@ describe("HomePage", () => {
     expect(screen.getByText("Welcome back")).toBeDefined();
   });
 
-  it("renders stats when not loading", () => {
+  it("renders the stat row with dashboard metrics when not loading", () => {
     renderPage();
-    const stats = screen.getAllByTestId("stat");
-    expect(stats.length).toBe(4);
-    expect(screen.getByText("Today's Reservations")).toBeDefined();
-    expect(screen.getByText("Expected Covers")).toBeDefined();
-    expect(screen.getByText("Upcoming (2 hrs)")).toBeDefined();
-    expect(screen.getByText("Cancellation Rate")).toBeDefined();
+    const statRow = screen.getByTestId("stat-row");
+    expect(statRow.getAttribute("data-total")).toBe("5");
+    expect(statRow.getAttribute("data-covers")).toBe("20");
+    expect(statRow.getAttribute("data-cancellation")).toBe("10");
   });
 
   it("renders loading skeletons when stats are loading", () => {
@@ -147,6 +150,7 @@ describe("HomePage", () => {
     renderPage();
     const skeletons = screen.getAllByTestId("skeleton");
     expect(skeletons.length).toBe(4);
+    expect(screen.queryByTestId("stat-row")).toBeNull();
   });
 
   it("renders error banner when there is an error", () => {
@@ -220,22 +224,4 @@ describe("HomePage", () => {
     expect(screen.getByText("New Walk-In")).toBeDefined();
   });
 
-  it("cancellation trend shows delta text for up trend", () => {
-    vi.mocked(useDashboardStatsQuery).mockReturnValue({
-      reservations: [],
-      stats: {
-        totalReservations: 5,
-        expectedCovers: 20,
-        upcomingCount: 3,
-        cancellationRate: 15,
-        cancellationTrend: "up",
-      },
-      isLoading: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
-    renderPage();
-    expect(screen.getByText("Cancellation Rate")).toBeDefined();
-  });
 });

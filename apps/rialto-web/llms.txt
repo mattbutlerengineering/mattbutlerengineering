@@ -45,6 +45,11 @@
       }
     </item>
   </file>
+  <file path="src/data/rialto-tokens.ts">
+    <item priority="high">
+      export function countRialtoTokens(css: string): number { /* ... */ }
+    </item>
+  </file>
   <file path="src/data/tapechart-fixtures.ts">
     <item priority="medium">
       function mulberry32(seed: number) { /* ... */ }
@@ -80,6 +85,13 @@
   <file path="src/hooks/use-props-from-manifest.ts">
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="token-count.config.ts">
+  <file path="token-count.config.ts">
+    <item priority="high">
+      export function resolveRialtoTokenCount(): number { /* ... */ }
     </item>
   </file>
   </section>
