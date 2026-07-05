@@ -1,4 +1,5 @@
 import { Hero, Stack, Button, Text } from "@mattbutlerengineering/rialto";
+import styles from "./HeroSection.module.css";
 
 /** Primary external conversion target — the "hire / work together" channel. */
 const LINKEDIN_URL = "https://www.linkedin.com/in/matt-butler-66496a68/";
@@ -29,10 +30,9 @@ export function HeroSection() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Let's work together on LinkedIn (opens in new tab)"
+            className={styles.primaryCtaLink}
           >
-            <Button variant="primary" size="lg">
-              Let&apos;s work together
-            </Button>
+            Let&apos;s work together
           </a>
           <Button variant="secondary" size="lg" onClick={scrollToProjects}>
             See my work
