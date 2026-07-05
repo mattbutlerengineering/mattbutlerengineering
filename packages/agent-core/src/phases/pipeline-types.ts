@@ -19,6 +19,7 @@ import type {
   FeedbackLoopResult,
   FeedbackLoopRunnerDeps,
 } from "../feedback-loop.js";
+import type { PrFeedbackPort } from "../pr-feedback-port.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
 import type { FailureMemory, FailureRecord } from "../failure-memory.js";
 
@@ -113,6 +114,7 @@ export interface FeedbackLoopDeps {
     deps: FeedbackLoopRunnerDeps,
     onEvent?: SessionEventCallback
   ): Promise<FeedbackLoopResult>;
+  readonly feedbackPoller: PrFeedbackPort;
 }
 
 /**

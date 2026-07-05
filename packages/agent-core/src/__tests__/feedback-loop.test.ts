@@ -1,16 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SessionEvent } from "../types.js";
 
-// The commit/push subprocess path and owner/repo lookup are injected via
-// `FeedbackLoopRunnerDeps` — NO `vi.mock("node:child_process")` is needed.
-// Only the collaborators the fix session drives through are module-mocked.
+// The commit/push subprocess path, owner/repo lookup, and PR polling are all
+// injected via `FeedbackLoopRunnerDeps.feedbackPoller` (a fake PrFeedbackPort)
+// — NO `vi.mock("node:child_process")` and NO `vi.mock("../pr-feedback-poller.js")`.
+// Only the fix-session collaborators are module-mocked.
 
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: vi.fn(),
-}));
-
-vi.mock("../pr-feedback-poller.js", () => ({
-  pollForFeedback: vi.fn(),
 }));
 
 vi.mock("../feedback-prompt-builder.js", () => ({
@@ -23,12 +20,11 @@ vi.mock("../tool-permissions.js", () => ({
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createMockQueryStream } from "@mbe/agent-test-utils";
-import { pollForFeedback } from "../pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { createToolPermissionHandler } from "../tool-permissions.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
 import type { FeedbackLoopParams, FeedbackLoopRunnerDeps } from "../feedback-loop.js";
-import type { PollResult } from "../pr-feedback-poller.js";
+import type { PrFeedbackPort, GraphQLThreadNode, CheckResult } from "../pr-feedback-port.js";
 
 const BASE_PARAMS: FeedbackLoopParams = {
   prNumber: 42,
@@ -42,35 +38,38 @@ const BASE_PARAMS: FeedbackLoopParams = {
   allowedTools: ["Read", "Write", "Edit", "Bash"],
 };
 
-/** Fresh injected deps: a fake commitAndPush + a fake owner/repo resolver. */
-function makeDeps(): FeedbackLoopRunnerDeps & {
-  worktreeManager: { commitAndPush: ReturnType<typeof vi.fn> };
-  resolveOwnerRepo: ReturnType<typeof vi.fn>;
-} {
+/** An unresolved review thread — drives a single review comment through the poller. */
+const UNRESOLVED_THREAD: GraphQLThreadNode = {
+  id: "thread-1",
+  isResolved: false,
+  comments: {
+    nodes: [{ body: "Please fix this", path: "src/main.ts", line: 10, author: { login: "reviewer" } }],
+  },
+};
+
+const FAILING_CHECK: CheckResult = { name: "lint", state: "completed", conclusion: "failure" };
+
+/**
+ * A fake `PrFeedbackPort`: every `gh`-backed call is a `vi.fn()` whose default
+ * yields no feedback. Tests override `fetchReviewThreads` / `fetchChecks` to
+ * feed the loop review comments or CI failures without spawning a subprocess.
+ */
+function createFakePort(overrides: Partial<PrFeedbackPort> = {}): PrFeedbackPort {
   return {
-    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
-    resolveOwnerRepo: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+    getRepoOwner: vi.fn().mockResolvedValue({ owner: "owner", repo: "repo" }),
+    fetchReviewThreads: vi.fn().mockResolvedValue({ reviewDecision: null, threads: [] }),
+    fetchChecks: vi.fn().mockResolvedValue([]),
+    fetchFailedRunId: vi.fn().mockResolvedValue(null),
+    fetchRunLogs: vi.fn().mockResolvedValue(""),
+    ...overrides,
   };
 }
 
-function createMockPollResult(overrides?: Partial<PollResult>): PollResult {
+/** Fresh injected deps: a fake `commitAndPush` + the given (or default) fake port. */
+function makeDeps(feedbackPoller: PrFeedbackPort = createFakePort()): FeedbackLoopRunnerDeps {
   return {
-    context: {
-      prNumber: 42,
-      reviewComments: [
-        {
-          threadId: "thread-1",
-          author: "reviewer",
-          body: "Please fix this",
-          path: "src/main.ts",
-          line: 10,
-        },
-      ],
-      ciFailures: [],
-      reviewDecision: "CHANGES_REQUESTED",
-    },
-    fingerprint: "thread-1",
-    ...overrides,
+    worktreeManager: { commitAndPush: vi.fn().mockResolvedValue(undefined) },
+    feedbackPoller,
   };
 }
 
@@ -90,7 +89,6 @@ describe("runFeedbackLoop", () => {
   });
 
   it("resolves immediately when no feedback is found", async () => {
-    vi.mocked(pollForFeedback).mockResolvedValue(null);
     const deps = makeDeps();
 
     const result = await runFeedbackLoop(BASE_PARAMS, deps);
@@ -98,15 +96,17 @@ describe("runFeedbackLoop", () => {
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(0);
     expect(result.lastFingerprint).toBeNull();
-    expect(deps.worktreeManager.commitAndPush).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.worktreeManager.commitAndPush)).not.toHaveBeenCalled();
   });
 
   it("runs a fix session when feedback is found and resolves after one retry", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      // After fix: no more feedback
-      .mockResolvedValueOnce(null);
-    const deps = makeDeps();
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValue({ reviewDecision: null, threads: [] }),
+    });
+    const deps = makeDeps(port);
 
     const result = await runFeedbackLoop(BASE_PARAMS, deps);
 
@@ -118,65 +118,84 @@ describe("runFeedbackLoop", () => {
   });
 
   it("delegates the commit to the injected worktreeManager.commitAndPush", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValueOnce(null);
-    const deps = makeDeps();
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValue({ reviewDecision: null, threads: [] }),
+    });
+    const deps = makeDeps(port);
 
     await runFeedbackLoop(BASE_PARAMS, deps);
 
-    expect(deps.worktreeManager.commitAndPush).toHaveBeenCalledTimes(1);
-    expect(deps.worktreeManager.commitAndPush).toHaveBeenCalledWith(
+    expect(vi.mocked(deps.worktreeManager.commitAndPush)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(deps.worktreeManager.commitAndPush)).toHaveBeenCalledWith(
       BASE_PARAMS.repoPath,
       BASE_PARAMS.branchName,
       expect.stringContaining("address PR feedback")
     );
   });
 
-  it("resolves owner/repo through the injected resolver", async () => {
-    vi.mocked(pollForFeedback).mockResolvedValue(null);
-    const deps = makeDeps();
+  it("resolves owner/repo through the injected port's getRepoOwner", async () => {
+    const port = createFakePort();
 
-    await runFeedbackLoop(BASE_PARAMS, deps);
+    await runFeedbackLoop(BASE_PARAMS, makeDeps(port));
 
-    expect(deps.resolveOwnerRepo).toHaveBeenCalledWith(BASE_PARAMS.repoPath);
+    expect(vi.mocked(port.getRepoOwner)).toHaveBeenCalledWith(BASE_PARAMS.repoPath);
   });
 
   it("escalates after exhausting maxRetries when feedback persists", async () => {
-    vi.mocked(pollForFeedback).mockResolvedValue(
-      createMockPollResult({ fingerprint: "persistent-thread" })
-    );
+    // Persistent feedback: a review comment plus a CI failure on every poll, so
+    // the fingerprint dedup never short-circuits the loop.
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValue({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] }),
+      fetchChecks: vi.fn().mockResolvedValue([FAILING_CHECK]),
+    });
 
     const params = { ...BASE_PARAMS, maxRetries: 2 };
-    const result = await runFeedbackLoop(params, makeDeps());
+    const result = await runFeedbackLoop(params, makeDeps(port));
 
     expect(result.resolved).toBe(false);
     expect(result.retriesUsed).toBe(2);
-    expect(result.lastFingerprint).toBe("persistent-thread");
+    expect(result.lastFingerprint).toBe("thread-1");
     expect(query).toHaveBeenCalledTimes(2);
   });
 
   it("respects maxRetries config", async () => {
-    vi.mocked(pollForFeedback).mockResolvedValue(createMockPollResult());
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValue({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] }),
+      fetchChecks: vi.fn().mockResolvedValue([FAILING_CHECK]),
+    });
 
     const params = { ...BASE_PARAMS, maxRetries: 1 };
-    const result = await runFeedbackLoop(params, makeDeps());
+    const result = await runFeedbackLoop(params, makeDeps(port));
 
     expect(result.retriesUsed).toBe(1);
     expect(query).toHaveBeenCalledTimes(1);
   });
 
   it("emits events correctly throughout the loop", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValueOnce(null);
+    const port = createFakePort({
+      fetchReviewThreads: vi
+        .fn()
+        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValue({ reviewDecision: null, threads: [] }),
+    });
 
     const events: SessionEvent[] = [];
-    await runFeedbackLoop(BASE_PARAMS, makeDeps(), (event) => events.push(event));
+    await runFeedbackLoop(BASE_PARAMS, makeDeps(port), (event) => events.push(event));
 
-    const messages = events.map((e) =>
-      "message" in e.data ? (e.data as { message: string }).message : ""
-    );
+    const messages = events.map((e) => {
+      const data = e.data;
+      return typeof data === "object" && data !== null && "message" in data &&
+        typeof data.message === "string"
+        ? data.message
+        : "";
+    });
 
     expect(messages.some((m) => m.includes("waiting"))).toBe(true);
     expect(messages.some((m) => m.includes("found"))).toBe(true);
@@ -187,20 +206,20 @@ describe("runFeedbackLoop", () => {
 
   describe("AbortSignal cancellation", () => {
     it("rejects with AbortError instead of polling when signal is already aborted", async () => {
-      vi.mocked(pollForFeedback).mockResolvedValue(null);
+      const port = createFakePort();
       const controller = new AbortController();
       controller.abort();
 
       const params = { ...BASE_PARAMS, signal: controller.signal };
 
-      await expect(runFeedbackLoop(params, makeDeps())).rejects.toMatchObject({
+      await expect(runFeedbackLoop(params, makeDeps(port))).rejects.toMatchObject({
         name: "AbortError",
       });
-      expect(pollForFeedback).not.toHaveBeenCalled();
+      expect(vi.mocked(port.fetchReviewThreads)).not.toHaveBeenCalled();
     });
 
     it("halts polling within one pollIntervalMs when cancel fires mid-wait, instead of running to pollTimeoutMs", async () => {
-      vi.mocked(pollForFeedback).mockResolvedValue(null);
+      const port = createFakePort();
       const controller = new AbortController();
       // pollIntervalMs/pollTimeoutMs are large so a passing test proves the
       // abort short-circuited the wait rather than the delay naturally elapsing.
@@ -212,42 +231,42 @@ describe("runFeedbackLoop", () => {
         signal: controller.signal,
       };
 
-      const resultPromise = runFeedbackLoop(params, makeDeps());
+      const resultPromise = runFeedbackLoop(params, makeDeps(port));
       const assertion = expect(resultPromise).rejects.toMatchObject({ name: "AbortError" });
 
       // Fire the abort almost immediately — well under one pollIntervalMs.
       setTimeout(() => controller.abort(), 5);
 
       await assertion;
-      expect(pollForFeedback).not.toHaveBeenCalled();
+      expect(vi.mocked(port.fetchReviewThreads)).not.toHaveBeenCalled();
     });
 
     it("does not push a commit when abort fires during the fix-session query", async () => {
-      vi.mocked(pollForFeedback).mockResolvedValueOnce(createMockPollResult());
+      const port = createFakePort({
+        fetchReviewThreads: vi
+          .fn()
+          .mockResolvedValue({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] }),
+      });
       const controller = new AbortController();
 
       // Simulate a concurrent cancel() arriving once the fix-session query
-      // starts: the mocked SDK stream stalls until the internal
-      // abortController (bridged from `controller.signal`) fires.
+      // starts: the mocked SDK stream stalls until the internal abortController
+      // (bridged from `controller.signal`) fires.
       vi.mocked(query).mockImplementation((opts) => {
-        const internalSignal = (opts.options as { abortController?: AbortController })
-          .abortController?.signal;
+        const internalSignal = opts.options?.abortController?.signal;
         queueMicrotask(() => controller.abort());
+        const done: IteratorResult<never> = { value: undefined, done: true };
         return {
           [Symbol.asyncIterator](): AsyncIterator<never> {
             return {
               next(): Promise<IteratorResult<never>> {
-                return new Promise((resolve) => {
-                  if (internalSignal?.aborted) {
-                    resolve({ value: undefined as never, done: true });
-                    return;
-                  }
-                  internalSignal?.addEventListener(
-                    "abort",
-                    () => resolve({ value: undefined as never, done: true }),
-                    { once: true }
-                  );
-                });
+                const { promise, resolve } = Promise.withResolvers<IteratorResult<never>>();
+                if (internalSignal?.aborted) {
+                  resolve(done);
+                } else {
+                  internalSignal?.addEventListener("abort", () => resolve(done), { once: true });
+                }
+                return promise;
               },
             };
           },
@@ -255,36 +274,27 @@ describe("runFeedbackLoop", () => {
       });
 
       const params = { ...BASE_PARAMS, signal: controller.signal };
-      const deps = makeDeps();
+      const deps = makeDeps(port);
 
       await expect(runFeedbackLoop(params, deps)).rejects.toMatchObject({ name: "AbortError" });
-      expect(deps.worktreeManager.commitAndPush).not.toHaveBeenCalled();
+      expect(vi.mocked(deps.worktreeManager.commitAndPush)).not.toHaveBeenCalled();
     });
   });
 
   it("handles CI failures in feedback", async () => {
-    const feedbackWithCI = createMockPollResult({
-      context: {
-        prNumber: 42,
-        reviewComments: [],
-        ciFailures: [
-          {
-            checkName: "lint",
-            conclusion: "failure",
-            logSnippet: "Error: unused variable",
-          },
-        ],
-        reviewDecision: "PENDING",
-      },
+    // First poll surfaces a CI failure (no review comments); subsequent polls are clean.
+    const port = createFakePort({
+      fetchChecks: vi.fn().mockResolvedValueOnce([FAILING_CHECK]).mockResolvedValue([]),
     });
 
-    // First poll: CI feedback found; remaining polls: no feedback
-    vi.mocked(pollForFeedback).mockResolvedValueOnce(feedbackWithCI).mockResolvedValue(null);
-
-    const result = await runFeedbackLoop(BASE_PARAMS, makeDeps());
+    const result = await runFeedbackLoop(BASE_PARAMS, makeDeps(port));
 
     expect(result.resolved).toBe(true);
     expect(result.retriesUsed).toBe(1);
-    expect(buildReviewFixPrompt).toHaveBeenCalledWith(feedbackWithCI.context);
+    expect(buildReviewFixPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ciFailures: [expect.objectContaining({ checkName: "lint", conclusion: "failure" })],
+      })
+    );
   });
 });

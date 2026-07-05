@@ -32,6 +32,11 @@ export interface CheckResult {
   readonly conclusion: string;
 }
 
+export interface RepoOwnerResult {
+  readonly owner: string;
+  readonly repo: string;
+}
+
 /**
  * Injectable seam for the poller's GitHub calls. Tests supply a fake
  * implementation instead of mocking `node:child_process`.
@@ -46,6 +51,7 @@ export interface PrFeedbackPort {
   fetchChecks(prNumber: number, repoPath: string): Promise<readonly CheckResult[]>;
   fetchFailedRunId(repoPath: string): Promise<number | null>;
   fetchRunLogs(runId: number, repoPath: string): Promise<string>;
+  getRepoOwner(repoPath: string): Promise<RepoOwnerResult>;
 }
 
 // ── Production implementation (backed by the `gh` CLI) ──────────────
@@ -132,5 +138,14 @@ export const ghPrFeedbackPort: PrFeedbackPort = {
       timeout: GH_TIMEOUT_MS,
     });
     return stdout;
+  },
+
+  async getRepoOwner(repoPath) {
+    const { stdout } = await execFileAsync("gh", ["repo", "view", "--json", "owner,name"], {
+      cwd: repoPath,
+      timeout: GH_TIMEOUT_MS,
+    });
+    const parsed = JSON.parse(stdout) as { owner: { login: string }; name: string };
+    return { owner: parsed.owner.login, repo: parsed.name };
   },
 };
