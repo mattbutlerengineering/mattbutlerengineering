@@ -134,8 +134,8 @@ describe("PublicBookingPage", () => {
   describe("loading state", () => {
     it("shows loading text while fetching venue", () => {
       // Never-resolving promise keeps the query pending.
-      const pending = Promise.withResolvers<Venue>();
-      mockGetBySlug.mockReturnValue(pending.promise);
+      const pending = new Promise<Venue>(() => {});
+      mockGetBySlug.mockReturnValue(pending);
       renderPage();
       expect(screen.getByText("Loading venue...")).toBeDefined();
     });
