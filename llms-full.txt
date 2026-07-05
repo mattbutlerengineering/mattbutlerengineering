@@ -3880,6 +3880,12 @@
       refetch: () => void;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useDeposits.ts">
+    export const useCreateDeposit = createMutationHook<CreateDepositRequest, Deposit>({
+      invalidateKeys: RESERVATIONS_QUERY_KEY,
+      mutationFn: (api, data) => api.deposits.create(data),
+    });
+  </file>
   <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
@@ -4003,7 +4009,7 @@
         queryFn: async (): Promise<CancellationPolicy | null> => {
           if (!slug) return null;
           try {
-            const deposit = await api.publicVenue.getDepositPolicy(slug);
+            const { deposit } = await api.venues.getPublicConfig(slug);
             if (!deposit.enabled || deposit.amountCents == null) return null;
             return {
               depositAmountCents: deposit.amountCents,
@@ -15650,19 +15656,6 @@
           data,
           DepositPaymentIntentSchema
         );
-      }
-    
-      /**
-       * Get a venue's deposit/cancellation policy by slug. Validates the full
-       * public venue-config envelope and returns just its deposit block.
-       */
-      async getDepositPolicy(slug: string): Promise<PublicVenueDeposit> {
-        const config = await this.client.getOne<PublicVenueConfig>(
-          `/public/v1/venues/${slug}`,
-          undefined,
-          PublicVenueConfigSchema
-        );
-        return config.deposit;
       }
     }
   </file>
