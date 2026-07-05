@@ -1,40 +1,58 @@
 import { useNavigate } from "react-router-dom";
-import { Card, Stat, Stack, Text } from "@mattbutlerengineering/rialto";
-import { NAV_SECTIONS, COMPONENT_COUNT } from "../data/nav-sections";
+import { Button, Card, Heading, Hero, Stack, Stat, Text } from "@mattbutlerengineering/rialto";
+import manifest from "@mattbutlerengineering/rialto/manifest";
+import { NAV_SECTIONS } from "../data/nav-sections.js";
 import styles from "./OverviewPage.module.css";
 
+// Counts are derived from generated/build-time sources so the stat row never
+// drifts from the shipped library:
+// - components  → the compiled rialto manifest
+// - categories  → the nav registry (itself derived from the page registry)
+// - tokens      → __RIALTO_TOKEN_COUNT__, counted from the shipped stylesheet
+//                 at build time (see token-count.config.ts)
+const COMPONENT_COUNT = manifest.components.length;
 const CATEGORY_COUNT = NAV_SECTIONS.length;
-const TOKEN_COUNT = 80; // approximate token count for display
+const FIRST_COMPONENT_PATH = NAV_SECTIONS[0]?.items[0]?.path ?? "/";
 
 /**
  * Landing page for the Rialto design system showcase.
  *
  * Sections:
- * - Hero area with logo and tagline
- * - Stats row (component count, categories, tokens)
- * - Category preview cards linking to first component in each category
- * - Getting started section
+ * - Hero (Rialto Hero primitive) with eyebrow, headline, and conversion CTAs
+ * - Stats row driven by the manifest, nav registry, and build-time token count
+ * - Category preview cards linking to the first component in each category
+ * - Getting started section with the install snippet
  */
 export function OverviewPage() {
   const navigate = useNavigate();
 
+  const scrollToGetStarted = () => {
+    document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className={styles.page}>
       {/* ── Hero ────────────────────────────────── */}
-      <section className={styles.hero}>
-        <div className={styles.heroLogo}>
-          Ri<span className={styles.heroLogoAccent}>a</span>lto
-        </div>
-        <Stack gap="sm" align="center">
-          <Text variant="display" color="primary" align="center" as="h1">
-            Precision-crafted React components
-          </Text>
-          <Text variant="body" color="secondary" align="center">
-            A design system with warm material surfaces, gold accents, and full WCAG AA
-            accessibility. Built for production.
-          </Text>
-        </Stack>
-      </section>
+      <Hero
+        eyebrow="Rialto Design System"
+        minHeight="56vh"
+        title={
+          <>
+            Precision-crafted React <Text className="accent">components</Text>
+          </>
+        }
+        subtitle="A design system with warm material surfaces, gold accents, and full WCAG AA accessibility. Built for production."
+        actions={
+          <>
+            <Button variant="primary" onClick={scrollToGetStarted}>
+              Get started
+            </Button>
+            <Button variant="secondary" onClick={() => navigate(FIRST_COMPONENT_PATH)}>
+              Browse components
+            </Button>
+          </>
+        }
+      />
 
       {/* ── Stats ───────────────────────────────── */}
       <section className={styles.stats}>
@@ -42,14 +60,14 @@ export function OverviewPage() {
         <div className={styles.statDivider} />
         <Stat label="Categories" value={String(CATEGORY_COUNT)} size="lg" />
         <div className={styles.statDivider} />
-        <Stat label="Design Tokens" value={`${TOKEN_COUNT}+`} size="lg" />
+        <Stat label="Design Tokens" value={String(__RIALTO_TOKEN_COUNT__)} size="lg" />
       </section>
 
       {/* ── Category previews ───────────────────── */}
       <section className={styles.categories}>
-        <Text variant="display" color="primary" as="h2">
+        <Heading level={2} color="primary">
           Browse by category
-        </Text>
+        </Heading>
         <Text variant="body" color="secondary">
           Browse components by category in the sidebar, or click a category below to get started.
         </Text>
@@ -79,9 +97,9 @@ export function OverviewPage() {
                     <Text variant="label" color="primary">
                       {section.label}
                     </Text>
-                    <span className={styles.categoryCount} aria-hidden="true">
+                    <Text className={styles.categoryCount} aria-hidden="true">
                       {section.items.length}
-                    </span>
+                    </Text>
                   </div>
                   <ul className={styles.componentList}>
                     {section.items.slice(0, 4).map((item) => (
@@ -107,12 +125,12 @@ export function OverviewPage() {
       </section>
 
       {/* ── Getting started ─────────────────────── */}
-      <section className={styles.gettingStarted}>
+      <section id="get-started" className={styles.gettingStarted}>
         <Card variant="flat" className={styles.gettingStartedCard}>
           <Stack gap="md">
-            <Text variant="display" color="primary" as="h2">
+            <Heading level={2} color="primary">
               Getting started
-            </Text>
+            </Heading>
             <Text variant="body" color="secondary">
               Install the Rialto package and wrap your app with{" "}
               <code className={styles.code}>RialtoProvider</code>:

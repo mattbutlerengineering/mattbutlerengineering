@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { KeyboardEvent, ReactNode } from "react";
 import { OverviewPage } from "./OverviewPage.js";
 import { DemoLayout, FloatingControls } from "../layouts/DemoLayout.js";
 
@@ -8,6 +9,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children }: any) => <button>{children}</button>,
   Text: ({ children }: any) => <span>{children}</span>,
   Heading: ({ children }: any) => <h2>{children}</h2>,
+  Hero: ({
+    title,
+    subtitle,
+    eyebrow,
+    actions,
+  }: {
+    title?: ReactNode;
+    subtitle?: string;
+    eyebrow?: string;
+    actions?: ReactNode;
+  }) => (
+    <section aria-label="hero">
+      {eyebrow ? <p>{eyebrow}</p> : null}
+      <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
+      {actions}
+    </section>
+  ),
   Stack: ({ children }: any) => <div>{children}</div>,
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
@@ -17,7 +36,23 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {description}
     </header>
   ),
-  Card: ({ children }: any) => <div>{children}</div>,
+  Card: ({
+    children,
+    role,
+    tabIndex,
+    "aria-label": ariaLabel,
+    onKeyDown,
+  }: {
+    children?: ReactNode;
+    role?: string;
+    tabIndex?: number;
+    "aria-label"?: string;
+    onKeyDown?: (event: KeyboardEvent) => void;
+  }) => (
+    <div role={role} tabIndex={tabIndex} aria-label={ariaLabel} onKeyDown={onKeyDown}>
+      {children}
+    </div>
+  ),
   Badge: ({ children }: any) => <span>{children}</span>,
   Icon: () => <div />,
   Table: ({ children }: any) => <table>{children}</table>,
@@ -33,6 +68,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
   useThemeState: () => ({ preference: "system", setTheme: vi.fn(), resolved: "light" }),
   resolveTheme: vi.fn((t) => t),
+}));
+
+vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
+  default: {
+    version: "0.0.0",
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    components: [{ name: "Alpha" }, { name: "Beta" }, { name: "Gamma" }],
+  },
 }));
 
 Object.defineProperty(window, "matchMedia", {
@@ -66,6 +109,58 @@ describe("Rialto Web Pages and Layouts", () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId("global-nav")).toBeInTheDocument();
+  });
+});
+
+describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
+  function renderOverview() {
+    return render(
+      <MemoryRouter>
+        <OverviewPage />
+      </MemoryRouter>
+    );
+  }
+
+  it("sources the Components stat from the generated manifest, not the nav registry", () => {
+    renderOverview();
+    const componentStat = screen
+      .getAllByTestId("stat")
+      .find((stat) => stat.textContent?.includes("Components"));
+    // Mock manifest ships exactly 3 components.
+    expect(componentStat?.textContent).toContain("3");
+  });
+
+  it("sources the Design Tokens stat from the build-time token count", () => {
+    renderOverview();
+    const tokenStat = screen
+      .getAllByTestId("stat")
+      .find((stat) => stat.textContent?.includes("Design Tokens"));
+    expect(tokenStat?.textContent).toContain(String(__RIALTO_TOKEN_COUNT__));
+  });
+
+  it("renders a single h1 via the Hero and section titles via the Heading primitive", () => {
+    renderOverview();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 2, name: /browse by category/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /getting started/i })
+    ).toBeInTheDocument();
+  });
+
+  it("renders a primary conversion CTA", () => {
+    renderOverview();
+    expect(screen.getByRole("button", { name: /get started/i })).toBeInTheDocument();
+  });
+
+  it("retains keyboard-accessible category cards", () => {
+    renderOverview();
+    const cards = screen.getAllByRole("button", { name: /browse .* components/i });
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card).toHaveAttribute("tabindex", "0");
+    }
   });
 });
 

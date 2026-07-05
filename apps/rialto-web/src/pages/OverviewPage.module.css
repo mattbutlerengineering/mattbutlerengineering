@@ -8,29 +8,6 @@
   padding-block: var(--rialto-space-2xl);
 }
 
-/* ── Hero ─────────────────────────────────────── */
-.hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--rialto-space-lg);
-  text-align: center;
-  padding-block: var(--rialto-space-2xl);
-}
-
-.heroLogo {
-  font-family: var(--rialto-font-sans);
-  font-size: 4rem;
-  font-weight: 500;
-  letter-spacing: var(--rialto-tracking-tight);
-  color: var(--rialto-text-primary);
-  line-height: 1;
-}
-
-.heroLogoAccent {
-  color: var(--rialto-accent);
-}
-
 /* ── Stats ────────────────────────────────────── */
 .stats {
   display: flex;
@@ -160,10 +137,6 @@
 /* Match the sidebar collapse breakpoint so content fills the full width
    when the sidebar transitions to a mobile drawer at ≤767px. */
 @media (max-width: 767px) {
-  .heroLogo {
-    font-size: 3rem;
-  }
-
   .page {
     gap: var(--rialto-space-2xl);
     padding-block: var(--rialto-space-xl);

@@ -952,6 +952,11 @@
       }
     </item>
   </file>
+  <file path="apps/rialto-web/src/data/rialto-tokens.ts">
+    <item priority="high">
+      export function countRialtoTokens(css: string): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/data/tapechart-fixtures.ts">
     <item priority="medium">
       function mulberry32(seed: number) { /* ... */ }
@@ -1961,6 +1966,13 @@
         accessToken: string | null;
         refreshError: Error | null;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="rialto-web">
+  <file path="apps/rialto-web/token-count.config.ts">
+    <item priority="high">
+      export function resolveRialtoTokenCount(): number { /* ... */ }
     </item>
   </file>
   </section>
