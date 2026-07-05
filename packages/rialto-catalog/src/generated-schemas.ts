@@ -111,6 +111,22 @@ export const generatedSchemas = {
     showOptional: z.boolean().optional(),
   }),
   NavigationMenu: z.object({}),
+  Odometer: z.object({
+    value: z.number(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    flipInterval: z.number().optional(),
+    cascadeDelay: z.number().optional(),
+  }),
+  RadialGauge: z.object({
+    value: z.number(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    label: z.string().max(40).optional(),
+    unit: z.string().max(8).optional(),
+    showValue: z.boolean().optional(),
+    needle: z.boolean().optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+  }),
   Select: z.object({
     value: z.string().optional(),
     placeholder: z.string().optional(),

@@ -39,6 +39,8 @@ import {
   Footer,
   Input,
   NavigationMenu,
+  Odometer,
+  RadialGauge,
   Select,
   Sidebar,
   Stack,
@@ -223,6 +225,52 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     DataList: ({ props }: any) => (
       <DataList items={props.items ?? []} orientation={props.orientation} striped={props.striped} />
     ),
+
+    Odometer: ({ props }: { props: unknown }) => {
+      // The catalog's generated Zod schema validates Odometer props before this
+      // renderer runs (see file header), so the shape is guaranteed here.
+      const p = props as {
+        value: number;
+        size?: "sm" | "md" | "lg";
+        flipInterval?: number;
+        cascadeDelay?: number;
+      };
+      return (
+        <Odometer
+          value={p.value}
+          size={p.size}
+          flipInterval={p.flipInterval}
+          cascadeDelay={p.cascadeDelay}
+        />
+      );
+    },
+
+    // RadialGauge props are validated by the generated Zod schema at generation
+    // time; the runtime context passes them through as `unknown` here.
+    RadialGauge: ({ props }: { props: unknown }) => {
+      const p = props as {
+        value: number;
+        min?: number;
+        max?: number;
+        label?: string;
+        unit?: string;
+        showValue?: boolean;
+        needle?: boolean;
+        size?: "sm" | "md" | "lg";
+      };
+      return (
+        <RadialGauge
+          value={p.value}
+          min={p.min}
+          max={p.max}
+          label={p.label}
+          unit={p.unit}
+          showValue={p.showValue}
+          needle={p.needle}
+          size={p.size}
+        />
+      );
+    },
 
     // EmptyState uses `heading` prop; catalog description mentions `title` as alias.
     EmptyState: ({ props, children }: any) => (

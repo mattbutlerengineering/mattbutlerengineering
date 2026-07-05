@@ -2,7 +2,6 @@ import {
   useState,
   useRef,
   useCallback,
-  useEffect,
   useLayoutEffect,
   forwardRef,
   cloneElement,
@@ -14,6 +13,8 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useDismiss } from "../../hooks/useDismiss";
+import { usePointerActivation } from "../../hooks/usePointerActivation";
 import { cn } from "../../utils/class-composer";
 import styles from "./DropdownMenu.module.css";
 
@@ -117,19 +118,8 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
 
   useEscapeKey(close, open);
 
-  // Click outside
-  useEffect(() => {
-    if (!open) return;
-
-    function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        close();
-      }
-    }
-
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open, close]);
+  useDismiss(wrapperRef, close, { enabled: open });
+  const { hasPointerMoved, resetPointerMovement } = usePointerActivation(open);
 
   // Focus active item — useLayoutEffect so it fires before framer-motion
   // mounts AnimatePresence children and populates refs
@@ -149,6 +139,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    resetPointerMovement();
     if (!open) {
       if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -265,7 +256,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
                     }
                   }}
                   onMouseEnter={() => {
-                    if (!item.disabled) setActiveIndex(i);
+                    if (!item.disabled && hasPointerMoved()) setActiveIndex(i);
                   }}
                 >
                   {item.icon && <span className={styles.icon}>{item.icon}</span>}

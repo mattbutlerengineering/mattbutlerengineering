@@ -1,0 +1,52 @@
+/* ── Odometer ─────────────────────────────── */
+.odometer {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--rialto-font-sans);
+  line-height: 1;
+}
+
+/* The row of digit reels + static separators. */
+.reels {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+}
+
+/* ── Separators — grouping commas, decimals, currency, sign ── */
+.separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rialto-accent);
+  font-weight: 500;
+  line-height: 1;
+  padding-inline: 1px;
+  user-select: none;
+}
+
+/* Size presets — mirror SplitFlap font sizing so glyphs align with reels. */
+.sm .separator {
+  font-size: 1.25rem;
+}
+
+.md .separator {
+  font-size: 1.75rem;
+}
+
+.lg .separator {
+  font-size: 2.5rem;
+}
+
+/* ── Visually hidden live region ──────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

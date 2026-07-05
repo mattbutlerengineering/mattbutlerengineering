@@ -39,6 +39,22 @@
       },
     ];
   </file>
+  <file path="src/data/stats.ts">
+    export interface SiteStat {
+      /** Numeric figure rendered via the Odometer rolling counter. */
+      readonly value: number;
+      /** Visible label describing the figure. */
+      readonly label: string;
+      /** Optional glyph shown after the value to signal an at-least figure (e.g. "+"). */
+      readonly suffix?: string;
+    }
+    export const SITE_STATS: readonly SiteStat[] = [
+      { value: PROJECTS.length, label: "Projects shipped" },
+      { value: 65, suffix: "+", label: "Rialto components" },
+      { value: TECH_COUNT, label: "Technologies in the stack" },
+      { value: TECH_STACK.length, label: "Domains owned end-to-end" },
+    ];
+  </file>
   <file path="src/data/tech-stack.ts">
     export interface TechCategory {
       title: string;

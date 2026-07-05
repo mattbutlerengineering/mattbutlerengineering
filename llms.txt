@@ -226,6 +226,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Odometer">
+  <file path="packages/rialto/src/components/Odometer/Odometer.catalog.ts">
+    <item priority="high">
+      export const odometerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="RadialGauge">
+  <file path="packages/rialto/src/components/RadialGauge/RadialGauge.catalog.ts">
+    <item priority="high">
+      export const radialGaugeCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Select">
   <file path="packages/rialto/src/components/Select/Select.catalog.ts">
     <item priority="high">
@@ -874,6 +888,18 @@
       export const PROJECTS: Project[];
     </item>
   </file>
+  <file path="apps/marketing/src/data/stats.ts">
+    <item priority="low">
+      interface SiteStat {
+        value: number;
+        label: string;
+        suffix?: string;
+      }
+    </item>
+    <item priority="high">
+      export const SITE_STATS: readonly SiteStat[];
+    </item>
+  </file>
   <file path="apps/marketing/src/data/tech-stack.ts">
     <item priority="low">
       interface TechCategory {
@@ -1206,6 +1232,20 @@
         historyVisible: boolean;
         inspectorVisible: boolean;
       }
+    </item>
+  </file>
+  <file path="apps/gen/src/hooks/usePlayground.ts">
+    <item priority="low">
+      interface UsePlaygroundResult {
+        session: PlaygroundSession;
+        toggleTheme: () => void;
+        onSignOut: () => void;
+        onLogoClick: () => void;
+        onTemplatesOpen: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function usePlayground(): UsePlaygroundResult { /* ... */ }
     </item>
   </file>
   <file path="apps/gen/src/hooks/useSpecsApi.ts">
@@ -1576,6 +1616,20 @@
       export function useDirection(ref: RefObject<HTMLElement | null>): Direction { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/useDismiss.ts">
+    <item priority="low">
+      interface UseDismissOptions {
+        enabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useDismiss<T extends HTMLElement>(
+        ref: RefObject<T | null>,
+        onClose: () => void,
+        { enabled }: UseDismissOptions
+      ): void { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useEscapeKey.ts">
     <item priority="high">
       export function useEscapeKey(onClose: () => void, enabled: boolean): void { /* ... */ }
@@ -1603,6 +1657,20 @@
     </item>
     <item priority="high">
       export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/usePointerActivation.ts">
+    <item priority="low">
+      interface UsePointerActivationResult {
+        hasPointerMoved: () => boolean;
+        resetPointerMovement: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function usePointerActivation(
+        enabled: boolean,
+        threshold: number = DEFAULT_THRESHOLD
+      ): UsePointerActivationResult { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/useReturnFocus.ts">

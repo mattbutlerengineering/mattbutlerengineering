@@ -312,6 +312,29 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Odometer">
+  <file path="src/components/Odometer/Odometer.catalog.ts">
+    export const odometerCatalogMeta = {
+      name: "Odometer",
+      description:
+        "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
+      slots: [],
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="RadialGauge">
+  <file path="src/components/RadialGauge/RadialGauge.catalog.ts">
+    export const radialGaugeCatalogMeta = {
+      name: "RadialGauge",
+      description:
+        "Analog instrument dial for a bounded metric (utilization, score, capacity) — the dial counterpart to Meter. A gold accent arc fills over an aluminium track with an optional pointer needle. Provide value plus min/max (defaults 0-100). Set unit to append a suffix like % to the readout. Set needle=false to hide the pointer, showValue=false to hide the centre number. Use size=sm for compact panels, size=md (default), size=lg for a hero reading.",
+      charLimits: {
+        label: 40,
+        unit: 8,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Select">
   <file path="src/components/Select/Select.catalog.ts">
     export const selectCatalogMeta = {
@@ -752,6 +775,31 @@
       return dir;
     }
   </file>
+  <file path="src/hooks/useDismiss.ts">
+    export interface UseDismissOptions {
+      /** Whether the outside-press listener is active (typically the overlay's open state). */
+      enabled: boolean;
+    }
+    export function useDismiss<T extends HTMLElement>(
+      ref: RefObject<T | null>,
+      onClose: () => void,
+      { enabled }: UseDismissOptions
+    ): void {
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const handleMouseDown = (e: MouseEvent) => {
+          const el = ref.current;
+          if (el && !el.contains(e.target as Node)) {
+            onClose();
+          }
+        };
+    
+        document.addEventListener("mousedown", handleMouseDown);
+        return () => document.removeEventListener("mousedown", handleMouseDown);
+      }, [enabled, onClose, ref]);
+    }
+  </file>
   <file path="src/hooks/useEscapeKey.ts">
     export function useEscapeKey(onClose: () => void, enabled: boolean): void {
       useEffect(() => {
@@ -820,6 +868,52 @@
         document.addEventListener("keydown", trap);
         return () => document.removeEventListener("keydown", trap);
       }, [enabled, panelRef]);
+    }
+  </file>
+  <file path="src/hooks/usePointerActivation.ts">
+    export interface UsePointerActivationResult {
+      /** Whether the pointer has moved past the threshold since the last (re)baseline. */
+      hasPointerMoved: () => boolean;
+      /** Clears movement state and re-baselines — call when keyboard navigation takes over. */
+      resetPointerMovement: () => void;
+    }
+    export function usePointerActivation(
+      enabled: boolean,
+      threshold: number = DEFAULT_THRESHOLD
+    ): UsePointerActivationResult {
+      const movedRef = useRef(false);
+      const baselineRef = useRef<{ x: number; y: number } | null>(null);
+    
+      useEffect(() => {
+        movedRef.current = false;
+        baselineRef.current = null;
+        if (!enabled) return;
+    
+        const handleMouseMove = (e: MouseEvent) => {
+          const baseline = baselineRef.current;
+          if (baseline === null) {
+            baselineRef.current = { x: e.clientX, y: e.clientY };
+            return;
+          }
+          if (movedRef.current) return;
+          const dx = e.clientX - baseline.x;
+          const dy = e.clientY - baseline.y;
+          if (dx * dx + dy * dy >= threshold * threshold) {
+            movedRef.current = true;
+          }
+        };
+    
+        document.addEventListener("mousemove", handleMouseMove);
+        return () => document.removeEventListener("mousemove", handleMouseMove);
+      }, [enabled, threshold]);
+    
+      const hasPointerMoved = useCallback(() => movedRef.current, []);
+      const resetPointerMovement = useCallback(() => {
+        movedRef.current = false;
+        baselineRef.current = null;
+      }, []);
+    
+      return { hasPointerMoved, resetPointerMovement };
     }
   </file>
   <file path="src/hooks/useReturnFocus.ts">

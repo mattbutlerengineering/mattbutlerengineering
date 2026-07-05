@@ -41,6 +41,20 @@
   gap: var(--rialto-space-lg);
 }
 
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+.metricValue {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--rialto-space-2xs);
+  color: var(--rialto-text-primary);
+}
+
 .contactLink {
   color: var(--rialto-text-secondary);
   text-decoration: none;
@@ -101,22 +115,4 @@
     padding-block: var(--rialto-space-2xl);
     padding-inline: var(--rialto-space-md);
   }
-}
-
-.weeklyCta {
-  text-align: center;
-  padding-block: var(--rialto-space-4xl);
-  padding-inline: var(--rialto-space-lg);
-}
-
-.weeklyCta h2 {
-  font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-primary);
-  margin: 0 0 var(--rialto-space-sm) 0;
-}
-
-.weeklyCta p {
-  color: var(--rialto-text-secondary);
-  margin: 0 0 var(--rialto-space-lg) 0;
 }

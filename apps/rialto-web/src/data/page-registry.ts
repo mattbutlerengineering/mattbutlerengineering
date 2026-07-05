@@ -209,6 +209,14 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/data/MeterPage").then((m) => ({ default: m.MeterPage })),
   },
   {
+    id: "radial-gauge",
+    label: "Radial Gauge",
+    category: "Data Display",
+    path: "/components/radial-gauge",
+    load: () =>
+      import("../pages/data/RadialGaugePage").then((m) => ({ default: m.RadialGaugePage })),
+  },
+  {
     id: "kbd",
     label: "Kbd",
     category: "Data Display",
@@ -236,6 +244,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
     path: "/components/departure-board",
     load: () =>
       import("../pages/data/DepartureBoardPage").then((m) => ({ default: m.DepartureBoardPage })),
+  },
+  {
+    id: "odometer",
+    label: "Odometer",
+    category: "Data Display",
+    path: "/components/odometer",
+    load: () => import("../pages/data/OdometerPage").then((m) => ({ default: m.OdometerPage })),
   },
   {
     id: "chalkboard",

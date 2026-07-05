@@ -198,6 +198,10 @@
       "types": "./dist/lib/components/NumberInput/index.d.ts",
       "import": "./dist/lib/components/NumberInput/index.js"
     },
+    "./Odometer": {
+      "types": "./dist/lib/components/Odometer/index.d.ts",
+      "import": "./dist/lib/components/Odometer/index.js"
+    },
     "./PageHeader": {
       "types": "./dist/lib/components/PageHeader/index.d.ts",
       "import": "./dist/lib/components/PageHeader/index.js"
@@ -217,6 +221,10 @@
     "./Progress": {
       "types": "./dist/lib/components/Progress/index.d.ts",
       "import": "./dist/lib/components/Progress/index.js"
+    },
+    "./RadialGauge": {
+      "types": "./dist/lib/components/RadialGauge/index.d.ts",
+      "import": "./dist/lib/components/RadialGauge/index.js"
     },
     "./ScrollArea": {
       "types": "./dist/lib/components/ScrollArea/index.d.ts",

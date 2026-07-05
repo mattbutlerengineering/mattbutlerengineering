@@ -64,11 +64,13 @@ import { Meter } from "../../components/Meter/Meter";
 import { Navbar } from "../../components/Navbar/Navbar";
 import { NavigationMenu } from "../../components/NavigationMenu/NavigationMenu";
 import { NumberInput } from "../../components/NumberInput/NumberInput";
+import { Odometer } from "../../components/Odometer/Odometer";
 import { PageHeader } from "../../components/PageHeader/PageHeader";
 import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
 import { Popover } from "../../components/Popover/Popover";
 import { Progress, Spinner } from "../../components/Progress/Progress";
+import { RadialGauge } from "../../components/RadialGauge/RadialGauge";
 import { ScrollArea } from "../../components/ScrollArea/ScrollArea";
 import { SegmentedControl } from "../../components/SegmentedControl/SegmentedControl";
 import { Select } from "../../components/Select/Select";
@@ -151,11 +153,13 @@ export type BarrelExportName =
   | "Navbar"
   | "NavigationMenu"
   | "NumberInput"
+  | "Odometer"
   | "PageHeader"
   | "Pagination"
   | "PinInput"
   | "Popover"
   | "Progress"
+  | "RadialGauge"
   | "ScrollArea"
   | "SegmentedControl"
   | "Select"
@@ -475,6 +479,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <NumberInput label="Quantity" value={1} onChange={noop} min={1} max={10} />,
   },
 
+  Odometer: {
+    element: <Odometer value={1234} locale="en-US" />,
+  },
+
   PageHeader: {
     element: (
       <PageHeader
@@ -502,6 +510,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Progress: {
     element: <Progress value={45} aria-label="Loading" />,
+  },
+
+  RadialGauge: {
+    element: <RadialGauge label="Utilization" value={72} unit="%" />,
   },
 
   ScrollArea: {

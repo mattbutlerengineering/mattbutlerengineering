@@ -11,6 +11,8 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { springGentle } from "../../tokens/motion";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useDismiss } from "../../hooks/useDismiss";
+import { usePointerActivation } from "../../hooks/usePointerActivation";
 import { cn } from "../../utils/class-composer";
 import styles from "./ContextMenu.module.css";
 
@@ -116,21 +118,8 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
     [items.length, focusableIndices]
   );
 
-  // Click outside
-  useEffect(() => {
-    if (!open) return;
-
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        close();
-      }
-    }
-
-    document.addEventListener("mousedown", handleClick);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-    };
-  }, [open, close]);
+  useDismiss(menuRef, close, { enabled: open });
+  const { hasPointerMoved, resetPointerMovement } = usePointerActivation(open);
 
   // Focus active item
   useEffect(() => {
@@ -140,6 +129,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
   }, [open, activeIndex]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    resetPointerMovement();
     const currentPos = focusableIndices.indexOf(activeIndex);
 
     switch (e.key) {
@@ -228,7 +218,7 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
                     }
                   }}
                   onMouseEnter={() => {
-                    if (!item.disabled) setActiveIndex(i);
+                    if (!item.disabled && hasPointerMoved()) setActiveIndex(i);
                   }}
                 >
                   {item.icon && <span className={styles.icon}>{item.icon}</span>}

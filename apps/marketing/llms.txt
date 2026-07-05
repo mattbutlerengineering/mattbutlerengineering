@@ -30,6 +30,18 @@
       export const PROJECTS: Project[];
     </item>
   </file>
+  <file path="src/data/stats.ts">
+    <item priority="low">
+      interface SiteStat {
+        value: number;
+        label: string;
+        suffix?: string;
+      }
+    </item>
+    <item priority="high">
+      export const SITE_STATS: readonly SiteStat[];
+    </item>
+  </file>
   <file path="src/data/tech-stack.ts">
     <item priority="low">
       interface TechCategory {

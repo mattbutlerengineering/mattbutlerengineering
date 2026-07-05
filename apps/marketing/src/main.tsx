@@ -29,8 +29,9 @@ function Root() {
   const { theme, toggleTheme } = useThemeState();
 
   return (
-    // RialtoProvider MUST wrap BrowserRouter (outside it)
-    <RialtoProvider theme={theme}>
+    // RialtoProvider MUST wrap BrowserRouter (outside it).
+    // `presenting` vibe: more whitespace + softer radii for the marketing surface.
+    <RialtoProvider theme={theme} vibe="presenting">
       <ToastProvider>
         <ErrorBoundary onError={handleErrorBoundary}>
           <QueryProvider>
