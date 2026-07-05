@@ -43,10 +43,10 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
 | Hook               | Returns                                                                                   | Purpose                                    |
 | ------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `useAuth()`        | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error }` | Full auth state and methods                |
-| `useAccessToken()` | `string \| null`                                                                          | Just the access token (for API calls)      |
+| `useAccessToken()` | `{ accessToken: string \| null, refreshError: Error \| null }`                            | Access token + proactive-refresh error     |
 | `useRequireAuth()` | Same as `useAuth()`                                                                       | Auto-redirects to login if unauthenticated |
 
-The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`.
+The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`. `useAccessToken()` proactively schedules a silent refresh 5 minutes before the token expires and re-arms whenever `expires_at` changes; a failed refresh is surfaced via `refreshError` (typed `AccessTokenState`) so callers can prompt re-login.
 
 ## Fastify API
 
