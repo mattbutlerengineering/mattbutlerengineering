@@ -16,8 +16,9 @@ import path from "node:path";
 import { walkFiles } from "./lib/repo-scan.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
 import { compare } from "./lib/ratchet.mjs";
+import { read, write, resolvePath } from "./metrics-store.mjs";
 
-const BASELINE_PATH = path.resolve(process.cwd(), "metrics/ai-antipattern-baselines.json");
+const BASELINE_PATH = resolvePath("ai-antipattern-baselines", { root: process.cwd() });
 
 /** File extensions to scan. */
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
@@ -274,8 +275,7 @@ if (isMain) {
 
   if (UPDATE) {
     const baseline = buildBaseline(counts);
-    fs.mkdirSync(path.dirname(BASELINE_PATH), { recursive: true });
-    fs.writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + "\n");
+    write("ai-antipattern-baselines", baseline, { root });
     console.log(`\nBaseline updated: ${BASELINE_PATH}`);
     for (const [name, data] of Object.entries(baseline.patterns)) {
       console.log(`  ${name}: ${data.count}`);
@@ -284,13 +284,12 @@ if (isMain) {
   }
 
   // Compare mode
-  if (!fs.existsSync(BASELINE_PATH)) {
+  const baseline = read("ai-antipattern-baselines", { root });
+  if (baseline === null) {
     console.error(`ERROR: Baseline not found at ${BASELINE_PATH}`);
     console.error("Run with --update to generate baselines.");
     process.exit(1);
   }
-
-  const baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, "utf-8"));
   const { regressions } = compareWithBaseline(counts, baseline);
 
   // Print per-pattern report

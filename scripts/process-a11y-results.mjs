@@ -4,10 +4,9 @@
  * non-zero when AI-generated code introduces a11y regressions.
  */
 import fs from "node:fs";
-import path from "node:path";
+import { append } from "./metrics-store.mjs";
 
 const RESULTS_FILE = "a11y-results.json";
-const HISTORY_FILE = "metrics/a11y-history.jsonl";
 const VIOLATIONS_FILE = "a11y-violations.json";
 
 /**
@@ -76,13 +75,7 @@ function main() {
 
   const entry = buildEntry(results, branch, actor);
 
-  // Ensure metrics directory exists
-  const metricsDir = path.dirname(HISTORY_FILE);
-  if (!fs.existsSync(metricsDir)) {
-    fs.mkdirSync(metricsDir, { recursive: true });
-  }
-
-  fs.appendFileSync(HISTORY_FILE, JSON.stringify(entry) + "\n");
+  append("a11y-history", entry, { root: process.cwd() });
 
   // Write structured violations file for the PR comment step
   fs.writeFileSync(VIOLATIONS_FILE, JSON.stringify(entry, null, 2));

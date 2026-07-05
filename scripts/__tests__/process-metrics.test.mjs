@@ -267,11 +267,10 @@ describe("process-metrics", () => {
     });
   });
 
-  describe("JSONL persistence", () => {
-    test("appends metric line to jsonl file", async () => {
-      const { appendMetricLine } = await import("../process-metrics.mjs");
+  describe("JSONL persistence (via metrics-store)", () => {
+    test("appends process-metrics rows and reads them back in order", async () => {
+      const { append, read } = await import("../metrics-store.mjs");
 
-      const metricsPath = path.join(tmpDir, "metrics", "process-metrics.jsonl");
       const entry1 = {
         timestamp: "2026-05-15T10:00:00Z",
         time_to_fix_hours: 4,
@@ -289,25 +288,22 @@ describe("process-metrics", () => {
         improvements_shipped: 5,
       };
 
-      appendMetricLine(metricsPath, entry1);
-      appendMetricLine(metricsPath, entry2);
+      append("process-metrics", entry1, { root: tmpDir });
+      append("process-metrics", entry2, { root: tmpDir });
 
-      const lines = fs
-        .readFileSync(metricsPath, "utf-8")
-        .split("\n")
-        .filter((l) => l.trim());
-      expect(lines).toHaveLength(2);
-      expect(JSON.parse(lines[0]).time_to_fix_hours).toBe(4);
-      expect(JSON.parse(lines[1]).time_to_fix_hours).toBe(3);
+      const rows = read("process-metrics", { root: tmpDir });
+      expect(rows).toHaveLength(2);
+      expect(rows[0].time_to_fix_hours).toBe(4);
+      expect(rows[1].time_to_fix_hours).toBe(3);
     });
 
-    test("creates parent directories if missing", async () => {
-      const { appendMetricLine } = await import("../process-metrics.mjs");
+    test("creates the metrics directory if missing", async () => {
+      const { append } = await import("../metrics-store.mjs");
 
-      const deepPath = path.join(tmpDir, "deep", "nested", "process-metrics.jsonl");
-      appendMetricLine(deepPath, { timestamp: "2026-05-15T10:00:00Z" });
+      const freshRoot = path.join(tmpDir, "fresh");
+      append("process-metrics", { timestamp: "2026-05-15T10:00:00Z" }, { root: freshRoot });
 
-      expect(fs.existsSync(deepPath)).toBe(true);
+      expect(fs.existsSync(path.join(freshRoot, "metrics", "process-metrics.jsonl"))).toBe(true);
     });
   });
 
@@ -401,26 +397,6 @@ describe("process-metrics", () => {
       expect(summary.latest).toBeNull();
       expect(summary.rolling_4_week).toBeNull();
       expect(summary.trend).toBeNull();
-    });
-  });
-
-  describe("writeWeeklySummary", () => {
-    test("writes weekly JSON file", async () => {
-      const { writeWeeklySummary } = await import("../process-metrics.mjs");
-
-      const summaryPath = path.join(tmpDir, "metrics", "process-metrics-weekly.json");
-      const summary = {
-        generated_at: "2026-05-22T10:00:00Z",
-        latest: { time_to_fix_hours: 4 },
-        rolling_4_week: { avg_time_to_fix_hours: 5.75 },
-        trend: { direction: "improving" },
-      };
-
-      writeWeeklySummary(summaryPath, summary);
-
-      const written = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
-      expect(written.latest.time_to_fix_hours).toBe(4);
-      expect(written.trend.direction).toBe("improving");
     });
   });
 

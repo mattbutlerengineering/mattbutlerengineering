@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -7,8 +7,8 @@ import {
   classifyRisk,
   formatGotchaEntry,
   logInstructionChange,
-  loadJsonl,
 } from "../instruction-evolver.mjs";
+import { read } from "../metrics-store.mjs";
 
 function makeTmpDir() {
   return mkdtempSync(join(tmpdir(), "evolver-test-"));
@@ -95,47 +95,24 @@ describe("formatGotchaEntry", () => {
 });
 
 describe("logInstructionChange", () => {
-  it("appends to instruction-changes.jsonl", () => {
+  it("appends a date-stamped entry to the instruction-changes metric via the store", () => {
     const dir = makeTmpDir();
-    const logPath = join(dir, "instruction-changes.jsonl");
 
-    logInstructionChange(logPath, {
-      file: ".claude/rules/gotchas.md",
-      changeType: "append",
-      pattern: "recurring-high-fp",
-      evidence: "FP rate > 30% for 3 consecutive runs",
-    });
+    logInstructionChange(
+      {
+        file: ".claude/rules/gotchas.md",
+        changeType: "append",
+        pattern: "recurring-high-fp",
+        evidence: "FP rate > 30% for 3 consecutive runs",
+      },
+      { root: dir }
+    );
 
-    const content = readFileSync(logPath, "utf-8").trim();
-    const entry = JSON.parse(content);
-    expect(entry.file).toBe(".claude/rules/gotchas.md");
-    expect(entry.changeType).toBe("append");
-    expect(entry.date).toBeTruthy();
-    rmSync(dir, { recursive: true });
-  });
-});
-
-describe("loadJsonl", () => {
-  it("returns empty array for nonexistent file", () => {
-    expect(loadJsonl("/nonexistent/file.jsonl")).toEqual([]);
-  });
-
-  it("parses valid JSONL", () => {
-    const dir = makeTmpDir();
-    const path = join(dir, "test.jsonl");
-    writeFileSync(path, '{"a":1}\n{"b":2}\n');
-    const result = loadJsonl(path);
-    expect(result.length).toBe(2);
-    expect(result[0].a).toBe(1);
-    rmSync(dir, { recursive: true });
-  });
-
-  it("skips malformed lines", () => {
-    const dir = makeTmpDir();
-    const path = join(dir, "test.jsonl");
-    writeFileSync(path, '{"a":1}\nnot json\n{"b":2}\n');
-    const result = loadJsonl(path);
-    expect(result.length).toBe(2);
+    const rows = read("instruction-changes", { root: dir });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].file).toBe(".claude/rules/gotchas.md");
+    expect(rows[0].changeType).toBe("append");
+    expect(rows[0].date).toBeTruthy();
     rmSync(dir, { recursive: true });
   });
 });

@@ -22,12 +22,11 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { read, write, resolvePath } from "../metrics-store.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const METRICS_PATH = resolve(__dirname, "..", "..", "metrics", "review-burden.json");
+const METRICS_PATH = resolvePath("review-burden");
 
 const RUBBER_STAMP_DEFAULT_MINUTES = 5;
 
@@ -345,24 +344,19 @@ function printSummary(entry) {
  */
 function persistEntry(entry) {
   let entries = [];
-  if (existsSync(METRICS_PATH)) {
-    try {
-      const raw = readFileSync(METRICS_PATH, "utf-8");
-      entries = JSON.parse(raw);
-      if (!Array.isArray(entries)) {
-        console.error(`Expected array in ${METRICS_PATH}, got ${typeof entries}. Resetting.`);
-        entries = [];
-      }
-    } catch {
-      console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
-      entries = [];
+  try {
+    const existing = read("review-burden");
+    if (Array.isArray(existing)) {
+      entries = existing;
+    } else if (existing !== null) {
+      console.error(`Expected array in ${METRICS_PATH}, got ${typeof existing}. Resetting.`);
     }
+  } catch {
+    console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
   }
 
   const updated = [...entries, entry];
-
-  mkdirSync(dirname(METRICS_PATH), { recursive: true });
-  writeFileSync(METRICS_PATH, JSON.stringify(updated, null, 2) + "\n", "utf-8");
+  write("review-burden", updated);
 
   console.log(`Appended entry to: ${METRICS_PATH}`);
   console.log(`Total entries: ${updated.length}`);

@@ -4,18 +4,16 @@
  * Service health metrics persistence for ACMM L3 signal.
  *
  * Polls the /health endpoints of production services, extracts error rates,
- * and appends a snapshot to metrics/service-health.jsonl.
+ * and appends a snapshot to the service-health metric.
  *
  * Usage:
  *   node scripts/health-metrics.mjs
  *   node scripts/health-metrics.mjs --dry-run
  */
 
-import { appendFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { append, resolvePath } from "./metrics-store.mjs";
 
 const cwd = process.cwd();
-const HISTORY_PATH = join(cwd, "metrics/service-health.jsonl");
 
 const BASE = "https://api.mattbutlerengineering.com";
 
@@ -63,9 +61,8 @@ async function run() {
     return;
   }
 
-  mkdirSync(dirname(HISTORY_PATH), { recursive: true });
-  appendFileSync(HISTORY_PATH, JSON.stringify(entry) + "\n", "utf-8");
-  console.log(`Snapshot appended to ${HISTORY_PATH}`);
+  append("service-health", entry, { root: cwd });
+  console.log(`Snapshot appended to ${resolvePath("service-health", { root: cwd })}`);
 }
 
 run().catch((err) => {

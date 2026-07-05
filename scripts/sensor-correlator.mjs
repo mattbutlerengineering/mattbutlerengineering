@@ -78,7 +78,7 @@ function buildRootCause(signals) {
 }
 
 /**
- * @param {Object} sensorReport - The sensor-report.json contents (has `regressions[]` array)
+ * @param {Object} sensorReport - The sensor-report metric contents (has `regressions[]` array)
  * @param {Array} openIssues - Currently open GitHub issues (from `gh issue list`)
  * @returns {Array<{rootCause: string, signals: Array, severity: string, suggestedLabel: string}>}
  */

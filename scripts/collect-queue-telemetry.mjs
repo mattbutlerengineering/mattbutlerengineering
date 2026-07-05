@@ -1,7 +1,7 @@
 /**
  * Per-issue queue telemetry writer.
  *
- * Appends one row per worker completion to metrics/queue-telemetry.jsonl.
+ * Appends one row per worker completion to the queue-telemetry metric.
  * Outcome fields (merged/merged_at/ci_first_pass/rework_cycles) may be null
  * at write time — the sensor reconciles them from GitHub in a later pass.
  *
@@ -29,11 +29,10 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+import { resolvePath } from "./metrics-store.mjs";
 
-const REPO_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
-const DEFAULT_TELEMETRY_PATH = join(REPO_ROOT, "metrics", "queue-telemetry.jsonl");
+const DEFAULT_TELEMETRY_PATH = resolvePath("queue-telemetry");
 
 /** Permitted schema fields — unknown fields are rejected before any write. */
 const SAFE_FIELDS = new Set([
@@ -116,7 +115,7 @@ function defaultWriteFile(filePath, content) {
 }
 
 /**
- * Append a telemetry row to the queue-telemetry.jsonl sink.
+ * Append a telemetry row to the queue-telemetry metric sink.
  *
  * Pure function with dependency injection — safe to call from tests
  * without touching the filesystem.

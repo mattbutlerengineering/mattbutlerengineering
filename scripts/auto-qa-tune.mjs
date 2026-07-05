@@ -3,7 +3,7 @@
 /**
  * Auto-QA threshold tuner for the agent QA loop.
  *
- * Reads metrics/pr-acceptance.json, computes per-category acceptance
+ * Reads the pr-acceptance metric via the metrics store, computes per-category acceptance
  * rates, and adjusts maxBudgetUSD overrides in .github/auto-qa-tuning.json
  * when a category falls below acceptanceRateFloor.
  *
@@ -14,9 +14,9 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { read, resolvePath } from "./metrics-store.mjs";
 
 const cwd = process.cwd();
-const METRICS_PATH = join(cwd, "metrics/pr-acceptance.json");
 const TUNING_PATH = join(cwd, ".github/auto-qa-tuning.json");
 
 const args = process.argv.slice(2);
@@ -44,7 +44,7 @@ function writeJson(filePath, data) {
  * Compute acceptance rate for a single metrics entry.
  * Falls back to the top-level `acceptance_rate` when no per-category data exists.
  *
- * @param {object} entry - one entry from pr-acceptance.json
+ * @param {object} entry - one entry from the pr-acceptance metric
  * @returns {{ overall: number, byCategory: Record<string, number> }}
  */
 export function computeAcceptanceRates(entry) {
@@ -151,7 +151,12 @@ function isoDate(d = new Date()) {
 }
 
 export async function run() {
-  const metricsRaw = readJson(METRICS_PATH);
+  const metricsRaw = read("pr-acceptance", { root: cwd });
+  if (metricsRaw === null) {
+    throw new Error(
+      `No PR-acceptance metrics found at ${resolvePath("pr-acceptance", { root: cwd })}`
+    );
+  }
   const tuning = readJson(TUNING_PATH);
 
   const metrics = Array.isArray(metricsRaw) ? metricsRaw : [metricsRaw];

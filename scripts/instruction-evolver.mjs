@@ -12,40 +12,13 @@
  *   node scripts/instruction-evolver.mjs --force      # run even if not Friday
  */
 
-import { readFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "..");
-const METRICS_PATH = resolve(ROOT, "metrics", "process-metrics.jsonl");
-const THRESHOLD_CHANGES_PATH = resolve(ROOT, "metrics", "threshold-changes.jsonl");
-const INSTRUCTION_CHANGES_PATH = resolve(ROOT, "metrics", "instruction-changes.jsonl");
+import { read, append } from "./metrics-store.mjs";
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const FORCE = args.includes("--force");
-
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function loadJsonl(filePath) {
-  if (!existsSync(filePath)) return [];
-  try {
-    return readFileSync(filePath, "utf-8")
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-}
 
 function recentEntries(entries, daysBack = 7) {
   const cutoff = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
@@ -124,14 +97,11 @@ export function formatGotchaEntry(title, description) {
   return `- **${title}**: ${description}`;
 }
 
-export function logInstructionChange(logPath, entry) {
-  mkdirSync(dirname(logPath), { recursive: true });
-  appendFileSync(
-    logPath,
-    JSON.stringify({
-      date: new Date().toISOString().split("T")[0],
-      ...entry,
-    }) + "\n"
+export function logInstructionChange(entry, opts = {}) {
+  append(
+    "instruction-changes",
+    { date: new Date().toISOString().split("T")[0], ...entry },
+    opts
   );
 }
 
@@ -146,8 +116,8 @@ function main() {
     return;
   }
 
-  const metrics = loadJsonl(METRICS_PATH);
-  const thresholdChanges = loadJsonl(THRESHOLD_CHANGES_PATH);
+  const metrics = read("process-metrics") ?? [];
+  const thresholdChanges = read("threshold-changes") ?? [];
 
   if (metrics.length === 0 && thresholdChanges.length === 0) {
     console.log("instruction-evolver: no metrics or threshold data available, skipping");
@@ -173,7 +143,7 @@ function main() {
 
     if (risk === "low") {
       console.log(`  auto-commit: ${p.title}`);
-      logInstructionChange(INSTRUCTION_CHANGES_PATH, {
+      logInstructionChange({
         file: ".claude/rules/gotchas.md",
         changeType: "append",
         pattern: p.type,
@@ -181,7 +151,7 @@ function main() {
       });
     } else {
       console.log(`  review-gated: ${p.title} (would file issue)`);
-      logInstructionChange(INSTRUCTION_CHANGES_PATH, {
+      logInstructionChange({
         file: "github-issue",
         changeType: "issue",
         pattern: p.type,

@@ -15,10 +15,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { read } from "./metrics-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
@@ -201,32 +199,13 @@ function defaultReadCcusage() {
 }
 
 /**
- * Default telemetry reader — reads metrics/queue-telemetry.jsonl.
+ * Default telemetry reader — reads the queue-telemetry metric via the store.
  *
  * @returns {Array<object>|null}
  */
 function defaultReadTelemetry() {
   try {
-    const filePath = join(
-      fileURLToPath(import.meta.url),
-      "..",
-      "..",
-      "metrics",
-      "queue-telemetry.jsonl"
-    );
-    if (!existsSync(filePath)) return null;
-    const content = readFileSync(filePath, "utf-8");
-    return content
-      .split("\n")
-      .filter((l) => l.trim())
-      .map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
+    return read("queue-telemetry");
   } catch {
     return null;
   }
