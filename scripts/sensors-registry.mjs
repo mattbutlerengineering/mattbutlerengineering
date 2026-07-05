@@ -170,6 +170,72 @@ export function readQueueEfficiencyPrs(ghClient) {
 }
 
 /**
+ * Resolve the file paths changed by a CI run's head commit via the LOCAL git
+ * object store, tolerating commits that are not present locally.
+ *
+ * CI-run head SHAs come from the GitHub API (`gh run list` / `ghClient`). A
+ * stale local `main` or a squash-merged-and-deleted branch leaves those SHAs
+ * absent from the local object store, so `git show <sha>` exits non-zero with
+ * `fatal: bad object <sha>`. stderr is captured (not inherited) so that message
+ * never spews, and the miss is signalled by returning `null` rather than
+ * throwing — the caller counts and skips it.
+ *
+ * @param {string} sha
+ * @param {string} root
+ * @returns {string[] | null} changed paths, or `null` when the SHA is unresolvable locally
+ */
+export function resolveRunChangedPaths(sha, root) {
+  try {
+    return execFileSync("git", ["show", "--name-only", "--format=", sha], {
+      encoding: "utf-8",
+      timeout: 3000,
+      cwd: root,
+      // Capture stderr instead of inheriting it: a `fatal: bad object` line
+      // per unresolvable SHA must not pollute the report's stderr.
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Map raw workflow-run rows into the shape `computeE2eStability` expects,
+ * dropping runs whose head SHA cannot be resolved in the local git object
+ * store. Unresolvable runs are tallied (so the caller can log a single
+ * summary) rather than being kept with empty changed-paths — an empty list
+ * would misclassify the run as non-frontend and distort the metric.
+ *
+ * `resolveChangedPaths` returns the changed paths for a resolvable SHA or
+ * `null` when the object is missing; it is injectable for testing.
+ *
+ * @param {Array<{ headSha?: string; conclusion?: string; headBranch?: string; createdAt?: string }>} ghRuns
+ * @param {(sha: string) => string[] | null} resolveChangedPaths
+ * @returns {{ runs: Array<object>; unresolved: number }}
+ */
+export function buildE2eRuns(ghRuns, resolveChangedPaths) {
+  const runs = [];
+  let unresolved = 0;
+  for (const run of ghRuns) {
+    const changedPaths = run.headSha ? resolveChangedPaths(run.headSha) : null;
+    if (changedPaths === null) {
+      unresolved++;
+      continue;
+    }
+    runs.push({
+      sha: run.headSha ?? "",
+      conclusion: run.conclusion,
+      changedPaths,
+      headRefName: run.headBranch ?? "",
+      createdAt: run.createdAt,
+    });
+  }
+  return { runs, unresolved };
+}
+
+/**
  * Registry of all known sensors.
  *
  * metricKeys entries use the sensor's default category unless an override is provided.
@@ -592,28 +658,19 @@ export const SENSORS = [
       );
       if (!ghRuns) return { available: false };
 
-      const injected = ghRuns.map((run) => {
-        const changedPaths = safe(
-          () =>
-            execFileSync("git", ["show", "--name-only", "--format=", run.headSha], {
-              encoding: "utf-8",
-              timeout: 3000,
-              cwd: root,
-            })
-              .split("\n")
-              .filter(Boolean),
-          []
+      // Resolve each run's changed paths locally, skipping (and tallying) any
+      // head SHA not in the local object store — see resolveRunChangedPaths.
+      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) =>
+        resolveRunChangedPaths(sha, root)
+      );
+      if (unresolved > 0) {
+        console.warn(
+          `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +
+            `(stale main or squash-deleted branches); skipped.`
         );
-        return {
-          sha: run.headSha ?? "",
-          conclusion: run.conclusion,
-          changedPaths,
-          headRefName: run.headBranch ?? "",
-          createdAt: run.createdAt,
-        };
-      });
+      }
 
-      return computeE2eStability(injected);
+      return computeE2eStability(runs);
     },
     format: (data, name) =>
       `${name}: ${data.consecutive_failures} consecutive failure(s) on non-frontend runs (${data.total_non_frontend_runs}/${data.total_runs} non-frontend)`,
