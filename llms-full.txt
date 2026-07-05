@@ -6101,7 +6101,10 @@
         },
         async (request, reply) => {
           const session = await sessionService.getById(request.params.id);
-          if (!session) {
+          // Enforce the same owner-or-admin guard as the sibling session routes
+          // before opening the stream. 404 (not 403) hides session existence, and
+          // webhook-origin sessions (userId === null) are streamable only by admins.
+          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
     
@@ -6190,7 +6193,7 @@
     };
   </file>
   <file path="services/agent/src/routes/sessions.ts">
-    function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
+    export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
       if (hasPermission(caller, "admin")) return true;
       if (sessionUserId === null) return false;
       return caller?.id === sessionUserId;

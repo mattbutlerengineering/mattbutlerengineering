@@ -3,6 +3,7 @@ import { type ApiError, type AgentSessionEvent, createProblemDetails } from "@mb
 import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 import { getSessionEventEmitter } from "../services/session-event-emitter.js";
+import { isOwnerOrAdmin } from "./sessions.js";
 
 /**
  * Event types that signal the session has reached a terminal state. When one of
@@ -46,7 +47,10 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const session = await sessionService.getById(request.params.id);
-      if (!session) {
+      // Enforce the same owner-or-admin guard as the sibling session routes
+      // before opening the stream. 404 (not 403) hides session existence, and
+      // webhook-origin sessions (userId === null) are streamable only by admins.
+      if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
 

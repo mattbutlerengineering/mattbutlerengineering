@@ -20,7 +20,7 @@ import { defaultConcurrency } from "../services/session-concurrency.js";
  * Sessions with null userId are admin-only (no owner to match).
  * Uses 404 (not 403) to avoid revealing session existence to unauthorized callers.
  */
-function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
+export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
   if (hasPermission(caller, "admin")) return true;
   if (sessionUserId === null) return false;
   return caller?.id === sessionUserId;

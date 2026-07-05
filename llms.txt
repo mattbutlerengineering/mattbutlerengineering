@@ -1953,8 +1953,8 @@
     </item>
   </file>
   <file path="services/agent/src/routes/sessions.ts">
-    <item priority="medium">
-      function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean { /* ... */ }
+    <item priority="high">
+      export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export const sessionRoutes: FastifyPluginAsync;
