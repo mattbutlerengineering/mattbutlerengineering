@@ -230,6 +230,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/data/SplitFlapPage").then((m) => ({ default: m.SplitFlapPage })),
   },
   {
+    id: "odometer",
+    label: "Odometer",
+    category: "Data Display",
+    path: "/components/odometer",
+    load: () => import("../pages/data/OdometerPage").then((m) => ({ default: m.OdometerPage })),
+  },
+  {
     id: "chalkboard",
     label: "Chalkboard",
     category: "Data Display",

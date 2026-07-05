@@ -194,6 +194,10 @@
       "types": "./dist/lib/components/NumberInput/index.d.ts",
       "import": "./dist/lib/components/NumberInput/index.js"
     },
+    "./Odometer": {
+      "types": "./dist/lib/components/Odometer/index.d.ts",
+      "import": "./dist/lib/components/Odometer/index.js"
+    },
     "./PageHeader": {
       "types": "./dist/lib/components/PageHeader/index.d.ts",
       "import": "./dist/lib/components/PageHeader/index.js"
