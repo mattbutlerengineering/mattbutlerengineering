@@ -9,7 +9,7 @@ import {
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
+import { requireAuth, requireAdmin, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { userService } from "../services/user.js";
 
@@ -40,7 +40,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       schema: {
         summary: "List all users",
         operationId: "listUsers",
@@ -74,13 +74,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      if (!hasPermission(request.user, "admin")) {
-        reply.code(403);
-        return reply.send(
-          createProblemDetails(403, "Forbidden", "Admin access required to list all users") as never
-        );
-      }
+    async (request) => {
       const { page, limit } = parsePaginationQuery(request.query);
       return userService.list(page, limit);
     }

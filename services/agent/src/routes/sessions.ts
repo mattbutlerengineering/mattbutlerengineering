@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   type AgentSession,
   type AgentSessionStatus,
@@ -8,23 +8,47 @@ import {
   type CreateAgentSessionRequest,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, hasPermission } from "@mbe/auth/fastify";
-import type { AuthUser } from "@mbe/auth/fastify";
+import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { sessionService } from "../services/session.js";
 import { cancelSession } from "../services/session-executor.js";
 import { defaultConcurrency } from "../services/session-concurrency.js";
 
-/**
- * Returns true if the caller is the session owner or an admin.
- * Sessions with null userId are admin-only (no owner to match).
- * Uses 404 (not 403) to avoid revealing session existence to unauthorized callers.
- */
-export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
-  if (hasPermission(caller, "admin")) return true;
-  if (sessionUserId === null) return false;
-  return caller?.id === sessionUserId;
+declare module "fastify" {
+  interface FastifyRequest {
+    /**
+     * Session loaded by loadSession, shared by the ownership guard and the
+     * route handler so a single DB read serves both. null = not found.
+     */
+    agentSession?: AgentSession | null;
+  }
 }
+
+/**
+ * Loads the `:id` session once and stashes it on the request so both the
+ * ownership guard and the handler read a single DB result.
+ */
+async function loadSession(request: FastifyRequest): Promise<void> {
+  const { id } = request.params as { id: string };
+  request.agentSession = await sessionService.getById(id);
+}
+
+/**
+ * Owner-or-admin guard for a single session with 404-on-deny (existence-hiding):
+ * a non-owner, a non-admin, and a webhook-origin (userId=null) caller all get a
+ * 404 indistinguishable from "not found" — never a 403 that would confirm the
+ * session exists. Admins are always admitted. Chain after `requireAuth`; the
+ * handler then reads `request.agentSession`. The owner resolver reads the
+ * session stashed by loadSession; a null owner (missing or webhook-origin) denies.
+ */
+export const requireSessionAccess = [
+  loadSession,
+  requireOwnershipOrAdmin(
+    (request) => Promise.resolve(request.agentSession?.userId ?? null),
+    undefined,
+    { denial: "hide" }
+  ),
+];
 
 export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
@@ -130,7 +154,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, ...requireSessionAccess],
       schema: {
         summary: "Get session by ID",
         operationId: "getSession",
@@ -150,8 +174,8 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const session = await sessionService.getById(request.params.id);
-      if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
+      const session = request.agentSession;
+      if (!session) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
       return { data: session };
@@ -165,7 +189,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/cancel",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, ...requireSessionAccess],
       schema: {
         summary: "Cancel a running session",
         operationId: "cancelSession",
@@ -186,8 +210,8 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const session = await sessionService.getById(request.params.id);
-      if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
+      const session = request.agentSession;
+      if (!session) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
 
@@ -216,7 +240,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuth, ...requireSessionAccess],
       schema: {
         summary: "Delete a session",
         operationId: "deleteSession",
@@ -233,8 +257,8 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const session = await sessionService.getById(request.params.id);
-      if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
+      const session = request.agentSession;
+      if (!session) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
       }
       await sessionService.delete(request.params.id);

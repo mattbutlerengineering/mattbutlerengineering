@@ -16,18 +16,20 @@ import type { AuthUser } from "@mbe/auth/fastify";
 // Control which user is active in each test
 let currentUser: AuthUser | undefined;
 
-vi.mock("@mbe/auth/fastify", () => ({
-  authPlugin: vi.fn(async () => {}),
-  getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
-  requireAuth: vi.fn(async (req: { user?: AuthUser }) => {
-    req.user = currentUser;
-  }),
-  hasPermission: vi.fn((user: AuthUser | undefined, permission: string) => {
-    if (!user) return false;
-    const permissions = user.raw?.permissions;
-    return Array.isArray(permissions) && (permissions as string[]).includes(permission);
-  }),
-}));
+vi.mock("@mbe/auth/fastify", async (importOriginal) => {
+  // Exercise the REAL requireOwnershipOrAdmin + hasPermission (the actual
+  // ownership seam); only stub plugin wiring and inject the active user.
+  // importOriginal() is typed unknown at this vitest boundary.
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    authPlugin: vi.fn(async () => {}),
+    getAuthPluginOptionsFromEnv: vi.fn(() => ({})),
+    requireAuth: vi.fn(async (req: { user?: AuthUser }) => {
+      req.user = currentUser;
+    }),
+  };
+});
 
 vi.mock("../services/session.js", () => ({
   sessionService: {
@@ -342,6 +344,24 @@ describe("Session Routes — Authorization", () => {
       expect(sessionService.list).toHaveBeenCalledWith(
         expect.not.objectContaining({ userId: expect.anything() })
       );
+    });
+  });
+
+  describe("shared ownership seam — existence-hiding (404, not 403)", () => {
+    it("denies a forbidden session with 404, never a 403 that would confirm it exists", async () => {
+      currentUser = NON_OWNER_USER;
+      vi.mocked(sessionService.getById).mockResolvedValueOnce(ownerSession);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/v1/sessions/session-123",
+      });
+
+      // The route now flows through requireOwnershipOrAdmin({ denial: "hide" }):
+      // a non-owner non-admin must get 404 (existence-hiding), never a 403 that
+      // would reveal the session exists.
+      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).not.toBe(403);
     });
   });
 });

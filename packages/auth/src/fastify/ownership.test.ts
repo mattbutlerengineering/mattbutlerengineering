@@ -12,7 +12,7 @@ vi.mock("jose", () => ({
 }));
 
 import { authPlugin, requireAuth } from "./plugin.js";
-import { requireOwnershipOrAdmin } from "./ownership.js";
+import { requireOwnershipOrAdmin, type OwnerResolver } from "./ownership.js";
 
 const makeJWTPayload = (overrides: Record<string, unknown> = {}) => ({
   sub: "auth0|user-123",
@@ -30,8 +30,9 @@ const nonAdminPayload = makeJWTPayload({ permissions: [] });
 
 /** Build a test app with a route protected by requireOwnershipOrAdmin */
 function buildTestApp(
-  resolveOwner: (request: any) => Promise<string | null>,
-  resolveCurrentId?: (request: any) => Promise<string | null>
+  resolveOwner: OwnerResolver,
+  resolveCurrentId?: OwnerResolver,
+  options?: { denial?: "forbid" | "hide" }
 ) {
   const app = Fastify({ logger: false });
 
@@ -44,7 +45,7 @@ function buildTestApp(
     fastify.get(
       "/resources/:id",
       {
-        preHandler: [requireAuth, requireOwnershipOrAdmin(resolveOwner, resolveCurrentId)],
+        preHandler: [requireAuth, requireOwnershipOrAdmin(resolveOwner, resolveCurrentId, options)],
       },
       async (request: any) => {
         return { authorization: request.authorization };
@@ -210,6 +211,82 @@ describe("requireOwnershipOrAdmin", () => {
 
       // requireAuth preHandler returns 401 before requireOwnershipOrAdmin runs
       expect(response.statusCode).toBe(401);
+    });
+  });
+
+  describe('denial: "hide" (existence-hiding)', () => {
+    beforeEach(() => {
+      mockJwtVerify.mockResolvedValue({
+        payload: nonAdminPayload,
+        protectedHeader: { alg: "RS256" },
+      });
+    });
+
+    it("returns 404 (not 403) when a non-admin is not the owner", async () => {
+      const resolveOwner = vi.fn().mockResolvedValue("auth0|different-user");
+      app = buildTestApp(resolveOwner, undefined, { denial: "hide" });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/resources/resource-id",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).not.toBe(403);
+      const body = JSON.parse(response.body);
+      expect(body.title).toBe("Not Found");
+    });
+
+    it("returns 404 when the owner is null (resource not found / no owner)", async () => {
+      const resolveOwner = vi.fn().mockResolvedValue(null);
+      app = buildTestApp(resolveOwner, undefined, { denial: "hide" });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/resources/resource-id",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 404 (not 401) when the current identity is unresolvable", async () => {
+      const resolveOwner = vi.fn().mockResolvedValue("resource-owner-id");
+      const resolveCurrentId = vi.fn().mockResolvedValue(null);
+      app = buildTestApp(resolveOwner, resolveCurrentId, { denial: "hide" });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/resources/resource-id",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.statusCode).not.toBe(401);
+    });
+
+    it("still allows an admin through with isAdmin=true", async () => {
+      mockJwtVerify.mockResolvedValue({
+        payload: adminPayload,
+        protectedHeader: { alg: "RS256" },
+      });
+      const resolveOwner = vi.fn().mockResolvedValue("someone-else");
+      app = buildTestApp(resolveOwner, undefined, { denial: "hide" });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/resources/resource-id",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.authorization.isAdmin).toBe(true);
     });
   });
 });

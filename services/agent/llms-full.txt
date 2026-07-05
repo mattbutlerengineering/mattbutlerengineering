@@ -906,7 +906,7 @@
       }>(
         "/:id/events",
         {
-          preHandler: [requireAuth],
+          preHandler: [requireAuth, ...requireSessionAccess],
           schema: {
             summary: "Stream session events (SSE)",
             operationId: "streamSessionEvents",
@@ -930,11 +930,13 @@
           },
         },
         async (request, reply) => {
-          const session = await sessionService.getById(request.params.id);
-          // Enforce the same owner-or-admin guard as the sibling session routes
-          // before opening the stream. 404 (not 403) hides session existence, and
-          // webhook-origin sessions (userId === null) are streamable only by admins.
-          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
+          const session = request.agentSession;
+          // The requireSessionAccess guard (chained above) already enforced
+          // owner-or-admin with 404-on-deny, hiding session existence from
+          // non-owners; webhook-origin (userId === null) sessions are admin-only.
+          // A surviving null here means the session does not exist (admins are
+          // admitted before this null-check), so return the same 404.
+          if (!session) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
           }
     
@@ -1023,227 +1025,18 @@
     };
   </file>
   <file path="src/routes/sessions.ts">
-    export function isOwnerOrAdmin(caller: AuthUser | undefined, sessionUserId: string | null): boolean {
-      if (hasPermission(caller, "admin")) return true;
-      if (sessionUserId === null) return false;
-      return caller?.id === sessionUserId;
+    async function loadSession(request: FastifyRequest): Promise<void> {
+      const { id } = request.params as { id: string };
+      request.agentSession = await sessionService.getById(id);
     }
-    export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
-      // POST /v1/sessions — Create + start a new session
-      fastify.post<{
-        Body: CreateAgentSessionRequest;
-        Reply: ApiResponse<AgentSession> | ApiError;
-      }>(
-        "/",
-        {
-          preHandler: [requireAuth],
-          schema: {
-            summary: "Create a new agent session",
-            operationId: "createSession",
-            description: "Creates a session and immediately begins execution in the background.",
-            tags: ["Sessions"],
-            body: { $ref: "CreateSessionBody#" },
-            response: {
-              201: {
-                description: "Session created and execution started",
-                type: "object",
-                properties: { data: { $ref: "Session#" } },
-              },
-              400: { $ref: "AgentProblemDetails#" },
-              429: { $ref: "AgentProblemDetails#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          // Stamp the authenticated creator's id. Sourced exclusively from the
-          // verified auth context (requireAuth preHandler) — never from the
-          // client-supplied request body — so callers cannot spoof ownership.
-          const result = await sessionService.triggerSession({
-            ...request.body,
-            userId: request.user?.id,
-          });
-    
-          if (!result.accepted) {
-            return reply
-              .code(429)
-              .send(
-                createProblemDetails(
-                  429,
-                  "Too Many Requests",
-                  `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
-                )
-              );
-          }
-    
-          return reply.code(201).send({ data: result.session! });
-        }
-      );
-    
-      // GET /v1/sessions — List sessions (paginated)
-      fastify.get<{
-        Querystring: { page?: string; limit?: string; status?: string };
-        Reply: PaginatedResponse<AgentSession>;
-      }>(
-        "/",
-        {
-          preHandler: [requireAuth],
-          schema: {
-            summary: "List agent sessions",
-            operationId: "listSessions",
-            description: "Retrieve a paginated list of sessions, optionally filtered by status.",
-            tags: ["Sessions"],
-            querystring: {
-              type: "object",
-              properties: {
-                page: { type: "string", default: "1" },
-                limit: { type: "string", default: "10" },
-                status: {
-                  type: "string",
-                  enum: ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"],
-                },
-              },
-            },
-            response: {
-              200: {
-                description: "Paginated list of sessions",
-                ...createListResponseSchema("Session#"),
-              },
-            },
-          },
-        },
-        async (request) => {
-          const { page, limit } = parsePaginationQuery(request.query);
-          const status = request.query.status as AgentSessionStatus | undefined;
-    
-          const prismaStatus = status?.toUpperCase() as
-            "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | undefined;
-    
-          // Admins see all sessions; non-admins see only their own
-          const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;
-    
-          return sessionService.list({ page, limit, status: prismaStatus, userId });
-        }
-      );
-    
-      // GET /v1/sessions/:id — Get session details
-      fastify.get<{
-        Params: { id: string };
-        Reply: ApiResponse<AgentSession> | ApiError;
-      }>(
-        "/:id",
-        {
-          preHandler: [requireAuth],
-          schema: {
-            summary: "Get session by ID",
-            operationId: "getSession",
-            tags: ["Sessions"],
-            params: {
-              type: "object",
-              properties: { id: { type: "string" } },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: { data: { $ref: "Session#" } },
-              },
-              404: { $ref: "AgentProblemDetails#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const session = await sessionService.getById(request.params.id);
-          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
-          }
-          return { data: session };
-        }
-      );
-    
-      // POST /v1/sessions/:id/cancel — Cancel a running session
-      fastify.post<{
-        Params: { id: string };
-        Reply: ApiResponse<AgentSession> | ApiError;
-      }>(
-        "/:id/cancel",
-        {
-          preHandler: [requireAuth],
-          schema: {
-            summary: "Cancel a running session",
-            operationId: "cancelSession",
-            tags: ["Sessions"],
-            params: {
-              type: "object",
-              properties: { id: { type: "string" } },
-              required: ["id"],
-            },
-            response: {
-              200: {
-                type: "object",
-                properties: { data: { $ref: "Session#" } },
-              },
-              404: { $ref: "AgentProblemDetails#" },
-              409: { $ref: "AgentProblemDetails#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const session = await sessionService.getById(request.params.id);
-          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
-          }
-    
-          if (session.status !== "running") {
-            return reply
-              .code(409)
-              .send(createProblemDetails(409, "Conflict", `Session is ${session.status}, not running`));
-          }
-    
-          const cancelled = await cancelSession(session.id);
-          if (!cancelled) {
-            return reply
-              .code(409)
-              .send(createProblemDetails(409, "Conflict", "Session is not actively executing"));
-          }
-    
-          const updated = await sessionService.getById(session.id);
-          return { data: updated! };
-        }
-      );
-    
-      // DELETE /v1/sessions/:id — Delete a session
-      fastify.delete<{
-        Params: { id: string };
-        Reply: void | ApiError;
-      }>(
-        "/:id",
-        {
-          preHandler: [requireAuth],
-          schema: {
-            summary: "Delete a session",
-            operationId: "deleteSession",
-            tags: ["Sessions"],
-            params: {
-              type: "object",
-              properties: { id: { type: "string" } },
-              required: ["id"],
-            },
-            response: {
-              204: { description: "Session deleted", type: "null" },
-              404: { $ref: "AgentProblemDetails#" },
-            },
-          },
-        },
-        async (request, reply) => {
-          const session = await sessionService.getById(request.params.id);
-          if (!session || !isOwnerOrAdmin(request.user, session.userId)) {
-            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
-          }
-          await sessionService.delete(request.params.id);
-          return reply.code(204).send();
-        }
-      );
-    };
+    export const requireSessionAccess = [
+      loadSession,
+      requireOwnershipOrAdmin(
+        (request) => Promise.resolve(request.agentSession?.userId ?? null),
+        undefined,
+        { denial: "hide" }
+      ),
+    ];
   </file>
   <file path="src/routes/webhooks.ts">
     interface CollaboratorPermission {
