@@ -103,7 +103,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   fastify.decorate("notificationPort", notificationPort);
 
   // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-  const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
+  const bookingNotifier =
+    options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, fastify.log);
   fastify.decorate("bookingNotifier", bookingNotifier);
 
   // Wire post-visit notifier — injectable for testing, default Resend-backed for production

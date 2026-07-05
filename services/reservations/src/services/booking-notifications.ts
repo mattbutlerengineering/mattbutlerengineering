@@ -3,6 +3,7 @@ import type { ReminderPayload } from "@mbe/jobs";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { CommunicationPreference } from "@mbe/types";
 import type { Reservation, Venue } from "@mbe/types";
+import type { FastifyBaseLogger } from "fastify";
 import { venueService } from "./venue.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -34,6 +35,13 @@ export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "b
 
 // ─── BookingNotifier factory ─────────────────────────────────────────────────
 
+/**
+ * Who triggered a cancellation. Guest self-service and staff/venue-side
+ * cancels both notify the guest identically today; the distinction is carried
+ * for observability and future user/system-specific handling.
+ */
+export type CancelInitiator = "guest" | "staff";
+
 export interface BookingNotifierDeps {
   notificationAdapter: NotificationDispatcher;
   scheduler: {
@@ -41,16 +49,22 @@ export interface BookingNotifierDeps {
     cancel(id: string): Promise<void>;
   };
   getVenue: (venueId: string) => Promise<Venue | null>;
+  logger?: FastifyBaseLogger;
 }
 
 export interface BookingNotifier {
   scheduleBookingNotifications(reservation: Reservation, manageToken: string): Promise<void>;
   cancelBookingReminders(reservationId: string): Promise<void>;
   rescheduleBookingReminders(reservation: Reservation, manageToken: string): Promise<void>;
+  cancelBookingNotifications(
+    reservation: Reservation,
+    manageToken: string,
+    initiator: CancelInitiator
+  ): Promise<void>;
 }
 
 export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier {
-  const { notificationAdapter, scheduler, getVenue } = deps;
+  const { notificationAdapter, scheduler, getVenue, logger } = deps;
 
   async function scheduleBookingNotifications(
     reservation: Reservation,
@@ -139,7 +153,60 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     await scheduleBookingNotifications(reservation, manageToken);
   }
 
-  return { scheduleBookingNotifications, cancelBookingReminders, rescheduleBookingReminders };
+  /**
+   * Owns the full "cancel this booking's notifications" intent: tears down the
+   * scheduled reminder jobs AND dispatches the guest-facing cancellation
+   * email/SMS. The dispatcher is a collaborator nested behind the notifier, so
+   * cancellation callers cross a single seam. Best-effort on dispatch — a
+   * failed send is logged but never rethrown, because the reservation cancel
+   * that triggered this has already committed.
+   */
+  async function cancelBookingNotifications(
+    reservation: Reservation,
+    manageToken: string,
+    initiator: CancelInitiator
+  ): Promise<void> {
+    await cancelBookingReminders(reservation.id);
+
+    const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
+    if (!reservation.guestEmail || !venue) return;
+
+    const preference =
+      (reservation.guest?.communicationPreference as CommunicationPreference | null) ??
+      "email_only";
+    try {
+      await notificationAdapter.sendBookingCancelled(
+        {
+          reservationId: reservation.id,
+          date: reservation.date,
+          startTime: reservation.startTime,
+          endTime: reservation.endTime,
+          partySize: reservation.partySize,
+          guestName: reservation.guestName,
+          guestEmail: reservation.guestEmail,
+          guestPhone: reservation.guestPhone ?? null,
+          specialRequests: reservation.notes ?? null,
+          venueName: venue.name,
+          venueTimezone: venue.ianaTimezone,
+          venueAddress: null,
+          manageToken,
+        },
+        preference
+      );
+    } catch (err) {
+      logger?.error(
+        { err, reservationId: reservation.id, initiator },
+        "Failed to send booking cancelled notification"
+      );
+    }
+  }
+
+  return {
+    scheduleBookingNotifications,
+    cancelBookingReminders,
+    rescheduleBookingReminders,
+    cancelBookingNotifications,
+  };
 }
 
 // ─── Default notifier (env-backed deps, constructed per app instance) ────────
@@ -153,7 +220,8 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
  * for tests that don't inject a stub.
  */
 export function createDefaultBookingNotifier(
-  notificationAdapter: NotificationDispatcher
+  notificationAdapter: NotificationDispatcher,
+  logger?: FastifyBaseLogger
 ): BookingNotifier {
   let notifier: BookingNotifier | null = null;
 
@@ -163,6 +231,7 @@ export function createDefaultBookingNotifier(
         notificationAdapter,
         scheduler: new JobScheduler({ redisUrl: REDIS_URL }),
         getVenue: (venueId) => venueService.getById(venueId),
+        logger,
       });
     }
     return notifier;
@@ -174,5 +243,7 @@ export function createDefaultBookingNotifier(
     cancelBookingReminders: (reservationId) => getNotifier().cancelBookingReminders(reservationId),
     rescheduleBookingReminders: (reservation, manageToken) =>
       getNotifier().rescheduleBookingReminders(reservation, manageToken),
+    cancelBookingNotifications: (reservation, manageToken, initiator) =>
+      getNotifier().cancelBookingNotifications(reservation, manageToken, initiator),
   };
 }

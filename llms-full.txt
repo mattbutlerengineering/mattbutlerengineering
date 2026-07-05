@@ -6556,7 +6556,6 @@
             request.query.token!,
             {
               bookingNotifier: fastify.bookingNotifier,
-              notificationPort: fastify.notificationPort,
               logger: request.log,
             }
           );
@@ -8853,7 +8852,6 @@
           manageToken,
           {
             bookingNotifier: fastify.bookingNotifier,
-            notificationPort: fastify.notificationPort,
             logger,
           },
           { ...options, initiator: isAdmin ? "staff" : "guest" }
@@ -12733,10 +12731,19 @@
   <file path="services/reservations/src/services/reservation-cancellation.ts">
     export interface CancelReservationDeps {
       bookingNotifier: BookingNotifier;
-      notificationPort: NotificationDispatcher;
       logger: FastifyBaseLogger;
     }
-    export type CancelInitiator = "guest" | "staff";
+    export interface CancelReservationOptions {
+      /**
+       * Defaults to "guest". Staff cancels waive any cancellation fee and refund
+       * a `held` deposit in full rather than evaluating the guest-facing policy —
+       * staff are cancelling on the venue's behalf, so the guest's deposit is
+       * never partially kept or forfeited.
+       */
+      initiator?: CancelInitiator;
+      cancellationReason?: string;
+      cancellationNote?: string;
+    }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
     export interface ModifyReservationDeps {
@@ -17779,7 +17786,8 @@
       fastify.decorate("notificationPort", notificationPort);
     
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
-      const bookingNotifier = options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort);
+      const bookingNotifier =
+        options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, fastify.log);
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production

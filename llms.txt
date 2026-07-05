@@ -2894,12 +2894,15 @@
     <item priority="low">
       interface CancelReservationDeps {
         bookingNotifier: BookingNotifier;
-        notificationPort: NotificationDispatcher;
         logger: FastifyBaseLogger;
       }
     </item>
     <item priority="low">
-      type CancelInitiator = "guest" | "staff";
+      interface CancelReservationOptions {
+        initiator?: CancelInitiator;
+        cancellationReason?: string;
+        cancellationNote?: string;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
