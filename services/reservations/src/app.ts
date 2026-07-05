@@ -42,6 +42,7 @@ import {
   createDefaultPostVisitNotifier,
   type PostVisitNotifier,
 } from "./services/post-visit-notifier.js";
+import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import {
   createReservationJobHandlers,
@@ -102,9 +103,15 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const notificationPort = options.notificationPort ?? createNotificationPort();
   fastify.decorate("notificationPort", notificationPort);
 
+  // Single owner of the notifier infrastructure (issue #3088): reads env
+  // (Twilio, REDIS_URL) once and hands the notifiers + worker a typed,
+  // lazily-connected scheduler. Construction opens no Redis connection, so
+  // buildApp() stays side-effect-free.
+  const notifierRuntime = createNotifierRuntime();
+
   // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
   const bookingNotifier =
-    options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, fastify.log);
+    options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
   fastify.decorate("bookingNotifier", bookingNotifier);
 
   // Wire post-visit notifier — injectable for testing, default Resend-backed for production
@@ -113,7 +120,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   fastify.decorate("postVisitNotifier", postVisitNotifier);
 
   // Wire waitlist notifier — injectable for testing, default env-backed for production
-  const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier();
+  const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
   fastify.decorate("waitlistNotifier", waitlistNotifier);
 
   // Wire reservation events emitter — injectable for testing, default singleton for production
@@ -179,7 +186,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // worker construction — which opens the Redis consumer — is deferred to
   // onReady so buildApp() stays side-effect-free.
   const jobWorker = createReservationJobWorker({
-    redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+    redisUrl: notifierRuntime.redisUrl,
     handlers: createReservationJobHandlers({
       getReservation: (id) => reservationService.getById(id),
       getVenue: (id) => venueService.getById(id),

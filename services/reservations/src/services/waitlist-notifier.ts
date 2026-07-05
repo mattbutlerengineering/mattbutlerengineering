@@ -1,21 +1,11 @@
-import { JOB_TYPES, JobScheduler } from "@mbe/jobs";
-import { TwilioSmsAdapter, type SmsPort } from "@mbe/notifications";
+import { JOB_TYPES } from "@mbe/jobs";
+import type { SmsPort } from "@mbe/notifications";
 import { waitlistService } from "./waitlist.js";
-
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+import type { NotifierRuntime, NotifierScheduler } from "./notifier-runtime.js";
 
 export interface WaitlistNotifierLogger {
   error(obj: Record<string, unknown>, msg: string): void;
   info(obj: Record<string, unknown>, msg: string): void;
-}
-
-export interface WaitlistNotifierScheduler {
-  schedule(
-    jobType: string,
-    payload: Record<string, unknown>,
-    delayMs: number,
-    jobId?: string
-  ): Promise<unknown>;
 }
 
 export interface WaitlistEntryRef {
@@ -30,7 +20,7 @@ export interface WaitlistEntryRef {
 
 export interface WaitlistNotifierDeps {
   smsAdapter: SmsPort | null;
-  scheduler: WaitlistNotifierScheduler;
+  scheduler: Pick<NotifierScheduler, "schedule">;
   expireEntry(id: string): Promise<{ id: string; venueId: string; status: string } | null>;
   listWaiting(venueId: string): Promise<WaitlistEntryRef[]>;
   notifyTableReady(entry: {
@@ -177,68 +167,25 @@ const consoleLogger: WaitlistNotifierLogger = {
 };
 
 /**
- * Creates the production WaitlistNotifier backed by Twilio SMS + BullMQ.
- * Reads Twilio env vars at first use so buildApp() stays side-effect-free.
- * Dep construction is deferred to first use: JobScheduler opens a Redis
- * connection in its constructor.
+ * Creates the production WaitlistNotifier from the shared NotifierRuntime. The
+ * runtime owns the Twilio SMS adapter and the typed, lazily-connected scheduler
+ * (its Redis connection opens on first use), so buildApp() stays side-effect-free.
  */
-export function createDefaultWaitlistNotifier(): WaitlistNotifier {
-  let notifier: WaitlistNotifier | null = null;
+export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier {
+  // notifyTableReady re-notifies the next waiting guest via the notifier's own
+  // public method; a ref lets that self-referential callback capture the
+  // instance after construction (const-safe).
+  const ref: { value: WaitlistNotifier | null } = { value: null };
 
-  function getNotifier(): WaitlistNotifier {
-    if (notifier) return notifier;
+  const notifier = createWaitlistNotifier({
+    smsAdapter: runtime.smsAdapter,
+    scheduler: runtime.scheduler,
+    expireEntry: (id) => waitlistService.expire(id),
+    listWaiting: (venueId) => waitlistService.listWaiting(venueId),
+    notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
+    logger: consoleLogger,
+  });
 
-    const smsAdapter: SmsPort | null =
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_FROM_NUMBER
-        ? new TwilioSmsAdapter({
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            client: require("twilio")(
-              process.env.TWILIO_ACCOUNT_SID,
-              process.env.TWILIO_AUTH_TOKEN
-            ) as never,
-            fromNumber: process.env.TWILIO_FROM_NUMBER,
-          })
-        : null;
-
-    const jobScheduler = new JobScheduler({ redisUrl: REDIS_URL });
-
-    // Use a ref object so the self-referential notifyTableReady callback can
-    // capture the notifier instance after it is constructed (const-safe).
-    const ref: { value: WaitlistNotifier | null } = { value: null };
-
-    const built = createWaitlistNotifier({
-      smsAdapter,
-      scheduler: {
-        schedule: (jobType, payload, delayMs, jobId) =>
-          jobScheduler.schedule(
-            jobType as typeof JOB_TYPES.WAITLIST_EXPIRY,
-            payload as {
-              waitlistEntryId: string;
-              venueId: string;
-              guestPhone: string | null;
-              guestEmail: string | null;
-            },
-            delayMs,
-            jobId
-          ),
-      },
-      expireEntry: (id) => waitlistService.expire(id),
-      listWaiting: (venueId) => waitlistService.listWaiting(venueId),
-      notifyTableReady: (entry) => ref.value!.notifyTableReady(entry),
-      logger: consoleLogger,
-    });
-
-    ref.value = built;
-    notifier = built;
-    return notifier;
-  }
-
-  return {
-    notifyAdded: (input) => getNotifier().notifyAdded(input),
-    notifyPositionUpdate: (input) => getNotifier().notifyPositionUpdate(input),
-    notifyTableReady: (input) => getNotifier().notifyTableReady(input),
-    handleExpiry: (input) => getNotifier().handleExpiry(input),
-  };
+  ref.value = notifier;
+  return notifier;
 }

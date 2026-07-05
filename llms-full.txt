@@ -12687,6 +12687,17 @@
       emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
     }
   </file>
+  <file path="services/reservations/src/services/notifier-runtime.ts">
+    export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
+    export interface NotifierRuntime {
+      /** Redis URL — the single source for the scheduler AND the in-process worker. */
+      readonly redisUrl: string;
+      /** Typed job scheduler; opens Redis on the first schedule/cancel, not before. */
+      readonly scheduler: NotifierScheduler;
+      /** Twilio-backed SMS port when configured, else null. */
+      readonly smsAdapter: SmsPort | null;
+    }
+  </file>
   <file path="services/reservations/src/services/post-visit-notifier.ts">
     export function generateUnsubscribeToken(guestId: string): string {
       if (!guestId) throw new Error("guestId is required");
@@ -13179,13 +13190,14 @@
       error(obj: Record<string, unknown>, msg: string): void;
       info(obj: Record<string, unknown>, msg: string): void;
     }
-    export interface WaitlistNotifierScheduler {
-      schedule(
-        jobType: string,
-        payload: Record<string, unknown>,
-        delayMs: number,
-        jobId?: string
-      ): Promise<unknown>;
+    export interface WaitlistEntryRef {
+      id: string;
+      venueId?: string;
+      guestPhone: string;
+      guestName: string | null;
+      position?: number;
+      estimatedWaitMinutes?: number;
+      status?: string;
     }
   </file>
   <file path="services/reservations/src/services/waitlist-utils.ts">
@@ -17795,9 +17807,15 @@
       const notificationPort = options.notificationPort ?? createNotificationPort();
       fastify.decorate("notificationPort", notificationPort);
     
+      // Single owner of the notifier infrastructure (issue #3088): reads env
+      // (Twilio, REDIS_URL) once and hands the notifiers + worker a typed,
+      // lazily-connected scheduler. Construction opens no Redis connection, so
+      // buildApp() stays side-effect-free.
+      const notifierRuntime = createNotifierRuntime();
+    
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
       const bookingNotifier =
-        options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, fastify.log);
+        options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
@@ -17806,7 +17824,7 @@
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production
-      const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier();
+      const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
       fastify.decorate("waitlistNotifier", waitlistNotifier);
     
       // Wire reservation events emitter — injectable for testing, default singleton for production
@@ -17872,7 +17890,7 @@
       // worker construction — which opens the Redis consumer — is deferred to
       // onReady so buildApp() stays side-effect-free.
       const jobWorker = createReservationJobWorker({
-        redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+        redisUrl: notifierRuntime.redisUrl,
         handlers: createReservationJobHandlers({
           getReservation: (id) => reservationService.getById(id),
           getVenue: (id) => venueService.getById(id),

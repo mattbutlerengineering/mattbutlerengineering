@@ -45,9 +45,13 @@ export interface LapsedGuestScanPayload {
 
 export interface WaitlistExpiryPayload {
   waitlistEntryId: string;
-  guestPhone: string | null;
-  guestEmail: string | null;
-  venueId: string;
+  // The WAITLIST_EXPIRY handler derives the venue and next-in-line guest from
+  // expireEntry(waitlistEntryId), so only the entry id is required. These stay
+  // declared (optional) for forward-compatible payload enrichment; nothing
+  // enqueues or reads them today.
+  guestPhone?: string | null;
+  guestEmail?: string | null;
+  venueId?: string;
 }
 
 export type JobPayloadMap = {

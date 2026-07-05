@@ -1,12 +1,11 @@
-import { JobScheduler, JOB_TYPES } from "@mbe/jobs";
+import { JOB_TYPES } from "@mbe/jobs";
 import type { ReminderPayload } from "@mbe/jobs";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import type { CommunicationPreference } from "@mbe/types";
 import type { Reservation, Venue } from "@mbe/types";
 import type { FastifyBaseLogger } from "fastify";
 import { venueService } from "./venue.js";
-
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+import type { NotifierRuntime, NotifierScheduler } from "./notifier-runtime.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -44,10 +43,7 @@ export type CancelInitiator = "guest" | "staff";
 
 export interface BookingNotifierDeps {
   notificationAdapter: NotificationDispatcher;
-  scheduler: {
-    schedule(jobType: string, payload: unknown, delayMs: number, jobId?: string): Promise<unknown>;
-    cancel(id: string): Promise<void>;
-  };
+  scheduler: NotifierScheduler;
   getVenue: (venueId: string) => Promise<Venue | null>;
   logger?: FastifyBaseLogger;
 }
@@ -212,38 +208,21 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
 // ─── Default notifier (env-backed deps, constructed per app instance) ────────
 
 /**
- * Creates the production BookingNotifier backed by Resend + BullMQ.
- * Accepts the already-constructed NotificationDispatcher so the Resend
- * client is constructed exactly once (in notifications.ts / createNotificationPort).
- * Dep construction is deferred to first use: JobScheduler opens a Redis
- * connection in its constructor, and buildApp() must stay side-effect-free
- * for tests that don't inject a stub.
+ * Creates the production BookingNotifier from the shared NotifierRuntime.
+ * Accepts the already-constructed NotificationDispatcher (so the Resend client
+ * is constructed exactly once in notifications.ts / createNotificationPort) and
+ * the runtime's typed, lazily-connected scheduler — buildApp() stays
+ * side-effect-free because the runtime defers the Redis connection to first use.
  */
 export function createDefaultBookingNotifier(
   notificationAdapter: NotificationDispatcher,
+  runtime: NotifierRuntime,
   logger?: FastifyBaseLogger
 ): BookingNotifier {
-  let notifier: BookingNotifier | null = null;
-
-  function getNotifier(): BookingNotifier {
-    if (!notifier) {
-      notifier = createBookingNotifier({
-        notificationAdapter,
-        scheduler: new JobScheduler({ redisUrl: REDIS_URL }),
-        getVenue: (venueId) => venueService.getById(venueId),
-        logger,
-      });
-    }
-    return notifier;
-  }
-
-  return {
-    scheduleBookingNotifications: (reservation, manageToken) =>
-      getNotifier().scheduleBookingNotifications(reservation, manageToken),
-    cancelBookingReminders: (reservationId) => getNotifier().cancelBookingReminders(reservationId),
-    rescheduleBookingReminders: (reservation, manageToken) =>
-      getNotifier().rescheduleBookingReminders(reservation, manageToken),
-    cancelBookingNotifications: (reservation, manageToken, initiator) =>
-      getNotifier().cancelBookingNotifications(reservation, manageToken, initiator),
-  };
+  return createBookingNotifier({
+    notificationAdapter,
+    scheduler: runtime.scheduler,
+    getVenue: (venueId) => venueService.getById(venueId),
+    logger,
+  });
 }
