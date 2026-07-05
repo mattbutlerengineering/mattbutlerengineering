@@ -279,7 +279,7 @@ function formatGeneratedSchemas(
     } else {
       lines.push(`  ${componentName}: z.object({`);
       for (const { propName, zodExpr } of props) {
-        lines.push(`    ${propName}: ${zodExpr},`);
+        lines.push(`    ${/^[A-Za-z_$][\w$]*$/.test(propName) ? propName : JSON.stringify(propName)}: ${zodExpr},`);
       }
       lines.push(`  }),`);
     }

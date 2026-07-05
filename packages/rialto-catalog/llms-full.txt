@@ -159,6 +159,11 @@
         slots: ["default"],
         charLimits: { copyright: 80 },
       },
+      IconButton: {
+        name: "IconButton",
+        description:
+          "Icon-only action trigger for toolbars, dismiss affordances, and dense controls. Composes Button, so it shares the same variant (ghost default, secondary, primary) and size (sm/md/lg) options. Always provide aria-label — the button has no visible text, so the label is the only accessible name.",
+      },
       Input: {
         name: "Input",
         description:
@@ -331,6 +336,12 @@
         variant: z.enum(["minimal", "rich"]).optional(),
         logo: z.string().optional(),
         copyright: z.string().max(80).optional(),
+      }),
+      IconButton: z.object({
+        icon: z.string().optional(),
+        "aria-label": z.string(),
+        size: z.enum(["lg", "md", "sm"]).optional(),
+        variant: z.enum(["ghost", "primary", "secondary"]).optional(),
       }),
       Input: z.object({
         label: z.string().max(40).optional(),

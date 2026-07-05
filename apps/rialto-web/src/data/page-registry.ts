@@ -60,6 +60,14 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/forms/ButtonPage").then((m) => ({ default: m.ButtonPage })),
   },
   {
+    id: "icon-button",
+    label: "IconButton",
+    category: "Forms",
+    path: "/components/icon-button",
+    load: () =>
+      import("../pages/forms/IconButtonPage").then((m) => ({ default: m.IconButtonPage })),
+  },
+  {
     id: "input",
     label: "Input",
     category: "Forms",

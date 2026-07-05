@@ -101,6 +101,12 @@ export const generatedSchemas = {
     logo: z.string().optional(),
     copyright: z.string().max(80).optional(),
   }),
+  IconButton: z.object({
+    icon: z.string().optional(),
+    "aria-label": z.string(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    variant: z.enum(["ghost", "primary", "secondary"]).optional(),
+  }),
   Input: z.object({
     label: z.string().max(40).optional(),
     hint: z.string().max(80).optional(),

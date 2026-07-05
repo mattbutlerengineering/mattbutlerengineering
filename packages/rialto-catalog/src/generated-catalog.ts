@@ -109,6 +109,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { copyright: 80 },
   },
+  IconButton: {
+    name: "IconButton",
+    description:
+      "Icon-only action trigger for toolbars, dismiss affordances, and dense controls. Composes Button, so it shares the same variant (ghost default, secondary, primary) and size (sm/md/lg) options. Always provide aria-label — the button has no visible text, so the label is the only accessible name.",
+  },
   Input: {
     name: "Input",
     description:

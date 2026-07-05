@@ -1,0 +1,35 @@
+/*
+ * IconButton — square, icon-only footprint layered on top of Button.
+ *
+ * Button already owns the material surfaces, focus-ring (composed from
+ * surfaces.module.css), and tactile press-depth (framer-motion whileTap, gated
+ * by prefers-reduced-motion). This module only collapses the text padding to a
+ * centred square so the glyph sits dead-centre. Dimensions match the touch
+ * targets used across the system (sm 28 / md 36 / lg 44).
+ */
+.iconButton {
+  padding: 0;
+  inline-size: 36px;
+  block-size: 36px;
+  flex-shrink: 0;
+}
+
+/* ── Sizes (md is the .iconButton default above) ─────────────── */
+.sm {
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+.lg {
+  inline-size: 44px;
+  block-size: 44px;
+}
+
+/* Press-depth and focus-ring transitions are inherited from Button, whose
+ * motion is disabled under reduced-motion. Guard the box-shadow transition here
+ * too so the composed surface never animates when motion is reduced. */
+@media (prefers-reduced-motion: reduce) {
+  .iconButton {
+    transition: none;
+  }
+}
