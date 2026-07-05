@@ -11,5 +11,13 @@ export {
   requireAuth,
   getAuthPluginOptionsFromEnv,
   requireOwnershipOrAdmin,
+  requireAdmin,
+  requireVenueAccess,
 } from "./fastify/index.js";
-export type { AuthPluginOptions, OwnerResolver, AuthorizationContext } from "./fastify/index.js";
+export type {
+  AuthPluginOptions,
+  OwnerResolver,
+  AuthorizationContext,
+  VenueIdResolver,
+  VenueMembershipLookup,
+} from "./fastify/index.js";

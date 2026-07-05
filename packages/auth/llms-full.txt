@@ -1,5 +1,17 @@
 <codebase path="packages/auth">
   <section priority="medium" role="fastify">
+  <file path="src/fastify/authz.ts">
+    export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+      if (!hasPermission(request.user, "admin")) {
+        reply
+          .code(403)
+          .send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
+      }
+    }
+    export type VenueIdResolver = (
+      request: FastifyRequest
+    ) => string | null | undefined | Promise<string | null | undefined>;
+  </file>
   <file path="src/fastify/ownership.ts">
     export interface AuthorizationContext {
       isAdmin: boolean;

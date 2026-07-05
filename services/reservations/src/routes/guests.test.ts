@@ -94,6 +94,7 @@ vi.mock("jose", () => ({
 
 import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockGuest = {
   id: "guest-123",
@@ -649,5 +650,103 @@ describe("Guest Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.data[0].staffNotes).toEqual([]);
     });
+  });
+});
+
+describe("Guest Routes — staff authorization (issue #3101)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
+    // never consumes (jwtVerify is skipped under the bypass), so clear the
+    // queue here to guarantee our real-JWT payloads are the ones returned.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  // Builds the app WITHOUT the test auth bypass so we authenticate through a
+  // real (mocked jose) JWT and can control the caller's coarse role, and with
+  // an injected membership lookup so we control fine-grained venue grants.
+  async function buildAppWithMembership(lookup: VenueMembershipLookup): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await built.ready();
+    return built;
+  }
+
+  it("returns 403 when a signed-in booking-widget guest lists guests for any venue", async () => {
+    // Booking-widget guest JWT: authenticated via the same pool, but carries no
+    // operator permission and holds no venue membership.
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|booking-guest", permissions: [] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/guests?venueId=any-venue",
+      headers: { authorization: "Bearer guest-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(guestService.list).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when an operator for venue-group A requests a venue in group B", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator-A", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    // Operator is a member of group-A venues only; group-B venue is denied.
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/guests?venueId=venue-in-group-B",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-B");
+    expect(guestService.list).not.toHaveBeenCalled();
+  });
+
+  it("allows an operator who is a member of the requested venue (positive control)", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator-A", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    vi.mocked(guestService.list).mockResolvedValueOnce({
+      data: [mockGuest],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNext: false, hasPrev: false },
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/guests?venueId=venue-in-group-A",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-A");
   });
 });

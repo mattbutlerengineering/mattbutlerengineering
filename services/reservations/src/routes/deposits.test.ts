@@ -62,6 +62,24 @@ vi.mock("@mbe/auth/fastify", () => ({
       Array.isArray(user?.permissions) && user.permissions.includes(permission)
   ),
   requireOwnershipOrAdmin: vi.fn().mockReturnValue(vi.fn(async () => {})),
+  requireAdmin: vi.fn(
+    async (
+      request: { user?: { permissions?: string[] } },
+      reply: { code: (statusCode: number) => { send: (payload: unknown) => unknown } }
+    ) => {
+      const isAdmin =
+        Array.isArray(request.user?.permissions) && request.user.permissions.includes("admin");
+      if (!isAdmin) {
+        reply.code(403).send({
+          type: "about:blank",
+          status: 403,
+          title: "Forbidden",
+          detail: "Admin role required",
+        });
+      }
+    }
+  ),
+  requireVenueAccess: vi.fn(() => vi.fn(async () => {})),
 }));
 
 import { requireAuth } from "@mbe/auth/fastify";

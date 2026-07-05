@@ -1,5 +1,5 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { requireAuth, hasPermission } from "@mbe/auth/fastify";
+import type { FastifyPluginAsync } from "fastify";
+import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 import { depositService, DepositNotFoundError } from "../services/deposit.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
@@ -7,20 +7,6 @@ import type { Deposit } from "../generated/prisma/index.js";
 
 interface ApiResponse<T> {
   data: T;
-}
-
-/**
- * Authorization guard for the back-office deposit routes. Deposit
- * capture/refund/forfeit are staff-only money-moving actions; guest
- * self-service runs through the public manage-token routes, not these.
- * Assumes `requireAuth` ran first (request.user is set).
- */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
-  if (!hasPermission(request.user, "admin")) {
-    return reply
-      .code(403)
-      .send(createProblemDetails(403, "Forbidden", "Admin permission required"));
-  }
 }
 
 const depositProperties = {

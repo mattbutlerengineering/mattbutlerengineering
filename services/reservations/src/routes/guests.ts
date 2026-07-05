@@ -11,10 +11,23 @@ import type {
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
+import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
+
+/**
+ * Resolves the owning venue of a guest addressed by `:id`, so requireVenueAccess
+ * can scope by-id operations to the guest's venue. Returns null when the guest
+ * does not exist (→ 403, never leaking existence to non-members).
+ */
+const resolveGuestVenueId: VenueIdResolver = async (request) => {
+  const params = request.params as { id?: unknown };
+  if (typeof params.id !== "string") return null;
+  const guest = await guestService.getById(params.id);
+  return guest?.venueId ?? null;
+};
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // List guests for a venue
@@ -24,7 +37,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "List guests for a venue",
         operationId: "listGuests",
@@ -73,7 +86,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/search",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "Search guests",
         operationId: "searchGuests",
@@ -125,7 +138,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/segments",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "Get guest segments",
         operationId: "getGuestSegments",
@@ -170,7 +183,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
       schema: {
         summary: "Get guest by ID",
         operationId: "getGuestById",
@@ -208,7 +221,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Create a new guest",
         operationId: "createGuest",
@@ -281,7 +294,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/find-or-create",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Find or create guest",
         operationId: "findOrCreateGuest",
@@ -347,7 +360,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
       schema: {
         summary: "Update a guest",
         operationId: "updateGuest",
@@ -402,7 +415,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/notes",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
       schema: {
         summary: "Add a staff note to a guest",
         operationId: "addGuestNote",
@@ -475,7 +488,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/lapsing",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "Get lapsing guests",
         operationId: "getLapsingGuests",
@@ -537,7 +550,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/win-back",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
       schema: {
         summary: "Send win-back message",
         operationId: "sendGuestWinBack",
@@ -588,7 +601,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
       schema: {
         summary: "Delete a guest",
         operationId: "deleteGuest",

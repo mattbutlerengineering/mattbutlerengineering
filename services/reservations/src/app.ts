@@ -51,6 +51,8 @@ import { reservationService } from "./services/reservation.js";
 import { venueService } from "./services/venue.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { prisma } from "./services/database.js";
+import { createVenueMembershipLookup } from "./services/venue-membership.js";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
@@ -61,6 +63,7 @@ export interface ReservationsAppOptions extends AppOptions {
   postVisitNotifier?: PostVisitNotifier;
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
+  venueMembershipLookup?: VenueMembershipLookup;
 }
 
 /**
@@ -115,6 +118,14 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire reservation events emitter — injectable for testing, default singleton for production
   const reservationEvents = options.reservationEvents ?? new ReservationEventEmitter();
   fastify.decorate("reservationEvents", reservationEvents);
+
+  // Wire venue-membership lookup (ADR-020) — injectable for testing, default
+  // Prisma-backed for production. requireVenueAccess consults it per request so
+  // a revoked membership denies access immediately. Decorated before route
+  // registration so child route plugins inherit it.
+  const venueMembershipLookup =
+    options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
+  fastify.decorate("venueMembershipLookup", venueMembershipLookup);
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -198,5 +209,6 @@ declare module "fastify" {
     waitlistNotifier: WaitlistNotifier;
     postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
+    venueMembershipLookup: VenueMembershipLookup;
   }
 }

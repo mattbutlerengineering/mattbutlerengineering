@@ -10,7 +10,7 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, optionalAuth, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
+import { requireAuth, optionalAuth, requireOwnershipOrAdmin, requireVenueAccess } from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
@@ -20,6 +20,7 @@ import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
+import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
 
 const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   resolveReservationGuestEmail((id) => reservationService.getById(id)),
@@ -76,7 +77,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -206,7 +207,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/walk-in",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Create a walk-in reservation",
         operationId: "createWalkIn",

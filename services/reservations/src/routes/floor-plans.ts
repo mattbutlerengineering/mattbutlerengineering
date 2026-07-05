@@ -10,9 +10,35 @@ import {
   type UpdateTablePositionRequest,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
+import { tableService } from "../services/table.js";
+import { venueIdFromBody } from "./venue-access.js";
+
+/** Resolves the venue owning a floor plan addressed by `:id` (→ 403 if absent). */
+const resolveFloorPlanVenueId: VenueIdResolver = async (request) => {
+  const params = request.params as { id?: unknown };
+  if (typeof params.id !== "string") return null;
+  const floorPlan = await floorPlanService.getById(params.id);
+  return floorPlan?.venueId ?? null;
+};
+
+/** Resolves the venue owning the floor plan named in the request body (`floorPlanId`). */
+const resolveFloorPlanBodyVenueId: VenueIdResolver = async (request) => {
+  const body = request.body as { floorPlanId?: unknown } | null | undefined;
+  if (typeof body?.floorPlanId !== "string") return null;
+  const floorPlan = await floorPlanService.getById(body.floorPlanId);
+  return floorPlan?.venueId ?? null;
+};
+
+/** Resolves the venue owning a table addressed by `:tableId` (→ 403 if absent/unassigned). */
+const resolveTableParamVenueId: VenueIdResolver = async (request) => {
+  const params = request.params as { tableId?: unknown };
+  if (typeof params.tableId !== "string") return null;
+  const table = await tableService.getById(params.tableId);
+  return table?.venueId ?? null;
+};
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
@@ -89,7 +115,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Create floor plan",
         body: {
@@ -113,7 +139,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
     "/:id/clone",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
       schema: {
         summary: "Clone floor plan",
         description: "Creates a copy of the floor plan and all its tables.",
@@ -141,7 +167,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
       schema: {
         summary: "Update floor plan",
         params: {
@@ -172,7 +198,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
     "/:id/activate",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
       schema: {
         summary: "Set floor plan as active",
         description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -201,7 +227,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/positions",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
       schema: {
         summary: "Bulk update table positions",
         description: "Updates the position and metadata for multiple tables in a floor plan.",
@@ -242,7 +268,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/tables/:tableId/assign",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
       schema: {
         summary: "Assign table to floor plan",
         params: {
@@ -277,7 +303,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
     "/tables/:tableId/remove",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
       schema: {
         summary: "Remove table from floor plan",
         params: {
@@ -300,7 +326,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
     "/:id",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
       schema: {
         summary: "Delete floor plan",
         params: {

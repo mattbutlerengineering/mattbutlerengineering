@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiError } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
+import { venueIdFromQuery } from "./venue-access.js";
 import { briefingService, type BriefingEntry } from "../services/briefing.js";
 
 export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
@@ -11,7 +12,7 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
       schema: {
         summary: "Get tonight's service briefing",
         operationId: "getServiceBriefing",
@@ -49,10 +50,9 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      // Venue authorization: this endpoint follows the same trust model as the existing
-      // /api/v1/reservations and /api/v1/guests endpoints — any authenticated operator
-      // may query any venueId. Per-venue access scoping is a separate app-wide initiative
-      // and does not exist yet in the codebase (no VenueUser relation or venue-access helper).
+      // Venue authorization is enforced by requireVenueAccess (ADR-020): the
+      // caller must be a platform admin or a member of `venueId`, so by the
+      // time this handler runs the operator is already scoped to this venue.
       const { date, venueId } = request.query;
 
       if (!date) {
