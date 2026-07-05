@@ -61,12 +61,12 @@ const slots = await api.availability.getTimeSlots({ venueId, date, partySize: 4 
 
 ## Auth Token Injection
 
-The `getAccessToken` callback is called on every request. If it returns a token, `Authorization: Bearer <token>` is added. Works with `useAccessToken()` from `@mbe/auth`:
+The `getAccessToken` callback is called on every request. If it returns a token, `Authorization: Bearer <token>` is added. Works with `useAccessToken()` from `@mbe/auth` (which returns `{ accessToken, refreshError }`):
 
 ```typescript
 const api = createApiClient({
   baseUrl: "/api",
-  getAccessToken: () => useAccessToken(), // in React context
+  getAccessToken: () => useAccessToken().accessToken, // in React context
 });
 ```
 

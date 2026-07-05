@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
@@ -156,6 +156,11 @@ describe("useAuth", () => {
 describe("useAccessToken", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns null when user is not authenticated", () => {
@@ -163,7 +168,8 @@ describe("useAccessToken", () => {
 
     const { result } = renderHook(() => useAccessToken());
 
-    expect(result.current).toBeNull();
+    expect(result.current.accessToken).toBeNull();
+    expect(result.current.refreshError).toBeNull();
   });
 
   it("returns access token when user is authenticated", () => {
@@ -172,10 +178,11 @@ describe("useAccessToken", () => {
 
     const { result } = renderHook(() => useAccessToken());
 
-    expect(result.current).toBe("access-token-123");
+    expect(result.current.accessToken).toBe("access-token-123");
+    expect(result.current.refreshError).toBeNull();
   });
 
-  it("does not call signinSilent when token expiry is far in the future", () => {
+  it("does not call signinSilent at mount when expiry is far in the future", () => {
     const oidcUser = makeOIDCUser({
       expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour away
     });
@@ -186,34 +193,111 @@ describe("useAccessToken", () => {
     expect(mockSigninSilent).not.toHaveBeenCalled();
   });
 
-  it("calls signinSilent when token expires within 5 minutes", () => {
+  it("schedules a refresh timer and calls signinSilent when crossing the refresh threshold", () => {
     mockSigninSilent.mockResolvedValue(null);
     const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 240, // 4 minutes away
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 minutes away
     });
     mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
 
+    // Not refreshed at mount — token is far outside the 5-minute proactive window
+    expect(mockSigninSilent).not.toHaveBeenCalled();
+
+    // Advance past the (30min - 5min) = 25min proactive threshold
+    act(() => {
+      vi.advanceTimersByTime(25 * 60 * 1000);
+    });
+
     expect(mockSigninSilent).toHaveBeenCalledOnce();
   });
 
-  it("swallows rejection from signinSilent during silent refresh", async () => {
-    mockSigninSilent.mockRejectedValue(new Error("refresh failed"));
+  it("refreshes immediately when already inside the 5-minute window", () => {
+    mockSigninSilent.mockResolvedValue(null);
+    const oidcUser = makeOIDCUser({
+      expires_at: Math.floor(Date.now() / 1000) + 240, // 4 minutes away — delay clamps to 0
+    });
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
+
+    renderHook(() => useAccessToken());
+
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(mockSigninSilent).toHaveBeenCalledOnce();
+  });
+
+  it("re-arms the refresh timer when expiresAt changes and clears the previous one", () => {
+    mockSigninSilent.mockResolvedValue(null);
+    const now = Math.floor(Date.now() / 1000);
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser({ expires_at: now + 30 * 60 }) })
+    );
+
+    const { rerender } = renderHook(() => useAccessToken());
+
+    // Expiry moves closer: the old 25-min timer must be cleared and a 5-min timer armed.
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser({ expires_at: now + 10 * 60 }) })
+    );
+    act(() => {
+      rerender();
+    });
+
+    // Advancing past both thresholds fires exactly once — the stale 25-min timer was cleared.
+    act(() => {
+      vi.advanceTimersByTime(25 * 60 * 1000);
+    });
+
+    expect(mockSigninSilent).toHaveBeenCalledOnce();
+  });
+
+  it("clears the refresh timer on unmount", () => {
+    mockSigninSilent.mockResolvedValue(null);
+    const oidcUser = makeOIDCUser({
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+    });
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
+
+    const { unmount } = renderHook(() => useAccessToken());
+    unmount();
+
+    act(() => {
+      vi.advanceTimersByTime(60 * 60 * 1000);
+    });
+
+    expect(mockSigninSilent).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the refresh error via refreshError when signinSilent rejects", async () => {
+    const error = new Error("refresh failed");
+    mockSigninSilent.mockRejectedValue(error);
     const oidcUser = makeOIDCUser({
       expires_at: Math.floor(Date.now() / 1000) + 240,
     });
     mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
-    // Should not throw
-    expect(() => renderHook(() => useAccessToken())).not.toThrow();
+    const { result } = renderHook(() => useAccessToken());
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(mockSigninSilent).toHaveBeenCalledOnce();
+    expect(result.current.refreshError).toBe(error);
   });
 
-  it("does not call signinSilent when expiresAt is undefined", () => {
+  it("does not schedule a refresh when expiresAt is undefined", () => {
     const oidcUser = makeOIDCUser({ expires_at: undefined });
     mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
+
+    act(() => {
+      vi.advanceTimersByTime(60 * 60 * 1000);
+    });
 
     expect(mockSigninSilent).not.toHaveBeenCalled();
   });
