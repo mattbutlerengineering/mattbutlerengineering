@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { Deposit } from "@mbe/types";
-import { useApiClient } from "../../hooks/useApiClient.js";
+import { useCreateDeposit } from "../../hooks/useDeposits.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./StaffDepositSection.module.css";
 
@@ -22,12 +22,12 @@ function depositStatusLabel(status: string): string {
 }
 
 export function StaffDepositSection({ reservationId, existingDeposit }: StaffDepositSectionProps) {
-  const api = useApiClient();
+  const createDeposit = useCreateDeposit();
   const [amountInput, setAmountInput] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deposit, setDeposit] = useState<Deposit | null>(existingDeposit ?? null);
   const [showForm, setShowForm] = useState(false);
+
+  const isCreating = createDeposit.isPending;
 
   const handleCollect = useCallback(async () => {
     const amountDollars = parseFloat(amountInput);
@@ -37,25 +37,21 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
     }
     const amountCents = Math.round(amountDollars * 100);
 
-    setIsCreating(true);
     setError(null);
 
     try {
-      const created = await api.deposits.create({
+      await createDeposit.mutateAsync({
         reservationId,
         amountCents,
         currency: "usd",
       });
-      setDeposit(created);
       setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create deposit.");
-    } finally {
-      setIsCreating(false);
     }
-  }, [amountInput, reservationId, api]);
+  }, [amountInput, reservationId, createDeposit]);
 
-  if (deposit) {
+  if (existingDeposit) {
     return (
       <div className={styles.section}>
         <Text variant="label" as="h4">
@@ -63,8 +59,8 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
         </Text>
         <div className={styles.statusRow}>
           <Text variant="caption" color="secondary">
-            {formatCurrencyFromCents(deposit.amountCents, deposit.currency)} —{" "}
-            {depositStatusLabel(deposit.status)}
+            {formatCurrencyFromCents(existingDeposit.amountCents, existingDeposit.currency)} —{" "}
+            {depositStatusLabel(existingDeposit.status)}
           </Text>
         </div>
       </div>

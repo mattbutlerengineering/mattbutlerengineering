@@ -26,7 +26,7 @@ export function useVenuePolicy(slug: string | undefined): {
     queryFn: async (): Promise<CancellationPolicy | null> => {
       if (!slug) return null;
       try {
-        const deposit = await api.publicVenue.getDepositPolicy(slug);
+        const { deposit } = await api.venues.getPublicConfig(slug);
         if (!deposit.enabled || deposit.amountCents == null) return null;
         return {
           depositAmountCents: deposit.amountCents,

@@ -61,6 +61,25 @@ describe("DepositsClient", () => {
     });
   });
 
+  describe("get", () => {
+    it("GETs /api/v1/deposits/:id and unwraps the validated deposit", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeDeposit }));
+
+      const result = await makeClient().get("dep_1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/deposits/dep_1");
+      expect(options?.method ?? "GET").toBe("GET");
+      expect(result).toEqual(fakeDeposit);
+    });
+
+    it("throws ApiValidationError when the deposit envelope is malformed", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "dep_1" } }));
+
+      await expect(makeClient().get("dep_1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+  });
+
   describe("capture", () => {
     it("POSTs /api/v1/deposits/:id/capture and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(
