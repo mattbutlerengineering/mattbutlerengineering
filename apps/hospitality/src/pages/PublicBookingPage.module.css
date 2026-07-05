@@ -12,12 +12,13 @@
   min-block-size: 60vh;
 }
 
-.errorCard {
-  max-inline-size: 28rem;
+.errorCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 60vh;
+  max-inline-size: 32rem;
   margin-inline: auto;
-  margin-block-start: var(--rialto-space-2xl);
-  padding: var(--rialto-space-xl);
-  text-align: center;
 }
 
 .header {

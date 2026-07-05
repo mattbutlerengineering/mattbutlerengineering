@@ -1,15 +1,25 @@
 import { useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Stack, Text, Button, Card } from "@mattbutlerengineering/rialto";
+import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
 import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import styles from "./PublicBookingPage.module.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
+const NOT_FOUND_HEADING = "Venue not found";
+const NOT_FOUND_DESCRIPTION =
+  "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.";
+
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
+  // Guests resolve the venue through the unauthenticated by-slug read
+  // (getBySlug -> /api/v1/venues/by-slug/:slug), the endpoint dedicated to
+  // public booking URLs. It returns the full venue — including the id the
+  // booking widget needs for its venue-scoped calls — which the deposit-only
+  // public config endpoint deliberately withholds. The public client attaches
+  // no access token.
   const publicApiClient = usePublicApiClient({ baseUrl: BASE_URL, maxRetries: 0 });
 
   const activeHoldIdRef = useRef<string | null>(null);
@@ -40,25 +50,27 @@ export function PublicBookingPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  if (!venueSlug) {
-    return (
-      <div className={styles.page}>
-        <Card variant="flat" className={styles.errorCard}>
-          <Stack gap="md" align="center">
-            <Text variant="display" as="h1" color="primary">
-              Venue Not Found
-            </Text>
-            <Text variant="body" color="secondary">
-              No venue specified.
-            </Text>
+  // Branded, deliberately generic not-found. The raw transport error carries
+  // the internal endpoint path (e.g. "GET /api/v1/venues/by-slug/... failed: 404")
+  // and must never be surfaced to the guest.
+  const renderNotFound = () => (
+    <div className={styles.page}>
+      <div className={styles.errorCenter}>
+        <EmptyState
+          variant="elevated"
+          heading={NOT_FOUND_HEADING}
+          description={NOT_FOUND_DESCRIPTION}
+          action={
             <Button variant="primary" onClick={() => window.history.back()}>
               Go Back
             </Button>
-          </Stack>
-        </Card>
+          }
+        />
       </div>
-    );
-  }
+    </div>
+  );
+
+  if (!venueSlug) return renderNotFound();
 
   if (isLoading) {
     return (
@@ -72,25 +84,7 @@ export function PublicBookingPage() {
     );
   }
 
-  if (error || !venue) {
-    return (
-      <div className={styles.page}>
-        <Card variant="flat" className={styles.errorCard}>
-          <Stack gap="md" align="center">
-            <Text variant="display" as="h1" color="primary">
-              Venue Not Found
-            </Text>
-            <Text variant="body" color="secondary">
-              {error instanceof Error ? error.message : "This booking page is no longer available."}
-            </Text>
-            <Button variant="primary" onClick={() => window.history.back()}>
-              Go Back
-            </Button>
-          </Stack>
-        </Card>
-      </div>
-    );
-  }
+  if (error || !venue) return renderNotFound();
 
   return (
     <div className={styles.page}>
