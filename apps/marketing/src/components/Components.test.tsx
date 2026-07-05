@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AboutSection } from "../components/AboutSection.js";
 import { ContactSection } from "../components/ContactSection.js";
 import { HeroSection } from "../components/HeroSection.js";
+import { MetricsSection } from "../components/MetricsSection.js";
 import { Navbar } from "../components/Navbar.js";
 import { ProjectCard } from "../components/ProjectCard.js";
 import { ProjectsSection } from "../components/ProjectsSection.js";
@@ -33,6 +34,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children }: any) => <div>{children}</div>,
   Badge: ({ children }: any) => <span>{children}</span>,
   Icon: () => <div />,
+  Odometer: ({ value }: { value: number }) => <span>{value}</span>,
   useScrollReveal: () => ({
     ref: vi.fn(),
     controls: { start: vi.fn(), subscribe: vi.fn(), stop: vi.fn(), mount: vi.fn() },
@@ -73,6 +75,11 @@ describe("Components and Pages", () => {
   it("renders HeroSection", () => {
     render(<HeroSection />);
     expect(screen.getByTestId("hero")).toBeInTheDocument();
+  });
+
+  it("renders MetricsSection", () => {
+    render(<MetricsSection />);
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
   });
 
   it("renders Navbar", () => {

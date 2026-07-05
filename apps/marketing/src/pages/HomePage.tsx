@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { HeroSection } from "../components/HeroSection";
+import { MetricsSection } from "../components/MetricsSection";
 import { ProjectsSection } from "../components/ProjectsSection";
 import { TechStackSection } from "../components/TechStackSection";
 import { AboutSection } from "../components/AboutSection";
@@ -10,6 +11,7 @@ export function HomePage() {
   return (
     <>
       <HeroSection />
+      <MetricsSection />
       <ProjectsSection />
       <TechStackSection />
       <AboutSection />

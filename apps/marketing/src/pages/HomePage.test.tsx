@@ -10,6 +10,9 @@ type MockProps = { children?: ReactNode };
 vi.mock("../components/HeroSection.js", () => ({
   HeroSection: () => <div data-testid="hero-section" />,
 }));
+vi.mock("../components/MetricsSection.js", () => ({
+  MetricsSection: () => <div data-testid="metrics-section" />,
+}));
 vi.mock("../components/AboutSection.js", () => ({
   AboutSection: () => <div data-testid="about-section" />,
 }));
@@ -42,9 +45,23 @@ describe("HomePage", () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("metrics-section")).toBeInTheDocument();
     expect(screen.getByTestId("about-section")).toBeInTheDocument();
     expect(screen.getByTestId("projects-section")).toBeInTheDocument();
     expect(screen.getByTestId("tech-stack-section")).toBeInTheDocument();
     expect(screen.getByTestId("contact-section")).toBeInTheDocument();
+  });
+
+  it("places the metrics strip just below the hero, above projects", () => {
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    );
+    const hero = screen.getByTestId("hero-section");
+    const metrics = screen.getByTestId("metrics-section");
+    const projects = screen.getByTestId("projects-section");
+    expect(hero.compareDocumentPosition(metrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(metrics.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

@@ -41,6 +41,20 @@
   gap: var(--rialto-space-lg);
 }
 
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+.metricValue {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--rialto-space-2xs);
+  color: var(--rialto-text-primary);
+}
+
 .contactLink {
   color: var(--rialto-text-secondary);
   text-decoration: none;
