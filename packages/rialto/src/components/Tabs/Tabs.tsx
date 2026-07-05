@@ -145,11 +145,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
 
           {/* Sliding gold indicator */}
           <motion.div
+            layout={shouldReduceMotion ? false : true}
             className={styles.indicator}
-            animate={{
-              left: indicator.left,
-              width: indicator.width,
-            }}
+            style={{ left: indicator.left, width: indicator.width }}
             transition={shouldReduceMotion ? { duration: 0 } : spring}
           />
         </div>

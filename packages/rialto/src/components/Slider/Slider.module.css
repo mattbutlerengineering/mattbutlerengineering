@@ -65,6 +65,12 @@
 }
 
 /* ── Knob ────────────────────────────────────── */
+.knobTrack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .knob {
   position: absolute;
   top: 50%;
@@ -80,8 +86,10 @@
   box-shadow:
     0 1px 3px rgb(26 25 24 / 0.15),
     0 0 1px rgb(26 25 24 / 0.1);
+  inset-inline-start: 0;
   transform: translate(-50%, -50%);
   cursor: grab;
+  pointer-events: auto;
   z-index: 1;
 }
 
@@ -112,7 +120,7 @@
   border: 0;
 }
 
-.input:focus-visible ~ .knob {
+.input:focus-visible ~ .knobTrack .knob {
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);
 }

@@ -85,7 +85,7 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
     };
 
     const triggerButton = (
-      <button
+      <motion.button
         type="button"
         id={triggerId}
         className={styles.trigger}
@@ -94,14 +94,21 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
         aria-expanded={isOpen}
         aria-controls={contentId}
         data-open={isOpen}
+        layout={shouldReduceMotion ? false : "position"}
+        transition={shouldReduceMotion ? { duration: 0 } : springGentle}
       >
         <span className={styles.triggerLabel}>{trigger}</span>
         <Chevron open={isOpen} />
-      </button>
+      </motion.button>
     );
 
     return (
-      <div ref={ref} className={cn(styles.collapsible, className)}>
+      <motion.div
+        ref={ref}
+        className={cn(styles.collapsible, className)}
+        layout={shouldReduceMotion ? false : true}
+        transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+      >
         {HeadingTag ? (
           <HeadingTag className={styles.heading}>{triggerButton}</HeadingTag>
         ) : (
@@ -115,16 +122,17 @@ export const Collapsible = forwardRef<HTMLDivElement, CollapsibleProps>(
               id={contentId}
               role="region"
               aria-labelledby={triggerId}
-              initial={shouldReduceMotion ? { height: "auto" } : { height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
+              layout={shouldReduceMotion ? false : "position"}
+              initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
               transition={shouldReduceMotion ? { duration: 0 } : springGentle}
             >
               <div className={styles.contentInner}>{children}</div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     );
   }
 );

@@ -119,11 +119,7 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
             role={role}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={
-              shouldReduceMotion
-                ? undefined
-                : { opacity: 0, height: 0, paddingTop: 0, paddingBottom: 0 }
-            }
+            exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             transition={precision}
             {...(props as React.ComponentProps<typeof motion.div>)}
           >
