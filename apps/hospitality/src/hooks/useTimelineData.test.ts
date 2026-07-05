@@ -249,13 +249,61 @@ describe("useTimelineData", () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       await act(async () => {
-        await result.current.cancelReservation("r1", { reason: "no_show", note: "test" });
+        await result.current.cancelReservation("r1", {
+          reason: "no_show",
+          note: "test",
+          quote: null,
+        });
       });
 
       expect(mockReservationsCancelWithReason).toHaveBeenCalledWith("r1", {
         cancellationReason: "no_show",
         cancellationNote: "test",
       });
+    });
+
+    it("records the quoted fee in the cancellation note when a fee applies", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      mockReservationsCancelWithReason.mockResolvedValue(makeReservation({ status: "CANCELLED" }));
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.cancelReservation("r1", {
+          reason: "no_show",
+          note: "guest was a no-show",
+          quote: {
+            fee: {
+              feeType: "noshow",
+              feeAmountCents: 5000,
+              refundAmountCents: 0,
+              depositAction: "forfeit",
+            },
+            label: "No-show fee: $50.00 forfeited — refund $0.00",
+            currency: "usd",
+          },
+        });
+      });
+
+      expect(mockReservationsCancelWithReason).toHaveBeenCalledWith(
+        "r1",
+        expect.objectContaining({
+          cancellationReason: "no_show",
+          cancellationNote: expect.stringContaining("No-show fee: $50.00 forfeited"),
+        })
+      );
+      // The staff-entered note is preserved, not overwritten by the audit line.
+      expect(mockReservationsCancelWithReason).toHaveBeenCalledWith(
+        "r1",
+        expect.objectContaining({
+          cancellationNote: expect.stringContaining("guest was a no-show"),
+        })
+      );
     });
 
     it("throws when cancelReservation fails", async () => {
@@ -271,7 +319,7 @@ describe("useTimelineData", () => {
 
       await expect(
         act(async () => {
-          await result.current.cancelReservation("r1", { reason: "no_show", note: "" });
+          await result.current.cancelReservation("r1", { reason: "no_show", note: "", quote: null });
         })
       ).rejects.toThrow("Cancel failed");
     });

@@ -4,6 +4,7 @@ import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "
 import { useReservations, RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { useTables, TABLES_QUERY_KEY } from "./useTables.js";
 import { useApiClient } from "./useApiClient.js";
+import { withQuotedFeeNote, type CancellationQuote } from "./useCancellationQuote.js";
 
 /* ── Params ─────────────────────────────────────────── */
 
@@ -17,6 +18,9 @@ export interface UseTimelineDataParams {
 export interface CancelArgs {
   reason: string;
   note: string;
+  /** The quote shown to staff. Threaded so the executed cancellation and the
+   *  displayed fee derive from the same evaluation. `null` when no policy. */
+  quote: CancellationQuote | null;
 }
 
 /* ── Stats ──────────────────────────────────────────── */
@@ -114,10 +118,13 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     return updated;
   };
 
-  const cancelReservation = async (id: string, { reason, note }: CancelArgs): Promise<void> => {
+  const cancelReservation = async (
+    id: string,
+    { reason, note, quote }: CancelArgs
+  ): Promise<void> => {
     await api.reservations.cancelWithReason(id, {
       cancellationReason: reason,
-      cancellationNote: note,
+      cancellationNote: withQuotedFeeNote(note, quote),
     });
     invalidateAll();
   };

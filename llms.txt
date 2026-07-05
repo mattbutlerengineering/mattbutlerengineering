@@ -1316,6 +1316,18 @@
       type BriefingGuest = ApiBriefingGuest;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useCancellationQuote.ts">
+    <item priority="low">
+      interface CancellationQuote {
+        fee: CancellationFeeResult;
+        label: string;
+        currency: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useDashboardStatsQuery.ts">
     <item priority="low">
       interface DashboardStats {
@@ -1444,6 +1456,7 @@
       interface CancelArgs {
         reason: string;
         note: string;
+        quote: CancellationQuote | null;
       }
     </item>
   </file>

@@ -11,7 +11,7 @@ import { GuestCard } from "../components/crm/GuestCard.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
-import { useVenuePolicy } from "../hooks/useVenuePolicy.js";
+import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { STATUS_LABEL } from "../utils/reservation-display.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
@@ -188,14 +188,20 @@ export function TimelinePage() {
   const { selectedVenueId, selectedVenue } = useVenue();
   const { isConnected } = useSSEStatus();
 
-  // Fetch cancellation policy for the selected venue — used by CancelReservationDialog
-  const { policy: venuePolicy } = useVenuePolicy(selectedVenue?.slug);
-
   const { params, setParam } = useUrlParams(timelineFilterSchema, TIMELINE_DEFAULTS);
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const selectedDate = params.date;
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+
+  // Derive the cancellation quote (fee + label) from the venue policy and the
+  // selected reservation's time — one source for both the dialog display and
+  // the executed cancel mutation.
+  const { quote: cancellationQuote } = useCancellationQuote({
+    slug: selectedVenue?.slug,
+    reservationTime: selectedReservation ? new Date(selectedReservation.startTime) : undefined,
+    currency: selectedVenue?.currencyCode?.toLowerCase(),
+  });
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
@@ -247,7 +253,7 @@ export function TimelinePage() {
   const handleCancel = async (reason: string, note: string) => {
     if (!selectedReservation) return;
     try {
-      await cancelReservation(selectedReservation.id, { reason, note });
+      await cancelReservation(selectedReservation.id, { reason, note, quote: cancellationQuote });
       setShowCancelDialog(false);
       setSelectedReservation(null);
     } catch (err) {
@@ -505,9 +511,7 @@ export function TimelinePage() {
           guestName={selectedReservation.guestName}
           onConfirm={handleCancel}
           onClose={() => setShowCancelDialog(false)}
-          policy={venuePolicy}
-          reservationTime={new Date(selectedReservation.startTime)}
-          currency={selectedVenue?.currencyCode?.toLowerCase() ?? "usd"}
+          quote={cancellationQuote}
         />
       )}
       {showEditDrawer && selectedReservation && (

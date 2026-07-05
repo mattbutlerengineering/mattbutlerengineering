@@ -18,8 +18,8 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: vi.fn(() => []),
 }));
 vi.mock("../hooks/useTimelineData.js", () => ({ useTimelineData: vi.fn() }));
-vi.mock("../hooks/useVenuePolicy.js", () => ({
-  useVenuePolicy: vi.fn().mockReturnValue({ policy: null, isLoading: false }),
+vi.mock("../hooks/useCancellationQuote.js", () => ({
+  useCancellationQuote: vi.fn().mockReturnValue({ quote: null, isLoading: false }),
 }));
 // Block transitive resolution of packages unavailable in this worktree environment
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
@@ -665,6 +665,7 @@ describe("TimelinePage", () => {
         expect(cancelReservation).toHaveBeenCalledWith("r1", {
           reason: "no_show",
           note: "test note",
+          quote: null,
         });
       });
     });
