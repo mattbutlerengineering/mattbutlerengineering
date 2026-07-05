@@ -23,6 +23,12 @@
   gap: var(--rialto-space-sm);
 }
 
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
 .previewCard {
   padding: var(--rialto-space-lg);
 }

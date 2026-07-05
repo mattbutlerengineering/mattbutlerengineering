@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Badge,
-  Button,
+  Banner,
   Card,
   Divider,
   SegmentedControl,
@@ -39,8 +39,6 @@ const DEVICE_LABELS: Record<string, string> = {
   tablet: "768px",
   mobile: "375px",
 };
-
-const COPY_FEEDBACK_DURATION_MS = 2000;
 
 /* ── Feature data ──────────────────────────── */
 
@@ -108,7 +106,6 @@ export function BookingWidgetDemoPage() {
   const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [deviceFrame, setDeviceFrame] = useState("desktop");
-  const [copied, setCopied] = useState(false);
 
   // Auto-select first venue when venues load
   const firstVenueId = venues[0]?.id ?? null;
@@ -139,16 +136,6 @@ export function BookingWidgetDemoPage() {
 </script>`;
   }, [effectiveVenueId, selectedVenue]);
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(embedCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
-    } catch {
-      // Clipboard API not available - silently fail
-    }
-  }, [embedCode]);
-
   if (isLoading) {
     return <BookingWidgetDemoSkeleton />;
   }
@@ -157,8 +144,20 @@ export function BookingWidgetDemoPage() {
     <div className={styles.container}>
       <PageHeader
         title="Booking Widget"
-        description="Preview the embeddable booking widget. This is what guests see when making a reservation."
+        description="A design preview of the embeddable booking widget. Embedding it on your own site is coming soon."
       />
+
+      <Banner
+        variant="accent"
+        action={
+          <Badge variant="accent" size="sm">
+            Coming soon
+          </Badge>
+        }
+      >
+        Preview only — the embeddable booking widget is not live yet. Everything on this page is a
+        design preview of what is coming; it cannot be added to your website today.
+      </Banner>
 
       {error && <ErrorRetryBanner error={error.message} onRetry={refetch} />}
 
@@ -190,9 +189,14 @@ export function BookingWidgetDemoPage() {
       <section>
         <Stack gap="md">
           <div className={styles.previewHeader}>
-            <Text variant="label" color="primary">
-              Widget Preview
-            </Text>
+            <div className={styles.sectionHeading}>
+              <Text variant="label" color="primary">
+                Widget Preview
+              </Text>
+              <Badge variant="accent" size="sm">
+                Preview
+              </Badge>
+            </div>
             <SegmentedControl
               segments={[...DEVICE_SEGMENTS]}
               value={deviceFrame}
@@ -223,6 +227,10 @@ export function BookingWidgetDemoPage() {
               </Text>
             </div>
           </Card>
+          <Text variant="caption" color="secondary">
+            This is how the widget looks and behaves for guests. Embedding it on your own site is
+            coming soon.
+          </Text>
         </Stack>
       </section>
 
@@ -231,23 +239,25 @@ export function BookingWidgetDemoPage() {
       {/* Embed code */}
       <section>
         <Stack gap="md">
-          <Text variant="label" color="primary">
-            Embed Code
-          </Text>
+          <div className={styles.sectionHeading}>
+            <Text variant="label" color="primary">
+              Embed Code
+            </Text>
+            <Badge variant="accent" size="sm">
+              Coming soon
+            </Badge>
+          </div>
 
           <Card variant="flat" className={styles.codeCard} data-testid="embed-coming-soon">
             <Stack gap="md">
               <Alert variant="info">
-                The embeddable widget is currently in development. Embed code will be available here
-                once the widget is released.
+                Embedding the booking widget is coming soon. The snippet below is an example of what
+                you will add to your site once the widget launches — it is not functional yet.
               </Alert>
               <div className={styles.codeHeader}>
                 <Text variant="caption" color="tertiary">
-                  Preview (Coming Soon)
+                  Example snippet (not functional yet)
                 </Text>
-                <Button variant="ghost" size="sm" onClick={handleCopy}>
-                  {copied ? "Copied!" : "Copy"}
-                </Button>
               </div>
               <div className={styles.codeBlock}>
                 <pre className={styles.codeBlockPre}>
