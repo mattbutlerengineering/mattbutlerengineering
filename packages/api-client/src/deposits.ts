@@ -14,11 +14,13 @@ export interface CreateDepositRequest {
 export type DepositTransition = "capture" | "refund" | "forfeit";
 
 /**
- * Staff-only, money-moving deposit actions. Each method owns its path, POSTs to
- * the back-office `/api/v1/deposits` surface, and unwraps + validates the
- * `{ data: Deposit }` envelope behind the seam. `capture`, `refund`, and
- * `forfeit` are named conveniences over the generic `transition(id, action)`,
- * mirroring the server's shared transition handler.
+ * Deposit resource: the single seam for reading and money-moving a
+ * reservation's deposit. `create` collects a deposit and `get` reads one back;
+ * `capture`, `refund`, and `forfeit` are named conveniences over the generic
+ * `transition(id, action)`, mirroring the server's shared transition handler.
+ * Each method owns its path, targets the back-office `/api/v1/deposits`
+ * surface, and unwraps + validates the `{ data: Deposit }` envelope behind the
+ * seam.
  */
 export class DepositsClient {
   constructor(private client: ApiClient) {}
@@ -28,6 +30,13 @@ export class DepositsClient {
    */
   async create(data: CreateDepositRequest): Promise<Deposit> {
     return this.client.postOne<Deposit>(DEPOSIT_BASE_PATH, data, DepositSchema);
+  }
+
+  /**
+   * Read a single deposit by id.
+   */
+  async get(id: string): Promise<Deposit> {
+    return this.client.getOne<Deposit>(`${DEPOSIT_BASE_PATH}/${id}`, undefined, DepositSchema);
   }
 
   /**

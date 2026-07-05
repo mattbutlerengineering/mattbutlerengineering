@@ -1,13 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
+import { createApiClient } from "@mbe/api-client";
 import { StaffDepositSection } from "./StaffDepositSection.js";
-import { useApiClient } from "../../hooks/useApiClient.js";
+import { RESERVATIONS_QUERY_KEY } from "../../hooks/useReservations.js";
 import type { Deposit } from "@mbe/types";
 
+/* ── Mock transport ─────────────────────────────────── */
+
+// The component creates deposits through the real typed `api.deposits` resource;
+// only the HTTP transport is stubbed, so the create runs end-to-end against the
+// api-client mock transport rather than a hand-built resource stub.
+const mockFetch = vi.fn<typeof fetch>();
+vi.stubGlobal("fetch", mockFetch);
+
 vi.mock("../../hooks/useApiClient.js", () => ({
-  useApiClient: vi.fn(),
+  useApiClient: () => createApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 }),
 }));
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({
@@ -82,83 +99,92 @@ const mockDeposit: Deposit = {
   updatedAt: "2026-05-26T00:00:00Z",
 };
 
+interface RenderOptions {
+  existingDeposit?: Deposit | null;
+}
+
+function renderSection({ existingDeposit }: RenderOptions = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+  const utils = render(
+    <QueryClientProvider client={queryClient}>
+      <StaffDepositSection reservationId="res-1" existingDeposit={existingDeposit} />
+    </QueryClientProvider>
+  );
+  return { ...utils, invalidateSpy };
+}
+
 describe("StaffDepositSection", () => {
-  const defaultProps = {
-    reservationId: "res-1",
-  };
-
-  const mockApi = {
-    deposits: {
-      create: vi.fn(),
-    },
-    client: {
-      postOne: vi.fn(),
-    },
-  };
-
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useApiClient).mockReturnValue(mockApi as any);
+    mockFetch.mockReset();
   });
 
   it("shows collect deposit button when no existing deposit", () => {
-    render(<StaffDepositSection {...defaultProps} />);
+    renderSection();
     expect(screen.getByText("+ Collect Deposit")).toBeDefined();
   });
 
   it("shows existing deposit amount and status", () => {
-    render(<StaffDepositSection {...defaultProps} existingDeposit={mockDeposit} />);
+    renderSection({ existingDeposit: mockDeposit });
     expect(screen.getAllByText(/\$25\.00/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Authorized/)).toBeDefined();
   });
 
   it("shows deposit form when collect button clicked", () => {
-    render(<StaffDepositSection {...defaultProps} />);
+    renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
     expect(screen.getByTestId("amount-input")).toBeDefined();
   });
 
-  it("shows error for invalid amount", async () => {
-    render(<StaffDepositSection {...defaultProps} />);
+  it("shows error for invalid amount without touching the transport", () => {
+    renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
-    // Enter zero amount (passes the !amountInput check but fails validation)
+    // Enter zero amount (passes the !amountInput check but fails validation).
     const input = screen.getByTestId("amount-input");
     fireEvent.change(input, { target: { value: "0" } });
     fireEvent.click(screen.getByText("Create Deposit"));
     expect(screen.getByTestId("alert")).toBeDefined();
     expect(screen.getByText(/valid amount/i)).toBeDefined();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("creates deposit and shows it on success", async () => {
-    mockApi.deposits.create.mockResolvedValue({
-      ...mockDeposit,
-      status: "pending",
-      heldAt: null,
-    });
+  it("creates a deposit via api.deposits and invalidates the timeline query", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...mockDeposit, status: "pending", heldAt: null } })
+    );
 
-    render(<StaffDepositSection {...defaultProps} />);
+    const { invalidateSpy } = renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
 
     const input = screen.getByTestId("amount-input");
     fireEvent.change(input, { target: { value: "25" } });
     fireEvent.click(screen.getByText("Create Deposit"));
 
+    // Form closes once the create resolves — the created deposit surfaces to
+    // siblings through cache invalidation, not component-local state.
     await waitFor(() => {
-      expect(screen.getAllByText(/\$25\.00/).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId("amount-input")).toBeNull();
     });
-    expect(mockApi.deposits.create).toHaveBeenCalledWith({
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("https://api.test.com/api/v1/deposits");
+    expect(options?.method).toBe("POST");
+    expect(JSON.parse(options?.body as string)).toEqual({
       reservationId: "res-1",
       amountCents: 2500,
       currency: "usd",
     });
-    // Zero raw transport in the migrated site.
-    expect(mockApi.client.postOne).not.toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [RESERVATIONS_QUERY_KEY] });
   });
 
-  it("shows error when API call fails", async () => {
-    mockApi.deposits.create.mockRejectedValue(new Error("Network error"));
+  it("shows error when the deposit create fails", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Bad Request", message: "Card declined", statusCode: 400 }, 400)
+    );
 
-    render(<StaffDepositSection {...defaultProps} />);
+    const { invalidateSpy } = renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
 
     const input = screen.getByTestId("amount-input");
@@ -167,12 +193,14 @@ describe("StaffDepositSection", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("alert")).toBeDefined();
-      expect(screen.getByText(/Network error/)).toBeDefined();
+      expect(screen.getByText(/Card declined/)).toBeDefined();
     });
+    // A failed create must not invalidate the timeline cache.
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 
   it("hides form when cancel clicked", () => {
-    render(<StaffDepositSection {...defaultProps} />);
+    renderSection();
     fireEvent.click(screen.getByText("+ Collect Deposit"));
     expect(screen.getByTestId("amount-input")).toBeDefined();
     fireEvent.click(screen.getByText("Cancel"));
