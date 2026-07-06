@@ -106,6 +106,10 @@
       "types": "./dist/lib/components/DataList/index.d.ts",
       "import": "./dist/lib/components/DataList/index.js"
     },
+    "./DataTable": {
+      "types": "./dist/lib/components/DataTable/index.d.ts",
+      "import": "./dist/lib/components/DataTable/index.js"
+    },
     "./DepartureBoard": {
       "types": "./dist/lib/components/DepartureBoard/index.d.ts",
       "import": "./dist/lib/components/DepartureBoard/index.js"

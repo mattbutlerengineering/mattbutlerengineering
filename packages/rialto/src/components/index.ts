@@ -58,6 +58,7 @@ export * from "./Collapsible";
 export * from "./ConfirmDialog";
 export * from "./ContextMenu";
 export * from "./DataList";
+export * from "./DataTable";
 export * from "./Meter";
 export * from "./RadialGauge";
 export * from "./Navbar";

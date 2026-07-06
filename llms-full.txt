@@ -196,6 +196,18 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="DataTable">
+  <file path="packages/rialto/src/components/DataTable/DataTable.catalog.ts">
+    export const dataTableCatalogMeta = {
+      name: "DataTable",
+      description:
+        "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
+      charLimits: {
+        emptyMessage: 60,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="DepartureBoard">
   <file path="packages/rialto/src/components/DepartureBoard/DepartureBoard.catalog.ts">
     export const departureBoardCatalogMeta = {
@@ -17177,6 +17189,12 @@
         description:
           "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
       },
+      DataTable: {
+        name: "DataTable",
+        description:
+          "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
+        charLimits: { emptyMessage: 60 },
+      },
       DepartureBoard: {
         name: "DepartureBoard",
         description:
@@ -17370,6 +17388,13 @@
       DataList: z.object({
         orientation: z.enum(["horizontal", "vertical"]).optional(),
         striped: z.boolean().optional(),
+      }),
+      DataTable: z.object({
+        density: z.enum(["compact", "default", "spacious"]).optional(),
+        striped: z.boolean().optional(),
+        emptyMessage: z.string().max(60).optional(),
+        label: z.string().optional(),
+        selectionMode: z.enum(["multiple", "single"]).optional(),
       }),
       DepartureBoard: z.object({
         holdMs: z.number().optional(),

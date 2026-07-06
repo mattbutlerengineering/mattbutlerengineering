@@ -33,6 +33,7 @@ import {
   Checkbox,
   Combobox,
   DataList,
+  DataTable,
   DepartureBoard,
   Dialog,
   Divider,
@@ -269,6 +270,41 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         striped={props.striped}
       />
     ),
+
+    // DataTable mirrors Table but adds sorting + selection. Props are validated by
+    // the generated Zod schema before this renderer runs (see file header); the
+    // cast narrows the untyped props bag (mirrors IconButton, avoiding an `any`).
+    DataTable: ({ props }: { props: unknown }) => {
+      const p = props as {
+        columns?: {
+          key: string;
+          header: string;
+          sortable?: boolean;
+          align?: "left" | "center" | "right";
+          width?: string;
+          rowHeader?: boolean;
+        }[];
+        data?: Record<string, unknown>[];
+        rowKey?: (row: Record<string, unknown>) => string | number;
+        density?: "compact" | "default" | "spacious";
+        striped?: boolean;
+        emptyMessage?: string;
+        label?: string;
+        selectionMode?: "single" | "multiple";
+      };
+      return (
+        <DataTable
+          columns={p.columns ?? []}
+          data={p.data ?? []}
+          rowKey={p.rowKey ?? ((row) => String(row.id ?? ""))}
+          density={p.density}
+          striped={p.striped}
+          emptyMessage={p.emptyMessage}
+          label={p.label}
+          selectionMode={p.selectionMode}
+        />
+      );
+    },
 
     DataList: ({ props }: any) => (
       <DataList items={props.items ?? []} orientation={props.orientation} striped={props.striped} />

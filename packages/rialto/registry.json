@@ -14313,6 +14313,59 @@
       "slots": []
     },
     {
+      "name": "DataTable",
+      "description": "Registry documentation type — concrete version of DataTableProps for AI tooling.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "columns",
+          "type": "unknown[]",
+          "required": true
+        },
+        {
+          "name": "data",
+          "type": "unknown[]",
+          "required": true
+        },
+        {
+          "name": "rowKey",
+          "type": "(row: unknown) => RowKey",
+          "required": true
+        },
+        {
+          "name": "density",
+          "type": "\"compact\" | \"default\" | \"spacious\" | undefined",
+          "required": false
+        },
+        {
+          "name": "striped",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "emptyMessage",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "selectionMode",
+          "type": "SelectionMode | undefined",
+          "required": false
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "DepartureBoard",
       "description": "A split-flap departure board that flips through a sequence of headlines or\nvalue-props — the signature marketing hero. It composes \n{@link \nSplitFlap \n}\n\n(no fork) for the mechanical flap animation, cycling the board through each\nphrase on a timer.\n\nRespecting `prefers-reduced-motion`, it renders the current phrase as plain\nstatic text and stops auto-advancing. In every mode the current phrase is\nexposed to assistive technology while the decorative flap glyphs are hidden.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -45354,6 +45407,19 @@
           "reason": "Form field label; above slider track"
         }
       ]
+    },
+    {
+      "name": "SortDirection",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "SortState",
+      "description": "The active sort: which column `key`, and the `direction`. `null` means unsorted.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
     },
     {
       "name": "Spinner",

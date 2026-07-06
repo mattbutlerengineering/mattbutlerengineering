@@ -84,6 +84,13 @@ export const generatedSchemas = {
     orientation: z.enum(["horizontal", "vertical"]).optional(),
     striped: z.boolean().optional(),
   }),
+  DataTable: z.object({
+    density: z.enum(["compact", "default", "spacious"]).optional(),
+    striped: z.boolean().optional(),
+    emptyMessage: z.string().max(60).optional(),
+    label: z.string().optional(),
+    selectionMode: z.enum(["multiple", "single"]).optional(),
+  }),
   DepartureBoard: z.object({
     holdMs: z.number().optional(),
     flipInterval: z.number().optional(),
