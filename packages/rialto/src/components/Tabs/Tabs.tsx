@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useId,
   useState,
   useRef,
   useEffect,
@@ -62,6 +63,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
     const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const listRef = useRef<HTMLDivElement>(null);
     const shouldReduceMotion = useReducedMotion();
+    const baseId = useId();
 
     const updateIndicator = useCallback(() => {
       const el = tabRefs.current.get(activeId);
@@ -131,9 +133,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
                 else tabRefs.current.delete(tab.id);
               }}
               role="tab"
-              id={`tab-${tab.id}`}
+              id={`${baseId}-tab-${tab.id}`}
               aria-selected={tab.id === activeId}
-              aria-controls={`panel-${tab.id}`}
+              aria-controls={`${baseId}-panel-${tab.id}`}
               tabIndex={tab.id === activeId ? 0 : -1}
               aria-disabled={tab.disabled || undefined}
               className={cn(styles.tab, tab.id === activeId && styles.tabActive)}
@@ -158,8 +160,8 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
             key={activeTab.id}
             className={styles.panel}
             role="tabpanel"
-            id={`panel-${activeTab.id}`}
-            aria-labelledby={`tab-${activeTab.id}`}
+            id={`${baseId}-panel-${activeTab.id}`}
+            aria-labelledby={`${baseId}-tab-${activeTab.id}`}
           >
             {activeTab.content}
           </div>

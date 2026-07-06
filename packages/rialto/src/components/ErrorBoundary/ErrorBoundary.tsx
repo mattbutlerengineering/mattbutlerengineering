@@ -1,6 +1,6 @@
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { Heading } from "../Heading/Heading";
+import { Heading, type HeadingLevel } from "../Heading/Heading";
 import styles from "./ErrorBoundary.module.css";
 
 export interface ErrorBoundaryProps {
@@ -10,6 +10,8 @@ export interface ErrorBoundaryProps {
   readonly fallback?: ReactNode;
   /** Optional callback invoked when an error is caught. Use to report errors to external services. */
   readonly onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /** Semantic heading level for the default fallback title. @default 1 */
+  readonly headingLevel?: HeadingLevel;
 }
 
 interface ErrorBoundaryState {
@@ -50,7 +52,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       return (
         <div className={styles.container} role="alert">
-          <Heading level={1} size={3} className={styles.heading}>
+          <Heading level={this.props.headingLevel ?? 1} size={3} className={styles.heading}>
             Something went wrong
           </Heading>
           <p className={styles.message}>

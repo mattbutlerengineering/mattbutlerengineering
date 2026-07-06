@@ -77,21 +77,21 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
 
   return (
     <div className={styles.linkWrapper}>
-      <a
-        href={link.href || "#"}
-        className={styles.link}
-        style={{ paddingInlineStart: `${level * 16 + 12}px` }}
-      >
-        {link.icon && <span className={styles.linkIcon}>{link.icon}</span>}
-        <span className={styles.linkLabel}>{link.label}</span>
-        {link.badge !== undefined && <span className={styles.linkBadge}>{link.badge}</span>}
+      <div className={styles.linkRow}>
+        <a
+          href={link.href || "#"}
+          className={styles.link}
+          style={{ paddingInlineStart: `${level * 16 + 12}px` }}
+        >
+          {link.icon && <span className={styles.linkIcon}>{link.icon}</span>}
+          <span className={styles.linkLabel}>{link.label}</span>
+          {link.badge !== undefined && <span className={styles.linkBadge}>{link.badge}</span>}
+        </a>
         {hasChildren && (
           <motion.button
+            type="button"
             className={styles.chevronButton}
-            onClick={(e) => {
-              e.preventDefault();
-              setIsOpen(!isOpen);
-            }}
+            onClick={() => setIsOpen(!isOpen)}
             aria-expanded={isOpen}
             aria-label="Toggle submenu"
           >
@@ -111,7 +111,7 @@ function NavbarLinkItem({ link, level }: NavbarLinkItemProps) {
             </motion.svg>
           </motion.button>
         )}
-      </a>
+      </div>
 
       {hasChildren && isOpen && (
         <div className={styles.linkChildren}>

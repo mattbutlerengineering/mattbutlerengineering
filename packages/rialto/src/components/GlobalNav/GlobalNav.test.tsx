@@ -63,7 +63,11 @@ describe("GlobalNav", () => {
   it("mobile menu is hidden by default", () => {
     render(<GlobalNav currentApp="marketing" />);
 
-    expect(document.getElementById("global-nav-mobile-menu")).toBeNull();
+    const menuId = screen
+      .getByRole("button", { name: "Open menu" })
+      .getAttribute("aria-controls");
+    expect(menuId).toBeTruthy();
+    expect(document.getElementById(menuId!)).toBeNull();
   });
 
   it("toggles mobile menu on hamburger click", async () => {
@@ -71,31 +75,36 @@ describe("GlobalNav", () => {
     render(<GlobalNav currentApp="marketing" />);
 
     const hamburger = screen.getByRole("button", { name: "Open menu" });
+    const menuId = hamburger.getAttribute("aria-controls")!;
     expect(hamburger.getAttribute("aria-expanded")).toBe("false");
 
     // Open
     await user.click(hamburger);
-    expect(document.getElementById("global-nav-mobile-menu")).toBeTruthy();
+    expect(document.getElementById(menuId)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
       "true"
     );
 
     // Close
     await user.click(screen.getByRole("button", { name: "Close menu" }));
-    expect(document.getElementById("global-nav-mobile-menu")).toBeNull();
+    expect(document.getElementById(menuId)).toBeNull();
   });
 
   it("closes mobile menu on Escape key", async () => {
     const user = userEvent.setup();
     render(<GlobalNav currentApp="marketing" />);
 
+    const menuId = screen
+      .getByRole("button", { name: "Open menu" })
+      .getAttribute("aria-controls")!;
+
     // Open menu
     await user.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(document.getElementById("global-nav-mobile-menu")).toBeTruthy();
+    expect(document.getElementById(menuId)).toBeTruthy();
 
     // Press Escape
     await user.keyboard("{Escape}");
-    expect(document.getElementById("global-nav-mobile-menu")).toBeNull();
+    expect(document.getElementById(menuId)).toBeNull();
   });
 
   it("has accessible navigation landmark", () => {
@@ -155,5 +164,15 @@ describe("GlobalNav", () => {
     render(<GlobalNav currentApp="marketing" theme="light" onThemeToggle={() => {}} />);
 
     expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+  });
+
+  it("generates unique mobile-menu ids across instances (useId)", () => {
+    const { container: a } = render(<GlobalNav currentApp="marketing" />);
+    const { container: b } = render(<GlobalNav currentApp="marketing" />);
+    const idA = a.querySelector("button[aria-controls]")?.getAttribute("aria-controls");
+    const idB = b.querySelector("button[aria-controls]")?.getAttribute("aria-controls");
+    expect(idA).toBeTruthy();
+    expect(idB).toBeTruthy();
+    expect(idA).not.toBe(idB);
   });
 });

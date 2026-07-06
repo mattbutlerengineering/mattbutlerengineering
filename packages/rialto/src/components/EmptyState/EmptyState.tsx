@@ -1,5 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
+import { Heading, type HeadingLevel } from "../Heading/Heading";
 import styles from "./EmptyState.module.css";
 
 /* ── Default icon — empty box line-art ── */
@@ -40,6 +41,8 @@ export interface EmptyStateProps extends HTMLAttributes<HTMLDivElement> {
   icon?: ReactNode;
   /** Heading text */
   heading?: string;
+  /** Semantic heading level for the heading, routed through the Heading primitive. @default 2 */
+  headingLevel?: HeadingLevel;
   /** Description text below the heading */
   description?: string;
   /** Action slot — typically a Button */
@@ -52,7 +55,7 @@ export interface EmptyStateProps extends HTMLAttributes<HTMLDivElement> {
 
 /* ── Component ──────────────────────────────── */
 export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function EmptyState(
-  { icon, heading, description, action, variant = "flat", size = "md", className = "", ...rest },
+  { icon, heading, headingLevel = 2, description, action, variant = "flat", size = "md", className = "", ...rest },
   ref
 ) {
   const resolvedIcon = icon === undefined ? DefaultIcon : icon;
@@ -68,7 +71,11 @@ export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function E
     <div ref={ref} className={classes} {...rest}>
       {resolvedIcon && <div className={styles.icon}>{resolvedIcon}</div>}
 
-      {heading && <p className={styles.heading}>{heading}</p>}
+      {heading && (
+        <Heading level={headingLevel} size={6} className={styles.heading}>
+          {heading}
+        </Heading>
+      )}
 
       {description && <p className={styles.description}>{description}</p>}
 

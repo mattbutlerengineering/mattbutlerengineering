@@ -142,6 +142,28 @@ describe("Tag", () => {
         await axe(container, { rules: { "color-contrast": { enabled: false } } })
       ).toHaveNoViolations();
     });
+
+    it("has no a11y violations for interactive + dismissible tag", async () => {
+      const { container } = render(
+        <Tag onClick={() => {}} dismissible onDismiss={() => {}}>
+          Filter
+        </Tag>
+      );
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
+    });
+
+    it("does not nest the dismiss button inside the interactive tag button", () => {
+      render(
+        <Tag onClick={() => {}} dismissible onDismiss={() => {}}>
+          Filter
+        </Tag>
+      );
+      const dismiss = screen.getByRole("button", { name: /remove filter/i });
+      const main = screen.getByRole("button", { name: "Filter" });
+      expect(main.contains(dismiss)).toBe(false);
+    });
   });
 });
 
