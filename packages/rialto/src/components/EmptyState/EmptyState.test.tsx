@@ -42,6 +42,19 @@ describe("EmptyState", () => {
     });
   });
 
+  describe("heading semantics", () => {
+    it("renders the heading as an h2 by default", () => {
+      render(<EmptyState heading="No results" />);
+      expect(screen.getByRole("heading", { level: 2, name: "No results" })).toBeInTheDocument();
+    });
+
+    it("renders the heading at the level given by headingLevel", () => {
+      render(<EmptyState heading="No results" headingLevel={3} />);
+      expect(screen.getByRole("heading", { level: 3, name: "No results" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    });
+  });
+
   describe("variant", () => {
     it("does not apply elevated class by default (flat variant)", () => {
       const { container } = render(<EmptyState heading="Empty" />);
@@ -113,7 +126,7 @@ describe("EmptyState", () => {
 
     it("does not render description paragraph when description is absent", () => {
       const { container } = render(<EmptyState heading="Title" />);
-      expect(container.querySelectorAll("p")).toHaveLength(1);
+      expect(container.querySelector("[class*='description']")).not.toBeInTheDocument();
     });
 
     it("does not render action wrapper when action is absent", () => {
