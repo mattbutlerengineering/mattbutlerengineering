@@ -44,6 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading,
       loadingText,
       onClick,
+      type = "button",
       ...props
     },
     ref
@@ -63,6 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <motion.button
         ref={ref}
+        type={type}
         className={classes}
         disabled={isDisabled}
         aria-busy={isLoading || undefined}

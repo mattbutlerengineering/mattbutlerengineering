@@ -128,5 +128,18 @@ describe("Navbar", () => {
         await axe(container, { rules: { "color-contrast": { enabled: false } } })
       ).toHaveNoViolations();
     });
+
+    it("has no a11y violations with nested (expandable) links", async () => {
+      const { container } = render(<Navbar links={nestedLinks} />);
+      expect(
+        await axe(container, { rules: { "color-contrast": { enabled: false } } })
+      ).toHaveNoViolations();
+    });
+
+    it("does not nest the submenu toggle inside the link anchor", () => {
+      render(<Navbar links={nestedLinks} />);
+      const toggle = screen.getByRole("button", { name: /toggle submenu/i });
+      expect(toggle.closest("a")).toBeNull();
+    });
   });
 });

@@ -112,10 +112,10 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(func
       description={description}
       footer={
         <>
-          <button ref={cancelRef} className={cn(styles.button, styles.cancel)} onClick={onCancel}>
+          <button type="button" ref={cancelRef} className={cn(styles.button, styles.cancel)} onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button ref={confirmRef} className={confirmClass} onClick={onConfirm}>
+          <button type="button" ref={confirmRef} className={confirmClass} onClick={onConfirm}>
             {confirmLabel}
           </button>
         </>

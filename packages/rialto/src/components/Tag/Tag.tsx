@@ -57,6 +57,48 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
       className
     );
 
+    const hoverAnimation = shouldReduceMotion
+      ? undefined
+      : { scale: boop.scale, transition: boop.transition };
+
+    // Interactive + dismissible: render the clickable label and the dismiss
+    // control as SIBLINGS inside a non-interactive chip wrapper so we never
+    // nest a <button> inside a <button>.
+    if (isInteractive && dismissible) {
+      return (
+        <span className={classes}>
+          <motion.button
+            ref={ref as React.Ref<HTMLButtonElement>}
+            className={styles.labelButton}
+            onClick={onClick}
+            type="button"
+            whileHover={hoverAnimation}
+          >
+            {icon && <span className={styles.icon}>{icon}</span>}
+            {children}
+          </motion.button>
+          <button
+            className={styles.dismiss}
+            onClick={onDismiss}
+            aria-label={`Remove ${children}`}
+            type="button"
+          >
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M1 1l6 6M7 1l-6 6" />
+            </svg>
+          </button>
+        </span>
+      );
+    }
+
     if (isInteractive) {
       return (
         <motion.button
@@ -64,35 +106,10 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
           className={classes}
           onClick={onClick}
           type="button"
-          whileHover={
-            shouldReduceMotion ? undefined : { scale: boop.scale, transition: boop.transition }
-          }
+          whileHover={hoverAnimation}
         >
           {icon && <span className={styles.icon}>{icon}</span>}
           {children}
-          {dismissible && (
-            <button
-              className={styles.dismiss}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDismiss?.();
-              }}
-              aria-label={`Remove ${children}`}
-              type="button"
-            >
-              <svg
-                width="8"
-                height="8"
-                viewBox="0 0 8 8"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <path d="M1 1l6 6M7 1l-6 6" />
-              </svg>
-            </button>
-          )}
         </motion.button>
       );
     }
