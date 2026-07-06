@@ -30,6 +30,19 @@ describe("Card", () => {
     });
   });
 
+  describe("heading semantics", () => {
+    it("renders the title as an h3 by default", () => {
+      render(<Card title="Session Data" />);
+      expect(screen.getByRole("heading", { level: 3, name: "Session Data" })).toBeInTheDocument();
+    });
+
+    it("renders the title at the level given by headingLevel", () => {
+      render(<Card title="Session Data" headingLevel={2} />);
+      expect(screen.getByRole("heading", { level: 2, name: "Session Data" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    });
+  });
+
   describe("variants", () => {
     it("defaults to elevated variant", () => {
       const { container } = render(<Card>Elevated</Card>);
