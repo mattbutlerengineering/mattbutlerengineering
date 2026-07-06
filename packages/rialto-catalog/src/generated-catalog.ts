@@ -71,6 +71,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
     charLimits: { label: 30, description: 80 },
   },
+  Combobox: {
+    name: "Combobox",
+    description:
+      "Editable, filterable listbox for picking from many options. Always provide a label and options array. Use for single selection with type-ahead, or set multiple for tag-style multi-select with removable chips. Supports async/loading and empty states announced to screen readers. Prefer over Select when users benefit from typing to filter a long list.",
+    charLimits: { label: 40 },
+  },
   DataList: {
     name: "DataList",
     description:

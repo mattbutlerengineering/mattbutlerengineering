@@ -12534,6 +12534,139 @@
       ]
     },
     {
+      "name": "Combobox",
+      "description": "Combobox — an editable, filterable listbox built on the shared `useCombobox`\nstate machine. Supports single selection (Autocomplete-style) and multiple\nselection with removable chips, plus async loading and empty states that are\nannounced through a polite live region.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "options",
+          "type": "ComboboxOption[]",
+          "required": true
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "hint",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Marks the field invalid (aria-invalid) and wires the error into the field chrome."
+        },
+        {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "showOptional",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true and not required, shows \"(optional)\" after the label."
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "id",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "multiple",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Enables multiple selection with removable chips."
+        },
+        {
+          "name": "value",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Selected value (single mode, controlled)."
+        },
+        {
+          "name": "onChange",
+          "type": "((value: string) => void) | undefined",
+          "required": false,
+          "description": "Fires with the chosen value (single mode)."
+        },
+        {
+          "name": "values",
+          "type": "string[] | undefined",
+          "required": false,
+          "description": "Selected values (multi mode, controlled)."
+        },
+        {
+          "name": "onValuesChange",
+          "type": "((values: string[]) => void) | undefined",
+          "required": false,
+          "description": "Fires with the next selection array (multi mode)."
+        },
+        {
+          "name": "inputValue",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Search text (controlled). Provide with `onInputChange` for async filtering."
+        },
+        {
+          "name": "onInputChange",
+          "type": "((value: string) => void) | undefined",
+          "required": false,
+          "description": "Fires whenever the search text changes."
+        },
+        {
+          "name": "filter",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, options are filtered internally by a case-insensitive label\nsubstring match. Set to false for async/server-side filtering where the\nconsumer supplies already-filtered `options`. Defaults to true."
+        },
+        {
+          "name": "loading",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Shows a loading row in the listbox and announces it."
+        },
+        {
+          "name": "loadingText",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Text shown (and announced) while `loading`."
+        },
+        {
+          "name": "emptyText",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Text shown when no options match."
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "ComboboxOption",
+      "description": "A single selectable option. `value` is the stable identity, `label` is the\ndisplay text and type-ahead target, and `disabled` options are skipped.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "CommandItem",
       "description": "A single entry in the command palette's item list.\nItems with the same `group` value are visually grouped under a shared header.",
       "importPath": "@mattbutlerengineering/rialto",

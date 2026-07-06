@@ -1,0 +1,226 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.label {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
+/* ── Control (chips + input) ─────────────────── */
+.control {
+  composes: recessed from "../../styles/surfaces.module.css";
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  min-width: 200px;
+  padding: var(--rialto-space-2xs) var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  cursor: text;
+  transition:
+    border-color 0.15s var(--rialto-ease-precision),
+    box-shadow 0.15s var(--rialto-ease-precision);
+}
+
+.control:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.control[data-open="true"] {
+  border-color: var(--rialto-accent);
+}
+
+.control[data-disabled="true"] {
+  filter: saturate(0.6) brightness(0.97);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.input {
+  flex: 1;
+  min-width: 60px;
+  padding: var(--rialto-space-2xs) 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  color: var(--rialto-text-primary);
+}
+
+.input::placeholder {
+  color: var(--rialto-text-tertiary);
+}
+
+/* ── Chips ───────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  max-width: 100%;
+  padding: 2px var(--rialto-space-2xs) 2px var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-accent-muted);
+  color: var(--rialto-text-primary);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  line-height: 1.4;
+}
+
+.chipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipRemove {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--rialto-radius-round);
+  background: none;
+  color: var(--rialto-text-secondary);
+  cursor: pointer;
+  transition: color 0.1s var(--rialto-ease-precision);
+}
+
+.chipRemove:hover {
+  color: var(--rialto-text-primary);
+}
+
+/* ── Dropdown ────────────────────────────────── */
+.dropdown {
+  composes: glass from "../../styles/surfaces.module.css";
+
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  z-index: 100;
+  margin-top: var(--rialto-space-2xs);
+  padding: var(--rialto-space-2xs);
+  border-radius: var(--rialto-radius-soft);
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:global([data-theme="dark"]) .dropdown {
+  background: var(--rialto-surface-elevated);
+}
+
+/* ── Option ──────────────────────────────────── */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  cursor: pointer;
+  transition: background 0.1s var(--rialto-ease-precision);
+}
+
+.option:hover,
+.optionActive {
+  background: var(--rialto-accent-muted);
+}
+
+.option[data-selected="true"] {
+  font-weight: var(--rialto-weight-medium);
+}
+
+.option[data-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.check {
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--rialto-accent);
+  opacity: 0;
+}
+
+.option[data-selected="true"] .check {
+  opacity: 1;
+}
+
+/* ── Status rows (loading / empty) ───────────── */
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-sm);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  text-align: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--rialto-border);
+  border-top-color: var(--rialto-accent);
+  border-radius: 50%;
+  animation: rialto-combobox-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+@keyframes rialto-combobox-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Visually hidden live region ─────────────── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Field chrome ────────────────────────────── */
+.hint {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.required {
+  color: var(--rialto-error);
+}
+
+.optional {
+  color: var(--rialto-text-tertiary);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-regular);
+}

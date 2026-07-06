@@ -42,6 +42,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "ChatPanel",
   "Checkbox",
   "Collapsible",
+  "Combobox",
   "CommandPalette",
   "ConfirmDialog",
   "ContextMenu",

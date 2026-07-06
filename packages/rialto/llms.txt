@@ -114,6 +114,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Combobox">
+  <file path="src/components/Combobox/Combobox.catalog.ts">
+    <item priority="high">
+      export const comboboxCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="DataList">
   <file path="src/components/DataList/DataList.catalog.ts">
     <item priority="high">

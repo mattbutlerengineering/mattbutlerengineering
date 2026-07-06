@@ -152,6 +152,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
       import("../pages/forms/AutocompletePage").then((m) => ({ default: m.AutocompletePage })),
   },
   {
+    id: "combobox",
+    label: "Combobox",
+    category: "Forms",
+    path: "/components/combobox",
+    load: () => import("../pages/forms/ComboboxPage").then((m) => ({ default: m.ComboboxPage })),
+  },
+  {
     id: "input-group",
     label: "Input Group",
     category: "Forms",

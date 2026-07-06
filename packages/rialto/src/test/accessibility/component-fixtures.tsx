@@ -36,6 +36,7 @@ import {
 // which is not built in the test environment. Axe coverage lives in ChatPanel.test.tsx.
 import { Checkbox } from "../../components/Checkbox/Checkbox";
 import { Collapsible } from "../../components/Collapsible/Collapsible";
+import { Combobox } from "../../components/Combobox/Combobox";
 import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
@@ -126,6 +127,7 @@ export type BarrelExportName =
   | "ChatPanel"
   | "Checkbox"
   | "Collapsible"
+  | "Combobox"
   | "CommandPalette"
   | "ConfirmDialog"
   | "ContextMenu"
@@ -290,6 +292,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Collapsible: {
     element: <Collapsible trigger="Details">Hidden content</Collapsible>,
+  },
+
+  Combobox: {
+    element: (
+      <Combobox
+        label="Fruit"
+        options={[
+          { label: "Apple", value: "apple" },
+          { label: "Banana", value: "banana" },
+        ]}
+      />
+    ),
   },
 
   CommandPalette: {

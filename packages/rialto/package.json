@@ -86,6 +86,10 @@
       "types": "./dist/lib/components/Collapsible/index.d.ts",
       "import": "./dist/lib/components/Collapsible/index.js"
     },
+    "./Combobox": {
+      "types": "./dist/lib/components/Combobox/index.d.ts",
+      "import": "./dist/lib/components/Combobox/index.js"
+    },
     "./CommandPalette": {
       "types": "./dist/lib/components/CommandPalette/index.d.ts",
       "import": "./dist/lib/components/CommandPalette/index.js"

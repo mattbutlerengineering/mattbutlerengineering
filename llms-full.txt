@@ -161,6 +161,18 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Combobox">
+  <file path="packages/rialto/src/components/Combobox/Combobox.catalog.ts">
+    export const comboboxCatalogMeta = {
+      name: "Combobox",
+      description:
+        "Editable, filterable listbox for picking from many options. Always provide a label and options array. Use for single selection with type-ahead, or set multiple for tag-style multi-select with removable chips. Supports async/loading and empty states announced to screen readers. Prefer over Select when users benefit from typing to filter a long list.",
+      charLimits: {
+        label: 40,
+      },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="CookieConsent">
   <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
     export interface CookiePreferences {
@@ -17154,6 +17166,12 @@
           "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label. Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
         charLimits: { label: 30, description: 80 },
       },
+      Combobox: {
+        name: "Combobox",
+        description:
+          "Editable, filterable listbox for picking from many options. Always provide a label and options array. Use for single selection with type-ahead, or set multiple for tag-style multi-select with removable chips. Supports async/loading and empty states announced to screen readers. Prefer over Select when users benefit from typing to filter a long list.",
+        charLimits: { label: 40 },
+      },
       DataList: {
         name: "DataList",
         description:
@@ -17332,6 +17350,22 @@
         disabled: z.boolean().optional(),
         disabledReason: z.string().optional(),
         description: z.string().max(80).optional(),
+      }),
+      Combobox: z.object({
+        label: z.string().max(40).optional(),
+        hint: z.string().optional(),
+        error: z.boolean().optional(),
+        required: z.boolean().optional(),
+        showOptional: z.boolean().optional(),
+        placeholder: z.string().optional(),
+        disabled: z.boolean().optional(),
+        multiple: z.boolean().optional(),
+        value: z.string().optional(),
+        inputValue: z.string().optional(),
+        filter: z.boolean().optional(),
+        loading: z.boolean().optional(),
+        loadingText: z.string().optional(),
+        emptyText: z.string().optional(),
       }),
       DataList: z.object({
         orientation: z.enum(["horizontal", "vertical"]).optional(),
