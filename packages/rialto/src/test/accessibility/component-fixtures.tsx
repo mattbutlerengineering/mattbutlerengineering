@@ -41,6 +41,7 @@ import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { DataList } from "../../components/DataList/DataList";
+import { DataTable } from "../../components/DataTable/DataTable";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
@@ -132,6 +133,7 @@ export type BarrelExportName =
   | "ConfirmDialog"
   | "ContextMenu"
   | "DataList"
+  | "DataTable"
   | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
@@ -343,6 +345,25 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
           { label: "Name", value: "Rialto" },
           { label: "Version", value: "0.1.0" },
         ]}
+      />
+    ),
+  },
+
+  DataTable: {
+    element: (
+      <DataTable
+        label="Drivers"
+        columns={[
+          { key: "name", header: "Driver", sortable: true, rowHeader: true },
+          { key: "points", header: "Points", sortable: true, align: "right" },
+        ]}
+        data={[
+          { name: "Hamilton", points: 347 },
+          { name: "Verstappen", points: 395 },
+        ]}
+        rowKey={(r) => r.name}
+        selectionMode="multiple"
+        selectionLabel={(r) => `Select ${r.name}`}
       />
     ),
   },

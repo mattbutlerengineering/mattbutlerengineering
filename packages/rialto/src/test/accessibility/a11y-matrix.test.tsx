@@ -47,6 +47,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "ConfirmDialog",
   "ContextMenu",
   "DataList",
+  "DataTable",
   "DepartureBoard",
   "Dialog",
   "DisabledTooltip",

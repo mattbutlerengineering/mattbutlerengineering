@@ -82,6 +82,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
   },
+  DataTable: {
+    name: "DataTable",
+    description:
+      "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
+    charLimits: { emptyMessage: 60 },
+  },
   DepartureBoard: {
     name: "DepartureBoard",
     description:

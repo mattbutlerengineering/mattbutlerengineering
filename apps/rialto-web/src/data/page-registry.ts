@@ -182,6 +182,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/data/TablePage").then((m) => ({ default: m.TablePage })),
   },
   {
+    id: "data-table",
+    label: "DataTable",
+    category: "Data Display",
+    path: "/components/data-table",
+    load: () => import("../pages/data/DataTablePage").then((m) => ({ default: m.DataTablePage })),
+  },
+  {
     id: "badge",
     label: "Badge",
     category: "Data Display",

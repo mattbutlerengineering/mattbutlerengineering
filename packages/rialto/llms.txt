@@ -128,6 +128,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="DataTable">
+  <file path="src/components/DataTable/DataTable.catalog.ts">
+    <item priority="high">
+      export const dataTableCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="DepartureBoard">
   <file path="src/components/DepartureBoard/DepartureBoard.catalog.ts">
     <item priority="high">
