@@ -8,6 +8,7 @@ export * from "./Button";
 export * from "./IconButton";
 export * from "./Card";
 export * from "./Checkbox";
+export * from "./Combobox";
 export * from "./CommandPalette";
 export * from "./Dialog";
 export * from "./Divider";

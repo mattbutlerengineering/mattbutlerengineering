@@ -114,6 +114,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Combobox">
+  <file path="packages/rialto/src/components/Combobox/Combobox.catalog.ts">
+    <item priority="high">
+      export const comboboxCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="CookieConsent">
   <file path="apps/rialto-web/src/components/CookieConsent/useCookieConsent.ts">
     <item priority="low">

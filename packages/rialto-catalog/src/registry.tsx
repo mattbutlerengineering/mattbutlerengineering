@@ -31,6 +31,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Combobox,
   DataList,
   DepartureBoard,
   Dialog,
@@ -161,6 +162,30 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         onChange={() => emit("change")}
       />
     ),
+
+    // Combobox mirrors Select but adds multi-select. Props are validated by the
+    // generated Zod schema before this renderer runs (see file header); the cast
+    // narrows the untyped props bag (mirrors IconButton, avoiding an `any`).
+    Combobox: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
+      const p = props as {
+        label?: string;
+        options?: { value: string; label: string; disabled?: boolean }[];
+        placeholder?: string;
+        value?: string;
+        multiple?: boolean;
+      };
+      return (
+        <Combobox
+          label={p.label}
+          options={p.options ?? []}
+          placeholder={p.placeholder}
+          value={p.value}
+          multiple={p.multiple}
+          onChange={() => emit("change")}
+          onValuesChange={() => emit("change")}
+        />
+      );
+    },
 
     Toggle: ({ props, emit }: any) => (
       <Toggle
