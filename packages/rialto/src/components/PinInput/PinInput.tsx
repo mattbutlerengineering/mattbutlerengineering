@@ -1,6 +1,5 @@
 import {
   forwardRef,
-  useId,
   useRef,
   useCallback,
   type KeyboardEvent,
@@ -12,6 +11,7 @@ import { Lock } from "lucide-react";
 import { spring } from "../../tokens/motion";
 import { cn, variantClass } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
+import { useField } from "../../hooks/useField";
 import styles from "./PinInput.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -37,6 +37,8 @@ export interface PinInputProps {
   label?: string;
   hint?: string;
   error?: boolean;
+  /** When true, the field is required; renders the required marker */
+  required?: boolean;
   disabled?: boolean;
   /** Explains why the pin input is disabled. Shown in a tooltip; requires `disabled` to be true. */
   disabledReason?: string;
@@ -57,6 +59,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
     label,
     hint,
     error = false,
+    required,
     disabled = false,
     disabledReason,
     value = "",
@@ -66,7 +69,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   },
   ref
 ) {
-  const id = useId();
+  const field = useField({ error, required, hint });
   const cellRefs = useRef<(HTMLInputElement | null)[]>([]);
   const shouldReduceMotion = useReducedMotion();
 
@@ -177,12 +180,16 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
         transition: spring,
       };
 
+  const complete = chars.length === length && chars.every((ch) => ch !== "");
+  const announcement = error && hint ? hint : complete ? "Code complete" : "";
+
   return (
     <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
       <div ref={ref} className={wrapperClasses} aria-disabled={disabled || undefined}>
         {label && (
-          <label id={`${id}-label`} className={styles.label}>
+          <label id={`${field.id}-label`} className={styles.label}>
             {label}
+            {field.requiredMarker}
             {disabled && disabledReason && (
               <Lock size={12} aria-hidden className={styles.lockIcon} />
             )}
@@ -192,8 +199,8 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
         <div
           className={styles.cells}
           role="group"
-          aria-labelledby={label ? `${id}-label` : undefined}
-          aria-describedby={hint ? `${id}-hint` : undefined}
+          aria-labelledby={label ? `${field.id}-label` : undefined}
+          aria-describedby={hint ? field.descriptionProps.id : undefined}
         >
           {chars.map((ch, i) => {
             const filled = ch !== "";
@@ -224,10 +231,11 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
         </div>
 
         {hint && (
-          <span id={`${id}-hint`} className={styles.hint}>
+          <span id={field.descriptionProps.id} className={styles.hint}>
             {hint}
           </span>
         )}
+        <span {...field.liveRegionProps}>{announcement}</span>
       </div>
     </DisabledTooltip>
   );

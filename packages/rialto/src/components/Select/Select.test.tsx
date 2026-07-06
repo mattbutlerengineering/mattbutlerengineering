@@ -232,3 +232,17 @@ describe("Select", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 });
+
+describe("Select — required marker + aria-live announcements", () => {
+  it("renders the required marker when required", () => {
+    render(<Select options={options} label="Country" required />);
+    expect(screen.getByText("*", { exact: false })).toBeInTheDocument();
+  });
+
+  it("announces the error hint via a polite status region", () => {
+    render(<Select options={options} error hint="Selection required" />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Selection required");
+  });
+});

@@ -29,3 +29,22 @@ describe("TextArea — readOnly + aria-disabled anti-pattern", () => {
     expect(textarea).not.toHaveAttribute("readonly");
   });
 });
+
+describe("TextArea — required marker + aria-live announcements", () => {
+  it("renders the required marker when required", () => {
+    render(<TextArea label="Bio" required />);
+    expect(screen.getByText("*", { exact: false })).toBeInTheDocument();
+  });
+
+  it("announces the character count via a polite status region", () => {
+    render(<TextArea label="Bio" maxLength={200} value="hello" onChange={() => {}} />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("5 of 200 characters");
+  });
+
+  it("announces the error hint when in error state", () => {
+    render(<TextArea label="Bio" error hint="Too long" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Too long");
+  });
+});

@@ -1,4 +1,5 @@
-import { useId } from "react";
+import { createElement, useId, type ReactElement } from "react";
+import styles from "./useField.module.css";
 
 /**
  * Options for the useField hook.
@@ -53,6 +54,17 @@ export interface FieldControlProps {
 }
 
 /**
+ * Props spread onto a visually-hidden live region that politely announces
+ * async field state (error appearance, counter changes, completion).
+ */
+export interface FieldLiveRegionProps {
+  readonly role: "status";
+  readonly "aria-live": "polite";
+  readonly "aria-atomic": true;
+  readonly className: string | undefined;
+}
+
+/**
  * Result returned by useField.
  */
 export interface UseFieldResult {
@@ -73,6 +85,17 @@ export interface UseFieldResult {
    * Always false when required=true.
    */
   readonly showOptional: boolean;
+  /**
+   * An `aria-hidden` required marker element (asterisk), or `null` when the
+   * field is not required. Owned by the hook so every field renders an
+   * identical marker.
+   */
+  readonly requiredMarker: ReactElement | null;
+  /**
+   * Props for a visually-hidden polite live region. Fields spread these onto
+   * a region element and supply the message to announce async state.
+   */
+  readonly liveRegionProps: FieldLiveRegionProps;
 }
 
 /**
@@ -112,6 +135,8 @@ export function useField({
   // as the error message and is referenced via aria-describedby.
   const describedBy = hint ? hintId : undefined;
 
+  const showRequired = !!required;
+
   return {
     id,
     labelProps: { htmlFor: id },
@@ -125,7 +150,16 @@ export function useField({
       "aria-invalid": error ? true : undefined,
       "aria-describedby": describedBy,
     },
-    showRequired: !!required,
+    showRequired,
     showOptional: !!showOptionalProp && !required,
+    requiredMarker: showRequired
+      ? createElement("span", { className: styles.required, "aria-hidden": "true" }, " *")
+      : null,
+    liveRegionProps: {
+      role: "status",
+      "aria-live": "polite",
+      "aria-atomic": true,
+      className: styles.srOnly,
+    },
   };
 }
