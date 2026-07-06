@@ -155,10 +155,6 @@
   color: var(--rialto-text-tertiary);
 }
 
-.required {
-  color: var(--rialto-error);
-}
-
 .optional {
   color: var(--rialto-text-tertiary);
   font-size: var(--rialto-text-xs);

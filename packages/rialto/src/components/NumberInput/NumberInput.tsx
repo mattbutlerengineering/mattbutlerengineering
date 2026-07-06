@@ -144,12 +144,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
           {label && (
             <label {...field.labelProps} className={styles.label}>
               {label}
-              {field.showRequired && (
-                <span className={styles.required} aria-hidden="true">
-                  {" "}
-                  *
-                </span>
-              )}
+              {field.requiredMarker}
               {field.showOptional && <span className={styles.optional}> (optional)</span>}
               {disabled && disabledReason && (
                 <Lock size={12} aria-hidden className={styles.lockIcon} />
@@ -202,14 +197,11 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             </button>
           </div>
           {hint && (
-            <span
-              {...field.descriptionProps}
-              className={styles.hint}
-              role={error ? "alert" : undefined}
-            >
+            <span {...field.descriptionProps} className={styles.hint}>
               {hint}
             </span>
           )}
+          <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
         </div>
       </DisabledTooltip>
     );

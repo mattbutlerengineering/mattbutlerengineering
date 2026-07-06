@@ -175,3 +175,17 @@ describe("PinInput", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 });
+
+describe("PinInput — required marker + aria-live announcements", () => {
+  it("renders the required marker when required", () => {
+    render(<PinInput label="Code" required value="12" onChange={() => {}} />);
+    expect(screen.getByText("*", { exact: false })).toBeInTheDocument();
+  });
+
+  it("announces completion via a polite status region when all cells are filled", () => {
+    render(<PinInput label="Code" length={4} value="1234" onChange={() => {}} />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Code complete");
+  });
+});

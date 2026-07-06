@@ -64,12 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {label && (
             <label {...field.labelProps} className={styles.label}>
               {label}
-              {field.showRequired && (
-                <span className={styles.required} aria-hidden="true">
-                  {" "}
-                  *
-                </span>
-              )}
+              {field.requiredMarker}
               {field.showOptional && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
@@ -97,14 +92,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
           </div>
           {hint && (
-            <span
-              {...field.descriptionProps}
-              className={styles.hint}
-              role={error ? "alert" : undefined}
-            >
+            <span {...field.descriptionProps} className={styles.hint}>
               {hint}
             </span>
           )}
+          <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
         </div>
       </DisabledTooltip>
     );

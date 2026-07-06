@@ -108,11 +108,7 @@
   color: var(--rialto-error);
 }
 
-/* ── Required / optional indicators ──────────── */
-.required {
-  color: var(--rialto-error);
-}
-
+/* ── Optional indicator ──────────────────────── */
 .optional {
   color: var(--rialto-text-tertiary);
   font-size: var(--rialto-text-xs);

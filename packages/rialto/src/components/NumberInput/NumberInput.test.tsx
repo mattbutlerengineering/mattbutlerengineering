@@ -196,3 +196,12 @@ describe("NumberInput — rendering extras", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 });
+
+describe("NumberInput — aria-live announcements", () => {
+  it("announces the error hint via a polite status region", () => {
+    render(<NumberInput label="Qty" value={5} onChange={noop} error hint="Too high" />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Too high");
+  });
+});

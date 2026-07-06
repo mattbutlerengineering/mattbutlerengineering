@@ -5,7 +5,7 @@
  * Key assertion: the error message MUST be programmatically associated with
  * the control via aria-describedby when error=true.
  */
-import { renderHook } from "@testing-library/react";
+import { render, renderHook } from "@testing-library/react";
 import { useField } from "./useField";
 
 describe("useField", () => {
@@ -115,6 +115,36 @@ describe("useField", () => {
     it("showOptional is false when both showOptional=true and required=true", () => {
       const { result } = renderHook(() => useField({ showOptional: true, required: true }));
       expect(result.current.showOptional).toBe(false);
+    });
+  });
+
+  describe("required marker element", () => {
+    it("requiredMarker is null when not required", () => {
+      const { result } = renderHook(() => useField({}));
+      expect(result.current.requiredMarker).toBeNull();
+    });
+
+    it("requiredMarker renders an aria-hidden asterisk when required", () => {
+      const { result } = renderHook(() => useField({ required: true }));
+      const marker = result.current.requiredMarker;
+      expect(marker).not.toBeNull();
+      const { container } = render(marker);
+      expect(container.textContent).toContain("*");
+      expect(container.querySelector("[aria-hidden='true']")).toBeInTheDocument();
+    });
+  });
+
+  describe("aria-live region descriptor", () => {
+    it("liveRegionProps describes a polite status live region", () => {
+      const { result } = renderHook(() => useField({}));
+      expect(result.current.liveRegionProps.role).toBe("status");
+      expect(result.current.liveRegionProps["aria-live"]).toBe("polite");
+      expect(result.current.liveRegionProps["aria-atomic"]).toBe(true);
+    });
+
+    it("liveRegionProps carries a visually-hidden className", () => {
+      const { result } = renderHook(() => useField({}));
+      expect(result.current.liveRegionProps.className).toBeTruthy();
     });
   });
 });

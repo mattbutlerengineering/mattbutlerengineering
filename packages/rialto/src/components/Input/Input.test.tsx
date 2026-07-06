@@ -211,3 +211,12 @@ describe("Input", () => {
     });
   });
 });
+
+describe("Input — aria-live announcements", () => {
+  it("announces the error hint via a polite status region", () => {
+    render(<Input error hint="Invalid email" />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Invalid email");
+  });
+});

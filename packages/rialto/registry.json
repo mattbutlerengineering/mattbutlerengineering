@@ -37556,6 +37556,12 @@
           "required": false
         },
         {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, the field is required; renders the required marker"
+        },
+        {
           "name": "disabled",
           "type": "boolean | undefined",
           "required": false
