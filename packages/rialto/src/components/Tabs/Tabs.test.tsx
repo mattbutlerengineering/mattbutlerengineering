@@ -167,14 +167,28 @@ describe("Tabs", () => {
     it("tab panel has aria-labelledby pointing to its tab", () => {
       render(<Tabs tabs={tabs} />);
       const panel = screen.getByRole("tabpanel");
-      const labelledBy = panel.getAttribute("aria-labelledby");
-      expect(labelledBy).toBe("tab-overview");
+      const activeTab = screen.getByRole("tab", { name: "Overview" });
+      expect(panel.getAttribute("aria-labelledby")).toBe(activeTab.id);
+      expect(activeTab.id).toBeTruthy();
     });
 
     it("tab button has aria-controls pointing to its panel", () => {
       render(<Tabs tabs={tabs} />);
       const tab = screen.getByRole("tab", { name: "Overview" });
-      expect(tab).toHaveAttribute("aria-controls", "panel-overview");
+      const panel = screen.getByRole("tabpanel");
+      expect(tab.getAttribute("aria-controls")).toBe(panel.id);
+      expect(panel.id).toBeTruthy();
+    });
+
+    it("generates unique ids across two instances (useId)", () => {
+      const { container: a } = render(<Tabs tabs={tabs} />);
+      const { container: b } = render(<Tabs tabs={tabs} />);
+      const tabA = (a.querySelector('[role="tab"]') as HTMLElement).id;
+      const tabB = (b.querySelector('[role="tab"]') as HTMLElement).id;
+      const panelA = (a.querySelector('[role="tabpanel"]') as HTMLElement).id;
+      const panelB = (b.querySelector('[role="tabpanel"]') as HTMLElement).id;
+      expect(tabA).not.toBe(tabB);
+      expect(panelA).not.toBe(panelB);
     });
   });
 

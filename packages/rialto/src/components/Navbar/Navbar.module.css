@@ -150,10 +150,17 @@
   flex-direction: column;
 }
 
+.linkRow {
+  display: flex;
+  align-items: center;
+}
+
 .link {
   composes: focusRing from "../../styles/surfaces.module.css";
 
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: var(--rialto-space-sm);
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
@@ -204,8 +211,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 20px;
   height: 20px;
+  margin-inline-end: var(--rialto-space-sm);
   padding: 0;
   background: none;
   border: none;

@@ -1,4 +1,4 @@
-import { forwardRef, useState, useCallback, type HTMLAttributes } from "react";
+import { forwardRef, useId, useState, useCallback, type HTMLAttributes } from "react";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { cn } from "../../utils/class-composer";
 import styles from "./GlobalNav.module.css";
@@ -41,6 +41,7 @@ export interface GlobalNavProps extends Pick<
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
   ({ currentApp, theme, onThemeToggle, className, ...props }, ref) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const mobileMenuId = useId();
 
     const handleToggle = useCallback(() => {
       setMenuOpen((prev) => !prev);
@@ -91,7 +92,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
               onClick={handleToggle}
               onKeyDown={handleKeyDown}
               aria-expanded={menuOpen}
-              aria-controls="global-nav-mobile-menu"
+              aria-controls={mobileMenuId}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
               <span className={cn(styles.hamburgerBar, menuOpen && styles.open)} />
@@ -101,7 +102,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
 
         {/* ── Mobile menu ─────────────────────────── */}
         {menuOpen && (
-          <ul id="global-nav-mobile-menu" className={styles.mobileMenu}>
+          <ul id={mobileMenuId} className={styles.mobileMenu}>
             {NAV_ITEMS.map((item) => (
               <li key={item.app}>
                 <a

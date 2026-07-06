@@ -131,11 +131,9 @@ describe("Button", () => {
   });
 
   describe("type attribute", () => {
-    it("defaults to button type when no type is specified", () => {
+    it("defaults to type=button when no type is specified", () => {
       render(<Button>Submit</Button>);
-      // motion.button does not set type=button by default — the native button default is "submit"
-      // but our component does not override it; pass type if needed
-      expect(screen.getByRole("button")).toBeInTheDocument();
+      expect(screen.getByRole("button")).toHaveAttribute("type", "button");
     });
 
     it("accepts type='submit'", () => {
