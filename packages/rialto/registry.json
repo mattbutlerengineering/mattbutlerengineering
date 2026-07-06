@@ -37503,6 +37503,12 @@
           "required": false
         },
         {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "When true, shows the required marker in the label"
+        },
+        {
           "name": "disabled",
           "type": "boolean | undefined",
           "required": false

@@ -1,0 +1,23 @@
+/*
+ * Shared field chrome owned by the useField hook so every field renders an
+ * identical required marker and aria-live region. Consuming components must
+ * not re-implement these — see src/hooks/useField.ts.
+ */
+
+/* ── Required marker ─────────────────────────── */
+.required {
+  color: var(--rialto-error);
+}
+
+/* ── Visually hidden aria-live region ────────── */
+.liveRegion {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

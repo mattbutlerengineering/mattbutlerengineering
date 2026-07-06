@@ -21,4 +21,5 @@ export type {
   FieldDescriptionProps,
   FieldErrorProps,
   FieldControlProps,
+  FieldLiveRegionProps,
 } from "./useField";

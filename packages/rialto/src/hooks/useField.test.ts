@@ -5,7 +5,7 @@
  * Key assertion: the error message MUST be programmatically associated with
  * the control via aria-describedby when error=true.
  */
-import { renderHook } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import { useField } from "./useField";
 
 describe("useField", () => {
@@ -115,6 +115,57 @@ describe("useField", () => {
     it("showOptional is false when both showOptional=true and required=true", () => {
       const { result } = renderHook(() => useField({ showOptional: true, required: true }));
       expect(result.current.showOptional).toBe(false);
+    });
+  });
+
+  describe("required marker element", () => {
+    it("returns an aria-hidden required-marker element when required", () => {
+      const { result } = renderHook(() => useField({ required: true }));
+      const marker = result.current.requiredMarker;
+      expect(marker).not.toBeNull();
+      render(marker!);
+      const el = screen.getByText("*", { exact: false });
+      expect(el).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("returns a null required-marker element when not required", () => {
+      const { result } = renderHook(() => useField({ required: false }));
+      expect(result.current.requiredMarker).toBeNull();
+    });
+
+    it("applies a stable class name to the required marker so every field renders it identically", () => {
+      const { result } = renderHook(() => useField({ required: true }));
+      render(result.current.requiredMarker!);
+      expect(screen.getByText("*", { exact: false }).className).toBeTruthy();
+    });
+  });
+
+  describe("aria-live region descriptor", () => {
+    it("returns a polite status live-region descriptor", () => {
+      const { result } = renderHook(() => useField({}));
+      const live = result.current.liveRegionProps;
+      expect(live.role).toBe("status");
+      expect(live["aria-live"]).toBe("polite");
+    });
+
+    it("gives the live region a stable id derived from the control id", () => {
+      const { result } = renderHook(() => useField({ id: "email" }));
+      expect(result.current.liveRegionProps.id).toBe("email-live");
+    });
+
+    it("gives the live region a class name for visually-hidden styling", () => {
+      const { result } = renderHook(() => useField({}));
+      expect(result.current.liveRegionProps.className).toBeTruthy();
+    });
+
+    it("returns a default live message carrying the error text when in error state", () => {
+      const { result } = renderHook(() => useField({ error: true, hint: "Required field" }));
+      expect(result.current.liveMessage).toBe("Required field");
+    });
+
+    it("returns an empty default live message when not in error state", () => {
+      const { result } = renderHook(() => useField({ hint: "Just a hint" }));
+      expect(result.current.liveMessage).toBe("");
     });
   });
 });

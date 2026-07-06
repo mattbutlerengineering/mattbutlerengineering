@@ -210,4 +210,31 @@ describe("Input", () => {
       expect(screen.getByRole("textbox")).toHaveAttribute("id", "my-input");
     });
   });
+
+  describe("aria-live announcements", () => {
+    it("renders a polite status live region for async announcements", () => {
+      const { container } = render(<Input label="Email" />);
+      const live = container.querySelector('[role="status"][aria-live="polite"]');
+      expect(live).toBeInTheDocument();
+    });
+
+    it("announces the error text through the live region when in error state", () => {
+      const { container } = render(<Input label="Email" error hint="Invalid email" />);
+      const live = container.querySelector('[role="status"]');
+      expect(live).toHaveTextContent("Invalid email");
+    });
+
+    it("keeps the live region empty when not in error state", () => {
+      const { container } = render(<Input label="Email" hint="We never share it" />);
+      const live = container.querySelector('[role="status"]');
+      expect(live).toHaveTextContent("");
+    });
+
+    it("does not mark the hint as an alert — announcements route through the live region", () => {
+      render(<Input label="Email" error hint="Invalid email" />);
+      const input = screen.getByRole("textbox");
+      const hintEl = document.getElementById(input.getAttribute("aria-describedby")!);
+      expect(hintEl).not.toHaveAttribute("role", "alert");
+    });
+  });
 });

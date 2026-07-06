@@ -232,3 +232,29 @@ describe("Select", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 });
+
+describe("Select — aria-live announcements", () => {
+  it("renders a polite status live region", () => {
+    const { container } = render(<Select options={options} label="Country" />);
+    expect(container.querySelector('[role="status"][aria-live="polite"]')).toBeInTheDocument();
+  });
+
+  it("announces the error text through the live region", () => {
+    const { container } = render(
+      <Select options={options} label="Country" error hint="Selection required" />
+    );
+    expect(container.querySelector('[role="status"]')).toHaveTextContent("Selection required");
+  });
+
+  it("renders the shared aria-hidden required marker when required", () => {
+    render(<Select options={options} label="Country" required />);
+    expect(screen.getByText("*")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("does not mark the hint as an alert", () => {
+    render(<Select options={options} label="Country" error hint="Selection required" />);
+    const trigger = screen.getByRole("combobox");
+    const hintEl = document.getElementById(trigger.getAttribute("aria-describedby")!);
+    expect(hintEl).not.toHaveAttribute("role", "alert");
+  });
+});

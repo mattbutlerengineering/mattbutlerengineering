@@ -357,12 +357,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
         {label && (
           <label htmlFor={field.id} className={styles.label}>
             {label}
-            {field.showRequired && (
-              <span className={styles.required} aria-hidden="true">
-                {" "}
-                *
-              </span>
-            )}
+            {field.requiredMarker}
             {field.showOptional && <span className={styles.optional}> (optional)</span>}
           </label>
         )}

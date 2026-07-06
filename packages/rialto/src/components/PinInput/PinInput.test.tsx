@@ -174,4 +174,35 @@ describe("PinInput", () => {
     const { container } = render(<PinInput />);
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
+
+  describe("required marker + aria-live announcements", () => {
+    it("renders a polite status live region", () => {
+      const { container } = render(<PinInput label="Code" />);
+      expect(container.querySelector('[role="status"][aria-live="polite"]')).toBeInTheDocument();
+    });
+
+    it("renders the shared aria-hidden required marker when required", () => {
+      render(<PinInput label="Code" required />);
+      expect(screen.getByText("*", { exact: false })).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("does not render a required marker when not required", () => {
+      render(<PinInput label="Code" />);
+      expect(screen.queryByText("*", { exact: false })).not.toBeInTheDocument();
+    });
+
+    it("announces completion through the live region when all cells are filled", () => {
+      const { container } = render(
+        <PinInput label="Code" length={4} value="1234" onChange={vi.fn()} />
+      );
+      expect(container.querySelector('[role="status"]')).toHaveTextContent(/complete/i);
+    });
+
+    it("announces the error text through the live region", () => {
+      const { container } = render(
+        <PinInput label="Code" error hint="Code expired" value="1" onChange={vi.fn()} />
+      );
+      expect(container.querySelector('[role="status"]')).toHaveTextContent("Code expired");
+    });
+  });
 });

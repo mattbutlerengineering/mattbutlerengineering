@@ -111,12 +111,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         {label && (
           <label htmlFor={triggerId} className={styles.label}>
             {label}
-            {field.showRequired && (
-              <span className={styles.required} aria-hidden="true">
-                {" "}
-                *
-              </span>
-            )}
+            {field.requiredMarker}
             {field.showOptional && <span className={styles.optional}> (optional)</span>}
           </label>
         )}
@@ -213,14 +208,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         </AnimatePresence>
 
         {hint && (
-          <span
-            {...field.descriptionProps}
-            className={styles.hint}
-            role={error ? "alert" : undefined}
-          >
+          <span {...field.descriptionProps} className={styles.hint}>
             {hint}
           </span>
         )}
+        <div {...field.liveRegionProps}>{field.liveMessage}</div>
       </div>
     );
   }

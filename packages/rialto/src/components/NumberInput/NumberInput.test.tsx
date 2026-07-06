@@ -196,3 +196,29 @@ describe("NumberInput — rendering extras", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 });
+
+describe("NumberInput — aria-live announcements", () => {
+  it("renders a polite status live region", () => {
+    const { container } = render(<NumberInput label="Qty" value={5} onChange={noop} />);
+    expect(container.querySelector('[role="status"][aria-live="polite"]')).toBeInTheDocument();
+  });
+
+  it("announces the error text through the live region", () => {
+    const { container } = render(
+      <NumberInput label="Qty" value={5} onChange={noop} error hint="Out of range" />
+    );
+    expect(container.querySelector('[role="status"]')).toHaveTextContent("Out of range");
+  });
+
+  it("renders the shared aria-hidden required marker when required", () => {
+    render(<NumberInput label="Qty" value={5} onChange={noop} required />);
+    expect(screen.getByText("*")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("does not mark the hint as an alert", () => {
+    render(<NumberInput label="Qty" value={5} onChange={noop} error hint="Out of range" />);
+    const input = screen.getByLabelText("Qty");
+    const hintEl = document.getElementById(input.getAttribute("aria-describedby")!);
+    expect(hintEl).not.toHaveAttribute("role", "alert");
+  });
+});

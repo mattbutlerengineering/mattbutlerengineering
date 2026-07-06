@@ -80,6 +80,10 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
 
     const currentLength = typeof value === "string" ? value.length : internalLength;
     const isOver = maxLength != null && currentLength > maxLength;
+    // Async announcement: error text wins; otherwise announce the over-limit
+    // counter state (stable while over, so it fires once on crossing).
+    const liveMessage =
+      field.liveMessage || (isOver ? `${currentLength} of ${maxLength} characters` : "");
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -87,12 +91,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           {label && (
             <label {...field.labelProps} className={styles.label}>
               {label}
-              {field.showRequired && (
-                <span className={styles.required} aria-hidden="true">
-                  {" "}
-                  *
-                </span>
-              )}
+              {field.requiredMarker}
               {field.showOptional && <span className={styles.optional}> (optional)</span>}
             </label>
           )}
@@ -115,11 +114,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           {(hint || maxLength != null) && (
             <div className={styles.footer}>
               {hint && (
-                <span
-                  {...field.descriptionProps}
-                  className={styles.hint}
-                  role={error ? "alert" : undefined}
-                >
+                <span {...field.descriptionProps} className={styles.hint}>
                   {hint}
                 </span>
               )}
@@ -130,6 +125,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
               )}
             </div>
           )}
+          <div {...field.liveRegionProps}>{liveMessage}</div>
         </div>
       </DisabledTooltip>
     );
