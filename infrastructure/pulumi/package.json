@@ -14,11 +14,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pulumi/auth0": "^3.46.0",
+    "@pulumi/auth0": "^3.47.0",
     "@pulumi/cloudflare": "^6.17.0",
-    "@pulumi/digitalocean": "^4.72.0",
+    "@pulumi/digitalocean": "^4.73.0",
     "@pulumi/github": "^6.14.0",
-    "@pulumi/pulumi": "^3.248.0",
+    "@pulumi/pulumi": "^3.250.0",
     "@pulumi/random": "^4.21.0"
   },
   "devDependencies": {
