@@ -15,10 +15,13 @@ export function MetricsSection() {
   const { ref, controls } = useScrollReveal();
 
   return (
-    <section id="metrics" className={styles.section}>
+    <section id="metrics" className={styles.metricsBand}>
       <div className={styles.sectionInner}>
         <Stack gap="xl">
-          <div>
+          <div className={styles.sectionHeader}>
+            <Text className={styles.sectionEyebrow} as="p">
+              Proof in production
+            </Text>
             <Heading level={2} className={styles.sectionHeading}>
               By the numbers
             </Heading>

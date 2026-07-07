@@ -17,7 +17,10 @@ export function TechStackSection() {
     <section id="tech-stack" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="xl">
-          <div>
+          <div className={styles.sectionHeader}>
+            <Text className={styles.sectionEyebrow} as="p">
+              The craft
+            </Text>
             <Heading level={2} className={styles.sectionHeading}>
               Tech Stack
             </Heading>

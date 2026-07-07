@@ -1,5 +1,6 @@
 import {
   Stack,
+  Text,
   useScrollReveal,
   staggerReveal,
   boop,
@@ -34,9 +35,14 @@ export function ContactSection() {
     <section id="contact" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="md">
-          <Heading level={2} className={styles.sectionHeading}>
-            Contact
-          </Heading>
+          <div className={styles.sectionHeader}>
+            <Text className={styles.sectionEyebrow} as="p">
+              At your service
+            </Text>
+            <Heading level={2} className={styles.sectionHeading}>
+              Contact
+            </Heading>
+          </div>
           <motion.div
             ref={ref}
             variants={staggerReveal.container}
