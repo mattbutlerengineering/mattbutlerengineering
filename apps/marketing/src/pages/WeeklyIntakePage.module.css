@@ -1,52 +1,29 @@
 .container {
   max-width: 960px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--rialto-space-2xl) var(--rialto-space-lg);
 }
 
 .heading {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--rialto-space-sm);
 }
 
 .subtitle {
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-6);
+  color: var(--rialto-text-secondary);
+  margin-bottom: var(--rialto-space-2xl);
 }
 
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
-}
-
-.filterBtn {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-default);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.filterBtn:hover {
-  background: var(--color-bg-muted);
-}
-
-.active {
-  background: var(--color-bg-brand);
-  color: var(--color-text-on-brand);
-  border-color: var(--color-border-brand);
+  gap: var(--rialto-space-sm);
+  margin-bottom: var(--rialto-space-2xl);
 }
 
 .resourceGrid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--rialto-space-lg);
 }
 
 @media (min-width: 768px) {
@@ -56,24 +33,24 @@
 }
 
 .card {
-  padding: var(--space-4);
+  padding: var(--rialto-space-lg);
 }
 
 .cardHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: var(--rialto-space-sm);
+  margin-bottom: var(--rialto-space-sm);
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--rialto-text-md);
 }
 
 .link {
-  color: var(--color-text-primary);
+  color: var(--rialto-text-primary);
   text-decoration: none;
 }
 
@@ -82,20 +59,20 @@
 }
 
 .description {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-3);
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+  margin-bottom: var(--rialto-space-md);
 }
 
 .meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
 }
 
 .tags {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--rialto-space-xs);
 }
