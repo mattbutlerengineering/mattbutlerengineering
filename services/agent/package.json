@@ -23,11 +23,11 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.2",
-    "@fastify/cors": "^11.2.0",
+    "@ai-sdk/anthropic": "^4.0.11",
+    "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.1.0",
-    "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^6.0.0",
+    "@fastify/swagger": "^9.8.0",
+    "@fastify/swagger-ui": "^6.1.0",
     "@mbe/agent-core": "workspace:*",
     "@mbe/api-client": "workspace:^",
     "@mbe/auth": "workspace:^",
@@ -40,8 +40,8 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/client-runtime-utils": "^7.8.0",
-    "@scalar/fastify-api-reference": "^1.62.0",
-    "ai": "^7.0.6",
+    "@scalar/fastify-api-reference": "^1.62.5",
+    "ai": "^7.0.19",
     "fastify": "catalog:",
     "pg": "^8.22.0",
     "zod": "catalog:"
@@ -56,7 +56,7 @@
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.8.0",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
