@@ -1856,7 +1856,14 @@
   </file>
   <file path="src/change-type-classifier.ts">
     export type ChangeType =
-      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
+      | "dependency"
+      | "docs"
+      | "config"
+      | "test"
+      | "infrastructure"
+      | "frontend"
+      | "backend"
+      | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="src/circuit-breaker.ts">
@@ -2032,7 +2039,10 @@
       readonly commitTitle?: string;
     }
     export type SkipReason =
-      "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
+      | "empty_diff"
+      | "trivial_commit"
+      | "test_only_changes"
+      | "small_diff_tests_passed";
   </file>
   <file path="src/event-mapper.ts">
     export interface ToolUseEvent {
