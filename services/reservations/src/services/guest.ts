@@ -15,7 +15,7 @@ import { prisma } from "./database.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
 import { emitLapsingGuests } from "./events.js";
 import { buildGuestUpdateData } from "./guest-identity.js";
-import { computeGuestRisk } from "./guest-risk.js";
+import { assessGuestReliability } from "./guest-reliability.js";
 
 function mapPrismaGuest(guest: {
   id: string;
@@ -44,7 +44,16 @@ function mapPrismaGuest(guest: {
       )
     : [];
 
-  const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, guest.lastNoShowAt);
+  // No VenueSettings is fetched on this read path, so the shared default
+  // threshold applies (unchanged from pre-#3230 behavior).
+  const riskScore = assessGuestReliability(
+    {
+      noShowCount: guest.noShowCount,
+      visitCount: guest.visitCount,
+      lastNoShowAt: guest.lastNoShowAt,
+    },
+    null
+  );
 
   return {
     id: guest.id,

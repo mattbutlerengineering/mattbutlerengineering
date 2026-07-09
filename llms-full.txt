@@ -8651,13 +8651,7 @@
             });
           }
     
-          const threshold = resolveNoShowThreshold(venue.settings);
-    
-          // Re-compute risk with venue-specific threshold
-          const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
-          const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
-            riskyThreshold: threshold,
-          });
+          const riskScore = assessGuestReliability(guest, venue.settings);
     
           return reply.send({
             data: {
@@ -12438,6 +12432,23 @@
       return false;
     }
   </file>
+  <file path="services/reservations/src/services/guest-reliability.ts">
+    export interface GuestReliabilityInput {
+      noShowCount: number;
+      visitCount: number;
+      lastNoShowAt?: Date | string | null;
+    }
+    export function assessGuestReliability(
+      guest: GuestReliabilityInput,
+      venueSettings: VenueSettings | null | undefined
+    ): GuestRiskScore {
+      const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
+      const threshold = resolveNoShowThreshold(venueSettings);
+      return computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
+        riskyThreshold: threshold,
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/guest-risk.ts">
     export type GuestRiskScore = "trusted" | "standard" | "risky";
     export interface GuestRiskOptions {
@@ -12473,7 +12484,16 @@
           )
         : [];
     
-      const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, guest.lastNoShowAt);
+      // No VenueSettings is fetched on this read path, so the shared default
+      // threshold applies (unchanged from pre-#3230 behavior).
+      const riskScore = assessGuestReliability(
+        {
+          noShowCount: guest.noShowCount,
+          visitCount: guest.visitCount,
+          lastNoShowAt: guest.lastNoShowAt,
+        },
+        null
+      );
     
       return {
         id: guest.id,
