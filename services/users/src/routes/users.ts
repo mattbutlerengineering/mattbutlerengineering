@@ -428,16 +428,9 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
       }
 
-      const existingUser = await userService.getByEmail(authUser.email);
-      if (!existingUser) {
-        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
-      }
-
-      const user = await userService.updatePreferences(existingUser.id, request.body);
+      const user = await userService.updatePreferencesByEmail(authUser.email, request.body);
       if (!user) {
-        return reply
-          .code(500)
-          .send(createProblemDetails(500, "Internal Server Error", "Failed to update preferences"));
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "User not found"));
       }
       return { data: user };
     }
