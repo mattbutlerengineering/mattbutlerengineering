@@ -17,7 +17,7 @@ vi.mock("../services/user.js", () => ({
     findOrCreate: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    updatePreferences: vi.fn(),
+    updatePreferencesByEmail: vi.fn(),
   },
 }));
 

@@ -8651,13 +8651,7 @@
             });
           }
     
-          const threshold = resolveNoShowThreshold(venue.settings);
-    
-          // Re-compute risk with venue-specific threshold
-          const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
-          const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
-            riskyThreshold: threshold,
-          });
+          const riskScore = assessGuestReliability(guest, venue.settings);
     
           return reply.send({
             data: {
@@ -12438,6 +12432,23 @@
       return false;
     }
   </file>
+  <file path="services/reservations/src/services/guest-reliability.ts">
+    export interface GuestReliabilityInput {
+      noShowCount: number;
+      visitCount: number;
+      lastNoShowAt?: Date | string | null;
+    }
+    export function assessGuestReliability(
+      guest: GuestReliabilityInput,
+      venueSettings: VenueSettings | null | undefined
+    ): GuestRiskScore {
+      const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
+      const threshold = resolveNoShowThreshold(venueSettings);
+      return computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
+        riskyThreshold: threshold,
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/guest-risk.ts">
     export type GuestRiskScore = "trusted" | "standard" | "risky";
     export interface GuestRiskOptions {
@@ -12473,7 +12484,16 @@
           )
         : [];
     
-      const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, guest.lastNoShowAt);
+      // No VenueSettings is fetched on this read path, so the shared default
+      // threshold applies (unchanged from pre-#3230 behavior).
+      const riskScore = assessGuestReliability(
+        {
+          noShowCount: guest.noShowCount,
+          visitCount: guest.visitCount,
+          lastNoShowAt: guest.lastNoShowAt,
+        },
+        null
+      );
     
       return {
         id: guest.id,
@@ -13627,16 +13647,27 @@
         }
       },
     
-      async updatePreferences(id: string, preferences: UpdatePreferencesRequest): Promise<User | null> {
+      /**
+       * Merges the given preferences into the user identified by email in a
+       * single identity lookup, then writes the merge. Returns null if no user
+       * has that email (or if it disappears between lookup and write).
+       */
+      async updatePreferencesByEmail(
+        email: string,
+        preferences: UpdatePreferencesRequest
+      ): Promise<User | null> {
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, preferences: true },
+        });
+        if (!user) return null;
+    
+        const currentPrefs = (user.preferences as UserPreferences) ?? {};
+        const newPrefs = { ...currentPrefs, ...preferences };
+    
         try {
-          const user = await prisma.user.findUnique({ where: { id } });
-          if (!user) return null;
-    
-          const currentPrefs = (user.preferences as UserPreferences) ?? {};
-          const newPrefs = { ...currentPrefs, ...preferences };
-    
           const updated = await prisma.user.update({
-            where: { id },
+            where: { id: user.id },
             data: { preferences: newPrefs },
           });
           return mapPrismaUser(updated);
