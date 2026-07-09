@@ -70,8 +70,11 @@ jobs:
           wait-interval: 10
           # CI's Build job is gated behind Prepare/Detect Changes and can take
           # >60s to appear on the merge commit; the 60s default discovery
-          # timeout caused 5 straight "check was never run" deploy failures
-          checks-discovery-timeout: 600
+          # timeout caused 5 straight "check was never run" deploy failures.
+          # 600s also proved insufficient under whole-account runner-queue
+          # congestion (2026-07-05 and 2026-07-09: CI's first job started
+          # ~10 min after push, Build appeared ~13 min in), so allow 30 min.
+          checks-discovery-timeout: 1800
 
   blocked:
     needs: [circuit-check]
