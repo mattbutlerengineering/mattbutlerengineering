@@ -64,7 +64,9 @@ export function WeeklyIntakePage() {
         {filters.map((f) => (
           <Button
             key={f.value}
-            className={`${styles.filterBtn} ${activeFilter === f.value ? styles.active : ""}`}
+            variant={activeFilter === f.value ? "primary" : "secondary"}
+            size="sm"
+            aria-pressed={activeFilter === f.value}
             onClick={() => setActiveFilter(f.value)}
           >
             {f.label}

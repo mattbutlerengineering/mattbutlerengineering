@@ -62,6 +62,8 @@ describe("HomePage", () => {
     const metrics = screen.getByTestId("metrics-section");
     const projects = screen.getByTestId("projects-section");
     expect(hero.compareDocumentPosition(metrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(metrics.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      metrics.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 });
