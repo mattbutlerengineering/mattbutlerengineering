@@ -3,7 +3,7 @@ import type { ApiResponse, GuestRiskResult } from "@mbe/types";
 import { guestRiskResultJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
-import { computeGuestRisk, resolveNoShowThreshold } from "../services/guest-risk.js";
+import { assessGuestReliability } from "../services/guest-reliability.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRiskResultJsonSchema);
@@ -75,13 +75,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const threshold = resolveNoShowThreshold(venue.settings);
-
-      // Re-compute risk with venue-specific threshold
-      const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
-      const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
-        riskyThreshold: threshold,
-      });
+      const riskScore = assessGuestReliability(guest, venue.settings);
 
       return reply.send({
         data: {
