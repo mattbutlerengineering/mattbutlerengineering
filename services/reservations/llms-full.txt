@@ -2234,13 +2234,10 @@
             });
           }
     
-          const threshold =
-            (venue.settings as { autoDepositAfterNoShows?: number } | null)?.autoDepositAfterNoShows ??
-            DEFAULT_AUTO_DEPOSIT_THRESHOLD;
+          const threshold = resolveNoShowThreshold(venue.settings);
     
           // Re-compute risk with venue-specific threshold
-          const lastNoShowDate =
-            guest.noShowCount > 0 && guest.lastVisit ? new Date(guest.lastVisit) : null;
+          const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
           const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
             riskyThreshold: threshold,
           });
@@ -5128,6 +5125,7 @@
         notes: guest.notes,
         visitCount: guest.visitCount,
         noShowCount: guest.noShowCount,
+        lastNoShowAt: guest.lastNoShowAt?.toISOString() ?? null,
         riskScore,
         lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
         lastVisit: guest.lastVisit?.toISOString() ?? null,
