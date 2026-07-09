@@ -194,6 +194,36 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     expect(body.data.requiresDeposit).toBe(true);
   });
 
+  it("decays risk when the guest's only no-shows are older than 12 months (uses lastNoShowAt, not lastVisit)", async () => {
+    const thirteenMonthsAgo = new Date();
+    thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13);
+
+    vi.mocked(guestService.findByEmail).mockResolvedValue(
+      makeGuest({
+        noShowCount: 2,
+        riskScore: "risky",
+        // lastVisit is recent (a booking made since the no-shows) — if the route
+        // mistakenly derived the decay date from lastVisit instead of
+        // lastNoShowAt, decay would never fire and this guest would stay risky.
+        lastVisit: "2026-07-01T00:00:00.000Z",
+        lastNoShowAt: thirteenMonthsAgo.toISOString(),
+      })
+    );
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guest-risk?email=alice%40example.com",
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload) as {
+      data: { riskScore: string; requiresDeposit: boolean };
+    };
+    // 2 no-shows decayed by 50% (both older than 12 months) = 1.0 effective → standard, not risky
+    expect(body.data.riskScore).toBe("standard");
+    expect(body.data.requiresDeposit).toBe(false);
+  });
+
   it("returns trusted when guest is not found (new guest)", async () => {
     vi.mocked(guestService.findByEmail).mockResolvedValue(null);
 

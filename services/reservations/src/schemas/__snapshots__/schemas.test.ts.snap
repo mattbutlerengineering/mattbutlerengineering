@@ -324,6 +324,16 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
     "id": {
       "type": "string",
     },
+    "lastNoShowAt": {
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "lastVisit": {
       "anyOf": [
         {
