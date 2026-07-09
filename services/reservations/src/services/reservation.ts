@@ -12,6 +12,7 @@ import {
   type VenueSettings,
 } from "@mbe/types";
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
+import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
@@ -19,6 +20,7 @@ import { mapPrismaTable } from "./table.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 import { transitionReservation, ReservationTransitionError } from "./reservation-state-machine.js";
+import { guestService } from "./guest.js";
 
 export { ReservationTransitionError };
 
@@ -285,22 +287,44 @@ export const reservationService = {
       if (data.status !== undefined) {
         const existing = await prisma.reservation.findUnique({
           where: { id },
-          select: { status: true },
+          select: { status: true, guestId: true, startTime: true },
         });
         if (!existing) return null;
         // Throws ReservationTransitionError on invalid transition.
         transitionReservation(existing.status as ReservationStatus, data.status);
 
-        const { count } = await prisma.reservation.updateMany({
-          where: { id, status: existing.status },
-          data: updateData,
-        });
-        if (count === 0) return null;
+        // The status CAS plus write. Shared by both branches below so the
+        // NO_SHOW guest-counter bump can be run against the same client
+        // (transaction vs. bare prisma) as the status change.
+        const writeStatusChange = async (
+          client: Prisma.TransactionClient
+        ): Promise<Prisma.ReservationGetPayload<{ include: { table: true } }> | null> => {
+          const { count } = await client.reservation.updateMany({
+            where: { id, status: existing.status },
+            data: updateData,
+          });
+          if (count === 0) return null;
 
-        const updated = await prisma.reservation.findUnique({
-          where: { id },
-          include: { table: true },
-        });
+          if (data.status === "NO_SHOW" && existing.guestId) {
+            // Bump the guest's no-show counter (and thus risk score, which is
+            // derived from it) in the SAME transaction as the status write
+            // (#3231). A fire-and-forget write after commit could silently
+            // under-count no-shows and never escalate the guest to "risky",
+            // losing Deposit protection for exactly the guests who need it.
+            await guestService.recordNoShow(existing.guestId, existing.startTime, client);
+          }
+
+          return client.reservation.findUnique({
+            where: { id },
+            include: { table: true },
+          });
+        };
+
+        const updated =
+          data.status === "NO_SHOW" && existing.guestId
+            ? await prisma.$transaction((tx) => writeStatusChange(tx))
+            : await writeStatusChange(prisma);
+
         return updated ? toReservation(updated) : null;
       }
 

@@ -101,25 +101,25 @@ function makePrismaReservation(overrides: Record<string, unknown> = {}) {
  * "free", and create/update return the given row.
  */
 function useSlotTxOnce(reservationRow: unknown = makePrismaReservation()): void {
-  vi.mocked(prisma.$transaction).mockImplementationOnce(
-    ((fn: (client: unknown) => Promise<unknown>) => {
-      const tx = {
-        $executeRaw: vi.fn().mockResolvedValue(0),
-        venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
-        reservation: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          findMany: vi.fn().mockResolvedValue([]),
-          create: vi.fn().mockResolvedValue(reservationRow),
-          update: vi.fn().mockResolvedValue(reservationRow),
-        },
-        reservationHold: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          findMany: vi.fn().mockResolvedValue([]),
-        },
-      };
-      return fn(tx);
-    }) as never
-  );
+  vi.mocked(prisma.$transaction).mockImplementationOnce(((
+    fn: (client: unknown) => Promise<unknown>
+  ) => {
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+      reservation: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue(reservationRow),
+        update: vi.fn().mockResolvedValue(reservationRow),
+      },
+      reservationHold: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    };
+    return fn(tx);
+  }) as never);
 }
 
 describe("reservationService", () => {
@@ -476,33 +476,31 @@ describe("reservationService", () => {
       // New path: bookSlot's $transaction serializes on the advisory lock and
       // re-checks the shared store in-transaction.
       let chain: Promise<unknown> = Promise.resolve();
-      vi.mocked(prisma.$transaction).mockImplementation(
-        ((fn: (client: unknown) => Promise<unknown>) => {
-          const tx = {
-            $executeRaw: vi.fn().mockResolvedValue(0),
-            venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
-            reservation: {
-              findFirst: vi
-                .fn()
-                .mockImplementation(() =>
-                  Promise.resolve(overlaps() ? { id: "existing" } : null)
-                ),
-              findMany: vi.fn().mockResolvedValue([]),
-              create: vi.fn().mockImplementation(() => Promise.resolve(pushRow())),
-            },
-            reservationHold: {
-              findFirst: vi.fn().mockResolvedValue(null),
-              findMany: vi.fn().mockResolvedValue([]),
-            },
-          };
-          const run = chain.then(() => fn(tx));
-          chain = run.then(
-            () => undefined,
-            () => undefined
-          );
-          return run;
-        }) as never
-      );
+      vi.mocked(prisma.$transaction).mockImplementation(((
+        fn: (client: unknown) => Promise<unknown>
+      ) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+          reservation: {
+            findFirst: vi
+              .fn()
+              .mockImplementation(() => Promise.resolve(overlaps() ? { id: "existing" } : null)),
+            findMany: vi.fn().mockResolvedValue([]),
+            create: vi.fn().mockImplementation(() => Promise.resolve(pushRow())),
+          },
+          reservationHold: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            findMany: vi.fn().mockResolvedValue([]),
+          },
+        };
+        const run = chain.then(() => fn(tx));
+        chain = run.then(
+          () => undefined,
+          () => undefined
+        );
+        return run;
+      }) as never);
 
       const request = {
         date: "2026-05-05",
@@ -596,6 +594,87 @@ describe("reservationService", () => {
       });
 
       expect(result!.status).toBe("NO_SHOW");
+    });
+
+    it("rolls back the status change and rejects when the guest no-show counter write fails (#3231)", async () => {
+      // A NO_SHOW transition for a reservation with a guest must record the
+      // no-show counter bump in the SAME transaction as the status change —
+      // if the guest write fails, the whole thing fails loudly instead of
+      // silently under-counting the guest's no-shows.
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED", guestId: "guest-1" }) as never
+      );
+      vi.mocked(prisma.$transaction).mockImplementationOnce(((
+        fn: (client: unknown) => Promise<unknown>
+      ) => {
+        const tx = {
+          reservation: {
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUnique: vi.fn().mockResolvedValue(makePrismaReservation({ status: "NO_SHOW" })),
+          },
+          guest: {
+            update: vi.fn().mockRejectedValue(new Error("guest write failed")),
+          },
+        };
+        return fn(tx);
+      }) as never);
+
+      await expect(reservationService.update("res-1", { status: "NO_SHOW" })).rejects.toThrow(
+        "guest write failed"
+      );
+    });
+
+    it("bumps the guest no-show counter inside the same transaction as the status CAS", async () => {
+      const startTime = new Date("2026-05-05T18:00:00Z");
+      vi.mocked(prisma.reservation.findUnique).mockResolvedValueOnce(
+        makePrismaReservation({ status: "CONFIRMED", guestId: "guest-1", startTime }) as never
+      );
+      const guestUpdate = vi.fn().mockResolvedValue({
+        id: "guest-1",
+        venueId: "venue-1",
+        email: null,
+        phone: null,
+        name: "Jane Doe",
+        notes: null,
+        visitCount: 1,
+        noShowCount: 1,
+        lastNoShowAt: startTime,
+        lifetimeSpend: null,
+        lastVisit: null,
+        tags: null,
+        dietaryRestrictions: null,
+        staffNotes: null,
+        communicationPreference: "both",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      const txUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(((
+        fn: (client: unknown) => Promise<unknown>
+      ) => {
+        const tx = {
+          reservation: {
+            updateMany: txUpdateMany,
+            findUnique: vi.fn().mockResolvedValue(makePrismaReservation({ status: "NO_SHOW" })),
+          },
+          guest: { update: guestUpdate },
+        };
+        return fn(tx);
+      }) as never);
+
+      const result = await reservationService.update("res-1", { status: "NO_SHOW" });
+
+      expect(result!.status).toBe("NO_SHOW");
+      expect(guestUpdate).toHaveBeenCalledWith({
+        where: { id: "guest-1" },
+        data: { noShowCount: { increment: 1 }, lastNoShowAt: startTime },
+      });
+      // The status CAS must go through the transaction client, not the
+      // top-level prisma client, so both writes commit or roll back together.
+      expect(txUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "res-1", status: "CONFIRMED" } })
+      );
+      expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
     });
 
     it("persists cancellationReason and cancellationNote when cancelling", async () => {

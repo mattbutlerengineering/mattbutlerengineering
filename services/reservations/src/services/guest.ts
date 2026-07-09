@@ -258,10 +258,19 @@ export const guestService = {
 
   /**
    * Increment no-show counter on the guest record after a NO_SHOW transition.
+   *
+   * Accepts an optional transaction client so callers (reservationService.update)
+   * can run this write in the SAME transaction as the reservation status
+   * change (#3231) — a failure here must roll back the status change too,
+   * instead of being dropped by a fire-and-forget `.catch()`.
    */
-  async recordNoShow(guestId: string, noShowDate: Date): Promise<Guest | null> {
+  async recordNoShow(
+    guestId: string,
+    noShowDate: Date,
+    client: Prisma.TransactionClient = prisma
+  ): Promise<Guest | null> {
     try {
-      const guest = await prisma.guest.update({
+      const guest = await client.guest.update({
         where: { id: guestId },
         data: {
           noShowCount: { increment: 1 },

@@ -10,13 +10,17 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import { createProblemDetails } from "@mbe/types";
-import { requireAuth, optionalAuth, requireOwnershipOrAdmin, requireVenueAccess } from "@mbe/auth/fastify";
+import {
+  requireAuth,
+  optionalAuth,
+  requireOwnershipOrAdmin,
+  requireVenueAccess,
+} from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
-import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -76,7 +80,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+      ],
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -705,12 +712,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             );
         }
 
-        // Increment guest no-show counter when status transitions to NO_SHOW
-        if (request.body.status === "NO_SHOW" && result.reservation?.guestId) {
-          guestService
-            .recordNoShow(result.reservation.guestId, new Date(result.reservation.startTime))
-            .catch((err) => fastify.log.error({ err }, "Failed to record no-show on guest"));
-        }
+        // Guest no-show counter (and risk escalation) is bumped inside the
+        // same transaction as the status write — see
+        // reservationService.update (#3231). No fire-and-forget here: if that
+        // write fails, updateWithConflictCheck rejects and is caught below.
 
         // Fire post-visit thank-you email when status transitions to COMPLETED
         if (request.body.status === "COMPLETED" && result.reservation) {
