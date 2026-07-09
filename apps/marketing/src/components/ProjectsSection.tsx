@@ -17,7 +17,10 @@ export function ProjectsSection() {
     <section id="projects" className={styles.section}>
       <div className={styles.sectionInner}>
         <Stack gap="xl">
-          <div>
+          <div className={styles.sectionHeader}>
+            <Text className={styles.sectionEyebrow} as="p">
+              Signature work
+            </Text>
             <Heading level={2} className={styles.sectionHeading}>
               Projects
             </Heading>

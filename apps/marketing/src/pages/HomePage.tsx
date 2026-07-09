@@ -6,6 +6,7 @@ import { TechStackSection } from "../components/TechStackSection";
 import { AboutSection } from "../components/AboutSection";
 import { ContactSection } from "../components/ContactSection";
 import { Heading, Button, Text, Card, Stack } from "@mattbutlerengineering/rialto";
+import styles from "./HomePage.module.css";
 
 export function HomePage() {
   return (
@@ -16,8 +17,11 @@ export function HomePage() {
       <TechStackSection />
       <AboutSection />
       <ContactSection />
-      <Card variant="elevated" data-testid="weekly-cta">
+      <Card variant="elevated" data-testid="weekly-cta" className={styles.invitationCard}>
         <Stack gap="md" align="center">
+          <Text className={styles.invitationEyebrow} as="p">
+            The reading room
+          </Text>
           <Heading level={2}>Stay Current</Heading>
           <Text color="secondary">
             Check out my weekly information intake from the best dev newsletters.
