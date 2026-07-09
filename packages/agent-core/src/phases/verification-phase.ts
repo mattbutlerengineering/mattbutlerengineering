@@ -33,7 +33,7 @@ export class VerificationPhase implements Phase<VerificationPhaseInput, Verifica
     }
 
     // Commit changes
-    const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
+    const isSuccess = resultMessage?.success === true && !stuckReason;
     const prefix = isSuccess ? "feat" : "wip";
     const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
     await worktreeManager.commitChanges(worktree.path, commitMsg);

@@ -19,7 +19,7 @@ export class FeedbackPhase implements Phase<FeedbackPhaseInput, void> {
     }
 
     // Use remaining budget instead of fixed 50% ratio
-    const sessionCost = resultMessage?.total_cost_usd ?? 0;
+    const sessionCost = resultMessage?.costUsd ?? 0;
     const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
 
     const fbSpan = tracer.startSpan("agent_core.feedback_loop");

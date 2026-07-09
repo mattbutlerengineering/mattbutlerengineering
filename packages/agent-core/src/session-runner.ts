@@ -9,6 +9,7 @@ import { DEFAULT_SESSION_CONFIG } from "./types.js";
 import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 
 import { recordSpend } from "./spend-recorder.js";
+import { buildSessionResultSummary } from "./cost-tracker.js";
 import type { PhaseDeps } from "./phases/index.js";
 import {
   createDefaultPhaseDeps,
@@ -204,6 +205,15 @@ async function runPipeline(
   }
   if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
 
+  // Adapter-neutral summary for VerificationPhase/PublishPhase/FeedbackPhase
+  // (#3233) — session-runner is the Claude-adapter boundary that maps the
+  // raw SDK result to the shape shared across adapters. `state.resultMessage`
+  // stays SDK-shaped for `buildFinalResult`'s full accounting at the end of
+  // the pipeline.
+  const resultSummary = state.resultMessage
+    ? buildSessionResultSummary(state.resultMessage)
+    : undefined;
+
   // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
   const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
   if (breach.exceeded) {
@@ -225,7 +235,7 @@ async function runPipeline(
       config,
       onEvent,
       worktree: state.worktree!,
-      resultMessage: state.resultMessage,
+      resultMessage: resultSummary,
       stuckReason: state.stuckReason,
     },
     deps
@@ -249,7 +259,7 @@ async function runPipeline(
       onEvent,
       worktree: state.worktree!,
       hasChanges: state.hasChanges,
-      resultMessage: state.resultMessage,
+      resultMessage: resultSummary,
       stuckReason: state.stuckReason,
       gatewayVerdict: state.gatewayVerdict,
       errors: state.errors,
@@ -269,7 +279,7 @@ async function runPipeline(
       config,
       onEvent,
       worktree: state.worktree!,
-      resultMessage: state.resultMessage,
+      resultMessage: resultSummary,
       prUrl: state.prUrl,
       prNumber: state.prNumber,
       signal,

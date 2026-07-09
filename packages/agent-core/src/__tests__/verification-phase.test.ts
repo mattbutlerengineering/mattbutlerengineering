@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { SessionConfig, SessionEvent } from "../types.js";
+import type { SessionConfig, SessionEvent, SessionResultSummary } from "../types.js";
 import type { PhaseDeps, VerificationPhaseInput } from "../phases/index.js";
 import { makeFakePhaseDeps } from "./fake-phase-deps.js";
 
@@ -50,27 +50,12 @@ const BASE_CONFIG: SessionConfig = {
   createPr: true,
 };
 
-function createMockResultMessage() {
+function createMockResultMessage(): SessionResultSummary {
   return {
-    type: "result" as const,
-    subtype: "success" as const,
-    uuid: "test-uuid",
-    session_id: "session-123",
-    duration_ms: 5000,
-    duration_api_ms: 4000,
-    is_error: false,
-    num_turns: 5,
-    result: "Task completed",
-    stop_reason: "end_turn",
-    total_cost_usd: 0.25,
-    usage: {
-      input_tokens: 10000,
-      output_tokens: 2000,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
-    },
-    modelUsage: {},
-    permission_denials: [],
+    success: true,
+    sessionId: "session-123",
+    costUsd: 0.25,
+    numTurns: 5,
   };
 }
 
@@ -82,7 +67,7 @@ function makeInput(overrides?: Partial<VerificationPhaseInput>): VerificationPha
       branchName: "agent/fix-bug-abc123",
       mode: "full",
     },
-    resultMessage: createMockResultMessage() as VerificationPhaseInput["resultMessage"],
+    resultMessage: createMockResultMessage(),
     ...overrides,
   };
 }
