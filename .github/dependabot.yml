@@ -12,6 +12,11 @@ updates:
       dev-deps:
         dependency-type: "development"
         patterns: ["@types/*", "eslint*", "prettier*", "vitest*", "playwright*"]
+    ignore:
+      # TypeScript 7 removes the JavaScript Compiler API, breaking unplugin-dts
+      # (rialto lib build) and typescript-eslint. Remove once #3253 lands.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
