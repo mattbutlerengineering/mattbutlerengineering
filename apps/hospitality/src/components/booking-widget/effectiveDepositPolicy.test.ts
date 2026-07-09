@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
+import {
+  effectiveDepositPolicy,
+  guestRiskMatters,
+  provisionalDepositRequired,
+} from "./effectiveDepositPolicy.js";
 import type { DepositConfig } from "@mbe/types";
 
 function makeConfig(overrides: Partial<DepositConfig> = {}): DepositConfig {
@@ -100,5 +104,43 @@ describe("effectiveDepositPolicy", () => {
     });
     expect(result?.depositType).toBe("flat");
     expect(result?.amountCents).toBe(2500);
+  });
+});
+
+describe("guestRiskMatters", () => {
+  it("is true when the venue's general policy is disabled and Stripe is configured", () => {
+    expect(guestRiskMatters(makeConfig({ enabled: false }), "the-oak-table", "pk_test_abc")).toBe(
+      true
+    );
+  });
+
+  it("is false when the venue's general policy is already enabled (risk can't change the outcome)", () => {
+    expect(guestRiskMatters(makeConfig({ enabled: true }), "the-oak-table", "pk_test_abc")).toBe(
+      false
+    );
+  });
+
+  it("is false when venueSlug is missing", () => {
+    expect(guestRiskMatters(makeConfig({ enabled: false }), undefined, "pk_test_abc")).toBe(false);
+  });
+
+  it("is false when the Stripe publishable key is missing", () => {
+    expect(guestRiskMatters(makeConfig({ enabled: false }), "the-oak-table", undefined)).toBe(
+      false
+    );
+  });
+});
+
+describe("provisionalDepositRequired", () => {
+  it("is true when the venue's general deposit policy is enabled", () => {
+    expect(provisionalDepositRequired(makeConfig({ enabled: true }))).toBe(true);
+  });
+
+  it("is false when the venue's general deposit policy is disabled (risk not yet known)", () => {
+    expect(provisionalDepositRequired(makeConfig({ enabled: false }))).toBe(false);
+  });
+
+  it("is false when there is no deposit config at all", () => {
+    expect(provisionalDepositRequired(null)).toBe(false);
   });
 });

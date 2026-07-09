@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
-import { useBookingFlow } from "./useBookingFlow.js";
+import { useBookingFlow, deriveStepKeys } from "./useBookingFlow.js";
 import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
 
 const mockSlot: TimeSlot = { time: "2026-05-20T18:00:00", available: true };
@@ -462,6 +462,16 @@ describe("useBookingFlow", () => {
       expect(result.current.data.holdError).toBeNull();
       expect(result.current.data.confirmError).toBeNull();
       expect(result.current.data.depositPaymentIntentId).toBeNull();
+    });
+  });
+
+  describe("deriveStepKeys (pure, testable without full render)", () => {
+    it("excludes payment when no deposit is required", () => {
+      expect(deriveStepKeys(false)).not.toContain("payment");
+    });
+
+    it("includes payment when a deposit is required", () => {
+      expect(deriveStepKeys(true)).toContain("payment");
     });
   });
 

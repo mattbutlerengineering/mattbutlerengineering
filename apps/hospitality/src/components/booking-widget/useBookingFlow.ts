@@ -1,5 +1,6 @@
 import { useReducer, useCallback } from "react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
+import { provisionalDepositRequired } from "./effectiveDepositPolicy.js";
 
 export type BookingStep =
   | "date-party"
@@ -104,6 +105,14 @@ export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
   "guest-details",
   "payment",
 ];
+
+/**
+ * Derives the step set from the deposit verdict alone — a plain function,
+ * directly unit-testable without rendering the hook or a component.
+ */
+export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
+  return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
+}
 
 function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
   switch (action.type) {
@@ -238,13 +247,14 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
     case "SET_DEPOSIT_CONFIG":
       // Provisional pre-confirm guess from the venue's general policy alone
       // (risk isn't known yet); CONFIRM_SUCCESS_* overwrites this with the
-      // final, risk-aware outcome.
+      // final, risk-aware outcome. Delegates to the shared deposit-verdict
+      // module so this can never independently drift from it.
       return {
         ...state,
         data: {
           ...state.data,
           depositConfig: action.config,
-          depositRequired: Boolean(action.config?.enabled),
+          depositRequired: provisionalDepositRequired(action.config),
         },
       };
 
@@ -425,7 +435,7 @@ export function useBookingFlow(): BookingFlowResult {
   // Render-time derivation — single source of truth for the step set and
   // indicator. Both step sets share the same indices for every step before
   // "payment", so the index is always valid regardless of which set is active.
-  const stepKeys = flowState.data.depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
+  const stepKeys = deriveStepKeys(flowState.data.depositRequired);
   const currentStepIndex = stepKeys.indexOf(flowState.step);
 
   return {

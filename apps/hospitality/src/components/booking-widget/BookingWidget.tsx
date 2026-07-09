@@ -13,7 +13,7 @@ import { WaitlistJoinView } from "./WaitlistJoinView";
 import { WaitlistConfirmationView } from "./WaitlistConfirmationView";
 import { useBookingFlow } from "./useBookingFlow.js";
 import { formatDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
-import { effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
+import { effectiveDepositPolicy, guestRiskMatters } from "./effectiveDepositPolicy.js";
 import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
@@ -200,15 +200,13 @@ export function BookingWidget({
         notes: details.notes || undefined,
       });
 
-      // Only check guest risk when the venue's general policy doesn't already
-      // require a deposit, and only when Stripe is actually configured for
-      // this venue (venueSlug + publishable key) — avoids an unnecessary
-      // lookup, and avoids sending guest PII (email/phone) when there's no
-      // deposit flow to gate.
-      const guestIsRisky =
-        !data.depositConfig?.enabled && venueSlug && stripePublishableKey
-          ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
-          : false;
+      // Only check guest risk when it could actually change the verdict
+      // (guestRiskMatters — the shared deposit-verdict module's own gating)
+      // — avoids an unnecessary lookup, and avoids sending guest PII
+      // (email/phone) when there's no deposit flow to gate.
+      const guestIsRisky = guestRiskMatters(data.depositConfig, venueSlug, stripePublishableKey)
+        ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
+        : false;
 
       const depositConfig = effectiveDepositPolicy({
         depositConfig: data.depositConfig,
