@@ -18,7 +18,7 @@ vi.mock("../services/user.js", () => ({
     findOrCreate: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    updatePreferences: vi.fn(),
+    updatePreferencesByEmail: vi.fn(),
   },
 }));
 
@@ -313,13 +313,11 @@ describe("User routes — authorization branches", () => {
 
   describe("PATCH /api/v1/users/me/preferences", () => {
     it("updates preferences for authenticated user", async () => {
-      const existingUser = makeUser({ email: "test@example.com" });
       const updatedUser = makeUser({
         email: "test@example.com",
         preferences: { theme: "dark", emailNotifications: true, marketingEmails: false },
       });
-      vi.mocked(userService.getByEmail).mockResolvedValueOnce(existingUser);
-      vi.mocked(userService.updatePreferences).mockResolvedValueOnce(updatedUser);
+      vi.mocked(userService.updatePreferencesByEmail).mockResolvedValueOnce(updatedUser);
 
       const response = await app.inject({
         method: "PATCH",
@@ -350,7 +348,7 @@ describe("User routes — authorization branches", () => {
     });
 
     it("returns 404 when user not found", async () => {
-      vi.mocked(userService.getByEmail).mockResolvedValueOnce(null);
+      vi.mocked(userService.updatePreferencesByEmail).mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "PATCH",
@@ -360,23 +358,6 @@ describe("User routes — authorization branches", () => {
       });
 
       expect(response.statusCode).toBe(404);
-    });
-
-    it("returns 500 when preferences update fails", async () => {
-      const existingUser = makeUser({ email: "test@example.com" });
-      vi.mocked(userService.getByEmail).mockResolvedValueOnce(existingUser);
-      vi.mocked(userService.updatePreferences).mockResolvedValueOnce(null);
-
-      const response = await app.inject({
-        method: "PATCH",
-        url: "/api/v1/users/me/preferences",
-        headers: { authorization: "Bearer valid-token" },
-        payload: { theme: "dark" },
-      });
-
-      expect(response.statusCode).toBe(500);
-      const body = JSON.parse(response.body);
-      expect(body.title).toBe("Internal Server Error");
     });
   });
 });
