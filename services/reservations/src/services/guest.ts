@@ -55,6 +55,7 @@ function mapPrismaGuest(guest: {
     notes: guest.notes,
     visitCount: guest.visitCount,
     noShowCount: guest.noShowCount,
+    lastNoShowAt: guest.lastNoShowAt?.toISOString() ?? null,
     riskScore,
     lifetimeSpend: guest.lifetimeSpend?.toString() ?? null,
     lastVisit: guest.lastVisit?.toISOString() ?? null,

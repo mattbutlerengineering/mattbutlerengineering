@@ -3,9 +3,7 @@ import type { ApiResponse, GuestRiskResult } from "@mbe/types";
 import { guestRiskResultJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
-import { computeGuestRisk } from "../services/guest-risk.js";
-
-const DEFAULT_AUTO_DEPOSIT_THRESHOLD = 2;
+import { computeGuestRisk, resolveNoShowThreshold } from "../services/guest-risk.js";
 
 export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(guestRiskResultJsonSchema);
@@ -77,13 +75,10 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const threshold =
-        (venue.settings as { autoDepositAfterNoShows?: number } | null)?.autoDepositAfterNoShows ??
-        DEFAULT_AUTO_DEPOSIT_THRESHOLD;
+      const threshold = resolveNoShowThreshold(venue.settings);
 
       // Re-compute risk with venue-specific threshold
-      const lastNoShowDate =
-        guest.noShowCount > 0 && guest.lastVisit ? new Date(guest.lastVisit) : null;
+      const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
       const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
         riskyThreshold: threshold,
       });

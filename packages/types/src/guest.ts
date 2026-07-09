@@ -22,6 +22,8 @@ export interface Guest {
   visitCount: number;
   /** Number of NO_SHOW reservations for this guest at this venue. */
   noShowCount: number;
+  /** Timestamp of the guest's most recent NO_SHOW, written by recordNoShow. Used for risk decay. */
+  lastNoShowAt?: string | null;
   /** Computed risk score based on no-show history. */
   riskScore: GuestRiskScore;
   lifetimeSpend: string | null; // Decimal as string for precision

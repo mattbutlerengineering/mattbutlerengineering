@@ -15,6 +15,7 @@ export const GuestSchema = z.object({
   notes: z.string().nullable(),
   visitCount: z.number(),
   noShowCount: z.number(),
+  lastNoShowAt: z.string().nullable().optional(),
   riskScore: z.enum(["trusted", "standard", "risky"]),
   lifetimeSpend: z.string().nullable(),
   lastVisit: z.string().nullable(),

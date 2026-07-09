@@ -34,6 +34,17 @@ export function computeGuestRisk(
   return "risky";
 }
 
+/**
+ * Resolves the no-show count that triggers "risky" classification from venue
+ * settings, falling back to the shared default. Single source of truth so
+ * every caller (public booking-widget gate, internal guest reads) agrees on
+ * the same threshold for the same venue.
+ */
+export function resolveNoShowThreshold(venueSettings: unknown): number {
+  const settings = venueSettings as { autoDepositAfterNoShows?: number } | null | undefined;
+  return settings?.autoDepositAfterNoShows ?? DEFAULT_RISKY_THRESHOLD;
+}
+
 function applyDecay(noShowCount: number, lastNoShowDate: Date | null): number {
   if (noShowCount === 0 || lastNoShowDate === null) return noShowCount;
 

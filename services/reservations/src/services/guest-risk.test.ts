@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { computeGuestRisk } from "./guest-risk.js";
+import { computeGuestRisk, resolveNoShowThreshold } from "./guest-risk.js";
 
 describe("computeGuestRisk", () => {
   describe("trusted (0 no-shows)", () => {
@@ -103,5 +103,19 @@ describe("computeGuestRisk", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+});
+
+describe("resolveNoShowThreshold", () => {
+  it("returns the shared default when venue settings are null", () => {
+    expect(resolveNoShowThreshold(null)).toBe(2);
+  });
+
+  it("returns the shared default when settings have no autoDepositAfterNoShows", () => {
+    expect(resolveNoShowThreshold({})).toBe(2);
+  });
+
+  it("returns the venue-configured threshold when present", () => {
+    expect(resolveNoShowThreshold({ autoDepositAfterNoShows: 3 })).toBe(3);
   });
 });
