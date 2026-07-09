@@ -462,6 +462,21 @@
       function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-reliability.ts">
+    <item priority="low">
+      interface GuestReliabilityInput {
+        noShowCount: number;
+        visitCount: number;
+        lastNoShowAt?: Date | string | null;
+      }
+    </item>
+    <item priority="high">
+      export function assessGuestReliability(
+        guest: GuestReliabilityInput,
+        venueSettings: VenueSettings | null | undefined
+      ): GuestRiskScore { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/guest-risk.ts">
     <item priority="low">
       type GuestRiskScore = "trusted" | "standard" | "risky";
