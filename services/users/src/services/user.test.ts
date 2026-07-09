@@ -423,24 +423,28 @@ describe("userService", () => {
     });
   });
 
-  // ── updatePreferences ─────────────────────────────────────────────
+  // ── updatePreferencesByEmail ──────────────────────────────────────
 
-  describe("updatePreferences", () => {
+  describe("updatePreferencesByEmail", () => {
     it("merges new preferences with existing ones", async () => {
-      const existingUser = makePrismaUser({
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: "user-1",
         preferences: { theme: "light", emailNotifications: true },
-      });
+      } as never);
       const updatedUser = makePrismaUser({
         preferences: { theme: "dark", emailNotifications: true },
         updatedAt: LATER,
       });
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(existingUser as never);
       vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
 
-      const result = await userService.updatePreferences("user-1", { theme: "dark" });
+      const result = await userService.updatePreferencesByEmail("alice@example.com", {
+        theme: "dark",
+      });
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: "alice@example.com" },
+        select: { id: true, preferences: true },
+      });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: "user-1" },
         data: {
@@ -451,16 +455,17 @@ describe("userService", () => {
     });
 
     it("handles user with null/empty preferences", async () => {
-      const existingUser = makePrismaUser({ preferences: null });
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: "user-1",
+        preferences: null,
+      } as never);
       const updatedUser = makePrismaUser({
         preferences: { theme: "system" },
         updatedAt: LATER,
       });
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(existingUser as never);
       vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
 
-      await userService.updatePreferences("user-1", { theme: "system" });
+      await userService.updatePreferencesByEmail("alice@example.com", { theme: "system" });
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: "user-1" },
@@ -470,45 +475,56 @@ describe("userService", () => {
       });
     });
 
-    it("returns null when user not found on initial lookup", async () => {
+    it("returns null when user not found by email", async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null as never);
 
-      const result = await userService.updatePreferences("nonexistent", { theme: "dark" });
+      const result = await userService.updatePreferencesByEmail("unknown@example.com", {
+        theme: "dark",
+      });
 
       expect(result).toBeNull();
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it("returns null when P2025 on update (race condition)", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(makePrismaUser() as never);
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: "user-1",
+        preferences: {},
+      } as never);
       vi.mocked(prisma.user.update).mockRejectedValueOnce(prismaNotFoundError());
 
-      const result = await userService.updatePreferences("user-1", { theme: "dark" });
+      const result = await userService.updatePreferencesByEmail("alice@example.com", {
+        theme: "dark",
+      });
 
       expect(result).toBeNull();
     });
 
     it("propagates non-P2025 errors from update", async () => {
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(makePrismaUser() as never);
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: "user-1",
+        preferences: {},
+      } as never);
       vi.mocked(prisma.user.update).mockRejectedValueOnce(new Error("DB timeout"));
 
-      await expect(userService.updatePreferences("user-1", { theme: "dark" })).rejects.toThrow(
-        "DB timeout"
-      );
+      await expect(
+        userService.updatePreferencesByEmail("alice@example.com", { theme: "dark" })
+      ).rejects.toThrow("DB timeout");
     });
 
     it("preserves existing preferences that are not overridden", async () => {
-      const existingUser = makePrismaUser({
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: "user-1",
         preferences: { theme: "light", emailNotifications: true, marketingEmails: false },
-      });
+      } as never);
       const updatedUser = makePrismaUser({
         preferences: { theme: "light", emailNotifications: false, marketingEmails: false },
       });
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(existingUser as never);
       vi.mocked(prisma.user.update).mockResolvedValueOnce(updatedUser as never);
 
-      await userService.updatePreferences("user-1", { emailNotifications: false });
+      await userService.updatePreferencesByEmail("alice@example.com", {
+        emailNotifications: false,
+      });
 
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: "user-1" },
