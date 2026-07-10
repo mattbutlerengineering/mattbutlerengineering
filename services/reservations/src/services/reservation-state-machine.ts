@@ -21,22 +21,6 @@ export const reservationMachine = createStateMachine<ReservationStatus>(
 );
 
 /**
- * The allowed-transitions map — kept for callers that reference it directly.
- */
-export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
-  RESERVATION_TRANSITIONS as Record<ReservationStatus, ReservationStatus[]>;
-
-/**
- * Returns true if `from -> to` is a valid reservation state transition.
- */
-export function isValidReservationTransition(
-  from: ReservationStatus,
-  to: ReservationStatus
-): boolean {
-  return reservationMachine.canTransition(from, to);
-}
-
-/**
  * Thrown when an invalid reservation state transition is attempted.
  * Alias of {@link TransitionError} for backward compatibility.
  */

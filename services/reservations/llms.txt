@@ -386,7 +386,7 @@
       export const depositMachine: unknown;
     </item>
     <item priority="high">
-      export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]>;
+      export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus { /* ... */ }
     </item>
   </file>
   <file path="src/services/deposit.ts">
@@ -648,7 +648,10 @@
       export const reservationMachine: unknown;
     </item>
     <item priority="high">
-      export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]>;
+      export function transitionReservation(
+        from: ReservationStatus,
+        to: ReservationStatus
+      ): ReservationStatus { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation.ts">
@@ -759,7 +762,7 @@
       export const tableMachine: unknown;
     </item>
     <item priority="high">
-      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
+      export function transitionTable(from: TableStatus, to: TableStatus): TableStatus { /* ... */ }
     </item>
   </file>
   <file path="src/services/table.ts">

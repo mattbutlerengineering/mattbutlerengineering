@@ -4989,8 +4989,10 @@
   </file>
   <file path="src/services/deposit-state-machine.ts">
     export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
-    export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> =
-      DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
+    export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus {
+      depositMachine.transition(from, to);
+      return to;
+    }
   </file>
   <file path="src/services/deposit.ts">
     export type StripePort = Pick<
@@ -5749,8 +5751,13 @@
       RESERVATION_TRANSITIONS,
       "reservation"
     );
-    export const RESERVATION_VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> =
-      RESERVATION_TRANSITIONS as Record<ReservationStatus, ReservationStatus[]>;
+    export function transitionReservation(
+      from: ReservationStatus,
+      to: ReservationStatus
+    ): ReservationStatus {
+      reservationMachine.transition(from, to);
+      return to;
+    }
   </file>
   <file path="src/services/reservation.ts">
     export interface ListReservationsOptions {
@@ -5939,8 +5946,10 @@
   </file>
   <file path="src/services/table-state-machine.ts">
     export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
-    export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> =
-      TABLE_TRANSITIONS as Record<TableStatus, TableStatus[]>;
+    export function transitionTable(from: TableStatus, to: TableStatus): TableStatus {
+      tableMachine.transition(from, to);
+      return to;
+    }
   </file>
   <file path="src/services/table.ts">
     export function mapPrismaTable(table: {

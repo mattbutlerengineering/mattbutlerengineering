@@ -15,19 +15,6 @@ const TABLE_TRANSITIONS: Partial<Record<TableStatus, TableStatus[]>> = {
 export const tableMachine = createStateMachine<TableStatus>(TABLE_TRANSITIONS, "table");
 
 /**
- * The allowed-transitions map — kept for callers that reference it directly.
- */
-export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> =
-  TABLE_TRANSITIONS as Record<TableStatus, TableStatus[]>;
-
-/**
- * Returns true if `from -> to` is a valid table state transition.
- */
-export function isValidTableTransition(from: TableStatus, to: TableStatus): boolean {
-  return tableMachine.canTransition(from, to);
-}
-
-/**
  * Thrown when an invalid table state transition is attempted.
  * Alias of {@link TransitionError} for backward compatibility.
  */
