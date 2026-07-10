@@ -27,6 +27,7 @@ vi.mock("./deposit.js", () => ({
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
+import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
   cancelReservationWithDeposit,
   type CancelReservationDeps,
@@ -365,5 +366,48 @@ describe("cancelReservationWithDeposit", () => {
     // The single-seam notification path fires exactly once: only the winning
     // cancel reaches it; the loser short-circuits on the CAS miss.
     expect(deps.bookingNotifier.cancelBookingNotifications).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs and returns a distinct non-409 result when the final update throws ReservationTransitionError after the deposit is already resolved (ghost-state guard, #3278)", async () => {
+    // A concurrent status change lands DURING the Stripe round trip: the
+    // deposit forfeiture (money) succeeds, then reservationService.update
+    // re-validates the transition against the now-changed row and throws
+    // ReservationTransitionError. This is the ghost-state path — money moved,
+    // reservation status unchanged — NOT the CAS-count-zero short-circuit
+    // (which returns null). It must log at error naming the already-resolved
+    // deposit + Stripe op, and MUST NOT read as a harmless 409.
+    const reservation = makeReservation({
+      startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    });
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
+    vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+    vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+      ...heldDeposit,
+      status: "forfeited",
+    } as never);
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("NO_SHOW", "CANCELLED", [], "reservation")
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    // (a) logged at error level, naming the already-resolved deposit + Stripe op.
+    expect(deps.logger.error).toHaveBeenCalledTimes(1);
+    const [logContext] = vi.mocked(deps.logger.error).mock.calls[0] as [Record<string, unknown>];
+    expect(logContext).toMatchObject({
+      reservationId: "res_1",
+      depositId: "dep_1",
+      stripeOp: "forfeit",
+    });
+    // (b) distinct result, NOT a bare 409 harmless conflict.
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).not.toBe(409);
+    }
+    // (c) this is the post-resolution transition-error path: the deposit
+    // money-move DID run, and no re-notification fires on the failed cancel.
+    expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
+    expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
 });
