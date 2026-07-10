@@ -20,6 +20,7 @@ import {
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { reservationService, ReservationTransitionError } from "../services/reservation.js";
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
+import { recordNoShow } from "../services/reservation-no-show.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { venueService } from "../services/venue.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
@@ -654,6 +655,25 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
+      if (request.body.status === "NO_SHOW") {
+        try {
+          const result = await recordNoShow(reservation, request.log);
+
+          if (!result.success) {
+            return reply
+              .code(result.status)
+              .send(createProblemDetails(result.status, result.title, result.detail));
+          }
+
+          return { data: result.reservation };
+        } catch (err) {
+          if (err instanceof ReservationTransitionError) {
+            return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+          }
+          throw err;
+        }
+      }
+
       // #2998: staff PATCH accepts partySize but previously bypassed the
       // per_person-deposit guard added for the public manage route in
       // #2997/#2931 (decision: Block) — route through the same check here
@@ -711,11 +731,6 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               )
             );
         }
-
-        // Guest no-show counter (and risk escalation) is bumped inside the
-        // same transaction as the status write — see
-        // reservationService.update (#3231). No fire-and-forget here: if that
-        // write fails, updateWithConflictCheck rejects and is caught below.
 
         // Fire post-visit thank-you email when status transitions to COMPLETED
         if (request.body.status === "COMPLETED" && result.reservation) {
