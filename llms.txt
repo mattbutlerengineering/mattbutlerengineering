@@ -2915,6 +2915,21 @@
       function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-reliability.ts">
+    <item priority="low">
+      interface GuestReliabilityInput {
+        noShowCount: number;
+        visitCount: number;
+        lastNoShowAt?: Date | string | null;
+      }
+    </item>
+    <item priority="high">
+      export function assessGuestReliability(
+        guest: GuestReliabilityInput,
+        venueSettings: VenueSettings | null | undefined
+      ): GuestRiskScore { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest-risk.ts">
     <item priority="low">
       type GuestRiskScore = "trusted" | "standard" | "risky";
@@ -4721,8 +4736,8 @@
   </file>
   <file path="packages/jobs/src/worker.ts">
     <item priority="low">
-      type JobHandlerMap = {
-        [K in JobType]: (payload: JobPayloadMap[K]) => Promis...;
+      type JobHandlerMap = Partial<{
+        [K in JobType]: (payload: JobPayloadMap[K]) =...;
     </item>
     <item priority="low">
       interface JobWorkerConfig {

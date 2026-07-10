@@ -48,9 +48,12 @@ rather than as a separate DigitalOcean App Platform component.
     derives the venue from the expired entry itself, so the job payload only
     needs the entry id — exactly what the enqueue side sends.
   - The three job types that are never enqueued today
-    (`POST_VISIT_FOLLOWUP`, `PRE_ARRIVAL_BRIEFING`, `LAPSED_GUEST_SCAN`) map to
-    handlers that throw, so a mis-enqueued job fails loudly instead of silently
-    vanishing — the exact failure mode this ADR removes.
+    (`POST_VISIT_FOLLOWUP`, `PRE_ARRIVAL_BRIEFING`, `LAPSED_GUEST_SCAN`) are
+    simply absent from this service's `JobHandlerMap` — the map is declared
+    `Partial`, so a service registers only the job types it handles.
+    `dispatchJob` throws `UnknownJobTypeError` for a known `JobType` with no
+    registered handler, so a mis-enqueued job still fails loudly instead of
+    silently vanishing — the exact failure mode this ADR removes (see #3244).
 - The worker is wrapped by `createReservationJobWorker`, which defers
   construction (and therefore the Redis consumer connection) to Fastify's
   `onReady` hook and closes it on `onClose`. `buildApp()` stays
@@ -92,7 +95,7 @@ extraction is a follow-up, not a rewrite.
 
 ### Delete the enqueue half
 
-**Rejected:** the deletion test showed no observable behaviour lost *today*, but
+**Rejected:** the deletion test showed no observable behaviour lost _today_, but
 the HITL decision is that reminder delivery and waitlist re-notification are
 required product behaviour. Building worker + enqueue together as one wired
 feature is the honest resolution.

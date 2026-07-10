@@ -1,7 +1,7 @@
-import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type {
   SessionConfig,
   SessionEventCallback,
+  SessionResultSummary,
   WorktreeInfo,
   TurnMetrics,
   ToolCallMetrics,
@@ -141,7 +141,14 @@ export interface QueryPhaseInput {
 }
 
 export interface QueryPhaseOutput {
-  readonly resultMessage?: SDKResultMessage;
+  /**
+   * Raw Claude SDK result — QueryPhase always wraps the Claude-specific
+   * `runHardenedQuery`, so this stays SDK-shaped (derived from the already-
+   * imported `HardenedQueryResult`, never naming `SDKResultMessage`
+   * directly). Downstream phases never see this type — session-runner maps
+   * it to `SessionResultSummary` before composing their inputs (#3233).
+   */
+  readonly resultMessage?: NonNullable<HardenedQueryResult["resultMessage"]>;
   readonly stuckReason?: StuckPattern;
   readonly turnMetrics: readonly TurnMetrics[];
   readonly toolCallMetrics: readonly ToolCallMetrics[];
@@ -152,7 +159,7 @@ export interface VerificationPhaseInput {
   readonly config: SessionConfig;
   readonly onEvent?: SessionEventCallback;
   readonly worktree: WorktreeInfo;
-  readonly resultMessage?: SDKResultMessage;
+  readonly resultMessage?: SessionResultSummary;
   readonly stuckReason?: StuckPattern;
 }
 
@@ -168,7 +175,7 @@ export interface PublishPhaseInput {
   readonly onEvent?: SessionEventCallback;
   readonly worktree: WorktreeInfo;
   readonly hasChanges: boolean;
-  readonly resultMessage?: SDKResultMessage;
+  readonly resultMessage?: SessionResultSummary;
   readonly stuckReason?: StuckPattern;
   readonly gatewayVerdict?: GatewayVerdict;
   /** Accumulated errors from prior phases — included in failure PR bodies. */
@@ -184,7 +191,7 @@ export interface FeedbackPhaseInput {
   readonly config: SessionConfig;
   readonly onEvent?: SessionEventCallback;
   readonly worktree: WorktreeInfo;
-  readonly resultMessage?: SDKResultMessage;
+  readonly resultMessage?: SessionResultSummary;
   readonly prUrl: string | null;
   readonly prNumber?: number;
   /** Forwarded to `FeedbackLoopParams.signal` so a pipeline cancel() reaches

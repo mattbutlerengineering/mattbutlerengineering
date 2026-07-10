@@ -17,10 +17,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Reservation, Venue } from "@mbe/types";
 
 interface JobsModuleShape {
-  dispatchJob(
-    handlers: unknown,
-    job: { name: string; data: unknown }
-  ): Promise<void>;
+  dispatchJob(handlers: unknown, job: { name: string; data: unknown }): Promise<void>;
   JOB_TYPES: Record<string, string>;
 }
 
@@ -35,7 +32,12 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
   const actual = (await importOriginal()) as JobsModuleShape & Record<string, unknown>;
 
   class FakeScheduler {
-    async schedule(type: string, payload: unknown, delayMs: number, jobId?: string): Promise<string> {
+    async schedule(
+      type: string,
+      payload: unknown,
+      delayMs: number,
+      jobId?: string
+    ): Promise<string> {
       bus.scheduled.push({ type, payload, delayMs, jobId });
       return jobId ?? "job_1";
     }
@@ -57,7 +59,7 @@ vi.mock("@mbe/jobs", async (importOriginal) => {
   return { ...actual, JobScheduler: FakeScheduler, JobWorker: FakeWorker };
 });
 
-import { JobScheduler, JobWorker, JOB_TYPES } from "@mbe/jobs";
+import { JobScheduler, JobWorker, JOB_TYPES, dispatchJob, UnknownJobTypeError } from "@mbe/jobs";
 import type { ReminderPayload } from "@mbe/jobs";
 import { createReservationJobHandlers, createReservationJobWorker } from "./job-worker.js";
 
@@ -126,7 +128,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("BOOKING_REMINDER: enqueued job is dequeued and delivers via the dispatcher", async () => {
     const deps = makeDeps();
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     await scheduler.schedule(
       JOB_TYPES.BOOKING_REMINDER,
@@ -163,7 +168,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("DAY_OF_REMINDER: enqueued job is dequeued and delivers via the dispatcher", async () => {
     const deps = makeDeps();
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     await scheduler.schedule(
       JOB_TYPES.DAY_OF_REMINDER,
@@ -183,7 +191,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("WAITLIST_EXPIRY: enqueued job is dequeued and reaches the handleExpiry re-notify path", async () => {
     const deps = makeDeps();
     const scheduler = new JobScheduler({ redisUrl: "redis://localhost:6379" });
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     // Production enqueues only { waitlistEntryId }; the handler must reach
     // handleExpiry with just that so the re-notify-next-guest path fires.
@@ -206,7 +217,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("reminder handler skips delivery when the reservation is gone (no pointless retry)", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(null);
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
 
@@ -216,7 +230,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("reminder handler skips delivery when the guest has no email", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(makeReservation({ guestEmail: null }));
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
 
@@ -226,7 +243,10 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
   it("defaults preference to email_only when the guest record has no preference", async () => {
     const deps = makeDeps();
     deps.getReservation.mockResolvedValueOnce(makeReservation({ guest: null }));
-    new JobWorker({ redisUrl: "redis://localhost:6379", handlers: createReservationJobHandlers(deps) });
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
 
     await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
 
@@ -234,12 +254,16 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(preference).toBe("email_only");
   });
 
-  it("throws for an unwired job type so a mis-enqueued job fails loudly (never vanishes)", async () => {
+  it("throws UnknownJobTypeError for an unhandled job type so a mis-enqueued job fails loudly (never vanishes)", async () => {
     const deps = makeDeps();
     const handlers = createReservationJobHandlers(deps);
-    await expect(handlers[JOB_TYPES.POST_VISIT_FOLLOWUP]({} as never)).rejects.toThrow(
-      /no delivery handler/i
-    );
+
+    // POST_VISIT_FOLLOWUP is a known JobType but this service registers no
+    // handler for it — dispatchJob must reject, not silently no-op, so
+    // BullMQ retries then marks the job failed instead of it vanishing.
+    await expect(
+      dispatchJob(handlers, { name: JOB_TYPES.POST_VISIT_FOLLOWUP, data: {} })
+    ).rejects.toThrow(UnknownJobTypeError);
   });
 });
 

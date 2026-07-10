@@ -39,8 +39,8 @@
   </file>
   <file path="src/worker.ts">
     <item priority="low">
-      type JobHandlerMap = {
-        [K in JobType]: (payload: JobPayloadMap[K]) => Promis...;
+      type JobHandlerMap = Partial<{
+        [K in JobType]: (payload: JobPayloadMap[K]) =...;
     </item>
     <item priority="low">
       interface JobWorkerConfig {

@@ -16,6 +16,14 @@ export const JOB_TYPES = {
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
+// JobHandlerMap (worker.ts) is `Partial<{ [K in JobType]: ... }>`, not an
+// exhaustive mapped type. Adding a new entry to JOB_TYPES does NOT require
+// every service's handler factory to add a stub for it — a service registers
+// handlers only for the job types it actually processes. dispatchJob throws
+// UnknownJobTypeError for a known JobType with no registered handler, so a
+// mis-enqueued job still fails loudly (retried, then failed) instead of
+// silently vanishing.
+
 export interface ReminderPayload {
   reservationId: string;
   guestPhone: string | null;

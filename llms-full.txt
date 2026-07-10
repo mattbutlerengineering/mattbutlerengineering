@@ -4902,7 +4902,7 @@
         }
     
         // Use remaining budget instead of fixed 50% ratio
-        const sessionCost = resultMessage?.total_cost_usd ?? 0;
+        const sessionCost = resultMessage?.costUsd ?? 0;
         const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
     
         const fbSpan = tracer.startSpan("agent_core.feedback_loop");
@@ -5002,9 +5002,9 @@
           const body = resultMessage
             ? prCreator.buildPrBody(
                 config.taskDescription,
-                resultMessage.session_id,
-                resultMessage.total_cost_usd,
-                resultMessage.num_turns
+                resultMessage.sessionId,
+                resultMessage.costUsd,
+                resultMessage.numTurns
               )
             : prCreator.buildFailurePrBody(
                 config.taskDescription,
@@ -5153,7 +5153,7 @@
         }
     
         // Commit changes
-        const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
+        const isSuccess = resultMessage?.success === true && !stuckReason;
         const prefix = isSuccess ? "feat" : "wip";
         const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
         await worktreeManager.commitChanges(worktree.path, commitMsg);
@@ -8684,13 +8684,7 @@
             });
           }
     
-          const threshold = resolveNoShowThreshold(venue.settings);
-    
-          // Re-compute risk with venue-specific threshold
-          const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
-          const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
-            riskyThreshold: threshold,
-          });
+          const riskScore = assessGuestReliability(guest, venue.settings);
     
           return reply.send({
             data: {
@@ -12471,6 +12465,23 @@
       return false;
     }
   </file>
+  <file path="services/reservations/src/services/guest-reliability.ts">
+    export interface GuestReliabilityInput {
+      noShowCount: number;
+      visitCount: number;
+      lastNoShowAt?: Date | string | null;
+    }
+    export function assessGuestReliability(
+      guest: GuestReliabilityInput,
+      venueSettings: VenueSettings | null | undefined
+    ): GuestRiskScore {
+      const lastNoShowDate = guest.lastNoShowAt ? new Date(guest.lastNoShowAt) : null;
+      const threshold = resolveNoShowThreshold(venueSettings);
+      return computeGuestRisk(guest.noShowCount, guest.visitCount, lastNoShowDate, {
+        riskyThreshold: threshold,
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/guest-risk.ts">
     export type GuestRiskScore = "trusted" | "standard" | "risky";
     export interface GuestRiskOptions {
@@ -12506,7 +12517,16 @@
           )
         : [];
     
-      const riskScore = computeGuestRisk(guest.noShowCount, guest.visitCount, guest.lastNoShowAt);
+      // No VenueSettings is fetched on this read path, so the shared default
+      // threshold applies (unchanged from pre-#3230 behavior).
+      const riskScore = assessGuestReliability(
+        {
+          noShowCount: guest.noShowCount,
+          visitCount: guest.visitCount,
+          lastNoShowAt: guest.lastNoShowAt,
+        },
+        null
+      );
     
       return {
         id: guest.id,
@@ -13660,16 +13680,27 @@
         }
       },
     
-      async updatePreferences(id: string, preferences: UpdatePreferencesRequest): Promise<User | null> {
+      /**
+       * Merges the given preferences into the user identified by email in a
+       * single identity lookup, then writes the merge. Returns null if no user
+       * has that email (or if it disappears between lookup and write).
+       */
+      async updatePreferencesByEmail(
+        email: string,
+        preferences: UpdatePreferencesRequest
+      ): Promise<User | null> {
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, preferences: true },
+        });
+        if (!user) return null;
+    
+        const currentPrefs = (user.preferences as UserPreferences) ?? {};
+        const newPrefs = { ...currentPrefs, ...preferences };
+    
         try {
-          const user = await prisma.user.findUnique({ where: { id } });
-          if (!user) return null;
-    
-          const currentPrefs = (user.preferences as UserPreferences) ?? {};
-          const newPrefs = { ...currentPrefs, ...preferences };
-    
           const updated = await prisma.user.update({
-            where: { id },
+            where: { id: user.id },
             data: { preferences: newPrefs },
           });
           return mapPrismaUser(updated);
@@ -15405,6 +15436,15 @@
       }
       if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
     
+      // Adapter-neutral summary for VerificationPhase/PublishPhase/FeedbackPhase
+      // (#3233) — session-runner is the Claude-adapter boundary that maps the
+      // raw SDK result to the shape shared across adapters. `state.resultMessage`
+      // stays SDK-shaped for `buildFinalResult`'s full accounting at the end of
+      // the pipeline.
+      const resultSummary = state.resultMessage
+        ? buildSessionResultSummary(state.resultMessage)
+        : undefined;
+    
       // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
       const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
       if (breach.exceeded) {
@@ -15426,7 +15466,7 @@
           config,
           onEvent,
           worktree: state.worktree!,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           stuckReason: state.stuckReason,
         },
         deps
@@ -15450,7 +15490,7 @@
           onEvent,
           worktree: state.worktree!,
           hasChanges: state.hasChanges,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           stuckReason: state.stuckReason,
           gatewayVerdict: state.gatewayVerdict,
           errors: state.errors,
@@ -15470,7 +15510,7 @@
           config,
           onEvent,
           worktree: state.worktree!,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           prUrl: state.prUrl,
           prNumber: state.prNumber,
           signal,
@@ -15621,12 +15661,7 @@
   </file>
   <file path="packages/agent-core/src/types.ts">
     export type FailureCategory =
-      | "api_error"
-      | "rate_limited"
-      | "stuck_loop"
-      | "budget_exceeded"
-      | "tool_error"
-      | "logic_error";
+      "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
     export interface TurnMetrics {
       /** 1-based turn index within the session */
       readonly turnIndex: number;
@@ -16574,8 +16609,12 @@
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
     export class UnknownJobTypeError extends Error {
-      constructor(name: string) {
-        super(`Unknown job type: "${name}"`);
+      constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
+        super(
+          reason === "no-handler"
+            ? `No handler registered for job type: "${name}"`
+            : `Unknown job type: "${name}"`
+        );
         this.name = "UnknownJobTypeError";
       }
     }
@@ -16588,7 +16627,10 @@
       }
     
       const jobType = job.name as JobType;
-      const handler = (handlers as Record<JobType, (data: unknown) => Promise<void>>)[jobType];
+      const handler = (handlers as Partial<Record<JobType, (data: unknown) => Promise<void>>>)[jobType];
+      if (!handler) {
+        throw new UnknownJobTypeError(jobType, "no-handler");
+      }
       await handler(job.data);
     }
   </file>
@@ -16695,9 +16737,9 @@
     }
   </file>
   <file path="packages/jobs/src/worker.ts">
-    export type JobHandlerMap = {
+    export type JobHandlerMap = Partial<{
       [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
-    };
+    }>;
     export interface JobWorkerConfig {
       redisUrl: string;
       queueName?: string;

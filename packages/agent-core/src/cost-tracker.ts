@@ -1,5 +1,5 @@
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { TokenUsage, SessionResult, SessionStatus } from "./types.js";
+import type { TokenUsage, SessionResult, SessionResultSummary, SessionStatus } from "./types.js";
 
 export function extractTokenUsage(result: SDKResultMessage): TokenUsage {
   return {
@@ -29,6 +29,21 @@ function getErrors(result: SDKResultMessage): readonly string[] {
     return result.errors ?? [];
   }
   return [];
+}
+
+/**
+ * Maps a Claude SDK result to the adapter-neutral summary consumed by
+ * VerificationPhase, PublishPhase, and FeedbackPhase (#3233). This is the
+ * seam where Claude's `SDKResultMessage` stays confined to the Claude
+ * adapter path — downstream phases only ever see this neutral shape.
+ */
+export function buildSessionResultSummary(result: SDKResultMessage): SessionResultSummary {
+  return {
+    success: result.subtype === "success",
+    sessionId: result.session_id,
+    costUsd: extractCost(result),
+    numTurns: result.num_turns,
+  };
 }
 
 export function buildSessionResult(

@@ -16,6 +16,8 @@ import {
   estimateDuration,
   filterSuitableTables,
   parseOperatingHours,
+  activeHoldWindow,
+  NOT_BOOKED_STATUSES,
   type ReservationSlim,
   type HoldSlim,
   type TableFilter,
@@ -177,7 +179,7 @@ export async function getAvailableDates(
       where: {
         venueId,
         date: { gte: start, lte: actualEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: [...NOT_BOOKED_STATUSES] },
       },
       select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
     }),
@@ -185,7 +187,7 @@ export async function getAvailableDates(
       where: {
         venueId,
         date: { gte: start, lte: actualEnd },
-        expiresAt: { gt: new Date() },
+        expiresAt: activeHoldWindow(new Date()),
       },
       select: {
         id: true,
@@ -312,7 +314,7 @@ export async function fetchConflictData(
       where: {
         venueId,
         date: new Date(date),
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        status: { notIn: [...NOT_BOOKED_STATUSES] },
       },
       select: {
         id: true,
@@ -326,7 +328,7 @@ export async function fetchConflictData(
       where: {
         venueId,
         date: new Date(date),
-        expiresAt: { gt: new Date() },
+        expiresAt: activeHoldWindow(new Date()),
       },
       select: {
         id: true,
