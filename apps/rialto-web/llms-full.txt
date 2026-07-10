@@ -14,6 +14,20 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="src/data/demo-routes.ts">
+    export const DEMOS_BASE = "/demos";
+    export const DEMO_ROUTES = {
+      signIn: `${DEMOS_BASE}/login`,
+      signUp: `${DEMOS_BASE}/signup`,
+      dashboard: `${DEMOS_BASE}/dashboard`,
+      teamCreate: `${DEMOS_BASE}/teams/new`,
+      layouts: `${DEMOS_BASE}/layouts`,
+      drivers: `${DEMOS_BASE}/drivers`,
+      driverNew: `${DEMOS_BASE}/drivers/new`,
+      driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
+      driverEdit: (id: string) => `${DEMOS_BASE}/drivers/${id}/edit`,
+    } as const;
+  </file>
   <file path="src/data/nav-sections.ts">
     export const NAV_SECTIONS = REGISTRY_NAV_SECTIONS;
     export const COMPONENT_COUNT = NAV_SECTIONS.reduce(

@@ -8,6 +8,7 @@
 
 import { REGISTRY_NAV_SECTIONS } from "./page-registry.js";
 import type { NavItem } from "./page-registry.js";
+import { DEMO_ROUTES } from "./demo-routes.js";
 
 export type { NavItem, NavSection } from "./page-registry.js";
 
@@ -30,10 +31,10 @@ export const COMPONENT_COUNT = NAV_SECTIONS.reduce(
 
 /** Full-page demo routes (not component showcases). */
 export const DEMO_PAGES: readonly NavItem[] = [
-  { id: "sign-in", label: "Sign In", path: "/demos/login" },
-  { id: "sign-up", label: "Sign Up", path: "/demos/signup" },
-  { id: "dashboard", label: "Dashboard", path: "/demos/dashboard" },
-  { id: "drivers", label: "Drivers CRUD", path: "/demos/drivers" },
-  { id: "teams", label: "Team Create", path: "/demos/teams/new" },
-  { id: "layouts", label: "Layout Demo", path: "/demos/layouts" },
+  { id: "sign-in", label: "Sign In", path: DEMO_ROUTES.signIn },
+  { id: "sign-up", label: "Sign Up", path: DEMO_ROUTES.signUp },
+  { id: "dashboard", label: "Dashboard", path: DEMO_ROUTES.dashboard },
+  { id: "drivers", label: "Drivers CRUD", path: DEMO_ROUTES.drivers },
+  { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
+  { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },
 ] as const;

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDrivers } from "./DriverContext";
 import { DriverLayout } from "./DriverLayout";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import {
   Avatar,
   Badge,
@@ -48,7 +49,7 @@ export function DriverRead() {
         title="Driver Not Found"
         breadcrumbs={[
           { label: "Home", href: "/" },
-          { label: "Drivers", href: "/drivers" },
+          { label: "Drivers", href: DEMO_ROUTES.drivers },
           { label: "Not Found" },
         ]}
       >
@@ -56,7 +57,7 @@ export function DriverRead() {
           title="Driver not found"
           description="This driver may have been removed or the link is invalid."
           action={
-            <Button variant="primary" size="sm" onClick={() => navigate("/drivers")}>
+            <Button variant="primary" size="sm" onClick={() => navigate(DEMO_ROUTES.drivers)}>
               View All Drivers
             </Button>
           }
@@ -73,7 +74,7 @@ export function DriverRead() {
       title: `${driver.name} removed`,
       variant: "default",
     });
-    navigate("/drivers");
+    navigate(DEMO_ROUTES.drivers);
   }
 
   return (
@@ -81,7 +82,7 @@ export function DriverRead() {
       title={driver.name}
       breadcrumbs={[
         { label: "Home", href: "/" },
-        { label: "Drivers", href: "/drivers" },
+        { label: "Drivers", href: DEMO_ROUTES.drivers },
         { label: driver.name },
       ]}
       actions={
@@ -89,7 +90,7 @@ export function DriverRead() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate(`/drivers/${driver.id}/edit`)}
+            onClick={() => navigate(DEMO_ROUTES.driverEdit(driver.id))}
           >
             Edit
           </Button>
@@ -117,7 +118,7 @@ export function DriverRead() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate(`/drivers/${driver.id}/edit`)}
+            onClick={() => navigate(DEMO_ROUTES.driverEdit(driver.id))}
           >
             Edit Driver
           </Button>
@@ -162,7 +163,7 @@ export function DriverRead() {
                 label: "Car Number",
                 value: (
                   <Tooltip content="Permanent number for the season" placement="top">
-                    <span>#{driver.number}</span>
+                    <Text>#{driver.number}</Text>
                   </Tooltip>
                 ),
               },
@@ -170,7 +171,7 @@ export function DriverRead() {
                 label: "Team",
                 value: (
                   <Tooltip content="Current constructor team" placement="top">
-                    <span>{driver.team}</span>
+                    <Text>{driver.team}</Text>
                   </Tooltip>
                 ),
               },

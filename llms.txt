@@ -960,6 +960,14 @@
       export const weeklyResources: readonly WeeklyResource[];
     </item>
   </file>
+  <file path="apps/rialto-web/src/data/demo-routes.ts">
+    <item priority="high">
+      export const DEMOS_BASE: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_ROUTES: unknown;
+    </item>
+  </file>
   <file path="apps/rialto-web/src/data/nav-sections.ts">
     <item priority="high">
       export const NAV_SECTIONS: unknown;

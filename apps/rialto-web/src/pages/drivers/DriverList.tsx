@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDrivers, type Driver } from "./DriverContext";
 import { DriverLayout } from "./DriverLayout";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import {
   Avatar,
   Badge,
@@ -129,7 +130,7 @@ export function DriverList() {
       title="Drivers"
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "Drivers" }]}
       actions={
-        <Button variant="primary" size="sm" onClick={() => navigate("/drivers/new")}>
+        <Button variant="primary" size="sm" onClick={() => navigate(DEMO_ROUTES.driverNew)}>
           Add Driver
         </Button>
       }
@@ -188,7 +189,7 @@ export function DriverList() {
           }
           action={
             drivers.length === 0 ? (
-              <Button variant="primary" size="sm" onClick={() => navigate("/drivers/new")}>
+              <Button variant="primary" size="sm" onClick={() => navigate(DEMO_ROUTES.driverNew)}>
                 Add Driver
               </Button>
             ) : (
@@ -220,7 +221,7 @@ export function DriverList() {
                     <div className={styles.driverCell}>
                       <Avatar name={d.name} size="sm" />
                       <HoverCard content={<DriverPreview driver={d} />} placement="bottom">
-                        <Link to={`/drivers/${d.id}`} className={styles.driverName}>
+                        <Link to={DEMO_ROUTES.driver(d.id)} className={styles.driverName}>
                           {d.name}
                         </Link>
                       </HoverCard>
@@ -278,7 +279,7 @@ export function DriverList() {
                         {
                           id: "view",
                           label: "View",
-                          onSelect: () => navigate(`/drivers/${d.id}`),
+                          onSelect: () => navigate(DEMO_ROUTES.driver(d.id)),
                         },
                         {
                           id: "quickview",
@@ -288,7 +289,7 @@ export function DriverList() {
                         {
                           id: "edit",
                           label: "Edit",
-                          onSelect: () => navigate(`/drivers/${d.id}/edit`),
+                          onSelect: () => navigate(DEMO_ROUTES.driverEdit(d.id)),
                         },
                         { type: "divider" },
                         {
@@ -331,14 +332,14 @@ export function DriverList() {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => navigate(`/drivers/${drawerDriver.id}`)}
+                onClick={() => navigate(DEMO_ROUTES.driver(drawerDriver.id))}
               >
                 Full Profile
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate(`/drivers/${drawerDriver.id}/edit`)}
+                onClick={() => navigate(DEMO_ROUTES.driverEdit(drawerDriver.id))}
               >
                 Edit
               </Button>
