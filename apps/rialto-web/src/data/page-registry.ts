@@ -767,6 +767,16 @@ export const PAGE_REGISTRY: PageEntry[] = [
         default: m.PricingTableExamplePage,
       })),
   },
+  {
+    id: "example-command-palette",
+    label: "Command Palette",
+    category: "Examples",
+    path: "/examples/command-palette",
+    load: () =>
+      import("../pages/examples/CommandPaletteExamplePage").then((m) => ({
+        default: m.CommandPaletteExamplePage,
+      })),
+  },
 ];
 
 // ---------------------------------------------------------------------------
