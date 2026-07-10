@@ -1,0 +1,47 @@
+.errorPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--rialto-space-md);
+  padding: calc(var(--rialto-space-xl) * 2) var(--rialto-space-xl);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-recessed);
+}
+
+.statusCode {
+  margin: 0;
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-4xl);
+  font-weight: var(--rialto-weight-light);
+  line-height: var(--rialto-leading-tight);
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-tertiary);
+}
+
+.copy {
+  max-width: 44ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+}
+
+.searchRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.searchField {
+  flex: 1 1 240px;
+  min-width: 200px;
+  text-align: start;
+}
