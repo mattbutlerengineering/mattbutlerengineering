@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
+import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
 import styles from "./DemoLayout.module.css";
 
@@ -26,7 +27,7 @@ export function FloatingControls({
 }: FloatingControlsProps) {
   return (
     <>
-      <button
+      <Button
         className={styles.controlButton}
         onClick={() => onDarkModeChange(!darkMode)}
         aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -57,9 +58,9 @@ export function FloatingControls({
             <path d="M12 3a6 6 0 1 0 0 10A6 6 0 0 1 12 3Z" />
           )}
         </svg>
-      </button>
+      </Button>
 
-      <button
+      <Button
         className={styles.controlButton}
         onClick={() => onRtlChange(!rtl)}
         aria-label={rtl ? "Switch to LTR" : "Switch to RTL"}
@@ -88,10 +89,10 @@ export function FloatingControls({
             </>
           )}
         </svg>
-      </button>
+      </Button>
 
       {onOpenCookiePrefs && (
-        <button
+        <Button
           className={styles.controlButton}
           onClick={onOpenCookiePrefs}
           aria-label="Cookie preferences"
@@ -113,7 +114,7 @@ export function FloatingControls({
             <circle cx="6" cy="10" r="0.75" fill="currentColor" stroke="none" />
             <circle cx="8.5" cy="11" r="0.5" fill="currentColor" stroke="none" />
           </svg>
-        </button>
+        </Button>
       )}
 
       <select
@@ -139,6 +140,10 @@ export function DemoLayout() {
       main.focus({ preventScroll: true });
     }
   }, []);
+
+  // Demo pages scroll the window (normal document flow).
+  useScrollToTop();
+
   const [activeVibe, setActiveVibe] = useState<VibeName>("default");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined") return false;

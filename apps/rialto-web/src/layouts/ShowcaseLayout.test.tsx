@@ -21,7 +21,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 vi.mock("../components/ShowcaseSidebar.js", () => ({
-  ShowcaseSidebar: () => <aside data-testid="sidebar" />,
+  ShowcaseSidebar: ({ onNavigate }: { onNavigate: (path: string) => void }) => (
+    <aside data-testid="sidebar">
+      <button data-testid="sidebar-nav" onClick={() => onNavigate("/components/button")}>
+        nav
+      </button>
+    </aside>
+  ),
 }));
 
 const DEFAULT_THEME_CTX = {
@@ -69,5 +75,16 @@ describe("ShowcaseLayout", () => {
 
     fireEvent.click(screen.getByTestId("theme-toggle"));
     expect(toggleTheme).toHaveBeenCalled();
+  });
+
+  it("resets main content scroll on navigation", () => {
+    renderLayout();
+    const main = screen.getByRole("main");
+    const scrollTo = vi.fn();
+    main.scrollTo = scrollTo;
+
+    fireEvent.click(screen.getByTestId("sidebar-nav"));
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 });

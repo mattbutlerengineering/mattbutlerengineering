@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { DemoLayout, FloatingControls } from "./DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -165,6 +165,37 @@ describe("DemoLayout", () => {
     // matchMedia returns false (light), so dark mode is false by default
     renderDemoLayout();
     expect(screen.getByTestId("rialto-provider")).toBeInTheDocument();
+  });
+
+  it("scrolls the window to the top on route navigation", () => {
+    const windowScrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+    function NavChild() {
+      const navigate = useNavigate();
+      return (
+        <button data-testid="go-other" onClick={() => navigate("/other")}>
+          go
+        </button>
+      );
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/start"]}>
+        <Routes>
+          <Route element={<DemoLayout />}>
+            <Route path="/start" element={<NavChild />} />
+            <Route path="/other" element={<div data-testid="other-page" />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+    windowScrollTo.mockClear();
+
+    fireEvent.click(screen.getByTestId("go-other"));
+
+    expect(screen.getByTestId("other-page")).toBeInTheDocument();
+    expect(windowScrollTo).toHaveBeenCalledWith(0, 0);
+    windowScrollTo.mockRestore();
   });
 });
 
