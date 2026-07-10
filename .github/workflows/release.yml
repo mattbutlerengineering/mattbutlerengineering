@@ -91,7 +91,13 @@ jobs:
           if git diff --staged --quiet; then
             echo "Nothing staged after versioning"
           else
-            git commit -m "chore: version packages [skip ci]"
+            # --no-verify: this is a bot commit of changeset-generated files; the
+            # husky pre-commit hook invokes the mbe CLI (tools/cli imports
+            # @mbe/agent-core/dist), which the Release job never builds, so the
+            # hook throws ERR_MODULE_NOT_FOUND. The hook's checks are redundant
+            # here (dedicated CI jobs enforce lint/ADR/integrity). Matches the
+            # bot-commit convention in revert-rca-detection.yml.
+            git commit --no-verify -m "chore: version packages [skip ci]"
           fi
 
       - name: Publish to npm
