@@ -168,13 +168,53 @@ describe("PublishPhase", () => {
     expect((resultEvents[0].data as { message: string }).message).toContain("PR created");
   });
 
-  it("creates PR without gateway verdict (failed session with changes)", async () => {
+  it("creates PR without gateway verdict when the session succeeded", async () => {
     const { result, output } = await phase.run(makeInput({ gatewayVerdict: undefined }), deps);
 
     expect(result.status).toBe("success");
     expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ draft: false })
+    );
+  });
+
+  it("creates a draft PR when the gateway never ran because the session failed (max turns)", async () => {
+    const { result, output } = await phase.run(
+      makeInput({
+        gatewayVerdict: undefined,
+        resultMessage: { ...createMockResultMessage(), success: false },
+      }),
+      deps
+    );
+
+    expect(result.status).toBe("success");
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true, title: expect.stringContaining("wip:") })
+    );
+    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalled();
+    expect(deps.prCreator.buildPrBody).not.toHaveBeenCalled();
+  });
+
+  it("creates a draft PR when the gateway never ran because the session got stuck", async () => {
+    const { result, output } = await phase.run(
+      makeInput({
+        gatewayVerdict: undefined,
+        stuckReason: {
+          type: "repeated_action_observation",
+          count: 4,
+          threshold: 4,
+          description: "Repeated the same action 4 times",
+          severity: "error",
+        },
+      }),
+      deps
+    );
+
+    expect(result.status).toBe("success");
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true })
     );
   });
 });
