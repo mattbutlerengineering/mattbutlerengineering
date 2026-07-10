@@ -101,6 +101,9 @@ vi.mock("../pages/examples/FormStatesExamplePage.js", () => ({
 vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
   ReservationsListExamplePage: () => null,
 }));
+vi.mock("../pages/tokens/ColorPage.js", () => ({ ColorPage: () => null }));
+vi.mock("../pages/tokens/TypographyPage.js", () => ({ TypographyPage: () => null }));
+vi.mock("../pages/tokens/SurfacesPage.js", () => ({ SurfacesPage: () => null }));
 
 // ---------------------------------------------------------------------------
 // Structure tests
