@@ -12,12 +12,24 @@ test.describe("CF-2: Dashboard morning load", () => {
   test("stats widgets render with mocked data", async ({ mockedPage }) => {
     await mockedPage.goto("dashboard");
 
-    // All four Stat widgets defined in HomePage. Rialto's Stat renders
-    // role="group" with aria-label={label} (not a heading), so query by group.
-    await expect(mockedPage.getByRole("group", { name: "Today's Reservations" })).toBeVisible();
-    await expect(mockedPage.getByRole("group", { name: "Expected Covers" })).toBeVisible();
-    await expect(mockedPage.getByRole("group", { name: "Upcoming (2 hrs)" })).toBeVisible();
-    await expect(mockedPage.getByRole("group", { name: "Cancellation Rate" })).toBeVisible();
+    // Dashboard stat row was redesigned in #3212: the three count tiles roll
+    // on rialto Odometers — the label renders as an adjacent paragraph and the
+    // value announces through the Odometer's sole accessible surface, a
+    // role="status" live region. The bounded cancellation-rate percentage
+    // reads on a Meter with an accessible name.
+    // "Today's Reservations" also titles the reservation-list card, so scope
+    // the label assertion to the paragraph to keep strict mode happy.
+    await expect(
+      mockedPage.getByRole("paragraph").filter({ hasText: "Today's Reservations" })
+    ).toBeVisible();
+    await expect(mockedPage.getByText("Expected Covers")).toBeVisible();
+    await expect(mockedPage.getByText("Upcoming (2 hrs)")).toBeVisible();
+    // Announced values derive from the mocked reservations fixture:
+    // 3 bookings, 4 + 2 + 6 = 12 covers, 2 upcoming within the window.
+    await expect(mockedPage.getByRole("status").filter({ hasText: /^3$/ })).toBeVisible();
+    await expect(mockedPage.getByRole("status").filter({ hasText: /^12$/ })).toBeVisible();
+    await expect(mockedPage.getByRole("status").filter({ hasText: /^2$/ })).toBeVisible();
+    await expect(mockedPage.getByRole("meter", { name: "Cancellation Rate" })).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-stats.png", fullPage: true });
   });
 
