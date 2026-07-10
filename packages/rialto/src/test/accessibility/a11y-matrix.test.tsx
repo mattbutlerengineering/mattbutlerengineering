@@ -59,6 +59,8 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Ferrofluid",
   "FlipDot",
   "Footer",
+  "Form",
+  "FormField",
   "GlobalNav",
   "Heading",
   "Hero",

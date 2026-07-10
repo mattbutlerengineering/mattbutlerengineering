@@ -32,6 +32,14 @@ describe("NumberInput — readOnly + aria-disabled anti-pattern", () => {
   });
 });
 
+describe("NumberInput — custom id forwarding", () => {
+  it("uses the provided id on the input and associates the label to it", () => {
+    render(<NumberInput label="Quantity" value={1} onChange={noop} id="qty-field" />);
+    const input = screen.getByLabelText("Quantity");
+    expect(input).toHaveAttribute("id", "qty-field");
+  });
+});
+
 describe("NumberInput — aria-invalid for error state", () => {
   it("sets aria-invalid=true when error is true", () => {
     render(<NumberInput label="Quantity" value={1} onChange={noop} error />);

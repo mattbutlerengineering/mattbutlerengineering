@@ -327,6 +327,39 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Form">
+  <file path="packages/rialto/src/components/Form/Form.catalog.ts">
+    export const formCatalogMeta = {
+      name: "Form",
+      include: false,
+      description:
+        "Wraps a set of FormField-wrapped controls. Validates on submit and blocks submission while any field is invalid.",
+    } satisfies CatalogMeta;
+  </file>
+  <file path="packages/rialto/src/components/Form/FormContext.ts">
+    export interface FormContextValue {
+      /** True once the form has been submitted at least once. */
+      readonly submitAttempted: boolean;
+      /** Current error message per field name, populated after a failed submit. */
+      readonly errors: Readonly<Record<string, string>>;
+      /** Registers (or replaces) a field's validator under `name`. */
+      registerField: (name: string, validate: (() => string | undefined) | undefined) => void;
+      /** Removes a field's validator, e.g. on unmount. */
+      unregisterField: (name: string) => void;
+    }
+    export const FormContext = createContext<FormContextValue | null>(null);
+  </file>
+  </section>
+  <section priority="medium" role="FormField">
+  <file path="packages/rialto/src/components/FormField/FormField.catalog.ts">
+    export const formFieldCatalogMeta = {
+      name: "FormField",
+      include: false,
+      description:
+        "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="packages/rialto/src/components/IconButton/IconButton.catalog.ts">
     export const iconButtonCatalogMeta = {
@@ -17325,6 +17358,18 @@
         slots: ["default"],
         charLimits: { copyright: 80 },
       },
+      Form: {
+        name: "Form",
+        include: false,
+        description:
+          "Wraps a set of FormField-wrapped controls. Validates on submit and blocks submission while any field is invalid.",
+      },
+      FormField: {
+        name: "FormField",
+        include: false,
+        description:
+          "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
+      },
       IconButton: {
         name: "IconButton",
         description:
@@ -17525,6 +17570,12 @@
         variant: z.enum(["minimal", "rich"]).optional(),
         logo: z.string().optional(),
         copyright: z.string().max(80).optional(),
+      }),
+      Form: z.object({
+        showErrorSummary: z.boolean().optional(),
+      }),
+      FormField: z.object({
+        name: z.string(),
       }),
       IconButton: z.object({
         icon: z.string().optional(),

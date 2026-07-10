@@ -154,6 +154,14 @@
       "types": "./dist/lib/components/Footer/index.d.ts",
       "import": "./dist/lib/components/Footer/index.js"
     },
+    "./Form": {
+      "types": "./dist/lib/components/Form/index.d.ts",
+      "import": "./dist/lib/components/Form/index.js"
+    },
+    "./FormField": {
+      "types": "./dist/lib/components/FormField/index.d.ts",
+      "import": "./dist/lib/components/FormField/index.js"
+    },
     "./GlobalNav": {
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"

@@ -121,6 +121,18 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { copyright: 80 },
   },
+  Form: {
+    name: "Form",
+    include: false,
+    description:
+      "Wraps a set of FormField-wrapped controls. Validates on submit and blocks submission while any field is invalid.",
+  },
+  FormField: {
+    name: "FormField",
+    include: false,
+    description:
+      "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
+  },
   IconButton: {
     name: "IconButton",
     description:

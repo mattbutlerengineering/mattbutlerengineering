@@ -171,6 +171,18 @@
         slots: ["default"],
         charLimits: { copyright: 80 },
       },
+      Form: {
+        name: "Form",
+        include: false,
+        description:
+          "Wraps a set of FormField-wrapped controls. Validates on submit and blocks submission while any field is invalid.",
+      },
+      FormField: {
+        name: "FormField",
+        include: false,
+        description:
+          "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
+      },
       IconButton: {
         name: "IconButton",
         description:
@@ -371,6 +383,12 @@
         variant: z.enum(["minimal", "rich"]).optional(),
         logo: z.string().optional(),
         copyright: z.string().max(80).optional(),
+      }),
+      Form: z.object({
+        showErrorSummary: z.boolean().optional(),
+      }),
+      FormField: z.object({
+        name: z.string(),
       }),
       IconButton: z.object({
         icon: z.string().optional(),

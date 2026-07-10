@@ -166,6 +166,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () =>
       import("../pages/forms/InputGroupPage").then((m) => ({ default: m.InputGroupPage })),
   },
+  {
+    id: "form",
+    label: "Form",
+    category: "Forms",
+    path: "/components/form",
+    load: () => import("../pages/forms/FormPage").then((m) => ({ default: m.FormPage })),
+  },
   // ── Data Display ────────────────────────────────────────────────────────
   {
     id: "card",

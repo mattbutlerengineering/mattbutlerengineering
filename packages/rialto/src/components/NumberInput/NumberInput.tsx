@@ -18,7 +18,7 @@ import styles from "./NumberInput.module.css";
  */
 export interface NumberInputProps extends Pick<
   InputHTMLAttributes<HTMLInputElement>,
-  "name" | "required" | "readOnly"
+  "id" | "name" | "required" | "readOnly"
 > {
   value: number;
   /** Called with the clamped numeric value on every change */
@@ -61,11 +61,12 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       size = "default",
       className = "",
       required,
+      id,
       ...rest
     },
     ref
   ) => {
-    const field = useField({ hint, error, required, showOptional: showOptionalProp });
+    const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 

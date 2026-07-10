@@ -39,6 +39,11 @@ describe("Select", () => {
       expect(screen.getByText("Country")).toBeInTheDocument();
     });
 
+    it("uses the provided id as the base for the trigger's id", () => {
+      render(<Select options={options} label="Country" id="country-field" />);
+      expect(screen.getByRole("combobox")).toHaveAttribute("id", "country-field-trigger");
+    });
+
     it("does not show listbox when closed", () => {
       render(<Select options={options} />);
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();

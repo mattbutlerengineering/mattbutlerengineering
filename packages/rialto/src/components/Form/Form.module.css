@@ -1,0 +1,31 @@
+/* ── Form ────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* ── Error summary ───────────────────────────── */
+/* Always mounted (see Toast pattern) so screen readers register the live
+   region before content changes; :not(:empty) supplies the visible chrome
+   only once there is something to announce. */
+.errorSummary:not(:empty) {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border: 1px solid var(--rialto-error);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-error-muted);
+}
+
+.errorSummaryTitle {
+  margin: 0 0 var(--rialto-space-xs);
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  color: var(--rialto-error);
+}
+
+.errorSummaryList {
+  margin: 0;
+  padding-inline-start: var(--rialto-space-lg);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
