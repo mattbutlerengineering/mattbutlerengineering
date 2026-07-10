@@ -15,7 +15,8 @@ export type ReadinessRoutesOptions = StandardChecksOptions;
  *
  * - Unset/empty: returns `undefined` so `registerStandardChecks` falls back
  *   to its own default (`AUTH0_JWKS_URL` env var or the dev tenant).
- * - Set but not a valid URL: throws, so a broken JWKS URL never gets built.
+ * - Set but not a valid URL: builds a broken JWKS URL, which fails the `/ready`
+ *   `auth` check (503). Validating here would crash every service at boot; see #3266.
  * - Set and valid: returns the `.well-known/jwks.json` URL.
  */
 // Deliberately does not validate `authority`: a malformed value yields a broken
