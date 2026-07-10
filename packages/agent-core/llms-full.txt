@@ -1051,20 +1051,21 @@
           return { prUrl: mergedUrl };
         }
     
-        if (!gatewayVerdict || gatewayVerdict.outcome === "create-pr") {
+        // An absent gatewayVerdict means the gateway never ran, which happens
+        // exactly when the session itself failed or got stuck (see
+        // VerificationPhase's `isSuccess` gate). Absence is NOT approval — only
+        // an explicit "create-pr" outcome (or a genuinely successful session
+        // that skipped the gateway) earns a normal, non-draft PR.
+        const sessionSucceeded = resultMessage?.success === true && !stuckReason;
+    
+        if (sessionSucceeded && (!gatewayVerdict || gatewayVerdict.outcome === "create-pr")) {
           const title = prCreator.buildPrTitle(config.taskDescription);
-          const body = resultMessage
-            ? prCreator.buildPrBody(
-                config.taskDescription,
-                resultMessage.sessionId,
-                resultMessage.costUsd,
-                resultMessage.numTurns
-              )
-            : prCreator.buildFailurePrBody(
-                config.taskDescription,
-                [...input.errors],
-                stuckReason?.type
-              );
+          const body = prCreator.buildPrBody(
+            config.taskDescription,
+            resultMessage.sessionId,
+            resultMessage.costUsd,
+            resultMessage.numTurns
+          );
     
           const prSpan = tracer.startSpan("agent_core.create_pr");
           try {
@@ -1093,7 +1094,9 @@
           }
         }
     
-        // verdict.outcome === "create-draft-pr" — quality gates failed
+        // Draft/failure path — either the gateway ran and gates failed
+        // (outcome === "create-draft-pr"), or the gateway never ran because the
+        // session itself failed or got stuck.
         const title = `wip: ${config.taskDescription.slice(0, 57)}`;
         const body = prCreator.buildFailurePrBody(
           config.taskDescription,
@@ -1114,8 +1117,11 @@
           { maxRetries: 3 }
         );
     
+        const reason = gatewayVerdict
+          ? `failed gates: ${gatewayVerdict.gateFailures.join(", ")}`
+          : "session failed";
         emitEvent(onEvent, "session:result", {
-          message: `Draft PR created (failed gates: ${gatewayVerdict!.gateFailures.join(", ")}): ${pr.url}`,
+          message: `Draft PR created (${reason}): ${pr.url}`,
         });
         return { prUrl: pr.url, prNumber: pr.number };
       }
