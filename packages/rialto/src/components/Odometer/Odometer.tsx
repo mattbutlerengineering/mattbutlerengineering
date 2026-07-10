@@ -18,7 +18,9 @@ import styles from "./Odometer.module.css";
  *
  * Accessibility: the animated reels are decorative and hidden from assistive
  * tech. A single polite, atomic live region announces the whole formatted
- * number — never per-digit. Pairs naturally with `Stat` and hero metrics.
+ * number — never per-digit. Any `aria-label`/`aria-labelledby` you pass names
+ * that live region (not just the role-less wrapper), so screen readers announce
+ * the label with the value. Pairs naturally with `Stat` and hero metrics.
  *
  * @example
  * <Odometer value={128_540} aria-label="Total signups" />
@@ -70,6 +72,8 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
       flipInterval = 60,
       cascadeDelay = 30,
       className,
+      "aria-label": ariaLabel,
+      "aria-labelledby": ariaLabelledBy,
       ...rest
     },
     ref
@@ -83,7 +87,13 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
     const tokens = useMemo(() => tokenize(formatted), [formatted]);
 
     return (
-      <div ref={ref} className={cn(styles.odometer, styles[size], className)} {...rest}>
+      <div
+        ref={ref}
+        className={cn(styles.odometer, styles[size], className)}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        {...rest}
+      >
         {/* Decorative reels — remounts on value change so the token spring
             re-settles the block while each SplitFlap reel rolls to target. */}
         <motion.div
@@ -114,7 +124,14 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
         </motion.div>
 
         {/* The sole accessible surface — announces the whole value, not digits. */}
-        <span role="status" aria-live="polite" aria-atomic="true" className={styles.srOnly}>
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+          className={styles.srOnly}
+        >
           {formatted}
         </span>
       </div>
