@@ -1,0 +1,42 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--rialto-space-md);
+}
+
+.search {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-accent);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.bulkActions {
+  display: flex;
+  gap: var(--rialto-space-sm);
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--rialto-space-xs);
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-sm);
+}

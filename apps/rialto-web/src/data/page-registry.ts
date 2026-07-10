@@ -698,6 +698,16 @@ export const PAGE_REGISTRY: PageEntry[] = [
         default: m.FormStatesExamplePage,
       })),
   },
+  {
+    id: "example-reservations",
+    label: "Reservations List",
+    category: "Examples",
+    path: "/examples/reservations",
+    load: () =>
+      import("../pages/examples/ReservationsListExamplePage").then((m) => ({
+        default: m.ReservationsListExamplePage,
+      })),
+  },
 ];
 
 // ---------------------------------------------------------------------------
