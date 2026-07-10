@@ -30,26 +30,6 @@
       }
     </item>
   </file>
-  <file path="src/adapters/cli-adapter-session-runner.ts">
-    <item priority="high">
-      export async function runCliAdapterSession(
-        cliAdapter: AgentAdapter,
-        config: SessionConfig,
-        onEvent?: SessionEventCallback,
-        deps: PhaseDeps = createDefaultPhaseDeps(),
-        _signal?: AbortSignal
-      ): Promise<SessionResult> { /* ... */ }
-    </item>
-    <item priority="high">
-      interface PublishCliAdapterInput {
-        config: SessionConfig;
-        worktree: WorktreeInfo;
-        adapterSucceeded: boolean;
-        gatewayVerdict: GatewayVerdict | undefined;
-        cliAdapterName: string;
-      }
-    </item>
-  </file>
   <file path="src/adapters/cli-usage-parser.ts">
     <item priority="low">
       interface CliUsage {
@@ -91,6 +71,20 @@
         async buildArgs(): Promise<unknown>;
         async parseUsage(): Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="src/adapters/run-cli-adapter-session.ts">
+    <item priority="high">
+      export async function runCliAdapterSession(
+        cliAdapter: CliAdapterBase,
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean { /* ... */ }
     </item>
   </file>
   </section>
