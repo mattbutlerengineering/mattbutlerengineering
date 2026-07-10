@@ -63,7 +63,6 @@ src/
 ├── index.ts        # Entry point (starts server)
 ├── routes/
 │   ├── health.ts   # GET /health, GET /api/v1/users/health
-│   ├── ready.ts    # GET /ready (readiness probe)
 │   └── users.ts    # User CRUD endpoints
 ├── schemas/
 │   └── index.ts    # JSON Schema definitions with $id refs
