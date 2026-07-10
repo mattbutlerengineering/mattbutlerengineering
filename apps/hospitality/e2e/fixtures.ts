@@ -16,6 +16,12 @@ export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
     // storageState provides auth — navigate to trigger OIDC session pickup.
     await page.goto("");
     await use(page);
+    // mockApi's SSE-stream handler calls page.evaluate; the app opens the
+    // stream on every load, so a request landing as the test ends makes the
+    // in-flight callback throw `"page.evaluate: Test ended."` and fail the
+    // test (run 29116315283). Drain routes with Playwright's documented
+    // remedy before teardown.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   },
 });
 /* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */
