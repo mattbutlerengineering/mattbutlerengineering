@@ -1,0 +1,76 @@
+/* ── Spacing scale ───────────────────────────────────────────────── */
+
+.scale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  min-width: 0;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  min-block-size: 20px;
+}
+
+.bar {
+  display: block;
+  block-size: 16px;
+  border-radius: var(--rialto-radius-sharp);
+  background-color: var(--rialto-accent);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+}
+
+.name,
+.value {
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  flex-basis: 100%;
+  overflow-wrap: break-word;
+}
+
+/* ── Per-token widths — painted straight from the token ───────────── */
+
+.space-2xs {
+  inline-size: var(--rialto-space-2xs);
+}
+.space-xs {
+  inline-size: var(--rialto-space-xs);
+}
+.space-sm {
+  inline-size: var(--rialto-space-sm);
+}
+.space-md {
+  inline-size: var(--rialto-space-md);
+}
+.space-lg {
+  inline-size: var(--rialto-space-lg);
+}
+.space-xl {
+  inline-size: var(--rialto-space-xl);
+}
+.space-2xl {
+  inline-size: var(--rialto-space-2xl);
+}
+.space-3xl {
+  inline-size: var(--rialto-space-3xl);
+}
+.space-4xl {
+  inline-size: var(--rialto-space-4xl);
+}

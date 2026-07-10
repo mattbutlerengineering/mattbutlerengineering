@@ -59,14 +59,13 @@ describe("nav-sections data", () => {
     expect(COMPONENT_COUNT).toBeLessThan(200);
   });
 
-  it("comingSoon items exist only in Tokens section", () => {
+  it("comingSoon items never appear outside the Tokens section", () => {
+    // The token-docs tier is complete, so no comingSoon items remain; this keeps
+    // the guard that any future stub is confined to the Tokens section.
     for (const section of NAV_SECTIONS) {
+      if (section.label === "Tokens") continue;
       const comingSoonItems = section.items.filter((i: NavItem) => i.comingSoon);
-      if (section.label === "Tokens") {
-        expect(comingSoonItems.length).toBeGreaterThan(0);
-      } else {
-        expect(comingSoonItems.length).toBe(0);
-      }
+      expect(comingSoonItems.length).toBe(0);
     }
   });
 });
