@@ -26,10 +26,7 @@ export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
 export interface ReminderPayload {
   reservationId: string;
-  guestPhone: string | null;
-  guestEmail: string | null;
   venueId: string;
-  channel: "sms" | "email" | "both";
 }
 
 export interface PostVisitFollowupPayload {

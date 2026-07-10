@@ -24,10 +24,7 @@ describe("ReminderPayload", () => {
   it("is the shared contract for BOOKING_REMINDER and DAY_OF_REMINDER", () => {
     const payload: ReminderPayload = {
       reservationId: "res_1",
-      guestPhone: null,
-      guestEmail: "a@b.com",
       venueId: "v_1",
-      channel: "email",
     };
     expect(payload.reservationId).toBe("res_1");
     expect(payload.venueId).toBe("v_1");

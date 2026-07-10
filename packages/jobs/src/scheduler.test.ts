@@ -40,10 +40,7 @@ import type { ReminderPayload, LapsedGuestScanPayload } from "./job-types.js";
 
 const bookingPayload: ReminderPayload = {
   reservationId: "res_abc123",
-  guestPhone: "+15551234567",
-  guestEmail: "jane@example.com",
   venueId: "venue_xyz",
-  channel: "both",
 };
 
 const lapsedPayload: LapsedGuestScanPayload = {

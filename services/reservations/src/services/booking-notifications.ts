@@ -14,24 +14,6 @@ function reminderJobId(jobType: string, reservationId: string): string {
   return `${jobType}:${reservationId}`;
 }
 
-export interface ResolveChannelInput {
-  email: string | null;
-  phone: string | null;
-  communicationPreference: CommunicationPreference | null;
-}
-
-export function resolveChannel(input: ResolveChannelInput): "email" | "sms" | "both" {
-  const { email, phone, communicationPreference } = input;
-  if (communicationPreference === "email_only") return "email";
-  if (communicationPreference === "sms_only") return "sms";
-  if (communicationPreference === "both") return "both";
-  if (communicationPreference === "transactional_only") return "email";
-  // Fall back to data availability
-  if (email && phone) return "both";
-  if (phone) return "sms";
-  return "email";
-}
-
 // ─── BookingNotifier factory ─────────────────────────────────────────────────
 
 /**
@@ -96,19 +78,13 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
 
     if (startMs <= now) return;
 
-    const channel = resolveChannel({
-      email: guestEmail,
-      phone: guestPhone,
-      communicationPreference:
-        (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? null,
-    });
-
+    // Channel routing is decided at delivery time from fresh guest state
+    // (see deliverReminder in job-worker.ts) — the payload carries only the
+    // lookup keys, not a snapshot that could go stale between scheduling and
+    // delivery.
     const reminderPayload: ReminderPayload = {
       reservationId: id,
-      guestEmail,
-      guestPhone: guestPhone ?? null,
       venueId,
-      channel,
     };
 
     const dayBeforeDelay = startMs - now - DAY_MS;

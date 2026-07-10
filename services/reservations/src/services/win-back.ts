@@ -1,6 +1,5 @@
 import type { Guest } from "@mbe/types";
 import type { NotificationDispatcher, CommunicationPreference } from "@mbe/notifications";
-import { resolveChannel } from "./booking-notifications.js";
 
 /**
  * Send a win-back message to a lapsing guest.
@@ -19,15 +18,9 @@ export async function sendWinBack(
     return false;
   }
 
-  // Use shared channel resolver to determine delivery path.
-  const channel = resolveChannel({
-    email: guest.email,
-    phone: guest.phone,
-    communicationPreference: guest.communicationPreference,
-  });
-
-  // Win-back is email-only; skip guests without an email address.
-  if (channel === "sms" || !guest.email) {
+  // Win-back is email-only; skip guests who opted into SMS-only
+  // communication or have no email address on file.
+  if (preference === "sms_only" || !guest.email) {
     return false;
   }
 
