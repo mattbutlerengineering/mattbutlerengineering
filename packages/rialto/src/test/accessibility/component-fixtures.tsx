@@ -53,6 +53,8 @@ import { ErrorBoundary } from "../../components/ErrorBoundary/ErrorBoundary";
 import { Ferrofluid } from "../../components/Ferrofluid/Ferrofluid";
 import { FlipDot } from "../../components/FlipDot/FlipDot";
 import { Footer } from "../../components/Footer/Footer";
+import { Form } from "../../components/Form/Form";
+import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
@@ -145,6 +147,8 @@ export type BarrelExportName =
   | "Ferrofluid"
   | "FlipDot"
   | "Footer"
+  | "Form"
+  | "FormField"
   | "GlobalNav"
   | "Heading"
   | "Hero"
@@ -438,6 +442,26 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Footer: {
     element: <Footer copyright="© 2024 Rialto" />,
+  },
+
+  Form: {
+    element: (
+      <Form>
+        <FormField name="email">
+          <Input label="Email" />
+        </FormField>
+      </Form>
+    ),
+  },
+
+  FormField: {
+    element: (
+      <Form>
+        <FormField name="email">
+          <Input label="Email" />
+        </FormField>
+      </Form>
+    ),
   },
 
   GlobalNav: {

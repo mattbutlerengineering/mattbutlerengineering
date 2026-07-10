@@ -16,6 +16,8 @@ export * from "./Drawer";
 export * from "./DropdownMenu";
 export * from "./EmptyState";
 export * from "./ErrorBoundary";
+export * from "./Form";
+export * from "./FormField";
 export * from "./HoverCard";
 export * from "./Input";
 export * from "./Kbd";

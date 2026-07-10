@@ -40,6 +40,7 @@ export interface SelectProps {
   hint?: string;
   error?: boolean;
   required?: boolean;
+  id?: string;
   /** When true and not required, shows "(optional)" after the label */
   showOptional?: boolean;
   disabled?: boolean;
@@ -60,6 +61,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       hint,
       error,
       required,
+      id,
       showOptional: showOptionalProp,
       disabled,
       disabledReason,
@@ -67,7 +69,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     },
     ref
   ) => {
-    const field = useField({ hint, error, required, showOptional: showOptionalProp });
+    const field = useField({ id, hint, error, required, showOptional: showOptionalProp });
     const triggerId = `${field.id}-trigger`;
     const listboxId = `${field.id}-listbox`;
     const optionId = (index: number) => `${field.id}-option-${index}`;

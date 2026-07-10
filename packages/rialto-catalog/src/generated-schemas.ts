@@ -124,6 +124,12 @@ export const generatedSchemas = {
     logo: z.string().optional(),
     copyright: z.string().max(80).optional(),
   }),
+  Form: z.object({
+    showErrorSummary: z.boolean().optional(),
+  }),
+  FormField: z.object({
+    name: z.string(),
+  }),
   IconButton: z.object({
     icon: z.string().optional(),
     "aria-label": z.string(),
