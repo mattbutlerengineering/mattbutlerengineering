@@ -1,9 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
+import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe/service-bootstrap";
 import type { NotificationDispatcher } from "@mbe/notifications";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
-import { readinessRoutes } from "./routes/ready.js";
 import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
@@ -44,10 +43,7 @@ import {
 } from "./services/post-visit-notifier.js";
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
-import {
-  createReservationJobHandlers,
-  createReservationJobWorker,
-} from "./services/job-worker.js";
+import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import { reservationService } from "./services/reservation.js";
 import { venueService } from "./services/venue.js";
 import { generateManageToken } from "./routes/public-reservations.js";
@@ -111,7 +107,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
   const bookingNotifier =
-    options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
+    options.bookingNotifier ??
+    createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
   fastify.decorate("bookingNotifier", bookingNotifier);
 
   // Wire post-visit notifier — injectable for testing, default Resend-backed for production
@@ -120,7 +117,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   fastify.decorate("postVisitNotifier", postVisitNotifier);
 
   // Wire waitlist notifier — injectable for testing, default env-backed for production
-  const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
+  const waitlistNotifier =
+    options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
   fastify.decorate("waitlistNotifier", waitlistNotifier);
 
   // Wire reservation events emitter — injectable for testing, default singleton for production
@@ -137,7 +135,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
 
   // Register routes
   await fastify.register(healthRoutes);
-  await fastify.register(readinessRoutes);
+  await fastify.register(registerReadinessRoutes, { prisma });
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });

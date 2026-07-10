@@ -10,6 +10,25 @@ import type { StandardChecksOptions } from "@mbe/observability";
  */
 export type ReadinessRoutesOptions = StandardChecksOptions;
 
+/**
+ * Derive the Auth0 JWKS URL from the `AUTH_AUTHORITY` env var.
+ *
+ * - Unset/empty: returns `undefined` so `registerStandardChecks` falls back
+ *   to its own default (`AUTH0_JWKS_URL` env var or the dev tenant).
+ * - Set but not a valid URL: builds a broken JWKS URL, which fails the `/ready`
+ *   `auth` check (503). Validating here would crash every service at boot; see #3266.
+ * - Set and valid: returns the `.well-known/jwks.json` URL.
+ */
+// Deliberately does not validate `authority`: a malformed value yields a broken
+// JWKS URL that fails the readiness `auth` check (503) rather than throwing here,
+// which would reject `fastify.register` and exit(1) the service at boot.
+function deriveAuth0UrlFromAuthority(): string | undefined {
+  const authority = process.env.AUTH_AUTHORITY;
+  if (!authority) return undefined;
+
+  return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+}
+
 const readinessSchema = {
   summary: "Service readiness probe",
   description: "Returns 200 when fully initialized, 503 during startup.",
@@ -58,7 +77,10 @@ const readinessSchema = {
 
 const readinessRoutesPlugin: FastifyPluginAsync<ReadinessRoutesOptions> = async (fastify, opts) => {
   const readiness = createReadinessTracker();
-  registerStandardChecks(readiness, opts);
+  registerStandardChecks(readiness, {
+    ...opts,
+    auth0Url: opts.auth0Url ?? deriveAuth0UrlFromAuthority(),
+  });
 
   fastify.get<{ Reply: ReadinessResponse }>(
     "/ready",

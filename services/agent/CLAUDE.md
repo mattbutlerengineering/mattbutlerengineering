@@ -72,7 +72,6 @@ src/
 ├── index.ts            # Entry point
 ├── routes/
 │   ├── health.ts       # Health check endpoints
-│   ├── ready.ts        # Readiness probe (DB + Auth0 check)
 │   ├── sessions.ts     # Session CRUD                → /v1/sessions
 │   ├── session-events.ts # SSE event streaming       → /v1/sessions
 │   ├── orchestrate.ts  # Multi-session orchestration  → /v1/orchestrate

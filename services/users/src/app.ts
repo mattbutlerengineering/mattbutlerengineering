@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { createServiceApp, type AppOptions } from "@mbe/service-bootstrap";
+import { createServiceApp, registerReadinessRoutes, type AppOptions } from "@mbe/service-bootstrap";
 import { registerSchemas } from "./schemas/index.js";
 import { healthRoutes } from "./routes/health.js";
-import { readinessRoutes } from "./routes/ready.js";
 import { userRoutes } from "./routes/users.js";
+import { prisma } from "./services/database.js";
 
 /**
  * Creates the Fastify application instance.
@@ -23,7 +23,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Register routes
   await fastify.register(healthRoutes);
-  await fastify.register(readinessRoutes);
+  await fastify.register(registerReadinessRoutes, { prisma });
   // Full path prefix — ingress forwards with preservePathPrefix: true
   await fastify.register(userRoutes, { prefix: "/api/v1/users" });
 

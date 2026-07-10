@@ -104,8 +104,8 @@
     <item priority="low">
       type ReadinessRoutesOptions = StandardChecksOptions;
     </item>
-    <item priority="high">
-      export const registerReadinessRoutes: unknown;
+    <item priority="medium">
+      function deriveAuth0UrlFromAuthority(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/start-service-server.ts">

@@ -230,11 +230,6 @@
       export const publicWaitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/reservation-owner.ts">
     <item priority="high">
       export function resolveReservationGuestEmail(

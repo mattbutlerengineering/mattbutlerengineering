@@ -107,10 +107,12 @@
   </file>
   <file path="src/readiness-routes.ts">
     export type ReadinessRoutesOptions = StandardChecksOptions;
-    export const registerReadinessRoutes = fp(readinessRoutesPlugin, {
-      name: "readiness-routes",
-      fastify: "5.x",
-    });
+    function deriveAuth0UrlFromAuthority(): string | undefined {
+      const authority = process.env.AUTH_AUTHORITY;
+      if (!authority) return undefined;
+    
+      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+    }
   </file>
   <file path="src/start-service-server.ts">
     export interface StartServiceServerOptions {

@@ -2105,11 +2105,6 @@
       }
     </item>
   </file>
-  <file path="services/agent/src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="services/agent/src/routes/remediation.ts">
     <item priority="high">
       type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -2323,11 +2318,6 @@
       export const publicWaitlistRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="services/reservations/src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="services/reservations/src/routes/reservation-owner.ts">
     <item priority="high">
       export function resolveReservationGuestEmail(
@@ -2389,11 +2379,6 @@
   <file path="services/users/src/routes/health.ts">
     <item priority="high">
       export const healthRoutes: FastifyPluginAsync;
-    </item>
-  </file>
-  <file path="services/users/src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/users/src/routes/users.ts">
@@ -5147,8 +5132,8 @@
     <item priority="low">
       type ReadinessRoutesOptions = StandardChecksOptions;
     </item>
-    <item priority="high">
-      export const registerReadinessRoutes: unknown;
+    <item priority="medium">
+      function deriveAuth0UrlFromAuthority(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/start-service-server.ts">

@@ -66,10 +66,6 @@
       });
     };
   </file>
-  <file path="src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
-      registerReadinessRoutes(fastify, { prisma, auth0Url });
-  </file>
   <file path="src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
       const email = request.user?.email;
@@ -246,7 +242,7 @@
     
       // Register routes
       await fastify.register(healthRoutes);
-      await fastify.register(readinessRoutes);
+      await fastify.register(registerReadinessRoutes, { prisma });
       // Full path prefix — ingress forwards with preservePathPrefix: true
       await fastify.register(userRoutes, { prefix: "/api/v1/users" });
     
