@@ -641,6 +641,17 @@
       }
     </item>
   </file>
+  <file path="src/services/reservation-no-show.ts">
+    <item priority="low">
+      type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="high">
+      export async function recordNoShow(
+        reservation: Reservation,
+        logger: FastifyBaseLogger
+      ): Promise<RecordNoShowResult> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/reservation-state-machine.ts">
     <item priority="high">
       export const reservationMachine: unknown;
@@ -786,9 +797,7 @@
   </file>
   <file path="src/services/venue-membership.ts">
     <item priority="high">
-      export function createVenueMembershipLookup(
-        client: PrismaClient = prisma
-      ): VenueMembershipLookup { /* ... */ }
+      export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
     </item>
   </file>
   <file path="src/services/venue.ts">

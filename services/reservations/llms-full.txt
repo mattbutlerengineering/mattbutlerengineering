@@ -311,7 +311,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -760,7 +763,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/clone",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Clone floor plan",
             description: "Creates a copy of the floor plan and all its tables.",
@@ -788,7 +794,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Update floor plan",
             params: {
@@ -819,7 +828,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
         "/:id/activate",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Set floor plan as active",
             description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -848,7 +860,10 @@
       }>(
         "/tables/positions",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
@@ -889,7 +904,10 @@
       }>(
         "/tables/:tableId/assign",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Assign table to floor plan",
             params: {
@@ -924,7 +942,10 @@
       fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
         "/tables/:tableId/remove",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
+          ],
           schema: {
             summary: "Remove table from floor plan",
             params: {
@@ -947,7 +968,10 @@
       fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Delete floor plan",
             params: {
@@ -977,7 +1001,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
@@ -1026,7 +1053,10 @@
       }>(
         "/search",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Search guests",
             operationId: "searchGuests",
@@ -1078,7 +1108,10 @@
       }>(
         "/segments",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get guest segments",
             operationId: "getGuestSegments",
@@ -1123,7 +1156,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Get guest by ID",
             operationId: "getGuestById",
@@ -1300,7 +1336,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Update a guest",
             operationId: "updateGuest",
@@ -1355,7 +1394,10 @@
       }>(
         "/:id/notes",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Add a staff note to a guest",
             operationId: "addGuestNote",
@@ -1428,7 +1470,10 @@
       }>(
         "/lapsing",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get lapsing guests",
             operationId: "getLapsingGuests",
@@ -1490,7 +1535,10 @@
       }>(
         "/:id/win-back",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Send win-back message",
             operationId: "sendGuestWinBack",
@@ -1541,7 +1589,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Delete a guest",
             operationId: "deleteGuest",
@@ -3274,6 +3325,25 @@
             }
           }
     
+          if (request.body.status === "NO_SHOW") {
+            try {
+              const result = await recordNoShow(reservation, request.log);
+    
+              if (!result.success) {
+                return reply
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
+              }
+    
+              return { data: result.reservation };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
+            }
+          }
+    
           // #2998: staff PATCH accepts partySize but previously bypassed the
           // per_person-deposit guard added for the public manage route in
           // #2997/#2931 (decision: Block) — route through the same check here
@@ -3331,11 +3401,6 @@
                   )
                 );
             }
-    
-            // Guest no-show counter (and risk escalation) is bumped inside the
-            // same transaction as the status write — see
-            // reservationService.update (#3231). No fire-and-forget here: if that
-            // write fails, updateWithConflictCheck rejects and is caught below.
     
             // Fire post-visit thank-you email when status transitions to COMPLETED
             if (request.body.status === "COMPLETED" && result.reservation) {
@@ -3544,7 +3609,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -3676,7 +3744,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update a table",
             operationId: "updateTable",
@@ -3759,7 +3830,10 @@
       }>(
         "/:id/status",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update table status",
             operationId: "updateTableStatus",
@@ -3843,7 +3917,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Delete a table",
             operationId: "deleteTable",
@@ -4464,7 +4541,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+          ],
           schema: {
             summary: "Update a venue",
             operationId: "updateVenue",
@@ -4650,7 +4730,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -4685,7 +4768,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -4721,7 +4807,10 @@
       }>(
         "/:id/notify",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -4764,7 +4853,10 @@
       }>(
         "/:id/seat",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -4800,7 +4892,10 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -4836,7 +4931,10 @@
       }>(
         "/:id/expire",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -4896,8 +4994,7 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      | { code: "CONFLICT"; message: string }
-      | { code: "PACING_EXCEEDED"; message: string };
+      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -4965,11 +5062,7 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      | "NOT_FOUND"
-      | "EXPIRED"
-      | "SESSION_MISMATCH"
-      | "CONFLICT"
-      | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     export interface ConfirmHoldInput {
       holdId: string;
       sessionId?: string;
@@ -5695,6 +5788,49 @@
       specialRequests?: string;
     }
   </file>
+  <file path="src/services/reservation-no-show.ts">
+    export type RecordNoShowResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; status: number; title: string; detail: string };
+    export async function recordNoShow(
+      reservation: Reservation,
+      logger: FastifyBaseLogger
+    ): Promise<RecordNoShowResult> {
+      try {
+        transitionReservation(reservation.status, "NO_SHOW");
+      } catch (err) {
+        if (err instanceof ReservationTransitionError) {
+          return { success: false, status: 409, title: "Conflict", detail: err.message };
+        }
+        throw err;
+      }
+    
+      const deposit = await depositService.getByReservationId(reservation.id);
+      if (deposit?.status === "held") {
+        try {
+          await depositService.forfeit(deposit.id);
+        } catch (err) {
+          logger.error(
+            { err, reservationId: reservation.id, depositId: deposit.id },
+            "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
+          );
+          return DEPOSIT_FAILURE_RESULT;
+        }
+      }
+    
+      const updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+      if (!updated) {
+        return {
+          success: false,
+          status: 409,
+          title: "Conflict",
+          detail: "Reservation was already updated by a concurrent request",
+        };
+      }
+    
+      return { success: true, reservation: updated };
+    }
+  </file>
   <file path="src/services/reservation-state-machine.ts">
     export const reservationMachine = createStateMachine<ReservationStatus>(
       RESERVATION_TRANSITIONS,
@@ -6041,9 +6177,7 @@
     };
   </file>
   <file path="src/services/venue-membership.ts">
-    export function createVenueMembershipLookup(
-      client: PrismaClient = prisma
-    ): VenueMembershipLookup {
+    export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
       return async (userSub: string, venueId: string): Promise<boolean> => {
         const count = await client.venueMembership.count({ where: { userSub, venueId } });
         return count > 0;
@@ -6234,7 +6368,8 @@
     
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
       const bookingNotifier =
-        options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
+        options.bookingNotifier ??
+        createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
@@ -6243,7 +6378,8 @@
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production
-      const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
+      const waitlistNotifier =
+        options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
       fastify.decorate("waitlistNotifier", waitlistNotifier);
     
       // Wire reservation events emitter — injectable for testing, default singleton for production
