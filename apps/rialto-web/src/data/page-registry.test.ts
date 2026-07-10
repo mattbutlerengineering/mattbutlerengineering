@@ -122,6 +122,9 @@ vi.mock("../pages/examples/BookingConfirmedExamplePage.js", () => ({
 vi.mock("../pages/examples/BookingFailedExamplePage.js", () => ({
   BookingFailedExamplePage: () => null,
 }));
+vi.mock("../pages/examples/PricingTableExamplePage.js", () => ({
+  PricingTableExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -245,6 +248,21 @@ describe("PageRegistry — result-page examples", () => {
     expect(entry?.label).toBe(page.label);
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe(page.path);
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pricing-table example (#3327)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — pricing-table example", () => {
+  it("registers example-pricing-table in the Examples category at /examples/pricing-table", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-pricing-table");
+    expect(entry, "example-pricing-table missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Pricing Table");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/pricing-table");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
