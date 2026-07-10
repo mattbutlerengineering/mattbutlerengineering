@@ -563,6 +563,25 @@
         hasChanges = verifyExec.output?.hasChanges ?? false;
         gatewayVerdict = verifyExec.output?.gatewayVerdict;
     
+        // A failed CLI dispatch that still wrote changes must always publish via
+        // the draft/failure path, regardless of gatewayVerdict. VerificationPhase
+        // skips the gateway entirely on failure (isSuccess false), leaving
+        // gatewayVerdict undefined — which PublishPhase's `!gatewayVerdict`
+        // branch otherwise treats identically to "gates passed, ship a normal
+        // PR" (resultSummary is always a truthy object, even on failure).
+        // Forcing "create-draft-pr" here routes PublishPhase into its
+        // unconditional buildFailurePrBody branch. Mirrors the deleted
+        // cli-adapter-session-runner.ts's unconditional `if (!adapterSucceeded)`
+        // failure branch.
+        if (adapterResult?.success === false) {
+          gatewayVerdict = {
+            outcome: "create-draft-pr",
+            passed: false,
+            gateFailures: ["cli-dispatch"],
+            errors: [],
+          };
+        }
+    
         aborted = checkAborted(signal, errors);
       }
     

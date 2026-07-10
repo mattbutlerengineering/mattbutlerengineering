@@ -252,6 +252,40 @@ describe("runCliAdapterSession", () => {
     expect(result.errors).toContain("gemini CLI exited with non-zero status");
   });
 
+  it("publishes a draft failure PR (not a normal PR) when the adapter fails but wrote changes", async () => {
+    // Regression: a failed CLI dispatch (adapterResult.success === false) that
+    // still wrote files must always publish via the draft/failure path,
+    // independent of gatewayVerdict — VerificationPhase skips the gateway
+    // entirely on failure (gatewayVerdict stays undefined), which
+    // PublishPhase would otherwise treat identically to "gates passed, ship
+    // a normal PR" (resultMessage is always a truthy object, even on
+    // failure).
+    const adapter = makeCliAdapter("gemini", {
+      success: false,
+      hasChanges: true,
+      error: "gemini CLI exited with non-zero status",
+    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+      url: "https://github.com/repo/pull/3",
+      number: 3,
+    });
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true, title: expect.stringMatching(/^wip:/) })
+    );
+    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining(["gemini CLI exited with non-zero status"]),
+      undefined
+    );
+    expect(deps.prCreator.buildPrBody).not.toHaveBeenCalled();
+    expect(result.status).toBe("failed");
+    expect(result.prUrl).toBe("https://github.com/repo/pull/3");
+  });
+
   it("sets failureCategory to rate_limited when the adapter reports rate limiting", async () => {
     const adapter = makeCliAdapter("gemini", {
       success: false,
