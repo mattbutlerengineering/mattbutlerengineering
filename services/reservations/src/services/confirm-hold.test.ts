@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type * as SlotRules from "./slot-rules.js";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -32,9 +33,10 @@ vi.mock("./availability.js", () => ({
   },
 }));
 
-vi.mock("./slot-rules.js", () => ({
-  checkPacingForSlot: vi.fn().mockReturnValue(true),
-}));
+vi.mock("./slot-rules.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof SlotRules>();
+  return { ...actual, checkPacingForSlot: vi.fn().mockReturnValue(true) };
+});
 
 vi.mock("./assert-bookable.js", () => ({
   assertBookable: vi.fn().mockReturnValue(undefined),
