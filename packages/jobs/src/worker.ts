@@ -4,9 +4,9 @@ import { DEFAULT_QUEUE_NAME } from "./job-types.js";
 import type { JobType, JobPayloadMap } from "./job-types.js";
 import { dispatchJob } from "./dispatch-job.js";
 
-export type JobHandlerMap = {
+export type JobHandlerMap = Partial<{
   [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
-};
+}>;
 
 export interface JobWorkerConfig {
   redisUrl: string;
