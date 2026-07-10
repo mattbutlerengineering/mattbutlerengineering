@@ -346,11 +346,7 @@
       function reminderJobId(jobType: string, reservationId: string): string { /* ... */ }
     </item>
     <item priority="low">
-      interface ResolveChannelInput {
-        email: string | null;
-        phone: string | null;
-        communicationPreference: CommunicationPreference | null;
-      }
+      type CancelInitiator = "guest" | "staff";
     </item>
   </file>
   <file path="src/services/briefing.ts">
