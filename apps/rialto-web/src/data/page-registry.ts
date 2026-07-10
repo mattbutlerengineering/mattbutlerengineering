@@ -759,6 +759,16 @@ export const PAGE_REGISTRY: PageEntry[] = [
         default: m.BookingFailedExamplePage,
       })),
   },
+  {
+    id: "example-pricing-table",
+    label: "Pricing Table",
+    category: "Examples",
+    path: "/examples/pricing-table",
+    load: () =>
+      import("../pages/examples/PricingTableExamplePage").then((m) => ({
+        default: m.PricingTableExamplePage,
+      })),
+  },
 ];
 
 // ---------------------------------------------------------------------------

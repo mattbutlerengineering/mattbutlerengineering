@@ -1,0 +1,168 @@
+/* ── Billing toggle row ──────────────────────── */
+
+.billing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.billingLabel {
+  margin: 0;
+}
+
+/* ── Plan grid ───────────────────────────────── */
+
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--rialto-space-lg);
+  align-items: stretch;
+}
+
+/* ── Plan surface ────────────────────────────── */
+
+.plan,
+.planRecommended {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--rialto-space-lg);
+  border-radius: var(--rialto-card-radius);
+  background: var(--rialto-card-flat-bg);
+  border: 1px solid var(--rialto-border);
+}
+
+/* The recommended tier is set apart by more than colour: a heavier accent
+   border and elevation, paired with the visible "Most popular" badge below. */
+.planRecommended {
+  background: var(--rialto-card-elevated-bg);
+  border: 2px solid var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-elevated);
+}
+
+.planHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  min-height: 4.5rem;
+}
+
+.ribbon {
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.planName {
+  margin: 0;
+}
+
+.planTagline {
+  margin: 0;
+}
+
+/* ── Price block ─────────────────────────────── */
+
+.priceBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  margin-block: var(--rialto-space-md);
+  padding-block-end: var(--rialto-space-md);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rialto-space-2xs);
+}
+
+.amount {
+  color: var(--rialto-text-primary);
+}
+
+.per {
+  color: var(--rialto-text-tertiary);
+}
+
+.billingNote {
+  color: var(--rialto-text-secondary);
+}
+
+/* ── Feature comparison ──────────────────────── */
+
+.features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  flex: 1;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rialto-space-sm);
+}
+
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-block-start: 0.1rem;
+  border-radius: var(--rialto-radius-round);
+}
+
+.feature[data-included="true"] .indicator {
+  color: var(--rialto-success);
+  background: var(--rialto-success-muted);
+}
+
+.feature[data-included="false"] .indicator {
+  color: var(--rialto-text-tertiary);
+  background: var(--rialto-surface-recessed);
+}
+
+.glyph {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.featureLabel {
+  color: var(--rialto-text-primary);
+}
+
+/* Excluded rows read as absent for sighted users too — muted and struck
+   through — while the visually-hidden "Not included" text carries the meaning
+   for assistive tech. */
+.featureLabelExcluded {
+  color: var(--rialto-text-tertiary);
+  text-decoration: line-through;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── CTA ─────────────────────────────────────── */
+
+.cta {
+  margin-block-start: var(--rialto-space-lg);
+}
+
+.ctaButton {
+  width: 100%;
+}
