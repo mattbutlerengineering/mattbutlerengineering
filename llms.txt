@@ -3067,6 +3067,17 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/reservation-no-show.ts">
+    <item priority="low">
+      type RecordNoShowResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="high">
+      export async function recordNoShow(
+        reservation: Reservation,
+        logger: FastifyBaseLogger
+      ): Promise<RecordNoShowResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
     <item priority="high">
       export const reservationMachine: unknown;
