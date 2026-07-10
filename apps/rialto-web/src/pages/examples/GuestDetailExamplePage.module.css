@@ -1,0 +1,35 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.identityText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+}
+
+.nameRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-lg);
+  padding-block-start: var(--rialto-space-md);
+  border-block-start: 1px solid var(--rialto-border);
+}
+
+.panelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--rialto-space-lg);
+  align-items: start;
+}
