@@ -893,6 +893,94 @@ describe("Reservation Routes", () => {
       });
     });
 
+    describe("PATCH /v1/reservations/:id — no-show (#3232)", () => {
+      const confirmedReservation = createMockReservation({ id: "res-123", status: "CONFIRMED" });
+
+      it("marks the reservation NO_SHOW and forfeits a held deposit (end-to-end)", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "held",
+        } as never);
+        vi.mocked(depositService.forfeit).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "forfeited",
+        } as never);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "NO_SHOW" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.data.status).toBe("NO_SHOW");
+        expect(depositService.forfeit).toHaveBeenCalledWith("dep-1");
+        // Deposit forfeiture resolves BEFORE the status flip.
+        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+      });
+
+      it("marks the reservation NO_SHOW with no deposit — no forfeiture attempted", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
+        vi.mocked(reservationService.update).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "NO_SHOW" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(depositService.forfeit).not.toHaveBeenCalled();
+        expect(reservationService.update).toHaveBeenCalledWith("res-123", { status: "NO_SHOW" });
+      });
+
+      it("aborts the no-show and does not flip status when deposit forfeiture fails (no ghost state)", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(confirmedReservation);
+        vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
+          id: "dep-1",
+          status: "held",
+        } as never);
+        vi.mocked(depositService.forfeit).mockRejectedValueOnce(new Error("Stripe unavailable"));
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(500);
+        expect(reservationService.update).not.toHaveBeenCalled();
+      });
+
+      it("returns 409 when the reservation cannot transition to NO_SHOW", async () => {
+        vi.mocked(reservationService.getById).mockResolvedValueOnce(
+          createMockReservation({ id: "res-123", status: "CANCELLED" })
+        );
+
+        const response = await app.inject({
+          method: "PATCH",
+          url: "/api/v1/reservations/res-123",
+          headers: { authorization: "Bearer valid-token" },
+          payload: { status: "NO_SHOW" },
+        });
+
+        expect(response.statusCode).toBe(409);
+        expect(depositService.getByReservationId).not.toHaveBeenCalled();
+        expect(reservationService.update).not.toHaveBeenCalled();
+      });
+    });
+
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "PATCH",
