@@ -107,6 +107,11 @@ vi.mock("../pages/examples/GuestDetailExamplePage.js", () => ({
 vi.mock("../pages/tokens/ColorPage.js", () => ({ ColorPage: () => null }));
 vi.mock("../pages/tokens/TypographyPage.js", () => ({ TypographyPage: () => null }));
 vi.mock("../pages/tokens/SurfacesPage.js", () => ({ SurfacesPage: () => null }));
+vi.mock("../pages/tokens/MotionPage.js", () => ({ MotionPage: () => null }));
+vi.mock("../pages/tokens/SpacingPage.js", () => ({ SpacingPage: () => null }));
+vi.mock("../pages/tokens/RadiusPage.js", () => ({ RadiusPage: () => null }));
+vi.mock("../pages/tokens/ShadowsPage.js", () => ({ ShadowsPage: () => null }));
+vi.mock("../pages/tokens/IconVocabularyPage.js", () => ({ IconVocabularyPage: () => null }));
 vi.mock("../pages/examples/ErrorForbiddenExamplePage.js", () => ({
   ErrorForbiddenExamplePage: () => null,
 }));
@@ -179,9 +184,10 @@ describe("PageRegistry — structure", () => {
     }
   });
 
-  it("comingSoon entries all have non-empty labels", () => {
+  it("any comingSoon entries have non-empty labels", () => {
+    // The token-docs tier is now complete, so no comingSoon stubs remain; this
+    // guards the invariant that if a stub is ever reintroduced it stays labelled.
     const comingSoon = PAGE_REGISTRY.filter((e) => e.comingSoon);
-    expect(comingSoon.length).toBeGreaterThan(0);
     for (const entry of comingSoon) {
       expect(entry.label).toBeTruthy();
     }

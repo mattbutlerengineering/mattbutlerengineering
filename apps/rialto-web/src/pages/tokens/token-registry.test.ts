@@ -8,15 +8,29 @@ import { PAGE_REGISTRY } from "../../data/page-registry.js";
 vi.mock("./ColorPage.js", () => ({ ColorPage: () => null }));
 vi.mock("./TypographyPage.js", () => ({ TypographyPage: () => null }));
 vi.mock("./SurfacesPage.js", () => ({ SurfacesPage: () => null }));
+vi.mock("./MotionPage.js", () => ({ MotionPage: () => null }));
+vi.mock("./SpacingPage.js", () => ({ SpacingPage: () => null }));
+vi.mock("./RadiusPage.js", () => ({ RadiusPage: () => null }));
+vi.mock("./ShadowsPage.js", () => ({ ShadowsPage: () => null }));
+vi.mock("./IconVocabularyPage.js", () => ({ IconVocabularyPage: () => null }));
 
 /**
- * Guards the flip from stub token pages to real documentation pages.
- * Color, Typography, and Surfaces must be real (content-complete) pages, while
- * the remaining five token stubs stay untouched as comingSoon placeholders.
+ * Guards the token documentation tier. All eight token entries are now
+ * content-complete pages (Color/Typography/Surfaces from #3293; Motion, Spacing,
+ * Radius, Shadows, and Icon Vocabulary from #3325) — none remains a comingSoon
+ * stub.
  */
 
-const REAL_TOKEN_IDS = ["color", "typography", "surfaces"] as const;
-const STUB_TOKEN_IDS = ["motion", "spacing", "radius", "shadows", "icon-vocabulary"] as const;
+const REAL_TOKEN_IDS = [
+  "color",
+  "typography",
+  "surfaces",
+  "motion",
+  "spacing",
+  "radius",
+  "shadows",
+  "icon-vocabulary",
+] as const;
 
 describe("token documentation pages — registry wiring", () => {
   it.each(REAL_TOKEN_IDS)("%s is a real page (not comingSoon)", (id) => {
@@ -32,11 +46,9 @@ describe("token documentation pages — registry wiring", () => {
     expect(typeof mod.default).toBe("function");
   });
 
-  it.each(STUB_TOKEN_IDS)("%s remains an untouched comingSoon stub", async (id) => {
-    const entry = PAGE_REGISTRY.find((e) => e.id === id);
-    expect(entry, `${id} entry missing`).toBeDefined();
-    expect(entry!.comingSoon).toBe(true);
-    await expect(entry!.load()).resolves.toEqual({});
+  it("leaves no comingSoon stubs in the Tokens category", () => {
+    const stubs = PAGE_REGISTRY.filter((e) => e.category === "Tokens" && e.comingSoon);
+    expect(stubs).toHaveLength(0);
   });
 
   it("keeps all eight token entries in the Tokens category", () => {

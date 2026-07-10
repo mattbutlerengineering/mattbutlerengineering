@@ -592,8 +592,7 @@ export const PAGE_REGISTRY: PageEntry[] = [
     label: "Motion",
     category: "Tokens",
     path: "/components/motion",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () => import("../pages/tokens/MotionPage").then((m) => ({ default: m.MotionPage })),
   },
   {
     id: "typography",
@@ -615,24 +614,21 @@ export const PAGE_REGISTRY: PageEntry[] = [
     label: "Spacing",
     category: "Tokens",
     path: "/components/spacing",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () => import("../pages/tokens/SpacingPage").then((m) => ({ default: m.SpacingPage })),
   },
   {
     id: "radius",
     label: "Radius",
     category: "Tokens",
     path: "/components/radius",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () => import("../pages/tokens/RadiusPage").then((m) => ({ default: m.RadiusPage })),
   },
   {
     id: "shadows",
     label: "Shadows",
     category: "Tokens",
     path: "/components/shadows",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () => import("../pages/tokens/ShadowsPage").then((m) => ({ default: m.ShadowsPage })),
   },
   {
     id: "surfaces",
@@ -647,8 +643,10 @@ export const PAGE_REGISTRY: PageEntry[] = [
     label: "Icon Vocabulary",
     category: "Tokens",
     path: "/components/icon-vocabulary",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () =>
+      import("../pages/tokens/IconVocabularyPage").then((m) => ({
+        default: m.IconVocabularyPage,
+      })),
   },
   // ── Dashboard ───────────────────────────────────────────────────────────
   {

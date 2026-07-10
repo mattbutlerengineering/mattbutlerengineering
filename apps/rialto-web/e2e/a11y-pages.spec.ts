@@ -16,6 +16,11 @@ const PAGES_TO_AUDIT = [
   { name: "Booking Confirmed", path: "/examples/booking-confirmed" },
   { name: "Booking Failed", path: "/examples/booking-failed" },
   { name: "Pricing Table", path: "/examples/pricing-table" },
+  { name: "Motion", path: "/components/motion" },
+  { name: "Spacing", path: "/components/spacing" },
+  { name: "Radius", path: "/components/radius" },
+  { name: "Shadows", path: "/components/shadows" },
+  { name: "Icon Vocabulary", path: "/components/icon-vocabulary" },
 ];
 
 for (const { name, path } of PAGES_TO_AUDIT) {

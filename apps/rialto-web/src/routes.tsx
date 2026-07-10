@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
-import { Spinner, Text } from "@mattbutlerengineering/rialto";
+import { Spinner } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
@@ -66,35 +66,10 @@ function suspended(Component: React.LazyExoticComponent<React.ComponentType>) {
   );
 }
 
-/** Token placeholder page */
-function tokenPlaceholder(name: string) {
-  return (
-    <div style={{ padding: "var(--rialto-space-xl)" }}>
-      <Text color="tertiary">{name} — coming soon</Text>
-    </div>
-  );
-}
-
-/* ── Token placeholder labels — comingSoon entries have no component ── */
-const TOKEN_PLACEHOLDER_LABELS: Record<string, string> = {
-  motion: "Motion tokens",
-  spacing: "Spacing tokens",
-  radius: "Radius tokens",
-  shadows: "Shadow tokens",
-  "icon-vocabulary": "Icon vocabulary",
-};
-
 /* ── Component routes derived from PAGE_REGISTRY ── */
 const componentRoutes: RouteObject[] = PAGE_REGISTRY.map((entry) => {
   // Strip the leading slash to get the relative path for React Router
   const relativePath = entry.path.replace(/^\//, "");
-
-  if (entry.comingSoon && entry.id in TOKEN_PLACEHOLDER_LABELS) {
-    return {
-      path: relativePath,
-      element: tokenPlaceholder(TOKEN_PLACEHOLDER_LABELS[entry.id]!),
-    };
-  }
 
   const LazyPage = lazy(entry.load as () => Promise<{ default: React.ComponentType }>);
 

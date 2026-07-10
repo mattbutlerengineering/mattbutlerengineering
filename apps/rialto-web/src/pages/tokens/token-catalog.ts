@@ -190,3 +190,168 @@ export const SURFACE_TOKEN_NAMES: readonly string[] = [
   ...SURFACE_LEVELS.tokens.map((token) => token.name),
   ...ELEVATION_LEVELS.tokens.map((token) => token.name),
 ];
+
+// ---------------------------------------------------------------------------
+// Motion
+// ---------------------------------------------------------------------------
+
+export const MOTION_GROUPS: readonly TokenGroup[] = [
+  {
+    label: "Duration",
+    description: "Timing tokens for state changes, from micro-interactions to deliberate movement.",
+    tokens: [
+      { name: "--rialto-duration-fast", usage: "Micro-interactions — hover color, icon swaps" },
+      { name: "--rialto-duration-standard", usage: "Standard state changes — most UI transitions" },
+      { name: "--rialto-duration-slow", usage: "Deliberate movement — card hover lift, panel slide" },
+    ],
+  },
+  {
+    label: "Easing",
+    description: "Acceleration curves — precision for crisp UI, smooth for gentle entrances.",
+    tokens: [
+      {
+        name: "--rialto-ease-precision",
+        usage: "Crisp, instant-feeling transitions and hover states",
+      },
+      { name: "--rialto-ease-smooth", usage: "Gentle entrances and exits, larger movements" },
+    ],
+  },
+];
+
+export const MOTION_TOKEN_NAMES: readonly string[] = MOTION_GROUPS.flatMap((group) =>
+  group.tokens.map((token) => token.name)
+);
+
+// ---------------------------------------------------------------------------
+// Spacing
+// ---------------------------------------------------------------------------
+
+export const SPACING_SCALE: TokenGroup = {
+  label: "Spacing scale",
+  description: "A 4px-based scale for padding, gaps, and layout rhythm.",
+  tokens: [
+    { name: "--rialto-space-2xs", usage: "Icon padding, tight chip internals" },
+    { name: "--rialto-space-xs", usage: "Badge padding, tight gaps between related items" },
+    { name: "--rialto-space-sm", usage: "Button padding, input internal spacing" },
+    { name: "--rialto-space-md", usage: "Default component padding, Stack gaps" },
+    { name: "--rialto-space-lg", usage: "Card padding, between components in a form" },
+    { name: "--rialto-space-xl", usage: "Between card groups, dialog body padding" },
+    { name: "--rialto-space-2xl", usage: "Section spacing within a page" },
+    { name: "--rialto-space-3xl", usage: "Major page sections" },
+    { name: "--rialto-space-4xl", usage: "Hero spacing, full-page layout gaps" },
+  ],
+};
+
+export const SPACING_TOKEN_NAMES: readonly string[] = SPACING_SCALE.tokens.map((token) => token.name);
+
+// ---------------------------------------------------------------------------
+// Radius
+// ---------------------------------------------------------------------------
+
+export const RADIUS_SCALE: TokenGroup = {
+  label: "Radius scale",
+  description: "Corner rounding by hierarchy, from square edges to fully round.",
+  tokens: [
+    { name: "--rialto-radius-none", usage: "Square corners — flush panels, full-bleed media" },
+    { name: "--rialto-radius-sharp", usage: "Chips, badges, small inline elements" },
+    { name: "--rialto-radius-default", usage: "Buttons, inputs, standard interactive elements" },
+    { name: "--rialto-radius-soft", usage: "Cards, dialogs, containers" },
+    { name: "--rialto-radius-round", usage: "Pills, avatars, full-round elements" },
+  ],
+};
+
+export const RADIUS_TOKEN_NAMES: readonly string[] = RADIUS_SCALE.tokens.map((token) => token.name);
+
+// ---------------------------------------------------------------------------
+// Shadows & elevation
+// ---------------------------------------------------------------------------
+
+export const SHADOW_GROUPS: readonly TokenGroup[] = [
+  {
+    label: "Elevation",
+    description: "Ambient drop shadows lifting a surface off the page, subtle to dramatic.",
+    tokens: [
+      { name: "--rialto-shadow-xs", usage: "Subtle lift — buttons at rest, tags, badges" },
+      { name: "--rialto-shadow-sm", usage: "Standard elevation — cards, dropdowns" },
+      { name: "--rialto-shadow-md", usage: "Pronounced elevation — hovered cards, active dropdowns" },
+      { name: "--rialto-shadow-lg", usage: "Dramatic elevation — modals, floating panels" },
+    ],
+  },
+  {
+    label: "Interaction & depth",
+    description: "Inset and ring shadows for tactile press, focus, and frosted-glass panels.",
+    tokens: [
+      { name: "--rialto-shadow-pressed", usage: "Recessed inputs, slider tracks, active press" },
+      { name: "--rialto-shadow-focus", usage: "Focus-visible ring for interactive elements" },
+      { name: "--rialto-shadow-glass", usage: "Floating frosted-glass overlays, command palette" },
+    ],
+  },
+  {
+    label: "Warm glow",
+    description: "Gold ambient bloom for CTAs and elements that should breathe warmth.",
+    tokens: [
+      { name: "--rialto-shadow-ambient", usage: "Warm gold halo — CTAs, active selections" },
+      { name: "--rialto-shadow-luminous", usage: "Cards lit from within — elevation plus warm bloom" },
+    ],
+  },
+];
+
+export const SHADOW_TOKEN_NAMES: readonly string[] = SHADOW_GROUPS.flatMap((group) =>
+  group.tokens.map((token) => token.name)
+);
+
+// ---------------------------------------------------------------------------
+// Icon vocabulary — semantic usage guidance per category.
+//
+// The icon set itself (concepts, labels, components) is owned by rialto's
+// `iconVocabulary`; the docs page reads it live so new icons appear here
+// automatically. This map carries only the documentation prose describing how
+// each category should be used.
+// ---------------------------------------------------------------------------
+
+export interface IconCategoryGuidance {
+  /** Human-readable section heading for the category. */
+  label: string;
+  /** Semantic guidance on when to reach for icons in this category. */
+  description: string;
+}
+
+export const ICON_CATEGORY_GUIDANCE: Record<string, IconCategoryGuidance> = {
+  navigation: {
+    label: "Navigation",
+    description: "Wayfinding and directional affordances — move between views and reveal structure.",
+  },
+  actions: {
+    label: "Actions",
+    description:
+      "Verbs the user performs on content — reserve filled or primary styling for the main action.",
+  },
+  communication: {
+    label: "Communication",
+    description: "Messaging, notifications, and contact channels.",
+  },
+  status: {
+    label: "Status",
+    description: "Outcome and state signals — pair with the matching semantic color, never color alone.",
+  },
+  content: {
+    label: "Content",
+    description: "Files, folders, and media objects.",
+  },
+  user: {
+    label: "User",
+    description: "People, accounts, and identity.",
+  },
+  data: {
+    label: "Data",
+    description: "Sorting, filtering, and quantitative trends.",
+  },
+  media: {
+    label: "Media",
+    description: "Playback and capture controls.",
+  },
+  commerce: {
+    label: "Commerce",
+    description: "Cart, payment, and fulfillment.",
+  },
+};

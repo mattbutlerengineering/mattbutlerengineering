@@ -1,0 +1,57 @@
+/* ── Radius shapes ───────────────────────────────────────────────── */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--rialto-space-lg);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  min-width: 0;
+}
+
+.shape {
+  inline-size: 88px;
+  block-size: 88px;
+  border: 1px solid var(--rialto-border-strong);
+  background-color: var(--rialto-accent-muted);
+  box-shadow: var(--rialto-shadow-xs);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  min-width: 0;
+}
+
+.name,
+.value {
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  overflow-wrap: break-word;
+}
+
+/* ── Per-token radii — painted straight from the token ────────────── */
+
+.radius-none {
+  border-radius: var(--rialto-radius-none);
+}
+.radius-sharp {
+  border-radius: var(--rialto-radius-sharp);
+}
+.radius-default {
+  border-radius: var(--rialto-radius-default);
+}
+.radius-soft {
+  border-radius: var(--rialto-radius-soft);
+}
+.radius-round {
+  border-radius: var(--rialto-radius-round);
+}
