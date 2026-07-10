@@ -608,16 +608,15 @@ export const PAGE_REGISTRY: PageEntry[] = [
     label: "Typography",
     category: "Tokens",
     path: "/components/typography",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () =>
+      import("../pages/tokens/TypographyPage").then((m) => ({ default: m.TypographyPage })),
   },
   {
     id: "color",
     label: "Color",
     category: "Tokens",
     path: "/components/color",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () => import("../pages/tokens/ColorPage").then((m) => ({ default: m.ColorPage })),
   },
   {
     id: "spacing",
@@ -648,8 +647,8 @@ export const PAGE_REGISTRY: PageEntry[] = [
     label: "Surfaces",
     category: "Tokens",
     path: "/components/surfaces",
-    comingSoon: true,
-    load: () => Promise.resolve({}),
+    load: () =>
+      import("../pages/tokens/SurfacesPage").then((m) => ({ default: m.SurfacesPage })),
   },
   {
     id: "icon-vocabulary",
