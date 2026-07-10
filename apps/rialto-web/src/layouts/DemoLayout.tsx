@@ -1,6 +1,3 @@
-/* eslint-disable mbe-local/prefer-rialto-components -- FloatingControls intentionally uses
-   native icon <button>s; the rule's autofix renames JSX without adding the import, which
-   breaks the build when lint-staged runs eslint --fix on commit. */
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";

@@ -108,6 +108,30 @@ export default {
           p: "Text",
         };
 
+        // A native element is only safely auto-fixable when its Rialto
+        // replacement is ALREADY imported from @mattbutlerengineering/rialto in
+        // this file. Renaming JSX without the import corrupts the file
+        // (TS2304 + runtime ReferenceError). lint-staged runs `eslint --fix` in
+        // pre-commit, so an unsound fix silently breaks committed code.
+        const rialtoImportedNames = new Set();
+        for (const statement of context.sourceCode.ast.body) {
+          if (
+            statement.type === "ImportDeclaration" &&
+            statement.source.value === "@mattbutlerengineering/rialto"
+          ) {
+            for (const specifier of statement.specifiers) {
+              if (specifier.local && specifier.local.type === "Identifier") {
+                rialtoImportedNames.add(specifier.local.name);
+              }
+            }
+          }
+        }
+
+        // Same guard for BOTH the opening and closing tag so tags never diverge
+        // into a mismatched `<button>...</Button>` parse error.
+        const canAutoFix = (node, rialtoName) =>
+          node.name.type === "JSXIdentifier" && rialtoImportedNames.has(rialtoName);
+
         return {
           JSXOpeningElement(node) {
             if (node.name.type !== "JSXIdentifier") return;
@@ -118,16 +142,14 @@ export default {
               context.report({
                 node,
                 message: `<${name}> is prohibited. Use <${rialtoName}> from @mattbutlerengineering/rialto instead.`,
-                fix(fixer) {
-                  // Only auto-fix simple identifiers (not components with namespaced names or members)
-                  if (node.name.type === "JSXIdentifier") {
-                    return [
-                      fixer.replaceText(node.name, rialtoName),
-                      // Note: closing tag fix is handled by the JSXClosingElement visitor
-                    ];
-                  }
-                  return null;
-                },
+                ...(canAutoFix(node, rialtoName)
+                  ? {
+                      fix(fixer) {
+                        // Closing tag fix is handled by the JSXClosingElement visitor.
+                        return fixer.replaceText(node.name, rialtoName);
+                      },
+                    }
+                  : {}),
               });
             }
           },
@@ -140,9 +162,13 @@ export default {
               context.report({
                 node,
                 message: `</${name}> is prohibited. Use </${rialtoName}> from @mattbutlerengineering/rialto instead.`,
-                fix(fixer) {
-                  return fixer.replaceText(node.name, rialtoName);
-                },
+                ...(canAutoFix(node, rialtoName)
+                  ? {
+                      fix(fixer) {
+                        return fixer.replaceText(node.name, rialtoName);
+                      },
+                    }
+                  : {}),
               });
             }
           },
