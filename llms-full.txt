@@ -17697,12 +17697,6 @@
       const authority = process.env.AUTH_AUTHORITY;
       if (!authority) return undefined;
     
-      try {
-        new URL(authority);
-      } catch {
-        throw new Error(`Invalid AUTH_AUTHORITY: "${authority}" is not a valid URL`);
-      }
-    
       return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
     }
   </file>
