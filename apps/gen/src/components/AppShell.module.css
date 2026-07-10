@@ -5,7 +5,7 @@
   padding: var(--rialto-space-sm) var(--rialto-space-md);
   background: var(--rialto-surface);
   color: var(--rialto-text-primary);
-  font-weight: var(--rialto-weight-semibold);
+  font-weight: var(--rialto-weight-medium);
 }
 
 .skipLink:focus {
@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   min-block-size: 100dvh;
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
 }
 
 /* ── Logo group ─────────────────────────── */
@@ -73,7 +73,7 @@
   padding: 0;
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
-  background: var(--rialto-surface-default);
+  background: var(--rialto-surface);
   color: var(--rialto-text-secondary);
   font-size: var(--rialto-text-sm);
   font-family: var(--rialto-font-sans);
@@ -91,13 +91,13 @@
 
 .panelToggleActive {
   background-color: var(--rialto-accent);
-  color: var(--rialto-surface-default);
+  color: var(--rialto-surface);
   border-color: var(--rialto-accent);
 }
 
 .panelToggleActive:hover {
   background-color: var(--rialto-accent);
-  color: var(--rialto-surface-default);
+  color: var(--rialto-surface);
   opacity: 0.9;
 }
 
@@ -161,7 +161,7 @@
   inset-block: 0;
   z-index: 11;
   inline-size: min(320px, 85vw);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
   box-shadow: var(--rialto-shadow-lg);
   display: flex;
   flex-direction: column;

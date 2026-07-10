@@ -102,7 +102,7 @@
 
 .floorPlanTitle {
   font-size: var(--rialto-text-xl);
-  font-weight: var(--rialto-weight-bold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
 }
 

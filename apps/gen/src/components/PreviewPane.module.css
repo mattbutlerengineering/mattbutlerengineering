@@ -5,7 +5,7 @@
   flex-direction: column;
   overflow-y: auto;
   padding: var(--rialto-space-lg);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
 }
 
 .fullscreenToggle {
@@ -95,9 +95,9 @@
   align-items: flex-start;
   gap: var(--rialto-space-xs);
   padding: var(--rialto-space-md);
-  background: var(--rialto-surface-default);
+  background: var(--rialto-surface);
   border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-md);
+  border-radius: var(--rialto-radius-soft);
   cursor: pointer;
   text-align: start;
   font-family: var(--rialto-font-sans);

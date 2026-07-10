@@ -10,7 +10,7 @@
 .progressBar {
   height: 6px;
   background: var(--rialto-surface-recessed);
-  border-radius: var(--rialto-radius-pill);
+  border-radius: var(--rialto-radius-round);
   margin-block: var(--rialto-space-lg) var(--rialto-space-xs);
   overflow: hidden;
 }
@@ -18,7 +18,7 @@
 .progressFill {
   height: 100%;
   background: var(--rialto-accent);
-  border-radius: var(--rialto-radius-pill);
+  border-radius: var(--rialto-radius-round);
   transition: width 0.4s ease;
 }
 
@@ -74,7 +74,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--rialto-radius-pill);
+  border-radius: var(--rialto-radius-round);
   background: var(--rialto-surface-recessed);
   color: var(--rialto-text-secondary);
 }

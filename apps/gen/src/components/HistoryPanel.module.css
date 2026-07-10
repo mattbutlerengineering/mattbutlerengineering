@@ -6,7 +6,7 @@
   flex-direction: column;
   overflow-y: auto;
   border-inline-end: 1px solid var(--rialto-border);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
 }
 
 .filterBar {
@@ -448,7 +448,7 @@
   padding-inline-end: var(--rialto-space-xl);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-default);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
   color: var(--rialto-text-primary);
   font-size: var(--rialto-text-xs);
   font-family: var(--rialto-font-sans);

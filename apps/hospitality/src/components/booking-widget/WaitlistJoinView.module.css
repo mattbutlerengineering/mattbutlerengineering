@@ -19,7 +19,7 @@
 }
 
 .noAvailabilityHeading {
-  font-weight: var(--rialto-weight-semibold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
 }
 

@@ -17,7 +17,7 @@
 
 .noteItem {
   padding: var(--rialto-space-xs) 0;
-  border-block-end: 1px solid var(--rialto-border-subtle);
+  border-block-end: 1px solid var(--rialto-border);
 }
 
 .noteItem:last-child {

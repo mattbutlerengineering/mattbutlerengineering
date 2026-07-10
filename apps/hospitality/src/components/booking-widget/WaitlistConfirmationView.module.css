@@ -9,7 +9,7 @@
 
 .heading {
   font-size: var(--rialto-text-xl);
-  font-weight: var(--rialto-weight-semibold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
 }
 
@@ -42,7 +42,7 @@
 .positionNumber,
 .waitTime {
   font-size: var(--rialto-text-2xl);
-  font-weight: var(--rialto-weight-bold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-accent);
 }
 

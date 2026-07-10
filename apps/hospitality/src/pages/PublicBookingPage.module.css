@@ -1,6 +1,6 @@
 .page {
   min-block-size: 100dvh;
-  background: var(--rialto-background);
+  background: var(--rialto-surface);
   padding-block: var(--rialto-space-2xl);
   padding-inline: var(--rialto-space-md);
 }

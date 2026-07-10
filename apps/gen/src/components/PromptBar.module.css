@@ -4,7 +4,7 @@
   gap: var(--rialto-space-xs);
   padding: var(--rialto-space-md) var(--rialto-space-lg);
   border-block-start: 1px solid var(--rialto-border);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
 }
@@ -43,7 +43,7 @@
 
 .input:focus {
   border-color: var(--rialto-accent);
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
   box-shadow: var(--rialto-shadow-focus);
 }
 

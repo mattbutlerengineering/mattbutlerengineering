@@ -7,7 +7,7 @@ html {
   top: -40px;
   left: 0;
   padding: 8px 16px;
-  background: var(--rialto-surface-raised);
+  background: var(--rialto-surface-elevated);
   color: var(--rialto-text-primary);
   z-index: 10000;
   transition: top 0.2s;
