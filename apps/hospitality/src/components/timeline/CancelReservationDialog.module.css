@@ -29,7 +29,7 @@
 
 .title {
   font-size: var(--rialto-text-lg);
-  font-weight: var(--rialto-weight-bold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
   margin: 0;
 }

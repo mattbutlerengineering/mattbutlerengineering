@@ -134,13 +134,13 @@
 
 .categoryButtonActive {
   background: var(--rialto-accent);
-  color: var(--rialto-surface-default);
+  color: var(--rialto-surface);
   font-weight: 500;
 }
 
 .categoryButtonActive:hover {
   background: var(--rialto-accent);
-  color: var(--rialto-surface-default);
+  color: var(--rialto-surface);
   opacity: 0.9;
 }
 
@@ -212,7 +212,7 @@
   padding: var(--rialto-space-md);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-soft);
-  background: var(--rialto-surface-default);
+  background: var(--rialto-surface);
   cursor: pointer;
   transition:
     border-color 150ms var(--rialto-ease-precision),

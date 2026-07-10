@@ -10,7 +10,7 @@
 }
 
 .depositSummary {
-  background: var(--rialto-surface-raised);
+  background: var(--rialto-surface-elevated);
   border-radius: var(--rialto-radius-soft);
   padding: var(--rialto-space-md);
   display: flex;
@@ -25,7 +25,7 @@
 }
 
 .policyCard {
-  background: var(--rialto-surface-raised);
+  background: var(--rialto-surface-elevated);
   border-radius: var(--rialto-radius-soft);
   padding: var(--rialto-space-md);
   display: flex;
@@ -41,7 +41,7 @@
 
 .cardElement {
   border: 1px solid var(--rialto-border);
-  border-radius: var(--rialto-radius-sm);
+  border-radius: var(--rialto-radius-default);
   padding: var(--rialto-space-sm) var(--rialto-space-md);
   background: var(--rialto-surface);
 }

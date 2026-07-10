@@ -3,7 +3,7 @@
   min-block-size: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--rialto-surface-default);
+  background-color: var(--rialto-surface);
 }
 
 /* ── Top bar ── */

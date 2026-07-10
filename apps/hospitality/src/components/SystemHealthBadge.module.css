@@ -9,7 +9,7 @@
 }
 
 .trigger:hover {
-  background: var(--rialto-surface-hover);
+  background: var(--rialto-surface-recessed);
 }
 
 .dot {

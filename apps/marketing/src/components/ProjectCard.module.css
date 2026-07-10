@@ -26,8 +26,8 @@
   align-items: center;
   text-decoration: none;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
-  border-radius: var(--rialto-radius-sm);
-  border: 1px solid var(--rialto-border-default);
+  border-radius: var(--rialto-radius-default);
+  border: 1px solid var(--rialto-border);
   background: transparent;
   color: var(--rialto-text-primary);
   font-size: var(--rialto-text-sm);
@@ -41,6 +41,6 @@
 }
 
 .buttonLink:hover {
-  background: var(--rialto-surface-subtle);
+  background: var(--rialto-surface-recessed);
   border-color: var(--rialto-border-strong);
 }

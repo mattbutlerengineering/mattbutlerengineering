@@ -71,7 +71,7 @@
 }
 
 .codeBlock {
-  background: var(--rialto-surface-sunken);
+  background: var(--rialto-surface-recessed);
   padding: var(--rialto-space-md);
   overflow-x: auto;
 }

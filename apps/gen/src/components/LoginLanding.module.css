@@ -85,7 +85,7 @@
 
 .stageLabel {
   font-family: var(--rialto-font-display, inherit);
-  font-weight: var(--rialto-weight-semibold);
+  font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
 }
 
