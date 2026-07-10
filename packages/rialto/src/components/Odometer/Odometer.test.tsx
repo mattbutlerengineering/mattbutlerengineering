@@ -1,5 +1,6 @@
 import { render, screen, act } from "@testing-library/react";
 import { createRef } from "react";
+import { axe } from "vitest-axe";
 import { Odometer } from "./Odometer";
 
 describe("Odometer", () => {
@@ -66,6 +67,52 @@ describe("Odometer", () => {
       expect(live).toHaveAttribute("aria-live", "polite");
       expect(live).toHaveAttribute("aria-atomic", "true");
       expect(live).toHaveTextContent("42");
+    });
+
+    it("names the role=status live region with the aria-label (not the nameless wrapper)", () => {
+      render(<Odometer value={128540} locale="en-US" aria-label="Total signups" />);
+      // The accessible name must sit on the role="status" live region itself —
+      // a screen reader announces "Total signups" alongside the value, not an
+      // anonymous status update. The label must NOT rely on the role-less
+      // wrapper, whose aria-label assistive tech ignores.
+      const live = screen.getByRole("status", { name: "Total signups" });
+      expect(live).toHaveTextContent("128,540");
+    });
+
+    it("forwards aria-labelledby to the live region", () => {
+      render(
+        <>
+          <span id="odometer-label">Signups</span>
+          <Odometer value={7} locale="en-US" aria-labelledby="odometer-label" />
+        </>
+      );
+      expect(screen.getByRole("status", { name: "Signups" })).toHaveTextContent("7");
+    });
+
+    it("keeps the wrapper's aria-label with role=status as a descendant (StatRow binding contract)", () => {
+      // apps/hospitality StatRow binds value->label via getByLabel(wrapper)
+      // .getByRole('status'); the status region must remain a descendant of the
+      // aria-labelled wrapper. Guard that DOM contract here.
+      const { container } = render(
+        <Odometer value={3} locale="en-US" aria-label="Today's Reservations" />
+      );
+      const wrapper = container.firstElementChild;
+      expect(wrapper).toHaveAttribute("aria-label", "Today's Reservations");
+      const status = wrapper?.querySelector('[role="status"]');
+      expect(status).not.toBeNull();
+      expect(status).toHaveTextContent("3");
+    });
+
+    it("has no axe violations when labeled", async () => {
+      const { container } = render(
+        <Odometer value={128540} locale="en-US" aria-label="Total signups" />
+      );
+      // color-contrast is disabled in jsdom (see setup.ts); token-contrast
+      // is covered separately.
+      const results = await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      });
+      expect(results).toHaveNoViolations();
     });
 
     it("hides the per-digit reels from assistive tech", () => {
