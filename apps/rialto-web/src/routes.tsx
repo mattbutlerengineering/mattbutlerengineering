@@ -78,12 +78,9 @@ function tokenPlaceholder(name: string) {
 /* ── Token placeholder labels — comingSoon entries have no component ── */
 const TOKEN_PLACEHOLDER_LABELS: Record<string, string> = {
   motion: "Motion tokens",
-  typography: "Typography tokens",
-  color: "Color tokens",
   spacing: "Spacing tokens",
   radius: "Radius tokens",
   shadows: "Shadow tokens",
-  surfaces: "Surface tokens",
   "icon-vocabulary": "Icon vocabulary",
 };
 

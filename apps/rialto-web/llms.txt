@@ -95,6 +95,31 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="tokens">
+  <file path="src/pages/tokens/token-catalog.ts">
+    <item priority="low">
+      interface TokenDoc {
+        name: string;
+        usage: string;
+      }
+    </item>
+    <item priority="low">
+      interface TokenGroup {
+        label: string;
+        description: string;
+        tokens: readonly TokenDoc[];
+      }
+    </item>
+  </file>
+  <file path="src/pages/tokens/use-live-tokens.ts">
+    <item priority="medium">
+      function subscribeTheme(onChange: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readThemeSnapshot(): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="visual-test">
   <file path="src/pages/visual-test/fixtures.ts">
     <item priority="high">

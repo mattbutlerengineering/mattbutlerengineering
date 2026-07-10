@@ -18657,6 +18657,38 @@
   </file>
   </section>
   <section priority="medium" role="tokens">
+  <file path="apps/rialto-web/src/pages/tokens/token-catalog.ts">
+    export interface TokenDoc {
+      /** The custom-property name, e.g. `--rialto-surface`. */
+      name: string;
+      /** Human guidance on where the token is meant to be used. */
+      usage: string;
+    }
+    export interface TokenGroup {
+      /** Section heading, e.g. `Surfaces`. */
+      label: string;
+      /** Short prose describing the group's purpose. */
+      description: string;
+      tokens: readonly TokenDoc[];
+    }
+  </file>
+  <file path="apps/rialto-web/src/pages/tokens/use-live-tokens.ts">
+    function subscribeTheme(onChange: () => void): () => void {
+      if (typeof MutationObserver === "undefined" || typeof document === "undefined") {
+        return () => {};
+      }
+      const observer = new MutationObserver(onChange);
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: [THEME_ATTR],
+      });
+      return () => observer.disconnect();
+    }
+    function readThemeSnapshot(): string {
+      if (typeof document === "undefined") return DEFAULT_THEME;
+      return document.documentElement.getAttribute(THEME_ATTR) ?? DEFAULT_THEME;
+    }
+  </file>
   <file path="packages/rialto/src/tokens/icons.ts">
     export const iconCategories = [
       "navigation",

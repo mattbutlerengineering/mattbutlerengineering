@@ -1,0 +1,146 @@
+/* ── Typography specimens ────────────────────────────────────────── */
+
+.specimens {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.specimen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-md);
+  border-block-end: 1px solid var(--rialto-border);
+  min-width: 0;
+}
+
+.preview {
+  color: var(--rialto-text-primary);
+  line-height: var(--rialto-leading-normal);
+  max-width: 46ch;
+  overflow-wrap: break-word;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--rialto-space-xs) var(--rialto-space-md);
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.value {
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  overflow-wrap: break-word;
+}
+
+/* ── Font families ───────────────────────────────────────────────── */
+
+.font-sans {
+  font-family: var(--rialto-font-sans);
+}
+.font-display {
+  font-family: var(--rialto-font-display);
+}
+.font-mono {
+  font-family: var(--rialto-font-mono);
+}
+
+/* ── Type scale ──────────────────────────────────────────────────── */
+
+.text-xs {
+  font-size: var(--rialto-text-xs);
+  line-height: var(--rialto-leading-tight);
+}
+.text-sm {
+  font-size: var(--rialto-text-sm);
+  line-height: var(--rialto-leading-tight);
+}
+.text-base {
+  font-size: var(--rialto-text-base);
+  line-height: var(--rialto-leading-tight);
+}
+.text-md {
+  font-size: var(--rialto-text-md);
+  line-height: var(--rialto-leading-tight);
+}
+.text-lg {
+  font-size: var(--rialto-text-lg);
+  line-height: var(--rialto-leading-tight);
+}
+.text-xl {
+  font-size: var(--rialto-text-xl);
+  line-height: var(--rialto-leading-tight);
+}
+.text-2xl {
+  font-size: var(--rialto-text-2xl);
+  line-height: var(--rialto-leading-tight);
+}
+.text-3xl {
+  font-size: var(--rialto-text-3xl);
+  line-height: var(--rialto-leading-tight);
+}
+.text-4xl {
+  font-size: var(--rialto-text-4xl);
+  line-height: var(--rialto-leading-tight);
+}
+
+/* ── Font weights ────────────────────────────────────────────────── */
+
+.weight-light {
+  font-weight: var(--rialto-weight-light);
+  font-size: var(--rialto-text-lg);
+}
+.weight-book {
+  font-weight: var(--rialto-weight-book);
+  font-size: var(--rialto-text-lg);
+}
+.weight-regular {
+  font-weight: var(--rialto-weight-regular);
+  font-size: var(--rialto-text-lg);
+}
+.weight-demi {
+  font-weight: var(--rialto-weight-demi);
+  font-size: var(--rialto-text-lg);
+}
+.weight-medium {
+  font-weight: var(--rialto-weight-medium);
+  font-size: var(--rialto-text-lg);
+}
+
+/* ── Line heights ────────────────────────────────────────────────── */
+
+.leading-tight {
+  line-height: var(--rialto-leading-tight);
+}
+.leading-normal {
+  line-height: var(--rialto-leading-normal);
+}
+.leading-relaxed {
+  line-height: var(--rialto-leading-relaxed);
+}
+
+/* ── Letter spacing ──────────────────────────────────────────────── */
+
+.tracking-tight {
+  letter-spacing: var(--rialto-tracking-tight);
+  font-size: var(--rialto-text-lg);
+}
+.tracking-normal {
+  letter-spacing: var(--rialto-tracking-normal);
+  font-size: var(--rialto-text-lg);
+}
+.tracking-wide {
+  letter-spacing: var(--rialto-tracking-wide);
+  font-size: var(--rialto-text-lg);
+  text-transform: uppercase;
+}

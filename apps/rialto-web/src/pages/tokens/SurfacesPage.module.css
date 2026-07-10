@@ -1,0 +1,87 @@
+/* ── Surface & elevation examples ────────────────────────────────── */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--rialto-space-lg);
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  min-width: 0;
+}
+
+.panel {
+  height: 96px;
+  border-radius: var(--rialto-radius-soft);
+  border: 1px solid var(--rialto-border);
+  /* Base treatment: elevated surface so shadow tiers read against it. */
+  background-color: var(--rialto-surface-elevated);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.value {
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  overflow-wrap: break-word;
+}
+
+/* ── Surface levels ──────────────────────────────────────────────── */
+
+.surface {
+  background-color: var(--rialto-surface);
+}
+.surface-elevated {
+  background-color: var(--rialto-surface-elevated);
+}
+.surface-recessed {
+  background-color: var(--rialto-surface-recessed);
+}
+.surface-matte {
+  background-color: var(--rialto-surface-matte);
+}
+.surface-deep {
+  background-color: var(--rialto-surface-deep);
+}
+
+/* ── Elevation tiers ─────────────────────────────────────────────── */
+
+.shadow-xs {
+  box-shadow: var(--rialto-shadow-xs);
+}
+.shadow-sm {
+  box-shadow: var(--rialto-shadow-sm);
+}
+.shadow-md {
+  box-shadow: var(--rialto-shadow-md);
+}
+.shadow-lg {
+  box-shadow: var(--rialto-shadow-lg);
+}
+.shadow-pressed {
+  box-shadow: var(--rialto-shadow-pressed);
+}
+.shadow-glass {
+  box-shadow: var(--rialto-shadow-glass);
+}
+.shadow-ambient {
+  box-shadow: var(--rialto-shadow-ambient);
+}
+.shadow-luminous {
+  box-shadow: var(--rialto-shadow-luminous);
+}
