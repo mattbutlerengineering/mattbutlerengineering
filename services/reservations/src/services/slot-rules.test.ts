@@ -6,6 +6,9 @@ import {
   selectBestTable,
   checkTableConflict,
   checkPacingForSlot,
+  overlapWindow,
+  activeHoldWindow,
+  NOT_BOOKED_STATUSES,
   type ReservationSlim,
   type HoldSlim,
   type TableCandidate,
@@ -178,6 +181,31 @@ describe("parseOperatingHours (pure)", () => {
     const result = parseOperatingHours(openHours, "2026-05-09");
     expect(result).not.toBeNull();
     expect(result!.open).toBe("10:00");
+  });
+});
+
+describe("NOT_BOOKED_STATUSES (shared declaration)", () => {
+  it("excludes CANCELLED and NO_SHOW — the statuses that free a table slot", () => {
+    expect(NOT_BOOKED_STATUSES).toEqual(["CANCELLED", "NO_SHOW"]);
+  });
+});
+
+describe("overlapWindow (shared declaration)", () => {
+  it("returns the half-open [startTime, endTime) threshold pair", () => {
+    const startTime = new Date("2026-05-05T18:00:00Z");
+    const endTime = new Date("2026-05-05T19:15:00Z");
+
+    expect(overlapWindow(startTime, endTime)).toEqual({
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+    });
+  });
+});
+
+describe("activeHoldWindow (shared declaration)", () => {
+  it("returns a gt-now threshold — a hold guards its slot only while unexpired", () => {
+    const now = new Date("2026-05-05T18:00:00Z");
+    expect(activeHoldWindow(now)).toEqual({ gt: now });
   });
 });
 

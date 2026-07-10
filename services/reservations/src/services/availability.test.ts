@@ -26,6 +26,7 @@ vi.mock("./database.js", async () => {
 
 import { availabilityService, fetchConflictData } from "./availability.js";
 import { prisma } from "./database.js";
+import { NOT_BOOKED_STATUSES, activeHoldWindow } from "./slot-rules.js";
 
 const VENUE_ID = "venue-1";
 
@@ -289,6 +290,25 @@ describe("availabilityService.getAvailableDates", () => {
     );
 
     expect(dates.length).toBeLessThanOrEqual(61);
+  });
+
+  it("drift test: bulk-fetch derives its status/expiry filters from the shared slot-rules declaration", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    await availabilityService.getAvailableDates(VENUE_ID, "2026-05-04", "2026-05-04", 2);
+
+    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0][0] as {
+      where: { status: unknown };
+    };
+    expect(reservationWhere.where.status).toEqual({ notIn: [...NOT_BOOKED_STATUSES] });
+
+    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
+      where: { expiresAt: { gt: Date } };
+    };
+    expect(holdWhere.where.expiresAt).toEqual(activeHoldWindow(holdWhere.where.expiresAt.gt));
   });
 
   it("marks closed days as unavailable", async () => {
@@ -598,5 +618,22 @@ describe("fetchConflictData", () => {
     };
     expect(holdCall.where.venueId).toBe(VENUE_ID);
     expect(holdCall.where.expiresAt.gt).toBeInstanceOf(Date);
+  });
+
+  it("drift test: derives status/expiry filters from the shared slot-rules declaration, not a local literal", async () => {
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    await fetchConflictData(VENUE_ID, "2026-05-05");
+
+    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0][0] as {
+      where: { status: unknown };
+    };
+    expect(reservationWhere.where.status).toEqual({ notIn: [...NOT_BOOKED_STATUSES] });
+
+    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
+      where: { expiresAt: { gt: Date } };
+    };
+    expect(holdWhere.where.expiresAt).toEqual(activeHoldWindow(holdWhere.where.expiresAt.gt));
   });
 });

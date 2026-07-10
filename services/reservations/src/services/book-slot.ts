@@ -1,7 +1,12 @@
 import type { VenueSettings } from "@mbe/types";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
-import { checkPacingForSlot } from "./slot-rules.js";
+import {
+  checkPacingForSlot,
+  overlapWindow,
+  activeHoldWindow,
+  NOT_BOOKED_STATUSES,
+} from "./slot-rules.js";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.
@@ -33,9 +38,7 @@ export interface SlotConflict {
  * Outcome of a {@link bookSlot} call: the value produced by the caller's write
  * on success, or the structured reason the slot could not be written.
  */
-export type SlotWriteResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; conflict: SlotConflict };
+export type SlotWriteResult<T> = { ok: true; value: T } | { ok: false; conflict: SlotConflict };
 
 export interface BookSlotIntent<T> {
   /** Table whose slot is written; keys the advisory lock and conflict re-check. */
@@ -73,10 +76,6 @@ export interface BookSlotIntent<T> {
   /** Performs the actual mutation once the slot is confirmed bookable. */
   write: (tx: Prisma.TransactionClient) => Promise<T>;
 }
-
-const NOT_BOOKED_STATUSES: Prisma.ReservationWhereInput["status"] = {
-  notIn: ["CANCELLED", "NO_SHOW"],
-};
 
 /**
  * The one canonical "write a Reservation (or Hold) into a Table slot" seam.
@@ -133,8 +132,8 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
       where: {
         tableId,
         date,
-        status: NOT_BOOKED_STATUSES,
-        AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+        status: { notIn: [...NOT_BOOKED_STATUSES] },
+        ...overlapWindow(startTime, endTime),
         ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
       },
       select: { id: true },
@@ -148,8 +147,8 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
         where: {
           tableId,
           date,
-          expiresAt: { gt: new Date() },
-          AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+          expiresAt: activeHoldWindow(new Date()),
+          ...overlapWindow(startTime, endTime),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
           ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
         },
@@ -163,14 +162,14 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
     if (checkPacing && venueId) {
       const now = new Date();
       const reservations = await tx.reservation.findMany({
-        where: { venueId, date, status: NOT_BOOKED_STATUSES },
+        where: { venueId, date, status: { notIn: [...NOT_BOOKED_STATUSES] } },
         select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
       });
       const holds = await tx.reservationHold.findMany({
         where: {
           venueId,
           date,
-          expiresAt: { gt: now },
+          expiresAt: activeHoldWindow(now),
           ...(excludeHoldId ? { id: { not: excludeHoldId } } : {}),
           ...(excludeSessionId ? { sessionId: { not: excludeSessionId } } : {}),
         },

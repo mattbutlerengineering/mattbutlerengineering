@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type * as SlotRules from "./slot-rules.js";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -13,13 +14,19 @@ vi.mock("./database.js", async () => {
   });
 });
 
-vi.mock("./slot-rules.js", () => ({
-  checkPacingForSlot: vi.fn().mockReturnValue(true),
-}));
+vi.mock("./slot-rules.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof SlotRules>();
+  return { ...actual, checkPacingForSlot: vi.fn().mockReturnValue(true) };
+});
 
 import { bookSlot, tableAdvisoryLockSql } from "./book-slot.js";
 import { prisma } from "./database.js";
-import { checkPacingForSlot } from "./slot-rules.js";
+import {
+  checkPacingForSlot,
+  overlapWindow,
+  activeHoldWindow,
+  NOT_BOOKED_STATUSES,
+} from "./slot-rules.js";
 
 const DATE = new Date("2026-05-05");
 const START = new Date("2026-05-05T18:00:00Z");
@@ -45,9 +52,9 @@ function makeTx(overrides: Record<string, unknown> = {}) {
 
 /** Wires prisma.$transaction to invoke the callback with the given tx mock once. */
 function useTxOnce(tx: unknown): void {
-  vi.mocked(prisma.$transaction).mockImplementationOnce(
-    ((fn: (client: unknown) => Promise<unknown>) => fn(tx)) as never
-  );
+  vi.mocked(prisma.$transaction).mockImplementationOnce(((
+    fn: (client: unknown) => Promise<unknown>
+  ) => fn(tx)) as never);
 }
 
 function baseIntent(overrides: Record<string, unknown> = {}) {
@@ -144,6 +151,46 @@ describe("bookSlot", () => {
     expect(intent.write).not.toHaveBeenCalled();
   });
 
+  it("drift test: reservation conflict re-check derives its where-clause from the shared overlapWindow + NOT_BOOKED_STATUSES declaration", async () => {
+    const tx = makeTx();
+    useTxOnce(tx);
+
+    await bookSlot(baseIntent());
+
+    const { where } = vi.mocked(tx.reservation.findFirst).mock.calls[0][0] as {
+      where: { startTime: unknown; endTime: unknown; status: unknown };
+    };
+    // Not hardcoded expected values — read live from slot-rules.js, so a
+    // future change to the declaration (or a regression back to a
+    // hand-rolled literal in bookSlot) is caught here.
+    const expectedWindow = overlapWindow(START, END);
+    expect(where.startTime).toEqual(expectedWindow.startTime);
+    expect(where.endTime).toEqual(expectedWindow.endTime);
+    expect(where.status).toEqual({ notIn: [...NOT_BOOKED_STATUSES] });
+  });
+
+  it("drift test: hold conflict re-check derives its where-clause from the shared overlapWindow + activeHoldWindow declaration", async () => {
+    const now = new Date("2026-05-05T17:00:00Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      const tx = makeTx();
+      useTxOnce(tx);
+
+      await bookSlot(baseIntent({ checkHoldConflict: true }));
+
+      const { where } = vi.mocked(tx.reservationHold.findFirst).mock.calls[0][0] as {
+        where: { startTime: unknown; endTime: unknown; expiresAt: unknown };
+      };
+      const expectedWindow = overlapWindow(START, END);
+      expect(where.startTime).toEqual(expectedWindow.startTime);
+      expect(where.endTime).toEqual(expectedWindow.endTime);
+      expect(where.expiresAt).toEqual(activeHoldWindow(now));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("re-checks pacing under the lock and returns PACING_EXCEEDED when the limit is hit", async () => {
     vi.mocked(checkPacingForSlot).mockReturnValueOnce(false);
     const tx = makeTx();
@@ -189,36 +236,36 @@ describe("bookSlot", () => {
       store.some((r) => r.tableId === tableId && r.startTime < e && r.endTime > s);
 
     let chain: Promise<unknown> = Promise.resolve();
-    vi.mocked(prisma.$transaction).mockImplementation(
-      ((fn: (client: unknown) => Promise<unknown>) => {
-        const tx = {
-          $executeRaw: vi.fn().mockResolvedValue(0),
-          venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
-          reservation: {
-            findFirst: vi
-              .fn()
-              .mockImplementation(() =>
-                Promise.resolve(overlaps("table-1", START, END) ? { id: "existing" } : null)
-              ),
-            findMany: vi.fn().mockResolvedValue([]),
-            create: vi.fn().mockImplementation(() => {
-              store.push({ tableId: "table-1", startTime: START, endTime: END });
-              return Promise.resolve({ id: `res-${store.length}` });
-            }),
-          },
-          reservationHold: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            findMany: vi.fn().mockResolvedValue([]),
-          },
-        };
-        const run = chain.then(() => fn(tx));
-        chain = run.then(
-          () => undefined,
-          () => undefined
-        );
-        return run;
-      }) as never
-    );
+    vi.mocked(prisma.$transaction).mockImplementation(((
+      fn: (client: unknown) => Promise<unknown>
+    ) => {
+      const tx = {
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        venue: { findUnique: vi.fn().mockResolvedValue({ settings: null }) },
+        reservation: {
+          findFirst: vi
+            .fn()
+            .mockImplementation(() =>
+              Promise.resolve(overlaps("table-1", START, END) ? { id: "existing" } : null)
+            ),
+          findMany: vi.fn().mockResolvedValue([]),
+          create: vi.fn().mockImplementation(() => {
+            store.push({ tableId: "table-1", startTime: START, endTime: END });
+            return Promise.resolve({ id: `res-${store.length}` });
+          }),
+        },
+        reservationHold: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+      const run = chain.then(() => fn(tx));
+      chain = run.then(
+        () => undefined,
+        () => undefined
+      );
+      return run;
+    }) as never);
 
     const intent = () =>
       baseIntent({
