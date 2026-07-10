@@ -1,3 +1,6 @@
+/* eslint-disable mbe-local/prefer-rialto-components -- FloatingControls intentionally uses
+   native icon <button>s; the rule's autofix renames JSX without adding the import, which
+   breaks the build when lint-staged runs eslint --fix on commit. */
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
@@ -27,7 +30,7 @@ export function FloatingControls({
 }: FloatingControlsProps) {
   return (
     <>
-      <Button
+      <button
         className={styles.controlButton}
         onClick={() => onDarkModeChange(!darkMode)}
         aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -58,9 +61,9 @@ export function FloatingControls({
             <path d="M12 3a6 6 0 1 0 0 10A6 6 0 0 1 12 3Z" />
           )}
         </svg>
-      </Button>
+      </button>
 
-      <Button
+      <button
         className={styles.controlButton}
         onClick={() => onRtlChange(!rtl)}
         aria-label={rtl ? "Switch to LTR" : "Switch to RTL"}
@@ -89,10 +92,10 @@ export function FloatingControls({
             </>
           )}
         </svg>
-      </Button>
+      </button>
 
       {onOpenCookiePrefs && (
-        <Button
+        <button
           className={styles.controlButton}
           onClick={onOpenCookiePrefs}
           aria-label="Cookie preferences"
@@ -114,7 +117,7 @@ export function FloatingControls({
             <circle cx="6" cy="10" r="0.75" fill="currentColor" stroke="none" />
             <circle cx="8.5" cy="11" r="0.5" fill="currentColor" stroke="none" />
           </svg>
-        </Button>
+        </button>
       )}
 
       <select
