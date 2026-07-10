@@ -953,6 +953,22 @@
        *   5. Return normalized AdapterResult
        */
       async run(config: AdapterConfig): Promise<AdapterResult> {
+        const result = await this.dispatch(config);
+        if (result.hasChanges) {
+          await this.commitChanges(config.worktreePath, config.taskDescription);
+        }
+        return result;
+      }
+    
+      /**
+       * Spawn the CLI subprocess and detect changes WITHOUT committing them.
+       * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
+       * contract used by `FailoverRouter` / `--adapter` dispatch); the Phase
+       * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
+       * leaves the commit to `VerificationPhase`, mirroring how Claude's
+       * QueryPhase never commits either (#3234).
+       */
+      async dispatch(config: AdapterConfig): Promise<AdapterResult> {
         const startTime = Date.now();
         const timeout = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         const truncatedConfig = {
@@ -969,13 +985,7 @@
     
         const combinedOutput = `${stdout}\n${stderr}`;
         const rateLimited = this.detectRateLimiting(combinedOutput);
-    
         const hasChanges = await this.checkForChanges(config.worktreePath);
-    
-        if (hasChanges) {
-          await this.commitChanges(config.worktreePath, config.taskDescription);
-        }
-    
         const durationMs = Date.now() - startTime;
         const usage = this.parseUsage(stdout);
     
@@ -1093,141 +1103,6 @@
           gitOpts
         );
       }
-    }
-  </file>
-  <file path="packages/agent-core/src/adapters/cli-adapter-session-runner.ts">
-    export async function runCliAdapterSession(
-      cliAdapter: AgentAdapter,
-      config: SessionConfig,
-      onEvent?: SessionEventCallback,
-      deps: PhaseDeps = createDefaultPhaseDeps(),
-      _signal?: AbortSignal
-    ): Promise<SessionResult> {
-      const { worktreeManager, prCreator } = deps;
-    
-      emitEvent(onEvent, "session:start", { message: `Creating worktree for ${cliAdapter.name}...` });
-      const { value: worktree } = await withRetry(
-        () =>
-          worktreeManager.createWorktree(config.repoPath, config.baseBranch, config.taskDescription),
-        { maxRetries: 2 }
-      );
-      emitEvent(onEvent, "session:start", {
-        message: `Starting ${cliAdapter.name} on branch ${worktree.branchName}`,
-      });
-    
-      const adapterResult = await cliAdapter.run({
-        taskDescription: config.taskDescription,
-        worktreePath: worktree.path,
-        repoPath: config.repoPath,
-        baseBranch: config.baseBranch,
-        model: config.model,
-        maxTurns: config.maxTurns,
-        timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
-      });
-    
-      const errors: string[] = adapterResult.error ? [adapterResult.error] : [];
-      let prUrl: string | null = null;
-    
-      if (!adapterResult.hasChanges) {
-        emitEvent(onEvent, "session:result", { message: "No changes were made by the agent" });
-      } else {
-        await withRetry(() => worktreeManager.pushBranch(worktree.path, worktree.branchName), {
-          maxRetries: 3,
-        });
-    
-        let gatewayVerdict: GatewayVerdict | undefined;
-        if (adapterResult.success) {
-          const diff = await getGitDiff(worktree.path);
-          gatewayVerdict = await runPostCommitGateway(
-            {
-              worktreePath: worktree.path,
-              diff,
-              commitMsg: `feat: ${config.taskDescription}`,
-              taskDescription: config.taskDescription,
-              config: {
-                evaluateSuccess: config.evaluateSuccess,
-                runSecurityReview: true,
-                runStaticAnalysis: true,
-              },
-            },
-            onEvent
-          );
-          errors.push(...gatewayVerdict.errors);
-        }
-    
-        if (config.createPr) {
-          prUrl = await publishCliAdapterResult({
-            config,
-            worktree,
-            adapterSucceeded: adapterResult.success,
-            gatewayVerdict,
-            cliAdapterName: cliAdapter.name,
-            costUsd: adapterResult.costUsd,
-            errors,
-            prCreator,
-            onEvent,
-          });
-        }
-      }
-    
-      if (config.createPr) {
-        await worktreeManager.removeWorktree(config.repoPath, worktree.path);
-      }
-    
-      const failureCategory: FailureCategory | undefined = !adapterResult.success
-        ? adapterResult.rateLimited
-          ? "rate_limited"
-          : categorizeFailure(errors)
-        : undefined;
-    
-      const status = adapterResult.success ? "succeeded" : "failed";
-      emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
-    
-      const tokenUsage = adapterResult.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
-      const costUsd = adapterResult.costUsd ?? 0;
-    
-      // Record spend through the single seam — the ONLY spend write for a
-      // gemini/opencode run, mirroring session-runner's write for the claude
-      // path. Subprocess CLIs seldom report cost/tokens, so this may be a 0-cost
-      // entry; recording it anyway keeps every adapter run visible to the
-      // token-cost sensors. Best-effort: never fail a session over spend logging.
-      try {
-        recordSpend(config.repoPath, {
-          costUsd,
-          model: config.model,
-          adapter: cliAdapter.name,
-          status,
-          inputTokens: tokenUsage.inputTokens,
-          outputTokens: tokenUsage.outputTokens,
-        });
-      } catch {
-        // Best-effort — spend logging must never crash a session.
-      }
-    
-      return {
-        sessionId: "",
-        status,
-        branchName: worktree.branchName,
-        prUrl,
-        costUsd,
-        tokenUsage,
-        durationMs: adapterResult.durationMs,
-        numTurns: 0,
-        resultText: "",
-        errors,
-        ...(failureCategory ? { failureCategory } : {}),
-      };
-    }
-    interface PublishCliAdapterInput {
-      readonly config: SessionConfig;
-      readonly worktree: WorktreeInfo;
-      readonly adapterSucceeded: boolean;
-      readonly gatewayVerdict: GatewayVerdict | undefined;
-      readonly cliAdapterName: string;
-      readonly costUsd: number | undefined;
-      readonly errors: readonly string[];
-      readonly prCreator: PrCreatorDeps;
-      readonly onEvent: SessionEventCallback | undefined;
     }
   </file>
   <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
@@ -1357,6 +1232,168 @@
       protected override parseErrorFromStdout(stdout: string): string | undefined {
         return extractOpenCodeError(stdout);
       }
+    }
+  </file>
+  <file path="packages/agent-core/src/adapters/run-cli-adapter-session.ts">
+    export async function runCliAdapterSession(
+      cliAdapter: CliAdapterBase,
+      config: SessionConfig,
+      onEvent?: SessionEventCallback,
+      deps: PhaseDeps = createDefaultPhaseDeps(),
+      signal?: AbortSignal
+    ): Promise<SessionResult> {
+      const errors: string[] = [];
+      let worktree: WorktreeInfo | undefined;
+      let adapterResult: AdapterResult | undefined;
+      let resultSummary: SessionResultSummary | undefined;
+      let prUrl: string | null = null;
+      let budgetEnforced = false;
+    
+      // WorktreePhase — identical to the Claude path. The built systemPrompt is
+      // unused by CLI-subprocess adapters (they only forward taskDescription).
+      const worktreeExec = await worktreePhase.run({ config, onEvent }, deps);
+      if (worktreeExec.output) {
+        worktree = worktreeExec.output.worktree;
+      } else {
+        errors.push(...worktreeExec.result.errors);
+      }
+    
+      let aborted = worktree ? checkAborted(signal, errors) : true;
+    
+      if (worktree && !aborted) {
+        adapterResult = await cliAdapter.dispatch({
+          taskDescription: config.taskDescription,
+          worktreePath: worktree.path,
+          repoPath: config.repoPath,
+          baseBranch: config.baseBranch,
+          model: config.model,
+          maxTurns: config.maxTurns,
+          timeoutMs: config.maxTurns * TIMEOUT_MS_PER_TURN,
+        });
+        if (adapterResult.error) errors.push(adapterResult.error);
+    
+        resultSummary = {
+          success: adapterResult.success,
+          sessionId: cliAdapter.name,
+          costUsd: adapterResult.costUsd ?? 0,
+          numTurns: 0,
+        };
+    
+        const breach = shouldHaltForBudget(
+          buildSyntheticTurnMetrics(resultSummary.costUsd, config.model),
+          config.maxBudgetUsd
+        );
+        if (breach.exceeded) {
+          emitEvent(onEvent, "session:budget_breach", { message: JSON.stringify(breach) });
+          if (config.enforceBudget) {
+            errors.push(
+              `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`
+            );
+            budgetEnforced = true;
+          }
+        }
+    
+        aborted = checkAborted(signal, errors);
+      }
+    
+      let hasChanges = false;
+      let gatewayVerdict: GatewayVerdict | undefined;
+    
+      if (worktree && !aborted && !budgetEnforced) {
+        const verifyExec = await verificationPhase.run(
+          { config, onEvent, worktree, resultMessage: resultSummary, stuckReason: undefined },
+          deps
+        );
+        errors.push(...verifyExec.result.errors);
+        hasChanges = verifyExec.output?.hasChanges ?? false;
+        gatewayVerdict = verifyExec.output?.gatewayVerdict;
+    
+        aborted = checkAborted(signal, errors);
+      }
+    
+      if (worktree && !aborted && !budgetEnforced) {
+        const publishExec = await publishPhase.run(
+          {
+            config,
+            onEvent,
+            worktree,
+            hasChanges,
+            resultMessage: resultSummary,
+            stuckReason: undefined,
+            gatewayVerdict,
+            errors,
+          },
+          deps
+        );
+        prUrl = publishExec.output?.prUrl ?? null;
+        const prNumber = publishExec.output?.prNumber;
+    
+        aborted = checkAborted(signal, errors);
+    
+        if (!aborted) {
+          await feedbackPhase.run(
+            { config, onEvent, worktree, resultMessage: resultSummary, prUrl, prNumber, signal },
+            deps
+          );
+        }
+      }
+    
+      if (worktree && config.createPr) {
+        await deps.worktreeManager.removeWorktree(config.repoPath, worktree.path);
+      }
+    
+      // An abort forces "failed" regardless of how far the pipeline got before
+      // the boundary check caught it — mirrors session-runner.ts, where the
+      // thrown "Session aborted" always lands in the outer catch's failure
+      // result, even after a fully successful query/verification/publish.
+      const status: SessionStatus =
+        aborted || budgetEnforced || resultSummary?.success !== true ? "failed" : "succeeded";
+      emitEvent(onEvent, "session:result", { message: `Session completed: ${status}` });
+    
+      const failureCategory: FailureCategory | undefined =
+        status === "failed"
+          ? adapterResult?.rateLimited
+            ? "rate_limited"
+            : categorizeFailure(errors)
+          : undefined;
+    
+      const costUsd = adapterResult?.costUsd ?? 0;
+      const tokenUsage = adapterResult?.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+    
+      // Record spend through the single seam — the ONLY spend write for a
+      // gemini/opencode run, mirroring session-runner's write for the claude
+      // path. Best-effort: never fail a session over spend logging.
+      try {
+        recordSpend(config.repoPath, {
+          costUsd,
+          model: config.model,
+          adapter: cliAdapter.name,
+          status,
+          inputTokens: tokenUsage.inputTokens,
+          outputTokens: tokenUsage.outputTokens,
+        });
+      } catch {
+        // Best-effort — spend logging must never crash a session.
+      }
+    
+      return {
+        sessionId: "",
+        status,
+        branchName: worktree?.branchName ?? "",
+        prUrl,
+        costUsd,
+        tokenUsage,
+        durationMs: adapterResult?.durationMs ?? 0,
+        numTurns: 0,
+        resultText: "",
+        errors,
+        ...(failureCategory ? { failureCategory } : {}),
+      };
+    }
+    function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean {
+      if (!signal?.aborted) return false;
+      if (!errors.includes(ABORT_MESSAGE)) errors.push(ABORT_MESSAGE);
+      return true;
     }
   </file>
   </section>
