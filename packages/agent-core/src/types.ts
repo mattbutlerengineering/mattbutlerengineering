@@ -118,6 +118,15 @@ export interface SessionResultSummary {
   readonly sessionId: string;
   readonly costUsd: number;
   readonly numTurns: number;
+  /**
+   * Adapter-reported result subtype (e.g. "success", "error_max_turns").
+   * Present on the Claude SDK path so PublishPhase can name why a
+   * non-success session ended without reaching past the adapter-neutral
+   * boundary (#3272). Absent for adapters that surface no subtype.
+   */
+  readonly subtype?: string;
+  /** Adapter-reported errors for a non-success result (empty on success). */
+  readonly errors?: readonly string[];
 }
 
 export interface SessionResult {

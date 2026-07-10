@@ -1885,6 +1885,7 @@
         name: unknown;
         async run(): Promise<unknown>;
         async createOrMergePr(): Promise<unknown>;
+        async collectFailureDetails(): Promise<unknown>;
       }
     </item>
   </file>

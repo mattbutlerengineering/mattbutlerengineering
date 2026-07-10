@@ -44,7 +44,17 @@ export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput
     const { config, onEvent, resultMessage, stuckReason, gatewayVerdict } = input;
     const { prCreator } = deps;
 
-    if (gatewayVerdict?.outcome === "merge-direct") {
+    // An absent gatewayVerdict means the gateway never ran, which happens
+    // exactly when the session itself failed or got stuck (see
+    // VerificationPhase's `isSuccess` gate). Absence is NOT approval — only
+    // an explicit "create-pr" outcome (or a genuinely successful session
+    // that skipped the gateway) earns a normal, non-draft PR. Every path
+    // that ships or merges committed work is gated on `sessionSucceeded`,
+    // including the dep-bump direct-merge fast path — its safety must not
+    // depend on an invariant that lives in VerificationPhase (#3272).
+    const sessionSucceeded = resultMessage?.success === true && !stuckReason;
+
+    if (sessionSucceeded && gatewayVerdict?.outcome === "merge-direct") {
       const commitTitle = prCreator.buildPrTitle(config.taskDescription);
       const mergedUrl = await prCreator.mergeDirectly({
         branchName: worktree.branchName,
@@ -57,13 +67,6 @@ export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput
       });
       return { prUrl: mergedUrl };
     }
-
-    // An absent gatewayVerdict means the gateway never ran, which happens
-    // exactly when the session itself failed or got stuck (see
-    // VerificationPhase's `isSuccess` gate). Absence is NOT approval — only
-    // an explicit "create-pr" outcome (or a genuinely successful session
-    // that skipped the gateway) earns a normal, non-draft PR.
-    const sessionSucceeded = resultMessage?.success === true && !stuckReason;
 
     if (sessionSucceeded && (!gatewayVerdict || gatewayVerdict.outcome === "create-pr")) {
       const title = prCreator.buildPrTitle(config.taskDescription);
@@ -107,7 +110,7 @@ export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput
     const title = `wip: ${config.taskDescription.slice(0, 57)}`;
     const body = prCreator.buildFailurePrBody(
       config.taskDescription,
-      [...input.errors],
+      this.collectFailureDetails(input),
       stuckReason?.type
     );
 
@@ -131,5 +134,43 @@ export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput
       message: `Draft PR created (${reason}): ${pr.url}`,
     });
     return { prUrl: pr.url, prNumber: pr.number };
+  }
+
+  /**
+   * Assembles the failure-body error list. At this point `input.errors`
+   * holds only budget/gateway messages — the strings that explain a plain
+   * failed session (the SDK-reported errors and the result subtype) are
+   * otherwise synthesized post-pipeline in result-builder.ts, AFTER
+   * PublishPhase has already created the PR. Surfacing them here keeps the
+   * draft PR body diagnostically useful without reaching past the
+   * adapter-neutral `SessionResultSummary` boundary (#3272).
+   */
+  private collectFailureDetails(input: PublishPhaseInput): readonly string[] {
+    const { resultMessage, stuckReason, errors } = input;
+    const details = [...errors];
+
+    const pushUnique = (msg: string): void => {
+      if (msg && !details.includes(msg)) details.push(msg);
+    };
+
+    for (const err of resultMessage?.errors ?? []) {
+      pushUnique(err);
+    }
+
+    // Name the result subtype when a non-success session left no other
+    // explanation (no stuck pattern, no gateway/budget error) — otherwise
+    // "## Failure Details" renders empty for the common error_max_turns case.
+    const subtype = resultMessage?.subtype;
+    if (
+      resultMessage &&
+      !resultMessage.success &&
+      !stuckReason &&
+      subtype &&
+      subtype !== "success"
+    ) {
+      pushUnique(`Session ended without success: ${subtype}`);
+    }
+
+    return details;
   }
 }

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { extractTokenUsage, extractCost, buildSessionResult } from "../cost-tracker.js";
+import {
+  extractTokenUsage,
+  extractCost,
+  buildSessionResult,
+  buildSessionResultSummary,
+} from "../cost-tracker.js";
 
 function createMockResult(overrides: Partial<SDKResultMessage> = {}): SDKResultMessage {
   return {
@@ -119,5 +124,23 @@ describe("buildSessionResult", () => {
     const result = createMockResult();
     const sessionResult = buildSessionResult(result, "branch", null);
     expect(sessionResult.prUrl).toBeNull();
+  });
+});
+
+describe("buildSessionResultSummary", () => {
+  it("carries the SDK subtype and empty errors for a successful result", () => {
+    const summary = buildSessionResultSummary(createMockResult());
+
+    expect(summary.success).toBe(true);
+    expect(summary.subtype).toBe("success");
+    expect(summary.errors).toEqual([]);
+  });
+
+  it("carries the SDK subtype and errors for a non-success result", () => {
+    const summary = buildSessionResultSummary(createMockErrorResult());
+
+    expect(summary.success).toBe(false);
+    expect(summary.subtype).toBe("error_max_turns");
+    expect(summary.errors).toEqual(["Maximum turns exceeded"]);
   });
 });

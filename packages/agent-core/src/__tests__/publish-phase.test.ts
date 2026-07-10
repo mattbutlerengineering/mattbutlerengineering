@@ -42,6 +42,8 @@ function createMockResultMessage(): SessionResultSummary {
     sessionId: "session-123",
     costUsd: 0.25,
     numTurns: 5,
+    subtype: "success",
+    errors: [],
   };
 }
 
@@ -178,11 +180,16 @@ describe("PublishPhase", () => {
     );
   });
 
-  it("creates a draft PR when the gateway never ran because the session failed (max turns)", async () => {
+  it("names the max-turns reason in the failure PR body args (session failed, not stuck)", async () => {
     const { result, output } = await phase.run(
       makeInput({
         gatewayVerdict: undefined,
-        resultMessage: { ...createMockResultMessage(), success: false },
+        resultMessage: {
+          ...createMockResultMessage(),
+          success: false,
+          subtype: "error_max_turns",
+          errors: [],
+        },
       }),
       deps
     );
@@ -192,11 +199,39 @@ describe("PublishPhase", () => {
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ draft: true, title: expect.stringContaining("wip:") })
     );
-    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalled();
+    // The body must NAME the reason — a plain failed session must not render
+    // a diagnostically empty "## Failure Details" section (#3272).
+    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalledWith(
+      BASE_CONFIG.taskDescription,
+      expect.arrayContaining([expect.stringContaining("error_max_turns")]),
+      undefined
+    );
     expect(deps.prCreator.buildPrBody).not.toHaveBeenCalled();
   });
 
-  it("creates a draft PR when the gateway never ran because the session got stuck", async () => {
+  it("forwards SDK-reported errors into the failure PR body args", async () => {
+    await phase.run(
+      makeInput({
+        gatewayVerdict: undefined,
+        errors: [],
+        resultMessage: {
+          ...createMockResultMessage(),
+          success: false,
+          subtype: "error_during_execution",
+          errors: ["boom: tool crashed"],
+        },
+      }),
+      deps
+    );
+
+    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalledWith(
+      BASE_CONFIG.taskDescription,
+      expect.arrayContaining(["boom: tool crashed"]),
+      undefined
+    );
+  });
+
+  it("passes the stuck pattern as the failure PR body's stuck-pattern arg (no regression)", async () => {
     const { result, output } = await phase.run(
       makeInput({
         gatewayVerdict: undefined,
@@ -216,5 +251,38 @@ describe("PublishPhase", () => {
     expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ draft: true })
     );
+    expect(deps.prCreator.buildFailurePrBody).toHaveBeenCalledWith(
+      BASE_CONFIG.taskDescription,
+      expect.any(Array),
+      "repeated_action_observation"
+    );
+  });
+
+  it("does NOT direct-merge when the gateway says merge-direct but the session failed", async () => {
+    vi.mocked(deps.prCreator.mergeDirectly).mockResolvedValue("https://github.com/repo/pull/merged");
+
+    const { result, output } = await phase.run(
+      makeInput({
+        resultMessage: {
+          ...createMockResultMessage(),
+          success: false,
+          subtype: "error_max_turns",
+        },
+        gatewayVerdict: {
+          outcome: "merge-direct",
+          passed: true,
+          gateFailures: [],
+          errors: [],
+        },
+      }),
+      deps
+    );
+
+    expect(deps.prCreator.mergeDirectly).not.toHaveBeenCalled();
+    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: true })
+    );
+    expect(result.status).toBe("success");
+    expect(output?.prUrl).toBe("https://github.com/repo/pull/1");
   });
 });
