@@ -798,12 +798,12 @@
   </file>
   <file path="src/result-builder.ts">
     <item priority="low">
-      interface SessionState {
+      interface PipelineOutcome {
         worktree?: WorktreeInfo;
-        systemPrompt?: string;
         resultMessage?: SDKResultMessage;
         stuckReason?: StuckPattern;
         turnMetrics: readonly TurnMetrics[];
+        toolCallMetrics: readonly ToolCallMetrics[];
       }
     </item>
     <item priority="high">
@@ -931,21 +931,12 @@
   </file>
   <file path="src/session-runner.ts">
     <item priority="high">
-      export async function runSession(
-        config: SessionConfig,
-        onEvent?: SessionEventCallback,
-        deps: PhaseDeps = createDefaultPhaseDeps(),
-        signal?: AbortSignal
-      ): Promise<SessionResult> { /* ... */ }
+      type PipelineRun = { readonly ok: true; readonly  | {
+            readonly ok: false;
+        ;
     </item>
-    <item priority="low">
-      async function runPipeline(
-        config: SessionConfig,
-        onEvent: SessionEventCallback | undefined,
-        deps: PhaseDeps,
-        state: SessionState,
-        signal?: AbortSignal
-      ): Promise<void> { /* ... */ }
+    <item priority="medium">
+      function pipelineWorktree(run: PipelineRun | undefined): WorktreeInfo | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/source-resolver.ts">

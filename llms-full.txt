@@ -15170,23 +15170,18 @@
     }
   </file>
   <file path="packages/agent-core/src/result-builder.ts">
-    export interface SessionState {
-      worktree?: WorktreeInfo;
-      systemPrompt?: string;
-      resultMessage?: SDKResultMessage;
-      stuckReason?: StuckPattern;
-      turnMetrics: readonly TurnMetrics[];
-      toolCallMetrics: readonly ToolCallMetrics[];
-      contextMetrics?: ContextMetrics;
-      hasChanges: boolean;
-      commitMsg?: string;
-      gatewayVerdict?: GatewayVerdict;
-      gatewayEvaluation?: EvaluationResult;
-      prUrl: string | null;
-      prNumber?: number;
-      errors: string[];
+    export interface PipelineOutcome {
+      readonly worktree?: WorktreeInfo;
+      readonly resultMessage?: SDKResultMessage;
+      readonly stuckReason?: StuckPattern;
+      readonly turnMetrics: readonly TurnMetrics[];
+      readonly toolCallMetrics: readonly ToolCallMetrics[];
+      readonly contextMetrics?: ContextMetrics;
+      readonly gatewayEvaluation?: EvaluationResult;
+      readonly prUrl: string | null;
+      readonly errors: readonly string[];
       /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
-      budgetEnforced?: boolean;
+      readonly budgetEnforced?: boolean;
     }
     export function buildRootSpanAttributes(
       config: SessionConfig,
@@ -15413,245 +15408,17 @@
     }
   </file>
   <file path="packages/agent-core/src/session-runner.ts">
-    export async function runSession(
-      config: SessionConfig,
-      onEvent?: SessionEventCallback,
-      deps: PhaseDeps = createDefaultPhaseDeps(),
-      signal?: AbortSignal
-    ): Promise<SessionResult> {
-      return startActiveObservation(
-        "agent-session",
-        async (_lfTrace: unknown): Promise<SessionResult> => {
-          return propagateAttributes(
-            {
-              metadata: {
-                task: config.taskDescription,
-                model: config.model,
-                maxBudgetUsd: String(config.maxBudgetUsd),
-                ...(config.modelRoutingReason ? { modelRoutingReason: config.modelRoutingReason } : {}),
-                ...(config.modelRoutingTier ? { modelRoutingTier: config.modelRoutingTier } : {}),
-              },
-            },
-            async (): Promise<SessionResult> => {
-              const effectiveConfig = applyEffectiveConfig(config);
-    
-              const rootSpan = tracer.startSpan("agent_core.run_session", {
-                attributes: buildRootSpanAttributes(effectiveConfig, loadQaTuning(config.repoPath)),
-              });
-    
-              const cleanupErrors: string[] = [];
-              const state: SessionState = {
-                turnMetrics: [],
-                toolCallMetrics: [],
-                hasChanges: false,
-                prUrl: null,
-                errors: [],
-              };
-    
-              let pendingResult: SessionResult | undefined;
-    
-              try {
-                await runPipeline(effectiveConfig, onEvent, deps, state, signal);
-                pendingResult = buildFinalResult(effectiveConfig, state, rootSpan, onEvent);
-              } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                emitEvent(onEvent, "session:error", { message: errorMessage });
-                rootSpan.recordException(error as Error);
-                rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
-    
-                // Attempt to push partial work from failed sessions
-                const prUrl = await pushPartialWork(
-                  effectiveConfig,
-                  state,
-                  deps,
-                  errorMessage,
-                  onEvent
-                );
-    
-                rootSpan.setAttribute("session.status", "failed");
-                pendingResult = {
-                  sessionId: "",
-                  status: "failed",
-                  branchName: state.worktree?.branchName ?? "",
-                  prUrl,
-                  costUsd: 0,
-                  tokenUsage: { inputTokens: 0, outputTokens: 0 },
-                  durationMs: 0,
-                  numTurns: 0,
-                  resultText: "",
-                  errors: [errorMessage],
-                  stuckPattern: state.stuckReason?.type,
-                };
-              } finally {
-                // Clean up worktree when PR was created (branch is pushed).
-                // Keep worktree when --no-pr so user can inspect.
-                if (state.worktree && effectiveConfig.createPr) {
-                  try {
-                    await deps.worktreeManager.removeWorktree(
-                      effectiveConfig.repoPath,
-                      state.worktree.path
-                    );
-                  } catch (cleanupErr) {
-                    const cleanupMsg =
-                      cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
-                    cleanupErrors.push(cleanupMsg);
-                    console.warn(`Worktree cleanup failed: ${cleanupMsg}`);
-                    emitEvent(onEvent, "session:cleanup_warning", {
-                      message: `Worktree cleanup failed: ${cleanupMsg}`,
-                    });
-                    // Schedule a bounded retry so the worktree is reclaimed instead of
-                    // persisting until a human notices. Reap exhaustion logs at error
-                    // level (never silent) and is not treated as a session failure.
-                    await scheduleWorktreeReap({
-                      repoPath: effectiveConfig.repoPath,
-                      worktreePath: state.worktree.path,
-                      mode: state.worktree.mode,
-                    });
-                  }
-                }
-                rootSpan.end();
-              }
-    
-              const finalResultWithCleanup =
-                cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
-    
-              // Record spend through the single seam so the token-cost sensors,
-              // progress-tracker, and learning-loop have accurate, single-sourced
-              // data. This is the ONLY spend write for a claude run — the CLI no
-              // longer double-records it.
-              try {
-                recordSpend(effectiveConfig.repoPath, {
-                  costUsd: finalResultWithCleanup.costUsd,
-                  sessionId: finalResultWithCleanup.sessionId || undefined,
-                  model: effectiveConfig.model,
-                  adapter: "claude",
-                  status: finalResultWithCleanup.status,
-                  inputTokens: finalResultWithCleanup.tokenUsage.inputTokens,
-                  outputTokens: finalResultWithCleanup.tokenUsage.outputTokens,
-                  numTurns: finalResultWithCleanup.numTurns,
-                });
-              } catch {
-                // Best-effort — never fail a session over spend logging
-              }
-    
-              return finalResultWithCleanup;
-            }
-          );
-        }
-      );
-    }
-    async function runPipeline(
-      config: SessionConfig,
-      onEvent: SessionEventCallback | undefined,
-      deps: PhaseDeps,
-      state: SessionState,
-      signal?: AbortSignal
-    ): Promise<void> {
-      // WorktreePhase
-      const worktreeExec = await worktreePhase.run({ config, onEvent }, deps);
-      if (worktreeExec.output) {
-        state.worktree = worktreeExec.output.worktree;
-        state.systemPrompt = worktreeExec.output.systemPrompt;
-      }
-      if (await abortOnFailure(worktreeExec.result, config, state, deps, onEvent)) return;
-      throwIfAborted(signal);
-    
-      // QueryPhase
-      const queryExec = await queryPhase.run(
-        { config, onEvent, worktree: state.worktree!, systemPrompt: state.systemPrompt! },
-        deps
-      );
-      if (queryExec.output) {
-        state.resultMessage = queryExec.output.resultMessage;
-        state.stuckReason = queryExec.output.stuckReason;
-        state.turnMetrics = queryExec.output.turnMetrics;
-        state.toolCallMetrics = queryExec.output.toolCallMetrics;
-        state.contextMetrics = queryExec.output.contextMetrics;
-      }
-      if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
-    
-      // Adapter-neutral summary for VerificationPhase/PublishPhase/FeedbackPhase
-      // (#3233) — session-runner is the Claude-adapter boundary that maps the
-      // raw SDK result to the shape shared across adapters. `state.resultMessage`
-      // stays SDK-shaped for `buildFinalResult`'s full accounting at the end of
-      // the pipeline.
-      const resultSummary = state.resultMessage
-        ? buildSessionResultSummary(state.resultMessage)
-        : undefined;
-    
-      // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
-      const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
-      if (breach.exceeded) {
-        emitEvent(onEvent, "session:budget_breach", {
-          message: JSON.stringify(breach),
-        });
-        if (config.enforceBudget) {
-          const breachMsg = `Budget breached: accumulated $${breach.accumulatedCostUsd.toFixed(4)} exceeds limit $${breach.maxBudgetUsd}`;
-          state.errors.push(breachMsg);
-          state.budgetEnforced = true;
-          return;
-        }
-      }
-      throwIfAborted(signal);
-    
-      // VerificationPhase
-      const verifyExec = await verificationPhase.run(
-        {
-          config,
-          onEvent,
-          worktree: state.worktree!,
-          resultMessage: resultSummary,
-          stuckReason: state.stuckReason,
-        },
-        deps
-      );
-      if (verifyExec.output) {
-        state.hasChanges = verifyExec.output.hasChanges;
-        state.commitMsg = verifyExec.output.commitMsg;
-        state.gatewayVerdict = verifyExec.output.gatewayVerdict;
-        state.gatewayEvaluation = verifyExec.output.gatewayEvaluation;
-      }
-      // VerificationPhase always succeeds; its gateway errors flow into the
-      // final result via state.errors (e.g. a draft PR with failing gates).
-      state.errors.push(...verifyExec.result.errors);
-      if (await abortOnFailure(verifyExec.result, config, state, deps, onEvent)) return;
-      throwIfAborted(signal);
-    
-      // PublishPhase
-      const publishExec = await publishPhase.run(
-        {
-          config,
-          onEvent,
-          worktree: state.worktree!,
-          hasChanges: state.hasChanges,
-          resultMessage: resultSummary,
-          stuckReason: state.stuckReason,
-          gatewayVerdict: state.gatewayVerdict,
-          errors: state.errors,
-        },
-        deps
-      );
-      if (publishExec.output) {
-        state.prUrl = publishExec.output.prUrl;
-        state.prNumber = publishExec.output.prNumber;
-      }
-      if (await abortOnFailure(publishExec.result, config, state, deps, onEvent)) return;
-      throwIfAborted(signal);
-    
-      // FeedbackPhase
-      const feedbackExec = await feedbackPhase.run(
-        {
-          config,
-          onEvent,
-          worktree: state.worktree!,
-          resultMessage: resultSummary,
-          prUrl: state.prUrl,
-          prNumber: state.prNumber,
-          signal,
-        },
-        deps
-      );
-      await abortOnFailure(feedbackExec.result, config, state, deps, onEvent);
+    type PipelineRun =
+      | { readonly ok: true; readonly outcome: PipelineOutcome }
+      | {
+          readonly ok: false;
+          readonly error: unknown;
+          readonly worktree?: WorktreeInfo;
+          readonly stuckReason?: StuckPattern;
+        };
+    function pipelineWorktree(run: PipelineRun | undefined): WorktreeInfo | undefined {
+      if (!run) return undefined;
+      return run.ok ? run.outcome.worktree : run.worktree;
     }
   </file>
   <file path="packages/agent-core/src/source-resolver.ts">

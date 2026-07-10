@@ -11,7 +11,6 @@ import type {
 import type { StuckPattern } from "./stuck-detector.js";
 import type { ContextMetrics } from "./context-budget.js";
 import type { EvaluationResult } from "./success-evaluator.js";
-import type { GatewayVerdict } from "./post-commit-gateway.js";
 import type { QaTuningThresholds } from "./qa-tuning-loader.js";
 import { buildSessionResult } from "./cost-tracker.js";
 import { recordFailure } from "./failure-memory.js";
@@ -20,27 +19,23 @@ import { categorizeFailure } from "./observability.js";
 import { updateActiveObservation } from "@langfuse/tracing";
 
 /**
- * Mutable accumulator threaded across phases. Each phase reads the fields
- * it needs and the session-runner composes the next phase's typed input
- * from these values. Replaces the former amorphous `PipelineContext` bag.
+ * Immutable input to `buildFinalResult`: the typed phase outputs the
+ * session-runner accumulated while threading the pipeline. Built once from
+ * local consts at each pipeline exit — never mutated across phases
+ * (replaces the former mutable `SessionState` accumulator).
  */
-export interface SessionState {
-  worktree?: WorktreeInfo;
-  systemPrompt?: string;
-  resultMessage?: SDKResultMessage;
-  stuckReason?: StuckPattern;
-  turnMetrics: readonly TurnMetrics[];
-  toolCallMetrics: readonly ToolCallMetrics[];
-  contextMetrics?: ContextMetrics;
-  hasChanges: boolean;
-  commitMsg?: string;
-  gatewayVerdict?: GatewayVerdict;
-  gatewayEvaluation?: EvaluationResult;
-  prUrl: string | null;
-  prNumber?: number;
-  errors: string[];
+export interface PipelineOutcome {
+  readonly worktree?: WorktreeInfo;
+  readonly resultMessage?: SDKResultMessage;
+  readonly stuckReason?: StuckPattern;
+  readonly turnMetrics: readonly TurnMetrics[];
+  readonly toolCallMetrics: readonly ToolCallMetrics[];
+  readonly contextMetrics?: ContextMetrics;
+  readonly gatewayEvaluation?: EvaluationResult;
+  readonly prUrl: string | null;
+  readonly errors: readonly string[];
   /** Set when enforceBudget=true and per-turn costs exceeded maxBudgetUsd. */
-  budgetEnforced?: boolean;
+  readonly budgetEnforced?: boolean;
 }
 
 export function buildRootSpanAttributes(
@@ -63,7 +58,7 @@ export function buildRootSpanAttributes(
 
 export function buildFinalResult(
   config: SessionConfig,
-  state: SessionState,
+  outcome: PipelineOutcome,
   rootSpan: Span,
   onEvent: SessionEventCallback | undefined
 ): SessionResult {
@@ -75,11 +70,11 @@ export function buildFinalResult(
     toolCallMetrics,
     contextMetrics,
     budgetEnforced,
-  } = state;
-  const errors = [...state.errors];
+  } = outcome;
+  const errors = [...outcome.errors];
 
   if (stuckReason) {
-    // Deduplicate — stuck error may already be in state.errors
+    // Deduplicate — stuck error may already be in outcome.errors
     const stuckMsg = `Stuck: ${stuckReason.description}`;
     if (!errors.includes(stuckMsg)) {
       errors.push(stuckMsg);
@@ -106,8 +101,8 @@ export function buildFinalResult(
   if (resultMessage) {
     const sessionResult = buildSessionResult(
       resultMessage,
-      state.worktree?.branchName ?? "",
-      state.prUrl ?? null
+      outcome.worktree?.branchName ?? "",
+      outcome.prUrl ?? null
     );
 
     const isFailed = sessionResult.status === "failed" || !!stuckReason || !!budgetEnforced;
@@ -196,8 +191,8 @@ export function buildFinalResult(
   return {
     sessionId: "",
     status: "failed",
-    branchName: state.worktree?.branchName ?? "",
-    prUrl: state.prUrl ?? null,
+    branchName: outcome.worktree?.branchName ?? "",
+    prUrl: outcome.prUrl ?? null,
     costUsd: 0,
     tokenUsage: { inputTokens: 0, outputTokens: 0 },
     durationMs: 0,
