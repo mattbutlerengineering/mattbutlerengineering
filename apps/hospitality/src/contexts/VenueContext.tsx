@@ -57,32 +57,36 @@ export function VenueProvider({ children }: VenueProviderProps) {
   const { data: fetchedVenues, isLoading } = useVenues({ limit: 100 });
   const venues = useMemo<readonly Venue[]>(() => fetchedVenues ?? [], [fetchedVenues]);
 
-  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(readStoredVenueId);
+  // The explicitly-chosen venue id: seeded from storage and updated by
+  // setVenueId. It may reference a venue that no longer exists (or be null
+  // before any choice is made), so the *effective* selection is reconciled
+  // synchronously below rather than in a post-render effect.
+  const [chosenVenueId, setChosenVenueId] = useState<string | null>(readStoredVenueId);
 
-  // Once venues resolve, reconcile the selection: keep the stored id if it
-  // still exists, else fall back to the first venue (persisting that choice),
-  // else clear. Re-runs only when the venue set actually changes.
-  useEffect(() => {
-    if (isLoading) return;
-    const list = fetchedVenues ?? [];
-    const storedId = readStoredVenueId();
-    const nextId = list.some((v) => v.id === storedId)
-      ? storedId
-      : list.length > 0
-        ? list[0].id
-        : null;
-    if (nextId && nextId !== storedId) {
-      storeVenueId(nextId);
+  // Reconcile the selection during render so the readiness check never observes
+  // a null selection on the same commit that venues resolve (#3314): keep the
+  // chosen id if it still exists, else fall back to the first venue, else null
+  // while the list is empty/loading.
+  const selectedVenueId = useMemo<string | null>(() => {
+    if (chosenVenueId && venues.some((v) => v.id === chosenVenueId)) {
+      return chosenVenueId;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedVenueId(nextId);
-  }, [fetchedVenues, isLoading]);
+    return venues.length > 0 ? venues[0].id : null;
+  }, [chosenVenueId, venues]);
+
+  // Persist the reconciled selection (e.g. the first-venue fallback) so a reload
+  // restores it. Runs only when it actually differs from what's stored.
+  useEffect(() => {
+    if (selectedVenueId && selectedVenueId !== readStoredVenueId()) {
+      storeVenueId(selectedVenueId);
+    }
+  }, [selectedVenueId]);
 
   const setVenueId = useCallback(
     (id: string) => {
       const exists = venues.some((v) => v.id === id);
       if (!exists) return;
-      setSelectedVenueId(id);
+      setChosenVenueId(id);
       storeVenueId(id);
     },
     [venues]

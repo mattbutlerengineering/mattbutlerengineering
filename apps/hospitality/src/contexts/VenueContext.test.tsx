@@ -139,4 +139,44 @@ describe("VenueContext", () => {
 
     consoleSpy.mockRestore();
   });
+
+  it("never exposes a null selection once venues load on a fresh context (regression #3314)", async () => {
+    // Fresh browser context: no pre-seeded venue id in localStorage. The
+    // selection MUST be reconciled synchronously on the same commit that venues
+    // resolve — not in a later effect — otherwise there is a window where
+    // consumers (useVenueReadiness) read the null id as "no venue".
+    const snapshots: Array<{
+      isLoading: boolean;
+      venueCount: number;
+      selectedVenueId: string | null;
+    }> = [];
+
+    const { result } = renderHook(
+      () => {
+        const venue = useVenue();
+        snapshots.push({
+          isLoading: venue.isLoading,
+          venueCount: venue.venues.length,
+          selectedVenueId: venue.selectedVenueId,
+        });
+        return venue;
+      },
+      { wrapper }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // There must be NO committed render where venues are present but the
+    // selection is still null — that render is what bounced users to /onboarding
+    // before the reconciliation effect could run.
+    const raceRender = snapshots.find(
+      (s) => !s.isLoading && s.venueCount > 0 && s.selectedVenueId === null
+    );
+    expect(raceRender).toBeUndefined();
+
+    // Selection settles to a real venue (first venue by default).
+    expect(result.current.selectedVenueId).toBe("venue-1");
+  });
 });
