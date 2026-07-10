@@ -63,9 +63,9 @@ export class PublishPhase implements Phase<PublishPhaseInput, PublishPhaseOutput
       const body = resultMessage
         ? prCreator.buildPrBody(
             config.taskDescription,
-            resultMessage.session_id,
-            resultMessage.total_cost_usd,
-            resultMessage.num_turns
+            resultMessage.sessionId,
+            resultMessage.costUsd,
+            resultMessage.numTurns
           )
         : prCreator.buildFailurePrBody(
             config.taskDescription,

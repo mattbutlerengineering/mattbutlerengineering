@@ -15,12 +15,7 @@ import { resolveModelId } from "./model-registry.js";
  * - logic_error:      Agent produced incorrect output (evaluation / review failed)
  */
 export type FailureCategory =
-  | "api_error"
-  | "rate_limited"
-  | "stuck_loop"
-  | "budget_exceeded"
-  | "tool_error"
-  | "logic_error";
+  "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
 
 // ── Per-turn observability metrics ───────────────────────────────────
 
@@ -109,6 +104,20 @@ export type SessionStatus = "pending" | "running" | "succeeded" | "failed" | "ca
 export interface TokenUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
+}
+
+/**
+ * Adapter-neutral summary of a single agent query's outcome — the subset of
+ * fields VerificationPhase, PublishPhase, and FeedbackPhase actually consume
+ * (commit-worthiness, PR body metadata, remaining feedback budget). Lets any
+ * adapter (Claude SDK, Gemini CLI, OpenCode CLI) feed the Phase pipeline
+ * without depending on `SDKResultMessage` (#3233).
+ */
+export interface SessionResultSummary {
+  readonly success: boolean;
+  readonly sessionId: string;
+  readonly costUsd: number;
+  readonly numTurns: number;
 }
 
 export interface SessionResult {

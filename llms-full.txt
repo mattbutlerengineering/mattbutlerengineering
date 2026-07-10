@@ -4869,7 +4869,7 @@
         }
     
         // Use remaining budget instead of fixed 50% ratio
-        const sessionCost = resultMessage?.total_cost_usd ?? 0;
+        const sessionCost = resultMessage?.costUsd ?? 0;
         const remainingBudget = Math.max(0, config.maxBudgetUsd - sessionCost);
     
         const fbSpan = tracer.startSpan("agent_core.feedback_loop");
@@ -4969,9 +4969,9 @@
           const body = resultMessage
             ? prCreator.buildPrBody(
                 config.taskDescription,
-                resultMessage.session_id,
-                resultMessage.total_cost_usd,
-                resultMessage.num_turns
+                resultMessage.sessionId,
+                resultMessage.costUsd,
+                resultMessage.numTurns
               )
             : prCreator.buildFailurePrBody(
                 config.taskDescription,
@@ -5120,7 +5120,7 @@
         }
     
         // Commit changes
-        const isSuccess = resultMessage?.subtype === "success" && !stuckReason;
+        const isSuccess = resultMessage?.success === true && !stuckReason;
         const prefix = isSuccess ? "feat" : "wip";
         const commitMsg = `${prefix}: ${sanitizeForCommitMessage(config.taskDescription)}`;
         await worktreeManager.commitChanges(worktree.path, commitMsg);
@@ -15403,6 +15403,15 @@
       }
       if (await abortOnFailure(queryExec.result, config, state, deps, onEvent)) return;
     
+      // Adapter-neutral summary for VerificationPhase/PublishPhase/FeedbackPhase
+      // (#3233) — session-runner is the Claude-adapter boundary that maps the
+      // raw SDK result to the shape shared across adapters. `state.resultMessage`
+      // stays SDK-shaped for `buildFinalResult`'s full accounting at the end of
+      // the pipeline.
+      const resultSummary = state.resultMessage
+        ? buildSessionResultSummary(state.resultMessage)
+        : undefined;
+    
       // ── Budget gate (observe/warn by default; halts only when enforceBudget=true) ─
       const breach = shouldHaltForBudget(state.turnMetrics, config.maxBudgetUsd);
       if (breach.exceeded) {
@@ -15424,7 +15433,7 @@
           config,
           onEvent,
           worktree: state.worktree!,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           stuckReason: state.stuckReason,
         },
         deps
@@ -15448,7 +15457,7 @@
           onEvent,
           worktree: state.worktree!,
           hasChanges: state.hasChanges,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           stuckReason: state.stuckReason,
           gatewayVerdict: state.gatewayVerdict,
           errors: state.errors,
@@ -15468,7 +15477,7 @@
           config,
           onEvent,
           worktree: state.worktree!,
-          resultMessage: state.resultMessage,
+          resultMessage: resultSummary,
           prUrl: state.prUrl,
           prNumber: state.prNumber,
           signal,
@@ -15619,12 +15628,7 @@
   </file>
   <file path="packages/agent-core/src/types.ts">
     export type FailureCategory =
-      | "api_error"
-      | "rate_limited"
-      | "stuck_loop"
-      | "budget_exceeded"
-      | "tool_error"
-      | "logic_error";
+      "api_error" | "rate_limited" | "stuck_loop" | "budget_exceeded" | "tool_error" | "logic_error";
     export interface TurnMetrics {
       /** 1-based turn index within the session */
       readonly turnIndex: number;
