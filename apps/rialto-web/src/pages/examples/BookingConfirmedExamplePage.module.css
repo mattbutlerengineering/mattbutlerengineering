@@ -1,0 +1,75 @@
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-xl) var(--rialto-space-lg);
+}
+
+.statusRegion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.medallion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--rialto-radius-round);
+  color: var(--rialto-success);
+  background: var(--rialto-success-muted);
+  animation: medallion-pop var(--rialto-duration-slow) var(--rialto-ease-smooth) both;
+}
+
+.glyph {
+  width: 38px;
+  height: 38px;
+}
+
+@keyframes medallion-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Success entrance is decorative — collapse it to a static medallion when the
+   viewer has asked for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .medallion {
+    animation: none;
+  }
+}
+
+.copy {
+  max-width: 48ch;
+}
+
+.summary {
+  width: 100%;
+  max-width: 32rem;
+  margin-block-start: var(--rialto-space-sm);
+  text-align: left;
+}
+
+.summaryTitle {
+  margin: 0 0 var(--rialto-space-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+  margin-block-start: var(--rialto-space-sm);
+}

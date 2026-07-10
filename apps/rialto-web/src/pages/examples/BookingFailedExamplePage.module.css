@@ -1,0 +1,56 @@
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-xl) var(--rialto-space-lg);
+}
+
+.statusRegion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+/* A failed booking never animates — the medallion is static regardless of
+   motion preference. */
+.medallion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--rialto-radius-round);
+  color: var(--rialto-error);
+  background: var(--rialto-error-muted);
+}
+
+.glyph {
+  width: 38px;
+  height: 38px;
+}
+
+.copy {
+  max-width: 48ch;
+}
+
+.summary {
+  width: 100%;
+  max-width: 32rem;
+  margin-block-start: var(--rialto-space-sm);
+  text-align: left;
+}
+
+.summaryTitle {
+  margin: 0 0 var(--rialto-space-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--rialto-space-sm);
+  margin-block-start: var(--rialto-space-sm);
+}
