@@ -5,7 +5,7 @@ import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import type { ReactNode } from "react";
 
 /* Lightweight stand-ins that mirror the accessible contract of the real
-   instruments: Odometer exposes its value as text; RadialGauge is a `meter`
+   instruments: Odometer exposes its value as text; Meter is a `meter`
    with value/min/max and a visible readout + label. The instruments' own
    reduced-motion + live-region behaviour is covered by their rialto tests. */
 
@@ -14,12 +14,12 @@ interface OdometerMockProps {
   readonly "aria-label"?: string;
 }
 
-interface RadialGaugeMockProps {
+interface MeterMockProps {
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
-  readonly unit?: string;
   readonly label?: string;
+  readonly showValue?: boolean;
 }
 
 interface TextMockProps {
@@ -33,19 +33,25 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {value}
     </div>
   ),
-  RadialGauge: ({ value, min, max, unit, label }: RadialGaugeMockProps) => (
-    <div
-      data-testid="radial-gauge"
-      role="meter"
-      aria-label={label}
-      aria-valuenow={value}
-      aria-valuemin={min}
-      aria-valuemax={max}
-    >
-      <span>{`${Math.round(value)}${unit ?? ""}`}</span>
-      {label ? <span>{label}</span> : null}
-    </div>
-  ),
+  Meter: ({ value, min, max, label, showValue }: MeterMockProps) => {
+    const lo = min ?? 0;
+    const hi = max ?? 100;
+    const range = hi - lo;
+    const percent = range > 0 ? Math.round(((value - lo) / range) * 100) : 0;
+    return (
+      <div
+        data-testid="meter"
+        role="meter"
+        aria-label={label}
+        aria-valuenow={value}
+        aria-valuemin={lo}
+        aria-valuemax={hi}
+      >
+        {showValue ? <span>{`${percent}%`}</span> : null}
+        {label ? <span>{label}</span> : null}
+      </div>
+    );
+  },
   Text: ({ children, className }: TextMockProps) => (
     <span className={className}>{children}</span>
   ),
@@ -72,23 +78,23 @@ describe("StatRow", () => {
     expect(screen.getByText("3")).toBeDefined();
   });
 
-  it("renders the bounded cancellation rate via a RadialGauge with 0-100 bounds", () => {
+  it("renders the bounded cancellation rate via a Meter with 0-100 bounds", () => {
     render(<StatRow stats={STATS} />);
 
-    const gauge = screen.getByTestId("radial-gauge");
-    expect(gauge.getAttribute("role")).toBe("meter");
-    expect(gauge.getAttribute("aria-valuenow")).toBe("10");
-    expect(gauge.getAttribute("aria-valuemin")).toBe("0");
-    expect(gauge.getAttribute("aria-valuemax")).toBe("100");
+    const meter = screen.getByTestId("meter");
+    expect(meter.getAttribute("role")).toBe("meter");
+    expect(meter.getAttribute("aria-valuenow")).toBe("10");
+    expect(meter.getAttribute("aria-valuemin")).toBe("0");
+    expect(meter.getAttribute("aria-valuemax")).toBe("100");
 
     // Bounded value exposed as accessible text.
     expect(screen.getByText("10%")).toBeDefined();
   });
 
-  it("uses exactly one gauge for the bounded metric and odometers for counts", () => {
+  it("uses exactly one meter for the bounded metric and odometers for counts", () => {
     render(<StatRow stats={STATS} />);
 
-    expect(screen.getAllByTestId("radial-gauge").length).toBe(1);
+    expect(screen.getAllByTestId("meter").length).toBe(1);
     expect(screen.getAllByTestId("odometer").length).toBe(3);
   });
 

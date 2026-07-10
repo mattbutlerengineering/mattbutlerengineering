@@ -62,7 +62,6 @@ export * from "./ContextMenu";
 export * from "./DataList";
 export * from "./DataTable";
 export * from "./Meter";
-export * from "./RadialGauge";
 export * from "./Navbar";
 export * from "./NavigationMenu";
 export * from "./ScrollArea";

@@ -155,12 +155,6 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
   },
-  RadialGauge: {
-    name: "RadialGauge",
-    description:
-      "Analog instrument dial for a bounded metric (utilization, score, capacity) — the dial counterpart to Meter. A gold accent arc fills over an aluminium track with an optional pointer needle. Provide value plus min/max (defaults 0-100). Set unit to append a suffix like % to the readout. Set needle=false to hide the pointer, showValue=false to hide the centre number. Use size=sm for compact panels, size=md (default), size=lg for a hero reading.",
-    charLimits: { label: 40, unit: 8 },
-  },
   Select: {
     name: "Select",
     description:
