@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, type FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDrivers } from "./DriverContext";
 import { DriverLayout } from "./DriverLayout";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import {
   Alert,
   Autocomplete,
@@ -107,7 +108,7 @@ export function DriverUpdate() {
         title="Driver Not Found"
         breadcrumbs={[
           { label: "Home", href: "/" },
-          { label: "Drivers", href: "/drivers" },
+          { label: "Drivers", href: DEMO_ROUTES.drivers },
           { label: "Not Found" },
         ]}
       >
@@ -115,7 +116,7 @@ export function DriverUpdate() {
           title="Driver not found"
           description="This driver may have been removed or the link is invalid."
           action={
-            <Button variant="primary" size="sm" onClick={() => navigate("/drivers")}>
+            <Button variant="primary" size="sm" onClick={() => navigate(DEMO_ROUTES.drivers)}>
               View All Drivers
             </Button>
           }
@@ -161,7 +162,7 @@ export function DriverUpdate() {
       });
 
       toast({ title: `${name.trim()} updated`, variant: "success" });
-      navigate(`/drivers/${driver.id}`);
+      navigate(DEMO_ROUTES.driver(driver.id));
     }, 400);
   };
 
@@ -169,7 +170,7 @@ export function DriverUpdate() {
     if (isDirty) {
       setDiscardDialog(true);
     } else {
-      navigate(`/drivers/${driver.id}`);
+      navigate(DEMO_ROUTES.driver(driver.id));
     }
   };
 
@@ -178,8 +179,8 @@ export function DriverUpdate() {
       title={`Edit ${driver.name}`}
       breadcrumbs={[
         { label: "Home", href: "/" },
-        { label: "Drivers", href: "/drivers" },
-        { label: driver.name, href: `/drivers/${driver.id}` },
+        { label: "Drivers", href: DEMO_ROUTES.drivers },
+        { label: driver.name, href: DEMO_ROUTES.driver(driver.id) },
         { label: "Edit" },
       ]}
     >
@@ -270,7 +271,7 @@ export function DriverUpdate() {
       {/* ── Discard confirmation ─────────────── */}
       <ConfirmDialog
         open={discardDialog}
-        onConfirm={() => navigate(`/drivers/${driver.id}`)}
+        onConfirm={() => navigate(DEMO_ROUTES.driver(driver.id))}
         onCancel={() => setDiscardDialog(false)}
         title="Discard changes?"
         description="You have unsaved changes that will be lost."

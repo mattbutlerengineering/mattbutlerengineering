@@ -18,6 +18,14 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="src/data/demo-routes.ts">
+    <item priority="high">
+      export const DEMOS_BASE: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_ROUTES: unknown;
+    </item>
+  </file>
   <file path="src/data/nav-sections.ts">
     <item priority="high">
       export const NAV_SECTIONS: unknown;

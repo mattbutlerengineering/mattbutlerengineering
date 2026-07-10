@@ -12,6 +12,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { MascotState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import styles from "./AuthLayout.module.css";
 
 export function SignUp() {
@@ -40,7 +41,7 @@ export function SignUp() {
     <AuthLayout
       title="Create your account"
       footer={
-        <Link to="/signin" className={styles.footerLinkAccent}>
+        <Link to={DEMO_ROUTES.signIn} className={styles.footerLinkAccent}>
           Already have an account? Sign in
         </Link>
       }

@@ -2,6 +2,7 @@ import { useState, useCallback, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDrivers } from "./DriverContext";
 import { DriverLayout } from "./DriverLayout";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import {
   Alert,
   Autocomplete,
@@ -121,7 +122,7 @@ export function DriverCreate() {
       });
 
       toast({ title: `${driver.name} added`, variant: "success" });
-      navigate(`/drivers/${driver.id}`);
+      navigate(DEMO_ROUTES.driver(driver.id));
     }, 400);
   }
 
@@ -130,7 +131,7 @@ export function DriverCreate() {
       title="Add Driver"
       breadcrumbs={[
         { label: "Home", href: "/" },
-        { label: "Drivers", href: "/drivers" },
+        { label: "Drivers", href: DEMO_ROUTES.drivers },
         { label: "Add Driver" },
       ]}
     >
@@ -204,7 +205,7 @@ export function DriverCreate() {
           </Collapsible>
 
           <div className={styles.formActions}>
-            <Button variant="secondary" type="button" onClick={() => navigate("/drivers")}>
+            <Button variant="secondary" type="button" onClick={() => navigate(DEMO_ROUTES.drivers)}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={submitting}>

@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Breadcrumb } from "@mattbutlerengineering/rialto";
 import styles from "./DriverLayout.module.css";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 
 interface BreadcrumbEntry {
   label: string;
@@ -42,7 +43,7 @@ export function DriverLayout({ title, breadcrumbs, actions, children }: DriverLa
         <Link to="/" className={styles.footerLink}>
           Back to Design System &rarr;
         </Link>
-        <Link to="/drivers" className={styles.footerLink}>
+        <Link to={DEMO_ROUTES.drivers} className={styles.footerLink}>
           All Drivers
         </Link>
       </footer>
