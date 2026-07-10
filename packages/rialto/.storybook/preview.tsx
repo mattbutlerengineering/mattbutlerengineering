@@ -2,6 +2,10 @@ import React from "react";
 import type { Preview } from "@storybook/react";
 import { RialtoProvider } from "../src/providers/RialtoProvider";
 import "../src/styles-entry.css";
+// Vendored DM Sans / DM Mono / Bricolage Grotesque so story rendering is
+// hermetic (no runtime Google Fonts fetch, no OS fallback-font drift). See
+// fonts/fonts.css and #3305.
+import "./fonts/fonts.css";
 
 const BACKGROUNDS = {
   light: "#f8f6f3",
