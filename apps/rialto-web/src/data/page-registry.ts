@@ -238,14 +238,6 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () => import("../pages/data/MeterPage").then((m) => ({ default: m.MeterPage })),
   },
   {
-    id: "radial-gauge",
-    label: "Radial Gauge",
-    category: "Data Display",
-    path: "/components/radial-gauge",
-    load: () =>
-      import("../pages/data/RadialGaugePage").then((m) => ({ default: m.RadialGaugePage })),
-  },
-  {
     id: "kbd",
     label: "Kbd",
     category: "Data Display",
@@ -695,6 +687,16 @@ export const PAGE_REGISTRY: PageEntry[] = [
     load: () =>
       import("../pages/examples/FormStatesExamplePage").then((m) => ({
         default: m.FormStatesExamplePage,
+      })),
+  },
+  {
+    id: "example-reservations",
+    label: "Reservations List",
+    category: "Examples",
+    path: "/examples/reservations",
+    load: () =>
+      import("../pages/examples/ReservationsListExamplePage").then((m) => ({
+        default: m.ReservationsListExamplePage,
       })),
   },
 ];

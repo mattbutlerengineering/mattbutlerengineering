@@ -41,7 +41,6 @@ vi.mock("../pages/data/AvatarPage.js", () => ({ AvatarPage: () => null }));
 vi.mock("../pages/data/StatPage.js", () => ({ StatPage: () => null }));
 vi.mock("../pages/data/DataListPage.js", () => ({ DataListPage: () => null }));
 vi.mock("../pages/data/MeterPage.js", () => ({ MeterPage: () => null }));
-vi.mock("../pages/data/RadialGaugePage.js", () => ({ RadialGaugePage: () => null }));
 vi.mock("../pages/data/KbdPage.js", () => ({ KbdPage: () => null }));
 vi.mock("../pages/data/FlipDotPage.js", () => ({ FlipDotPage: () => null }));
 vi.mock("../pages/data/SplitFlapPage.js", () => ({ SplitFlapPage: () => null }));
@@ -98,6 +97,9 @@ vi.mock("../pages/examples/SettingsExamplePage.js", () => ({
 }));
 vi.mock("../pages/examples/FormStatesExamplePage.js", () => ({
   FormStatesExamplePage: () => null,
+}));
+vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
+  ReservationsListExamplePage: () => null,
 }));
 
 // ---------------------------------------------------------------------------
