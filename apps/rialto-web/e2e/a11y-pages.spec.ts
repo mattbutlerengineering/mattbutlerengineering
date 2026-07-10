@@ -21,6 +21,7 @@ const PAGES_TO_AUDIT = [
   { name: "Radius", path: "/components/radius" },
   { name: "Shadows", path: "/components/shadows" },
   { name: "Icon Vocabulary", path: "/components/icon-vocabulary" },
+  { name: "Command Palette", path: "/examples/command-palette" },
 ];
 
 for (const { name, path } of PAGES_TO_AUDIT) {

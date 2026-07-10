@@ -130,6 +130,9 @@ vi.mock("../pages/examples/BookingFailedExamplePage.js", () => ({
 vi.mock("../pages/examples/PricingTableExamplePage.js", () => ({
   PricingTableExamplePage: () => null,
 }));
+vi.mock("../pages/examples/CommandPaletteExamplePage.js", () => ({
+  CommandPaletteExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests

@@ -1,0 +1,23 @@
+.launcher {
+  padding: var(--rialto-space-lg);
+}
+
+.result {
+  padding: var(--rialto-space-lg);
+  border-inline-start: 2px solid var(--rialto-accent);
+}
+
+.triggerRow {
+  display: flex;
+  margin-block-start: var(--rialto-space-xs);
+}
+
+.triggerLabel {
+  margin-inline-end: var(--rialto-space-sm);
+}
+
+.triggerHint {
+  display: inline-flex;
+  gap: var(--rialto-space-xs);
+  align-items: center;
+}
