@@ -12,11 +12,6 @@
       export const healthRoutes: FastifyPluginAsync;
     </item>
   </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/users.ts">
     <item priority="low">
       async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }

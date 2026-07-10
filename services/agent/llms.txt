@@ -107,11 +107,6 @@
       }
     </item>
   </file>
-  <file path="src/routes/ready.ts">
-    <item priority="high">
-      export const readinessRoutes: FastifyPluginAsync;
-    </item>
-  </file>
   <file path="src/routes/remediation.ts">
     <item priority="high">
       type AlertPayload = z.infer<typeof AlertPayloadSchema>;

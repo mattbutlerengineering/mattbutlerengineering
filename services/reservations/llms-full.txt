@@ -2630,10 +2630,6 @@
       );
     };
   </file>
-  <file path="src/routes/ready.ts">
-    export const readinessRoutes: FastifyPluginAsync = (fastify, _opts) =>
-      registerReadinessRoutes(fastify, { prisma, auth0Url });
-  </file>
   <file path="src/routes/reservation-owner.ts">
     export function resolveReservationGuestEmail(
       getById: (id: string) => Promise<{ guestEmail: string | null } | null>
@@ -6234,7 +6230,8 @@
     
       // Wire booking notifier — shares the same NotificationDispatcher, no second Resend client
       const bookingNotifier =
-        options.bookingNotifier ?? createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
+        options.bookingNotifier ??
+        createDefaultBookingNotifier(notificationPort, notifierRuntime, fastify.log);
       fastify.decorate("bookingNotifier", bookingNotifier);
     
       // Wire post-visit notifier — injectable for testing, default Resend-backed for production
@@ -6243,7 +6240,8 @@
       fastify.decorate("postVisitNotifier", postVisitNotifier);
     
       // Wire waitlist notifier — injectable for testing, default env-backed for production
-      const waitlistNotifier = options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
+      const waitlistNotifier =
+        options.waitlistNotifier ?? createDefaultWaitlistNotifier(notifierRuntime);
       fastify.decorate("waitlistNotifier", waitlistNotifier);
     
       // Wire reservation events emitter — injectable for testing, default singleton for production
@@ -6260,7 +6258,7 @@
     
       // Register routes
       await fastify.register(healthRoutes);
-      await fastify.register(readinessRoutes);
+      await fastify.register(registerReadinessRoutes, { prisma });
       await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
       await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
       await fastify.register(venueRoutes, { prefix: "/api/v1/venues" });
