@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
+import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { useThemeContext } from "../ThemeContext";
 import styles from "./ShowcaseLayout.module.css";
 
@@ -28,6 +29,10 @@ export function ShowcaseLayout() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  // The window never scrolls in this layout — <main> is the scroll container.
+  useScrollToTop(mainRef);
 
   const handleMobileClose = useCallback(() => {
     setIsMobileMenuOpen(false);
@@ -84,7 +89,7 @@ export function ShowcaseLayout() {
           onMobileClose={handleMobileClose}
         />
 
-        <main id="main-content" tabIndex={-1} className={styles.content}>
+        <main id="main-content" tabIndex={-1} className={styles.content} ref={mainRef}>
           <Outlet />
 
           {/* Footer lives inside the scroll area — visible at end of content */}

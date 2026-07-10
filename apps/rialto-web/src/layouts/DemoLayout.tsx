@@ -1,7 +1,11 @@
+/* eslint-disable mbe-local/prefer-rialto-components -- FloatingControls intentionally uses
+   native icon <button>s; the rule's autofix renames JSX without adding the import, which
+   breaks the build when lint-staged runs eslint --fix on commit. */
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
+import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
 import styles from "./DemoLayout.module.css";
 
@@ -139,6 +143,10 @@ export function DemoLayout() {
       main.focus({ preventScroll: true });
     }
   }, []);
+
+  // Demo pages scroll the window (normal document flow).
+  useScrollToTop();
+
   const [activeVibe, setActiveVibe] = useState<VibeName>("default");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === "undefined") return false;

@@ -87,6 +87,11 @@
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/use-scroll-to-top.ts">
+    <item priority="high">
+      export function useScrollToTop(containerRef?: RefObject<HTMLElement | null>): void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="token-count.config.ts">
   <file path="token-count.config.ts">
