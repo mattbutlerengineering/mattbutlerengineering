@@ -209,19 +209,29 @@ export async function cancelReservationWithDeposit(
     });
   } catch (err) {
     // The status write re-validates the transition against a freshly fetched
-    // row (reservation.ts). A concurrent status change during the Stripe round
-    // trip makes CANCELLED an invalid transition, so update() rethrows
-    // ReservationTransitionError — but the deposit has ALREADY been resolved
-    // against Stripe. Money moved and the status did not change: a ghost state.
-    // Log it explicitly (naming the resolved deposit + Stripe op) so
-    // ops/finance can reconcile, and return a distinct result — never a bare
-    // 409 that reads as a harmless conflict.
+    // row (reservation.ts). A concurrent status change during the round trip
+    // makes CANCELLED an invalid transition, so update() rethrows
+    // ReservationTransitionError.
+    if (resolved === null) {
+      // No money moved this call (no deposit, or one already resolved by the
+      // winning request). This is the ordinary concurrent-cancel loser, not a
+      // ghost state: preserve the harmless 409 for an invalid transition and
+      // rethrow anything else (a genuine infra failure, exactly as before).
+      if (err instanceof ReservationTransitionError) {
+        return { success: false, status: 409, title: "Conflict", detail: err.message };
+      }
+      throw err;
+    }
+    // The deposit has ALREADY been resolved against Stripe (money moved) but
+    // the status did not change: a ghost state. Log it explicitly (naming the
+    // resolved deposit + Stripe op) so ops/finance can reconcile, and return a
+    // distinct result — never a bare 409 that reads as a harmless conflict.
     deps.logger.error(
       {
         err,
         reservationId: reservation.id,
-        depositId: resolved?.depositId ?? null,
-        stripeOp: resolved?.stripeOp ?? null,
+        depositId: resolved.depositId,
+        stripeOp: resolved.stripeOp,
       },
       "Reservation status update failed AFTER the deposit was already resolved against Stripe; deposit and reservation status now diverge and require manual reconciliation"
     );

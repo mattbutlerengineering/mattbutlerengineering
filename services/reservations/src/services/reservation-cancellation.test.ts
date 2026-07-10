@@ -410,4 +410,31 @@ describe("cancelReservationWithDeposit", () => {
     expect(depositService.forfeit).toHaveBeenCalledWith("dep_1");
     expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
   });
+
+  it("returns a harmless 409 (no error log, no 500) when the final update throws ReservationTransitionError but no deposit was resolved (concurrent loser, #3278)", async () => {
+    // The double-cancel loser: no held deposit (getByReservationId -> null, so
+    // resolved === null — no money moved this call), and the winning request
+    // already flipped the row to CANCELLED, so update() re-validates and throws
+    // ReservationTransitionError. Because no money moved this is the ordinary
+    // harmless conflict, NOT a ghost state: it must return 409 and MUST NOT log
+    // an error or emit the manual-reconciliation 500 (which would be a false
+    // finance-reconciliation alarm).
+    const reservation = makeReservation();
+    const deps = makeDeps();
+    vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null as never);
+    vi.mocked(reservationService.update).mockRejectedValueOnce(
+      new ReservationTransitionError("CANCELLED", "CANCELLED", [], "reservation")
+    );
+
+    const result = await cancelReservationWithDeposit(reservation, "token123", deps);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.status).toBe(409);
+    }
+    expect(deps.logger.error).not.toHaveBeenCalled();
+    expect(depositService.refund).not.toHaveBeenCalled();
+    expect(depositService.forfeit).not.toHaveBeenCalled();
+    expect(deps.bookingNotifier.cancelBookingNotifications).not.toHaveBeenCalled();
+  });
 });
