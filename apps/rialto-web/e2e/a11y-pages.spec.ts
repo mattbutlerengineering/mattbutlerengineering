@@ -13,6 +13,8 @@ const PAGES_TO_AUDIT = [
   { name: "Error 403", path: "/examples/error-403" },
   { name: "Error 404", path: "/examples/error-404" },
   { name: "Error 500", path: "/examples/error-500" },
+  { name: "Booking Confirmed", path: "/examples/booking-confirmed" },
+  { name: "Booking Failed", path: "/examples/booking-failed" },
 ];
 
 for (const { name, path } of PAGES_TO_AUDIT) {

@@ -116,6 +116,12 @@ vi.mock("../pages/examples/ErrorNotFoundExamplePage.js", () => ({
 vi.mock("../pages/examples/ErrorServerExamplePage.js", () => ({
   ErrorServerExamplePage: () => null,
 }));
+vi.mock("../pages/examples/BookingConfirmedExamplePage.js", () => ({
+  BookingConfirmedExamplePage: () => null,
+}));
+vi.mock("../pages/examples/BookingFailedExamplePage.js", () => ({
+  BookingFailedExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -210,6 +216,30 @@ describe("PageRegistry — error-page examples", () => {
   ] as const;
 
   it.each(ERROR_PAGES)("registers $id in the Examples category at $path", (page) => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === page.id);
+    expect(entry, `${page.id} missing from PAGE_REGISTRY`).toBeDefined();
+    expect(entry?.label).toBe(page.label);
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe(page.path);
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Result-page examples (#3324)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — result-page examples", () => {
+  const RESULT_PAGES = [
+    {
+      id: "example-booking-confirmed",
+      label: "Booking Confirmed",
+      path: "/examples/booking-confirmed",
+    },
+    { id: "example-booking-failed", label: "Booking Failed", path: "/examples/booking-failed" },
+  ] as const;
+
+  it.each(RESULT_PAGES)("registers $id in the Examples category at $path", (page) => {
     const entry = PAGE_REGISTRY.find((e) => e.id === page.id);
     expect(entry, `${page.id} missing from PAGE_REGISTRY`).toBeDefined();
     expect(entry?.label).toBe(page.label);

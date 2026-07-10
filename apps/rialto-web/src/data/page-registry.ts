@@ -739,6 +739,26 @@ export const PAGE_REGISTRY: PageEntry[] = [
         default: m.ErrorServerExamplePage,
       })),
   },
+  {
+    id: "example-booking-confirmed",
+    label: "Booking Confirmed",
+    category: "Examples",
+    path: "/examples/booking-confirmed",
+    load: () =>
+      import("../pages/examples/BookingConfirmedExamplePage").then((m) => ({
+        default: m.BookingConfirmedExamplePage,
+      })),
+  },
+  {
+    id: "example-booking-failed",
+    label: "Booking Failed",
+    category: "Examples",
+    path: "/examples/booking-failed",
+    load: () =>
+      import("../pages/examples/BookingFailedExamplePage").then((m) => ({
+        default: m.BookingFailedExamplePage,
+      })),
+  },
 ];
 
 // ---------------------------------------------------------------------------
