@@ -9819,6 +9819,25 @@
             }
           }
     
+          if (request.body.status === "NO_SHOW") {
+            try {
+              const result = await recordNoShow(reservation, request.log);
+    
+              if (!result.success) {
+                return reply
+                  .code(result.status)
+                  .send(createProblemDetails(result.status, result.title, result.detail));
+              }
+    
+              return { data: result.reservation };
+            } catch (err) {
+              if (err instanceof ReservationTransitionError) {
+                return reply.code(409).send(createProblemDetails(409, "Conflict", err.message));
+              }
+              throw err;
+            }
+          }
+    
           // #2998: staff PATCH accepts partySize but previously bypassed the
           // per_person-deposit guard added for the public manage route in
           // #2997/#2931 (decision: Block) — route through the same check here
@@ -9876,11 +9895,6 @@
                   )
                 );
             }
-    
-            // Guest no-show counter (and risk escalation) is bumped inside the
-            // same transaction as the status write — see
-            // reservationService.update (#3231). No fire-and-forget here: if that
-            // write fails, updateWithConflictCheck rejects and is caught below.
     
             // Fire post-visit thank-you email when status transitions to COMPLETED
             if (request.body.status === "COMPLETED" && result.reservation) {
@@ -13171,6 +13185,49 @@
       endTime?: string;
       partySize?: number;
       specialRequests?: string;
+    }
+  </file>
+  <file path="services/reservations/src/services/reservation-no-show.ts">
+    export type RecordNoShowResult =
+      | { success: true; reservation: Reservation }
+      | { success: false; status: number; title: string; detail: string };
+    export async function recordNoShow(
+      reservation: Reservation,
+      logger: FastifyBaseLogger
+    ): Promise<RecordNoShowResult> {
+      try {
+        transitionReservation(reservation.status, "NO_SHOW");
+      } catch (err) {
+        if (err instanceof ReservationTransitionError) {
+          return { success: false, status: 409, title: "Conflict", detail: err.message };
+        }
+        throw err;
+      }
+    
+      const deposit = await depositService.getByReservationId(reservation.id);
+      if (deposit?.status === "held") {
+        try {
+          await depositService.forfeit(deposit.id);
+        } catch (err) {
+          logger.error(
+            { err, reservationId: reservation.id, depositId: deposit.id },
+            "Failed to forfeit deposit on no-show; aborting to avoid ghost state"
+          );
+          return DEPOSIT_FAILURE_RESULT;
+        }
+      }
+    
+      const updated = await reservationService.update(reservation.id, { status: "NO_SHOW" });
+      if (!updated) {
+        return {
+          success: false,
+          status: 409,
+          title: "Conflict",
+          detail: "Reservation was already updated by a concurrent request",
+        };
+      }
+    
+      return { success: true, reservation: updated };
     }
   </file>
   <file path="services/reservations/src/services/reservation-state-machine.ts">
