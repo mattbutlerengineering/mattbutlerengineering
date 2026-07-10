@@ -17,6 +17,7 @@ import {
 // ---------------------------------------------------------------------------
 
 vi.mock("../pages/forms/ButtonPage.js", () => ({ ButtonPage: () => null }));
+vi.mock("../pages/forms/FormPage.js", () => ({ FormPage: () => null }));
 vi.mock("../pages/forms/IconButtonPage.js", () => ({ IconButtonPage: () => null }));
 vi.mock("../pages/forms/InputPage.js", () => ({ InputPage: () => null }));
 vi.mock("../pages/forms/TextAreaPage.js", () => ({ TextAreaPage: () => null }));
