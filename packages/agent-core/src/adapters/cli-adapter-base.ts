@@ -17,7 +17,7 @@ import { scanForRateLimitPatterns } from "../rate-limit-detector.js";
 import { createDefaultPhaseDeps } from "../phases/default-deps.js";
 import type { PhaseDeps } from "../phases/index.js";
 import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
-import { runCliAdapterSession } from "./cli-adapter-session-runner.js";
+import { runCliAdapterSession } from "./run-cli-adapter-session.js";
 import type { CliUsage } from "./cli-usage-parser.js";
 
 const execFileAsync = promisify(execFileCb);
@@ -96,6 +96,22 @@ export abstract class CliAdapterBase implements AgentAdapter {
    *   5. Return normalized AdapterResult
    */
   async run(config: AdapterConfig): Promise<AdapterResult> {
+    const result = await this.dispatch(config);
+    if (result.hasChanges) {
+      await this.commitChanges(config.worktreePath, config.taskDescription);
+    }
+    return result;
+  }
+
+  /**
+   * Spawn the CLI subprocess and detect changes WITHOUT committing them.
+   * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
+   * contract used by `FailoverRouter` / `--adapter` dispatch); the Phase
+   * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
+   * leaves the commit to `VerificationPhase`, mirroring how Claude's
+   * QueryPhase never commits either (#3234).
+   */
+  async dispatch(config: AdapterConfig): Promise<AdapterResult> {
     const startTime = Date.now();
     const timeout = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const truncatedConfig = {
@@ -112,13 +128,7 @@ export abstract class CliAdapterBase implements AgentAdapter {
 
     const combinedOutput = `${stdout}\n${stderr}`;
     const rateLimited = this.detectRateLimiting(combinedOutput);
-
     const hasChanges = await this.checkForChanges(config.worktreePath);
-
-    if (hasChanges) {
-      await this.commitChanges(config.worktreePath, config.taskDescription);
-    }
-
     const durationMs = Date.now() - startTime;
     const usage = this.parseUsage(stdout);
 

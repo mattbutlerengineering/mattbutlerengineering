@@ -27,6 +27,10 @@ describe("resolveSessionAdapter", () => {
     const adapter = resolveSessionAdapter("auto") as FailoverSessionAdapter;
     // Force every adapter to report unavailable so we can observe cascade
     // order via isAvailable() call sequence without invoking real CLIs.
+    // Must not fall through to the real isAvailable() (env-var / `which`
+    // check) — a dev machine with e.g. opencode installed locally would
+    // make this adapter falsely "available" and the cascade would try to
+    // run() it for real instead of exhausting the cascade.
     const order: string[] = [];
     const adapters = (
       adapter as unknown as {
@@ -34,10 +38,9 @@ describe("resolveSessionAdapter", () => {
       }
     ).adapters;
     for (const a of adapters) {
-      const original = a.isAvailable.bind(a);
       a.isAvailable = async () => {
         order.push(a.name);
-        return original();
+        return false;
       };
     }
 
