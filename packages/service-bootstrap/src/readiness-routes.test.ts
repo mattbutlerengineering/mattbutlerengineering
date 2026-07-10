@@ -204,13 +204,22 @@ describe("registerReadinessRoutes", () => {
     await app.close();
   });
 
-  it("throws a clear error when AUTH_AUTHORITY is malformed", async () => {
+  it("degrades rather than crashing at boot when AUTH_AUTHORITY is malformed", async () => {
     process.env.AUTH_AUTHORITY = "not a valid url";
+    mockPrisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError("Failed to parse URL"));
 
     const instance = Fastify({ logger: false });
+    await instance.register(registerReadinessRoutes, { prisma: mockPrisma, fetchFn: mockFetch });
+    await instance.ready();
+    app = instance;
 
-    await expect(
-      instance.register(registerReadinessRoutes, { prisma: mockPrisma })
-    ).rejects.toThrow(/AUTH_AUTHORITY/);
+    const response = await app.inject({ method: "GET", url: "/ready" });
+
+    // Service boots and serves; only the auth sub-check fails. Validating here
+    // instead would reject register() and exit(1) all three services.
+    expect(response.statusCode).toBe(503);
+
+    await app.close();
   });
 });

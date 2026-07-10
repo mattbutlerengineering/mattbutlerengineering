@@ -18,15 +18,12 @@ export type ReadinessRoutesOptions = StandardChecksOptions;
  * - Set but not a valid URL: throws, so a broken JWKS URL never gets built.
  * - Set and valid: returns the `.well-known/jwks.json` URL.
  */
+// Deliberately does not validate `authority`: a malformed value yields a broken
+// JWKS URL that fails the readiness `auth` check (503) rather than throwing here,
+// which would reject `fastify.register` and exit(1) the service at boot.
 function deriveAuth0UrlFromAuthority(): string | undefined {
   const authority = process.env.AUTH_AUTHORITY;
   if (!authority) return undefined;
-
-  try {
-    new URL(authority);
-  } catch {
-    throw new Error(`Invalid AUTH_AUTHORITY: "${authority}" is not a valid URL`);
-  }
 
   return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
 }
