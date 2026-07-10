@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PAGE_REGISTRY } from "../../data/page-registry.js";
+
+// Mock the real token-page modules so the load-factory assertions below verify
+// wiring (path + default-export shape) without a real, rialto-heavy dynamic
+// import that pushes the 5s test timeout under coverage instrumentation. The
+// pages' real rendering is covered by their own *.test.tsx files.
+vi.mock("./ColorPage.js", () => ({ ColorPage: () => null }));
+vi.mock("./TypographyPage.js", () => ({ TypographyPage: () => null }));
+vi.mock("./SurfacesPage.js", () => ({ SurfacesPage: () => null }));
 
 /**
  * Guards the flip from stub token pages to real documentation pages.
