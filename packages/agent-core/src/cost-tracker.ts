@@ -43,6 +43,8 @@ export function buildSessionResultSummary(result: SDKResultMessage): SessionResu
     sessionId: result.session_id,
     costUsd: extractCost(result),
     numTurns: result.num_turns,
+    subtype: result.subtype,
+    errors: getErrors(result),
   };
 }
 
