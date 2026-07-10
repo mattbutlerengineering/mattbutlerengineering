@@ -15,6 +15,11 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./src/test/visual",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
+  // Failure output (*-actual.png / *-diff.png) must land inside
+  // __screenshots__/ because the rialto-visual workflow uploads only that
+  // directory as its failure artifact — CI actuals are what baselines get
+  // regenerated from (#3305). "test-results" is gitignored at any depth.
+  outputDir: "./src/test/visual/__screenshots__/test-results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

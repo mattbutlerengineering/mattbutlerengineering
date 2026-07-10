@@ -10,9 +10,13 @@
  * Update baselines after intentional visual changes:
  *   pnpm --dir packages/rialto test:visual:update
  *
- * NOTE: Baselines were generated on macOS (chromium). Linux CI uses a different
- * font-rendering stack — if CI fails on font metrics, regenerate with:
- *   pnpm --dir packages/rialto test:visual:update   (in CI environment)
+ * NOTE: Rendering is hermetic — the Storybook preview loads vendored woff2
+ * fonts (.storybook/fonts/), never the network or OS fallback fonts. Baselines
+ * are Linux CI renders; macOS renders differ (antialiasing) and must never be
+ * committed. To regenerate after an intentional visual change: push, let the
+ * rialto-visual workflow fail, download its `visual-regression-diffs`
+ * artifact, and copy the `*-actual.png` files over the failing baselines
+ * (see #3303/#3305 for the sanctioned flow).
  */
 
 import type { Page } from "@playwright/test";
@@ -99,8 +103,10 @@ async function loadStory(page: Page, storyId: string): Promise<void> {
   // Tell framer-motion to skip all motion
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/iframe.html?id=${storyId}&viewMode=story`);
-  // Wait for fonts + lazy images to settle
+  // Wait for lazy images/network to settle, then for the vendored webfonts —
+  // a screenshot taken before fonts.ready would capture fallback glyphs.
   await page.waitForLoadState("networkidle");
+  await page.evaluate(() => document.fonts.ready);
 }
 
 for (const story of STORIES) {
