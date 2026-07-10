@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import { registerReadinessRoutes } from "./readiness-routes.js";
@@ -9,6 +9,15 @@ const mockPrisma = {
 
 describe("registerReadinessRoutes", () => {
   let app: FastifyInstance;
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    delete process.env.AUTH_AUTHORITY;
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
 
   async function buildApp(overrides?: {
     prisma?: typeof mockPrisma;
@@ -117,5 +126,91 @@ describe("registerReadinessRoutes", () => {
     expect(mockFetch).toHaveBeenCalledWith(customUrl, expect.anything());
 
     await app.close();
+  });
+
+  it("derives auth0Url from AUTH_AUTHORITY when no explicit auth0Url is passed", async () => {
+    process.env.AUTH_AUTHORITY = "https://tenant.auth0.com";
+    mockPrisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    const instance = Fastify({ logger: false });
+    await instance.register(registerReadinessRoutes, { prisma: mockPrisma, fetchFn: mockFetch });
+    await instance.ready();
+    app = instance;
+
+    await app.inject({ method: "GET", url: "/ready" });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://tenant.auth0.com/.well-known/jwks.json",
+      expect.anything()
+    );
+
+    await app.close();
+  });
+
+  it("strips a trailing slash from AUTH_AUTHORITY when deriving auth0Url", async () => {
+    process.env.AUTH_AUTHORITY = "https://tenant.auth0.com/";
+    mockPrisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    const instance = Fastify({ logger: false });
+    await instance.register(registerReadinessRoutes, { prisma: mockPrisma, fetchFn: mockFetch });
+    await instance.ready();
+    app = instance;
+
+    await app.inject({ method: "GET", url: "/ready" });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://tenant.auth0.com/.well-known/jwks.json",
+      expect.anything()
+    );
+
+    await app.close();
+  });
+
+  it("prefers an explicit auth0Url over AUTH_AUTHORITY-derived one", async () => {
+    process.env.AUTH_AUTHORITY = "https://tenant.auth0.com";
+    mockPrisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    const customUrl = "https://custom.auth0.com/.well-known/jwks.json";
+
+    app = await buildApp({ fetchFn: mockFetch, auth0Url: customUrl });
+
+    await app.inject({ method: "GET", url: "/ready" });
+
+    expect(mockFetch).toHaveBeenCalledWith(customUrl, expect.anything());
+
+    await app.close();
+  });
+
+  it("falls back to the standard-checks default when AUTH_AUTHORITY is unset and no auth0Url is passed", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
+    const instance = Fastify({ logger: false });
+    await instance.register(registerReadinessRoutes, { prisma: mockPrisma, fetchFn: mockFetch });
+    await instance.ready();
+    app = instance;
+
+    await app.inject({ method: "GET", url: "/ready" });
+
+    // No AUTH_AUTHORITY and no explicit auth0Url — registerStandardChecks'
+    // own default (AUTH0_JWKS_URL env var or the dev tenant) is used.
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/.well-known/jwks.json"),
+      expect.anything()
+    );
+
+    await app.close();
+  });
+
+  it("throws a clear error when AUTH_AUTHORITY is malformed", async () => {
+    process.env.AUTH_AUTHORITY = "not a valid url";
+
+    const instance = Fastify({ logger: false });
+
+    await expect(
+      instance.register(registerReadinessRoutes, { prisma: mockPrisma })
+    ).rejects.toThrow(/AUTH_AUTHORITY/);
   });
 });
