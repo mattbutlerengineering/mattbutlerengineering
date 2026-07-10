@@ -19,19 +19,6 @@ const DEPOSIT_TRANSITIONS: Partial<Record<DepositStatus, DepositStatus[]>> = {
 export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
 
 /**
- * The allowed-transitions map — kept for callers that reference it directly.
- */
-export const VALID_TRANSITIONS: Record<DepositStatus, DepositStatus[]> =
-  DEPOSIT_TRANSITIONS as Record<DepositStatus, DepositStatus[]>;
-
-/**
- * Returns true if `from -> to` is a valid deposit state transition.
- */
-export function isValidTransition(from: DepositStatus, to: DepositStatus): boolean {
-  return depositMachine.canTransition(from, to);
-}
-
-/**
  * Thrown when an invalid deposit state transition is attempted.
  * Alias of {@link TransitionError} for backward compatibility.
  */
