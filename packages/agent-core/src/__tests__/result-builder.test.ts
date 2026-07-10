@@ -9,7 +9,7 @@ import type { QaTuningThresholds } from "../qa-tuning-loader.js";
 // buildFinalResult has two real side effects beyond computing the return
 // value: a best-effort disk write (recordFailure) and a Langfuse span
 // update. Both are mocked so this test stays a pure unit test over
-// SessionState fixtures — no full-session mocking.
+// PipelineOutcome fixtures — no full-session mocking.
 
 vi.mock("../failure-memory.js", () => ({
   recordFailure: vi.fn().mockResolvedValue(undefined),
@@ -22,7 +22,7 @@ vi.mock("@langfuse/tracing", () => ({
 import { recordFailure } from "../failure-memory.js";
 import { updateActiveObservation } from "@langfuse/tracing";
 import { buildFinalResult, buildRootSpanAttributes } from "../result-builder.js";
-import type { SessionState } from "../result-builder.js";
+import type { PipelineOutcome } from "../result-builder.js";
 
 const BASE_CONFIG: SessionConfig = {
   taskDescription: "Fix the login bug",
@@ -39,11 +39,10 @@ function fakeSpan(): Span {
   return { setAttribute: vi.fn() } as unknown as Span;
 }
 
-function baseState(overrides?: Partial<SessionState>): SessionState {
+function baseState(overrides?: Partial<PipelineOutcome>): PipelineOutcome {
   return {
     turnMetrics: [],
     toolCallMetrics: [],
-    hasChanges: false,
     prUrl: null,
     errors: [],
     ...overrides,
@@ -121,11 +120,8 @@ describe("buildFinalResult", () => {
         },
       ],
       toolCallMetrics: [{ toolName: "Read", toolUseId: "tool-1", latencyMs: 12, isError: false }],
-      hasChanges: true,
-      gatewayVerdict: { outcome: "create-pr", passed: true, gateFailures: [], errors: [] },
       gatewayEvaluation: { passed: true, confidence: 0.9, reasoning: "Looks good", issues: [] },
       prUrl: "https://github.com/repo/pull/1",
-      prNumber: 1,
     });
     const span = fakeSpan();
     const onEvent = vi.fn();
@@ -172,15 +168,7 @@ describe("buildFinalResult", () => {
     const state = baseState({
       worktree: { path: "/repo/.worktree", branchName: "agent/fix-login", mode: "full" },
       resultMessage: successResultMessage(),
-      hasChanges: true,
-      gatewayVerdict: {
-        outcome: "create-draft-pr",
-        passed: false,
-        gateFailures: ["verification"],
-        errors: ["Verification failed: typecheck errors"],
-      },
       prUrl: "https://github.com/repo/pull/2",
-      prNumber: 2,
       errors: ["Verification failed: typecheck errors"],
     });
     const span = fakeSpan();
@@ -220,12 +208,6 @@ describe("buildFinalResult", () => {
     const state = baseState({
       worktree: { path: "/repo/.worktree", branchName: "agent/fix-login", mode: "full" },
       resultMessage: errorResultMessage(),
-      gatewayVerdict: {
-        outcome: "create-draft-pr",
-        passed: false,
-        gateFailures: ["verification"],
-        errors: ["Verification failed: typecheck errors"],
-      },
       prUrl: "https://github.com/repo/pull/3",
       errors: ["Verification failed: typecheck errors"],
     });
