@@ -110,6 +110,7 @@ overrides:
   ioredis: ^5.11.0
   form-data@<4.0.6: ^4.0.6
   js-yaml@<4.2.0: ^4.2.0
+  read-yaml-file>js-yaml: 3.14.1
 
 importers:
 
@@ -7037,6 +7038,10 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
+  js-yaml@3.14.1:
+    resolution: {integrity: sha512-okMH7OXXJ7YrN9Ok3/SXrnu4iX9yOk+25nqX4imS2npuvTYDmo/QEZoqwZkYaIDk3jVvBOTOIEgEhaLOynBS9g==}
+    hasBin: true
+
   js-yaml@4.3.0:
     resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
     hasBin: true
@@ -13842,7 +13847,6 @@ snapshots:
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
-    optional: true
 
   argparse@2.0.1: {}
 
@@ -16045,6 +16049,11 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
+  js-yaml@3.14.1:
+    dependencies:
+      argparse: 1.0.10
+      esprima: 4.0.1
+
   js-yaml@4.3.0:
     dependencies:
       argparse: 2.0.1
@@ -17380,7 +17389,7 @@ snapshots:
   read-yaml-file@1.1.0:
     dependencies:
       graceful-fs: 4.2.11
-      js-yaml: 4.3.0
+      js-yaml: 3.14.1
       pify: 4.0.1
       strip-bom: 3.0.0
 
@@ -17881,8 +17890,7 @@ snapshots:
 
   split2@4.2.0: {}
 
-  sprintf-js@1.0.3:
-    optional: true
+  sprintf-js@1.0.3: {}
 
   sqlstring@2.3.3: {}
 
