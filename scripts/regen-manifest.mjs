@@ -99,6 +99,8 @@ export const FAMILIES = [
       "packages/api-client/llms-full.txt",
       "packages/auth/llms.txt",
       "packages/auth/llms-full.txt",
+      "packages/config/llms.txt",
+      "packages/config/llms-full.txt",
       "packages/database/llms.txt",
       "packages/database/llms-full.txt",
       "packages/gh-client/llms.txt",
