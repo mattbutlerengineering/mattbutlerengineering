@@ -99,6 +99,9 @@ vi.mock("../pages/examples/SettingsExamplePage.js", () => ({
 vi.mock("../pages/examples/FormStatesExamplePage.js", () => ({
   FormStatesExamplePage: () => null,
 }));
+vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
+  ReservationsListExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
