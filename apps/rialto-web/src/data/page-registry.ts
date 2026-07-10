@@ -700,6 +700,16 @@ export const PAGE_REGISTRY: PageEntry[] = [
       })),
   },
   {
+    id: "example-guest-profile",
+    label: "Guest Profile",
+    category: "Examples",
+    path: "/examples/guest-profile",
+    load: () =>
+      import("../pages/examples/GuestDetailExamplePage").then((m) => ({
+        default: m.GuestDetailExamplePage,
+      })),
+  },
+  {
     id: "example-error-403",
     label: "Error 403",
     category: "Examples",

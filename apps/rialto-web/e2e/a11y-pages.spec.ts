@@ -9,6 +9,7 @@ const PAGES_TO_AUDIT = [
   { name: "Tabs", path: "/components/tabs" },
   { name: "Dialog", path: "/components/dialog" },
   { name: "Badge", path: "/components/badge" },
+  { name: "Guest Profile", path: "/examples/guest-profile" },
   { name: "Error 403", path: "/examples/error-403" },
   { name: "Error 404", path: "/examples/error-404" },
   { name: "Error 500", path: "/examples/error-500" },
