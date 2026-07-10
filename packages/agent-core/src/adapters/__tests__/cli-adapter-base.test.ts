@@ -468,7 +468,7 @@ describe("CliAdapterBase", () => {
       };
     }
 
-    it("delegates to runCliAdapterSession, driving this adapter's own run()", async () => {
+    it("delegates to runCliAdapterSession, driving this adapter's own dispatch()", async () => {
       const deps = makeFakePhaseDeps();
       vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
         path: "/repo/.agent-worktrees/agent-fix-abc123",
@@ -477,7 +477,7 @@ describe("CliAdapterBase", () => {
       });
       vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
-      const runSpy = vi.spyOn(adapter, "run").mockResolvedValue({
+      const dispatchSpy = vi.spyOn(adapter, "dispatch").mockResolvedValue({
         success: true,
         hasChanges: false,
         rateLimited: false,
@@ -486,7 +486,7 @@ describe("CliAdapterBase", () => {
 
       const result = await adapter.runSession(makeSessionConfig(), undefined, deps);
 
-      expect(runSpy).toHaveBeenCalledWith(
+      expect(dispatchSpy).toHaveBeenCalledWith(
         expect.objectContaining({ worktreePath: "/repo/.agent-worktrees/agent-fix-abc123" })
       );
       expect(result.status).toBe("succeeded");

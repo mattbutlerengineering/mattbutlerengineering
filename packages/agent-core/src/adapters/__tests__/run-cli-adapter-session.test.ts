@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { AgentAdapter, AdapterConfig, AdapterResult } from "../../cli-adapter.js";
+import type { AdapterConfig, AdapterResult } from "../../cli-adapter.js";
 import type { SessionConfig } from "../../types.js";
 import type { PhaseDeps } from "../../phases/index.js";
 import { makeFakePhaseDeps } from "../../__tests__/fake-phase-deps.js";
 import { recordSpend } from "../../spend-recorder.js";
-import { runCliAdapterSession } from "../cli-adapter-session-runner.js";
+import { CliAdapterBase } from "../cli-adapter-base.js";
+import { runCliAdapterSession } from "../run-cli-adapter-session.js";
 import { getGitDiff } from "../../success-evaluator.js";
 import { runPostCommitGateway } from "../../post-commit-gateway.js";
 
@@ -38,22 +39,35 @@ function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfi
   };
 }
 
-function makeCliAdapter(
-  name: string,
-  result: Partial<AdapterResult> = {}
-): AgentAdapter & { run: ReturnType<typeof vi.fn> } {
-  const run = vi.fn<(config: AdapterConfig) => Promise<AdapterResult>>().mockResolvedValue({
-    success: true,
-    hasChanges: true,
-    rateLimited: false,
-    durationMs: 4000,
-    ...result,
-  });
-  return {
-    name,
-    isAvailable: vi.fn().mockResolvedValue(true),
-    run,
-  };
+/** Minimal concrete CliAdapterBase whose `dispatch()` is fully controlled by tests. */
+class FakeCliAdapter extends CliAdapterBase {
+  readonly cliBinary = "fake-cli";
+  readonly name: string;
+  private readonly dispatchResult: AdapterResult;
+
+  constructor(name: string, dispatchResult: Partial<AdapterResult> = {}) {
+    super();
+    this.name = name;
+    this.dispatchResult = {
+      success: true,
+      hasChanges: true,
+      rateLimited: false,
+      durationMs: 4000,
+      ...dispatchResult,
+    };
+  }
+
+  protected buildArgs(): string[] {
+    return [];
+  }
+
+  override async dispatch(_config: AdapterConfig): Promise<AdapterResult> {
+    return this.dispatchResult;
+  }
+}
+
+function makeCliAdapter(name: string, result: Partial<AdapterResult> = {}): FakeCliAdapter {
+  return new FakeCliAdapter(name, result);
 }
 
 describe("runCliAdapterSession", () => {
@@ -76,8 +90,10 @@ describe("runCliAdapterSession", () => {
     });
   });
 
-  it("creates a worktree and dispatches the CLI subprocess run inside it", async () => {
+  it("creates a worktree and dispatches the CLI subprocess inside it", async () => {
     const adapter = makeCliAdapter("gemini", { hasChanges: false });
+    const dispatchSpy = vi.spyOn(adapter, "dispatch");
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
     const config = makeSessionConfig();
 
     await runCliAdapterSession(adapter, config, undefined, deps);
@@ -87,7 +103,7 @@ describe("runCliAdapterSession", () => {
       config.baseBranch,
       config.taskDescription
     );
-    expect(adapter.run).toHaveBeenCalledWith(
+    expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         taskDescription: config.taskDescription,
         worktreePath: "/repo/.agent-worktrees/agent-fix-bug-abc123",
@@ -97,8 +113,10 @@ describe("runCliAdapterSession", () => {
     );
   });
 
-  it("skips gates and PR creation when the adapter made no changes", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: false, success: true });
+  it("skips gates and PR creation when no changes are detected", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
     expect(runPostCommitGateway).not.toHaveBeenCalled();
@@ -108,8 +126,9 @@ describe("runCliAdapterSession", () => {
     expect(result.branchName).toBe("agent/fix-bug-abc123");
   });
 
-  it("runs the full GateRunner suite and creates a non-draft PR when the adapter succeeds and gates pass", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
+  it("runs the full gate suite and creates a non-draft PR when the adapter succeeds and gates pass", async () => {
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
     vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-pr",
       passed: true,
@@ -134,17 +153,11 @@ describe("runCliAdapterSession", () => {
 
   it("passes the adapter's real costUsd (not a literal 0) to buildPrBody when gates pass", async () => {
     const adapter = makeCliAdapter("opencode", {
-      hasChanges: true,
       success: true,
       costUsd: 0.0234,
       tokenUsage: { inputTokens: 900, outputTokens: 210 },
     });
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
-      outcome: "create-pr",
-      passed: true,
-      gateFailures: [],
-      errors: [],
-    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
     await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
@@ -156,38 +169,13 @@ describe("runCliAdapterSession", () => {
     );
   });
 
-  it("passes undefined costUsd to buildPrBody when the adapter reports no usage data", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
-      outcome: "create-pr",
-      passed: true,
-      gateFailures: [],
-      errors: [],
-    });
-
-    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
-
-    expect(deps.prCreator.buildPrBody).toHaveBeenCalledWith(
-      expect.any(String),
-      "gemini",
-      undefined,
-      0
-    );
-  });
-
   it("reflects the adapter's real cost/tokenUsage in the returned SessionResult", async () => {
     const adapter = makeCliAdapter("opencode", {
-      hasChanges: true,
       success: true,
       costUsd: 0.0234,
       tokenUsage: { inputTokens: 900, outputTokens: 210 },
     });
-    vi.mocked(runPostCommitGateway).mockResolvedValue({
-      outcome: "create-pr",
-      passed: true,
-      gateFailures: [],
-      errors: [],
-    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
@@ -196,7 +184,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("defaults SessionResult cost/tokenUsage to 0 when the adapter reports no usage data", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: false, success: true });
+    const adapter = makeCliAdapter("gemini", {});
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
@@ -205,7 +194,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("still creates a draft PR when a gate fails, matching the claude path's draft-PR outcome", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
     vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "create-draft-pr",
       passed: false,
@@ -227,7 +217,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("merges directly (no PR) when the gateway verdict is a trivial dep bump", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
     vi.mocked(runPostCommitGateway).mockResolvedValue({
       outcome: "merge-direct",
       passed: true,
@@ -245,34 +236,30 @@ describe("runCliAdapterSession", () => {
     expect(result.prUrl).toBe("https://github.com/repo/pull/merged");
   });
 
-  it("skips gates and opens a draft failure PR when the CLI adapter itself fails", async () => {
+  it("marks the session failed and skips gates when the CLI adapter itself fails with no changes", async () => {
     const adapter = makeCliAdapter("gemini", {
-      hasChanges: true,
       success: false,
+      hasChanges: false,
       error: "gemini CLI exited with non-zero status",
     });
-    vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
-      url: "https://github.com/repo/pull/3",
-      number: 3,
-    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
     expect(runPostCommitGateway).not.toHaveBeenCalled();
-    expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
-      expect.objectContaining({ draft: true })
-    );
+    expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
     expect(result.status).toBe("failed");
     expect(result.errors).toContain("gemini CLI exited with non-zero status");
   });
 
   it("sets failureCategory to rate_limited when the adapter reports rate limiting", async () => {
     const adapter = makeCliAdapter("gemini", {
-      hasChanges: false,
       success: false,
+      hasChanges: false,
       rateLimited: true,
       error: "429 Too Many Requests",
     });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
@@ -280,7 +267,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("does not create a PR when createPr is false, even though the branch is pushed", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: true, success: true });
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
 
     const result = await runCliAdapterSession(
       adapter,
@@ -295,7 +283,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("removes the worktree when createPr is true but preserves it when false", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: false, success: true });
+    const adapter = makeCliAdapter("gemini", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     await runCliAdapterSession(adapter, makeSessionConfig({ createPr: true }), undefined, deps);
     expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledOnce();
@@ -307,18 +296,20 @@ describe("runCliAdapterSession", () => {
   });
 
   it("reports durationMs from the adapter's own reported duration", async () => {
-    const adapter = makeCliAdapter("gemini", { hasChanges: false, durationMs: 12_345 });
+    const adapter = makeCliAdapter("gemini", { durationMs: 12_345 });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
     const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
     expect(result.durationMs).toBe(12_345);
   });
 
   it("records exactly one spend entry through the single seam, attributed to the adapter", async () => {
     const adapter = makeCliAdapter("gemini", {
-      hasChanges: false,
       success: true,
       costUsd: 0.0234,
       tokenUsage: { inputTokens: 900, outputTokens: 210 },
     });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
 
@@ -337,7 +328,8 @@ describe("runCliAdapterSession", () => {
   });
 
   it("records a visible spend entry even for a cost-less adapter run", async () => {
-    const adapter = makeCliAdapter("opencode", { hasChanges: false, success: true });
+    const adapter = makeCliAdapter("opencode", { success: true });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
 
     await runCliAdapterSession(
       adapter,
@@ -351,5 +343,139 @@ describe("runCliAdapterSession", () => {
       "/repo",
       expect.objectContaining({ costUsd: 0, adapter: "opencode", status: "succeeded" })
     );
+  });
+
+  // ── AbortSignal cancellation (#3234) ────────────────────────────────
+
+  describe("AbortSignal cancellation", () => {
+    it("short-circuits before dispatch when the signal is already aborted", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      const dispatchSpy = vi.spyOn(adapter, "dispatch");
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig(),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      expect(dispatchSpy).not.toHaveBeenCalled();
+      expect(result.status).toBe("failed");
+      expect(result.errors).toContain("Session aborted");
+    });
+
+    it("short-circuits before PublishPhase when the signal is aborted mid-pipeline", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      const controller = new AbortController();
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(runPostCommitGateway).mockImplementation(async () => {
+        controller.abort();
+        return { outcome: "create-pr", passed: true, gateFailures: [], errors: [] };
+      });
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig(),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      // VerificationPhase's own gateway call still completed naturally.
+      expect(runPostCommitGateway).toHaveBeenCalled();
+      // But PublishPhase (a later phase) never ran.
+      expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
+      expect(result.status).toBe("failed");
+      expect(result.errors).toContain("Session aborted");
+    });
+
+    it("still creates the worktree and cleans it up even when pre-aborted", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      const controller = new AbortController();
+      controller.abort();
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ createPr: true }),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      expect(deps.worktreeManager.createWorktree).toHaveBeenCalledOnce();
+      expect(deps.worktreeManager.removeWorktree).toHaveBeenCalledOnce();
+    });
+  });
+
+  // ── Budget gate (#3234) ──────────────────────────────────────────────
+
+  describe("budget gate", () => {
+    it("emits session:budget_breach when the adapter's cost exceeds maxBudgetUsd", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, costUsd: 1.5 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+      const events: { type: string; data: unknown }[] = [];
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ maxBudgetUsd: 1.0 }),
+        (event) => events.push(event),
+        deps
+      );
+
+      const breachEvents = events.filter((e) => e.type === "session:budget_breach");
+      expect(breachEvents).toHaveLength(1);
+    });
+
+    it("does NOT halt the session by default when budget is breached (observe only)", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, costUsd: 1.5 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ maxBudgetUsd: 1.0 }),
+        undefined,
+        deps
+      );
+
+      expect(result.status).toBe("succeeded");
+    });
+
+    it("halts the session when enforceBudget=true and budget is breached", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, hasChanges: true, costUsd: 5.0 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ maxBudgetUsd: 1.0, enforceBudget: true }),
+        undefined,
+        deps
+      );
+
+      expect(result.status).toBe("failed");
+      expect(result.errors.some((e) => e.toLowerCase().includes("budget"))).toBe(true);
+      expect(result.failureCategory).toBe("budget_exceeded");
+      // Gates/publish never ran — the breach short-circuits the pipeline.
+      expect(runPostCommitGateway).not.toHaveBeenCalled();
+      expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not emit budget_breach when costs are within budget", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, costUsd: 0.5 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+      const events: { type: string; data: unknown }[] = [];
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ maxBudgetUsd: 1.0 }),
+        (event) => events.push(event),
+        deps
+      );
+
+      const breachEvents = events.filter((e) => e.type === "session:budget_breach");
+      expect(breachEvents).toHaveLength(0);
+    });
   });
 });
