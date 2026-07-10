@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import { JobWorker, JOB_TYPES } from "@mbe/jobs";
-import type { JobHandlerMap, JobType, ReminderPayload } from "@mbe/jobs";
+import type { JobHandlerMap, ReminderPayload } from "@mbe/jobs";
 import type { BookingNotificationInput } from "@mbe/notifications";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
 
@@ -29,20 +29,13 @@ export interface ReservationJobHandlerDeps {
 }
 
 /**
- * Builds a handler that throws for a job type with no wired delivery. These
- * types are never enqueued today; a throwing handler makes a mis-enqueued job
- * fail loudly (retried then failed) rather than silently vanishing in Redis —
- * the exact failure mode #3078 removes for the load-bearing types.
- */
-function unwired(jobType: JobType): (payload: unknown) => Promise<void> {
-  return () => Promise.reject(new Error(`No delivery handler registered for job type "${jobType}"`));
-}
-
-/**
  * Composes the reservations JobHandlerMap from existing finder + dispatcher
  * logic. BOOKING_REMINDER and DAY_OF_REMINDER share the reminder-delivery
  * path (load reservation + venue → send via preference); WAITLIST_EXPIRY
- * reaches the existing handleExpiry re-notify-next-guest path.
+ * reaches the existing handleExpiry re-notify-next-guest path. JobHandlerMap
+ * is partial, so only the job types this service actually handles are
+ * declared here — dispatchJob throws UnknownJobTypeError for any other job
+ * type routed to this worker, so a mis-enqueued job still fails loudly.
  */
 export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap {
   async function deliverReminder(payload: ReminderPayload): Promise<void> {
@@ -54,7 +47,8 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     if (!reservation.guestEmail || !venue) return;
 
     const preference =
-      (reservation.guest?.communicationPreference as CommunicationPreference | null) ?? "email_only";
+      (reservation.guest?.communicationPreference as CommunicationPreference | null) ??
+      "email_only";
 
     const input: BookingNotificationInput = {
       reservationId: reservation.id,
@@ -81,9 +75,6 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     [JOB_TYPES.DAY_OF_REMINDER]: deliverReminder,
     [JOB_TYPES.WAITLIST_EXPIRY]: (payload) =>
       deps.handleWaitlistExpiry({ waitlistEntryId: payload.waitlistEntryId }),
-    [JOB_TYPES.POST_VISIT_FOLLOWUP]: unwired(JOB_TYPES.POST_VISIT_FOLLOWUP),
-    [JOB_TYPES.PRE_ARRIVAL_BRIEFING]: unwired(JOB_TYPES.PRE_ARRIVAL_BRIEFING),
-    [JOB_TYPES.LAPSED_GUEST_SCAN]: unwired(JOB_TYPES.LAPSED_GUEST_SCAN),
   };
 }
 

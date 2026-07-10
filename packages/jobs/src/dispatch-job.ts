@@ -5,8 +5,12 @@ import type { JobHandlerMap } from "./worker.js";
 const JOB_TYPE_SET: ReadonlySet<string> = new Set(Object.values(JOB_TYPES));
 
 export class UnknownJobTypeError extends Error {
-  constructor(name: string) {
-    super(`Unknown job type: "${name}"`);
+  constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
+    super(
+      reason === "no-handler"
+        ? `No handler registered for job type: "${name}"`
+        : `Unknown job type: "${name}"`
+    );
     this.name = "UnknownJobTypeError";
   }
 }
@@ -20,6 +24,9 @@ export async function dispatchJob(
   }
 
   const jobType = job.name as JobType;
-  const handler = (handlers as Record<JobType, (data: unknown) => Promise<void>>)[jobType];
+  const handler = (handlers as Partial<Record<JobType, (data: unknown) => Promise<void>>>)[jobType];
+  if (!handler) {
+    throw new UnknownJobTypeError(jobType, "no-handler");
+  }
   await handler(job.data);
 }

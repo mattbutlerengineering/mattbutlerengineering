@@ -61,4 +61,22 @@ describe("dispatchJob", () => {
       "ghost-job"
     );
   });
+
+  it("throws UnknownJobTypeError for a known job type with no registered handler in a partial map", async () => {
+    const handlers: JobHandlerMap = {
+      [JOB_TYPES.BOOKING_REMINDER]: vi.fn().mockResolvedValue(undefined),
+    };
+
+    await expect(
+      dispatchJob(handlers, { name: JOB_TYPES.LAPSED_GUEST_SCAN, data: {} })
+    ).rejects.toThrow(UnknownJobTypeError);
+  });
+
+  it("no-handler UnknownJobTypeError message names the job type and is distinguishable from an unrecognised name", async () => {
+    const handlers: JobHandlerMap = {};
+
+    await expect(
+      dispatchJob(handlers, { name: JOB_TYPES.WAITLIST_EXPIRY, data: {} })
+    ).rejects.toThrow(/no handler registered.*waitlist-expiry/i);
+  });
 });

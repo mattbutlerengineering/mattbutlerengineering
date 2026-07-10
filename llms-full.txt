@@ -16576,8 +16576,12 @@
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
     export class UnknownJobTypeError extends Error {
-      constructor(name: string) {
-        super(`Unknown job type: "${name}"`);
+      constructor(name: string, reason: "unknown-type" | "no-handler" = "unknown-type") {
+        super(
+          reason === "no-handler"
+            ? `No handler registered for job type: "${name}"`
+            : `Unknown job type: "${name}"`
+        );
         this.name = "UnknownJobTypeError";
       }
     }
@@ -16590,7 +16594,10 @@
       }
     
       const jobType = job.name as JobType;
-      const handler = (handlers as Record<JobType, (data: unknown) => Promise<void>>)[jobType];
+      const handler = (handlers as Partial<Record<JobType, (data: unknown) => Promise<void>>>)[jobType];
+      if (!handler) {
+        throw new UnknownJobTypeError(jobType, "no-handler");
+      }
       await handler(job.data);
     }
   </file>
@@ -16697,9 +16704,9 @@
     }
   </file>
   <file path="packages/jobs/src/worker.ts">
-    export type JobHandlerMap = {
+    export type JobHandlerMap = Partial<{
       [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
-    };
+    }>;
     export interface JobWorkerConfig {
       redisUrl: string;
       queueName?: string;
