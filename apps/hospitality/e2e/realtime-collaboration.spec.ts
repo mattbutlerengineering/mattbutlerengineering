@@ -111,6 +111,9 @@ const test = base.extend<{
     await mockApi(page);
     await page.goto("");
     await use(page);
+    // Drain in-flight route handlers (mockApi's SSE handler evaluates in-page)
+    // before teardown — see fixtures.ts / run 29116315283.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   },
   pageB: async ({ contextB }, use) => {
     const page = await contextB.newPage();
@@ -143,6 +146,7 @@ const test = base.extend<{
 
     await page.goto("");
     await use(page);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   },
 });
 /* eslint-enable @eslint-react/rules-of-hooks, react-hooks/rules-of-hooks */

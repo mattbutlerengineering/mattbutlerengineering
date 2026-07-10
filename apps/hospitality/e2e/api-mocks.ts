@@ -43,6 +43,21 @@ export async function mockApi(page: Page): Promise<void> {
     (window as unknown as { __e2eNoRetry: boolean }).__e2eNoRetry = true;
   });
 
+  // Pre-seed the persisted venue selection with the fixture venue so the app
+  // boots with a selectedVenueId that resolves against the mocked venue list.
+  // Without this, the first render after the venues query settles still has
+  // selectedVenue === null (selection is reconciled in a later effect), which
+  // reads as "no-venue" and fires DashboardLayout's sticky /onboarding
+  // redirect before the reconcile effect runs — a race that bounced ~half the
+  // suite onto the New Venue wizard (issue #3309). The underlying product
+  // race still deserves an in-app fix; this only makes the harness
+  // deterministic.
+  const venuesFixture = JSON.parse(loadFixture("venues-list"));
+  const seededVenueId: string = venuesFixture.data[0].id;
+  await page.addInitScript((id) => {
+    localStorage.setItem("mbe-hospitality-venue-id", id);
+  }, seededVenueId);
+
   // Users
   await page.route("**/api/v1/users/me", (route) =>
     route.request().method() === "PATCH"

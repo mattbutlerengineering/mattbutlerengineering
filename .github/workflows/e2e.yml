@@ -9,6 +9,7 @@ on:
       - "services/reservations/**"
       - "services/users/**"
       - "packages/database/**"
+      - ".github/workflows/e2e.yml"
   workflow_dispatch:
 
 concurrency:
@@ -28,6 +29,7 @@ jobs:
     # Postgres backs the reservations + users APIs the hospitality app proxies to.
     # Without a live backend, the Vite dev-server proxy returns ECONNREFUSED for
     # every /api/v1/* request and the SPA never finishes booting (see issue #2123).
+    # Redis backs the reservations service's notification job queue (issue #3309).
     services:
       postgres:
         image: postgres:15
@@ -43,8 +45,24 @@ jobs:
         ports:
           - 5432:5432
 
+      # Redis backs the reservations service's BullMQ job scheduler + worker
+      # (booking/day-of reminders, waitlist expiry — see ADR-019 / issue #3078).
+      # The worker opens its Redis consumer at onReady, so without this
+      # container every reservation write that schedules a notification fails
+      # and ioredis retries :6379 forever, flooding the event loop (issue #3309).
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     env:
       DATABASE_URL: postgresql://test:test@localhost:5432/test
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -88,6 +106,7 @@ jobs:
           EOF
           cat > services/reservations/.env <<EOF
           DATABASE_URL=${DATABASE_URL}
+          REDIS_URL=${REDIS_URL}
           PORT=3004
           HOST=0.0.0.0
           LOG_LEVEL=warn
@@ -98,6 +117,24 @@ jobs:
         run: |
           pnpm --filter @mbe/users-service dev > /tmp/users-api.log 2>&1 &
           pnpm --filter @mbe/reservations-service dev > /tmp/reservations-api.log 2>&1 &
+
+      # Verify Redis answers a real PING before gating on the backend: the
+      # reservations job worker opens its BullMQ consumer at onReady, and a
+      # missing Redis degrades into an unbounded ioredis reconnect loop instead
+      # of a crash (issue #3309). Bounded retry so a broken container fails
+      # fast with a one-line cause instead of a 49% test-failure smear.
+      - name: Wait for Redis
+        run: |
+          for i in $(seq 1 30); do
+            reply=$(docker exec ${{ job.services.redis.id }} redis-cli ping 2>/dev/null || true)
+            if [ "$reply" = "PONG" ]; then
+              echo "redis healthy (PING -> PONG)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::redis never answered PING on :6379 (last reply: ${reply:-none})"
+          exit 1
 
       # Gate on the DB-backed health endpoints (NOT /health, which is liveness
       # only). A 200 here means the process is listening AND Prisma can reach
