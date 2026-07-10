@@ -242,10 +242,6 @@
       "types": "./dist/lib/components/Progress/index.d.ts",
       "import": "./dist/lib/components/Progress/index.js"
     },
-    "./RadialGauge": {
-      "types": "./dist/lib/components/RadialGauge/index.d.ts",
-      "import": "./dist/lib/components/RadialGauge/index.js"
-    },
     "./ScrollArea": {
       "types": "./dist/lib/components/ScrollArea/index.d.ts",
       "import": "./dist/lib/components/ScrollArea/index.js"

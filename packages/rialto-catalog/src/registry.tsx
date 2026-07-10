@@ -43,7 +43,6 @@ import {
   Input,
   NavigationMenu,
   Odometer,
-  RadialGauge,
   Select,
   Sidebar,
   Stack,
@@ -125,7 +124,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     // IconButton is a labelled, icon-only Button. Its props are validated by
     // the generated Zod schema before this renderer runs (see file header),
     // so the shape is guaranteed; the cast narrows the untyped props bag
-    // (mirrors the Odometer/RadialGauge renderers, avoiding an `any` here).
+    // (mirrors the Odometer renderer, avoiding an `any` here).
     IconButton: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
       const p = props as {
         icon?: string;
@@ -325,33 +324,6 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           size={p.size}
           flipInterval={p.flipInterval}
           cascadeDelay={p.cascadeDelay}
-        />
-      );
-    },
-
-    // RadialGauge props are validated by the generated Zod schema at generation
-    // time; the runtime context passes them through as `unknown` here.
-    RadialGauge: ({ props }: { props: unknown }) => {
-      const p = props as {
-        value: number;
-        min?: number;
-        max?: number;
-        label?: string;
-        unit?: string;
-        showValue?: boolean;
-        needle?: boolean;
-        size?: "sm" | "md" | "lg";
-      };
-      return (
-        <RadialGauge
-          value={p.value}
-          min={p.min}
-          max={p.max}
-          label={p.label}
-          unit={p.unit}
-          showValue={p.showValue}
-          needle={p.needle}
-          size={p.size}
         />
       );
     },

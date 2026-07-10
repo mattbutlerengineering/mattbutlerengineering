@@ -81,7 +81,6 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "PinInput",
   "Popover",
   "Progress",
-  "RadialGauge",
   "ScrollArea",
   "SegmentedControl",
   "Select",

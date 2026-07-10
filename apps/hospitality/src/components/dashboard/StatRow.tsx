@@ -1,4 +1,4 @@
-import { Odometer, RadialGauge, Text } from "@mattbutlerengineering/rialto";
+import { Meter, Odometer, Text } from "@mattbutlerengineering/rialto";
 import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import styles from "./StatRow.module.css";
 
@@ -14,7 +14,7 @@ interface CountMetric {
 }
 
 /* Cancellation rate is a percentage — a bounded 0-100 metric, so it reads on a
-   RadialGauge dial rather than a rolling counter. Counts have no ceiling and
+   Meter bar rather than a rolling counter. Counts have no ceiling and
    roll on Odometers. */
 const CANCELLATION_MIN = 0;
 const CANCELLATION_MAX = 100;
@@ -24,7 +24,7 @@ const CANCELLATION_MAX = 100;
 /**
  * The dashboard instrument row: unbounded counts (reservations, covers,
  * upcoming) roll on {@link Odometer}s, while the bounded cancellation-rate
- * percentage reads on a {@link RadialGauge} dial. Both instruments expose their
+ * percentage reads on a {@link Meter} bar. Both instruments expose their
  * value as accessible text and honour `prefers-reduced-motion` internally.
  */
 export function StatRow({ stats }: StatRowProps) {
@@ -44,12 +44,12 @@ export function StatRow({ stats }: StatRowProps) {
       ))}
 
       <div className={styles.tile}>
-        <RadialGauge
+        <Meter
           label="Cancellation Rate"
           value={stats.cancellationRate}
           min={CANCELLATION_MIN}
           max={CANCELLATION_MAX}
-          unit="%"
+          showValue
           size="sm"
         />
       </div>
