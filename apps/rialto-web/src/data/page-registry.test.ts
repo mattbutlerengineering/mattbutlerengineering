@@ -104,6 +104,15 @@ vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
 vi.mock("../pages/tokens/ColorPage.js", () => ({ ColorPage: () => null }));
 vi.mock("../pages/tokens/TypographyPage.js", () => ({ TypographyPage: () => null }));
 vi.mock("../pages/tokens/SurfacesPage.js", () => ({ SurfacesPage: () => null }));
+vi.mock("../pages/examples/ErrorForbiddenExamplePage.js", () => ({
+  ErrorForbiddenExamplePage: () => null,
+}));
+vi.mock("../pages/examples/ErrorNotFoundExamplePage.js", () => ({
+  ErrorNotFoundExamplePage: () => null,
+}));
+vi.mock("../pages/examples/ErrorServerExamplePage.js", () => ({
+  ErrorServerExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -183,6 +192,27 @@ describe("PageRegistry — structure", () => {
     expect(categories.has("Feedback")).toBe(true);
     expect(categories.has("Overlays")).toBe(true);
     expect(categories.has("Layout")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error-page examples (#3283)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — error-page examples", () => {
+  const ERROR_PAGES = [
+    { id: "example-error-403", label: "Error 403", path: "/examples/error-403" },
+    { id: "example-error-404", label: "Error 404", path: "/examples/error-404" },
+    { id: "example-error-500", label: "Error 500", path: "/examples/error-500" },
+  ] as const;
+
+  it.each(ERROR_PAGES)("registers $id in the Examples category at $path", (page) => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === page.id);
+    expect(entry, `${page.id} missing from PAGE_REGISTRY`).toBeDefined();
+    expect(entry?.label).toBe(page.label);
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe(page.path);
+    expect(entry?.comingSoon).toBeUndefined();
   });
 });
 

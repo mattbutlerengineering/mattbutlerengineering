@@ -699,6 +699,36 @@ export const PAGE_REGISTRY: PageEntry[] = [
         default: m.ReservationsListExamplePage,
       })),
   },
+  {
+    id: "example-error-403",
+    label: "Error 403",
+    category: "Examples",
+    path: "/examples/error-403",
+    load: () =>
+      import("../pages/examples/ErrorForbiddenExamplePage").then((m) => ({
+        default: m.ErrorForbiddenExamplePage,
+      })),
+  },
+  {
+    id: "example-error-404",
+    label: "Error 404",
+    category: "Examples",
+    path: "/examples/error-404",
+    load: () =>
+      import("../pages/examples/ErrorNotFoundExamplePage").then((m) => ({
+        default: m.ErrorNotFoundExamplePage,
+      })),
+  },
+  {
+    id: "example-error-500",
+    label: "Error 500",
+    category: "Examples",
+    path: "/examples/error-500",
+    load: () =>
+      import("../pages/examples/ErrorServerExamplePage").then((m) => ({
+        default: m.ErrorServerExamplePage,
+      })),
+  },
 ];
 
 // ---------------------------------------------------------------------------
