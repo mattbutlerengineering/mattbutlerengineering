@@ -110,10 +110,7 @@ function makeDeps() {
 
 const reminderPayload: ReminderPayload = {
   reservationId: "res_1",
-  guestPhone: "+15551230000",
-  guestEmail: "jane@example.com",
   venueId: "venue_1",
-  channel: "both",
 };
 
 beforeEach(() => {
@@ -212,6 +209,34 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
 
     expect(deps.handleWaitlistExpiry).toHaveBeenCalledWith({ waitlistEntryId: "entry_1" });
     expect(deps.dispatcher.sendBookingReminder).not.toHaveBeenCalled();
+  });
+
+  it("delivers correctly for an in-flight job enqueued by pre-trim code (extra guestEmail/guestPhone/channel fields ignored)", async () => {
+    const deps = makeDeps();
+    new JobWorker({
+      redisUrl: "redis://localhost:6379",
+      handlers: createReservationJobHandlers(deps),
+    });
+
+    // Simulates a job that was already sitting in Redis, enqueued by the OLD
+    // scheduler code before this deploy — it still carries the removed
+    // guestEmail/guestPhone/channel fields. dispatchJob has no payload schema
+    // validation (it forwards job.data as `unknown`), and deliverReminder only
+    // destructures reservationId/venueId off the payload, so the extra fields
+    // are simply ignored rather than rejected.
+    const legacyPayload = {
+      reservationId: "res_1",
+      guestPhone: "+15551230000",
+      guestEmail: "jane@example.com",
+      venueId: "venue_1",
+      channel: "both",
+    };
+
+    await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: legacyPayload });
+
+    expect(deps.getReservation).toHaveBeenCalledWith("res_1");
+    expect(deps.getVenue).toHaveBeenCalledWith("venue_1");
+    expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledOnce();
   });
 
   it("reminder handler skips delivery when the reservation is gone (no pointless retry)", async () => {

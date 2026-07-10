@@ -53,7 +53,12 @@ describe("createNotifierRuntime", () => {
   it("lazily constructs exactly one JobScheduler on first use and reuses it", async () => {
     const runtime = createNotifierRuntime();
 
-    await runtime.scheduler.schedule(JOB_TYPES.WAITLIST_EXPIRY, { waitlistEntryId: "e1" }, 1000, "j1");
+    await runtime.scheduler.schedule(
+      JOB_TYPES.WAITLIST_EXPIRY,
+      { waitlistEntryId: "e1" },
+      1000,
+      "j1"
+    );
     await runtime.scheduler.cancel("j1");
 
     expect(jobSchedulerCtor).toHaveBeenCalledOnce();
@@ -63,13 +68,15 @@ describe("createNotifierRuntime", () => {
     const runtime = createNotifierRuntime();
     const payload: ReminderPayload = {
       reservationId: "r1",
-      guestEmail: "g@example.com",
-      guestPhone: null,
       venueId: "v1",
-      channel: "email",
     };
 
-    await runtime.scheduler.schedule(JOB_TYPES.BOOKING_REMINDER, payload, 5000, "booking-reminder:r1");
+    await runtime.scheduler.schedule(
+      JOB_TYPES.BOOKING_REMINDER,
+      payload,
+      5000,
+      "booking-reminder:r1"
+    );
 
     expect(scheduleSpy).toHaveBeenCalledWith(
       JOB_TYPES.BOOKING_REMINDER,

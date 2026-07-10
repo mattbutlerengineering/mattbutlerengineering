@@ -80,10 +80,7 @@ describe("JobScheduler + JobWorker integration", () => {
 
     const payload: ReminderPayload = {
       reservationId: "res_e2e_1",
-      guestPhone: "+15551234567",
-      guestEmail: "test@example.com",
       venueId: "venue_abc",
-      channel: "sms",
     };
 
     // Schedule the job

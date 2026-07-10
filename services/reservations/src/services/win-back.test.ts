@@ -101,4 +101,17 @@ describe("sendWinBack", () => {
     expect(result).toBe(false);
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
+
+  // Focused coverage for the two skip predicates directly on the public
+  // sendWinBack surface — no dependency on the (now-removed) shared
+  // resolveChannel helper that booking-notifications.ts used to export.
+  it("returns false for sms_only guest with no email (both skip conditions true)", async () => {
+    const guest = makeGuest({ communicationPreference: "sms_only", email: null });
+    const port = makeNotificationPort();
+
+    const result = await sendWinBack(guest, port, "Any Venue");
+
+    expect(result).toBe(false);
+    expect(port.sendWinBack).not.toHaveBeenCalled();
+  });
 });

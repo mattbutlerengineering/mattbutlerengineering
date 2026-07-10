@@ -20,10 +20,7 @@ describe("dispatchJob", () => {
     const handlers = makeHandlers();
     const payload: ReminderPayload = {
       reservationId: "res_1",
-      guestPhone: "+15551234567",
-      guestEmail: "guest@example.com",
       venueId: "venue_1",
-      channel: "both",
     };
 
     await dispatchJob(handlers, { name: JOB_TYPES.BOOKING_REMINDER, data: payload });
