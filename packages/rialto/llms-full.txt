@@ -1493,6 +1493,20 @@
       },
     ];
   </file>
+  <file path="scripts/component-projection.ts">
+    export interface PropInfo {
+      name: string;
+      type: string;
+      required: boolean;
+      default?: string;
+      description?: string;
+    }
+    export interface CharacterLimitInfo {
+      prop: string;
+      max: number;
+      reason: string;
+    }
+  </file>
   <file path="scripts/generate-all.ts">
     function main(): void {
       const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
@@ -1559,31 +1573,33 @@
     }
   </file>
   <file path="scripts/generate-manifest.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
+    interface Manifest {
+      version: string;
+      generatedAt: string;
+      components: ProjectedComponent[];
     }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
+    export function buildManifest(
+      components: ComponentMetadata[],
+      version: string,
+      generatedAt: string
+    ): Manifest {
+      return {
+        version,
+        generatedAt,
+        components: projectComponents(components, { includeImportPath: false }),
+      };
     }
   </file>
   <file path="scripts/generate-registry.ts">
-    interface PropInfo {
-      name: string;
-      type: string;
-      required: boolean;
-      default?: string;
-      description?: string;
+    interface Registry {
+      version: string;
+      components: ProjectedComponent[];
     }
-    interface CharacterLimitInfo {
-      prop: string;
-      max: number;
-      reason: string;
+    export function buildRegistry(components: ComponentMetadata[], version: string): Registry {
+      return {
+        version,
+        components: projectComponents(components, { includeImportPath: true }),
+      };
     }
   </file>
   <file path="scripts/lib-entrypoints.ts">

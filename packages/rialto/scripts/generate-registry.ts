@@ -14,35 +14,13 @@ import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "node:url";
 import { introspectComponents, type ComponentMetadata } from "./component-metadata.js";
+import { projectComponents, type ProjectedComponent } from "./component-projection.js";
 
 /* ── Types ───────────────────────────────────── */
 
-interface PropInfo {
-  name: string;
-  type: string;
-  required: boolean;
-  default?: string;
-  description?: string;
-}
-
-interface CharacterLimitInfo {
-  prop: string;
-  max: number;
-  reason: string;
-}
-
-interface RegistryComponent {
-  name: string;
-  description?: string;
-  importPath: string;
-  props: PropInfo[];
-  slots: string[];
-  characterLimits?: CharacterLimitInfo[];
-}
-
 interface Registry {
   version: string;
-  components: RegistryComponent[];
+  components: ProjectedComponent[];
 }
 
 /* ── Conversion ──────────────────────────────── */
@@ -50,36 +28,14 @@ interface Registry {
 /**
  * Map a ComponentMetadata array to the registry JSON format.
  *
- * - Projects each prop to only the fields the registry schema defines
- *   (name, type, required; optional default and description).
- * - Omits `characterLimits` when empty so the output is byte-identical to
- *   the previous generator.
+ * A thin header over the shared projection (see component-projection.ts):
+ * registry components carry an `importPath`.
  */
 export function buildRegistry(components: ComponentMetadata[], version: string): Registry {
-  const registryComponents: RegistryComponent[] = components.map((comp) => {
-    const props: PropInfo[] = comp.props.map((p) => {
-      const prop: PropInfo = { name: p.name, type: p.type, required: p.required };
-      if (p.description !== undefined) prop.description = p.description;
-      if (p.default !== undefined) prop.default = p.default;
-      return prop;
-    });
-
-    const entry: RegistryComponent = {
-      name: comp.name,
-      description: comp.description,
-      importPath: comp.importPath,
-      props,
-      slots: comp.slots,
-    };
-
-    if (comp.characterLimits.length > 0) {
-      entry.characterLimits = comp.characterLimits;
-    }
-
-    return entry;
-  });
-
-  return { version, components: registryComponents };
+  return {
+    version,
+    components: projectComponents(components, { includeImportPath: true }),
+  };
 }
 
 /* ── Main ────────────────────────────────────── */

@@ -182,8 +182,6 @@ describe("manifest drift guard — overlays category", () => {
  * Deferred (not in this list):
  * - Toast: imperative API (toast() function call), not rendered as JSX with props;
  *   no manifest entry.
- * - ChalkboardSection: extends HTMLElement with 278 inherited HTML props and only
- *   has `heading` and `children` as own props — kept hand-written for clarity.
  * - TimelineEvent, TreeNode: internal type shapes, not top-level components.
  * - DropdownMenu's "MenuItem Type": internal union type, not a manifest component.
  *
@@ -196,6 +194,7 @@ const DATA_COMPONENTS = [
   "Card",
   "Chalkboard",
   "ChalkboardItem",
+  "ChalkboardSection",
   "DataList",
   "Ferrofluid",
   "Kbd",
