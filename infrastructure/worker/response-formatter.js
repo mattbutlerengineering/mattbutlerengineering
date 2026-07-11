@@ -11,6 +11,7 @@
 
 import { buildCspDirectives } from "./csp.js";
 import topologyConfig from "./routes-config.json";
+import { readKvJson } from "./health/kv-access.js";
 
 /**
  * Build security headers with a per-request nonce for CSP script-src.
@@ -28,15 +29,15 @@ function buildSecurityHeaders(nonce, kvPolicy) {
 }
 
 /**
- * Read the CSP policy override from KV ("security/csp").
- * Returns null on miss or error — callers treat null as "use hardcoded fallback".
+ * Read the CSP policy override from KV.
+ *
+ * Delegates to readKvJson for the shared "read JSON, null on miss/error"
+ * behaviour; the KV key lives in routes-config.json (kvKeys.securityCsp)
+ * alongside every other registered key. Callers treat null as "use the
+ * hardcoded fallback".
  */
-async function readCspPolicy(kv) {
-  try {
-    return await kv.get("security/csp", "json");
-  } catch {
-    return null;
-  }
+function readCspPolicy(kv) {
+  return readKvJson(kv, topologyConfig.kvKeys.securityCsp);
 }
 
 /**

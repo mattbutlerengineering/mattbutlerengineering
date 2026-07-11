@@ -72,10 +72,13 @@ class MockHTMLRewriter {
 globalThis.HTMLRewriter = MockHTMLRewriter;
 
 // ── topologyConfig mock (same structure as routes-config.json) ───────
-// response-formatter.js needs cacheClasses. We mock the module so
-// tests don't depend on the actual JSON file.
+// response-formatter.js needs cacheClasses and the securityCsp KV key.
+// We mock the module so tests don't depend on the actual JSON file.
 vi.mock("./routes-config.json", () => ({
   default: {
+    kvKeys: {
+      securityCsp: "security/csp",
+    },
     cacheClasses: {
       "static-site": {
         hashedAssets: "public, max-age=31536000, immutable",
