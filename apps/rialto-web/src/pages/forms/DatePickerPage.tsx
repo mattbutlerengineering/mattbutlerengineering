@@ -44,18 +44,19 @@ function BoundedExample() {
     <Stack gap="lg">
       <Card variant="flat" style={{ padding: "var(--rialto-space-xl)", alignItems: "center" }}>
         <DatePicker
-          label="Arrival (July 2026 only)"
+          label="Arrival (5–25 July 2026)"
           placeholder="Pick a day"
           value={date}
           onChange={setDate}
           min="2026-07-05"
           max="2026-07-25"
-          isDateDisabled={(iso) => iso.endsWith("-13")}
           locale="en-US"
         />
       </Card>
       <Text variant="caption" color="secondary">
-        Bounded to 5–25 July 2026; the 13th is blocked by a predicate.
+        Bounded to 5–25 July 2026 (inclusive). For arbitrary per-date rules pass{" "}
+        <code>isDateDisabled</code> instead — it is authoritative and replaces{" "}
+        <code>min</code>/<code>max</code> when both are supplied.
       </Text>
     </Stack>
   );
