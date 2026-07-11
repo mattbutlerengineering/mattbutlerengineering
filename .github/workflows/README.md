@@ -25,7 +25,6 @@ Run on pull requests to enforce standards before merge.
 | `adr-check.yml`              | Validate ADR format and index              |
 | `ai-attribution.yml`         | Check accessibility + AI attribution       |
 | `auto-review.yml`            | Automated code review                      |
-| `coverage-gate.yml`          | Enforce test coverage thresholds           |
 | `e2e.yml`                    | End-to-end tests via Playwright            |
 | `instruction-regression.yml` | Detect regressions in AI instruction files |
 | `preview-deploy.yml`         | Deploy PR preview environments             |
