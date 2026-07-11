@@ -51,11 +51,7 @@ Automated system that audits the live site, finds and fixes issues, builds featu
 
 ### Skill Directory
 
-Claude Code loads project skills from **`.claude/skills/`** — the only directory Claude Code discovers (alongside `~/.claude/skills/` and enabled plugins). It holds both project-automation skills (CI, deploys, queue management) and general-engineering advisor skills (review, diagnose, scaffold, TDD).
-
-> A former `.agents/skills/` mirror was removed (#3015): it was never a Claude Code discovery path (no `plugin.json`, no skill-path setting), so its copies were silently ignored and only caused drift. If you want general-engineering skills to live under a separate root, register it as a plugin — do not re-add a bare `.agents/skills/`.
-
-All skills are invocable via `/skill-name` and discoverable via the system's skill registry.
+Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claude/skills/` and plugins). It holds both project-automation and general-engineering advisor skills. All skills are invocable via `/skill-name` and discoverable via the system's skill registry.
 
 ### Skills
 
@@ -75,12 +71,12 @@ All skills are invocable via `/skill-name` and discoverable via the system's ski
 
 ### Scaffolding Skills
 
-| Skill                | Purpose                                                                                                                                                                                      |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/new-adr`           | Scaffold a new Architecture Decision Record in docs/adr/ with the repo's canonical format and the next available sequential number                                                           |
-| `/new-component`     | Scaffold a new rialto design system component with all required files (component, CSS module, test, story, barrel export) following established conventions                                  |
-| `/new-e2e-test`      | Scaffold a Playwright E2E test in one of the apps that has a Playwright config, matching the existing test fixtures and auth patterns                                                        |
-| `/new-service-route` | Scaffold a new Fastify route in services/{reservations,users,agent} matching the house pattern — schema validation, auth, error envelope per ADR-002, SSE broadcast (if reservations), tests |
+| Skill                | Purpose                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `/new-adr`           | Scaffold a new ADR in docs/adr/ with canonical format and sequential numbering                  |
+| `/new-component`     | Scaffold rialto component with all required files (component, styles, test, story, export)      |
+| `/new-e2e-test`      | Scaffold Playwright E2E test matching existing fixtures and auth patterns                       |
+| `/new-service-route` | Scaffold Fastify route with validation, auth, ADR-002 error envelope, SSE (reservations), tests |
 
 **General Engineering** (`.claude/skills/`)
 
@@ -146,33 +142,13 @@ mbe up                                           # Start dev servers
 
 ### RemoteTriggers (scheduled background agents)
 
-Managed at https://claude.ai/code/scheduled
+Managed at https://claude.ai/code/scheduled. See [docs/scheduled-tasks.md](./docs/scheduled-tasks.md) for full schedule and prompts.
 
-| Trigger                  | Schedule (PT)                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| `mbe-acmm-audit`         | Daily 10:00am (ACMM maturity audit + apply outputs)                             |
-| `mbe-learning-loop`      | Daily 11:00am (sensor report → verify fixes → triage regressions)               |
-| `mbe-arch-deepening`     | Every 2 days 8:00am (architecture deepening agent → PR)                         |
-| `mbe-weekly-improve`     | Fri 7:00am (improve + improve-codebase-architecture → 1 PR + `ready` issues)    |
-| `mbe-gotcha-harvest`     | Fri 10:30am (mine recent sessions for gotchas → propose CLAUDE.md/memory edits) |
-| `mbe-reflect`            | Fri 6:00pm (weekly CLAUDE.md maintenance from human corrections)                |
-| `mbe-monthly-meta-audit` | 1st of month 7:00am (claude-md-improver + claude-automation-recommender → 1 PR) |
-
-Disabled (kept for reference): `mbe-verify-acmm-features`, `mbe-acmm-plugin-extraction`, `mbe-oss-readiness-verify`.
-
-> **Capacity model**: weekly work is Friday-weighted (peak availability); the `ready` queue is drained on demand via local `/implement-queue`, **not** a scheduled issue-worker pickup. Daily baseline is 2 runs (`mbe-acmm-audit` + `mbe-learning-loop`), plus `mbe-arch-deepening` every other day. Fridays add `mbe-weekly-improve` / `mbe-gotcha-harvest` / `mbe-reflect`. Well under the 5x/day plan ceiling except possibly Fridays — acceptable.
-
-> **Trust live output:** Agents should re-run source-of-truth checks (e.g., `node scripts/acmm/audit.js`) for any actionable decision (e.g., which issues to close, what to build next) rather than recalling earlier summaries from conversation history. Live output is more accurate than hand-summarized state.
-
-> **Full catalog + prompts:** [docs/scheduled-tasks.md](./docs/scheduled-tasks.md).
-
----
+**Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node scripts/acmm/audit.js`) instead of recalling earlier summaries from conversation history.
 
 ## Dispatching Worktree Agents
 
 Worktrees are bare checkouts without `node_modules`. Always include `pnpm install --frozen-lockfile` as the first step in agent prompts, and run `pnpm typecheck` before declaring done. See [gotchas.md#build--pnpm--turbo](./.claude/rules/gotchas.md) for recurring agent failure patterns.
-
----
 
 ## Feature Implementation
 
@@ -207,96 +183,14 @@ cd apps/rialto-web && pnpm dlx wrangler@latest deploy
 
 Only run `npm publish` from `packages/rialto` when actually cutting a registry release.
 
-## AI Observability (Langfuse)
+## MCP Servers & Observability
 
-Agent sessions are traced to [Langfuse Cloud](https://cloud.langfuse.com) for LLM-specific observability.
+- **Langfuse tracing:** Agent sessions traced to [Langfuse Cloud](https://cloud.langfuse.com). Requires `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` env vars; unset = zero overhead.
+- **Semgrep:** See [AGENTS.md](./AGENTS.md#security-scanning-semgrep). Available via `.mcp.json` for scans over `@semgrep/mcp`.
+- **Playwright:** Shared browser tooling (`.mcp.json`) for `/site-audit` and E2E suite; no config needed beyond `.mcp.json` entry.
+- **Stripe (test-mode):** Set `STRIPE_SECRET_KEY` to test-mode key (`sk_test_…`) in `.mcp.json`; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
 
-### What's traced
+## Cross-Session Memory & Knowledge Graph
 
-- **Session traces** — one per `runSession()` call, with task description, model, and budget metadata
-- **Generation spans** — one per SDK turn, with model, input/output, and token usage
-- **Session metrics** — success (0/1), cost_usd, num_turns, stuck (0/1), evaluation_confidence
-
-### Environment variables
-
-```bash
-LANGFUSE_PUBLIC_KEY=pk-lf-...    # Required for Langfuse tracing
-LANGFUSE_SECRET_KEY=sk-lf-...    # Required for Langfuse tracing
-LANGFUSE_BASEURL=https://cloud.langfuse.com  # Default
-```
-
-When `LANGFUSE_PUBLIC_KEY` is unset, Langfuse is not loaded — zero overhead.
-
-## Security Scanning (Semgrep)
-
-See [AGENTS.md](./AGENTS.md#security-scanning-semgrep) for Semgrep configuration, rules, and usage. Claude Code additionally has the Semgrep MCP server (`.mcp.json`) for invoking scans via `@semgrep/mcp`.
-
-## Browser Automation (Playwright)
-
-The Playwright MCP server (`.mcp.json`) provides shared browser tooling for the whole team and CI headless runs — the same server that drives `/site-audit` and the E2E suite.
-
-- No auth or secrets required — resolves cleanly in a fresh checkout
-- Requires no configuration beyond the entry in `.mcp.json`
-- If you also have the personal Playwright plugin installed, both coexist without conflict (Claude Code deduplicates tools by server name)
-
-## Payments (Stripe MCP — test-mode only)
-
-The Stripe MCP server (`.mcp.json`, `@stripe/mcp`) gives Claude Code live Stripe API docs and test-mode object inspection (PaymentIntents, charges, refunds, webhook events) when working on payment-path code (`stripe`, `@stripe/react-stripe-js`, the deposit calculator, webhook handlers) — so agents read real API shapes instead of guessing.
-
-- **Test-mode only.** The server reads the key from the `STRIPE_SECRET_KEY` env var (referenced as `${STRIPE_SECRET_KEY}` in `.mcp.json` — no secret is committed). Set it to a **test-mode** key (`sk_test_…`) in your local env / secret store. **Never a live key** (`sk_live_…`).
-- When `STRIPE_SECRET_KEY` is unset the server simply fails to load — zero impact on other tooling (same posture as the Langfuse entry).
-- Prefer a Stripe **Restricted API Key (RAK)** scoped to read-only test-mode objects; tool permissions follow the RAK's scope.
-- Verify after setup: a read-only test-mode call (e.g. list PaymentIntents) should succeed.
-
-## Cross-Session Memory (claude-mem)
-
-[claude-mem](https://github.com/thedotmack/claude-mem) provides persistent cross-session memory — observations about code patterns, architecture decisions, and domain context survive between conversations.
-
-### Install
-
-```bash
-npx claude-mem install
-```
-
-### Available skills
-
-| Skill              | Purpose                                |
-| ------------------ | -------------------------------------- |
-| `/mem-search`      | Search past observations and decisions |
-| `/smart-explore`   | Token-efficient AST-based code search  |
-| `/make-plan`       | Create phased implementation plans     |
-| `/do`              | Execute plans with subagents           |
-| `/timeline-report` | Project development history analysis   |
-| `/babysit`         | Watch PR until merge-ready             |
-
-### Auto-observation
-
-claude-mem automatically records observations during sessions — code patterns discovered, architecture decisions made, debugging outcomes. These are searchable in future sessions via `/mem-search`.
-
-## Knowledge Graph (graphify)
-
-[graphify](https://github.com/safishamsi/graphify) turns the repo (or any folder/PDF/image/video) into a persistent, queryable knowledge graph: nodes are concepts/files/symbols, edges are tagged `EXTRACTED` / `INFERRED` / `AMBIGUOUS` (honest audit trail), and community detection surfaces cross-file connections you wouldn't think to ask about. The skill is vendored at `.claude/skills/graphify/SKILL.md` (v0.8.39) and self-bootstraps the `graphifyy` PyPI package on first run (needs Python 3.10+; uses `uv tool` or `pip`). Graph artifacts land in `graphify-out/` (gitignored).
-
-### Where it fits in our process
-
-| Use case                   | How graphify helps                                                                                                                                                                                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Onboarding a subsystem** | `/graphify packages/<pkg>` then `/graphify query "how does X work"` — concept-level map of an unfamiliar package before touching it. Goes deeper than `docs/architecture/dependency-graph.md`, which is package-level only.                          |
-| **Architecture audits**    | Feed graphify's community clusters + cross-file edges into `/improve-codebase-architecture` to spot coupling and deepening opportunities.                                                                                                            |
-| **Agent context priming**  | Once `graphify-out/graph.json` exists, codebase questions are answered from the graph (BFS/DFS traversal, token-budgeted) instead of re-reading files — cheaper context for `implement-queue` workers. `--mcp` exposes the graph to agents over MCP. |
-| **PR / change review**     | `/graphify path "ModuleA" "ModuleB"` traces the shortest dependency path between two concepts to reason about blast radius.                                                                                                                          |
-
-### Boundaries (avoid tool overlap)
-
-- **vs `dependency-graph.md`** — that artifact stays the source of truth for _package_-level deps and is CI-enforced. graphify is for _concept/symbol_-level exploration; its output is gitignored and never gates CI.
-- **vs claude-mem (`/smart-explore`, `/mem-search`)** — claude-mem is session memory + AST search. graphify is a durable graph you query. Reach for graphify when you want a navigable map of how things connect; reach for claude-mem when recalling what happened in past sessions.
-
-### Quick start
-
-```bash
-/graphify packages/rialto                 # build graph for one package (scoped; fast)
-/graphify query "how does the booking widget reach the reservations service"
-/graphify .                                # full monorepo graph (slow — LLM extraction over all packages)
-```
-
-> **Feedback Loop Log**: historical sensor-issue-fix-verify cycles are tracked via [GitHub Issues](https://github.com/mattbutlerengineering/mattbutlerengineering/issues?q=label%3A%22sensor%22) and the [progress-tracker skill](#continuous-improvement-loop) — see the live dashboard for current metrics.
+- **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. Install: `npx claude-mem install`.
+- **graphify** (`/graphify`): Knowledge graph from repo (or folder/PDF/image/video). Vendored at `.claude/skills/graphify/SKILL.md`, self-bootstraps `graphifyy` PyPI package (needs Python 3.10+). Graph artifacts in `graphify-out/` (gitignored). Use for concept-level subsystem maps, architecture audits, and tracing dependency paths.
