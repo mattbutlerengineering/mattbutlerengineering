@@ -257,6 +257,28 @@ describe("Edge Router", () => {
       }
     });
 
+    it("strips a client-supplied X-Feature-Flags header before proxying", async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+
+      try {
+        const response = await edgeRouter.fetch(
+          makeRequest(API_TEST_PATH, {
+            headers: { "X-Feature-Flags": '{"enhanced-validation":true}' },
+          }),
+          env
+        );
+        expect(response.status).toBe(200);
+
+        // A client must never control server-side feature flags: the edge is the
+        // only sanctioned source and it emits none, so the header is dropped.
+        const forwardedRequest = globalThis.fetch.mock.calls[0][0];
+        expect(forwardedRequest.headers.get("x-feature-flags")).toBeNull();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("adds security headers to API proxy responses", async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn(

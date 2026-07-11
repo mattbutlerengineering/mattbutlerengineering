@@ -177,6 +177,11 @@ export default {
       headers.set("X-Forwarded-Host", url.host);
       headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
       headers.set("X-Request-ID", requestId);
+      // The edge no longer injects feature flags (pipeline deleted, #3349). Strip
+      // any inbound X-Feature-Flags so a client can never supply a header the
+      // service-side flag plugin would trust — the edge is the only sanctioned
+      // source, and it now emits none. (Headers API is case-insensitive.)
+      headers.delete("X-Feature-Flags");
 
       let apiResponse;
       try {
