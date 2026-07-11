@@ -6541,6 +6541,11 @@
   </file>
   <file path="services/reservations/src/routes/availability.ts">
     export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      // Resolve domain services from the buildApp seam (issue #3357) rather than
+      // importing the sibling singletons directly — tests inject fakes via
+      // buildApp({ services }).
+      const { availabilityService, venueService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(TimeSlotSchema);
       fastify.addSchema(DateAvailabilitySchema);
@@ -9404,6 +9409,23 @@
   </file>
   <file path="services/reservations/src/routes/tables.ts">
     export const tableRoutes: FastifyPluginAsync = async (fastify) => {
+      // Resolve domain services from the buildApp seam (issue #3357) rather than
+      // importing the sibling singleton directly — tests inject fakes via
+      // buildApp({ services }).
+      const { tableService } = fastify.services;
+    
+      /**
+       * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
+       * to that venue. Null when the table does not exist or is unassigned (→ 403 for
+       * non-admins; platform admins bypass the check).
+       */
+      const resolveTableVenueId: VenueIdResolver = async (request) => {
+        const params = request.params as { id?: unknown };
+        if (typeof params.id !== "string") return null;
+        const table = await tableService.getById(params.id);
+        return table?.venueId ?? null;
+      };
+    
       // List tables
       fastify.get<{
         Querystring: { page?: string; limit?: string; activeOnly?: string };
@@ -11584,6 +11606,32 @@
         this.name = "DepositNotFoundError";
       }
     }
+  </file>
+  <file path="services/reservations/src/services/domain-services.ts">
+    export interface DomainServices {
+      availabilityService: typeof availabilityService;
+      venueService: typeof venueService;
+      tableService: typeof tableService;
+      reservationService: typeof reservationService;
+      guestService: typeof guestService;
+      floorPlanService: typeof floorPlanService;
+      holdService: typeof holdService;
+      depositService: typeof depositService;
+      waitlistService: typeof waitlistService;
+      briefingService: typeof briefingService;
+    }
+    export const defaultDomainServices: DomainServices = {
+      availabilityService,
+      venueService,
+      tableService,
+      reservationService,
+      guestService,
+      floorPlanService,
+      holdService,
+      depositService,
+      waitlistService,
+      briefingService,
+    };
   </file>
   <file path="services/reservations/src/services/events.ts">
     export type ReservationEventType =
@@ -17211,6 +17259,13 @@
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
+      /**
+       * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
+       * singletons ({@link defaultDomainServices}); tests inject fakes here instead of
+       * `vi.mock`-ing the sibling service modules. Routes resolve their services from the
+       * `fastify.services` decoration, so an override here is the single seam.
+       */
+      services?: Partial<DomainServices>;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
@@ -17279,6 +17334,14 @@
         options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
       fastify.decorate("venueMembershipLookup", venueMembershipLookup);
     
+      // Wire the domain-service seam (issue #3357) — resolve the injectable services
+      // once (production singletons by default, test fakes via options.services) and
+      // decorate them so route plugins resolve dependencies from `fastify.services`
+      // instead of importing the sibling singleton at module scope. Decorated before
+      // route registration so child route plugins inherit it.
+      const services: DomainServices = { ...defaultDomainServices, ...options.services };
+      fastify.decorate("services", services);
+    
       // Register routes
       await fastify.register(healthRoutes);
       await fastify.register(registerReadinessRoutes, { prisma });
@@ -17332,8 +17395,8 @@
       const jobWorker = createReservationJobWorker({
         redisUrl: notifierRuntime.redisUrl,
         handlers: createReservationJobHandlers({
-          getReservation: (id) => reservationService.getById(id),
-          getVenue: (id) => venueService.getById(id),
+          getReservation: (id) => services.reservationService.getById(id),
+          getVenue: (id) => services.venueService.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
