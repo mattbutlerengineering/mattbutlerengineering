@@ -196,4 +196,37 @@ describe("Request JSON Schema derivation (toRequestJsonSchema)", () => {
     };
     expect(coerced.properties.count).toMatchObject({ type: "number" });
   });
+
+  it("keeps format but drops the extra pattern on z.email() (format-only, wire-compatible)", () => {
+    const schema = toRequestJsonSchema(z.object({ email: z.email() })) as {
+      properties: { email: Record<string, unknown> };
+    };
+    expect(schema.properties.email.format).toBe("email");
+    expect(schema.properties.email).not.toHaveProperty("pattern");
+  });
+
+  it("keeps format but drops the extra pattern on z.iso.datetime()", () => {
+    const schema = toRequestJsonSchema(
+      z.object({ startTime: z.iso.datetime({ offset: true }) })
+    ) as { properties: { startTime: Record<string, unknown> } };
+    expect(schema.properties.startTime.format).toBe("date-time");
+    expect(schema.properties.startTime).not.toHaveProperty("pattern");
+  });
+
+  it("leaves unbounded z.number().int() without the injected safe-integer maximum", () => {
+    const schema = toRequestJsonSchema(z.object({ partySize: z.number().int().min(1) })) as {
+      properties: { partySize: Record<string, unknown> };
+    };
+    expect(schema.properties.partySize.type).toBe("integer");
+    expect(schema.properties.partySize.minimum).toBe(1);
+    expect(schema.properties.partySize).not.toHaveProperty("maximum");
+  });
+
+  it("preserves explicit numeric bounds (not treated as injected sentinels)", () => {
+    const schema = toRequestJsonSchema(
+      z.object({ partySize: z.number().int().min(1).max(20) })
+    ) as { properties: { partySize: Record<string, unknown> } };
+    expect(schema.properties.partySize.maximum).toBe(20);
+    expect(schema.properties.partySize.minimum).toBe(1);
+  });
 });

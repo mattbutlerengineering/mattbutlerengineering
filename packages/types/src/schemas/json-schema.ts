@@ -107,6 +107,45 @@ function stripAdditionalProperties(obj: Record<string, unknown>): Record<string,
 }
 
 /**
+ * Recursively remove constraints Zod 4 adds that the hand-written request
+ * schemas never had, so derived request schemas stay wire-identical:
+ *
+ * - `pattern` on a node that also carries `format` — Zod's `z.email()` /
+ *   `z.iso.datetime()` emit BOTH a `format` and a stricter `pattern`. Fastify
+ *   already enforces `format` via ajv-formats, and the old inline schemas were
+ *   `format`-only; the extra `pattern` would reject previously-valid inputs
+ *   (e.g. `a#b@example.com`, basic-offset/leap-second date-times).
+ * - `minimum`/`maximum` equal to ±`Number.MAX_SAFE_INTEGER` — the sentinel
+ *   bounds Zod injects for `z.number().int()`; the old integer schemas were
+ *   unbounded. Explicit bounds (e.g. `max(20)`) are untouched.
+ */
+function stripRequestOverConstraints(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const hasFormat = typeof obj.format === "string";
+  for (const [key, value] of Object.entries(obj)) {
+    if (key === "pattern" && hasFormat) continue;
+    if (
+      (key === "maximum" && value === Number.MAX_SAFE_INTEGER) ||
+      (key === "minimum" && value === -Number.MAX_SAFE_INTEGER)
+    ) {
+      continue;
+    }
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      result[key] = stripRequestOverConstraints(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      result[key] = value.map((item) =>
+        item !== null && typeof item === "object" && !Array.isArray(item)
+          ? stripRequestOverConstraints(item as Record<string, unknown>)
+          : item
+      );
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
  * Convert a Zod schema to a Fastify-compatible JSON Schema with `$id`.
  *
  * Uses Zod 4's built-in `toJSONSchema` targeting JSON Schema draft-07
@@ -142,7 +181,9 @@ export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown>
     target: "draft-07",
     unrepresentable: "any",
   });
-  const cleaned = stripAdditionalProperties(raw as Record<string, unknown>);
+  const cleaned = stripRequestOverConstraints(
+    stripAdditionalProperties(raw as Record<string, unknown>)
+  );
   const { $schema: _schema, $id: _id, ...rest } = cleaned;
   return rest;
 }
