@@ -26,6 +26,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-018](ADR-018-learning-loop-architecture.md)   | Continuous-Improvement / Learning-Loop Architecture  | active                  | 2026-06-30 |
 | [ADR-019](ADR-019-in-process-jobworker-delivery.md) | In-Process JobWorker Delivery                       | active                  | 2026-07-04 |
 | [ADR-020](ADR-020-hybrid-role-venue-authorization.md) | Hybrid Role/Venue Authorization                     | active                  | 2026-07-05 |
+| [ADR-021](ADR-021-fail-fast-auth-authority-startup-validation.md) | Fail-Fast Startup Validation of AUTH_AUTHORITY | active | 2026-07-11 |
 
 ## Format
 

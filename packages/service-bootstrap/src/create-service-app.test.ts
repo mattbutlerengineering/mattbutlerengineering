@@ -259,6 +259,19 @@ describe("createServiceApp", () => {
     );
   });
 
+  it("throws at boot (fail-fast) when AUTH_AUTHORITY is a malformed URL", async () => {
+    process.env.AUTH_AUTHORITY = "not a valid url";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    await expect(createServiceApp(createTestConfig())).rejects.toThrow(/AUTH_AUTHORITY/);
+  });
+
+  it("boots normally when AUTH_AUTHORITY is a well-formed URL", async () => {
+    process.env.AUTH_AUTHORITY = "https://tenant.us.auth0.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    app = await createServiceApp(createTestConfig());
+    expect(app).toBeDefined();
+  });
+
   it("registers Sentry plugin", async () => {
     const sentry = await import("@mbe/sentry/node");
     app = await createServiceApp(createTestConfig());

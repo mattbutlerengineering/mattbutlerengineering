@@ -15,6 +15,7 @@ import {
 import { createLatencyTracker, type LatencyTracker } from "./health.js";
 import { sentryFastifyPlugin } from "@mbe/sentry/node";
 import { errorHandlerPlugin } from "./error-handler.js";
+import { validateStartupConfig } from "./validate-startup-config.js";
 import { applyVersioning } from "./apply-versioning.js";
 import type { ApiVersioningConfig } from "./apply-versioning.js";
 export type { ApiVersioningConfig } from "./apply-versioning.js";
@@ -101,6 +102,11 @@ export async function createServiceApp(
   config: ServiceAppConfig,
   options: AppOptions = {}
 ): Promise<FastifyInstance> {
+  // Fail fast on malformed startup config (e.g. a typo'd AUTH_AUTHORITY) so a
+  // bad deploy crashes loudly instead of serving traffic behind a red readiness
+  // probe. One place, one schema for every service. See ADR-021.
+  validateStartupConfig();
+
   const fastify = Fastify({
     logger: options.logger ?? true,
     disableRequestLogging: true,

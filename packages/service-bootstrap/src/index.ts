@@ -19,3 +19,4 @@ export { classifyError } from "./classify-error.js";
 export type { ErrorClassification } from "./classify-error.js";
 export { registerReadinessRoutes } from "./readiness-routes.js";
 export type { ReadinessRoutesOptions } from "./readiness-routes.js";
+export { validateStartupConfig, buildJwksUrl } from "./validate-startup-config.js";
