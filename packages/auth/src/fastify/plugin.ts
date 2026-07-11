@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import type { JWTPayload as VerifiedJWTPayload } from "jose";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyPluginAsync } from "fastify";
 import type { JWTPayload, AuthUser } from "../types/index.js";
@@ -21,11 +22,97 @@ export interface AuthPluginOptions {
   /** Routes to exclude from token verification (e.g., ["/health"]) */
   excludePaths?: string[];
   /**
-   * When true, requests with 'x-auth-bypass: true' header skip JWT validation
+   * When true, requests opting in via the bypass header skip JWT validation
    * and receive a hardcoded admin identity. Resolved once from AUTH_BYPASS_IN_TESTS
    * in getAuthPluginOptionsFromEnv(). Never set this in production.
    */
   bypassTestMode?: boolean;
+  /**
+   * Verifies a Bearer token and returns its decoded claims, or throws on any
+   * validation failure. Optional seam (ADR-020 injection style): defaults to the
+   * standard OIDC/JWKS adapter (createRemoteJWKSet + jwtVerify, per ADR-010), so
+   * existing consumers need not pass it. Tests inject a stub to exercise
+   * verification-failure branches without network I/O.
+   */
+  verifier?: JwtVerifier;
+}
+
+/**
+ * Verifier seam: given a raw Bearer token, resolve the decoded JWT claims or
+ * throw. The default implementation ({@link createJoseVerifier}) uses standard
+ * OIDC/JWKS verification (ADR-010); consumers/tests may inject an alternative.
+ */
+export type JwtVerifier = (token: string) => Promise<VerifiedJWTPayload>;
+
+/**
+ * The SINGLE definition of the security-critical test-bypass predicate, shared
+ * by the onRequest hook and {@link requireAuth} so the two can never drift.
+ *
+ * Positive opt-in gate: the bypass activates ONLY when NODE_ENV=test AND the
+ * plugin was registered with bypassTestMode AND the request opted in via the
+ * bypass header. Production, staging, and an unset NODE_ENV all leave it OFF, so
+ * one bad deploy config cannot grant a hardcoded admin identity on a live service.
+ */
+export function isTestBypass(
+  request: Pick<FastifyRequest, "headers">,
+  bypassTestMode: boolean
+): boolean {
+  return (
+    process.env.NODE_ENV === "test" &&
+    bypassTestMode &&
+    request.headers["x-auth-bypass"] === "true"
+  );
+}
+
+/**
+ * Pure mapping from verified JWT claims to an {@link AuthUser}. Returns null when
+ * the payload lacks a string `sub` claim, letting the caller emit the specific
+ * "missing sub" 401. Extracted so the mapping is table-testable in isolation.
+ */
+export function toAuthUser(payload: VerifiedJWTPayload): AuthUser | null {
+  if (typeof payload.sub !== "string") {
+    return null;
+  }
+
+  const jwtPayload: JWTPayload = {
+    ...payload,
+    sub: payload.sub,
+    iss: payload.iss ?? "",
+    aud: payload.aud ?? "",
+    exp: payload.exp ?? 0,
+    iat: payload.iat ?? 0,
+    email: payload.email as string | undefined,
+    email_verified: payload.email_verified as boolean | undefined,
+    name: payload.name as string | undefined,
+    picture: payload.picture as string | undefined,
+  };
+
+  return {
+    id: jwtPayload.sub,
+    email: jwtPayload.email,
+    name: jwtPayload.name,
+    picture: jwtPayload.picture,
+    emailVerified: jwtPayload.email_verified,
+    raw: jwtPayload,
+  };
+}
+
+/**
+ * Default verifier: standard OIDC/JWKS verification via jose (ADR-010, no Auth0
+ * SDK). Fetches signing keys from `{authority}/.well-known/jwks.json` and checks
+ * the issuer (normalized to a trailing slash) and audience. Behaviour is
+ * identical to the previously-inline verification path.
+ */
+export function createJoseVerifier(authority: string, audience: string): JwtVerifier {
+  const normalizedAuthority = authority.replace(/\/$/, "");
+  const jwksUri = `${normalizedAuthority}/.well-known/jwks.json`;
+  const JWKS = createRemoteJWKSet(new URL(jwksUri));
+  const issuer = `${normalizedAuthority}/`;
+
+  return async (token) => {
+    const { payload } = await jwtVerify(token, JWKS, { issuer, audience });
+    return payload;
+  };
 }
 
 /**
@@ -39,8 +126,9 @@ export interface AuthPluginOptions {
 async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
   const { authority, audience, excludePaths = [], bypassTestMode = false } = options;
 
-  const jwksUri = `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-  const JWKS = createRemoteJWKSet(new URL(jwksUri));
+  // Verifier seam: default to the standard OIDC/JWKS adapter (ADR-010), or the
+  // injected verifier when provided. Default behaviour is identical to before.
+  const verify = options.verifier ?? createJoseVerifier(authority, audience);
 
   // Expose bypassTestMode on the instance so requireAuth (a standalone preHandler)
   // can consult it without reading process.env at request time.
@@ -51,7 +139,7 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
   // be active outside tests (only active when NODE_ENV=test, via the guard in the onRequest hook).
   if (bypassTestMode) {
     fastify.log.warn(
-      "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Requests with 'x-auth-bypass: true' " +
+      "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Matching requests " +
         "skip JWT validation and receive a hardcoded admin identity. This bypass is default " +
         "OFF and only activates when NODE_ENV=test. NEVER set AUTH_BYPASS_IN_TESTS in production."
     );
@@ -71,16 +159,8 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
   // Consuming services (e.g., services/users) register @fastify/rate-limit globally
   // before this plugin, so all routes — including this onRequest hook — are covered.
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // 1. Explicit Test Bypass
-    // Check if bypass mode is enabled AND the request opted in via header.
-    // Positive opt-in gate: bypass activates ONLY when NODE_ENV=test. Production,
-    // staging, and an unset NODE_ENV all leave it OFF, so one bad deploy config
-    // cannot grant a hardcoded admin identity on a live service.
-    if (
-      process.env.NODE_ENV === "test" &&
-      bypassTestMode &&
-      request.headers["x-auth-bypass"] === "true"
-    ) {
+    // 1. Explicit test bypass — the single predicate, shared with requireAuth.
+    if (isTestBypass(request, bypassTestMode)) {
       request.user = {
         id: "auth0|user-123",
         email: "test@example.com",
@@ -130,42 +210,19 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
       }
     }
 
+    // 5. Verify the token via the seam, then map claims to the request user.
     try {
-      const result = await jwtVerify(token, JWKS, {
-        issuer: authority.replace(/\/$/, "") + "/",
-        audience,
-      });
+      const payload = await verify(token);
+      const user = toAuthUser(payload);
 
-      if (!result || !result.payload || typeof result.payload.sub !== "string") {
+      if (!user) {
         request.log.warn("JWT missing required 'sub' claim");
         return reply
           .code(401)
           .send(createProblemDetails(401, titleForStatus(401), "Invalid token: missing sub"));
       }
 
-      const { payload } = result;
-
-      const jwtPayload: JWTPayload = {
-        ...payload,
-        sub: payload.sub as string,
-        iss: payload.iss ?? "",
-        aud: payload.aud ?? "",
-        exp: payload.exp ?? 0,
-        iat: payload.iat ?? 0,
-        email: payload.email as string | undefined,
-        email_verified: payload.email_verified as boolean | undefined,
-        name: payload.name as string | undefined,
-        picture: payload.picture as string | undefined,
-      };
-
-      request.user = {
-        id: jwtPayload.sub,
-        email: jwtPayload.email,
-        name: jwtPayload.name,
-        picture: jwtPayload.picture,
-        emailVerified: jwtPayload.email_verified,
-        raw: jwtPayload,
-      };
+      request.user = user;
     } catch (error) {
       request.log.warn({ error }, "JWT validation failed");
       return reply.code(401).send(createProblemDetails(401, titleForStatus(401), "Invalid token"));
@@ -186,11 +243,7 @@ export function hasPermission(user: AuthUser | undefined, permission: string): b
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const bypassTestMode = (request.server as FastifyInstance).authBypassTestMode ?? false;
-  const isBypassed =
-    process.env.NODE_ENV === "test" &&
-    bypassTestMode &&
-    request.headers["x-auth-bypass"] === "true";
-  if (!request.user && !isBypassed) {
+  if (!request.user && !isTestBypass(request, bypassTestMode)) {
     return reply
       .code(401)
       .send(

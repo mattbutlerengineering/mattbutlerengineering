@@ -16,6 +16,7 @@ export {
 } from "./fastify/index.js";
 export type {
   AuthPluginOptions,
+  JwtVerifier,
   OwnerResolver,
   AuthorizationContext,
   OwnershipOptions,
