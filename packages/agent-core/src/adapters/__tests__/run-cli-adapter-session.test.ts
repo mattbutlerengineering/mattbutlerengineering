@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { AdapterConfig, AdapterResult } from "../../cli-adapter.js";
 import type { SessionConfig } from "../../types.js";
+import { DEFAULT_FEEDBACK_LOOP_CONFIG } from "../../types.js";
 import type { PhaseDeps } from "../../phases/index.js";
 import { makeFakePhaseDeps } from "../../__tests__/fake-phase-deps.js";
 import { recordSpend } from "../../spend-recorder.js";
@@ -510,6 +511,195 @@ describe("runCliAdapterSession", () => {
 
       const breachEvents = events.filter((e) => e.type === "session:budget_breach");
       expect(breachEvents).toHaveLength(0);
+    });
+  });
+
+  // ── Gate-then-push parity (#3347) ─────────────────────────────────
+  //
+  // The pre-#3268 cli-adapter-session-runner.ts pushed the branch in its
+  // OWN code before calling runPostCommitGateway, so un-gated branches
+  // reached the remote. The composition runner owns no push of its own: it
+  // delegates every push to the shared VerificationPhase and only publishes
+  // via PublishPhase AFTER the gateway has run — identical to the claude
+  // path (ADR-017). These tests lock that in.
+
+  describe("gate-then-push parity", () => {
+    it("runs the post-commit gateway before creating the PR", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/1",
+        number: 1,
+      });
+
+      await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+      const gatewayOrder = vi.mocked(runPostCommitGateway).mock.invocationCallOrder[0];
+      const publishOrder = vi.mocked(deps.prCreator.createPullRequest).mock.invocationCallOrder[0];
+      expect(gatewayOrder).toBeDefined();
+      expect(publishOrder).toBeDefined();
+      expect(gatewayOrder as number).toBeLessThan(publishOrder as number);
+    });
+
+    it("never pushes or invokes the gateway when a failed session wrote no changes", async () => {
+      const adapter = makeCliAdapter("gemini", {
+        success: false,
+        hasChanges: false,
+        error: "gemini CLI exited with non-zero status",
+      });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+      const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+      expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
+      expect(runPostCommitGateway).not.toHaveBeenCalled();
+      expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
+      expect(result.status).toBe("failed");
+    });
+
+    it("does not push when the pipeline halts before verification on an enforced budget breach", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, hasChanges: true, costUsd: 5.0 });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ maxBudgetUsd: 1.0, enforceBudget: true }),
+        undefined,
+        deps
+      );
+
+      expect(deps.worktreeManager.pushBranch).not.toHaveBeenCalled();
+      expect(runPostCommitGateway).not.toHaveBeenCalled();
+    });
+
+    it("quarantines un-gated work as a draft PR — never a normal or direct-merged PR", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(runPostCommitGateway).mockResolvedValue({
+        outcome: "create-draft-pr",
+        passed: false,
+        gateFailures: ["security-review"],
+        errors: ["Security review flagged a hardcoded secret"],
+      });
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/9",
+        number: 9,
+      });
+
+      await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+      expect(deps.prCreator.createPullRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ draft: true })
+      );
+      expect(deps.prCreator.createPullRequest).not.toHaveBeenCalledWith(
+        expect.objectContaining({ draft: false })
+      );
+      expect(deps.prCreator.mergeDirectly).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Feedback loop (#3347) ─────────────────────────────────────────
+  //
+  // The pre-#3268 runner accepted SessionConfig.feedbackLoop but had no
+  // FeedbackPhase equivalent, so gemini/opencode PRs never ran the review
+  // feedback loop the claude path runs. The composition runner drives the
+  // shared FeedbackPhase after PublishPhase.
+
+  describe("feedback loop", () => {
+    it("runs the feedback loop for a gemini session with feedbackLoop enabled, after the PR is created", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/7",
+        number: 7,
+      });
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG }),
+        undefined,
+        deps
+      );
+
+      expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalledOnce();
+      expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prNumber: 7,
+          branchName: "agent/fix-bug-abc123",
+          repoPath: "/repo/.agent-worktrees/agent-fix-bug-abc123",
+        }),
+        expect.anything(),
+        undefined
+      );
+    });
+
+    it("skips the feedback loop when no feedbackLoop config is provided", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/8",
+        number: 8,
+      });
+
+      await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+      expect(deps.feedbackLoop.runFeedbackLoop).not.toHaveBeenCalled();
+    });
+
+    it("forwards the AbortSignal into the feedback loop", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true });
+      const controller = new AbortController();
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+      vi.mocked(deps.prCreator.createPullRequest).mockResolvedValue({
+        url: "https://github.com/repo/pull/10",
+        number: 10,
+      });
+
+      await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG }),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      expect(deps.feedbackLoop.runFeedbackLoop).toHaveBeenCalledWith(
+        expect.objectContaining({ signal: controller.signal }),
+        expect.anything(),
+        undefined
+      );
+    });
+  });
+
+  // ── Abort mid-CLI-session (#3347) ─────────────────────────────────
+
+  describe("abort mid-CLI-session", () => {
+    it("terminates the run and reports an aborted result when the signal fires during dispatch", async () => {
+      const adapter = makeCliAdapter("gemini", { success: true, hasChanges: true });
+      const controller = new AbortController();
+      // Signal fires WHILE the CLI subprocess is in flight; the in-flight
+      // dispatch runs to its natural end, then the post-dispatch boundary
+      // check catches the abort — mirroring session-runner.ts's phase-
+      // boundary cancellation.
+      vi.spyOn(adapter, "dispatch").mockImplementation(async () => {
+        controller.abort();
+        return { success: true, hasChanges: true, rateLimited: false, durationMs: 100 };
+      });
+      vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+      const result = await runCliAdapterSession(
+        adapter,
+        makeSessionConfig({ feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG }),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      expect(runPostCommitGateway).not.toHaveBeenCalled();
+      expect(deps.prCreator.createPullRequest).not.toHaveBeenCalled();
+      expect(deps.feedbackLoop.runFeedbackLoop).not.toHaveBeenCalled();
+      expect(result.status).toBe("failed");
+      expect(result.errors).toContain("Session aborted");
     });
   });
 });
