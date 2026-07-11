@@ -56,7 +56,19 @@ gh issue list --label "ready" --state open --json number,title,body,labels --lim
 - share a zone/files with another issue already in this batch (merge-conflict prevention — when two conflict, take the higher-priority one)
 - are labeled `in-progress` or `stealable`
 
-**Claim up to 3:**
+**Compose the batch — spread across zones (ADR-023).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones instead of stacking same-zone PRs. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch:
+
+```js
+import { selectZoneSpreadBatch } from "./scripts/issue-zone.mjs";
+
+// `ready` = candidates already priority-sorted (Sort above) and
+// independence-filtered, each { number, title, labels, body }.
+const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3 });
+// → ≤3 issues in distinct zones, priority order preserved.
+```
+
+Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the merge-train-lock zone vocabulary (`scripts/merge-train-lock.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
+**Claim the composed batch** (each selected issue → `in-progress`):
 
 ```bash
 mbe issue transition <N> --to in-progress
