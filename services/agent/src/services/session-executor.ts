@@ -5,12 +5,11 @@ import {
   type EventProjector,
   type MappedEvent,
   type SessionEvent,
+  type SessionLifecycleStore,
 } from "@mbe/agent-core";
 import type { AgentSession } from "@mbe/types";
-import type { sessionService as SessionServiceType } from "./session.js";
 import type { SessionConcurrency } from "./session-concurrency.js";
 import { mapForStorage } from "./storage-event-mapper.js";
-import { createPrismaSessionStore } from "./prisma-session-store.js";
 import { getServiceLogger } from "./logger.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -18,7 +17,8 @@ import { getServiceLogger } from "./logger.js";
 export interface SessionExecutorConfig {
   /** The single gate that owns the max-concurrent-sessions policy. */
   concurrency: SessionConcurrency;
-  sessionService: typeof SessionServiceType;
+  /** Persistence seam; the Prisma-backed store in production. */
+  store: SessionLifecycleStore;
 }
 
 export interface SessionExecutor {
@@ -59,10 +59,10 @@ const projectEvent: EventProjector = (event: SessionEvent) => {
  * service's `(session: AgentSession)` calling convention onto it.
  */
 export function createSessionExecutor(config: SessionExecutorConfig): SessionExecutor {
-  const { concurrency, sessionService } = config;
+  const { concurrency, store } = config;
 
   const orchestrator = createSessionLifecycleOrchestrator({
-    store: createPrismaSessionStore(sessionService),
+    store,
     resolveRepoPath: () => resolve(process.env.REPO_PATH ?? process.cwd()),
     runSession,
     concurrency,
@@ -88,7 +88,7 @@ export function createSessionExecutor(config: SessionExecutorConfig): SessionExe
 
 // ── Default instance (backward-compat module-level exports) ───────────
 
-import { sessionService } from "./session.js";
+import { sessionLifecycleStore } from "./session-lifecycle-store.js";
 import { defaultConcurrency } from "./session-concurrency.js";
 
 // Built lazily on first use so importing this module is side-effect-free — the
@@ -96,7 +96,10 @@ import { defaultConcurrency } from "./session-concurrency.js";
 // keeps test doubles for @mbe/agent-core simple.
 let _defaultExecutor: SessionExecutor | undefined;
 function defaultExecutor(): SessionExecutor {
-  _defaultExecutor ??= createSessionExecutor({ concurrency: defaultConcurrency, sessionService });
+  _defaultExecutor ??= createSessionExecutor({
+    concurrency: defaultConcurrency,
+    store: sessionLifecycleStore,
+  });
   return _defaultExecutor;
 }
 

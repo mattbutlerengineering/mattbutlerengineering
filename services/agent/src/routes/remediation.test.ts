@@ -6,8 +6,11 @@ import { createHmac } from "node:crypto";
 vi.mock("../services/session.js", () => ({
   sessionService: {
     create: vi.fn(),
-    triggerSession: vi.fn(),
   },
+}));
+
+vi.mock("../services/session-trigger.js", () => ({
+  triggerSession: vi.fn(),
 }));
 
 vi.mock("../services/session-executor.js", () => ({
@@ -19,7 +22,7 @@ vi.mock("../services/remediation-circuit-breaker.js", () => ({
   recordRemediationOutcome: vi.fn(),
 }));
 
-import { sessionService } from "../services/session.js";
+import { triggerSession } from "../services/session-trigger.js";
 import { checkCircuitBreaker } from "../services/remediation-circuit-breaker.js";
 import { buildApp } from "../app.js";
 
@@ -115,7 +118,7 @@ describe("Remediation Webhook Routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().sessionId).toBe("");
-    expect(sessionService.triggerSession).not.toHaveBeenCalled();
+    expect(triggerSession).not.toHaveBeenCalled();
   });
 
   it("returns 503 if circuit breaker is open", async () => {
@@ -144,7 +147,7 @@ describe("Remediation Webhook Routes", () => {
 
   it("creates and executes a session for critical/warning alerts", async () => {
     const mockSession = { id: "remed-session-123" };
-    vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+    vi.mocked(triggerSession).mockResolvedValueOnce({
       session: mockSession as never,
       accepted: true,
     });
@@ -165,7 +168,7 @@ describe("Remediation Webhook Routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().sessionId).toBe("remed-session-123");
 
-    expect(sessionService.triggerSession).toHaveBeenCalledWith(
+    expect(triggerSession).toHaveBeenCalledWith(
       expect.objectContaining({
         baseBranch: "main",
         onSettled: expect.any(Function),
@@ -174,7 +177,7 @@ describe("Remediation Webhook Routes", () => {
   });
 
   it("returns 503 when concurrency cap is reached", async () => {
-    vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+    vi.mocked(triggerSession).mockResolvedValueOnce({
       session: null,
       accepted: false,
     });

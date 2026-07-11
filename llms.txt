@@ -2692,14 +2692,6 @@
       export function getServiceLogger(): SessionLifecycleLogger { /* ... */ }
     </item>
   </file>
-  <file path="services/agent/src/services/prisma-session-store.ts">
-    <item priority="medium">
-      function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus { /* ... */ }
-    </item>
-    <item priority="medium">
-      function toStoredSession(session: AgentSession): StoredSession { /* ... */ }
-    </item>
-  </file>
   <file path="services/agent/src/services/remediation-circuit-breaker.ts">
     <item priority="high">
       interface CircuitState {
@@ -2740,7 +2732,7 @@
     <item priority="low">
       interface SessionExecutorConfig {
         concurrency: SessionConcurrency;
-        sessionService: typeof SessionServiceType;
+        store: SessionLifecycleStore;
       }
     </item>
     <item priority="low">
@@ -2749,12 +2741,37 @@
       }
     </item>
   </file>
+  <file path="services/agent/src/services/session-lifecycle-store.ts">
+    <item priority="medium">
+      function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toStoredSession(row: Session): StoredSession { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/services/session-trigger.ts">
+    <item priority="low">
+      interface TriggerSessionOptions {
+        taskDescription: string;
+        baseBranch?: string;
+        userId?: string;
+        model?: string;
+        maxTurns?: number;
+      }
+    </item>
+    <item priority="low">
+      interface TriggerSessionResult {
+        session: AgentSession | null;
+        accepted: boolean;
+      }
+    </item>
+  </file>
   <file path="services/agent/src/services/session.ts">
     <item priority="medium">
       function mapPrismaSession(session: Session): AgentSession { /* ... */ }
     </item>
-    <item priority="medium">
-      function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
+    <item priority="high">
+      export function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/services/storage-event-mapper.ts">

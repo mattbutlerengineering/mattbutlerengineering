@@ -3,6 +3,7 @@ import { type ProblemDetails, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent, intentToRoutingContext, routeModelWithReason } from "@mbe/agent-core";
 import type { IssueInput } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
+import { triggerSession } from "../services/session-trigger.js";
 import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
@@ -264,7 +265,7 @@ async function handleIssueEvent(
   const routingCtx = intent ? intentToRoutingContext(intent) : undefined;
   const { modelId } = routeModelWithReason(issueInput, routingCtx);
 
-  const result = await sessionService.triggerSession({
+  const result = await triggerSession({
     taskDescription,
     baseBranch: event.repository.default_branch,
     model: modelId,
@@ -323,7 +324,7 @@ async function handleIssueCommentEvent(
     "Creating session from PR comment"
   );
 
-  const result = await sessionService.triggerSession({
+  const result = await triggerSession({
     taskDescription,
     baseBranch: event.repository.default_branch,
   });
@@ -368,7 +369,7 @@ async function handleCheckRunEvent(
 
   fastify.log.info({ branch, attempt: retryCount + 1 }, "Creating CI retry session");
 
-  const result = await sessionService.triggerSession({
+  const result = await triggerSession({
     taskDescription,
     baseBranch: event.repository.default_branch,
   });
