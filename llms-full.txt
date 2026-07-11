@@ -6700,25 +6700,7 @@
                 },
               },
             },
-            querystring: {
-              type: "object",
-              required: ["date", "partySize"],
-              properties: {
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Date in YYYY-MM-DD format",
-                },
-                partySize: {
-                  type: "string",
-                  description: "Number of guests",
-                },
-                duration: {
-                  type: "string",
-                  description: "Optional duration override in minutes",
-                },
-              },
-            },
+            querystring: availabilityQueryJsonSchema,
             response: {
               200: {
                 type: "object",
@@ -6804,26 +6786,7 @@
                 },
               },
             },
-            querystring: {
-              type: "object",
-              required: ["startDate", "endDate", "partySize"],
-              properties: {
-                startDate: {
-                  type: "string",
-                  format: "date",
-                  description: "Start date in YYYY-MM-DD format",
-                },
-                endDate: {
-                  type: "string",
-                  format: "date",
-                  description: "End date in YYYY-MM-DD format",
-                },
-                partySize: {
-                  type: "string",
-                  description: "Number of guests",
-                },
-              },
-            },
+            querystring: availabilityDatesQueryJsonSchema,
             response: {
               200: {
                 type: "object",
@@ -6888,21 +6851,7 @@
               "Returns PENDING and CONFIRMED reservations for the given date and venue, enriched with full guest CRM data.",
             tags: ["Briefing"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["date", "venueId"],
-              properties: {
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Date for the briefing (YYYY-MM-DD)",
-                },
-                venueId: {
-                  type: "string",
-                  description: "Venue ID to scope the briefing to",
-                },
-              },
-            },
+            querystring: briefingQueryJsonSchema,
             response: {
               200: {
                 description: "Service briefing with enriched reservation data",
@@ -7043,15 +6992,7 @@
             operationId: "createDeposit",
             description: "Create a new deposit in pending state for a reservation.",
             tags: ["Deposits"],
-            body: {
-              type: "object",
-              required: ["reservationId", "amountCents"],
-              properties: {
-                reservationId: { type: "string", description: "ID of the reservation" },
-                amountCents: { type: "integer", minimum: 1, description: "Deposit amount in cents" },
-                currency: { type: "string", default: "usd", description: "ISO currency code" },
-              },
-            },
+            body: createDepositBodyJsonSchema,
             response: {
               201: {
                 description: "Deposit created",
@@ -7240,14 +7181,7 @@
           schema: {
             summary: "List floor plans",
             description: "Returns a paginated list of floor plans for a venue.",
-            querystring: {
-              type: "object",
-              properties: {
-                venueId: { type: "string" },
-                page: { type: "string", default: "1" },
-                limit: { type: "string", default: "10" },
-              },
-            },
+            querystring: listFloorPlansQueryJsonSchema,
           },
         },
         async (request) => {
@@ -7308,16 +7242,7 @@
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
           schema: {
             summary: "Create floor plan",
-            body: {
-              type: "object",
-              required: ["venueId", "name", "layoutJson"],
-              properties: {
-                venueId: { type: "string" },
-                name: { type: "string" },
-                isActive: { type: "boolean" },
-                layoutJson: { type: "object" },
-              },
-            },
+            body: createFloorPlanBodyJsonSchema,
           },
         },
         async (request, reply) => {
@@ -7366,14 +7291,7 @@
                 id: { type: "string" },
               },
             },
-            body: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                isActive: { type: "boolean" },
-                layoutJson: { type: "object" },
-              },
-            },
+            body: updateFloorPlanBodyJsonSchema,
           },
         },
         async (request, reply) => {
@@ -7421,24 +7339,7 @@
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
-            body: {
-              type: "object",
-              required: ["floorPlanId", "positions"],
-              properties: {
-                floorPlanId: { type: "string" },
-                positions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    required: ["tableId", "shapeMetadata"],
-                    properties: {
-                      tableId: { type: "string" },
-                      shapeMetadata: { type: "object" },
-                    },
-                  },
-                },
-              },
-            },
+            body: updateTablePositionsBodyJsonSchema,
           },
         },
         async (request) => {
@@ -7467,14 +7368,7 @@
                 tableId: { type: "string" },
               },
             },
-            body: {
-              type: "object",
-              required: ["floorPlanId"],
-              properties: {
-                floorPlanId: { type: "string" },
-                shapeMetadata: { type: "object" },
-              },
-            },
+            body: assignTableBodyJsonSchema,
           },
         },
         async (request, reply) => {
@@ -7554,19 +7448,7 @@
               "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID to list guests for" },
-                page: { type: "string", default: "1", description: "Page number (1-indexed)" },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of guests per page (max 100)",
-                },
-              },
-            },
+            querystring: listGuestsQueryJsonSchema,
             response: {
               200: {
                 description: "Successful response with paginated guest list",
@@ -7602,19 +7484,7 @@
             description: "Search guests by name, email, phone, or filter by tags and visit history.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID to search within" },
-                query: { type: "string", description: "Search term (matches name, email, or phone)" },
-                tags: { type: "string", description: "Comma-separated tags to filter by" },
-                hasNotVisitedInDays: {
-                  type: "string",
-                  description: "Filter guests who haven't visited in X days",
-                },
-              },
-            },
+            querystring: searchGuestsQueryJsonSchema,
             response: {
               200: {
                 description: "Search results",
@@ -7654,13 +7524,7 @@
             description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID to get segments for" },
-              },
-            },
+            querystring: guestSegmentsQueryJsonSchema,
             response: {
               200: {
                 description: "Guest segments",
@@ -7737,27 +7601,7 @@
             description: "Create a new guest. Requires authentication.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              required: ["venueId", "name"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID" },
-                email: { type: "string", format: "email", description: "Guest email" },
-                phone: { type: "string", description: "Guest phone" },
-                name: { type: "string", description: "Guest name" },
-                notes: { type: "string", description: "Internal notes" },
-                tags: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Tags for categorization",
-                },
-                dietaryRestrictions: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
-                },
-              },
-            },
+            body: createGuestBodyJsonSchema,
             response: {
               201: {
                 description: "Guest created",
@@ -7811,28 +7655,7 @@
               "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              required: ["venueId", "name"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID" },
-                email: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email (used for matching)",
-                },
-                phone: {
-                  type: "string",
-                  description: "Guest phone (used for matching if email not found)",
-                },
-                name: { type: "string", description: "Guest name" },
-                dietaryRestrictions: {
-                  type: "array",
-                  items: { type: "string" },
-                  description: "Dietary restrictions to merge with existing guest profile",
-                },
-              },
-            },
+            body: findOrCreateGuestBodyJsonSchema,
             response: {
               200: {
                 description: "Guest found or created",
@@ -7881,22 +7704,7 @@
               properties: { id: { type: "string", description: "Guest ID" } },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              properties: {
-                email: { type: "string", format: "email", nullable: true },
-                phone: { type: "string", nullable: true },
-                name: { type: "string" },
-                notes: { type: "string", nullable: true },
-                tags: { type: "array", items: { type: "string" }, nullable: true },
-                dietaryRestrictions: {
-                  type: "array",
-                  items: { type: "string" },
-                  nullable: true,
-                  description: "Dietary restrictions (replaces existing list)",
-                },
-              },
-            },
+            body: updateGuestBodyJsonSchema,
             response: {
               200: {
                 description: "Guest updated",
@@ -7942,17 +7750,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              required: ["text"],
-              properties: {
-                text: {
-                  type: "string",
-                  minLength: 1,
-                  description: "Note text",
-                },
-              },
-            },
+            body: addGuestNoteBodyJsonSchema,
             response: {
               201: {
                 description: "Note appended; returns updated guest",
@@ -8005,13 +7803,7 @@
               "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
             tags: ["Guests"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID to scan" },
-              },
-            },
+            querystring: lapsingGuestsQueryJsonSchema,
             response: {
               200: {
                 description: "Lapsing guests list",
@@ -8200,41 +7992,7 @@
                 },
               },
             },
-            body: {
-              type: "object",
-              required: ["venueId", "date", "time", "partySize"],
-              properties: {
-                venueId: { type: "string", description: "Venue ID" },
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Reservation date (YYYY-MM-DD)",
-                },
-                time: {
-                  type: "string",
-                  format: "date-time",
-                  description: "Start time in ISO 8601 format",
-                },
-                partySize: {
-                  type: "integer",
-                  minimum: 1,
-                  maximum: 20,
-                  description: "Number of guests",
-                },
-                tableId: {
-                  type: "string",
-                  description:
-                    "Optional specific table to hold. If not provided, best available table is assigned.",
-                },
-                holdDurationMinutes: {
-                  type: "integer",
-                  minimum: 1,
-                  maximum: 60,
-                  description:
-                    "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
-                },
-              },
-            },
+            body: createHoldBodyJsonSchema,
             response: {
               201: {
                 type: "object",
@@ -8405,26 +8163,7 @@
                 id: { type: "string", description: "Hold ID" },
               },
             },
-            body: {
-              type: "object",
-              properties: {
-                guestName: { type: "string", description: "Guest name" },
-                guestEmail: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email",
-                },
-                guestPhone: { type: "string", description: "Guest phone number" },
-                guestId: {
-                  type: "string",
-                  description: "ID of existing guest record",
-                },
-                notes: {
-                  type: "string",
-                  description: "Special requests or notes",
-                },
-              },
-            },
+            body: confirmHoldBodyJsonSchema,
             response: {
               201: {
                 type: "object",
@@ -8605,14 +8344,7 @@
               properties: { slug: { type: "string" } },
               required: ["slug"],
             },
-            querystring: {
-              type: "object",
-              properties: {
-                date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-                partySize: { type: "string" },
-              },
-              required: ["date", "partySize"],
-            },
+            querystring: publicAvailabilityQueryJsonSchema,
           },
         },
         async (request, reply) => {
@@ -8690,13 +8422,7 @@
               },
               required: ["slug"],
             },
-            querystring: {
-              type: "object",
-              properties: {
-                email: { type: "string", format: "email" },
-              },
-              required: ["email"],
-            },
+            querystring: publicGuestRecognitionQueryJsonSchema,
             response: {
               200: {
                 type: "object",
@@ -8756,13 +8482,7 @@
               properties: { slug: { type: "string" } },
               required: ["slug"],
             },
-            querystring: {
-              type: "object",
-              properties: {
-                email: { type: "string" },
-                phone: { type: "string" },
-              },
-            },
+            querystring: publicGuestRiskQueryJsonSchema,
             response: {
               200: {
                 type: "object",
@@ -8833,16 +8553,7 @@
               required: ["slug"],
               properties: { slug: { type: "string" } },
             },
-            body: {
-              type: "object",
-              required: ["date", "startTime", "endTime", "partySize"],
-              properties: {
-                date: { type: "string", minLength: 1 },
-                startTime: { type: "string", minLength: 1 },
-                endTime: { type: "string", minLength: 1 },
-                partySize: { type: "integer", minimum: 1, maximum: 20 },
-              },
-            },
+            body: publicHoldBodyJsonSchema,
           },
         },
         async (request, reply) => {
@@ -8971,12 +8682,7 @@
           schema: {
             summary: "Unsubscribe guest from post-visit emails",
             tags: ["Public"],
-            querystring: {
-              type: "object",
-              properties: {
-                token: { type: "string" },
-              },
-            },
+            querystring: publicUnsubscribeQueryJsonSchema,
           },
         },
         async (request, reply) => {
@@ -9130,16 +8836,7 @@
               required: ["slug"],
               properties: { slug: { type: "string" } },
             },
-            body: {
-              type: "object",
-              required: ["venueId", "partySize", "guestName", "guestPhone"],
-              properties: {
-                venueId: { type: "string" },
-                partySize: { type: "integer", minimum: 1 },
-                guestName: { type: "string" },
-                guestPhone: { type: "string" },
-              },
-            },
+            body: publicWaitlistBodyJsonSchema,
             response: {
               201: {
                 type: "object",
@@ -9275,39 +8972,7 @@
             description:
               "Retrieve a paginated list of reservations. Can filter by date, status, table, or venue.",
             tags: ["Reservations"],
-            querystring: {
-              type: "object",
-              properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of reservations per page (max 100)",
-                },
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Filter by reservation date (YYYY-MM-DD)",
-                },
-                status: {
-                  type: "string",
-                  enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"],
-                  description: "Filter by reservation status",
-                },
-                tableId: {
-                  type: "string",
-                  description: "Filter by table ID",
-                },
-                venueId: {
-                  type: "string",
-                  description: "Filter by venue ID",
-                },
-              },
-            },
+            querystring: listReservationsQueryJsonSchema,
             response: {
               200: {
                 description: "Successful response with paginated reservation list",
@@ -9347,21 +9012,7 @@
             description: "Retrieve reservations for the currently authenticated user.",
             tags: ["Reservations"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of reservations per page (max 100)",
-                },
-              },
-            },
+            querystring: listMyReservationsQueryJsonSchema,
             response: {
               200: {
                 description: "User's reservations",
@@ -9406,45 +9057,7 @@
               "Create an immediate walk-in reservation. Sets the reservation to CONFIRMED status and marks the table as OCCUPIED. Requires authentication.",
             tags: ["Reservations"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Walk-in reservation payload",
-              properties: {
-                partySize: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "Number of guests",
-                },
-                tableId: {
-                  type: "string",
-                  description: "ID of the table to seat guests at",
-                },
-                venueId: {
-                  type: "string",
-                  description: "ID of the venue",
-                },
-                guestName: {
-                  type: "string",
-                  description: "Guest name (defaults to 'Walk-in')",
-                },
-                durationMinutes: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "Expected duration in minutes (defaults to 90)",
-                },
-                occasion: {
-                  type: "string",
-                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-                  description: "Occasion for the reservation",
-                },
-                seatingPreference: {
-                  type: "string",
-                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-                  description: "Guest seating preference",
-                },
-              },
-              required: ["partySize", "tableId", "venueId"],
-            },
+            body: walkInBodyJsonSchema,
             response: {
               201: {
                 description: "Walk-in reservation created successfully",
@@ -9563,68 +9176,7 @@
             description:
               "Create a new reservation. Authentication is optional - guest info can be provided instead.",
             tags: ["Reservations"],
-            body: {
-              type: "object",
-              description: "Reservation creation payload",
-              properties: {
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "Reservation date (YYYY-MM-DD)",
-                },
-                startTime: {
-                  type: "string",
-                  format: "date-time",
-                  description: "Start time (ISO 8601)",
-                },
-                endTime: {
-                  type: "string",
-                  format: "date-time",
-                  description: "End time (ISO 8601)",
-                },
-                partySize: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "Number of guests",
-                },
-                tableId: {
-                  type: "string",
-                  description: "ID of the table to reserve",
-                },
-                notes: {
-                  type: "string",
-                  description: "Special requests or notes",
-                },
-                guestName: {
-                  type: "string",
-                  description: "Guest name (for unauthenticated reservations)",
-                },
-                guestEmail: {
-                  type: "string",
-                  format: "email",
-                  description: "Guest email (for unauthenticated reservations)",
-                },
-                guestPhone: {
-                  type: "string",
-                  description: "Guest phone number",
-                },
-                venueId: {
-                  type: "string",
-                  description: "ID of the venue for this reservation",
-                },
-                occasion: {
-                  type: "string",
-                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-                  description: "Occasion for the reservation",
-                },
-                seatingPreference: {
-                  type: "string",
-                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-                  description: "Guest seating preference",
-                },
-              },
-              required: ["date", "startTime", "endTime", "partySize", "tableId"],
-            },
+            body: createReservationBodyJsonSchema,
             response: {
               201: {
                 description: "Reservation created successfully",
@@ -9705,63 +9257,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                date: {
-                  type: "string",
-                  format: "date",
-                  description: "New reservation date",
-                },
-                startTime: {
-                  type: "string",
-                  format: "date-time",
-                  description: "New start time",
-                },
-                endTime: {
-                  type: "string",
-                  format: "date-time",
-                  description: "New end time",
-                },
-                partySize: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "New party size",
-                },
-                tableId: {
-                  type: "string",
-                  description: "New table ID",
-                },
-                status: {
-                  type: "string",
-                  enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"],
-                  description: "New status",
-                },
-                notes: {
-                  type: "string",
-                  description: "Updated notes",
-                },
-                cancellationReason: {
-                  type: "string",
-                  description: "Reason for cancellation (used when status is CANCELLED)",
-                },
-                cancellationNote: {
-                  type: "string",
-                  description: "Additional cancellation notes (used when status is CANCELLED)",
-                },
-                occasion: {
-                  type: "string",
-                  enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-                  description: "Occasion for the reservation",
-                },
-                seatingPreference: {
-                  type: "string",
-                  enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-                  description: "Guest seating preference",
-                },
-              },
-            },
+            body: updateReservationBodyJsonSchema,
             response: {
               200: {
                 description: "Reservation updated successfully",
@@ -10076,27 +9572,7 @@
             description:
               "Retrieve a paginated list of all tables. Optionally filter to only active tables.",
             tags: ["Tables"],
-            querystring: {
-              type: "object",
-              properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of tables per page (max 100)",
-                },
-                activeOnly: {
-                  type: "string",
-                  enum: ["true", "false"],
-                  default: "false",
-                  description: "Filter to only active tables",
-                },
-              },
-            },
+            querystring: listTablesQueryJsonSchema,
             response: {
               200: {
                 description: "Successful response with paginated table list",
@@ -10183,30 +9659,7 @@
             description: "Create a new table. Requires authentication.",
             tags: ["Tables"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Table creation payload",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "Unique table name (e.g., 'Table 1', 'Patio A')",
-                },
-                capacity: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "Maximum number of guests the table can seat",
-                },
-                location: {
-                  type: "string",
-                  description: "Location description (e.g., 'Main Floor', 'Patio')",
-                },
-                venueId: {
-                  type: "string",
-                  description: "ID of the venue this table belongs to",
-                },
-              },
-              required: ["name", "capacity"],
-            },
+            body: createTableBodyJsonSchema,
             response: {
               201: {
                 description: "Table created successfully",
@@ -10273,29 +9726,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "New table name",
-                },
-                capacity: {
-                  type: "integer",
-                  minimum: 1,
-                  description: "New capacity",
-                },
-                location: {
-                  type: "string",
-                  description: "New location description",
-                },
-                isActive: {
-                  type: "boolean",
-                  description: "Whether the table is active and available for reservations",
-                },
-              },
-            },
+            body: updateTableBodyJsonSchema,
             response: {
               200: {
                 description: "Table updated successfully",
@@ -10356,18 +9787,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              description: "Table status update payload",
-              properties: {
-                status: {
-                  type: "string",
-                  enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
-                  description: "New table status",
-                },
-              },
-              required: ["status"],
-            },
+            body: updateTableStatusBodyJsonSchema,
             response: {
               200: {
                 description: "Table status updated successfully",
@@ -10503,21 +9923,7 @@
             operationId: "listVenueGroups",
             description: "Retrieve a paginated list of all venue groups.",
             tags: ["Venue Groups"],
-            querystring: {
-              type: "object",
-              properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of groups per page (max 100)",
-                },
-              },
-            },
+            querystring: listVenueGroupsQueryJsonSchema,
             response: {
               200: {
                 description: "Successful response with paginated venue group list",
@@ -10599,25 +10005,7 @@
             description: "Create a new venue group. Requires authentication.",
             tags: ["Venue Groups"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Venue group creation payload",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "Venue group name",
-                },
-                slug: {
-                  type: "string",
-                  description: "URL-friendly identifier (must be unique)",
-                },
-                settings: {
-                  type: "object",
-                  description: "Shared settings for all venues in the group",
-                },
-              },
-              required: ["name", "slug"],
-            },
+            body: createVenueGroupBodyJsonSchema,
             response: {
               201: {
                 description: "Venue group created successfully",
@@ -10684,15 +10072,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                name: { type: "string" },
-                slug: { type: "string" },
-                settings: { type: "object" },
-              },
-            },
+            body: updateVenueGroupBodyJsonSchema,
             response: {
               200: {
                 description: "Venue group updated successfully",
@@ -10797,25 +10177,7 @@
               "Optionally filter by venue group.",
             tags: ["Venues"],
             security: [{ bearerAuth: [] }],
-            querystring: {
-              type: "object",
-              properties: {
-                page: {
-                  type: "string",
-                  default: "1",
-                  description: "Page number (1-indexed)",
-                },
-                limit: {
-                  type: "string",
-                  default: "10",
-                  description: "Number of venues per page (max 100)",
-                },
-                venueGroupId: {
-                  type: "string",
-                  description: "Filter venues by venue group ID",
-                },
-              },
-            },
+            querystring: listVenuesQueryJsonSchema,
             response: {
               200: {
                 description: "Successful response with paginated venue list",
@@ -10961,42 +10323,7 @@
             description: "Create a new venue. Requires authentication.",
             tags: ["Venues"],
             security: [{ bearerAuth: [] }],
-            body: {
-              type: "object",
-              description: "Venue creation payload",
-              properties: {
-                venueGroupId: {
-                  type: "string",
-                  description: "ID of the venue group this venue belongs to",
-                },
-                name: {
-                  type: "string",
-                  description: "Venue name",
-                },
-                slug: {
-                  type: "string",
-                  description: "URL-friendly identifier for public booking URLs (must be unique)",
-                },
-                ianaTimezone: {
-                  type: "string",
-                  description: "IANA timezone identifier (e.g., 'America/Los_Angeles')",
-                },
-                currencyCode: {
-                  type: "string",
-                  default: "USD",
-                  description: "ISO 4217 currency code",
-                },
-                operatingHours: {
-                  type: "object",
-                  description: "Weekly operating schedule",
-                },
-                settings: {
-                  type: "object",
-                  description: "Venue-specific settings",
-                },
-              },
-              required: ["name", "slug", "ianaTimezone"],
-            },
+            body: createVenueBodyJsonSchema,
             response: {
               201: {
                 description: "Venue created successfully",
@@ -11061,19 +10388,7 @@
               },
               required: ["id"],
             },
-            body: {
-              type: "object",
-              description: "Fields to update",
-              properties: {
-                venueGroupId: { type: "string", nullable: true },
-                name: { type: "string" },
-                slug: { type: "string" },
-                ianaTimezone: { type: "string" },
-                currencyCode: { type: "string" },
-                operatingHours: { type: "object", nullable: true },
-                settings: { type: "object", nullable: true },
-              },
-            },
+            body: updateVenueBodyJsonSchema,
             response: {
               200: {
                 description: "Venue updated successfully",
@@ -11175,17 +10490,7 @@
             summary: "Add to waitlist",
             operationId: "createWaitlistEntry",
             tags: ["Waitlist"],
-            body: {
-              type: "object",
-              required: ["venueId", "partySize", "guestName", "guestPhone"],
-              properties: {
-                venueId: { type: "string" },
-                partySize: { type: "integer", minimum: 1 },
-                guestName: { type: "string" },
-                guestPhone: { type: "string" },
-                avgTurnTimeMinutes: { type: "integer", minimum: 1 },
-              },
-            },
+            body: createWaitlistBodyJsonSchema,
             response: {
               201: {
                 type: "object",
@@ -11234,13 +10539,7 @@
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
             tags: ["Waitlist"],
-            querystring: {
-              type: "object",
-              required: ["venueId"],
-              properties: {
-                venueId: { type: "string" },
-              },
-            },
+            querystring: listWaitlistQueryJsonSchema,
             response: {
               200: {
                 type: "object",
@@ -11631,15 +10930,45 @@
       }
       return result;
     }
-    function toFastifyJsonSchema(id: string, zodSchema: ZodType) {
-      const raw = toJSONSchema(zodSchema, {
-        target: "draft-07",
-        unrepresentable: "any",
-      });
-      const cleaned = stripAdditionalProperties(raw as Record<string, unknown>);
-      const { $schema: _, ...rest } = cleaned;
-      return { $id: id, ...rest };
+    function stripRequestOverConstraints(obj: Record<string, unknown>): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+      const hasFormat = typeof obj.format === "string";
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === "pattern" && hasFormat) continue;
+        if (
+          (key === "maximum" && value === Number.MAX_SAFE_INTEGER) ||
+          (key === "minimum" && value === -Number.MAX_SAFE_INTEGER)
+        ) {
+          continue;
+        }
+        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+          result[key] = stripRequestOverConstraints(value as Record<string, unknown>);
+        } else if (Array.isArray(value)) {
+          result[key] = value.map((item) =>
+            item !== null && typeof item === "object" && !Array.isArray(item)
+              ? stripRequestOverConstraints(item as Record<string, unknown>)
+              : item
+          );
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
     }
+  </file>
+  <file path="packages/types/src/schemas/reservation-requests.ts">
+    export const ListReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+      date: z.iso.date().describe("Filter by reservation date (YYYY-MM-DD)").optional(),
+      status: ReservationStatusSchema.describe("Filter by reservation status").optional(),
+      tableId: z.string().describe("Filter by table ID").optional(),
+      venueId: z.string().describe("Filter by venue ID").optional(),
+    });
+    export const ListMyReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+    });
   </file>
   <file path="packages/types/src/schemas/reservation.ts">
     export const ReservationStatusSchema = z.enum([

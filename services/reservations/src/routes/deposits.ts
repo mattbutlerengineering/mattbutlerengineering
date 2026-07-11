@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireAuth, requireAdmin } from "@mbe/auth/fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, createDepositBodyJsonSchema } from "@mbe/types";
 import { depositService, DepositNotFoundError } from "../services/deposit.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 import type { Deposit } from "../generated/prisma/index.js";
@@ -42,15 +42,7 @@ export const depositRoutes: FastifyPluginAsync = async (fastify) => {
         operationId: "createDeposit",
         description: "Create a new deposit in pending state for a reservation.",
         tags: ["Deposits"],
-        body: {
-          type: "object",
-          required: ["reservationId", "amountCents"],
-          properties: {
-            reservationId: { type: "string", description: "ID of the reservation" },
-            amountCents: { type: "integer", minimum: 1, description: "Deposit amount in cents" },
-            currency: { type: "string", default: "usd", description: "ISO currency code" },
-          },
-        },
+        body: createDepositBodyJsonSchema,
         response: {
           201: {
             description: "Deposit created",

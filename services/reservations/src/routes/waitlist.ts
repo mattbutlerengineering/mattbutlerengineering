@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, createWaitlistBodyJsonSchema, listWaitlistQueryJsonSchema } from "@mbe/types";
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
@@ -56,17 +56,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         summary: "Add to waitlist",
         operationId: "createWaitlistEntry",
         tags: ["Waitlist"],
-        body: {
-          type: "object",
-          required: ["venueId", "partySize", "guestName", "guestPhone"],
-          properties: {
-            venueId: { type: "string" },
-            partySize: { type: "integer", minimum: 1 },
-            guestName: { type: "string" },
-            guestPhone: { type: "string" },
-            avgTurnTimeMinutes: { type: "integer", minimum: 1 },
-          },
-        },
+        body: createWaitlistBodyJsonSchema,
         response: {
           201: {
             type: "object",
@@ -115,13 +105,7 @@ export const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         summary: "List waitlist entries",
         operationId: "listWaitlistEntries",
         tags: ["Waitlist"],
-        querystring: {
-          type: "object",
-          required: ["venueId"],
-          properties: {
-            venueId: { type: "string" },
-          },
-        },
+        querystring: listWaitlistQueryJsonSchema,
         response: {
           200: {
             type: "object",

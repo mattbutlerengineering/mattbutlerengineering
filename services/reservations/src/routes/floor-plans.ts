@@ -9,6 +9,11 @@ import {
   type UpdateFloorPlanRequest,
   type UpdateTablePositionRequest,
   createProblemDetails,
+  listFloorPlansQueryJsonSchema,
+  createFloorPlanBodyJsonSchema,
+  updateFloorPlanBodyJsonSchema,
+  updateTablePositionsBodyJsonSchema,
+  assignTableBodyJsonSchema,
 } from "@mbe/types";
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
@@ -50,14 +55,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "List floor plans",
         description: "Returns a paginated list of floor plans for a venue.",
-        querystring: {
-          type: "object",
-          properties: {
-            venueId: { type: "string" },
-            page: { type: "string", default: "1" },
-            limit: { type: "string", default: "10" },
-          },
-        },
+        querystring: listFloorPlansQueryJsonSchema,
       },
     },
     async (request) => {
@@ -118,16 +116,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
       schema: {
         summary: "Create floor plan",
-        body: {
-          type: "object",
-          required: ["venueId", "name", "layoutJson"],
-          properties: {
-            venueId: { type: "string" },
-            name: { type: "string" },
-            isActive: { type: "boolean" },
-            layoutJson: { type: "object" },
-          },
-        },
+        body: createFloorPlanBodyJsonSchema,
       },
     },
     async (request, reply) => {
@@ -176,14 +165,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
             id: { type: "string" },
           },
         },
-        body: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            isActive: { type: "boolean" },
-            layoutJson: { type: "object" },
-          },
-        },
+        body: updateFloorPlanBodyJsonSchema,
       },
     },
     async (request, reply) => {
@@ -231,24 +213,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Bulk update table positions",
         description: "Updates the position and metadata for multiple tables in a floor plan.",
-        body: {
-          type: "object",
-          required: ["floorPlanId", "positions"],
-          properties: {
-            floorPlanId: { type: "string" },
-            positions: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["tableId", "shapeMetadata"],
-                properties: {
-                  tableId: { type: "string" },
-                  shapeMetadata: { type: "object" },
-                },
-              },
-            },
-          },
-        },
+        body: updateTablePositionsBodyJsonSchema,
       },
     },
     async (request) => {
@@ -277,14 +242,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
             tableId: { type: "string" },
           },
         },
-        body: {
-          type: "object",
-          required: ["floorPlanId"],
-          properties: {
-            floorPlanId: { type: "string" },
-            shapeMetadata: { type: "object" },
-          },
-        },
+        body: assignTableBodyJsonSchema,
       },
     },
     async (request, reply) => {

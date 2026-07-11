@@ -8,6 +8,12 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
+import {
+  listTablesQueryJsonSchema,
+  createTableBodyJsonSchema,
+  updateTableBodyJsonSchema,
+  updateTableStatusBodyJsonSchema,
+} from "@mbe/types";
 import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { tableService, TableTransitionError } from "../services/table.js";
@@ -40,27 +46,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           "Retrieve a paginated list of all tables. Optionally filter to only active tables.",
         tags: ["Tables"],
-        querystring: {
-          type: "object",
-          properties: {
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of tables per page (max 100)",
-            },
-            activeOnly: {
-              type: "string",
-              enum: ["true", "false"],
-              default: "false",
-              description: "Filter to only active tables",
-            },
-          },
-        },
+        querystring: listTablesQueryJsonSchema,
         response: {
           200: {
             description: "Successful response with paginated table list",
@@ -147,30 +133,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Create a new table. Requires authentication.",
         tags: ["Tables"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          description: "Table creation payload",
-          properties: {
-            name: {
-              type: "string",
-              description: "Unique table name (e.g., 'Table 1', 'Patio A')",
-            },
-            capacity: {
-              type: "integer",
-              minimum: 1,
-              description: "Maximum number of guests the table can seat",
-            },
-            location: {
-              type: "string",
-              description: "Location description (e.g., 'Main Floor', 'Patio')",
-            },
-            venueId: {
-              type: "string",
-              description: "ID of the venue this table belongs to",
-            },
-          },
-          required: ["name", "capacity"],
-        },
+        body: createTableBodyJsonSchema,
         response: {
           201: {
             description: "Table created successfully",
@@ -237,29 +200,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          description: "Fields to update",
-          properties: {
-            name: {
-              type: "string",
-              description: "New table name",
-            },
-            capacity: {
-              type: "integer",
-              minimum: 1,
-              description: "New capacity",
-            },
-            location: {
-              type: "string",
-              description: "New location description",
-            },
-            isActive: {
-              type: "boolean",
-              description: "Whether the table is active and available for reservations",
-            },
-          },
-        },
+        body: updateTableBodyJsonSchema,
         response: {
           200: {
             description: "Table updated successfully",
@@ -320,18 +261,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          description: "Table status update payload",
-          properties: {
-            status: {
-              type: "string",
-              enum: ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"],
-              description: "New table status",
-            },
-          },
-          required: ["status"],
-        },
+        body: updateTableStatusBodyJsonSchema,
         response: {
           200: {
             description: "Table status updated successfully",

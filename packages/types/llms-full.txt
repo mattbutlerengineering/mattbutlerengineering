@@ -140,15 +140,45 @@
       }
       return result;
     }
-    function toFastifyJsonSchema(id: string, zodSchema: ZodType) {
-      const raw = toJSONSchema(zodSchema, {
-        target: "draft-07",
-        unrepresentable: "any",
-      });
-      const cleaned = stripAdditionalProperties(raw as Record<string, unknown>);
-      const { $schema: _, ...rest } = cleaned;
-      return { $id: id, ...rest };
+    function stripRequestOverConstraints(obj: Record<string, unknown>): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+      const hasFormat = typeof obj.format === "string";
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === "pattern" && hasFormat) continue;
+        if (
+          (key === "maximum" && value === Number.MAX_SAFE_INTEGER) ||
+          (key === "minimum" && value === -Number.MAX_SAFE_INTEGER)
+        ) {
+          continue;
+        }
+        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+          result[key] = stripRequestOverConstraints(value as Record<string, unknown>);
+        } else if (Array.isArray(value)) {
+          result[key] = value.map((item) =>
+            item !== null && typeof item === "object" && !Array.isArray(item)
+              ? stripRequestOverConstraints(item as Record<string, unknown>)
+              : item
+          );
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
     }
+  </file>
+  <file path="src/schemas/reservation-requests.ts">
+    export const ListReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+      date: z.iso.date().describe("Filter by reservation date (YYYY-MM-DD)").optional(),
+      status: ReservationStatusSchema.describe("Filter by reservation status").optional(),
+      tableId: z.string().describe("Filter by table ID").optional(),
+      venueId: z.string().describe("Filter by venue ID").optional(),
+    });
+    export const ListMyReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+    });
   </file>
   <file path="src/schemas/reservation.ts">
     export const ReservationStatusSchema = z.enum([

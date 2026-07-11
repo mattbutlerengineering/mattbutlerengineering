@@ -45,7 +45,15 @@
       function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="medium">
-      function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
+      function stripRequestOverConstraints(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/schemas/reservation-requests.ts">
+    <item priority="high">
+      export const ListReservationsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListMyReservationsQuerySchema: unknown;
     </item>
   </file>
   <file path="src/schemas/reservation.ts">

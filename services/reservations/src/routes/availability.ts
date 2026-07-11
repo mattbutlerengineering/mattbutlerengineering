@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, DateAvailability, ApiResponse, ApiError } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, availabilityQueryJsonSchema, availabilityDatesQueryJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
 import { availabilityService } from "../services/availability.js";
@@ -92,25 +92,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         },
-        querystring: {
-          type: "object",
-          required: ["date", "partySize"],
-          properties: {
-            date: {
-              type: "string",
-              format: "date",
-              description: "Date in YYYY-MM-DD format",
-            },
-            partySize: {
-              type: "string",
-              description: "Number of guests",
-            },
-            duration: {
-              type: "string",
-              description: "Optional duration override in minutes",
-            },
-          },
-        },
+        querystring: availabilityQueryJsonSchema,
         response: {
           200: {
             type: "object",
@@ -196,26 +178,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         },
-        querystring: {
-          type: "object",
-          required: ["startDate", "endDate", "partySize"],
-          properties: {
-            startDate: {
-              type: "string",
-              format: "date",
-              description: "Start date in YYYY-MM-DD format",
-            },
-            endDate: {
-              type: "string",
-              format: "date",
-              description: "End date in YYYY-MM-DD format",
-            },
-            partySize: {
-              type: "string",
-              description: "Number of guests",
-            },
-          },
-        },
+        querystring: availabilityDatesQueryJsonSchema,
         response: {
           200: {
             type: "object",

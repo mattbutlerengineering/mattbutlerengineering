@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, publicDepositBodyJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { depositService, calculateDepositAmount } from "../services/deposit.js";
 import { stripeService, StripeOperationError } from "../services/stripe.js";
@@ -45,15 +45,7 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["slug"],
           properties: { slug: { type: "string" } },
         },
-        body: {
-          type: "object",
-          required: ["reservationId"],
-          properties: {
-            reservationId: { type: "string", minLength: 1 },
-            guestEmail: { type: "string" },
-            guestName: { type: "string" },
-          },
-        },
+        body: publicDepositBodyJsonSchema,
       },
     },
     async (request, reply) => {

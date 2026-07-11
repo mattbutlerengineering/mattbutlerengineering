@@ -9,7 +9,14 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import {
+  createProblemDetails,
+  listReservationsQueryJsonSchema,
+  listMyReservationsQueryJsonSchema,
+  walkInBodyJsonSchema,
+  createReservationBodyJsonSchema,
+  updateReservationBodyJsonSchema,
+} from "@mbe/types";
 import {
   requireAuth,
   optionalAuth,
@@ -91,39 +98,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           "Retrieve a paginated list of reservations. Can filter by date, status, table, or venue.",
         tags: ["Reservations"],
-        querystring: {
-          type: "object",
-          properties: {
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of reservations per page (max 100)",
-            },
-            date: {
-              type: "string",
-              format: "date",
-              description: "Filter by reservation date (YYYY-MM-DD)",
-            },
-            status: {
-              type: "string",
-              enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"],
-              description: "Filter by reservation status",
-            },
-            tableId: {
-              type: "string",
-              description: "Filter by table ID",
-            },
-            venueId: {
-              type: "string",
-              description: "Filter by venue ID",
-            },
-          },
-        },
+        querystring: listReservationsQueryJsonSchema,
         response: {
           200: {
             description: "Successful response with paginated reservation list",
@@ -163,21 +138,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Retrieve reservations for the currently authenticated user.",
         tags: ["Reservations"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          properties: {
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of reservations per page (max 100)",
-            },
-          },
-        },
+        querystring: listMyReservationsQueryJsonSchema,
         response: {
           200: {
             description: "User's reservations",
@@ -222,45 +183,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           "Create an immediate walk-in reservation. Sets the reservation to CONFIRMED status and marks the table as OCCUPIED. Requires authentication.",
         tags: ["Reservations"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          description: "Walk-in reservation payload",
-          properties: {
-            partySize: {
-              type: "integer",
-              minimum: 1,
-              description: "Number of guests",
-            },
-            tableId: {
-              type: "string",
-              description: "ID of the table to seat guests at",
-            },
-            venueId: {
-              type: "string",
-              description: "ID of the venue",
-            },
-            guestName: {
-              type: "string",
-              description: "Guest name (defaults to 'Walk-in')",
-            },
-            durationMinutes: {
-              type: "integer",
-              minimum: 1,
-              description: "Expected duration in minutes (defaults to 90)",
-            },
-            occasion: {
-              type: "string",
-              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-              description: "Occasion for the reservation",
-            },
-            seatingPreference: {
-              type: "string",
-              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-              description: "Guest seating preference",
-            },
-          },
-          required: ["partySize", "tableId", "venueId"],
-        },
+        body: walkInBodyJsonSchema,
         response: {
           201: {
             description: "Walk-in reservation created successfully",
@@ -379,68 +302,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         description:
           "Create a new reservation. Authentication is optional - guest info can be provided instead.",
         tags: ["Reservations"],
-        body: {
-          type: "object",
-          description: "Reservation creation payload",
-          properties: {
-            date: {
-              type: "string",
-              format: "date",
-              description: "Reservation date (YYYY-MM-DD)",
-            },
-            startTime: {
-              type: "string",
-              format: "date-time",
-              description: "Start time (ISO 8601)",
-            },
-            endTime: {
-              type: "string",
-              format: "date-time",
-              description: "End time (ISO 8601)",
-            },
-            partySize: {
-              type: "integer",
-              minimum: 1,
-              description: "Number of guests",
-            },
-            tableId: {
-              type: "string",
-              description: "ID of the table to reserve",
-            },
-            notes: {
-              type: "string",
-              description: "Special requests or notes",
-            },
-            guestName: {
-              type: "string",
-              description: "Guest name (for unauthenticated reservations)",
-            },
-            guestEmail: {
-              type: "string",
-              format: "email",
-              description: "Guest email (for unauthenticated reservations)",
-            },
-            guestPhone: {
-              type: "string",
-              description: "Guest phone number",
-            },
-            venueId: {
-              type: "string",
-              description: "ID of the venue for this reservation",
-            },
-            occasion: {
-              type: "string",
-              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-              description: "Occasion for the reservation",
-            },
-            seatingPreference: {
-              type: "string",
-              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-              description: "Guest seating preference",
-            },
-          },
-          required: ["date", "startTime", "endTime", "partySize", "tableId"],
-        },
+        body: createReservationBodyJsonSchema,
         response: {
           201: {
             description: "Reservation created successfully",
@@ -521,63 +383,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          description: "Fields to update",
-          properties: {
-            date: {
-              type: "string",
-              format: "date",
-              description: "New reservation date",
-            },
-            startTime: {
-              type: "string",
-              format: "date-time",
-              description: "New start time",
-            },
-            endTime: {
-              type: "string",
-              format: "date-time",
-              description: "New end time",
-            },
-            partySize: {
-              type: "integer",
-              minimum: 1,
-              description: "New party size",
-            },
-            tableId: {
-              type: "string",
-              description: "New table ID",
-            },
-            status: {
-              type: "string",
-              enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"],
-              description: "New status",
-            },
-            notes: {
-              type: "string",
-              description: "Updated notes",
-            },
-            cancellationReason: {
-              type: "string",
-              description: "Reason for cancellation (used when status is CANCELLED)",
-            },
-            cancellationNote: {
-              type: "string",
-              description: "Additional cancellation notes (used when status is CANCELLED)",
-            },
-            occasion: {
-              type: "string",
-              enum: ["birthday", "anniversary", "business", "date_night", "other", "none"],
-              description: "Occasion for the reservation",
-            },
-            seatingPreference: {
-              type: "string",
-              enum: ["booth", "patio", "bar", "window", "quiet", "no_preference"],
-              description: "Guest seating preference",
-            },
-          },
-        },
+        body: updateReservationBodyJsonSchema,
         response: {
           200: {
             description: "Reservation updated successfully",

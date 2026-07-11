@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, WaitlistJoinResult } from "@mbe/types";
-import { createProblemDetails, waitlistJoinResultJsonSchema } from "@mbe/types";
+import { createProblemDetails, waitlistJoinResultJsonSchema, publicWaitlistBodyJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
@@ -42,16 +42,7 @@ export const publicWaitlistRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["slug"],
           properties: { slug: { type: "string" } },
         },
-        body: {
-          type: "object",
-          required: ["venueId", "partySize", "guestName", "guestPhone"],
-          properties: {
-            venueId: { type: "string" },
-            partySize: { type: "integer", minimum: 1 },
-            guestName: { type: "string" },
-            guestPhone: { type: "string" },
-          },
-        },
+        body: publicWaitlistBodyJsonSchema,
         response: {
           201: {
             type: "object",

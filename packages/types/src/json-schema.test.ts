@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import {
   userPreferencesJsonSchema,
   userJsonSchema,
@@ -17,6 +18,7 @@ import {
   paginationJsonSchema,
   errorJsonSchema,
   problemDetailsJsonSchema,
+  toRequestJsonSchema,
 } from "./schemas/json-schema.js";
 
 describe("JSON Schema generation (toFastifyJsonSchema)", () => {
@@ -155,5 +157,76 @@ describe("JSON Schema generation (toFastifyJsonSchema)", () => {
       expect(props).toHaveProperty("hasNext");
       expect(props).toHaveProperty("hasPrev");
     });
+  });
+});
+
+describe("Request JSON Schema derivation (toRequestJsonSchema)", () => {
+  const querySchema = z.object({
+    page: z.string().default("1"),
+    limit: z.string().default("10"),
+    venueId: z.string().optional(),
+  });
+
+  it("does not attach a $id (request schemas are used inline, not shared refs)", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("$id");
+  });
+
+  it("strips the $schema dialect marker", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("$schema");
+  });
+
+  it("strips additionalProperties so request payloads stay permissive", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("additionalProperties");
+  });
+
+  it("preserves querystring string types and defaults for Fastify coercion", () => {
+    const schema = toRequestJsonSchema(querySchema) as {
+      type: string;
+      properties: Record<string, { type: string; default?: string }>;
+    };
+    expect(schema.type).toBe("object");
+    expect(schema.properties.page).toMatchObject({ type: "string", default: "1" });
+    expect(schema.properties.limit).toMatchObject({ type: "string", default: "10" });
+    expect(schema.properties.venueId).toMatchObject({ type: "string" });
+  });
+
+  it("derives coerced numeric query params as numbers (AJV coerces string input)", () => {
+    const coerced = toRequestJsonSchema(z.object({ count: z.coerce.number() })) as {
+      properties: Record<string, { type: string }>;
+    };
+    expect(coerced.properties.count).toMatchObject({ type: "number" });
+  });
+
+  it("keeps format but drops the extra pattern on z.email() (format-only, wire-compatible)", () => {
+    const schema = toRequestJsonSchema(z.object({ email: z.email() })) as {
+      properties: { email: Record<string, unknown> };
+    };
+    expect(schema.properties.email.format).toBe("email");
+    expect(schema.properties.email).not.toHaveProperty("pattern");
+  });
+
+  it("keeps format but drops the extra pattern on z.iso.datetime()", () => {
+    const schema = toRequestJsonSchema(
+      z.object({ startTime: z.iso.datetime({ offset: true }) })
+    ) as { properties: { startTime: Record<string, unknown> } };
+    expect(schema.properties.startTime.format).toBe("date-time");
+    expect(schema.properties.startTime).not.toHaveProperty("pattern");
+  });
+
+  it("leaves unbounded z.number().int() without the injected safe-integer maximum", () => {
+    const schema = toRequestJsonSchema(z.object({ partySize: z.number().int().min(1) })) as {
+      properties: { partySize: Record<string, unknown> };
+    };
+    expect(schema.properties.partySize.type).toBe("integer");
+    expect(schema.properties.partySize.minimum).toBe(1);
+    expect(schema.properties.partySize).not.toHaveProperty("maximum");
+  });
+
+  it("preserves explicit numeric bounds (not treated as injected sentinels)", () => {
+    const schema = toRequestJsonSchema(
+      z.object({ partySize: z.number().int().min(1).max(20) })
+    ) as { properties: { partySize: Record<string, unknown> } };
+    expect(schema.properties.partySize.maximum).toBe(20);
+    expect(schema.properties.partySize.minimum).toBe(1);
   });
 });

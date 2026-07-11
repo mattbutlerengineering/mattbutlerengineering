@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, GuestRiskResult } from "@mbe/types";
-import { guestRiskResultJsonSchema } from "@mbe/types";
+import { guestRiskResultJsonSchema, publicGuestRiskQueryJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
@@ -28,13 +28,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
           properties: { slug: { type: "string" } },
           required: ["slug"],
         },
-        querystring: {
-          type: "object",
-          properties: {
-            email: { type: "string" },
-            phone: { type: "string" },
-          },
-        },
+        querystring: publicGuestRiskQueryJsonSchema,
         response: {
           200: {
             type: "object",
