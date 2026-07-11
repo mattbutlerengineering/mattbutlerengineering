@@ -564,6 +564,14 @@
   </file>
   </section>
   <section priority="medium" role="providers">
+  <file path="src/providers/reduced-data.ts">
+    <item priority="high">
+      export const reducedDataOverrides: VibeOverrides;
+    </item>
+    <item priority="high">
+      export function deriveReducedDataOverrides(device: DeviceContext): VibeOverrides { /* ... */ }
+    </item>
+  </file>
   <file path="src/providers/useDeviceContext.ts">
     <item priority="low">
       interface DeviceContext {

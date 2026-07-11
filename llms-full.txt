@@ -5639,6 +5639,19 @@
   </file>
   </section>
   <section priority="medium" role="providers">
+  <file path="packages/rialto/src/providers/reduced-data.ts">
+    export const reducedDataOverrides: VibeOverrides = {
+      "--rialto-space-sm": "8px",
+      "--rialto-space-md": "12px",
+      "--rialto-space-lg": "16px",
+      "--rialto-space-xl": "24px",
+      "--rialto-space-2xl": "32px",
+      "--rialto-space-3xl": "48px",
+    };
+    export function deriveReducedDataOverrides(device: DeviceContext): VibeOverrides {
+      return device.saveData ? reducedDataOverrides : {};
+    }
+  </file>
   <file path="packages/rialto/src/providers/useDeviceContext.ts">
     export interface DeviceContext {
       pointer: "fine" | "coarse";
