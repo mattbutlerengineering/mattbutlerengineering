@@ -492,5 +492,30 @@ describe("CliAdapterBase", () => {
       expect(result.status).toBe("succeeded");
       expect(result.branchName).toBe("agent/fix-abc123");
     });
+
+    it("forwards the AbortSignal to runCliAdapterSession, short-circuiting a pre-aborted run", async () => {
+      const deps = makeFakePhaseDeps();
+      vi.mocked(deps.worktreeManager.createWorktree).mockResolvedValue({
+        path: "/repo/.agent-worktrees/agent-fix-abc123",
+        branchName: "agent/fix-abc123",
+        mode: "full",
+      });
+      const dispatchSpy = vi.spyOn(adapter, "dispatch");
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = await adapter.runSession(
+        makeSessionConfig(),
+        undefined,
+        deps,
+        controller.signal
+      );
+
+      // The signal reached the pipeline: the pre-aborted boundary check runs
+      // before the CLI subprocess is ever dispatched.
+      expect(dispatchSpy).not.toHaveBeenCalled();
+      expect(result.status).toBe("failed");
+      expect(result.errors).toContain("Session aborted");
+    });
   });
 });
