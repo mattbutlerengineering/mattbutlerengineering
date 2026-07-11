@@ -232,6 +232,53 @@ describe("Edge Router", () => {
       }
     });
 
+    it("proxies /api/* without any feature-flag KV read on the hot path", async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+
+      try {
+        const response = await edgeRouter.fetch(makeRequest(API_TEST_PATH), env);
+        expect(response.status).toBe(200);
+        expect(globalThis.fetch).toHaveBeenCalled();
+
+        // The deleted feature-flag pipeline must not touch KV on the hot path:
+        // no request may read the removed "flags/all" key.
+        const kvKeysRead = env.HEALTH_STATE.get.mock.calls.map((call) => call[0]);
+        expect(kvKeysRead).not.toContain("flags/all");
+
+        // With zero consumers, no feature-related header may be forwarded upstream.
+        const forwardedRequest = globalThis.fetch.mock.calls[0][0];
+        const forwardedHeaderNames = [...forwardedRequest.headers.keys()];
+        expect(forwardedHeaderNames.some((name) => name.toLowerCase().includes("feature"))).toBe(
+          false
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("strips a client-supplied X-Feature-Flags header before proxying", async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+
+      try {
+        const response = await edgeRouter.fetch(
+          makeRequest(API_TEST_PATH, {
+            headers: { "X-Feature-Flags": '{"enhanced-validation":true}' },
+          }),
+          env
+        );
+        expect(response.status).toBe(200);
+
+        // A client must never control server-side feature flags: the edge is the
+        // only sanctioned source and it emits none, so the header is dropped.
+        const forwardedRequest = globalThis.fetch.mock.calls[0][0];
+        expect(forwardedRequest.headers.get("x-feature-flags")).toBeNull();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("adds security headers to API proxy responses", async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn(

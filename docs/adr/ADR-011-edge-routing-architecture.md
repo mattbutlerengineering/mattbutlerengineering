@@ -54,8 +54,17 @@ API requests are forwarded via standard `fetch()` to the DigitalOcean App Platfo
 
 - Preserves the original path (including `/api/` prefix).
 - Sets `X-Forwarded-Host`, `X-Forwarded-For`, and `X-Request-ID` headers.
-- Injects feature flags from KV as an `X-Feature-Flags` header.
 - Wraps the proxy in a **circuit breaker** (KV-backed state) that opens after repeated 5xx responses and returns a branded error page.
+
+> **Amendment (2026-07-11, #3349):** The edge router previously injected feature
+> flags from KV as an `X-Feature-Flags` header on every `/api/*` request and
+> exposed a token-authed `/api/flags/*` admin CRUD (percentage-rollout evaluation
+> plus a KV store) for editing them. That entire pipeline has been deleted. The
+> service-side flag stack it fed was already torn down (#2085 inlined it, #2926
+> removed the ghost package), leaving the header with **zero consumers** across
+> `services/` and `apps/`. Removing it reclaims a hot-path KV read on every API
+> request and eliminates a divergent edge error shape. The `X-Feature-Flags` name
+> is preserved in this note for historical context only; it is no longer emitted.
 
 ### Security Headers
 

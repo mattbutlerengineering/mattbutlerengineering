@@ -60,7 +60,6 @@ vi.mock("../routes-config.json", () => ({
       deployStatic: "deploy/static",
       deployServices: "deploy/services",
       deployInfrastructure: "deploy/infrastructure",
-      featureFlags: "feature-flags",
     },
     cacheClasses: {
       "static-site": {
