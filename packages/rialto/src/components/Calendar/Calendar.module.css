@@ -57,7 +57,7 @@
 }
 
 /* ── Grid ────────────────────────────────────── */
-.grid {
+.monthGrid {
   display: flex;
   flex-direction: column;
   gap: 2px;

@@ -339,7 +339,7 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
         role="grid"
         tabIndex={-1}
         aria-label={label}
-        className={styles.grid}
+        className={styles.monthGrid}
         onKeyDown={handleKeyDown}
       >
         <div role="row" className={styles.weekdays}>
