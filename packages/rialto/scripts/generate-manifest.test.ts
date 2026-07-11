@@ -79,4 +79,47 @@ describe("buildManifest", () => {
       expect(Object.prototype.hasOwnProperty.call(comp, "importPath")).toBe(false);
     }
   });
+
+  it("filters out HTML-inherited props, keeping only props declared in rialto source", () => {
+    const components = introspectComponents(RIALTO_ROOT);
+    const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
+
+    // Chalkboard extends HTMLAttributes<HTMLElement>; the inherited HTML
+    // attribute bleed-through (onClick, tabIndex, hidden, …) must be gone.
+    const chalkboard = manifest.components.find((c) => c.name === "Chalkboard");
+    expect(chalkboard).toBeDefined();
+    const names = chalkboard!.props.map((p) => p.name);
+    expect(names).not.toContain("onClick");
+    expect(names).not.toContain("tabIndex");
+    expect(names).not.toContain("hidden");
+    // …but its own declared props survive.
+    expect(names).toEqual(["title", "subtitle", "variant", "framed"]);
+  });
+
+  it("keeps legitimately declared aria-* props (IconButton aria-label)", () => {
+    const components = introspectComponents(RIALTO_ROOT);
+    const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
+
+    const iconButton = manifest.components.find((c) => c.name === "IconButton");
+    expect(iconButton).toBeDefined();
+    expect(iconButton!.props.map((p) => p.name)).toContain("aria-label");
+  });
+
+  it("keeps props declared outside src/components (RialtoProvider vibe/vibeOverrides/theme)", () => {
+    // Regression for #3375: RialtoProviderProps is declared in src/providers,
+    // not src/components. When the declaredInRialto boundary was scoped to
+    // src/components, these three genuine public props were misclassified as
+    // HTMLAttributes bleed-through and dropped, leaving props: []. The boundary
+    // is the whole src root, so provider-authored props must survive.
+    const components = introspectComponents(RIALTO_ROOT);
+    const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
+
+    const provider = manifest.components.find((c) => c.name === "RialtoProvider");
+    expect(provider).toBeDefined();
+    const names = provider!.props.map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(["vibe", "vibeOverrides", "theme"]));
+    // …and its RialtoProviderProps does not extend HTMLAttributes, so these
+    // three are the ENTIRE projected API — no HTML bleed-through admitted.
+    expect(names).toEqual(["vibe", "vibeOverrides", "theme"]);
+  });
 });

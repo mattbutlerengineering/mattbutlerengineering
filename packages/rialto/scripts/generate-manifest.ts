@@ -13,35 +13,14 @@ import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "node:url";
 import { introspectComponents, type ComponentMetadata } from "./component-metadata.js";
+import { projectComponents, type ProjectedComponent } from "./component-projection.js";
 
 /* ── Types ───────────────────────────────────── */
-
-interface PropInfo {
-  name: string;
-  type: string;
-  required: boolean;
-  default?: string;
-  description?: string;
-}
-
-interface CharacterLimitInfo {
-  prop: string;
-  max: number;
-  reason: string;
-}
-
-interface ComponentInfo {
-  name: string;
-  description?: string;
-  props: PropInfo[];
-  slots: string[];
-  characterLimits?: CharacterLimitInfo[];
-}
 
 interface Manifest {
   version: string;
   generatedAt: string;
-  components: ComponentInfo[];
+  components: ProjectedComponent[];
 }
 
 /* ── Conversion ──────────────────────────────── */
@@ -49,41 +28,19 @@ interface Manifest {
 /**
  * Map a ComponentMetadata array to the manifest JSON format.
  *
- * - Projects each prop to only the fields the manifest schema defines
- *   (name, type, required; optional default and description).
- * - Omits `characterLimits` when empty so the output is byte-identical to
- *   the previous generator.
- * - Does NOT sort — introspectComponents() already returns components in
- *   byte-order (not localeCompare, which diverges macOS vs Linux CI).
+ * A thin header over the shared projection (see component-projection.ts):
+ * manifest components carry no `importPath`.
  */
 export function buildManifest(
   components: ComponentMetadata[],
   version: string,
   generatedAt: string
 ): Manifest {
-  const manifestComponents: ComponentInfo[] = components.map((comp) => {
-    const props: PropInfo[] = comp.props.map((p) => {
-      const prop: PropInfo = { name: p.name, type: p.type, required: p.required };
-      if (p.description !== undefined) prop.description = p.description;
-      if (p.default !== undefined) prop.default = p.default;
-      return prop;
-    });
-
-    const entry: ComponentInfo = {
-      name: comp.name,
-      description: comp.description,
-      props,
-      slots: comp.slots,
-    };
-
-    if (comp.characterLimits.length > 0) {
-      entry.characterLimits = comp.characterLimits;
-    }
-
-    return entry;
-  });
-
-  return { version, generatedAt, components: manifestComponents };
+  return {
+    version,
+    generatedAt,
+    components: projectComponents(components, { includeImportPath: false }),
+  };
 }
 
 /* ── Main ────────────────────────────────────── */

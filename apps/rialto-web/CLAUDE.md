@@ -5,7 +5,6 @@ Rialto design system showcase site. Deployed at `/rialto/` via Cloudflare Worker
 ## Domain Context
 
 Showcase site for `@mattbutlerengineering/rialto` components. Not a production data app — showcase-tier risk posture.
-Build copies `registry.json` from `packages/rialto/` to `public/registry.json`.
 
 ## Visual Regression Workflow
 

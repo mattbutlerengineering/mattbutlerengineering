@@ -626,6 +626,24 @@
       export const characterLimits: CharacterLimit[];
     </item>
   </file>
+  <file path="scripts/component-projection.ts">
+    <item priority="low">
+      interface PropInfo {
+        name: string;
+        type: string;
+        required: boolean;
+        default?: string;
+        description?: string;
+      }
+    </item>
+    <item priority="low">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason: string;
+      }
+    </item>
+  </file>
   <file path="scripts/generate-all.ts">
     <item priority="medium">
       function main(): void { /* ... */ }
@@ -659,38 +677,29 @@
   </file>
   <file path="scripts/generate-manifest.ts">
     <item priority="high">
-      interface PropInfo {
-        name: string;
-        type: string;
-        required: boolean;
-        default?: string;
-        description?: string;
+      interface Manifest {
+        version: string;
+        generatedAt: string;
+        components: ProjectedComponent[];
       }
     </item>
     <item priority="high">
-      interface CharacterLimitInfo {
-        prop: string;
-        max: number;
-        reason: string;
-      }
+      export function buildManifest(
+        components: ComponentMetadata[],
+        version: string,
+        generatedAt: string
+      ): Manifest { /* ... */ }
     </item>
   </file>
   <file path="scripts/generate-registry.ts">
     <item priority="high">
-      interface PropInfo {
-        name: string;
-        type: string;
-        required: boolean;
-        default?: string;
-        description?: string;
+      interface Registry {
+        version: string;
+        components: ProjectedComponent[];
       }
     </item>
     <item priority="high">
-      interface CharacterLimitInfo {
-        prop: string;
-        max: number;
-        reason: string;
-      }
+      export function buildRegistry(components: ComponentMetadata[], version: string): Registry { /* ... */ }
     </item>
   </file>
   <file path="scripts/lib-entrypoints.ts">

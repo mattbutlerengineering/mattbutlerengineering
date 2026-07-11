@@ -355,8 +355,10 @@ export interface CharacterLimitInfo {
  * Fields:
  *  - `type`            — checker.typeToString result (used by manifest + registry)
  *  - `resolvedType`    — union members expanded explicitly (used by catalog Zod generation)
- *  - `declaredInRialto`— true if the prop originates in the rialto components dir
- *                        (catalog filters out HTML-inherited props via this flag)
+ *  - `declaredInRialto`— true if the prop originates in the rialto package src
+ *                        root (components, providers, …); false for
+ *                        HTMLAttributes bleed-through. Consumers (manifest,
+ *                        registry, catalog) filter inherited HTML props via it.
  */
 export interface PropInfo {
   name: string;
@@ -453,12 +455,18 @@ function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined {
   return undefined;
 }
 
-/** True if the prop's first declaration lives inside the rialto components dir. */
-function isDeclaredInRialto(prop: ts.Symbol, rialtoComponentsDir: string): boolean {
+/** True if the prop's first declaration lives inside the rialto package `src`
+ * root (providers, components, hooks, etc.) — i.e. it is rialto-authored
+ * source. Returns false for HTMLAttributes bleed-through, whose declarations
+ * live in `node_modules`/`lib.dom.d.ts`, never under our `src` tree. */
+function isDeclaredInRialto(prop: ts.Symbol, rialtoSrcDir: string): boolean {
   const decl = prop.declarations?.[0];
   if (!decl) return false;
   const fileName = decl.getSourceFile().fileName.replace(/\\/g, "/");
-  return fileName.startsWith(rialtoComponentsDir.replace(/\\/g, "/"));
+  const boundary = rialtoSrcDir.replace(/\\/g, "/");
+  // Trailing separator so `src` cannot spuriously match a sibling like
+  // `src-legacy`; every real source file is `src/<subdir>/…`.
+  return fileName.startsWith(boundary.endsWith("/") ? boundary : `${boundary}/`);
 }
 
 /**
@@ -488,7 +496,8 @@ function getComponentSubpath(
 function extractComponents(
   program: ts.Program,
   entryFile: string,
-  rialtoComponentsDir: string
+  rialtoComponentsDir: string,
+  rialtoSrcDir: string
 ): ComponentMetadata[] {
   const checker = program.getTypeChecker();
   const sourceFile = program.getSourceFile(entryFile);
@@ -546,7 +555,7 @@ function extractComponents(
           type: propTypeStr,
           resolvedType: resolveTypeAlias(prop, checker),
           required: !isOptional,
-          declaredInRialto: isDeclaredInRialto(prop, rialtoComponentsDir),
+          declaredInRialto: isDeclaredInRialto(prop, rialtoSrcDir),
         };
 
         const doc = getJsDocComment(prop);
@@ -607,7 +616,12 @@ function extractComponents(
 export function introspectComponents(rootDir: string): ComponentMetadata[] {
   const entryFile = path.join(rootDir, "src/components/index.ts");
   const tsconfigPath = path.join(rootDir, "tsconfig.json");
+  // Subpath derivation keys off the components dir (immediate child = subpath).
   const rialtoComponentsDir = path.join(rootDir, "src/components");
+  // declaredInRialto keys off the whole src root, so props authored in
+  // src/providers (e.g. RialtoProviderProps) count as rialto-authored and are
+  // not mistaken for HTMLAttributes bleed-through from node_modules/lib.dom.
+  const rialtoSrcDir = path.join(rootDir, "src");
 
   if (!fs.existsSync(entryFile)) {
     throw new Error(`Entry file not found: ${entryFile}`);
@@ -620,5 +634,5 @@ export function introspectComponents(rootDir: string): ComponentMetadata[] {
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootDir);
   const program = ts.createProgram([entryFile], parsedConfig.options);
 
-  return extractComponents(program, entryFile, rialtoComponentsDir);
+  return extractComponents(program, entryFile, rialtoComponentsDir, rialtoSrcDir);
 }

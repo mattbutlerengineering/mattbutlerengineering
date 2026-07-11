@@ -15,65 +15,9 @@ const MANIFEST_PATH = resolve(__dirname, "../../rialto/dist/manifest.json");
 const OUTPUT_DIR = resolve(__dirname, "../generated");
 const OUTPUT_PATH = resolve(OUTPUT_DIR, "component-reference.md");
 
-// Common HTML/React props to exclude from the reference
-const EXCLUDED_PROPS = new Set([
-  "className",
-  "style",
-  "id",
-  "children",
-  "key",
-  "ref",
-  "tabIndex",
-  "title",
-  "role",
-  "hidden",
-  "dir",
-  "lang",
-  "slot",
-  "translate",
-  "draggable",
-  "spellCheck",
-  "autoFocus",
-  "autoCapitalize",
-  "contentEditable",
-  "contextMenu",
-  "enterKeyHint",
-  "nonce",
-  "accessKey",
-  "inputMode",
-  "is",
-  "radioGroup",
-  "about",
-  "content",
-  "datatype",
-  "inlist",
-  "prefix",
-  "property",
-  "rel",
-  "resource",
-  "rev",
-  "typeof",
-  "vocab",
-  "color",
-  "itemProp",
-  "itemScope",
-  "itemType",
-  "itemID",
-  "itemRef",
-  "results",
-  "security",
-  "unselectable",
-  "popover",
-  "popoverTarget",
-  "popoverTargetAction",
-  "defaultChecked",
-  "defaultValue",
-  "suppressContentEditableWarning",
-  "suppressHydrationWarning",
-]);
-
-// Event handler prefixes to exclude
-const EVENT_PREFIXES = ["on", "aria-"];
+// The manifest projection already filters props to the real component API
+// (declaredInRialto) — no HTML-attribute bleed-through reaches this generator,
+// so no per-name denylist or "on"/"aria-" prefix heuristic is needed here.
 
 interface ManifestProp {
   name: string;
@@ -109,9 +53,8 @@ interface Manifest {
 }
 
 function isRelevantProp(prop: ManifestProp): boolean {
-  if (EXCLUDED_PROPS.has(prop.name)) return false;
-  if (EVENT_PREFIXES.some((prefix) => prop.name.startsWith(prefix))) return false;
-  // Keep required props, props with descriptions, and props with non-trivial types
+  // Every prop here is real component API (the manifest is pre-filtered).
+  // Surface the ones worth documenting: required props and described props.
   if (prop.required) return true;
   if (prop.description) return true;
   return false;

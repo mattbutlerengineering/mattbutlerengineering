@@ -89,16 +89,8 @@ export function ChalkboardPage() {
       </Section>
 
       {/* ── Props: ChalkboardSection ──────────────────────────────── */}
-      {/* NOTE: ChalkboardSection extends HTMLElement with 278 inherited HTML
-          attributes — manifest-based rendering would be unhelpful. Hand-written
-          until the manifest generator excludes HTML-inherited props. */}
       <Section title="Props: ChalkboardSection">
-        <PropsTable
-          props={[
-            { name: "heading", type: "string", description: "Rendered as an h3 above the list." },
-            { name: "children", type: "ReactNode", description: "ChalkboardItem components." },
-          ]}
-        />
+        <PropsTable component="ChalkboardSection" />
       </Section>
 
       {/* ── Props: ChalkboardItem ─────────────────────────────────── */}

@@ -36,8 +36,8 @@ vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
         slots: [],
       },
       {
-        name: "HtmlExtender",
-        description: "A component extending an HTML element — manifest includes HTML noise.",
+        name: "PreFilteredComponent",
+        description: "Manifest entries arrive pre-filtered to the real component API.",
         props: [
           {
             name: "variant",
@@ -46,14 +46,9 @@ vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
             description: "Visual style.",
           },
           { name: "size", type: '"sm" | "md" | undefined', required: false },
-          // HTML attribute bleed-through from extending HTMLDivElement:
-          { name: "defaultChecked", type: "boolean | undefined", required: false },
-          {
-            name: "defaultValue",
-            type: "string | number | readonly string[] | undefined",
-            required: false,
-          },
-          { name: "suppressContentEditableWarning", type: "boolean | undefined", required: false },
+          // A legit prop whose name matches a former HTML-noise sentinel must
+          // still be returned — the hook no longer truncates on prop names.
+          { name: "defaultValue", type: "string | undefined", required: false },
         ],
         slots: ["children"],
       },
@@ -99,12 +94,9 @@ describe("usePropsFromManifest", () => {
     expect(variantProp?.type).not.toContain("| undefined");
   });
 
-  it("truncates HTML noise props at defaultChecked for components extending HTML elements", () => {
-    const props = usePropsFromManifest("HtmlExtender");
+  it("returns every prop verbatim, without truncation (manifest is pre-filtered)", () => {
+    const props = usePropsFromManifest("PreFilteredComponent");
     const names = props.map((p) => p.name);
-    expect(names).toEqual(["variant", "size"]);
-    expect(names).not.toContain("defaultChecked");
-    expect(names).not.toContain("defaultValue");
-    expect(names).not.toContain("suppressContentEditableWarning");
+    expect(names).toEqual(["variant", "size", "defaultValue"]);
   });
 });
