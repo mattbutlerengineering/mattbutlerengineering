@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { Renderer, JSONUIProvider } from "@json-render/react";
 import { registry, executeAction } from "../registry.js";
 import { catalogMeta } from "../generated-catalog.js";
@@ -956,5 +956,81 @@ describe("array-of-object prop schemas", () => {
     expect(generatedSchemas.DepartureBoard.safeParse({}).success).toBe(false);
     expect(generatedSchemas.DepartureBoard.safeParse({ phrases: [1, 2] }).success).toBe(false);
     expect(generatedSchemas.DepartureBoard.safeParse({ phrases: ["SHIP IT"] }).success).toBe(true);
+  });
+});
+
+// ── registry seam validation / graceful per-element degradation (#3354) ───────
+// `@json-render/react` hands each element's raw `props` straight to the adapter
+// (it never validates props against the catalog schema at render time). Without
+// a guard, a missing/malformed array prop makes the underlying Rialto component
+// dereference `undefined` (e.g. Tabs `tabs[0]`, Accordion `items.map`) and
+// throw — and that throw blanks the entire preview via the app's outer error
+// boundary. `withSchemaValidation` in registry.tsx validates each element's
+// normalized props against its generated Zod schema BEFORE the adapter runs and
+// renders a subtle, accessible fallback on failure, isolating the failure to
+// the single element so siblings keep rendering.
+describe("registry seam validation (graceful degradation)", () => {
+  it("renders a fallback (not a crash) when a required array prop is missing, and siblings still render", () => {
+    let container: HTMLElement | null = null;
+    expect(() => {
+      container = renderSpec({
+        root: "row",
+        elements: {
+          row: { type: "Stack", props: { direction: "column" }, children: ["broken", "ok"] },
+          // Missing the required `tabs` array: the Tabs component does
+          // `tabs[0]?.id` / `tabs.map(...)` and throws when `tabs` is undefined.
+          broken: { type: "Tabs", props: {} },
+          ok: {
+            type: "Tabs",
+            props: { tabs: [{ id: "s", label: "Sibling Tab", content: "Sibling Panel" }] },
+          },
+        },
+      }).container;
+    }).not.toThrow();
+
+    expect(container).not.toBeNull();
+    const root = container as unknown as HTMLElement;
+    // The malformed element degraded to the accessible per-element seam fallback.
+    const fallback = root.querySelector("[data-rialto-seam-fallback]");
+    expect(fallback).not.toBeNull();
+    expect(fallback?.getAttribute("data-rialto-seam-fallback")).toBe("Tabs");
+    expect(fallback?.getAttribute("role")).toBe("note");
+    // The valid sibling rendered normally — the failure did not cascade.
+    expect(within(root).getByText("Sibling Tab")).toBeTruthy();
+  });
+
+  it("renders a fallback when an array prop is malformed (wrong type), isolating the failure", () => {
+    let container: HTMLElement | null = null;
+    expect(() => {
+      container = renderSpec({
+        root: "row",
+        elements: {
+          row: { type: "Stack", props: { direction: "column" }, children: ["broken", "ok"] },
+          // `items` is present but the wrong type — Accordion does `items.map(...)`.
+          broken: { type: "Accordion", props: { items: "not-an-array" } },
+          ok: { type: "EmptyState", props: { heading: "Still Here" } },
+        },
+      }).container;
+    }).not.toThrow();
+
+    expect(container).not.toBeNull();
+    const root = container as unknown as HTMLElement;
+    expect(root.querySelector("[data-rialto-seam-fallback='Accordion']")).not.toBeNull();
+    // Sibling still renders.
+    expect(within(root).getByText("Still Here")).toBeTruthy();
+  });
+
+  it("does not render a fallback for a fully valid element", () => {
+    const { container } = renderSpec({
+      root: "ok",
+      elements: {
+        ok: {
+          type: "Tabs",
+          props: { tabs: [{ id: "s", label: "Valid Tab", content: "Panel" }] },
+        },
+      },
+    });
+    expect(container.querySelector("[data-rialto-seam-fallback]")).toBeNull();
+    expect(within(container).getByText("Valid Tab")).toBeTruthy();
   });
 });
