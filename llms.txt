@@ -2845,6 +2845,17 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/contact-policy.ts">
+    <item priority="low">
+      type MessageClass = "transactional" | "marketing";
+    </item>
+    <item priority="low">
+      interface ContactState {
+        unsubscribed: boolean;
+        communicationPreference?: CommunicationPreference | null;
+      }
+    </item>
+  </file>
   <file path="services/reservations/src/services/database.ts">
     <item priority="high">
       export const db: unknown;
@@ -2966,6 +2977,7 @@
         lastVisit: Date | null;
         tags: unknown;
         communicationPreference: string;
+        unsubscribed: boolean;
         dietaryRestrictions: unknown;
         staffNotes: unknown;
         createdAt: Date;

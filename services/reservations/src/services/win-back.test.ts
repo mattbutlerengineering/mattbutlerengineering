@@ -114,4 +114,21 @@ describe("sendWinBack", () => {
     expect(result).toBe(false);
     expect(port.sendWinBack).not.toHaveBeenCalled();
   });
+
+  // Compliance regression (#3342): an unsubscribed guest must never receive
+  // staff-triggered win-back marketing, even with a valid email and a
+  // marketing-eligible channel preference.
+  it("returns false and skips dispatch for an unsubscribed guest", async () => {
+    const guest = makeGuest({
+      unsubscribed: true,
+      communicationPreference: "email_only",
+      email: "alice@example.com",
+    });
+    const port = makeNotificationPort();
+
+    const result = await sendWinBack(guest, port, "Any Venue");
+
+    expect(result).toBe(false);
+    expect(port.sendWinBack).not.toHaveBeenCalled();
+  });
 });

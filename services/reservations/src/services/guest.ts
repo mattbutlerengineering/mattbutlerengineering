@@ -31,6 +31,7 @@ function mapPrismaGuest(guest: {
   lastVisit: Date | null;
   tags: unknown;
   communicationPreference: string;
+  unsubscribed: boolean;
   dietaryRestrictions: unknown;
   staffNotes: unknown;
   createdAt: Date;
@@ -70,6 +71,7 @@ function mapPrismaGuest(guest: {
     lastVisit: guest.lastVisit?.toISOString() ?? null,
     tags: guest.tags as string[] | null,
     communicationPreference: guest.communicationPreference as CommunicationPreference,
+    unsubscribed: guest.unsubscribed,
     dietaryRestrictions: guest.dietaryRestrictions as string[] | null,
     staffNotes,
     createdAt: guest.createdAt.toISOString(),

@@ -31,6 +31,12 @@ export interface Guest {
   tags: string[] | null;
   dietaryRestrictions: string[] | null;
   communicationPreference: CommunicationPreference;
+  /**
+   * True when the guest has opted out of marketing/lifecycle email. Consulted
+   * by the reservations contact-policy before any marketing send. Optional so
+   * partially-hydrated guests default to still-subscribed.
+   */
+  unsubscribed?: boolean;
   /** Staff-only notes. Never returned in public-facing API responses. */
   staffNotes: StaffNote[];
   reservations?: Reservation[];

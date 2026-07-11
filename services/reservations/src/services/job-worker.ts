@@ -3,6 +3,7 @@ import { JobWorker, JOB_TYPES } from "@mbe/jobs";
 import type { JobHandlerMap, ReminderPayload } from "@mbe/jobs";
 import type { BookingNotificationInput } from "@mbe/notifications";
 import type { CommunicationPreference, Reservation, Venue } from "@mbe/types";
+import { resolveChannel } from "./contact-policy.js";
 
 /**
  * Minimal slice of NotificationDispatcher the reminder handlers depend on.
@@ -46,9 +47,9 @@ export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): J
     // No email or missing venue → nothing deliverable; return (no retry).
     if (!reservation.guestEmail || !venue) return;
 
-    const preference =
-      (reservation.guest?.communicationPreference as CommunicationPreference | null) ??
-      "email_only";
+    const preference = resolveChannel(
+      reservation.guest?.communicationPreference as CommunicationPreference | null
+    );
 
     const input: BookingNotificationInput = {
       reservationId: reservation.id,
