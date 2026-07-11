@@ -2,10 +2,12 @@ import { test, expect } from "./fixtures.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("Venue onboarding wizard", () => {
-  test("page loads with heading and step 1 (Basic Info)", async ({ mockedPage }) => {
+  test("page loads with the onboarding shell and step 1 (Basic Info)", async ({ mockedPage }) => {
     await mockedPage.goto("onboarding");
 
-    await expect(mockedPage.getByRole("heading", { name: "New Venue" })).toBeVisible();
+    // The dedicated OnboardingLayout renders the brand panel heading instead of
+    // the old dashboard "New Venue" PageHeader (removed in #3337).
+    await expect(mockedPage.getByRole("heading", { name: "Hospitality" })).toBeVisible();
     await expect(mockedPage.getByLabel("Venue Name")).toBeVisible();
     await expect(mockedPage.getByLabel("Slug")).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/onboarding-step1.png", fullPage: true });
