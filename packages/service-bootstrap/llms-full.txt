@@ -107,12 +107,10 @@
   </file>
   <file path="src/readiness-routes.ts">
     export type ReadinessRoutesOptions = StandardChecksOptions;
-    function deriveAuth0UrlFromAuthority(): string | undefined {
-      const authority = process.env.AUTH_AUTHORITY;
-      if (!authority) return undefined;
-    
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
+    export const registerReadinessRoutes = fp(readinessRoutesPlugin, {
+      name: "readiness-routes",
+      fastify: "5.x",
+    });
   </file>
   <file path="src/start-service-server.ts">
     export interface StartServiceServerOptions {
@@ -150,6 +148,18 @@
         console.error(err);
         process.exit(1);
       }
+    }
+  </file>
+  <file path="src/validate-startup-config.ts">
+    export function buildJwksUrl(authority: string | undefined): string | undefined {
+      if (!authority) {
+        return undefined;
+      }
+      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
+    }
+    function describeShape(value: string): string {
+      const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value.trim());
+      return `length=${value.length}, scheme=${hasScheme ? "present" : "absent"}`;
     }
   </file>
   </section>

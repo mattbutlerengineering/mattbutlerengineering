@@ -104,8 +104,8 @@
     <item priority="low">
       type ReadinessRoutesOptions = StandardChecksOptions;
     </item>
-    <item priority="medium">
-      function deriveAuth0UrlFromAuthority(): string | undefined { /* ... */ }
+    <item priority="high">
+      export const registerReadinessRoutes: unknown;
     </item>
   </file>
   <file path="src/start-service-server.ts">
@@ -119,6 +119,14 @@
     </item>
     <item priority="high">
       export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/validate-startup-config.ts">
+    <item priority="high">
+      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeShape(value: string): string { /* ... */ }
     </item>
   </file>
   </section>
