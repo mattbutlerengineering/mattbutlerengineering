@@ -164,9 +164,7 @@ function createSessionTools(config: OrchestratorConfig) {
       } catch (error) {
         const message =
           error instanceof ApiClientError
-            ? (error.response.detail ??
-              error.response.message ??
-              String(error.response.status ?? error.response.statusCode ?? ""))
+            ? error.problemDetails.detail
             : error instanceof Error
               ? error.message
               : String(error);

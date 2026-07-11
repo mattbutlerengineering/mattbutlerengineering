@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { type ApiError, type AgentSessionEvent, createProblemDetails } from "@mbe/types";
+import { type ProblemDetails, type AgentSessionEvent, createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { sessionService } from "../services/session.js";
 import { getSessionEventEmitter } from "../services/session-event-emitter.js";
@@ -18,7 +18,7 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /v1/sessions/:id/events — SSE stream of session events
   fastify.get<{
     Params: { id: string };
-    Reply: void | ApiError;
+    Reply: void | ProblemDetails;
   }>(
     "/:id/events",
     {

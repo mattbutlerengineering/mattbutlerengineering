@@ -110,7 +110,7 @@
       fastify.get<{
         Params: { venueId: string };
         Querystring: { date: string; partySize: string; duration?: string };
-        Reply: ApiResponse<TimeSlot[]> | ApiError;
+        Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
       }>(
         "/:venueId",
         {
@@ -196,7 +196,7 @@
       fastify.get<{
         Params: { venueId: string };
         Querystring: { startDate: string; endDate: string; partySize: string };
-        Reply: ApiResponse<DateAvailability[]> | ApiError;
+        Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
       }>(
         "/:venueId/dates",
         {
@@ -270,7 +270,7 @@
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
-        Reply: { data: BriefingEntry[] } | ApiError;
+        Reply: { data: BriefingEntry[] } | ProblemDetails;
       }>(
         "/",
         {
@@ -605,7 +605,7 @@
     export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
         Querystring: { venueId?: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<FloorPlan> | ApiError;
+        Reply: PaginatedResponse<FloorPlan> | ProblemDetails;
       }>(
         "/",
         {
@@ -621,7 +621,7 @@
         }
       );
     
-      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/venue/:venueId/active",
         {
           schema: {
@@ -645,7 +645,7 @@
         }
       );
     
-      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id",
         {
           schema: {
@@ -667,7 +667,7 @@
         }
       );
     
-      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/",
         {
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
@@ -682,7 +682,7 @@
         }
       );
     
-      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/clone",
         {
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
@@ -709,7 +709,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateFloorPlanRequest;
-        Reply: ApiResponse<FloorPlan> | ApiError;
+        Reply: ApiResponse<FloorPlan> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -734,7 +734,7 @@
         }
       );
     
-      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+      fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/activate",
         {
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
@@ -762,7 +762,7 @@
     
       fastify.post<{
         Body: { floorPlanId: string; positions: UpdateTablePositionRequest[] };
-        Reply: { data: Table[] } | ApiError;
+        Reply: { data: Table[] } | ProblemDetails;
       }>(
         "/tables/positions",
         {
@@ -786,7 +786,7 @@
         Params: { tableId: string };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Body: { floorPlanId: string; shapeMetadata?: any };
-        Reply: { data: Table } | ApiError;
+        Reply: { data: Table } | ProblemDetails;
       }>(
         "/tables/:tableId/assign",
         {
@@ -815,7 +815,7 @@
         }
       );
     
-      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
+      fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
         "/tables/:tableId/remove",
         {
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
@@ -838,7 +838,7 @@
         }
       );
     
-      fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
+      fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
         "/:id",
         {
           preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
@@ -867,7 +867,7 @@
       // List guests for a venue
       fastify.get<{
         Querystring: { venueId: string; page?: string; limit?: string };
-        Reply: PaginatedResponse<Guest> | ApiError;
+        Reply: PaginatedResponse<Guest> | ProblemDetails;
       }>(
         "/",
         {
@@ -904,7 +904,7 @@
       // Search guests
       fastify.get<{
         Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
-        Reply: PaginatedResponse<Guest> | ApiError;
+        Reply: PaginatedResponse<Guest> | ProblemDetails;
       }>(
         "/search",
         {
@@ -944,7 +944,7 @@
       // Get guest segments
       fastify.get<{
         Querystring: { venueId: string };
-        Reply: ApiResponse<GuestSegment[]> | ApiError;
+        Reply: ApiResponse<GuestSegment[]> | ProblemDetails;
       }>(
         "/segments",
         {
@@ -983,7 +983,7 @@
       // Get guest by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Guest> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -1021,7 +1021,7 @@
       // Create guest
       fastify.post<{
         Body: CreateGuestRequest;
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Guest> | ProblemDetails;
       }>(
         "/",
         {
@@ -1074,7 +1074,7 @@
           name: string;
           dietaryRestrictions?: string[];
         };
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Guest> | ProblemDetails;
       }>(
         "/find-or-create",
         {
@@ -1119,7 +1119,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateGuestRequest;
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Guest> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -1159,7 +1159,7 @@
       fastify.post<{
         Params: { id: string };
         Body: { text: string };
-        Reply: ApiResponse<Guest> | ApiError;
+        Reply: ApiResponse<Guest> | ProblemDetails;
       }>(
         "/:id/notes",
         {
@@ -1222,7 +1222,7 @@
       // Get lapsing guests for a venue (on-demand scan)
       fastify.get<{
         Querystring: { venueId: string };
-        Reply: ApiResponse<LapsingGuest[]> | ApiError;
+        Reply: ApiResponse<LapsingGuest[]> | ProblemDetails;
       }>(
         "/lapsing",
         {
@@ -1278,7 +1278,7 @@
       // Send win-back message to a guest
       fastify.post<{
         Params: { id: string };
-        Reply: ApiResponse<{ sent: boolean }> | ApiError;
+        Reply: ApiResponse<{ sent: boolean }> | ProblemDetails;
       }>(
         "/:id/win-back",
         {
@@ -1397,7 +1397,7 @@
       // POST / - Create a hold
       fastify.post<{
         Body: CreateHoldRequest;
-        Reply: ApiResponse<ReservationHold> | ApiError;
+        Reply: ApiResponse<ReservationHold> | ProblemDetails;
       }>(
         "/",
         {
@@ -1457,7 +1457,7 @@
       // GET /:id - Get hold status
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<ReservationHold> | ApiError;
+        Reply: ApiResponse<ReservationHold> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -1500,7 +1500,7 @@
       // DELETE /:id - Release a hold
       fastify.delete<{
         Params: { id: string };
-        Reply: { success: boolean } | ApiError;
+        Reply: { success: boolean } | ProblemDetails;
       }>(
         "/:id",
         {
@@ -1566,7 +1566,7 @@
       fastify.post<{
         Params: { id: string };
         Body: ConfirmHoldRequest;
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/:id/confirm",
         {
@@ -2408,7 +2408,7 @@
       // Get current user's reservations (must come before /:id)
       fastify.get<{
         Querystring: { page?: string; limit?: string };
-        Reply: PaginatedResponse<Reservation> | ApiError;
+        Reply: PaginatedResponse<Reservation> | ProblemDetails;
       }>(
         "/me",
         {
@@ -2452,7 +2452,7 @@
       // Create walk-in reservation (must be before /:id)
       fastify.post<{
         Body: WalkInRequest;
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/walk-in",
         {
@@ -2512,7 +2512,7 @@
       // Get reservation by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -2566,7 +2566,7 @@
       // Create reservation
       fastify.post<{
         Body: CreateReservationRequest;
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/",
         {
@@ -2644,7 +2644,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateReservationRequest;
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -2858,7 +2858,7 @@
       // Cancel reservation (DELETE)
       fastify.delete<{
         Params: { id: string };
-        Reply: ApiResponse<Reservation> | ApiError;
+        Reply: ApiResponse<Reservation> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -3002,7 +3002,7 @@
       // Get table by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<Table> | ApiError;
+        Reply: ApiResponse<Table> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -3055,7 +3055,7 @@
       // Create table (requires auth)
       fastify.post<{
         Body: CreateTableRequest;
-        Reply: ApiResponse<Table> | ApiError;
+        Reply: ApiResponse<Table> | ProblemDetails;
       }>(
         "/",
         {
@@ -3111,7 +3111,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateTableRequest;
-        Reply: ApiResponse<Table> | ApiError;
+        Reply: ApiResponse<Table> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -3172,7 +3172,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateTableStatusRequest;
-        Reply: ApiResponse<Table> | ApiError;
+        Reply: ApiResponse<Table> | ProblemDetails;
       }>(
         "/:id/status",
         {
@@ -3352,7 +3352,7 @@
       // Get venue group by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<VenueGroup> | ApiError;
+        Reply: ApiResponse<VenueGroup> | ProblemDetails;
       }>(
         "/groups/:id",
         {
@@ -3401,7 +3401,7 @@
       // Create venue group (requires auth)
       fastify.post<{
         Body: CreateVenueGroupRequest;
-        Reply: ApiResponse<VenueGroup> | ApiError;
+        Reply: ApiResponse<VenueGroup> | ProblemDetails;
       }>(
         "/groups",
         {
@@ -3457,7 +3457,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateVenueGroupRequest;
-        Reply: ApiResponse<VenueGroup> | ApiError;
+        Reply: ApiResponse<VenueGroup> | ProblemDetails;
       }>(
         "/groups/:id",
         {
@@ -3570,7 +3570,7 @@
       // List venues
       fastify.get<{
         Querystring: { page?: string; limit?: string; venueGroupId?: string };
-        Reply: PaginatedResponse<Venue> | ApiError;
+        Reply: PaginatedResponse<Venue> | ProblemDetails;
       }>(
         "/",
         {
@@ -3626,7 +3626,7 @@
       // Get venue by ID
       fastify.get<{
         Params: { id: string };
-        Reply: ApiResponse<Venue> | ApiError;
+        Reply: ApiResponse<Venue> | ProblemDetails;
       }>(
         "/:id",
         {
@@ -3672,7 +3672,7 @@
       // Get venue by slug (for public booking)
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<Venue> | ApiError;
+        Reply: ApiResponse<Venue> | ProblemDetails;
       }>(
         "/by-slug/:slug",
         {
@@ -3719,7 +3719,7 @@
       // Create venue (requires auth)
       fastify.post<{
         Body: CreateVenueRequest;
-        Reply: ApiResponse<Venue> | ApiError;
+        Reply: ApiResponse<Venue> | ProblemDetails;
       }>(
         "/",
         {
@@ -3773,7 +3773,7 @@
       fastify.patch<{
         Params: { id: string };
         Body: UpdateVenueRequest;
-        Reply: ApiResponse<Venue> | ApiError;
+        Reply: ApiResponse<Venue> | ProblemDetails;
       }>(
         "/:id",
         {

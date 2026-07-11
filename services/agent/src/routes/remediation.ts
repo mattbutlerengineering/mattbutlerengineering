@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { type ApiError, createProblemDetails } from "@mbe/types";
+import { type ProblemDetails, createProblemDetails } from "@mbe/types";
 import { sessionService } from "../services/session.js";
 import {
   checkCircuitBreaker,
@@ -38,7 +38,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
   // github[js/missing-rate-limiting] — strict limit to prevent alert storms
   fastify.post<{
     Body: unknown;
-    Reply: { sessionId: string } | ApiError;
+    Reply: { sessionId: string } | ProblemDetails;
   }>(
     "/remediation",
     {

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { type ApiError, createProblemDetails } from "@mbe/types";
+import { type ProblemDetails, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent, intentToRoutingContext, routeModelWithReason } from "@mbe/agent-core";
 import type { IssueInput } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
@@ -140,7 +140,7 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
   // github[js/missing-rate-limiting] — restrictive limit for high-impact webhook
   fastify.post<{
     Body: unknown;
-    Reply: { received: true } | ApiError;
+    Reply: { received: true } | ProblemDetails;
   }>(
     "/github",
     {

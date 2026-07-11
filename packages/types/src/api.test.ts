@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import type { ProblemDetails, ApiError } from "./api.js";
+import type { ProblemDetails } from "./api.js";
 import { createProblemDetails, titleForStatus } from "./api.js";
-import { ProblemDetailsSchema, ApiErrorSchema } from "./schemas/api.js";
+import { ProblemDetailsSchema } from "./schemas/api.js";
 
 describe("createProblemDetails", () => {
   it("creates a valid problem details object with defaults", () => {
@@ -12,9 +12,6 @@ describe("createProblemDetails", () => {
       status: 404,
       detail: "The resource was not found",
       instance: undefined,
-      error: "Not Found",
-      message: "The resource was not found",
-      statusCode: 404,
     });
   });
 
@@ -29,7 +26,6 @@ describe("createProblemDetails", () => {
     expect(result.type).toBe("https://api.example.com/errors/validation");
     expect(result.instance).toBe("/reservations/123");
     expect(result.status).toBe(422);
-    expect(result.statusCode).toBe(422);
   });
 
   it("merges extensions into the returned object", () => {
@@ -45,16 +41,19 @@ describe("createProblemDetails", () => {
     expect(result.traceId).toBe("abc-123");
   });
 
-  it("maintains backward compatibility (has both error/message and title/detail)", () => {
-    const result = createProblemDetails(500, "Internal Error", "Something broke");
+  it("emits the RFC 7807 shape only — no legacy error/message/statusCode fields (ADR-008)", () => {
+    const result = createProblemDetails(500, "Internal Error", "Something broke") as Record<
+      string,
+      unknown
+    >;
     // RFC 7807 fields
     expect(result.title).toBe("Internal Error");
     expect(result.detail).toBe("Something broke");
     expect(result.status).toBe(500);
-    // Legacy fields
-    expect(result.error).toBe("Internal Error");
-    expect(result.message).toBe("Something broke");
-    expect(result.statusCode).toBe(500);
+    // Legacy fields must be gone — the single ProblemDetails shape is the only shape.
+    expect("error" in result).toBe(false);
+    expect("message" in result).toBe(false);
+    expect("statusCode" in result).toBe(false);
   });
 
   it("uses about:blank as default type", () => {
@@ -103,33 +102,15 @@ describe("schema/type alignment (drift prevention)", () => {
     expect(result.success).toBe(true);
   });
 
-  it("ApiErrorSchema validates the legacy error shape produced by the client fallback", () => {
-    // The api-client's error fallback object must match ApiErrorSchema
-    const legacyError: ApiError = {
-      error: "Error",
-      message: "Not Found",
-      statusCode: 404,
-    };
-    const result = ApiErrorSchema.safeParse(legacyError);
-    expect(result.success).toBe(true);
-  });
-
-  it("ProblemDetails and ApiError are z.infer-derived (compile-time enforcement via assignment)", () => {
-    // These assignments compile only if ProblemDetails === z.infer<typeof ProblemDetailsSchema>
-    // and ApiError === z.infer<typeof ApiErrorSchema>. If the types diverge the
-    // typecheck gate will catch it here before CI runs.
+  it("ProblemDetails is z.infer-derived (compile-time enforcement via assignment)", () => {
+    // This assignment compiles only if ProblemDetails === z.infer<typeof ProblemDetailsSchema>.
+    // If the type and schema diverge the typecheck gate will catch it here before CI runs.
     const problemData: ProblemDetails = {
       type: "about:blank",
-      title: "Test",
-      status: 200,
-      detail: "ok",
-    };
-    const errorData: ApiError = {
-      error: "NotFound",
-      message: "Resource missing",
-      statusCode: 404,
+      title: "Not Found",
+      status: 404,
+      detail: "Resource missing",
     };
     expect(ProblemDetailsSchema.safeParse(problemData).success).toBe(true);
-    expect(ApiErrorSchema.safeParse(errorData).success).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { TimeSlot, DateAvailability, ApiResponse, ApiError } from "@mbe/types";
+import type { TimeSlot, DateAvailability, ApiResponse, ProblemDetails } from "@mbe/types";
 import { createProblemDetails, availabilityQueryJsonSchema, availabilityDatesQueryJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
@@ -71,7 +71,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { venueId: string };
     Querystring: { date: string; partySize: string; duration?: string };
-    Reply: ApiResponse<TimeSlot[]> | ApiError;
+    Reply: ApiResponse<TimeSlot[]> | ProblemDetails;
   }>(
     "/:venueId",
     {
@@ -157,7 +157,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { venueId: string };
     Querystring: { startDate: string; endDate: string; partySize: string };
-    Reply: ApiResponse<DateAvailability[]> | ApiError;
+    Reply: ApiResponse<DateAvailability[]> | ProblemDetails;
   }>(
     "/:venueId/dates",
     {

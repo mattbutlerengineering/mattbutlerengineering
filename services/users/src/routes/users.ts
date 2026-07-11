@@ -5,7 +5,7 @@ import {
   type UpdateUserRequest,
   type UpdatePreferencesRequest,
   type ApiResponse,
-  type ApiError,
+  type ProblemDetails,
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
@@ -83,7 +83,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // Get user by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<User> | ApiError;
+    Reply: ApiResponse<User> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -200,7 +200,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateUserRequest;
-    Reply: ApiResponse<User> | ApiError;
+    Reply: ApiResponse<User> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -313,7 +313,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Get current user (from JWT)
   fastify.get<{
-    Reply: ApiResponse<User> | ApiError;
+    Reply: ApiResponse<User> | ProblemDetails;
   }>(
     "/me",
     {
@@ -366,7 +366,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   // Update current user's preferences
   fastify.patch<{
     Body: UpdatePreferencesRequest;
-    Reply: ApiResponse<User> | ApiError;
+    Reply: ApiResponse<User> | ProblemDetails;
   }>(
     "/me/preferences",
     {

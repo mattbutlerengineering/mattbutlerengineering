@@ -384,7 +384,7 @@ describe("Guest Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("already exists");
+      expect(body.detail).toContain("already exists");
     });
   });
 
@@ -430,7 +430,7 @@ describe("Guest Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("email or phone");
+      expect(body.detail).toContain("email or phone");
     });
   });
 

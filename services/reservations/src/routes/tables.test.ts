@@ -235,7 +235,7 @@ describe("Table Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
       // Regression for #1984: 4xx body must carry a non-undefined RFC 7807 `detail`
       expect(body.detail).toBe("Table not found");
     });
@@ -375,7 +375,7 @@ describe("Table Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
 
     it("returns 409 on invalid state transition", async () => {

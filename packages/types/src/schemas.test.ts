@@ -4,7 +4,6 @@ import { UserSchema, UserPreferencesSchema, UserProfileSchema } from "./schemas/
 import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
 import {
   PaginationSchema,
-  ErrorResponseSchema,
   paginatedResponseSchema,
 } from "./schemas/common.js";
 import { ProblemDetailsSchema } from "./schemas/api.js";
@@ -225,25 +224,6 @@ describe("PaginationSchema", () => {
   it("rejects non-boolean hasNext/hasPrev", () => {
     const pagination = { page: 1, limit: 20, total: 100, totalPages: 5, hasNext: 1, hasPrev: 0 };
     expect(PaginationSchema.safeParse(pagination).success).toBe(false);
-  });
-});
-
-// ── ErrorResponseSchema ────────────────────────────────────────────
-
-describe("ErrorResponseSchema", () => {
-  it("accepts a valid error response", () => {
-    const err = { error: "NotFound", message: "Resource not found", statusCode: 404 };
-    expect(ErrorResponseSchema.safeParse(err).success).toBe(true);
-  });
-
-  it("rejects missing error field", () => {
-    expect(ErrorResponseSchema.safeParse({ message: "msg", statusCode: 500 }).success).toBe(false);
-  });
-
-  it("rejects non-number statusCode", () => {
-    expect(
-      ErrorResponseSchema.safeParse({ error: "E", message: "m", statusCode: "404" }).success
-    ).toBe(false);
   });
 });
 

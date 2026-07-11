@@ -130,11 +130,10 @@ describe("useFormState - submit failure", () => {
   it("uses problemDetails.detail (not debug message) when error is ApiClientError", async () => {
     const apiError = new ApiClientError(
       {
-        error: "Validation Error",
-        message: "Validation failed",
-        statusCode: 422,
-        detail: "Name is required",
+        type: "about:blank",
+        title: "Unprocessable Entity",
         status: 422,
+        detail: "Name is required",
       },
       "PATCH",
       "/guests/123"

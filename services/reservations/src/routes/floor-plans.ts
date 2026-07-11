@@ -3,7 +3,7 @@ import {
   type FloorPlan,
   type Table,
   type ApiResponse,
-  type ApiError,
+  type ProblemDetails,
   type PaginatedResponse,
   type CreateFloorPlanRequest,
   type UpdateFloorPlanRequest,
@@ -48,7 +48,7 @@ const resolveTableParamVenueId: VenueIdResolver = async (request) => {
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Querystring: { venueId?: string; page?: string; limit?: string };
-    Reply: PaginatedResponse<FloorPlan> | ApiError;
+    Reply: PaginatedResponse<FloorPlan> | ProblemDetails;
   }>(
     "/",
     {
@@ -64,7 +64,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/venue/:venueId/active",
     {
       schema: {
@@ -88,7 +88,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id",
     {
       schema: {
@@ -110,7 +110,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.post<{ Body: CreateFloorPlanRequest; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/",
     {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromBody)],
@@ -125,7 +125,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id/clone",
     {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
@@ -152,7 +152,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateFloorPlanRequest;
-    Reply: ApiResponse<FloorPlan> | ApiError;
+    Reply: ApiResponse<FloorPlan> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -177,7 +177,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ApiError }>(
+  fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id/activate",
     {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
@@ -205,7 +205,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post<{
     Body: { floorPlanId: string; positions: UpdateTablePositionRequest[] };
-    Reply: { data: Table[] } | ApiError;
+    Reply: { data: Table[] } | ProblemDetails;
   }>(
     "/tables/positions",
     {
@@ -229,7 +229,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     Params: { tableId: string };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Body: { floorPlanId: string; shapeMetadata?: any };
-    Reply: { data: Table } | ApiError;
+    Reply: { data: Table } | ProblemDetails;
   }>(
     "/tables/:tableId/assign",
     {
@@ -258,7 +258,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ApiError }>(
+  fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
     "/tables/:tableId/remove",
     {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
@@ -281,7 +281,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.delete<{ Params: { id: string }; Reply: void | ApiError }>(
+  fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
     "/:id",
     {
       preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],

@@ -16,7 +16,6 @@ import {
   sessionEventJsonSchema,
   createSessionBodyJsonSchema,
   paginationJsonSchema,
-  errorJsonSchema,
   problemDetailsJsonSchema,
   toRequestJsonSchema,
 } from "./schemas/json-schema.js";
@@ -39,7 +38,6 @@ describe("JSON Schema generation (toFastifyJsonSchema)", () => {
       { name: "sessionEventJsonSchema", schema: sessionEventJsonSchema },
       { name: "createSessionBodyJsonSchema", schema: createSessionBodyJsonSchema },
       { name: "paginationJsonSchema", schema: paginationJsonSchema },
-      { name: "errorJsonSchema", schema: errorJsonSchema },
       { name: "problemDetailsJsonSchema", schema: problemDetailsJsonSchema },
     ];
 
@@ -99,7 +97,6 @@ describe("JSON Schema generation (toFastifyJsonSchema)", () => {
       expect(sessionEventJsonSchema.$id).toBe("SessionEvent");
       expect(createSessionBodyJsonSchema.$id).toBe("CreateSessionBody");
       expect(paginationJsonSchema.$id).toBe("Pagination");
-      expect(errorJsonSchema.$id).toBe("Error");
       expect(problemDetailsJsonSchema.$id).toBe("ProblemDetails");
       expect(tableShapeMetadataJsonSchema.$id).toBe("TableShapeMetadata");
     });

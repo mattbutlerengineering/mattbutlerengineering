@@ -752,3 +752,67 @@ describe("ApiClient", () => {
     });
   });
 });
+
+describe("ApiClientError — single ProblemDetails shape (ADR-008)", () => {
+  it("exposes the parsed RFC 7807 body via problemDetails and has no legacy response property", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          type: "https://errors.mbe/validation",
+          title: "Unprocessable Entity",
+          status: 422,
+          detail: "partySize must be positive",
+          instance: "/reservations",
+        }),
+        { status: 422, headers: { "content-type": "application/problem+json" } }
+      )
+    );
+
+    const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+    try {
+      await client.post("/reservations", {});
+      expect.unreachable("Should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiClientError);
+      const apiError = error as ApiClientError;
+      // Single shape: the RFC 7807 ProblemDetails is the only error representation.
+      expect(apiError.problemDetails).toEqual({
+        type: "https://errors.mbe/validation",
+        title: "Unprocessable Entity",
+        status: 422,
+        detail: "partySize must be positive",
+        instance: "/reservations",
+      });
+      expect(apiError.statusCode).toBe(422);
+      expect(apiError.category).toBe("validationError");
+      // The legacy dual `response` property is gone.
+      expect("response" in apiError).toBe(false);
+    }
+  });
+
+  it("synthesizes a populated ProblemDetails from a partial/non-7807 body", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "Nope" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+
+    try {
+      await client.get("/missing");
+      expect.unreachable("Should have thrown");
+    } catch (error) {
+      const apiError = error as ApiClientError;
+      expect(apiError.problemDetails).toEqual({
+        type: "about:blank",
+        title: "Not Found",
+        status: 404,
+        detail: "Nope",
+      });
+      expect(apiError.category).toBe("notFound");
+    }
+  });
+});

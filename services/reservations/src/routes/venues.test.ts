@@ -203,7 +203,7 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(404);
         const body = JSON.parse(response.body);
-        expect(body.error).toBe("Not Found");
+        expect(body.title).toBe("Not Found");
       });
     });
 
@@ -304,7 +304,7 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(400);
         const body = JSON.parse(response.body);
-        expect(body.error).toBe("Bad Request");
+        expect(body.title).toBe("Bad Request");
       });
 
       it("re-throws non-unique-constraint errors from venue group create", async () => {
@@ -576,7 +576,7 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(404);
         const body = JSON.parse(response.body);
-        expect(body.error).toBe("Not Found");
+        expect(body.title).toBe("Not Found");
       });
     });
 
@@ -678,7 +678,7 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(400);
         const body = JSON.parse(response.body);
-        expect(body.error).toBe("Bad Request");
+        expect(body.title).toBe("Bad Request");
       });
 
       it("re-throws non-unique-constraint errors from venue create", async () => {

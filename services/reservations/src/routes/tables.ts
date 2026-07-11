@@ -5,7 +5,7 @@ import type {
   UpdateTableRequest,
   UpdateTableStatusRequest,
   ApiResponse,
-  ApiError,
+  ProblemDetails,
   PaginatedResponse,
 } from "@mbe/types";
 import {
@@ -69,7 +69,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Get table by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<Table> | ApiError;
+    Reply: ApiResponse<Table> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -122,7 +122,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Create table (requires auth)
   fastify.post<{
     Body: CreateTableRequest;
-    Reply: ApiResponse<Table> | ApiError;
+    Reply: ApiResponse<Table> | ProblemDetails;
   }>(
     "/",
     {
@@ -178,7 +178,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateTableRequest;
-    Reply: ApiResponse<Table> | ApiError;
+    Reply: ApiResponse<Table> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -239,7 +239,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateTableStatusRequest;
-    Reply: ApiResponse<Table> | ApiError;
+    Reply: ApiResponse<Table> | ProblemDetails;
   }>(
     "/:id/status",
     {

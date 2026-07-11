@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiResponse, ApiError } from "@mbe/types";
+import type { ApiResponse, ProblemDetails } from "@mbe/types";
 import type { OrchestratorResult } from "@mbe/agent-core";
 import { requireAuth } from "@mbe/auth/fastify";
 import { runOrchestrator, DEFAULT_ORCHESTRATOR_CONFIG } from "@mbe/agent-core";
@@ -28,7 +28,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/orchestrate — Decompose a task into sub-sessions
   fastify.post<{
     Body: OrchestrateBody;
-    Reply: ApiResponse<OrchestrateResponse> | ApiError;
+    Reply: ApiResponse<OrchestrateResponse> | ProblemDetails;
   }>(
     "/",
     {

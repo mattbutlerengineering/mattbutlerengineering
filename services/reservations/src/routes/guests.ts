@@ -6,7 +6,7 @@ import type {
   UpdateGuestRequest,
   GuestSegment,
   ApiResponse,
-  ApiError,
+  ProblemDetails,
   PaginatedResponse,
 } from "@mbe/types";
 import {
@@ -43,7 +43,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // List guests for a venue
   fastify.get<{
     Querystring: { venueId: string; page?: string; limit?: string };
-    Reply: PaginatedResponse<Guest> | ApiError;
+    Reply: PaginatedResponse<Guest> | ProblemDetails;
   }>(
     "/",
     {
@@ -80,7 +80,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Search guests
   fastify.get<{
     Querystring: { venueId: string; query?: string; tags?: string; hasNotVisitedInDays?: string };
-    Reply: PaginatedResponse<Guest> | ApiError;
+    Reply: PaginatedResponse<Guest> | ProblemDetails;
   }>(
     "/search",
     {
@@ -120,7 +120,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Get guest segments
   fastify.get<{
     Querystring: { venueId: string };
-    Reply: ApiResponse<GuestSegment[]> | ApiError;
+    Reply: ApiResponse<GuestSegment[]> | ProblemDetails;
   }>(
     "/segments",
     {
@@ -159,7 +159,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Get guest by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<Guest> | ApiError;
+    Reply: ApiResponse<Guest> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -197,7 +197,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Create guest
   fastify.post<{
     Body: CreateGuestRequest;
-    Reply: ApiResponse<Guest> | ApiError;
+    Reply: ApiResponse<Guest> | ProblemDetails;
   }>(
     "/",
     {
@@ -250,7 +250,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       name: string;
       dietaryRestrictions?: string[];
     };
-    Reply: ApiResponse<Guest> | ApiError;
+    Reply: ApiResponse<Guest> | ProblemDetails;
   }>(
     "/find-or-create",
     {
@@ -295,7 +295,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateGuestRequest;
-    Reply: ApiResponse<Guest> | ApiError;
+    Reply: ApiResponse<Guest> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -335,7 +335,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { id: string };
     Body: { text: string };
-    Reply: ApiResponse<Guest> | ApiError;
+    Reply: ApiResponse<Guest> | ProblemDetails;
   }>(
     "/:id/notes",
     {
@@ -398,7 +398,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Get lapsing guests for a venue (on-demand scan)
   fastify.get<{
     Querystring: { venueId: string };
-    Reply: ApiResponse<LapsingGuest[]> | ApiError;
+    Reply: ApiResponse<LapsingGuest[]> | ProblemDetails;
   }>(
     "/lapsing",
     {
@@ -454,7 +454,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // Send win-back message to a guest
   fastify.post<{
     Params: { id: string };
-    Reply: ApiResponse<{ sent: boolean }> | ApiError;
+    Reply: ApiResponse<{ sent: boolean }> | ProblemDetails;
   }>(
     "/:id/win-back",
     {

@@ -28,9 +28,6 @@ describe("errorHandlerPlugin", () => {
 
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({
-      statusCode: 404,
-      error: "Not Found",
-      message: "Custom not found",
       status: 404,
       title: "Not Found",
       detail: "Custom not found",
@@ -69,7 +66,7 @@ describe("errorHandlerPlugin", () => {
 
     expect(res.statusCode).toBe(400);
     const body = JSON.parse(res.body);
-    expect(body.statusCode).toBe(400);
+    expect(body.status).toBe(400);
     expect(body.title).toBe("Bad Request");
     expect(body.detail).toContain("Validation failed");
     expect(body.details?.validation).toBeDefined();
@@ -91,9 +88,6 @@ describe("errorHandlerPlugin", () => {
 
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({
-      statusCode: 404,
-      error: "Not Found",
-      message: "Venue not found",
       status: 404,
       title: "Not Found",
       detail: "Venue not found",
@@ -116,8 +110,6 @@ describe("errorHandlerPlugin", () => {
 
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({
-      statusCode: 409,
-      error: "Conflict",
       status: 409,
       title: "Conflict",
       detail: "Unique constraint failed: name, slug",
@@ -140,8 +132,6 @@ describe("errorHandlerPlugin", () => {
 
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({
-      statusCode: 409,
-      error: "Conflict",
       status: 409,
       title: "Conflict",
       detail: "Foreign key constraint failed on field: venueId",
@@ -160,9 +150,6 @@ describe("errorHandlerPlugin", () => {
 
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({
-      statusCode: 500,
-      error: "Internal Server Error",
-      message: "Something blew up",
       status: 500,
       title: "Internal Server Error",
       detail: "Something blew up",

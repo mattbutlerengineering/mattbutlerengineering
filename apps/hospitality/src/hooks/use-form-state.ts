@@ -44,7 +44,7 @@ export function useFormState<T extends Record<string, unknown>>(
       await onSubmit(parsed.data);
     } catch (err) {
       if (err instanceof ApiClientError) {
-        setError(err.problemDetails.detail ?? err.response.message);
+        setError(err.problemDetails.detail);
       } else {
         setError(err instanceof Error ? err.message : "An error occurred");
       }

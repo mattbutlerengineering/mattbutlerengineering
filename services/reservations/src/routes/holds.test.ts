@@ -249,7 +249,7 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Conflict");
+      expect(body.title).toBe("Conflict");
     });
 
     it("should return 404 when venue not found", async () => {
@@ -274,7 +274,7 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
   });
 
@@ -302,7 +302,7 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
   });
 
@@ -416,8 +416,8 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(410);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Hold Expired");
-      expect(body.message).toBe("Hold has expired");
+      expect(body.title).toBe("Hold Expired");
+      expect(body.detail).toBe("Hold has expired");
     });
 
     it("should return 404 for nonexistent hold", async () => {
@@ -440,8 +440,8 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
-      expect(body.message).toBe("Hold not found");
+      expect(body.title).toBe("Not Found");
+      expect(body.detail).toBe("Hold not found");
     });
 
     it("should return 403 for session ID mismatch", async () => {
@@ -464,7 +464,7 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(403);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Forbidden");
+      expect(body.title).toBe("Forbidden");
     });
 
     it("should return 409 when slot no longer available", async () => {
@@ -487,7 +487,7 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Conflict");
+      expect(body.title).toBe("Conflict");
     });
 
     it("should return 422 when pacing limit is exceeded", async () => {
@@ -510,8 +510,8 @@ describe("Hold Routes", () => {
 
       expect(response.statusCode).toBe(422);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Pacing Limit Reached");
-      expect(body.message).toBe("Pacing limit reached for this time slot");
+      expect(body.title).toBe("Pacing Limit Reached");
+      expect(body.detail).toBe("Pacing limit reached for this time slot");
     });
   });
 });

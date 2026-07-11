@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { ApiError } from "@mbe/types";
+import type { ProblemDetails } from "@mbe/types";
 import { createProblemDetails, briefingQueryJsonSchema } from "@mbe/types";
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { venueIdFromQuery } from "./venue-access.js";
@@ -8,7 +8,7 @@ import { briefingService, type BriefingEntry } from "../services/briefing.js";
 export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Querystring: { date?: string; venueId?: string };
-    Reply: { data: BriefingEntry[] } | ApiError;
+    Reply: { data: BriefingEntry[] } | ProblemDetails;
   }>(
     "/",
     {

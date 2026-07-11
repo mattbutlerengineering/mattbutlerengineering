@@ -4,7 +4,6 @@ export type {
   ApiMeta,
   PaginatedResponse,
   Pagination,
-  ApiError,
   HealthResponse,
   ReadinessResponse,
   ReadinessCheckStatus,

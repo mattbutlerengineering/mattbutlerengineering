@@ -3,7 +3,7 @@ import {
   type AgentSession,
   type AgentSessionStatus,
   type ApiResponse,
-  type ApiError,
+  type ProblemDetails,
   type PaginatedResponse,
   type CreateAgentSessionRequest,
   createProblemDetails,
@@ -54,7 +54,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions — Create + start a new session
   fastify.post<{
     Body: CreateAgentSessionRequest;
-    Reply: ApiResponse<AgentSession> | ApiError;
+    Reply: ApiResponse<AgentSession> | ProblemDetails;
   }>(
     "/",
     {
@@ -150,7 +150,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /v1/sessions/:id — Get session details
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<AgentSession> | ApiError;
+    Reply: ApiResponse<AgentSession> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -185,7 +185,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /v1/sessions/:id/cancel — Cancel a running session
   fastify.post<{
     Params: { id: string };
-    Reply: ApiResponse<AgentSession> | ApiError;
+    Reply: ApiResponse<AgentSession> | ProblemDetails;
   }>(
     "/:id/cancel",
     {
@@ -236,7 +236,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /v1/sessions/:id — Delete a session
   fastify.delete<{
     Params: { id: string };
-    Reply: void | ApiError;
+    Reply: void | ProblemDetails;
   }>(
     "/:id",
     {
