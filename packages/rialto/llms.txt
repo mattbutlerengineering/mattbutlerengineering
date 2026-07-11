@@ -640,7 +640,7 @@
       interface CharacterLimitInfo {
         prop: string;
         max: number;
-        reason: string;
+        reason?: string;
       }
     </item>
   </file>

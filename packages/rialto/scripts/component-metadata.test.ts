@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   introspectComponents,
   characterLimits,
+  assertCharacterLimitsResolve,
   type ComponentMetadata,
 } from "./component-metadata.js";
 
@@ -119,13 +120,16 @@ describe("introspectComponents", () => {
     expect(variantProp!.declaredInRialto).toBe(true);
   });
 
-  it("every characterLimitInfo has prop, max, and reason", () => {
+  it("every characterLimitInfo has prop and max; reason is optional (catalog limits omit it)", () => {
     for (const comp of getComponents()) {
       for (const cl of comp.characterLimits) {
         expect(typeof cl.prop).toBe("string");
         expect(typeof cl.max).toBe("number");
         expect(cl.max).toBeGreaterThan(0);
-        expect(typeof cl.reason).toBe("string");
+        if (cl.reason !== undefined) {
+          expect(typeof cl.reason).toBe("string");
+          expect(cl.reason.length).toBeGreaterThan(0);
+        }
       }
     }
   });
@@ -150,5 +154,61 @@ describe("introspectComponents", () => {
     const byteComparator = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
     const sorted = [...members].sort(byteComparator);
     expect(members).toEqual(sorted);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertCharacterLimitsResolve — one-vocabulary drift guard (issue #3352)
+//
+// Every character limit (catalog `charLimits` OR the static residue) must name
+// a real prop/slot of its component. This is the single check that catches the
+// EmptyState `title`→`heading` class of drift: a limit for a prop that the
+// component does not have used to ship silently into manifest/registry.
+// ---------------------------------------------------------------------------
+
+describe("assertCharacterLimitsResolve", () => {
+  it("passes for the real, merged component model (no limit references a missing prop)", () => {
+    // introspectComponents() already runs the assertion; call it directly too so
+    // a regression names the offending limit rather than failing setup opaquely.
+    const components = introspectComponents(RIALTO_ROOT);
+    expect(() => assertCharacterLimitsResolve(components)).not.toThrow();
+  });
+
+  it("throws, naming the offender, when a limit references a nonexistent prop", () => {
+    const bogus: ComponentMetadata = {
+      name: "EmptyState",
+      exportIdentifier: "EmptyState",
+      importPath: "@mattbutlerengineering/rialto",
+      subpath: "EmptyState",
+      props: [{ name: "heading", type: "string", resolvedType: "string", required: false, declaredInRialto: true }],
+      slots: ["children"],
+      // `title` is not a real prop of EmptyState — the exact historical drift.
+      characterLimits: [{ prop: "title", max: 50 }],
+    };
+    expect(() => assertCharacterLimitsResolve([bogus])).toThrow(/EmptyState\.title/);
+  });
+
+  it("accepts slots and nested root props (children, events[].title)", () => {
+    const ok: ComponentMetadata = {
+      name: "Timeline",
+      exportIdentifier: "Timeline",
+      importPath: "@mattbutlerengineering/rialto",
+      subpath: "Timeline",
+      props: [{ name: "events", type: "TimelineEvent[]", resolvedType: "TimelineEvent[]", required: true, declaredInRialto: true }],
+      slots: ["children"],
+      characterLimits: [
+        { prop: "events[].title", max: 60 },
+        { prop: "children", max: 20 },
+      ],
+    };
+    expect(() => assertCharacterLimitsResolve([ok])).not.toThrow();
+  });
+
+  it("EmptyState publishes a limit for `heading`, never `title`", () => {
+    const empty = introspectComponents(RIALTO_ROOT).find((c) => c.name === "EmptyState");
+    expect(empty).toBeDefined();
+    const props = empty!.characterLimits.map((l) => l.prop);
+    expect(props).toContain("heading");
+    expect(props).not.toContain("title");
   });
 });

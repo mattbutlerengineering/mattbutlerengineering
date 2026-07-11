@@ -94,14 +94,13 @@
       ],
       "characterLimits": [
         {
-          "prop": "title",
-          "max": 60,
-          "reason": "Alert heading; single line preferred"
-        },
-        {
           "prop": "children",
           "max": 500,
           "reason": "Alert body; paragraph-length contextual message"
+        },
+        {
+          "prop": "title",
+          "max": 60
         }
       ]
     },
@@ -194,7 +193,13 @@
           "description": "Bar height. Default \"56px\"."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "height",
+          "max": 20
+        }
+      ]
     },
     {
       "name": "AspectRatio",
@@ -333,8 +338,7 @@
       "characterLimits": [
         {
           "prop": "name",
-          "max": 30,
-          "reason": "Used for initials fallback; full name for alt text"
+          "max": 30
         }
       ]
     },
@@ -433,13 +437,6 @@
       ],
       "slots": [
         "children"
-      ],
-      "characterLimits": [
-        {
-          "prop": "title",
-          "max": 60,
-          "reason": "Banner heading; single line, full-width"
-        }
       ]
     },
     {
@@ -626,14 +623,12 @@
       ],
       "characterLimits": [
         {
-          "prop": "title",
-          "max": 60,
-          "reason": "Card heading; single line"
+          "prop": "subtitle",
+          "max": 80
         },
         {
-          "prop": "subtitle",
-          "max": 80,
-          "reason": "Card subheading; 1-2 lines below title"
+          "prop": "title",
+          "max": 60
         }
       ]
     },
@@ -829,14 +824,12 @@
       "slots": [],
       "characterLimits": [
         {
-          "prop": "label",
-          "max": 30,
-          "reason": "Checkbox label; single line beside control"
+          "prop": "description",
+          "max": 80
         },
         {
-          "prop": "description",
-          "max": 80,
-          "reason": "Help text below checkbox label"
+          "prop": "label",
+          "max": 30
         }
       ]
     },
@@ -891,7 +884,7 @@
       ],
       "characterLimits": [
         {
-          "prop": "label",
+          "prop": "trigger",
           "max": 60,
           "reason": "Collapsible trigger text; single line"
         }
@@ -1021,7 +1014,13 @@
           "description": "Text shown when no options match."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "ComboboxOption",
@@ -1134,9 +1133,9 @@
       "slots": [],
       "characterLimits": [
         {
-          "prop": "title",
-          "max": 60,
-          "reason": "Confirmation heading; clear and direct"
+          "prop": "confirmLabel",
+          "max": 20,
+          "reason": "Confirm button text; concise verb"
         },
         {
           "prop": "description",
@@ -1144,9 +1143,9 @@
           "reason": "Confirmation body; explains consequences"
         },
         {
-          "prop": "confirmLabel",
-          "max": 20,
-          "reason": "Confirm button text; concise verb"
+          "prop": "title",
+          "max": 60,
+          "reason": "Confirmation heading; clear and direct"
         }
       ]
     },
@@ -1282,7 +1281,13 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "emptyMessage",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "DatePicker",
@@ -1455,14 +1460,12 @@
       ],
       "characterLimits": [
         {
-          "prop": "title",
-          "max": 60,
-          "reason": "Dialog heading; fits modal header"
+          "prop": "description",
+          "max": 120
         },
         {
-          "prop": "description",
-          "max": 120,
-          "reason": "Dialog subtitle; 1-2 lines below title"
+          "prop": "title",
+          "max": 60
         }
       ]
     },
@@ -1524,8 +1527,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 20,
-          "reason": "Centered divider label; very short (\"or\", \"and\")"
+          "max": 20
         }
       ]
     },
@@ -1669,14 +1671,12 @@
       ],
       "characterLimits": [
         {
-          "prop": "title",
-          "max": 50,
-          "reason": "Empty state heading; centered, short"
+          "prop": "description",
+          "max": 300
         },
         {
-          "prop": "description",
-          "max": 300,
-          "reason": "Empty state body; explains what to do next"
+          "prop": "heading",
+          "max": 50
         }
       ]
     },
@@ -1854,6 +1854,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "copyright",
+          "max": 80
+        }
       ]
     },
     {
@@ -2274,19 +2280,12 @@
       ],
       "characterLimits": [
         {
-          "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above input"
-        },
-        {
           "prop": "hint",
-          "max": 80,
-          "reason": "Helper text below input; 1-2 lines"
+          "max": 80
         },
         {
-          "prop": "error",
-          "max": 80,
-          "reason": "Error message below input; must be actionable"
+          "prop": "label",
+          "max": 40
         }
       ]
     },
@@ -2780,14 +2779,7 @@
           "required": false
         }
       ],
-      "slots": [],
-      "characterLimits": [
-        {
-          "prop": "aria-label",
-          "max": 30,
-          "reason": "Screen reader label; concise context"
-        }
-      ]
+      "slots": []
     },
     {
       "name": "PendingAction",
@@ -3225,8 +3217,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above select trigger"
+          "max": 40
         }
       ]
     },
@@ -3650,6 +3641,11 @@
       ],
       "characterLimits": [
         {
+          "prop": "delta",
+          "max": 10,
+          "reason": "Trend delta; short numeric change"
+        },
+        {
           "prop": "label",
           "max": 25,
           "reason": "Metric label; sits below the value"
@@ -3658,11 +3654,6 @@
           "prop": "value",
           "max": 15,
           "reason": "Metric value; must be scannable"
-        },
-        {
-          "prop": "delta",
-          "max": 10,
-          "reason": "Trend delta; short numeric change"
         }
       ]
     },
@@ -3752,14 +3743,14 @@
       "slots": [],
       "characterLimits": [
         {
-          "prop": "steps[].label",
-          "max": 20,
-          "reason": "Step labels share horizontal space"
-        },
-        {
           "prop": "steps[].description",
           "max": 80,
           "reason": "Step description; sits below label"
+        },
+        {
+          "prop": "steps[].label",
+          "max": 20,
+          "reason": "Step labels share horizontal space"
         }
       ]
     },
@@ -3811,7 +3802,13 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "emptyMessage",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "Tabs",
@@ -4278,14 +4275,14 @@
       "slots": [],
       "characterLimits": [
         {
-          "prop": "items[].title",
-          "max": 60,
-          "reason": "Event title; single line beside node"
-        },
-        {
-          "prop": "items[].description",
+          "prop": "events[].description",
           "max": 200,
           "reason": "Event description; supporting detail"
+        },
+        {
+          "prop": "events[].title",
+          "max": 60,
+          "reason": "Event title; single line beside node"
         }
       ]
     },
@@ -4335,8 +4332,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 30,
-          "reason": "Switch label; single line beside control"
+          "max": 30
         }
       ]
     },

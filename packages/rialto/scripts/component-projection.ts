@@ -29,7 +29,7 @@ export interface PropInfo {
 export interface CharacterLimitInfo {
   prop: string;
   max: number;
-  reason: string;
+  reason?: string;
 }
 
 /**
