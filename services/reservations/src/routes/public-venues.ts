@@ -32,38 +32,14 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const { slug } = request.params;
-      const rawVenue = await venueService.getRawBySlug(slug);
+      const publicVenue = await venueService.getPublicConfigBySlug(slug);
 
-      if (!rawVenue) {
+      if (!publicVenue) {
         return reply.status(404).send({
           success: false,
           error: "Venue not found",
         } as never);
       }
-
-      const settings = rawVenue.settings as Record<string, unknown> | null;
-
-      const publicVenue: PublicVenueConfig = {
-        name: rawVenue.name,
-        slug: rawVenue.slug,
-        ianaTimezone: rawVenue.ianaTimezone,
-        currencyCode: rawVenue.currencyCode,
-        operatingHours: rawVenue.operatingHours as PublicVenueConfig["operatingHours"],
-        settings: {
-          defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
-          maxPartySize: settings?.maxPartySize as number | undefined,
-          maxAdvanceBooking: settings?.maxAdvanceBooking as number | undefined,
-          slotIntervalMinutes: settings?.slotIntervalMinutes as number | undefined,
-        },
-        deposit: {
-          enabled: rawVenue.depositEnabled,
-          depositType: rawVenue.depositType,
-          amountCents: rawVenue.depositAmountCents,
-          freeCancellationHours: rawVenue.freeCancellationHours,
-          lateCancellationFeePercent: rawVenue.lateCancellationFeePercent,
-          noShowFeePercent: rawVenue.noShowFeePercent,
-        },
-      };
 
       return reply.send({ data: publicVenue });
     }

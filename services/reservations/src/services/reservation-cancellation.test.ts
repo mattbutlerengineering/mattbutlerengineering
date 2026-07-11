@@ -11,7 +11,7 @@ vi.mock("./reservation.js", () => ({
 vi.mock("./venue.js", () => ({
   venueService: {
     getById: vi.fn(),
-    getRawById: vi.fn(),
+    getPolicyById: vi.fn(),
   },
 }));
 
@@ -26,6 +26,7 @@ vi.mock("./deposit.js", () => ({
 
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import type { VenuePolicy } from "./venue.js";
 import { depositService } from "./deposit.js";
 import { ReservationTransitionError } from "./reservation-state-machine.js";
 import {
@@ -74,8 +75,13 @@ function makeDeps() {
   };
 }
 
-const rawVenueWithPolicy = {
+const venuePolicy: VenuePolicy = {
   id: "venue_1",
+  slug: "the-oak-table",
+  currencyCode: "USD",
+  depositEnabled: true,
+  depositType: "flat",
+  depositAmountCents: null,
   freeCancellationHours: 24,
   lateCancellationFeePercent: 50,
   noShowFeePercent: 100,
@@ -107,7 +113,7 @@ describe("cancelReservationWithDeposit", () => {
       startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     });
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
     vi.mocked(depositService.forfeit).mockResolvedValueOnce({
       ...heldDeposit,
       status: "forfeited",
@@ -154,7 +160,7 @@ describe("cancelReservationWithDeposit", () => {
 
     expect(result.success).toBe(true);
     expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000);
-    expect(venueService.getRawById).not.toHaveBeenCalled();
+    expect(venueService.getPolicyById).not.toHaveBeenCalled();
     expect(depositService.forfeit).not.toHaveBeenCalled();
   });
 
@@ -180,7 +186,7 @@ describe("cancelReservationWithDeposit", () => {
   it("aborts the cancel and does not flip status when the deposit refund fails (no ghost state)", async () => {
     const reservation = makeReservation();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
     vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
     const result = await cancelReservationWithDeposit(reservation, "token123", makeDeps());
@@ -267,7 +273,7 @@ describe("cancelReservationWithDeposit", () => {
       expect(depositService.refund).toHaveBeenCalledWith("dep_1");
       expect(depositService.refundPartial).not.toHaveBeenCalled();
       expect(depositService.forfeit).not.toHaveBeenCalled();
-      expect(venueService.getRawById).not.toHaveBeenCalled();
+      expect(venueService.getPolicyById).not.toHaveBeenCalled();
     });
 
     it("aborts the cancel when the staff refund fails (no ghost state)", async () => {
@@ -381,7 +387,7 @@ describe("cancelReservationWithDeposit", () => {
     });
     const deps = makeDeps();
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(venuePolicy);
     vi.mocked(depositService.forfeit).mockResolvedValueOnce({
       ...heldDeposit,
       status: "forfeited",

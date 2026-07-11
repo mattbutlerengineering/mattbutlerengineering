@@ -10,7 +10,7 @@ vi.mock("./reservation.js", () => ({
 vi.mock("./venue.js", () => ({
   venueService: {
     getById: vi.fn(),
-    getRawById: vi.fn(),
+    getPolicyById: vi.fn(),
   },
 }));
 
@@ -22,6 +22,7 @@ vi.mock("./deposit.js", () => ({
 
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import type { VenuePolicy } from "./venue.js";
 import { depositService } from "./deposit.js";
 import {
   modifyReservationWithNotifications,
@@ -83,6 +84,21 @@ const mockVenue = {
   name: "The Oak Table",
   ianaTimezone: "America/Los_Angeles",
 };
+
+function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
+  return {
+    id: "venue_1",
+    slug: "the-oak-table",
+    currencyCode: "USD",
+    depositEnabled: true,
+    depositType: "flat",
+    depositAmountCents: 2500,
+    freeCancellationHours: null,
+    lateCancellationFeePercent: null,
+    noShowFeePercent: null,
+    ...overrides,
+  };
+}
 
 describe("modifyReservationWithNotifications", () => {
   beforeEach(() => {
@@ -278,9 +294,7 @@ describe("modifyReservationWithNotifications", () => {
   it("updates partySize when there is no held/pending deposit at all", async () => {
     const reservation = makeReservation({ partySize: 4 });
     const updated = { ...reservation, partySize: 10 };
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "per_person",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -309,9 +323,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {
     const reservation = makeReservation({ partySize: 4 });
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "per_person",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "held",
     } as never);
@@ -334,9 +346,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks a partySize DECREASE with 409 when a per_person deposit is held", async () => {
     const reservation = makeReservation({ partySize: 6 });
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "per_person",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "held",
     } as never);
@@ -358,9 +368,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks when the per_person deposit is still pending (not yet held)", async () => {
     const reservation = makeReservation({ partySize: 4 });
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "per_person",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "pending",
     } as never);
@@ -382,9 +390,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
   it("passes through on a flat-deposit venue even with a held deposit", async () => {
     const reservation = makeReservation({ partySize: 4 });
     const updated = { ...reservation, partySize: 6 };
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "flat",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "flat" }));
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
       reservation: updated,
@@ -419,7 +425,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
     );
 
     expect(result.success).toBe(true);
-    expect(venueService.getRawById).not.toHaveBeenCalled();
+    expect(venueService.getPolicyById).not.toHaveBeenCalled();
     expect(depositService.getByReservationId).not.toHaveBeenCalled();
   });
 
@@ -440,7 +446,7 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
     );
 
     expect(result.success).toBe(true);
-    expect(venueService.getRawById).not.toHaveBeenCalled();
+    expect(venueService.getPolicyById).not.toHaveBeenCalled();
     expect(depositService.getByReservationId).not.toHaveBeenCalled();
   });
 });

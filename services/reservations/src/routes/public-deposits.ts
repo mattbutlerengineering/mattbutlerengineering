@@ -52,15 +52,15 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
       const { slug } = request.params;
       const { reservationId, guestEmail, guestName } = request.body;
 
-      // Use getRawBySlug to get deposit-specific fields not on the mapped Venue type
-      const venue = await venueService.getRawBySlug(slug);
-      if (!venue) {
+      // Typed deposit/cancellation policy for this venue — no raw Prisma row.
+      const policy = await venueService.getPolicyBySlug(slug);
+      if (!policy) {
         return reply
           .status(404)
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      if (!venue.depositEnabled) {
+      if (!policy.depositEnabled) {
         return reply
           .status(422)
           .send(
@@ -74,7 +74,7 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Verify reservation belongs to this venue
       const reservation = await reservationService.getById(reservationId);
-      if (!reservation || reservation.venueId !== venue.id) {
+      if (!reservation || reservation.venueId !== policy.id) {
         return reply
           .status(404)
           .send(createProblemDetails(404, "Not Found", "Reservation not found for this venue."));
@@ -91,8 +91,8 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Calculate deposit amount
-      const depositAmountCents = calculateDepositAmount(venue, reservation.partySize);
-      const currency = venue.currencyCode.toLowerCase();
+      const depositAmountCents = calculateDepositAmount(policy, reservation.partySize);
+      const currency = policy.currencyCode.toLowerCase();
 
       // Create Stripe PaymentIntent (manual capture = authorize-only hold)
       let stripeCustomerId: string | undefined;

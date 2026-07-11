@@ -1,6 +1,9 @@
 import type {
   Venue,
   VenueGroup,
+  VenueSettings,
+  DepositType,
+  PublicVenueConfig,
   CreateVenueRequest,
   UpdateVenueRequest,
   CreateVenueGroupRequest,
@@ -10,6 +13,62 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+
+/**
+ * Typed projection of a venue's deposit & cancellation policy, plus the
+ * identity and currency needed to act on it. Returned by
+ * {@link venueService.getPolicyById} / {@link venueService.getPolicyBySlug} so the
+ * deposit/cancellation money path consumes exactly these fields behind the
+ * serializer seam — never a raw Prisma venue row.
+ */
+export interface VenuePolicy {
+  id: string;
+  slug: string;
+  currencyCode: string;
+  depositEnabled: boolean;
+  depositType: DepositType | null;
+  depositAmountCents: number | null;
+  freeCancellationHours: number | null;
+  lateCancellationFeePercent: number | null;
+  noShowFeePercent: number | null;
+}
+
+/** Exact set of columns projected onto {@link VenuePolicy} — no other row data escapes. */
+const venuePolicySelect = {
+  id: true,
+  slug: true,
+  currencyCode: true,
+  depositEnabled: true,
+  depositType: true,
+  depositAmountCents: true,
+  freeCancellationHours: true,
+  lateCancellationFeePercent: true,
+  noShowFeePercent: true,
+} satisfies Prisma.VenueSelect;
+
+function mapVenuePolicy(row: {
+  id: string;
+  slug: string;
+  currencyCode: string;
+  depositEnabled: boolean;
+  depositType: DepositType | null;
+  depositAmountCents: number | null;
+  freeCancellationHours: number | null;
+  lateCancellationFeePercent: number | null;
+  noShowFeePercent: number | null;
+}): VenuePolicy {
+  return {
+    id: row.id,
+    slug: row.slug,
+    currencyCode: row.currencyCode,
+    depositEnabled: row.depositEnabled,
+    depositType: row.depositType,
+    depositAmountCents: row.depositAmountCents,
+    freeCancellationHours: row.freeCancellationHours,
+    lateCancellationFeePercent: row.lateCancellationFeePercent,
+    noShowFeePercent: row.noShowFeePercent,
+  };
+}
 
 function mapPrismaVenueGroup(group: {
   id: string;
@@ -201,19 +260,79 @@ export const venueService = {
   },
 
   /**
-   * Returns the raw Prisma venue record for a given slug, including deposit fields.
-   * Use in routes that need deposit-specific fields not on the mapped Venue type.
+   * Returns the venue's deposit/cancellation {@link VenuePolicy} by ID, or `null`
+   * when the venue does not exist. Projects exactly the policy columns so the
+   * money path (cancellation, modification) never touches a raw Prisma row.
    */
-  async getRawBySlug(slug: string) {
-    return prisma.venue.findFirst({ where: { slug } });
+  async getPolicyById(id: string): Promise<VenuePolicy | null> {
+    const venue = await prisma.venue.findUnique({
+      where: { id },
+      select: venuePolicySelect,
+    });
+    return venue ? mapVenuePolicy(venue) : null;
   },
 
   /**
-   * Returns the raw Prisma venue record by ID, including deposit/cancellation policy fields.
-   * Use in routes that need policy fields not on the mapped Venue type.
+   * Returns the venue's deposit/cancellation {@link VenuePolicy} by slug, or `null`
+   * when the venue does not exist. Used by the public deposit-intent flow.
    */
-  async getRawById(id: string) {
-    return prisma.venue.findUnique({ where: { id } });
+  async getPolicyBySlug(slug: string): Promise<VenuePolicy | null> {
+    const venue = await prisma.venue.findFirst({
+      where: { slug },
+      select: venuePolicySelect,
+    });
+    return venue ? mapVenuePolicy(venue) : null;
+  },
+
+  /**
+   * Returns the typed public booking-widget config for a venue slug, or `null`
+   * when the venue does not exist. Assembles the base config and deposit policy
+   * behind the serializer seam so the public route never handles a raw Prisma
+   * row (nor internal fields like `id`/`venueGroupId`).
+   */
+  async getPublicConfigBySlug(slug: string): Promise<PublicVenueConfig | null> {
+    const venue = await prisma.venue.findFirst({
+      where: { slug },
+      select: {
+        name: true,
+        slug: true,
+        ianaTimezone: true,
+        currencyCode: true,
+        operatingHours: true,
+        settings: true,
+        depositEnabled: true,
+        depositType: true,
+        depositAmountCents: true,
+        freeCancellationHours: true,
+        lateCancellationFeePercent: true,
+        noShowFeePercent: true,
+      },
+    });
+    if (!venue) return null;
+
+    const settings = venue.settings as VenueSettings | null;
+
+    return {
+      name: venue.name,
+      slug: venue.slug,
+      ianaTimezone: venue.ianaTimezone,
+      currencyCode: venue.currencyCode,
+      operatingHours: venue.operatingHours as PublicVenueConfig["operatingHours"],
+      settings: {
+        defaultReservationDuration: settings?.defaultReservationDuration,
+        maxPartySize: settings?.maxPartySize,
+        maxAdvanceBooking: settings?.maxAdvanceBooking,
+        slotIntervalMinutes: settings?.slotIntervalMinutes,
+      },
+      deposit: {
+        enabled: venue.depositEnabled,
+        depositType: venue.depositType,
+        amountCents: venue.depositAmountCents,
+        freeCancellationHours: venue.freeCancellationHours,
+        lateCancellationFeePercent: venue.lateCancellationFeePercent,
+        noShowFeePercent: venue.noShowFeePercent,
+      },
+    };
   },
 
   /**
