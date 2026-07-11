@@ -1,0 +1,60 @@
+/* ── Split-panel onboarding shell ─────────────────────────────
+ * Mobile-first: a single column with the brand panel stacked above the
+ * wizard form. At >= 768px it becomes a two-column split panel (brand
+ * fixed-width on the left, wizard content on the right).
+ */
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+}
+
+/* ── Brand panel (left column / top on mobile) ── */
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+  padding: var(--rialto-space-xl);
+  background: var(--rialto-surface-recessed);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+/* Reserved slot for per-step context; grows to fill the panel on desktop. */
+.stepContext {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Wizard content (right column / below on mobile) ── */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  padding: var(--rialto-space-xl);
+  overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .layout {
+    grid-template-columns: minmax(20rem, 28rem) 1fr;
+    grid-template-rows: 1fr;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .brand {
+    border-block-end: none;
+    border-inline-end: 1px solid var(--rialto-border);
+    padding: var(--rialto-space-3xl) var(--rialto-space-2xl);
+  }
+
+  .content {
+    padding: var(--rialto-space-3xl) var(--rialto-space-2xl);
+  }
+}
