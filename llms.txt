@@ -2456,6 +2456,14 @@
       export const GuestSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/health-system.ts">
+    <item priority="high">
+      export const systemHealthStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/json-schema.ts">
     <item priority="medium">
       function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
@@ -4456,19 +4464,11 @@
   </file>
   <file path="packages/api-client/src/health.ts">
     <item priority="low">
-      interface ServiceHealth {
-        status: string;
-        version?: string;
-        latency?: number;
-      }
+      type ServiceHealth = ServiceHealthCheck;
     </item>
-    <item priority="low">
-      interface SystemHealth {
-        status: string;
-        timestamp: string;
-        services?: Record<string, ServiceHealth>;
-        staticSites?: Record<string, { status: string }>;
-        ci?: { status: string };
+    <item priority="high">
+      class HealthClient {
+        async system(): Promise<unknown>;
       }
     </item>
   </file>

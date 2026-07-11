@@ -2,6 +2,7 @@ export * from "./user.js";
 export * from "./reservation.js";
 export * from "./floor-plan.js";
 export * from "./api.js";
+export * from "./health-system.js";
 export * from "./agent.js";
 export * from "./venue.js";
 export * from "./guest.js";

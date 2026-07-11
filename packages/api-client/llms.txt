@@ -105,19 +105,11 @@
   </file>
   <file path="src/health.ts">
     <item priority="low">
-      interface ServiceHealth {
-        status: string;
-        version?: string;
-        latency?: number;
-      }
+      type ServiceHealth = ServiceHealthCheck;
     </item>
-    <item priority="low">
-      interface SystemHealth {
-        status: string;
-        timestamp: string;
-        services?: Record<string, ServiceHealth>;
-        staticSites?: Record<string, { status: string }>;
-        ci?: { status: string };
+    <item priority="high">
+      class HealthClient {
+        async system(): Promise<unknown>;
       }
     </item>
   </file>
