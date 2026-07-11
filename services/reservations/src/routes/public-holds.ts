@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, ReservationHold } from "@mbe/types";
+import { publicHoldBodyJsonSchema } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
@@ -28,16 +29,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["slug"],
           properties: { slug: { type: "string" } },
         },
-        body: {
-          type: "object",
-          required: ["date", "startTime", "endTime", "partySize"],
-          properties: {
-            date: { type: "string", minLength: 1 },
-            startTime: { type: "string", minLength: 1 },
-            endTime: { type: "string", minLength: 1 },
-            partySize: { type: "integer", minimum: 1, maximum: 20 },
-          },
-        },
+        body: publicHoldBodyJsonSchema,
       },
     },
     async (request, reply) => {

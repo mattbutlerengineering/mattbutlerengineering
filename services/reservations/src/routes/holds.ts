@@ -7,7 +7,7 @@ import type {
   ApiResponse,
   ApiError,
 } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, createHoldBodyJsonSchema, confirmHoldBodyJsonSchema } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
@@ -109,41 +109,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         },
-        body: {
-          type: "object",
-          required: ["venueId", "date", "time", "partySize"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID" },
-            date: {
-              type: "string",
-              format: "date",
-              description: "Reservation date (YYYY-MM-DD)",
-            },
-            time: {
-              type: "string",
-              format: "date-time",
-              description: "Start time in ISO 8601 format",
-            },
-            partySize: {
-              type: "integer",
-              minimum: 1,
-              maximum: 20,
-              description: "Number of guests",
-            },
-            tableId: {
-              type: "string",
-              description:
-                "Optional specific table to hold. If not provided, best available table is assigned.",
-            },
-            holdDurationMinutes: {
-              type: "integer",
-              minimum: 1,
-              maximum: 60,
-              description:
-                "Override hold duration in minutes. Defaults to venue setting or 10 minutes.",
-            },
-          },
-        },
+        body: createHoldBodyJsonSchema,
         response: {
           201: {
             type: "object",
@@ -314,26 +280,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
             id: { type: "string", description: "Hold ID" },
           },
         },
-        body: {
-          type: "object",
-          properties: {
-            guestName: { type: "string", description: "Guest name" },
-            guestEmail: {
-              type: "string",
-              format: "email",
-              description: "Guest email",
-            },
-            guestPhone: { type: "string", description: "Guest phone number" },
-            guestId: {
-              type: "string",
-              description: "ID of existing guest record",
-            },
-            notes: {
-              type: "string",
-              description: "Special requests or notes",
-            },
-          },
-        },
+        body: confirmHoldBodyJsonSchema,
         response: {
           201: {
             type: "object",

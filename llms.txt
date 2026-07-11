@@ -2460,6 +2460,14 @@
       function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
     </item>
   </file>
+  <file path="packages/types/src/schemas/reservation-requests.ts">
+    <item priority="high">
+      export const ListReservationsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListMyReservationsQuerySchema: unknown;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/reservation.ts">
     <item priority="high">
       export const ReservationStatusSchema: unknown;

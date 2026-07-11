@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import {
   userPreferencesJsonSchema,
   userJsonSchema,
@@ -17,6 +18,7 @@ import {
   paginationJsonSchema,
   errorJsonSchema,
   problemDetailsJsonSchema,
+  toRequestJsonSchema,
 } from "./schemas/json-schema.js";
 
 describe("JSON Schema generation (toFastifyJsonSchema)", () => {
@@ -155,5 +157,43 @@ describe("JSON Schema generation (toFastifyJsonSchema)", () => {
       expect(props).toHaveProperty("hasNext");
       expect(props).toHaveProperty("hasPrev");
     });
+  });
+});
+
+describe("Request JSON Schema derivation (toRequestJsonSchema)", () => {
+  const querySchema = z.object({
+    page: z.string().default("1"),
+    limit: z.string().default("10"),
+    venueId: z.string().optional(),
+  });
+
+  it("does not attach a $id (request schemas are used inline, not shared refs)", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("$id");
+  });
+
+  it("strips the $schema dialect marker", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("$schema");
+  });
+
+  it("strips additionalProperties so request payloads stay permissive", () => {
+    expect(toRequestJsonSchema(querySchema)).not.toHaveProperty("additionalProperties");
+  });
+
+  it("preserves querystring string types and defaults for Fastify coercion", () => {
+    const schema = toRequestJsonSchema(querySchema) as {
+      type: string;
+      properties: Record<string, { type: string; default?: string }>;
+    };
+    expect(schema.type).toBe("object");
+    expect(schema.properties.page).toMatchObject({ type: "string", default: "1" });
+    expect(schema.properties.limit).toMatchObject({ type: "string", default: "10" });
+    expect(schema.properties.venueId).toMatchObject({ type: "string" });
+  });
+
+  it("derives coerced numeric query params as numbers (AJV coerces string input)", () => {
+    const coerced = toRequestJsonSchema(z.object({ count: z.coerce.number() })) as {
+      properties: Record<string, { type: string }>;
+    };
+    expect(coerced.properties.count).toMatchObject({ type: "number" });
   });
 });

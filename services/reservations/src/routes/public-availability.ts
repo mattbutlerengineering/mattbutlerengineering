@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, ApiResponse } from "@mbe/types";
+import { publicAvailabilityQueryJsonSchema } from "@mbe/types";
 import { validatePartySize } from "@mbe/database";
 import { venueService } from "../services/venue.js";
 import { availabilityService } from "../services/availability.js";
@@ -22,14 +23,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           properties: { slug: { type: "string" } },
           required: ["slug"],
         },
-        querystring: {
-          type: "object",
-          properties: {
-            date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-            partySize: { type: "string" },
-          },
-          required: ["date", "partySize"],
-        },
+        querystring: publicAvailabilityQueryJsonSchema,
       },
     },
     async (request, reply) => {

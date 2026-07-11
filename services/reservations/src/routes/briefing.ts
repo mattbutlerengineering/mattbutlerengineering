@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiError } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, briefingQueryJsonSchema } from "@mbe/types";
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { venueIdFromQuery } from "./venue-access.js";
 import { briefingService, type BriefingEntry } from "../services/briefing.js";
@@ -20,21 +20,7 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
           "Returns PENDING and CONFIRMED reservations for the given date and venue, enriched with full guest CRM data.",
         tags: ["Briefing"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          required: ["date", "venueId"],
-          properties: {
-            date: {
-              type: "string",
-              format: "date",
-              description: "Date for the briefing (YYYY-MM-DD)",
-            },
-            venueId: {
-              type: "string",
-              description: "Venue ID to scope the briefing to",
-            },
-          },
-        },
+        querystring: briefingQueryJsonSchema,
         response: {
           200: {
             description: "Service briefing with enriched reservation data",

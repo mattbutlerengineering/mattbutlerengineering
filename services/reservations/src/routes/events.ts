@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createProblemDetails } from "@mbe/types";
+import { createProblemDetails, eventsStreamQueryJsonSchema, testEventBodyJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
 import {
@@ -43,15 +43,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
           "Connect to receive live notifications of reservation changes, holds, and table updates. " +
           "Optionally filter by venueId.",
         tags: ["Events"],
-        querystring: {
-          type: "object",
-          properties: {
-            venueId: {
-              type: "string",
-              description: "Filter events to a specific venue",
-            },
-          },
-        },
+        querystring: eventsStreamQueryJsonSchema,
         response: {
           200: {
             description: "SSE stream established",
@@ -136,15 +128,7 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
           summary: "Trigger a test event (development only)",
           operationId: "testEvent",
           tags: ["Events"],
-          body: {
-            type: "object",
-            required: ["type", "venueId", "data"],
-            properties: {
-              type: { type: "string" },
-              venueId: { type: "string" },
-              data: { type: "object" },
-            },
-          },
+          body: testEventBodyJsonSchema,
         },
       },
       async (request, reply) => {

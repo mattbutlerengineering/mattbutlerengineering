@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, Reservation } from "@mbe/types";
-import { AppError } from "@mbe/types";
+import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
@@ -92,17 +92,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
           required: ["slug"],
           properties: { slug: { type: "string" } },
         },
-        body: {
-          type: "object",
-          required: ["holdId", "guestName", "guestEmail"],
-          properties: {
-            holdId: { type: "string", minLength: 1 },
-            guestName: { type: "string", minLength: 1 },
-            guestEmail: { type: "string", minLength: 1 },
-            guestPhone: { type: "string" },
-            specialRequests: { type: "string" },
-          },
-        },
+        body: publicReservationBodyJsonSchema,
       },
     },
     async (request, reply) => {

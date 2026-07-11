@@ -9,7 +9,17 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import {
+  createProblemDetails,
+  listGuestsQueryJsonSchema,
+  searchGuestsQueryJsonSchema,
+  guestSegmentsQueryJsonSchema,
+  lapsingGuestsQueryJsonSchema,
+  createGuestBodyJsonSchema,
+  findOrCreateGuestBodyJsonSchema,
+  updateGuestBodyJsonSchema,
+  addGuestNoteBodyJsonSchema,
+} from "@mbe/types";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { guestService } from "../services/guest.js";
@@ -45,19 +55,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           "Retrieve a paginated list of guests for a specific venue. Requires authentication.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          required: ["venueId"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID to list guests for" },
-            page: { type: "string", default: "1", description: "Page number (1-indexed)" },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of guests per page (max 100)",
-            },
-          },
-        },
+        querystring: listGuestsQueryJsonSchema,
         response: {
           200: {
             description: "Successful response with paginated guest list",
@@ -93,19 +91,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Search guests by name, email, phone, or filter by tags and visit history.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          required: ["venueId"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID to search within" },
-            query: { type: "string", description: "Search term (matches name, email, or phone)" },
-            tags: { type: "string", description: "Comma-separated tags to filter by" },
-            hasNotVisitedInDays: {
-              type: "string",
-              description: "Filter guests who haven't visited in X days",
-            },
-          },
-        },
+        querystring: searchGuestsQueryJsonSchema,
         response: {
           200: {
             description: "Search results",
@@ -145,13 +131,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Get guest segments (VIP, At Risk, Lapsed, etc.) for a venue.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          required: ["venueId"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID to get segments for" },
-          },
-        },
+        querystring: guestSegmentsQueryJsonSchema,
         response: {
           200: {
             description: "Guest segments",
@@ -228,27 +208,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Create a new guest. Requires authentication.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          required: ["venueId", "name"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID" },
-            email: { type: "string", format: "email", description: "Guest email" },
-            phone: { type: "string", description: "Guest phone" },
-            name: { type: "string", description: "Guest name" },
-            notes: { type: "string", description: "Internal notes" },
-            tags: {
-              type: "array",
-              items: { type: "string" },
-              description: "Tags for categorization",
-            },
-            dietaryRestrictions: {
-              type: "array",
-              items: { type: "string" },
-              description: "Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)",
-            },
-          },
-        },
+        body: createGuestBodyJsonSchema,
         response: {
           201: {
             description: "Guest created",
@@ -302,28 +262,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           "Find existing guest by email/phone or create new one. Used for identity resolution when booking.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          required: ["venueId", "name"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID" },
-            email: {
-              type: "string",
-              format: "email",
-              description: "Guest email (used for matching)",
-            },
-            phone: {
-              type: "string",
-              description: "Guest phone (used for matching if email not found)",
-            },
-            name: { type: "string", description: "Guest name" },
-            dietaryRestrictions: {
-              type: "array",
-              items: { type: "string" },
-              description: "Dietary restrictions to merge with existing guest profile",
-            },
-          },
-        },
+        body: findOrCreateGuestBodyJsonSchema,
         response: {
           200: {
             description: "Guest found or created",
@@ -372,22 +311,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           properties: { id: { type: "string", description: "Guest ID" } },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          properties: {
-            email: { type: "string", format: "email", nullable: true },
-            phone: { type: "string", nullable: true },
-            name: { type: "string" },
-            notes: { type: "string", nullable: true },
-            tags: { type: "array", items: { type: "string" }, nullable: true },
-            dietaryRestrictions: {
-              type: "array",
-              items: { type: "string" },
-              nullable: true,
-              description: "Dietary restrictions (replaces existing list)",
-            },
-          },
-        },
+        body: updateGuestBodyJsonSchema,
         response: {
           200: {
             description: "Guest updated",
@@ -433,17 +357,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          required: ["text"],
-          properties: {
-            text: {
-              type: "string",
-              minLength: 1,
-              description: "Note text",
-            },
-          },
-        },
+        body: addGuestNoteBodyJsonSchema,
         response: {
           201: {
             description: "Note appended; returns updated guest",
@@ -496,13 +410,7 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
           "Run lapse detection and return guests who haven't visited in > 2x their average frequency.",
         tags: ["Guests"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          required: ["venueId"],
-          properties: {
-            venueId: { type: "string", description: "Venue ID to scan" },
-          },
-        },
+        querystring: lapsingGuestsQueryJsonSchema,
         response: {
           200: {
             description: "Lapsing guests list",

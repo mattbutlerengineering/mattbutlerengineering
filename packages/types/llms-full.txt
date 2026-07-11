@@ -150,6 +150,20 @@
       return { $id: id, ...rest };
     }
   </file>
+  <file path="src/schemas/reservation-requests.ts">
+    export const ListReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+      date: z.iso.date().describe("Filter by reservation date (YYYY-MM-DD)").optional(),
+      status: ReservationStatusSchema.describe("Filter by reservation status").optional(),
+      tableId: z.string().describe("Filter by table ID").optional(),
+      venueId: z.string().describe("Filter by venue ID").optional(),
+    });
+    export const ListMyReservationsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+    });
+  </file>
   <file path="src/schemas/reservation.ts">
     export const ReservationStatusSchema = z.enum([
       "PENDING",

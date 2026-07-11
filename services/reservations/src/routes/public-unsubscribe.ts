@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails, titleForStatus } from "@mbe/types";
+import { createProblemDetails, titleForStatus, publicUnsubscribeQueryJsonSchema } from "@mbe/types";
 import { verifyUnsubscribeToken } from "../services/post-visit-notifier.js";
 import { guestService } from "../services/guest.js";
 
@@ -37,12 +37,7 @@ export const publicUnsubscribeRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         summary: "Unsubscribe guest from post-visit emails",
         tags: ["Public"],
-        querystring: {
-          type: "object",
-          properties: {
-            token: { type: "string" },
-          },
-        },
+        querystring: publicUnsubscribeQueryJsonSchema,
       },
     },
     async (request, reply) => {

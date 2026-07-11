@@ -10,7 +10,15 @@ import type {
   ApiError,
   PaginatedResponse,
 } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import {
+  createProblemDetails,
+  listVenueGroupsQueryJsonSchema,
+  createVenueGroupBodyJsonSchema,
+  updateVenueGroupBodyJsonSchema,
+  listVenuesQueryJsonSchema,
+  createVenueBodyJsonSchema,
+  updateVenueBodyJsonSchema,
+} from "@mbe/types";
 import {
   requireAuth,
   requireAdmin,
@@ -46,21 +54,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         operationId: "listVenueGroups",
         description: "Retrieve a paginated list of all venue groups.",
         tags: ["Venue Groups"],
-        querystring: {
-          type: "object",
-          properties: {
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of groups per page (max 100)",
-            },
-          },
-        },
+        querystring: listVenueGroupsQueryJsonSchema,
         response: {
           200: {
             description: "Successful response with paginated venue group list",
@@ -142,25 +136,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Create a new venue group. Requires authentication.",
         tags: ["Venue Groups"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          description: "Venue group creation payload",
-          properties: {
-            name: {
-              type: "string",
-              description: "Venue group name",
-            },
-            slug: {
-              type: "string",
-              description: "URL-friendly identifier (must be unique)",
-            },
-            settings: {
-              type: "object",
-              description: "Shared settings for all venues in the group",
-            },
-          },
-          required: ["name", "slug"],
-        },
+        body: createVenueGroupBodyJsonSchema,
         response: {
           201: {
             description: "Venue group created successfully",
@@ -227,15 +203,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          description: "Fields to update",
-          properties: {
-            name: { type: "string" },
-            slug: { type: "string" },
-            settings: { type: "object" },
-          },
-        },
+        body: updateVenueGroupBodyJsonSchema,
         response: {
           200: {
             description: "Venue group updated successfully",
@@ -340,25 +308,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
           "Optionally filter by venue group.",
         tags: ["Venues"],
         security: [{ bearerAuth: [] }],
-        querystring: {
-          type: "object",
-          properties: {
-            page: {
-              type: "string",
-              default: "1",
-              description: "Page number (1-indexed)",
-            },
-            limit: {
-              type: "string",
-              default: "10",
-              description: "Number of venues per page (max 100)",
-            },
-            venueGroupId: {
-              type: "string",
-              description: "Filter venues by venue group ID",
-            },
-          },
-        },
+        querystring: listVenuesQueryJsonSchema,
         response: {
           200: {
             description: "Successful response with paginated venue list",
@@ -504,42 +454,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         description: "Create a new venue. Requires authentication.",
         tags: ["Venues"],
         security: [{ bearerAuth: [] }],
-        body: {
-          type: "object",
-          description: "Venue creation payload",
-          properties: {
-            venueGroupId: {
-              type: "string",
-              description: "ID of the venue group this venue belongs to",
-            },
-            name: {
-              type: "string",
-              description: "Venue name",
-            },
-            slug: {
-              type: "string",
-              description: "URL-friendly identifier for public booking URLs (must be unique)",
-            },
-            ianaTimezone: {
-              type: "string",
-              description: "IANA timezone identifier (e.g., 'America/Los_Angeles')",
-            },
-            currencyCode: {
-              type: "string",
-              default: "USD",
-              description: "ISO 4217 currency code",
-            },
-            operatingHours: {
-              type: "object",
-              description: "Weekly operating schedule",
-            },
-            settings: {
-              type: "object",
-              description: "Venue-specific settings",
-            },
-          },
-          required: ["name", "slug", "ianaTimezone"],
-        },
+        body: createVenueBodyJsonSchema,
         response: {
           201: {
             description: "Venue created successfully",
@@ -604,19 +519,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
           },
           required: ["id"],
         },
-        body: {
-          type: "object",
-          description: "Fields to update",
-          properties: {
-            venueGroupId: { type: "string", nullable: true },
-            name: { type: "string" },
-            slug: { type: "string" },
-            ianaTimezone: { type: "string" },
-            currencyCode: { type: "string" },
-            operatingHours: { type: "object", nullable: true },
-            settings: { type: "object", nullable: true },
-          },
-        },
+        body: updateVenueBodyJsonSchema,
         response: {
           200: {
             description: "Venue updated successfully",
