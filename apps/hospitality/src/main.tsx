@@ -25,6 +25,11 @@ const DashboardLayout = lazy(() =>
     default: m.DashboardLayout,
   }))
 );
+const OnboardingLayout = lazy(() =>
+  import("./layouts/OnboardingLayout.js").then((m) => ({
+    default: m.OnboardingLayout,
+  }))
+);
 const TimelinePage = lazy(() =>
   import("./pages/TimelinePage.js").then((m) => ({ default: m.TimelinePage }))
 );
@@ -141,6 +146,24 @@ const router = createBrowserRouter(
           ),
         },
         {
+          path: "onboarding",
+          element: (
+            <Suspense fallback={<LoadingPage />}>
+              <OnboardingLayout />
+            </Suspense>
+          ),
+          children: [
+            {
+              index: true,
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <VenueOnboardingPage />
+                </Suspense>
+              ),
+            },
+          ],
+        },
+        {
           element: (
             <Suspense fallback={<LoadingPage />}>
               <DashboardLayout />
@@ -245,14 +268,6 @@ const router = createBrowserRouter(
                     <AdminPage />
                   </Suspense>
                 </RequireAdmin>
-              ),
-            },
-            {
-              path: "onboarding",
-              element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <VenueOnboardingPage />
-                </Suspense>
               ),
             },
             {

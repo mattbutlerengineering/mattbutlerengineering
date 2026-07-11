@@ -4,7 +4,6 @@ import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useApiClient } from "../hooks/useApiClient.js";
-import { PageHeader } from "../components/PageHeader";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
 import { BasicInfoStep, isValidSlug } from "../components/venue-onboarding/BasicInfoStep";
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
@@ -64,107 +63,101 @@ export function VenueOnboardingPage() {
   };
 
   return (
-    <div>
-      <PageHeader title="New Venue" description="Set up your venue in a few steps" />
+    <div className={styles.wizardContainer}>
+      <StepIndicator
+        currentStep={step}
+        totalSteps={TOTAL_STEPS}
+        highestStepReached={highestStepReached}
+        onStepClick={actions.goToStep}
+      />
 
-      <div className={styles.wizardContainer}>
-        <StepIndicator
-          currentStep={step}
-          totalSteps={TOTAL_STEPS}
-          highestStepReached={highestStepReached}
-          onStepClick={actions.goToStep}
-        />
+      <Card>
+        <Stack gap="lg">
+          {step === 1 && (
+            <>
+              <Text variant="label">Basic Information</Text>
+              <BasicInfoStep
+                data={data.basicInfo}
+                errors={errors.basicInfo}
+                onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
+                onValidate={actions.validateStep}
+                slugStatus={slugStatus}
+              />
+            </>
+          )}
 
-        <Card>
-          <Stack gap="lg">
-            {step === 1 && (
-              <>
-                <Text variant="label">Basic Information</Text>
-                <BasicInfoStep
-                  data={data.basicInfo}
-                  errors={errors.basicInfo}
-                  onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
-                  onValidate={actions.validateStep}
-                  slugStatus={slugStatus}
-                />
-              </>
-            )}
+          {step === 2 && (
+            <>
+              <Text variant="label">Location & Time</Text>
+              <LocationTimeStep
+                data={data.locationTime}
+                errors={errors.locationTime}
+                onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
+                onValidate={actions.validateStep}
+              />
+            </>
+          )}
 
-            {step === 2 && (
-              <>
-                <Text variant="label">Location & Time</Text>
-                <LocationTimeStep
-                  data={data.locationTime}
-                  errors={errors.locationTime}
-                  onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
-                  onValidate={actions.validateStep}
-                />
-              </>
-            )}
+          {step === 3 && (
+            <>
+              <Text variant="label">Operating Hours</Text>
+              <OperatingHoursStep
+                data={data.operatingHours}
+                errors={errors.operatingHours ?? undefined}
+                onChange={(operatingHours) => actions.setStepData("operatingHours", operatingHours)}
+              />
+            </>
+          )}
 
-            {step === 3 && (
-              <>
-                <Text variant="label">Operating Hours</Text>
-                <OperatingHoursStep
-                  data={data.operatingHours}
-                  errors={errors.operatingHours ?? undefined}
-                  onChange={(operatingHours) =>
-                    actions.setStepData("operatingHours", operatingHours)
-                  }
-                />
-              </>
-            )}
+          {step === 4 && (
+            <>
+              <Text variant="label">Venue Settings</Text>
+              <SettingsStep
+                data={data.settings}
+                errors={errors.settings}
+                onChange={(settings) => actions.setStepData("settings", settings)}
+                onValidate={actions.validateStep}
+              />
+            </>
+          )}
 
-            {step === 4 && (
-              <>
-                <Text variant="label">Venue Settings</Text>
-                <SettingsStep
-                  data={data.settings}
-                  errors={errors.settings}
-                  onChange={(settings) => actions.setStepData("settings", settings)}
-                  onValidate={actions.validateStep}
-                />
-              </>
-            )}
+          {step === 5 && (
+            <>
+              <Text variant="label">Review & Confirm</Text>
+              <ConfirmationStep
+                basicInfo={data.basicInfo}
+                locationTime={data.locationTime}
+                operatingHours={data.operatingHours}
+                settings={data.settings}
+              />
+            </>
+          )}
 
-            {step === 5 && (
-              <>
-                <Text variant="label">Review & Confirm</Text>
-                <ConfirmationStep
-                  basicInfo={data.basicInfo}
-                  locationTime={data.locationTime}
-                  operatingHours={data.operatingHours}
-                  settings={data.settings}
-                />
-              </>
-            )}
+          {submitError && (
+            <div className={styles.errorBanner} role="alert">
+              <Text variant="body" color="error">
+                {submitError}
+              </Text>
+            </div>
+          )}
 
-            {submitError && (
-              <div className={styles.errorBanner} role="alert">
-                <Text variant="body" color="error">
-                  {submitError}
-                </Text>
-              </div>
-            )}
+          <Stack direction="row" gap="md" justify="between">
+            <Button variant="secondary" onClick={actions.back} disabled={step === 1}>
+              Back
+            </Button>
 
-            <Stack direction="row" gap="md" justify="between">
-              <Button variant="secondary" onClick={actions.back} disabled={step === 1}>
-                Back
+            {step < TOTAL_STEPS ? (
+              <Button variant="primary" onClick={actions.next}>
+                Next
               </Button>
-
-              {step < TOTAL_STEPS ? (
-                <Button variant="primary" onClick={actions.next}>
-                  Next
-                </Button>
-              ) : (
-                <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Venue"}
-                </Button>
-              )}
-            </Stack>
+            ) : (
+              <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Venue"}
+              </Button>
+            )}
           </Stack>
-        </Card>
-      </div>
+        </Stack>
+      </Card>
     </div>
   );
 }
