@@ -278,4 +278,5 @@ export {
   zoneForPath,
   zoneForPaths,
   lockNameForZone,
+  WORKSPACE_ROOTS,
 };
