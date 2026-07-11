@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildSystemPrompt, loadProjectContext, loadSourceFiles } from "../prompt-builder.js";
+import {
+  buildSystemPrompt,
+  formatLlmsSection,
+  loadLlmsFiles,
+  loadProjectContext,
+  loadSourceFiles,
+} from "../prompt-builder.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
 
 // Mock fs modules
@@ -154,6 +160,27 @@ describe("buildSystemPrompt", () => {
   });
 });
 
+describe("buildSystemPrompt llms.txt context", () => {
+  it("includes real file content, not [object Promise], for relevantLlmsFiles", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFile).mockResolvedValue("export type Foo = { bar: string };");
+
+    const config: PromptBuilderConfig = {
+      relevantLlmsFiles: ["packages/types/llms.txt"],
+    };
+    const prompt = await buildSystemPrompt("Fix bug", config);
+
+    expect(prompt).toContain("## Package Context (llms.txt)");
+    expect(prompt).toContain("export type Foo = { bar: string };");
+    expect(prompt).not.toContain("[object Promise]");
+  });
+
+  it("does not include llms.txt section when no files provided", async () => {
+    const prompt = await buildSystemPrompt("Fix bug");
+    expect(prompt).not.toContain("## Package Context (llms.txt)");
+  });
+});
+
 describe("loadSourceFiles", () => {
   it("reads existing files and returns entries", async () => {
     vi.mocked(existsSync).mockReturnValue(true);
@@ -208,5 +235,65 @@ describe("loadProjectContext", () => {
 
     const result = await loadProjectContext("/repo");
     expect(result).toBeNull();
+  });
+});
+
+describe("formatLlmsSection", () => {
+  it("renders entries as llms.txt package context (pure, no I/O)", () => {
+    const entries: readonly SourceFileEntry[] = [
+      { path: "packages/types/llms.txt", content: "export type Foo = { bar: string };" },
+      { path: "packages/auth/llms.txt", content: "export function verify(): boolean;" },
+    ];
+    const section = formatLlmsSection(entries);
+    expect(section).toContain("## Package Context (llms.txt)");
+    expect(section).toContain("Key types and signatures from relevant packages:");
+    expect(section).toContain("### packages/types/llms.txt");
+    expect(section).toContain("export type Foo = { bar: string };");
+    expect(section).toContain("### packages/auth/llms.txt");
+    expect(section).toContain("export function verify(): boolean;");
+    expect(section).not.toContain("[object Promise]");
+  });
+
+  it("returns empty string for no entries", () => {
+    expect(formatLlmsSection([])).toBe("");
+  });
+});
+
+describe("loadLlmsFiles", () => {
+  it("awaits readFile and returns entries for existing files", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFile)
+      .mockResolvedValueOnce("types llms")
+      .mockResolvedValueOnce("auth llms");
+
+    const entries = await loadLlmsFiles(["packages/types/llms.txt", "packages/auth/llms.txt"]);
+    expect(entries).toEqual([
+      { path: "packages/types/llms.txt", content: "types llms" },
+      { path: "packages/auth/llms.txt", content: "auth llms" },
+    ]);
+  });
+
+  it("handles missing files gracefully", async () => {
+    vi.mocked(existsSync).mockReturnValueOnce(false);
+
+    const entries = await loadLlmsFiles(["packages/missing/llms.txt"]);
+    expect(entries).toEqual([
+      { path: "packages/missing/llms.txt", content: "<!-- file not found, skipped -->" },
+    ]);
+  });
+
+  it("handles read errors gracefully", async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFile).mockRejectedValueOnce(new Error("permission denied"));
+
+    const entries = await loadLlmsFiles(["packages/broken/llms.txt"]);
+    expect(entries).toEqual([
+      { path: "packages/broken/llms.txt", content: "<!-- read error, skipped -->" },
+    ]);
+  });
+
+  it("returns empty array for empty input", async () => {
+    const entries = await loadLlmsFiles([]);
+    expect(entries).toEqual([]);
   });
 });
