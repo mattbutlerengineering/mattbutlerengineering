@@ -4611,6 +4611,16 @@
       fetchEventSourceImpl?: FetchEventSourceFn;
     }
   </file>
+  <file path="packages/rialto/scripts/lib/color-tokens.ts">
+    export interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    export interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup | string | undefined;
+    }
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {
       header: string;
@@ -11165,6 +11175,21 @@
       }
     }
   </file>
+  <file path="packages/rialto/scripts/generate-colors-css.ts">
+    function assertCommentSafe(text: string): string {
+      if (text.includes("*/")) {
+        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+      }
+      return text;
+    }
+    function sectionHeader(key: string, description: string | undefined): string {
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      const label =
+        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
+      return `  /* ── ${label} ${fill} */`;
+    }
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     interface ExportEntry {
       types?: string;
@@ -11174,13 +11199,12 @@
     type ExportsMap = Record<string, string | ExportEntry>;
   </file>
   <file path="packages/rialto/scripts/generate-figma-tokens.ts">
-    interface DtcgToken {
-      readonly $value: string | number;
-      readonly $type: string;
-      readonly $description?: string;
+    interface FigmaTokenSets {
+      readonly [setName: string]: TokenGroup;
     }
-    interface TokenGroup {
-      readonly [key: string]: DtcgToken | TokenGroup;
+    function readJson(filePath: string): TokenGroup {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
     }
   </file>
   <file path="packages/rialto/scripts/generate-manifest.ts">

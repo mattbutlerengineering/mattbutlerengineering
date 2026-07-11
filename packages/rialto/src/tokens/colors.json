@@ -46,7 +46,7 @@
       "on-accent": {
         "$value": "#1a1918",
         "$type": "color",
-        "$description": "Text on accent-filled backgrounds"
+        "$description": "Text on accent-filled backgrounds (primary buttons, badges)"
       }
     },
     "border": {
@@ -62,10 +62,11 @@
       }
     },
     "accent": {
+      "$description": "Amber gold — surgical use only",
       "default": {
         "$value": "#b0841e",
         "$type": "color",
-        "$description": "Primary buttons, focus rings, active/selected states"
+        "$description": "Primary buttons, focus rings, active/selected states only"
       },
       "hover": {
         "$value": "#c0942e",
@@ -75,12 +76,12 @@
       "muted": {
         "$value": "rgb(176 132 30 / 0.12)",
         "$type": "color",
-        "$description": "Subtle accent backgrounds"
+        "$description": "Subtle accent backgrounds (selected rows, active tabs)"
       },
       "glow": {
         "$value": "rgb(176 132 30 / 0.35)",
         "$type": "color",
-        "$description": "Focus ring outer glow"
+        "$description": "Focus ring outer glow (used in --rialto-shadow-focus)"
       }
     },
     "semantic": {
@@ -88,12 +89,12 @@
         "default": {
           "$value": "#b84a3c",
           "$type": "color",
-          "$description": "Error text, destructive button fills"
+          "$description": "Error text, destructive button fills, invalid borders"
         },
         "muted": {
           "$value": "rgb(184 74 60 / 0.1)",
           "$type": "color",
-          "$description": "Error alert backgrounds"
+          "$description": "Error alert backgrounds, error badge tints"
         }
       },
       "warning": {
@@ -117,14 +118,14 @@
         "muted": {
           "$value": "rgb(94 106 46 / 0.1)",
           "$type": "color",
-          "$description": "Success alert backgrounds"
+          "$description": "Success alert backgrounds, success badge tints"
         }
       }
     },
     "overlay": {
       "$value": "rgb(26 25 24 / 0.4)",
       "$type": "color",
-      "$description": "Modal/drawer backdrop"
+      "$description": "Modal/drawer backdrop, scrim behind overlays"
     }
   }
 }
