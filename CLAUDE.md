@@ -38,6 +38,14 @@ These guidelines are adapted from [Karpathy's CLAUDE.md](https://github.com/mult
 - **Match Style:** Rigorously adhere to the existing codebase patterns and idiomatic style.
 - **Orphan Cleanup:** Only remove code (imports, variables, functions) that your changes made redundant.
 
+### 4. Read Before Editing
+
+Measured across 30 days of sessions, this repo runs 1.8 reads per edit; a healthy ratio is 4+. Editing a file you haven't read produces retries, and a retried edit turn costs more than the read it skipped.
+
+- **Read the file before you edit it.** Never edit from memory, from a filename, or from a grep hit alone.
+- **Before changing a function's signature or behavior, grep for its callers.** The blast radius is not visible from the definition.
+- **Research, then edit.** One extra read is cheaper than one retry loop.
+
 ## Continuous Improvement Loop
 
 Automated system that audits the live site, finds and fixes issues, builds features, and verifies deploys — all autonomously.

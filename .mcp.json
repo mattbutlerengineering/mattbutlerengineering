@@ -8,13 +8,6 @@
       "command": "npx",
       "args": ["tsx", "packages/mcp-server/src/index.ts"]
     },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
-      }
-    },
     "sentry": {
       "command": "npx",
       "args": ["@sentry/mcp-server@latest"],
@@ -28,7 +21,11 @@
     },
     "stripe": {
       "command": "npx",
-      "args": ["-y", "@stripe/mcp", "--tools=customers.read,products.read,paymentIntents.read,balance.read"],
+      "args": [
+        "-y",
+        "@stripe/mcp",
+        "--tools=customers.read,products.read,paymentIntents.read,balance.read"
+      ],
       "env": { "STRIPE_SECRET_KEY": "${STRIPE_SECRET_KEY}" }
     }
   }
