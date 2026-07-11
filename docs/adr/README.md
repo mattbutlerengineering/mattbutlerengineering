@@ -28,6 +28,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-020](ADR-020-hybrid-role-venue-authorization.md) | Hybrid Role/Venue Authorization                     | active                  | 2026-07-05 |
 | [ADR-021](ADR-021-fail-fast-auth-authority-startup-validation.md) | Fail-Fast Startup Validation of AUTH_AUTHORITY | active | 2026-07-11 |
 | [ADR-022](ADR-022-vibe-adapter-seam.md)           | Earn the Vibe Seam with a Second (Reduced-Data) Adapter | active            | 2026-07-11 |
+| [ADR-023](ADR-023-merge-train-batch-composition.md) | Zone-Spread Merge-Train Batch Composition | active | 2026-07-11 |
 
 ## Format
 
